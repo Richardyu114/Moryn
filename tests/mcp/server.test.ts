@@ -929,6 +929,13 @@ describe("MCP stdio server", () => {
           }),
           /Invalid arguments/
         );
+        const invalidCursor = parseTextContent(await client.callTool({
+          name: "refresh",
+          arguments: { project_id: "memora", cursor: "not-a-date" }
+        })) as { ok: boolean; error: { code: string; message: string } };
+        expect(invalidCursor.ok).toBe(false);
+        expect(invalidCursor.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidCursor.error.message).toContain("Invalid cursor");
         await expectInvalidMcpArguments(
           () => client.callTool({
             name: "promote",

@@ -953,6 +953,28 @@ describe("mem CLI", () => {
     });
   });
 
+  it("rejects invalid refresh cursors at the CLI boundary", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      try {
+        await exec("node", [
+          "--import", "tsx", "src/cli.ts", "--store", dir,
+          "refresh",
+          "--cursor", "not-a-date"
+        ]);
+        throw new Error("Expected mem refresh to reject an invalid cursor");
+      } catch (error) {
+        if (!("stderr" in (error as object))) throw error;
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.message).toContain("Invalid cursor");
+        expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+      }
+    });
+  });
+
   it("rejects invalid enum options at the CLI boundary", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

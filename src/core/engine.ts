@@ -256,6 +256,9 @@ function validateRefreshInput(input: RefreshInput): void {
   assertPlainObject(input, "refresh input");
   validateOptionalString(input.project_id, "project_id");
   validateOptionalString(input.cursor, "cursor");
+  if (input.cursor !== undefined && !isoDateTimeSchema.safeParse(input.cursor).success) {
+    throw new Error("Invalid argument: Invalid cursor");
+  }
   validateOptionalString(input.current_task, "current_task");
 }
 

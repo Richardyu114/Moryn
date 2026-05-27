@@ -1669,6 +1669,7 @@ describe("core engine", () => {
 
       await expectInvalidArgument(() => engine.refresh(null as never), "Invalid refresh input");
       await expectInvalidArgument(() => engine.refresh({ cursor: 123 as never }), "Invalid cursor");
+      await expectInvalidArgument(() => engine.refresh({ cursor: "not-a-date" }), "Invalid cursor");
       await expectInvalidArgument(() => engine.refresh({ current_task: 123 as never }), "Invalid current_task");
     });
   });
