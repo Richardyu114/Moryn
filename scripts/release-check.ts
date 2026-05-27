@@ -42,11 +42,29 @@ export function assertSafePackageFiles(files: string[]): void {
   }
 }
 
+export function assertPackageFilesComplete(files: string[]): void {
+  const normalized = new Set(files.map((file) => file.replace(/\\/g, "/").replace(/^package\//, "")));
+  const required = [
+    "package.json",
+    "LICENSE",
+    "README.md",
+    "dist/cli.js",
+    "dist/index.js",
+    "dist/mcp/server.js"
+  ];
+  const missing = required.filter((file) => !normalized.has(file));
+
+  if (missing.length) {
+    throw new Error(`Package is missing required package files: ${missing.join(", ")}`);
+  }
+}
+
 async function assertPackageContentsAreSafe(): Promise<void> {
   const output = await run("npm", ["pack", "--dry-run", "--json"]);
   const parsed = JSON.parse(output) as Array<{ files?: Array<{ path: string }> }>;
   const files = parsed.flatMap((entry) => entry.files?.map((file) => file.path) ?? []);
   assertSafePackageFiles(files);
+  assertPackageFilesComplete(files);
 }
 
 async function runPrivateGitRemoteValidation(remote: string): Promise<void> {

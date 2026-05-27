@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
-import { assertSafePackageFiles } from "../scripts/release-check.js";
+import { assertPackageFilesComplete, assertSafePackageFiles } from "../scripts/release-check.js";
 
 const exec = promisify(execFile);
 
@@ -20,6 +20,25 @@ describe("release check", () => {
       "package/docs/memora-design.md",
       "package/assets/memora-hero.png"
     ])).not.toThrow();
+  });
+
+  it("requires essential package files for the published CLI and API", () => {
+    expect(() => assertPackageFilesComplete([
+      "package/package.json",
+      "package/LICENSE",
+      "package/README.md",
+      "package/dist/cli.js",
+      "package/dist/index.js",
+      "package/dist/mcp/server.js"
+    ])).not.toThrow();
+
+    expect(() => assertPackageFilesComplete([
+      "package/package.json",
+      "package/LICENSE",
+      "package/README.md",
+      "package/dist/index.js",
+      "package/dist/mcp/server.js"
+    ])).toThrow(/missing required package files: dist\/cli\.js/);
   });
 
   it("runs the local release gate and skips external Git validation without a remote", async () => {
