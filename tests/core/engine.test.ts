@@ -138,6 +138,50 @@ describe("core engine", () => {
     });
   });
 
+  it("scans full structured content for sensitive values", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: {
+          text: "Review deployment settings.",
+          format: "text",
+          header: "Authorization: Bearer ghp_1234567890abcdef"
+        },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      expect(written.record.state).toBe("quarantined");
+      expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
+
+      const clean = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Review deployment settings.", format: "text" },
+        state: "candidate",
+        source: { client: "test" }
+      });
+      const revised = await engine.revise({
+        record_id: clean.record.id,
+        patch: { "content.header": "Authorization: Bearer ghp_abcdef1234567890" },
+        reason: "Added request sample",
+        source: { client: "test" }
+      });
+
+      expect(revised.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
+      const quarantined = await engine.recall({ record_ids: [clean.record.id], states: ["quarantined"] });
+      expect(quarantined.results[0]?.record.state).toBe("quarantined");
+    });
+  });
+
   it("quarantines cookie headers on write", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

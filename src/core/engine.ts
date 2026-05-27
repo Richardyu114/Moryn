@@ -223,6 +223,29 @@ function refreshImportance(record: MemoraRecord, currentTask: string | undefined
   return { importance: "silent" };
 }
 
+function collectSensitiveScanFragments(value: unknown, keyPath?: string): string[] {
+  if (typeof value === "string") {
+    return keyPath ? [value, `${keyPath}=${value}`] : [value];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectSensitiveScanFragments(item, keyPath ? `${keyPath}.${index}` : String(index)));
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.entries(value).flatMap(([key, nested]) => {
+      const nextPath = keyPath ? `${keyPath}.${key}` : key;
+      return collectSensitiveScanFragments(nested, nextPath);
+    });
+  }
+  return [];
+}
+
+function contentForSensitiveScan(content: unknown): string {
+  return [
+    ...collectSensitiveScanFragments(content),
+    JSON.stringify(content) ?? ""
+  ].join("\n");
+}
+
 function isUserConfirmed(source: RecordSource, confirmed?: boolean): boolean {
   return confirmed === true || source.client === "user";
 }
@@ -267,8 +290,7 @@ export function createEngine(deps: EngineDeps) {
   const engine = {
     async write(input: WriteInput) {
       const createdAt = now();
-      const text = typeof input.content.text === "string" ? input.content.text : JSON.stringify(input.content);
-      const sensitive = detectSensitiveContent(text);
+      const sensitive = detectSensitiveContent(contentForSensitiveScan(input.content));
       const needsConfirmation = input.state === "canonical"
         && requiresCanonicalConfirmation(input)
         && !isUserConfirmed(input.source, input.confirmed);
@@ -310,8 +332,7 @@ export function createEngine(deps: EngineDeps) {
       const createdAt = nextMutationTimestamp(record, now());
       const source = input.source ?? { client: "memora" };
       const patched = applyRecordPatch(record, input.patch);
-      const text = typeof patched.content.text === "string" ? patched.content.text : JSON.stringify(patched.content);
-      const sensitive = detectSensitiveContent(text);
+      const sensitive = detectSensitiveContent(contentForSensitiveScan(patched.content));
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "revise_record",
