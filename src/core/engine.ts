@@ -140,6 +140,9 @@ function validateWriteInput(input: WriteInput): void {
   if (input.project_id !== undefined && (typeof input.project_id !== "string" || !input.project_id.length)) {
     throw new Error("Invalid argument: Invalid project_id");
   }
+  if (input.scope === "project" && input.project_id === undefined) {
+    throw new Error("Invalid argument: project_id is required for project scope");
+  }
   if (input.tags !== undefined && (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === "string" && tag.length > 0))) {
     throw new Error("Invalid argument: Invalid tags");
   }

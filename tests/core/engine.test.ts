@@ -184,6 +184,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: { text: "Invalid confidence.", format: "text" },
         confidence: 2,
         source: { client: "test" }
@@ -192,6 +193,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         tags: ["valid", 123] as never,
         content: { text: "Invalid tags.", format: "text" },
         source: { client: "test" }
@@ -200,6 +202,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         tags: [""],
         content: { text: "Empty tag.", format: "text" },
         source: { client: "test" }
@@ -208,6 +211,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: "Invalid content." as never,
         source: { client: "test" }
       }, "Invalid content");
@@ -215,6 +219,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: {},
         source: { client: "test" }
       }, "Invalid content");
@@ -222,6 +227,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: { text: "", format: "text" },
         source: { client: "test" }
       }, "Invalid content.text");
@@ -229,6 +235,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: { text: "Invalid format.", format: "markdown" as never },
         source: { client: "test" }
       }, "Invalid content.format");
@@ -236,6 +243,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: { text: "Invalid source.", format: "text" },
         source: { client: "" }
       }, "Invalid source.client");
@@ -243,6 +251,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: { text: "Invalid confirmed.", format: "text" },
         source: { client: "test" },
         confirmed: "yes" as never
@@ -251,6 +260,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: { text: "Invalid provenance.", format: "text" },
         source: { client: "test" },
         provenance: { method: "imported" } as never
@@ -259,6 +269,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: { text: "Empty provenance source.", format: "text" },
         source: { client: "test" },
         provenance: { derived_from: [""] }
@@ -267,6 +278,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: { text: "Empty provenance reason.", format: "text" },
         source: { client: "test" },
         provenance: { reason: "" }
@@ -275,6 +287,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: { text: "Invalid provenance timestamp.", format: "text" },
         source: { client: "test" },
         provenance: { promoted_at: "not-a-date" }
@@ -283,6 +296,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        project_id: "memora",
         content: { text: "Date-only provenance timestamp.", format: "text" },
         source: { client: "test" },
         provenance: { promoted_at: "2026-05-27" }
@@ -1696,6 +1710,13 @@ describe("core engine", () => {
         expect(await readEvents(storePath)).toHaveLength(originalEvents.length);
       }
 
+      await expectInvalidArgument(() => engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: { text: "Project records need an explicit project id.", format: "text" },
+        source: { client: "test" }
+      }), "project_id is required for project scope");
       await expectInvalidArgument(() => engine.revise(null as never), "Invalid revise input");
       await expectInvalidArgument(() => engine.revise({
         record_id: "",

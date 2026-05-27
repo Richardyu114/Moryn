@@ -818,6 +818,21 @@ describe("MCP stdio server", () => {
         expect(emptyStructuredText.ok).toBe(false);
         expect(emptyStructuredText.error.code).toBe("INVALID_ARGUMENT");
         expect(emptyStructuredText.error.message).toContain("Invalid content.text");
+
+        const missingProject = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            text: "Project records need an explicit project context.",
+            source: { client: "mcp-test" }
+          }
+        })) as { ok: boolean; error: { code: string; message: string } };
+        expect(missingProject.ok).toBe(false);
+        expect(missingProject.error.code).toBe("INVALID_ARGUMENT");
+        expect(missingProject.error.message).toContain("project_id is required for project scope");
+        expect(await readEvents(store)).toHaveLength(0);
       });
     } finally {
       await rm(store, { recursive: true, force: true });
