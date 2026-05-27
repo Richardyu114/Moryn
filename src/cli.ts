@@ -20,7 +20,7 @@ const recordPriorities = ["low", "normal", "high"] as const;
 const syncModes = ["manual", "session", "interval"] as const;
 
 function storePath(): string {
-  return program.opts<{ store?: string }>().store ?? join(homedir(), ".memora");
+  return parseNonEmptyString(program.opts<{ store?: string }>().store, "--store") ?? join(homedir(), ".memora");
 }
 
 function printJson(value: unknown): void {

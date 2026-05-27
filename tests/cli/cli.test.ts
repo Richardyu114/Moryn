@@ -173,6 +173,20 @@ describe("mem CLI", () => {
     });
   });
 
+  it("rejects empty global store paths at the CLI boundary", async () => {
+    try {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", "", "init"]);
+      throw new Error("Expected mem init to reject an empty --store path");
+    } catch (error) {
+      if (!("stderr" in (error as object))) throw error;
+      const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+      expect(parsed.error.message).toContain("Invalid --store");
+      expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+    }
+  });
+
   it("writes provenance from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
