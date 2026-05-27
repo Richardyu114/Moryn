@@ -901,20 +901,23 @@ export function createEngine(deps: EngineDeps) {
         .map((record) => {
           const importance = refreshImportance(record, input.current_task);
           return {
-            record_id: record.id,
-            importance: importance.importance,
-            reason: importance.reason,
-            summary: summarizeRecord(record),
-            recommended_action: record.state === "raw" ? "ignore unless relevant" : "call recall with record_id"
+            record,
+            change: {
+              record_id: record.id,
+              importance: importance.importance,
+              reason: importance.reason,
+              summary: summarizeRecord(record),
+              recommended_action: record.state === "raw" ? "ignore unless relevant" : "call recall with record_id"
+            }
           };
         })
-        .filter((change) => change.importance !== "silent")
+        .filter((change) => change.change.importance !== "silent")
         .slice(0, limit);
-      const latest = records.at(-1)?.updated_at ?? input.cursor ?? new Date().toISOString();
+      const latest = changes.at(-1)?.record.updated_at ?? records.at(-1)?.updated_at ?? input.cursor ?? new Date().toISOString();
       return {
         cursor: latest,
-        changes,
-        should_interrupt: changes.some((change) => change.importance === "interrupt")
+        changes: changes.map((change) => change.change),
+        should_interrupt: changes.some((change) => change.change.importance === "interrupt")
       };
     },
 

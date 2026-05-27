@@ -1867,6 +1867,57 @@ describe("core engine", () => {
     });
   });
 
+  it("keeps the refresh cursor at the last returned change when the change list is limited", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const timestamps = [
+        "2026-05-27T00:01:00.000Z",
+        "2026-05-27T00:02:00.000Z",
+        "2026-05-27T00:03:00.000Z"
+      ];
+      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const first = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Use event replay for refresh cursor tests.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const second = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Keep refresh pages bounded.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const third = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Do not skip later refresh changes.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const firstPage = await engine.refresh({ project_id: "memora", cursor: "2026-05-27T00:00:00.000Z", limit: 2 });
+
+      expect(firstPage.cursor).toBe(second.record.updated_at);
+      expect(firstPage.changes.map((change) => change.record_id)).toEqual([first.record.id, second.record.id]);
+
+      const secondPage = await engine.refresh({ project_id: "memora", cursor: firstPage.cursor, limit: 2 });
+
+      expect(secondPage.cursor).toBe(third.record.updated_at);
+      expect(secondPage.changes.map((change) => change.record_id)).toEqual([third.record.id]);
+    });
+  });
+
   it("uses current task text to interrupt only on related blockers and warnings", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
