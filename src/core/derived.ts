@@ -44,6 +44,15 @@ async function readJsonIfExists(path: string): Promise<unknown | undefined> {
   }
 }
 
+async function readLegacyJsonIfExists(path: string): Promise<unknown | undefined> {
+  try {
+    return await readJsonIfExists(path);
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
+  }
+}
+
 export async function rebuildDerivedViews(storePath: string): Promise<RebuildResult> {
   const records = [...replayEvents(await readEvents(storePath)).values()];
   const trusted = canonical(records);
@@ -52,7 +61,7 @@ export async function rebuildDerivedViews(storePath: string): Promise<RebuildRes
   const indexPath = join(storePath, "indexes");
   const generatedFromCursor = [...activeRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at;
   const syncStatus = await readJsonIfExists(join(storePath, "state", "sync-status.json"))
-    ?? await readJsonIfExists(join(storePath, "indexes", "sync-status.json"));
+    ?? await readLegacyJsonIfExists(join(storePath, "indexes", "sync-status.json"));
 
   await rm(snapshotPath, { recursive: true, force: true });
   await rm(indexPath, { recursive: true, force: true });

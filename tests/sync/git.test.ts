@@ -454,4 +454,25 @@ describe("git sync adapter", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("ignores corrupt legacy sync status when rebuilding derived indexes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-status-corrupt-"));
+    const store = join(root, "store");
+    try {
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_corrupt_sync"
+      });
+      await exec("git", ["init"], { cwd: store });
+      await mkdir(join(store, "indexes"), { recursive: true });
+      await writeFile(join(store, "indexes", "sync-status.json"), "{not-json\n", "utf8");
+
+      await expect(rebuildDerivedViews(store)).resolves.toEqual(expect.objectContaining({ ok: true }));
+
+      await expect(readFile(join(store, "indexes", "sync-status.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(store, "state", "sync-status.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
