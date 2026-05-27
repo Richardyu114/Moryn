@@ -129,6 +129,10 @@ Deliverables:
   practical.
 - Done: Packed-package smoke test installs the generated tarball and runs the
   `mem` binary from `node_modules/.bin`.
-- Done: Release checklist is documented.
+- Done: `npm run release:check` runs build, typecheck, tests, package-content
+  safety checks, and optional private Git remote validation through
+  `MEMORA_PRIVATE_GIT_REMOTE`.
+- Done: Release checklist is documented with the private Git remote validation
+  command.
 - Done: MIT license is included.
 - Done: npm package metadata uses scoped package `@richardyu114/memora` because `memora` is already occupied.

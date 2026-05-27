@@ -381,8 +381,13 @@ MIT
 ## Release Checklist
 
 - Package name uses the public scoped package `@richardyu114/memora` because `memora` is already occupied on npm.
-- Run `npm test`, `npm run typecheck`, and `npm run build`.
+- Run `npm run release:check`.
 - Automated smoke tests cover `mem mcp` through the MCP SDK from both source and built `dist/cli.js`.
 - Automated package smoke test installs the packed tarball and runs the installed `mem` binary.
-- Test Git sync with a private user-owned repository.
+- Test Git sync with a dedicated private user-owned test repository by setting `MEMORA_PRIVATE_GIT_REMOTE` before running the release check. The script writes a release-check event, so do not point this at a production Memora data repo.
+
+```bash
+MEMORA_PRIVATE_GIT_REMOTE=git@github.com:yourname/memora-store-release-test.git npm run release:check
+```
+
 - Publish only after confirming no private memory store data is included.
