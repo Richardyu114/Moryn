@@ -506,7 +506,14 @@ describe("MCP stdio server", () => {
           }
         })) as { record: { id: string } };
 
-        for (const patch of [{ "content.text": "" }, {}]) {
+        for (const patch of [
+          { "content.text": "" },
+          {},
+          { "": "Invalid patch path" },
+          { ".content.text": "Invalid patch path" },
+          { "content..text": "Invalid patch path" },
+          { "content.text.": "Invalid patch path" }
+        ]) {
           const result = parseTextContent(await client.callTool({
             name: "revise",
             arguments: {

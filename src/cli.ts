@@ -9,6 +9,7 @@ import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
 import { toErrorEnvelope } from "./core/errors.js";
 import { initializeProjectConfig, resolveProjectContext } from "./core/project.js";
+import { isValidPatchPath } from "./core/schema.js";
 import { runMcpServer } from "./mcp/server.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
 
@@ -64,7 +65,7 @@ function parseAssignmentValue(value: string): unknown {
 function parseAssignments(assignments: string[]): Record<string, unknown> {
   return Object.fromEntries(assignments.map((assignment) => {
     const [key, ...rest] = assignment.split("=");
-    if (!key || !rest.length) {
+    if (!key || !isValidPatchPath(key) || !rest.length) {
       throw new Error(`Invalid argument: Invalid --set assignment: ${assignment}`);
     }
     return [key, parseAssignmentValue(rest.join("="))];

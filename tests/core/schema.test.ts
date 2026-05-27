@@ -91,6 +91,22 @@ describe("record schema", () => {
       created_at: "2026-05-27T00:01:00.000Z",
       source: { client: "codex" }
     })).toThrow(/Invalid event/);
+
+    for (const patch of [
+      { "": "Updated text." },
+      { ".content.text": "Updated text." },
+      { "content..text": "Updated text." },
+      { "content.text.": "Updated text." }
+    ]) {
+      expect(() => parseEvent({
+        event_id: "evt_invalid_patch_path",
+        op: "revise_record",
+        record_id: "rec_test",
+        patch,
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "codex" }
+      })).toThrow(/Invalid event/);
+    }
   });
 
   it("rejects invalid state mutation event shapes", () => {

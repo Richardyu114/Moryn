@@ -19,6 +19,9 @@ export const recordSourceSchema = z.object({
 const revisionPatchSchema = z.record(z.string(), z.unknown()).refine(
   (patch) => Object.keys(patch).length > 0,
   { message: "Patch must not be empty" }
+).refine(
+  (patch) => Object.keys(patch).every(isValidPatchPath),
+  { message: "Patch paths must not be empty" }
 );
 
 const recordContentSchema = z.record(z.string(), z.unknown())
@@ -27,6 +30,10 @@ const recordContentSchema = z.record(z.string(), z.unknown())
     text: nonEmptyStringSchema.optional(),
     format: z.enum(["text", "json"]).optional()
   }));
+
+export function isValidPatchPath(path: string): boolean {
+  return path.split(".").every((part) => part.length > 0);
+}
 
 export const recordLinkSchema = z.object({
   record_id: z.string().min(1),

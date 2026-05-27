@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -75,6 +75,35 @@ describe("git sync adapter", () => {
         /Invalid message/
       );
 
+      await expect(access(join(store, ".git"))).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(access(join(store, ".gitignore"))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects sync initialization before the Memora store is initialized", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-missing-store-"));
+    const store = join(root, "store");
+    const remote = join(root, "remote.git");
+    try {
+      await mkdir(store, { recursive: true });
+      await exec("git", ["init", "--bare", remote]);
+
+      let caught: unknown;
+      try {
+        await initializeGitSync(store, remote);
+      } catch (error) {
+        caught = error;
+      }
+
+      if (!caught) {
+        throw new Error("Expected sync init to reject before mem init");
+      }
+
+      const envelope = toErrorEnvelope(caught);
+      expect(envelope.error.code).toBe("STORE_NOT_INITIALIZED");
+      expect(envelope.error.recommended_action).toBe("run mem init");
       await expect(access(join(store, ".git"))).rejects.toMatchObject({ code: "ENOENT" });
       await expect(access(join(store, ".gitignore"))).rejects.toMatchObject({ code: "ENOENT" });
     } finally {

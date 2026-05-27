@@ -1,6 +1,6 @@
 import { appendEvent, readEvents } from "./store.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
-import { isoDateTimeSchema, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
+import { isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MemoraEvent, MemoraRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { createId } from "./id.js";
@@ -195,6 +195,9 @@ function validateRevisionInput(input: RevisionInput): void {
     Array.isArray(input.patch) ||
     Object.keys(input.patch).length === 0
   ) {
+    throw new Error("Invalid argument: Invalid patch");
+  }
+  if (!Object.keys(input.patch).every(isValidPatchPath)) {
     throw new Error("Invalid argument: Invalid patch");
   }
   validateOptionalReason(input.reason);

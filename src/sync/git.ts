@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { readStoreConfig } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 
 const exec = promisify(execFile);
@@ -142,6 +143,7 @@ async function ensureRemote(storePath: string, remoteUrl: string): Promise<void>
 export async function initializeGitSync(storePath: string, remoteUrl: string): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
   validateRequiredString(remoteUrl, "remoteUrl");
+  await readStoreConfig(storePath);
   if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) {
     await git(storePath, ["init"]);
   }
