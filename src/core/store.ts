@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import type { MemoraEvent } from "./types.js";
 import { parseEvent } from "./schema.js";
 import { detectSensitiveContent, sensitiveScanText } from "./sensitive.js";
+import { readStoreConfig } from "./config.js";
 
 function monthFromIso(iso: string): string {
   return iso.slice(0, 7);
@@ -27,6 +28,20 @@ async function ensureStoreInitialized(storePath: string): Promise<void> {
   }
 }
 
+function withDefaultDeviceId(event: MemoraEvent, deviceId: string): MemoraEvent {
+  if (event.source.device_id) return event;
+  const source = { ...event.source, device_id: deviceId };
+  if (event.op !== "upsert_record") return { ...event, source };
+  return {
+    ...event,
+    source,
+    record: {
+      ...event.record,
+      source: event.record.source.device_id ? event.record.source : { ...event.record.source, device_id: deviceId }
+    }
+  };
+}
+
 function assertNoUnredactedSensitiveContent(event: MemoraEvent): void {
   const text = sensitiveScanText(event);
   if (detectSensitiveContent(text).sensitive) {
@@ -36,9 +51,10 @@ function assertNoUnredactedSensitiveContent(event: MemoraEvent): void {
 
 export async function appendEvent(storePath: string, event: MemoraEvent): Promise<string> {
   await ensureStoreInitialized(storePath);
-  const parsed = parseEvent(event);
+  const config = await readStoreConfig(storePath);
+  const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
   assertNoUnredactedSensitiveContent(parsed);
-  const path = eventPath(storePath, event);
+  const path = eventPath(storePath, parsed);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
   return path;

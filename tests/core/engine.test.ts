@@ -605,6 +605,31 @@ describe("core engine", () => {
     });
   });
 
+  it("keeps raw agent notes out of default recall", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const note = await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Raw implementation detail should stay source material.", format: "text" },
+        source: { client: "agent-a" }
+      });
+
+      expect((await engine.recall({ query: "implementation detail", project_id: "memora" })).results).toHaveLength(0);
+
+      const explicit = await engine.recall({
+        query: "implementation detail",
+        project_id: "memora",
+        states: ["raw"]
+      });
+      expect(explicit.results[0]?.record.id).toBe(note.record.id);
+    });
+  });
+
   it("builds boot context from trusted profile, project, skill, and recent records", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { appendEvent, readEvents } from "../../src/core/store.js";
@@ -61,6 +61,41 @@ describe("event store", () => {
       const events = await readEvents(storePath);
       expect(events).toHaveLength(1);
       expect(events[0]?.event_id).toBe("evt_1");
+    });
+  });
+
+  it("uses the store device id for events without an explicit device id", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const config = JSON.parse(await readFile(join(storePath, "config.json"), "utf8")) as { device_id: string };
+
+      const path = await appendEvent(storePath, {
+        event_id: "evt_default_device",
+        op: "upsert_record",
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "cli" },
+        record: {
+          id: "rec_default_device",
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          tags: [],
+          content: { text: "Use store device partitions.", format: "text" },
+          state: "canonical",
+          confidence: 1,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "cli" }
+        }
+      });
+
+      expect(path).toContain(join("events", config.device_id, "2026-05", "evt_default_device.json"));
+      const [event] = await readEvents(storePath);
+      expect(event?.source.device_id).toBe(config.device_id);
+      if (event?.op === "upsert_record") {
+        expect(event.record.source.device_id).toBe(config.device_id);
+      }
     });
   });
 

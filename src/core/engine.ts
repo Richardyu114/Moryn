@@ -82,6 +82,14 @@ function includesHiddenState(input: RecallInput): boolean {
   return input.states?.some((state) => state === "archived" || state === "quarantined") ?? false;
 }
 
+function includesRawState(input: RecallInput): boolean {
+  return input.states?.includes("raw") ?? false;
+}
+
+function isVisibleInDefaultRecall(record: MemoraRecord): boolean {
+  return isVisibleByDefault(record) && record.state !== "raw";
+}
+
 function skillMatchesSelector(record: MemoraRecord, selector: string): boolean {
   const normalized = selector.toLowerCase();
   return record.id === selector
@@ -501,7 +509,7 @@ export function createEngine(deps: EngineDeps) {
 
     async recall(input: RecallInput) {
       const records = (await currentRecords())
-        .filter((record) => includesHiddenState(input) || isVisibleByDefault(record))
+        .filter((record) => includesHiddenState(input) || includesRawState(input) || isVisibleInDefaultRecall(record))
         .filter((record) => recordProjectMatches(record, input.project_id))
         .filter((record) => !input.record_ids?.length || input.record_ids.includes(record.id))
         .filter((record) => !input.kinds?.length || input.kinds.includes(record.kind))
