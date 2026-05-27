@@ -23,6 +23,13 @@ function canonical(records: MemoraRecord[]): MemoraRecord[] {
   return active(records).filter((record) => record.state === "canonical");
 }
 
+function projectSummary(records: MemoraRecord[]): string {
+  return [...records]
+    .filter((record) => record.kind === "memory")
+    .filter((record) => record.type === "summary" || record.type === "project_summary")
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.content.text ?? "";
+}
+
 async function writeJson(path: string, value: unknown): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
@@ -56,7 +63,7 @@ export async function rebuildDerivedViews(storePath: string): Promise<RebuildRes
     await writeJson(join(snapshotPath, "projects", `${projectId}.json`), {
       project_id: projectId,
       generated_from_cursor: generatedFromCursor,
-      summary: "",
+      summary: projectSummary(projectRecords),
       decisions: projectRecords.filter((record) => record.kind === "memory" && record.type === "decision"),
       warnings: projectRecords.filter((record) => record.kind === "memory" && (record.type === "warning" || record.type === "blocker")),
       skills: trusted.filter((record) => record.kind === "skill" && (record.scope === "global" || record.project_id === projectId)),

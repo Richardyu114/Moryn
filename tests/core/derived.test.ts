@@ -11,7 +11,10 @@ describe("derived views", () => {
       let nextId = 0;
       const engine = createEngine({
         storePath,
-        now: () => "2026-05-27T00:00:00.000Z",
+        now: () => {
+          const timestamp = new Date(Date.UTC(2026, 4, 27, 0, nextId, 0)).toISOString();
+          return timestamp;
+        },
         id: (prefix) => `${prefix}_${++nextId}`
       });
 
@@ -20,6 +23,50 @@ describe("derived views", () => {
         type: "preference",
         scope: "global",
         content: { text: "Prefer concise updates.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "summary",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Older summary should be superseded.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "summary",
+        scope: "project",
+        project_id: "other",
+        content: { text: "Other project summary.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "summary",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Candidate summary should not be snapshotted.", format: "text" },
+        state: "candidate",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "summary",
+        scope: "global",
+        content: { text: "Global summary should not become project summary.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "summary",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Memora is a local-first agent memory layer.", format: "text" },
         state: "canonical",
         source: { client: "test" }
       });
@@ -45,14 +92,15 @@ describe("derived views", () => {
 
       const result = await rebuildDerivedViews(storePath);
 
-      expect(result.records).toBe(3);
-      expect(result.projects).toEqual(["memora"]);
+      expect(result.records).toBe(8);
+      expect(result.projects).toEqual(["memora", "other"]);
       expect(result.skills).toBe(1);
 
       const user = JSON.parse(await readFile(join(storePath, "snapshots", "user.json"), "utf8")) as { soul: unknown[] };
       expect(user.soul).toHaveLength(1);
 
-      const project = JSON.parse(await readFile(join(storePath, "snapshots", "projects", "memora.json"), "utf8")) as { decisions: Array<{ content: { text: string } }> };
+      const project = JSON.parse(await readFile(join(storePath, "snapshots", "projects", "memora.json"), "utf8")) as { summary: string; decisions: Array<{ content: { text: string } }> };
+      expect(project.summary).toBe("Memora is a local-first agent memory layer.");
       expect(project.decisions[0]?.content.text).toBe("Use Git sync.");
 
       const skills = JSON.parse(await readFile(join(storePath, "snapshots", "skills", "index.json"), "utf8")) as { skills: Array<{ tags: string[] }> };
@@ -68,8 +116,8 @@ describe("derived views", () => {
       const rebuiltRecallRaw = await readFile(join(storePath, "indexes", "recall.json"), "utf8");
       const rebuiltRecall = JSON.parse(rebuiltRecallRaw) as { records: Array<{ id: string }> };
 
-      expect(rebuilt.records).toBe(3);
-      expect(rebuiltRecall.records).toHaveLength(3);
+      expect(rebuilt.records).toBe(8);
+      expect(rebuiltRecall.records).toHaveLength(8);
       expect(rebuiltRecallRaw).toBe(firstRecallRaw);
     });
   });
