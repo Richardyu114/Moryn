@@ -21,6 +21,13 @@ const revisionPatchSchema = z.record(z.string(), z.unknown()).refine(
   { message: "Patch must not be empty" }
 );
 
+const recordContentSchema = z.record(z.string(), z.unknown())
+  .refine((content) => Object.keys(content).length > 0, { message: "Content must not be empty" })
+  .and(z.object({
+    text: nonEmptyStringSchema.optional(),
+    format: z.enum(["text", "json"]).optional()
+  }));
+
 export const recordLinkSchema = z.object({
   record_id: z.string().min(1),
   link_type: z.string().min(1),
@@ -40,10 +47,7 @@ export const recordSchema = z.object({
   scope: recordScopeSchema,
   project_id: z.string().min(1).optional(),
   tags: z.array(nonEmptyStringSchema).default([]),
-  content: z.record(z.string(), z.unknown()).and(z.object({
-    text: nonEmptyStringSchema.optional(),
-    format: z.enum(["text", "json"]).optional()
-  })),
+  content: recordContentSchema,
   state: recordStateSchema,
   confidence: z.number().min(0).max(1).default(0.5),
   priority: recordPrioritySchema.default("normal"),

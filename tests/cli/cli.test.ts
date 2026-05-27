@@ -260,6 +260,7 @@ describe("mem CLI", () => {
 
       for (const args of [
         ["--content-json", "["],
+        ["--content-json", "{}"],
         ["--content-json", "{\"text\":\"\",\"format\":\"json\"}"],
         ["--text", "Plain text", "--content-json", "{\"text\":\"Structured\"}"]
       ]) {

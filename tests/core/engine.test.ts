@@ -215,6 +215,13 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        content: {},
+        source: { client: "test" }
+      }, "Invalid content");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
         content: { text: "", format: "text" },
         source: { client: "test" }
       }, "Invalid content.text");

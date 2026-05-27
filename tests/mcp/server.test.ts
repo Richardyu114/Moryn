@@ -746,6 +746,21 @@ describe("MCP stdio server", () => {
         expect(neither.error.code).toBe("INVALID_ARGUMENT");
         expect(neither.error.message).toContain("text or content");
 
+        const emptyContent = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            content: {},
+            source: { client: "mcp-test" }
+          }
+        })) as { ok: boolean; error: { code: string; message: string } };
+        expect(emptyContent.ok).toBe(false);
+        expect(emptyContent.error.code).toBe("INVALID_ARGUMENT");
+        expect(emptyContent.error.message).toContain("Invalid content");
+
         const emptyStructuredText = parseTextContent(await client.callTool({
           name: "write",
           arguments: {

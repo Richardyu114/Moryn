@@ -143,7 +143,7 @@ function validateWriteInput(input: WriteInput): void {
   if (input.tags !== undefined && (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === "string" && tag.length > 0))) {
     throw new Error("Invalid argument: Invalid tags");
   }
-  if (typeof input.content !== "object" || input.content === null || Array.isArray(input.content)) {
+  if (typeof input.content !== "object" || input.content === null || Array.isArray(input.content) || Object.keys(input.content).length === 0) {
     throw new Error("Invalid argument: Invalid content");
   }
   if (input.content.text !== undefined && (typeof input.content.text !== "string" || !input.content.text.length)) {
