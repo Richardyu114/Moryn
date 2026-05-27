@@ -6,7 +6,7 @@ Memora is a personal memory, skill, and soul layer for AI agents.
 
 It is designed for people who use multiple AI agents across multiple projects and want those agents to share the same durable context without making memory belong to any single agent. Agents are readers and writers; the long-lived context belongs to the user, projects, topics, and artifacts.
 
-> Status: early MVP implementation. Core local memory operations are being built from the first-version design in [docs/memora-design.md](docs/memora-design.md).
+> Status: early MVP implementation. Core local memory operations and a real stdio MCP server are being built from the first-version design in [docs/memora-design.md](docs/memora-design.md). The remaining work is tracked in [docs/implementation-roadmap.md](docs/implementation-roadmap.md).
 
 ## What Memora Is
 
@@ -151,15 +151,31 @@ mem mcp
 
 Then configure an agent host that supports MCP to run that command. The exact host config will vary, but the target command is the same:
 
-```bash
-mem mcp
+```json
+{
+  "mcpServers": {
+    "memora": {
+      "command": "mem",
+      "args": ["mcp"]
+    }
+  }
+}
 ```
+
+The current MCP server uses the official Model Context Protocol TypeScript SDK over stdio and exposes these tools:
+
+- `boot`
+- `recall`
+- `write`
+- `revise`
+- `promote`
+- `list_recent`
 
 Agents that do not support MCP can still use Memora through CLI commands.
 
 ## Current MVP Commands
 
-The first implementation targets these commands:
+The current implementation includes these commands:
 
 ```bash
 mem init
