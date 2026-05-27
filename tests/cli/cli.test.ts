@@ -517,6 +517,31 @@ describe("mem CLI", () => {
     });
   });
 
+  it("rejects invalid enum options at the CLI boundary", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      for (const args of [
+        ["write", "--kind", "nonsense", "--type", "decision", "--scope", "project", "--text", "Invalid kind."],
+        ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--priority", "urgent", "--text", "Invalid priority."],
+        ["recall", "--kind", "nonsense"],
+        ["promote", "rec_missing", "--state", "nonsense"]
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected mem ${args.join(" ")} to reject an invalid enum option`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain("Invalid --");
+          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        }
+      }
+    });
+  });
+
   it("returns structured JSON errors for malformed store config during init", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

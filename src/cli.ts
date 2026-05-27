@@ -13,6 +13,10 @@ import { runMcpServer } from "./mcp/server.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
 
 const program = new Command();
+const recordKinds = ["memory", "skill", "soul", "session_summary", "agent_note"] as const;
+const recordScopes = ["global", "project", "topic", "session", "artifact"] as const;
+const recordStates = ["raw", "candidate", "canonical", "archived", "quarantined"] as const;
+const recordPriorities = ["low", "normal", "high"] as const;
 
 function storePath(): string {
   return program.opts<{ store?: string }>().store ?? join(homedir(), ".memora");
@@ -83,6 +87,18 @@ function parseConfidence(value: string | undefined, option = "--confidence"): nu
   return parsed;
 }
 
+function parseEnum<T extends string>(value: string | undefined, allowed: readonly T[], option: string): T | undefined {
+  if (value === undefined) return undefined;
+  if (!allowed.includes(value as T)) {
+    throw new Error(`Invalid argument: Invalid ${option}; expected one of ${allowed.join(", ")}`);
+  }
+  return value as T;
+}
+
+function parseEnumList<T extends string>(values: string[], allowed: readonly T[], option: string): T[] {
+  return values.map((value) => parseEnum(value, allowed, option) as T);
+}
+
 program
   .name("mem")
   .description("Memora CLI")
@@ -116,15 +132,15 @@ program.command("write")
     if (!type) throw new Error("Missing required option --type <type> for write");
     if (!scope) throw new Error("Missing required option --scope <scope> for write");
     const result = await engine.write({
-      kind: options.kind,
+      kind: parseEnum(options.kind, recordKinds, "--kind")!,
       type,
-      scope,
+      scope: parseEnum(scope, recordScopes, "--scope")!,
       project_id: projectId,
       tags: [...(project?.config?.tags ?? []), ...options.tag],
       content: { text: options.text, format: "text" },
-      state: options.state,
+      state: parseEnum(options.state, recordStates, "--state"),
       confidence: parseConfidence(options.confidence),
-      priority: options.priority,
+      priority: parseEnum(options.priority, recordPriorities, "--priority"),
       source: { client: "cli" },
       confirmed: options.confirm,
       provenance: options.reason || options.derivedFrom.length
@@ -153,10 +169,10 @@ program.command("recall")
       record_ids: options.recordId,
       query,
       project_id: projectId,
-      kinds: options.kind,
-      scopes: options.scope,
+      kinds: parseEnumList(options.kind, recordKinds, "--kind"),
+      scopes: parseEnumList(options.scope, recordScopes, "--scope"),
       types: options.type,
-      states: options.state,
+      states: parseEnumList(options.state, recordStates, "--state"),
       tags: options.tag,
       files: options.file,
       limit: parseLimit(options.limit)
@@ -195,7 +211,7 @@ program.command("promote")
     const engine = createCliEngine();
     printJson(await engine.promote({
       record_id: recordId,
-      target_state: options.state,
+      target_state: parseEnum(options.state, recordStates, "--state")!,
       reason: options.reason,
       source: { client: "cli" },
       confirmed: options.confirm
