@@ -433,6 +433,7 @@ Input:
 {
   "project_path": "/path/to/repo",
   "project_id": "optional",
+  "current_task": "optional task description",
   "default_skills": ["optional skill selector"]
 }
 ```
@@ -454,6 +455,7 @@ Output:
     "warnings": []
   },
   "skills": [],
+  "task_relevant": [],
   "recent_changes": [],
   "sync": {
     "cursor": "cur_...",
@@ -465,12 +467,14 @@ Output:
 CLI:
 
 ```bash
-mem boot --project .
+mem boot --project . --current-task "fix auth token refresh"
 ```
 
 CLI `--project` and MCP `project_path` read `.memora.json`, resolve
 `project_id`, and apply configured `default_skills`. MCP hosts can also pass
-`project_id` and optional `default_skills` directly.
+`project_id` and optional `default_skills` directly. When `current_task` is
+provided, boot includes a bounded `task_relevant` list of trusted project
+memories that match the task.
 
 ### `recall`
 

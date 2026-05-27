@@ -259,7 +259,7 @@ The current implementation includes these commands:
 
 ```bash
 mem init
-mem boot --project-id memora
+mem boot --project-id memora --current-task "fix auth"
 mem write --kind memory --type decision --scope project --project-id memora --tag sync --state canonical --text "Use append-only events"
 mem recall "append-only events" --project-id memora --kind memory --type decision --state canonical --tag sync
 mem refresh --project-id memora --cursor 2026-05-27T00:00:00.000Z --current-task "fix auth"
@@ -286,7 +286,7 @@ At task start:
 boot(project_path, current_task)
 ```
 
-This returns a small context package: user preferences, project summary, important decisions, warnings, default skills, recent important changes, and sync status.
+This returns a small context package: user preferences, project summary, important decisions, warnings, default skills, task-relevant trusted memories, recent important changes, and sync status.
 
 When more context is needed:
 
