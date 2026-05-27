@@ -114,4 +114,17 @@ describe("mem CLI", () => {
       expect(status.stdout).toContain("\"dirty\": false");
     });
   });
+
+  it("rebuilds derived snapshots and indexes from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--state", "canonical", "--text", "CLI rebuild creates indexes"]);
+
+      const rebuild = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "rebuild"]);
+      expect(rebuild.stdout).toContain("\"records\": 1");
+
+      const recallIndex = JSON.parse(await readFile(join(dir, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      expect(recallIndex.records[0]?.text).toBe("CLI rebuild creates indexes");
+    });
+  });
 });

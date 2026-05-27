@@ -94,7 +94,7 @@ Deliverables:
   behind, and last sync.
 - Done: Generated snapshots/indexes are excluded from sync by default.
 - Done: Local `config.json` is excluded from sync to avoid device identity conflicts.
-- Remaining: Add post-pull snapshot/index rebuild once derived views exist.
+- Done: Post-pull snapshot/index rebuild runs after successful pull.
 
 ## Phase 5: Derived Views
 
@@ -102,10 +102,10 @@ Add rebuildable snapshots and indexes for performance and correctness.
 
 Deliverables:
 
-- `mem rebuild` regenerates snapshots and recall indexes from events.
-- Snapshots include user profile, project summaries, and skill index.
-- Indexes are deterministic and safe to delete.
-- Tests prove event replay is the source of truth.
+- Done: `mem rebuild` regenerates snapshots and recall indexes from events.
+- Done: Snapshots include user profile, project summaries, and skill index.
+- Done: Indexes are deterministic and safe to delete.
+- Done: Tests prove event replay is the source of truth.
 
 ## Phase 6: Cross-Agent Workflow Hardening
 

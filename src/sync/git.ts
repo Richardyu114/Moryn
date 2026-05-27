@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { rebuildDerivedViews } from "../core/derived.js";
 
 const exec = promisify(execFile);
 
@@ -139,9 +140,11 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   const hasLocal = await hasCommits(storePath);
   if (!hasLocal) {
     await git(storePath, ["checkout", "-B", "main", "origin/main"]);
+    await rebuildDerivedViews(storePath);
     return { ok: true, pulled: true };
   }
   await git(storePath, ["pull", "--ff-only", "origin", "main"]);
+  await rebuildDerivedViews(storePath);
   return { ok: true, pulled: true };
 }
 

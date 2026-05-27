@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { Command } from "commander";
 import { version } from "./index.js";
 import { initializeStore } from "./core/config.js";
+import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
 import { initializeProjectConfig, resolveProjectContext } from "./core/project.js";
 import { runMcpServer } from "./mcp/server.js";
@@ -137,6 +138,10 @@ program.command("refresh")
       limit: Number(options.limit)
     }));
   });
+
+program.command("rebuild").action(async () => {
+  printJson(await rebuildDerivedViews(storePath()));
+});
 
 program.command("mcp").action(async () => {
   const engine = createEngine({ storePath: storePath() });

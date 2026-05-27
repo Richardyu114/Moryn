@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -61,6 +61,8 @@ describe("git sync adapter", () => {
 
       const pull = await pullGitSync(storeB);
       expect(pull.pulled).toBe(true);
+      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      expect(recallIndex.records.map((record) => record.text)).toContain("Sync events through Git.");
 
       const engineB = createEngine({ storePath: storeB });
       const recall = await engineB.recall({ query: "Git", project_id: "memora" });

@@ -215,6 +215,7 @@ mem refresh --project-id memora --cursor 2026-05-27T00:00:00.000Z
 mem revise rec_... --set content.text="Updated memory" --reason "Refined wording"
 mem promote rec_... --state canonical --reason "User confirmed"
 mem list-recent
+mem rebuild
 mem sync --status
 mem sync --push
 mem sync --pull
