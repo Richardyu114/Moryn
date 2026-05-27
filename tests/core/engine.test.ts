@@ -1066,6 +1066,40 @@ describe("core engine", () => {
     });
   });
 
+  it("recalls text and file matches from structured content values", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => `2026-05-27T00:00:0${nextId}.000Z`, id: (prefix) => `${prefix}_${++nextId}` });
+
+      const structured = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: {
+          format: "json",
+          summary: "Use signed cookies for auth middleware.",
+          evidence: ["mcp-parity"],
+          files: ["src/auth.ts"]
+        },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const recall = await engine.recall({
+        query: "mcp-parity",
+        project_id: "memora",
+        files: ["src/auth.ts"],
+        limit: 5
+      });
+
+      expect(recall.results).toHaveLength(1);
+      expect(recall.results[0]?.record.id).toBe(structured.record.id);
+      expect(recall.results[0]?.reason).toContain("text_match:mcp-parity");
+      expect(recall.results[0]?.reason).toContain("file_match:src/auth.ts");
+    });
+  });
+
   it("recalls with explicit scope filtering", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

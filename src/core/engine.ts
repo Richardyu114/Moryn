@@ -87,6 +87,17 @@ function textOf(record: MemoraRecord): string {
   return String(record.content.text ?? "");
 }
 
+function contentValueText(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(contentValueText).filter(Boolean).join(" ");
+  if (typeof value === "object" && value !== null) return Object.values(value).map(contentValueText).filter(Boolean).join(" ");
+  return "";
+}
+
+function searchableText(record: MemoraRecord): string {
+  return contentValueText(record.content);
+}
+
 function validateLimit(limit: number | undefined, fallback: number): number {
   const resolved = limit ?? fallback;
   if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
@@ -418,14 +429,14 @@ function reasonAndScore(record: MemoraRecord, input: RecallInput): { score: numb
     }
   }
   for (const file of input.files ?? []) {
-    const haystack = `${textOf(record)} ${record.tags.join(" ")}`.toLowerCase();
+    const haystack = `${searchableText(record)} ${record.tags.join(" ")}`.toLowerCase();
     if (haystack.includes(file.toLowerCase())) {
       score += 6;
       reason.push(`file_match:${file}`);
     }
   }
   if (input.query) {
-    const haystack = `${textOf(record)} ${record.tags.join(" ")} ${record.type}`.toLowerCase();
+    const haystack = `${searchableText(record)} ${record.tags.join(" ")} ${record.type}`.toLowerCase();
     for (const token of input.query.toLowerCase().split(/\s+/).filter(Boolean)) {
       if (haystack.includes(token)) {
         score += 3;
@@ -457,7 +468,7 @@ function taskTokens(task: string | undefined): string[] {
 function matchesCurrentTask(record: MemoraRecord, currentTask: string | undefined): boolean {
   const tokens = taskTokens(currentTask);
   if (!tokens.length) return false;
-  const haystack = `${textOf(record)} ${record.tags.join(" ")} ${record.type}`.toLowerCase();
+  const haystack = `${searchableText(record)} ${record.tags.join(" ")} ${record.type}`.toLowerCase();
   const matches = tokens.filter((token) => haystack.includes(token)).length;
   return matches >= Math.min(2, tokens.length);
 }
@@ -851,7 +862,7 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => !input.types?.length || input.types.includes(record.type))
         .filter((record) => !input.states?.length || input.states.includes(record.state))
         .filter((record) => matchesAny(record.tags, input.tags))
-        .filter((record) => !input.files?.length || input.files.some((file) => `${textOf(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())))
+        .filter((record) => !input.files?.length || input.files.some((file) => `${searchableText(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())))
         .map((record) => ({ record, ...reasonAndScore(record, input) }))
         .filter((result) => matchesQuery(result, input))
         .filter((result) => result.score > 0 || (!input.query && !input.record_ids?.length))
