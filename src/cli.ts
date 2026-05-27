@@ -76,6 +76,7 @@ program.command("write")
   .option("--project <path>")
   .option("--tag <tag>", "Record tag", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--state <state>")
+  .option("--confidence <n>", "Record confidence")
   .option("--priority <priority>")
   .requiredOption("--text <text>")
   .action(async (options) => {
@@ -90,6 +91,7 @@ program.command("write")
       tags: [...(project?.config?.tags ?? []), ...options.tag],
       content: { text: options.text, format: "text" },
       state: options.state,
+      confidence: options.confidence === undefined ? undefined : Number(options.confidence),
       priority: options.priority,
       source: { client: "cli" }
     });

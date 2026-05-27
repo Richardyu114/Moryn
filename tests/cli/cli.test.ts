@@ -88,6 +88,30 @@ describe("mem CLI", () => {
     });
   });
 
+  it("writes confidence from the CLI for high-confidence candidate boot changes", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const write = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--state", "candidate",
+        "--confidence", "0.9",
+        "--text", "Candidate release decision is ready for review."
+      ]);
+      const parsedWrite = JSON.parse(write.stdout) as { record: { id: string; confidence: number } };
+
+      const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "boot", "--project-id", "memora"]);
+      const parsedBoot = JSON.parse(boot.stdout) as { recent_changes: Array<{ id: string }> };
+
+      expect(parsedWrite.record.confidence).toBe(0.9);
+      expect(parsedBoot.recent_changes.map((record) => record.id)).toContain(parsedWrite.record.id);
+    });
+  });
+
   it("revises records with repeated CLI assignments and JSON scalar values", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
