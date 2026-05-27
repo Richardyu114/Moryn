@@ -31,6 +31,21 @@ function validateReplayRecord(event: MemoraEvent, record: MemoraRecord): MemoraR
   }
 }
 
+function replayStateTransition(event: Extract<MemoraEvent, { op: "promote_record" | "archive_record" | "quarantine_record" }>): RecordState {
+  if (event.op === "promote_record") {
+    if (!event.target_state) {
+      throw new Error(`Invalid replay state transition for event ${event.event_id}: promote_record requires target_state`);
+    }
+    return event.target_state;
+  }
+
+  if (event.target_state !== undefined) {
+    throw new Error(`Invalid replay state transition for event ${event.event_id}: ${event.op} must not include target_state`);
+  }
+
+  return event.op === "archive_record" ? "archived" : "quarantined";
+}
+
 export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
   const records = new Map<string, MemoraRecord>();
 
@@ -58,10 +73,10 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
     if (event.op === "promote_record" || event.op === "archive_record" || event.op === "quarantine_record") {
       const record = records.get(event.record_id);
       if (!record) continue;
-      const state = event.target_state ?? (event.op === "archive_record" ? "archived" : "quarantined");
+      const state = replayStateTransition(event);
       records.set(event.record_id, validateReplayRecord(event, {
         ...record,
-        state: state as RecordState,
+        state,
         visibility: state === "canonical" || state === "candidate" || state === "raw" ? "active" : state,
         updated_at: event.created_at,
         conflict: event.op === "promote_record" && state === "canonical" && event.conflict

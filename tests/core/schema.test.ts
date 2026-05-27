@@ -92,4 +92,32 @@ describe("record schema", () => {
       source: { client: "codex" }
     })).toThrow(/Invalid event/);
   });
+
+  it("rejects invalid state mutation event shapes", () => {
+    expect(() => parseEvent({
+      event_id: "evt_missing_target",
+      op: "promote_record",
+      record_id: "rec_test",
+      created_at: "2026-05-27T00:01:00.000Z",
+      source: { client: "codex" }
+    })).toThrow(/Invalid event/);
+
+    expect(() => parseEvent({
+      event_id: "evt_archive_target",
+      op: "archive_record",
+      record_id: "rec_test",
+      target_state: "canonical",
+      created_at: "2026-05-27T00:01:00.000Z",
+      source: { client: "codex" }
+    })).toThrow(/Invalid event/);
+
+    expect(() => parseEvent({
+      event_id: "evt_quarantine_target",
+      op: "quarantine_record",
+      record_id: "rec_test",
+      target_state: "archived",
+      created_at: "2026-05-27T00:01:00.000Z",
+      source: { client: "codex" }
+    })).toThrow(/Invalid event/);
+  });
 });

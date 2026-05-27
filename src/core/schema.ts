@@ -84,9 +84,31 @@ export const eventSchema = z.discriminatedUnion("op", [
   }),
   z.object({
     event_id: z.string().min(1),
-    op: z.union([z.literal("promote_record"), z.literal("archive_record"), z.literal("quarantine_record")]),
+    op: z.literal("promote_record"),
     record_id: z.string().min(1),
-    target_state: recordStateSchema.optional(),
+    target_state: recordStateSchema,
+    reason: nonEmptyStringSchema.optional(),
+    confirmed: z.boolean().optional(),
+    conflict: recordConflictSchema.optional(),
+    created_at: isoDateTimeSchema,
+    source: recordSourceSchema
+  }),
+  z.object({
+    event_id: z.string().min(1),
+    op: z.literal("archive_record"),
+    record_id: z.string().min(1),
+    target_state: z.undefined().optional(),
+    reason: nonEmptyStringSchema.optional(),
+    confirmed: z.boolean().optional(),
+    conflict: recordConflictSchema.optional(),
+    created_at: isoDateTimeSchema,
+    source: recordSourceSchema
+  }),
+  z.object({
+    event_id: z.string().min(1),
+    op: z.literal("quarantine_record"),
+    record_id: z.string().min(1),
+    target_state: z.undefined().optional(),
     reason: nonEmptyStringSchema.optional(),
     confirmed: z.boolean().optional(),
     conflict: recordConflictSchema.optional(),

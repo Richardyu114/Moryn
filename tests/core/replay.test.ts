@@ -89,6 +89,51 @@ describe("event replay", () => {
     ])).toThrow(/Invalid replay result for event evt_2/);
   });
 
+  it("rejects replayed state events that use invalid state transitions", () => {
+    const upsert = {
+      event_id: "evt_1",
+      op: "upsert_record",
+      created_at: "2026-05-27T00:00:00.000Z",
+      source: { client: "test" },
+      record: baseRecord
+    } as const;
+
+    expect(() => replayEvents([
+      upsert,
+      {
+        event_id: "evt_2",
+        op: "promote_record",
+        record_id: "rec_1",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "test" }
+      }
+    ])).toThrow(/Invalid replay state transition for event evt_2/);
+
+    expect(() => replayEvents([
+      upsert,
+      {
+        event_id: "evt_3",
+        op: "archive_record",
+        record_id: "rec_1",
+        target_state: "canonical",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "test" }
+      }
+    ])).toThrow(/Invalid replay state transition for event evt_3/);
+
+    expect(() => replayEvents([
+      upsert,
+      {
+        event_id: "evt_4",
+        op: "quarantine_record",
+        record_id: "rec_1",
+        target_state: "archived",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "test" }
+      }
+    ])).toThrow(/Invalid replay state transition for event evt_4/);
+  });
+
   it("treats confirmed canonical promotion as user-confirmed provenance", () => {
     const records = replayEvents([
       {
