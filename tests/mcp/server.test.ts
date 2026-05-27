@@ -334,6 +334,25 @@ describe("MCP stdio server", () => {
         })) as { results: Array<{ record: { id: string; project_id?: string } }> };
         expect(recall.results[0]?.record.id).toBe(decision.record.id);
         expect(recall.results[0]?.record.project_id).toBe("memora");
+
+        const otherProject = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "other",
+            text: "MCP retrieves this exact record across project context.",
+            state: "canonical",
+            source: { client: "mcp-project-test" }
+          }
+        })) as { record: { id: string } };
+        const exactRecall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: { record_ids: [otherProject.record.id], project_path: project }
+        })) as { results: Array<{ record: { id: string; content: { text: string } } }> };
+        expect(exactRecall.results[0]?.record.id).toBe(otherProject.record.id);
+        expect(exactRecall.results[0]?.record.content.text).toBe("MCP retrieves this exact record across project context.");
       });
     } finally {
       await rm(root, { recursive: true, force: true });

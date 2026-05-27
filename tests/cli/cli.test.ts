@@ -49,6 +49,37 @@ describe("mem CLI", () => {
     });
   });
 
+  it("recalls an explicit record id through the CLI even when --project differs", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "memora"]);
+
+      const other = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "other",
+        "--state", "canonical",
+        "--text", "CLI retrieves this exact record across project context."
+      ]);
+      const recordId = (JSON.parse(other.stdout) as { record: { id: string } }).record.id;
+
+      const recall = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "recall",
+        "--record-id", recordId,
+        "--project", project
+      ]);
+
+      expect(recall.stdout).toContain(recordId);
+      expect(recall.stdout).toContain("CLI retrieves this exact record across project context.");
+    });
+  });
+
   it("recalls with filters and refreshes changes from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
@@ -427,6 +458,32 @@ describe("mem CLI", () => {
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("INVALID_PROJECT_CONFIG");
         expect(parsed.error.recoverable).toBe(true);
+      }
+    });
+  });
+
+  it("rejects invalid numeric limit options", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      for (const args of [
+        ["recall", "anything", "--limit", "abc"],
+        ["refresh", "--limit", "0"],
+        ["list-recent", "--limit", "101"]
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected mem ${args.join(" ")} to reject an invalid limit`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const stderr = (error as { stderr: string }).stderr;
+          const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; message: string; recoverable: boolean; recommended_action: string } };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain("Invalid --limit");
+          expect(parsed.error.recoverable).toBe(true);
+          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        }
       }
     });
   });

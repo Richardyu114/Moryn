@@ -70,6 +70,10 @@ function recordProjectMatches(record: MemoraRecord, projectId: string | undefine
   return !projectId || record.project_id === projectId || record.scope === "global";
 }
 
+function recordProjectMatchesRecall(record: MemoraRecord, input: RecallInput): boolean {
+  return Boolean(input.record_ids?.length) || recordProjectMatches(record, input.project_id);
+}
+
 function isVisibleByDefault(record: MemoraRecord): boolean {
   return record.state !== "archived" && record.state !== "quarantined";
 }
@@ -510,7 +514,7 @@ export function createEngine(deps: EngineDeps) {
     async recall(input: RecallInput) {
       const records = (await currentRecords())
         .filter((record) => includesHiddenState(input) || includesRawState(input) || isVisibleInDefaultRecall(record))
-        .filter((record) => recordProjectMatches(record, input.project_id))
+        .filter((record) => recordProjectMatchesRecall(record, input))
         .filter((record) => !input.record_ids?.length || input.record_ids.includes(record.id))
         .filter((record) => !input.kinds?.length || input.kinds.includes(record.kind))
         .filter((record) => !input.scopes?.length || input.scopes.includes(record.scope))

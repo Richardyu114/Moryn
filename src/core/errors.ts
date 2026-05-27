@@ -13,6 +13,7 @@ export function errorCode(message: string): string {
   if (message.startsWith("Confirmation required:")) return "CONFIRMATION_REQUIRED";
   if (message.startsWith("Invalid project config:")) return "INVALID_PROJECT_CONFIG";
   if (message.startsWith("Invalid store config:")) return "INVALID_STORE_CONFIG";
+  if (message.startsWith("Invalid argument:")) return "INVALID_ARGUMENT";
   if (message.startsWith("Invalid event:") || message.startsWith("Invalid record:")) return "INVALID_RECORD";
   if (message.startsWith("Record not found:")) return "RECORD_NOT_FOUND";
   if (message.includes("Authentication failed") || message.includes("Permission denied")) return "PERMISSION_DENIED";
@@ -31,6 +32,8 @@ export function recommendedAction(code: string): string {
       return "fix .memora.json or pass an explicit project id";
     case "INVALID_STORE_CONFIG":
       return "fix or remove config.json, then run mem init";
+    case "INVALID_ARGUMENT":
+      return "fix the command arguments and retry";
     case "RECORD_NOT_FOUND":
       return "check the record id or call recall/list-recent to find it";
     case "STORE_NOT_INITIALIZED":

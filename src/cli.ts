@@ -66,6 +66,14 @@ function parseAssignments(assignments: string[]): Record<string, unknown> {
   }));
 }
 
+function parseLimit(value: string, option = "--limit"): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
+    throw new Error(`Invalid argument: Invalid ${option}; must be an integer between 1 and 100`);
+  }
+  return parsed;
+}
+
 program
   .name("mem")
   .description("Memora CLI")
@@ -142,7 +150,7 @@ program.command("recall")
       states: options.state,
       tags: options.tag,
       files: options.file,
-      limit: Number(options.limit)
+      limit: parseLimit(options.limit)
     }));
   });
 
@@ -219,7 +227,7 @@ program.command("list-recent")
   .option("--limit <n>", "Result limit", "20")
   .action(async (options) => {
     const engine = createCliEngine();
-    printJson(await engine.listRecent(Number(options.limit)));
+    printJson(await engine.listRecent(parseLimit(options.limit)));
   });
 
 program.command("refresh")
@@ -234,7 +242,7 @@ program.command("refresh")
       project_id: await resolveOptionalProject(options),
       cursor: options.cursor,
       current_task: options.currentTask,
-      limit: Number(options.limit)
+      limit: parseLimit(options.limit)
     }));
   });
 

@@ -605,6 +605,32 @@ describe("core engine", () => {
     });
   });
 
+  it("recalls an explicit record id even when the current project context differs", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const otherProject = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "other",
+        content: { text: "Other project decision retrieved by exact id.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const recall = await engine.recall({
+        record_ids: [otherProject.record.id],
+        project_id: "memora"
+      });
+
+      expect(recall.results).toHaveLength(1);
+      expect(recall.results[0]?.record.id).toBe(otherProject.record.id);
+      expect(recall.results[0]?.reason).toContain("record_id_match");
+    });
+  });
+
   it("keeps raw agent notes out of default recall", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
