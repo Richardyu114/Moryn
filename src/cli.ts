@@ -71,6 +71,21 @@ function parseAssignments(assignments: string[]): Record<string, unknown> {
   }));
 }
 
+function parseContentJson(value: string | undefined): Record<string, unknown> | undefined {
+  if (value === undefined) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid argument: Invalid --content-json; ${message}`);
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("Invalid argument: Invalid --content-json; expected a JSON object");
+  }
+  return parsed as Record<string, unknown>;
+}
+
 function parseLimit(value: string, option = "--limit"): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
@@ -123,7 +138,8 @@ program.command("write")
   .option("--derived-from <id>", "Source record id for provenance", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--reason <reason>", "Provenance reason")
   .option("--confirm", "Confirm a high-risk canonical write")
-  .requiredOption("--text <text>")
+  .option("--text <text>")
+  .option("--content-json <json>", "Structured JSON object content")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options);
@@ -132,13 +148,20 @@ program.command("write")
     const scope = options.scope ?? (options.kind === "session_summary" ? "project" : undefined);
     if (!type) throw new Error("Missing required option --type <type> for write");
     if (!scope) throw new Error("Missing required option --scope <scope> for write");
+    const content = parseContentJson(options.contentJson);
+    if (content && options.text !== undefined) {
+      throw new Error("Invalid argument: use either --text or --content-json, not both");
+    }
+    if (!content && options.text === undefined) {
+      throw new Error("Missing required option --text <text> or --content-json <json> for write");
+    }
     const result = await engine.write({
       kind: parseEnum(options.kind, recordKinds, "--kind")!,
       type,
       scope: parseEnum(scope, recordScopes, "--scope")!,
       project_id: projectId,
       tags: [...(project?.config?.tags ?? []), ...options.tag],
-      content: { text: options.text, format: "text" },
+      content: content ?? { text: options.text, format: "text" },
       state: parseEnum(options.state, recordStates, "--state"),
       confidence: parseConfidence(options.confidence),
       priority: parseEnum(options.priority, recordPriorities, "--priority"),

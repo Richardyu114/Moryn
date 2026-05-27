@@ -181,6 +181,7 @@ Project-aware commands accept either an explicit project id or a project path:
 
 ```bash
 mem write --kind memory --type decision --scope project --project /path/to/project --text "Use append-only events"
+mem write --kind memory --type decision --scope project --project /path/to/project --content-json '{"text":"Use structured content","format":"json","evidence":["cli"]}'
 mem recall "append-only events" --project /path/to/project
 mem boot --project /path/to/project
 ```

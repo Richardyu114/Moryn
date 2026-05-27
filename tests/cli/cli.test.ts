@@ -205,6 +205,69 @@ describe("mem CLI", () => {
     });
   });
 
+  it("writes structured JSON content from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const write = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--content-json", JSON.stringify({
+          text: "Use structured CLI content.",
+          format: "json",
+          evidence: ["cli", "mcp-parity"]
+        })
+      ]);
+      const parsed = JSON.parse(write.stdout) as {
+        record: {
+          content: {
+            text?: string;
+            format?: string;
+            evidence?: string[];
+          };
+        };
+      };
+
+      expect(parsed.record.content).toEqual({
+        text: "Use structured CLI content.",
+        format: "json",
+        evidence: ["cli", "mcp-parity"]
+      });
+    });
+  });
+
+  it("rejects invalid CLI structured content options", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      for (const args of [
+        ["--content-json", "["],
+        ["--text", "Plain text", "--content-json", "{\"text\":\"Structured\"}"]
+      ]) {
+        try {
+          await exec("node", [
+            "--import", "tsx", "src/cli.ts", "--store", dir,
+            "write",
+            "--kind", "memory",
+            "--type", "decision",
+            "--scope", "project",
+            "--project-id", "memora",
+            ...args
+          ]);
+          throw new Error(`Expected mem write ${args.join(" ")} to reject invalid content options`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string } };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        }
+      }
+    });
+  });
+
   it("writes project session summaries with handoff defaults from the CLI", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
