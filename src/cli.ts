@@ -132,6 +132,13 @@ function collectNonEmptyOption(option: string) {
   };
 }
 
+function assertSingleSyncOperation(options: { status?: boolean; push?: boolean; pull?: boolean }): void {
+  const selected = [options.status, options.push, options.pull].filter(Boolean).length;
+  if (selected > 1) {
+    throw new Error("Invalid argument: choose only one sync operation");
+  }
+}
+
 program
   .name("mem")
   .description("Memora CLI")
@@ -372,6 +379,7 @@ sync
   .option("--pull", "Pull remote events")
   .option("--message <message>", "Commit message for --push")
   .action(async (options) => {
+    assertSingleSyncOperation(options);
     if (options.push) {
       printJson(await pushGitSync(storePath(), { message: parseNonEmptyString(options.message, "--message") }));
       return;

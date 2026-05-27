@@ -660,6 +660,24 @@ describe("mem CLI", () => {
     });
   }, 30000);
 
+  it("rejects conflicting CLI sync operation flags", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      try {
+        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "sync", "--push", "--pull"]);
+        throw new Error("Expected mem sync to reject conflicting operation flags");
+      } catch (error) {
+        if (!("stderr" in (error as object))) throw error;
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.message).toContain("choose only one sync operation");
+        expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+      }
+    });
+  });
+
   it("rebuilds derived snapshots and indexes from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
