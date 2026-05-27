@@ -79,7 +79,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: z.string().min(1).optional(),
         tags: z.array(z.string().min(1)).optional(),
         default_skills: z.array(z.string().min(1)).optional(),
-        sync_mode: z.enum(["manual", "session", "auto"]).optional()
+        sync_mode: z.enum(["manual", "session", "interval"]).optional()
       }
     },
     async ({ path, project_id, tags, default_skills, sync_mode }) => toolResult(async () => ({

@@ -174,6 +174,9 @@ You can also initialize a specific path with tags and default skill selectors:
 mem project init --path /path/to/project --project-id my-project --tag typescript --tag mcp --default-skill release
 ```
 
+Supported sync modes are `manual`, `session`, and `interval`. The default is
+`session`.
+
 Project-aware commands accept either an explicit project id or a project path:
 
 ```bash

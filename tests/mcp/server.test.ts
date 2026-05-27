@@ -353,7 +353,7 @@ describe("MCP stdio server", () => {
             project_id: "memora",
             tags: ["typescript", "mcp"],
             default_skills: ["release"],
-            sync_mode: "session"
+            sync_mode: "interval"
           }
         })) as { ok: boolean; config: { project_id: string; tags: string[]; default_skills: string[]; sync: { mode: string } } };
 
@@ -362,7 +362,7 @@ describe("MCP stdio server", () => {
           project_id: "memora",
           tags: ["typescript", "mcp"],
           default_skills: ["release"],
-          sync: { mode: "session" }
+          sync: { mode: "interval" }
         });
       });
     } finally {

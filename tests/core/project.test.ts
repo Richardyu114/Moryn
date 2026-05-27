@@ -26,6 +26,24 @@ describe("project config", () => {
     });
   });
 
+  it("supports interval sync mode and normalizes legacy auto mode", async () => {
+    await withTempStore(async (projectPath) => {
+      const interval = await initializeProjectConfig(projectPath, {
+        project_id: "memora",
+        sync: { mode: "interval" }
+      });
+      expect(interval.config.sync.mode).toBe("interval");
+
+      await writeFile(join(projectPath, ".memora.json"), JSON.stringify({
+        project_id: "memora",
+        sync: { mode: "auto" }
+      }), "utf8");
+
+      const context = await resolveProjectContext({ projectPath });
+      expect(context.config?.sync.mode).toBe("interval");
+    });
+  });
+
   it("resolves explicit id before project config", async () => {
     await withTempStore(async (projectPath) => {
       await initializeProjectConfig(projectPath, { project_id: "from-file" });

@@ -7,16 +7,22 @@ import { z } from "zod";
 
 const exec = promisify(execFile);
 
+const syncModeSchema = z.preprocess(
+  (value) => value === "auto" ? "interval" : value,
+  z.enum(["manual", "session", "interval"])
+);
+
 const projectConfigSchema = z.object({
   project_id: z.string().min(1).optional(),
   tags: z.array(z.string().min(1)).default([]),
   default_skills: z.array(z.string().min(1)).default([]),
   sync: z.object({
-    mode: z.enum(["manual", "session", "auto"]).default("session")
+    mode: syncModeSchema.default("session")
   }).default({ mode: "session" })
 });
 
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;
+export type SyncMode = ProjectConfig["sync"]["mode"];
 export type ProjectIdentitySource = "explicit" | "config" | "git_remote" | "git_root" | "directory";
 
 export interface ProjectContext {
@@ -30,7 +36,7 @@ export interface InitializeProjectConfigInput {
   project_id?: string;
   tags?: string[];
   default_skills?: string[];
-  sync?: { mode?: "manual" | "session" | "auto" };
+  sync?: { mode?: SyncMode };
 }
 
 interface ProjectConfigFile {

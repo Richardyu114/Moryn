@@ -36,10 +36,10 @@ describe("mem CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "memora", "--tag", "typescript", "--tag", "mcp"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "memora", "--tag", "typescript", "--tag", "mcp", "--sync-mode", "interval"]);
 
-      const projectConfig = JSON.parse(await readFile(join(project, ".memora.json"), "utf8")) as { project_id: string; tags: string[] };
-      expect(projectConfig).toMatchObject({ project_id: "memora", tags: ["typescript", "mcp"] });
+      const projectConfig = JSON.parse(await readFile(join(project, ".memora.json"), "utf8")) as { project_id: string; tags: string[]; sync: { mode: string } };
+      expect(projectConfig).toMatchObject({ project_id: "memora", tags: ["typescript", "mcp"], sync: { mode: "interval" } });
 
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project", project, "--text", "Use project config"]);
       const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "project config", "--project", project]);
