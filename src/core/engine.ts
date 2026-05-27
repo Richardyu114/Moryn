@@ -610,7 +610,12 @@ export function createEngine(deps: EngineDeps) {
       const createdAt = nextMutationTimestamp(record, now());
       const source = input.source ?? { client: "memora" };
       const patched = applyRecordPatch(record, input.patch);
-      parseRecord(patched);
+      try {
+        parseRecord(patched);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Invalid argument: Invalid patch; ${message}`);
+      }
       const sensitive = detectSensitiveContent(sensitiveScanText(patched.content));
       const conflicts = !sensitive.sensitive && patched.state === "canonical"
         ? semanticConflicts(await currentRecords(), patched)

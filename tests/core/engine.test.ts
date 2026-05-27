@@ -353,7 +353,7 @@ describe("core engine", () => {
     });
   });
 
-  it("rejects revisions that would produce an invalid record", async () => {
+  it("rejects revisions that would produce an invalid record as invalid arguments", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
@@ -367,16 +367,32 @@ describe("core engine", () => {
         state: "candidate",
         source: { client: "test" }
       });
+      const originalEvents = await readEvents(storePath);
 
+      try {
+        await engine.revise({
+          record_id: written.record.id,
+          patch: { confidence: 2 },
+          reason: "Invalid confidence",
+          source: { client: "test" }
+        });
+        throw new Error("Expected invalid revision patch to reject");
+      } catch (error) {
+        const envelope = toErrorEnvelope(error);
+        expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+        expect(envelope.error.message).toContain("Invalid patch");
+      }
       await expect(engine.revise({
         record_id: written.record.id,
-        patch: { confidence: 2 },
-        reason: "Invalid confidence",
+        patch: { "content.text": "" },
+        reason: "Invalid content text",
         source: { client: "test" }
-      })).rejects.toThrow(/Invalid record/);
+      })).rejects.toThrow(/Invalid patch/);
 
       const unchanged = await engine.recall({ record_ids: [written.record.id] });
       expect(unchanged.results[0]?.record.confidence).toBe(0.5);
+      expect(unchanged.results[0]?.record.content.text).toBe("Keep replayable records valid after revision.");
+      expect(await readEvents(storePath)).toHaveLength(originalEvents.length);
     });
   });
 

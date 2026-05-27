@@ -427,6 +427,41 @@ describe("mem CLI", () => {
     });
   });
 
+  it("rejects CLI revisions that would create invalid records", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const write = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--state", "candidate",
+        "--text", "Keep revision patches valid."
+      ]);
+      const recordId = (JSON.parse(write.stdout) as { record: { id: string } }).record.id;
+
+      try {
+        await exec("node", [
+          "--import", "tsx", "src/cli.ts", "--store", dir,
+          "revise",
+          recordId,
+          "--set", "content.text=",
+          "--reason", "Invalid blank revision"
+        ]);
+        throw new Error("Expected mem revise to reject blank content.text patch");
+      } catch (error) {
+        if (!("stderr" in (error as object))) throw error;
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.message).toContain("Invalid patch");
+        expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+      }
+    });
+  });
+
   it("rejects malformed CLI revision assignments as invalid arguments", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
