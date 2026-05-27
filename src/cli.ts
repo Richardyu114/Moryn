@@ -20,6 +20,11 @@ function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
+async function resolveOptionalProject(options: { project?: string; projectId?: string }): Promise<string | undefined> {
+  if (!options.project && !options.projectId) return undefined;
+  return (await resolveProjectContext({ projectPath: options.project, projectId: options.projectId })).project_id;
+}
+
 program
   .name("mem")
   .description("Memora CLI")
@@ -36,17 +41,23 @@ program.command("write")
   .requiredOption("--scope <scope>")
   .option("--project-id <id>")
   .option("--project <path>")
+  .option("--tag <tag>", "Record tag", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--state <state>")
+  .option("--priority <priority>")
   .requiredOption("--text <text>")
   .action(async (options) => {
     const engine = createEngine({ storePath: storePath() });
-    const project = await resolveProjectContext({ projectPath: options.project, projectId: options.projectId });
+    const projectId = await resolveOptionalProject(options);
+    const project = options.project ? await resolveProjectContext({ projectPath: options.project, projectId: options.projectId }) : undefined;
     const result = await engine.write({
       kind: options.kind,
       type: options.type,
       scope: options.scope,
-      project_id: project.project_id,
-      tags: project.config?.tags,
+      project_id: projectId,
+      tags: [...(project?.config?.tags ?? []), ...options.tag],
       content: { text: options.text, format: "text" },
+      state: options.state,
+      priority: options.priority,
       source: { client: "cli" }
     });
     printJson(result);
@@ -54,13 +65,29 @@ program.command("write")
 
 program.command("recall")
   .argument("[query]", "Search query")
+  .option("--record-id <id>", "Record id", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--project-id <id>")
   .option("--project <path>")
+  .option("--kind <kind>", "Record kind", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--type <type>", "Record type", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--state <state>", "Record state", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--tag <tag>", "Record tag", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--file <path>", "Related file path", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--limit <n>", "Result limit", "10")
   .action(async (query, options) => {
     const engine = createEngine({ storePath: storePath() });
-    const project = await resolveProjectContext({ projectPath: options.project, projectId: options.projectId });
-    printJson(await engine.recall({ query, project_id: project.project_id, limit: Number(options.limit) }));
+    const projectId = await resolveOptionalProject(options);
+    printJson(await engine.recall({
+      record_ids: options.recordId,
+      query,
+      project_id: projectId,
+      kinds: options.kind,
+      types: options.type,
+      states: options.state,
+      tags: options.tag,
+      files: options.file,
+      limit: Number(options.limit)
+    }));
   });
 
 program.command("boot")
@@ -68,8 +95,7 @@ program.command("boot")
   .option("--project <path>")
   .action(async (options) => {
     const engine = createEngine({ storePath: storePath() });
-    const project = await resolveProjectContext({ projectPath: options.project, projectId: options.projectId });
-    printJson(await engine.boot({ project_id: project.project_id }));
+    printJson(await engine.boot({ project_id: await resolveOptionalProject(options) }));
   });
 
 program.command("revise")
@@ -96,6 +122,20 @@ program.command("list-recent")
   .action(async (options) => {
     const engine = createEngine({ storePath: storePath() });
     printJson(await engine.listRecent(Number(options.limit)));
+  });
+
+program.command("refresh")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--cursor <cursor>")
+  .option("--limit <n>", "Change limit", "20")
+  .action(async (options) => {
+    const engine = createEngine({ storePath: storePath() });
+    printJson(await engine.refresh({
+      project_id: await resolveOptionalProject(options),
+      cursor: options.cursor,
+      limit: Number(options.limit)
+    }));
   });
 
 program.command("mcp").action(async () => {

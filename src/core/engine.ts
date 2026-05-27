@@ -24,9 +24,21 @@ interface WriteInput {
 }
 
 interface RecallInput {
+  record_ids?: string[];
   query?: string;
   project_id?: string;
   kinds?: RecordKind[];
+  types?: string[];
+  states?: RecordState[];
+  tags?: string[];
+  files?: string[];
+  limit?: number;
+}
+
+interface RefreshInput {
+  project_id?: string;
+  cursor?: string;
+  current_task?: string;
   limit?: number;
 }
 
@@ -34,20 +46,86 @@ function textOf(record: MemoraRecord): string {
   return String(record.content.text ?? "");
 }
 
-function queryScore(record: MemoraRecord, query: string | undefined, projectId: string | undefined): number {
+function matchesAny(values: string[], filters: string[] | undefined): boolean {
+  return !filters?.length || filters.some((filter) => values.includes(filter));
+}
+
+function recordProjectMatches(record: MemoraRecord, projectId: string | undefined): boolean {
+  return !projectId || record.project_id === projectId || record.scope === "global";
+}
+
+function isVisibleByDefault(record: MemoraRecord): boolean {
+  return record.state !== "archived" && record.state !== "quarantined";
+}
+
+function isTrustedForBoot(record: MemoraRecord): boolean {
+  return record.state === "canonical";
+}
+
+function reasonAndScore(record: MemoraRecord, input: RecallInput): { score: number; reason: string[] } {
   let score = 0;
-  if (projectId && record.project_id === projectId) score += 10;
-  if (record.scope === "global") score += 2;
-  if (record.state === "canonical") score += 8;
-  if (record.state === "candidate") score += 4;
-  if (record.priority === "high") score += 5;
-  if (query) {
-    const haystack = `${textOf(record)} ${record.tags.join(" ")} ${record.type}`.toLowerCase();
-    for (const token of query.toLowerCase().split(/\s+/).filter(Boolean)) {
-      if (haystack.includes(token)) score += 3;
+  const reason: string[] = [];
+
+  if (input.record_ids?.includes(record.id)) {
+    score += 100;
+    reason.push("record_id_match");
+  }
+  if (input.project_id && record.project_id === input.project_id) {
+    score += 10;
+    reason.push("same_project");
+  } else if (record.scope === "global") {
+    score += 4;
+    reason.push("global");
+  } else {
+    reason.push(record.scope);
+  }
+  if (record.state === "canonical") {
+    score += 8;
+    reason.push("canonical");
+  } else if (record.state === "candidate") {
+    score += 4;
+    reason.push("candidate");
+  } else {
+    reason.push(record.state);
+  }
+  if (record.priority === "high") {
+    score += 5;
+    reason.push("high_priority");
+  }
+  for (const tag of input.tags ?? []) {
+    if (record.tags.includes(tag)) {
+      score += 5;
+      reason.push(`tag_match:${tag}`);
     }
   }
-  return score;
+  for (const file of input.files ?? []) {
+    const haystack = `${textOf(record)} ${record.tags.join(" ")}`.toLowerCase();
+    if (haystack.includes(file.toLowerCase())) {
+      score += 6;
+      reason.push(`file_match:${file}`);
+    }
+  }
+  if (input.query) {
+    const haystack = `${textOf(record)} ${record.tags.join(" ")} ${record.type}`.toLowerCase();
+    for (const token of input.query.toLowerCase().split(/\s+/).filter(Boolean)) {
+      if (haystack.includes(token)) {
+        score += 3;
+        reason.push(`text_match:${token}`);
+      }
+    }
+  }
+  return { score, reason: [...new Set(reason)] };
+}
+
+function summarizeRecord(record: MemoraRecord): string {
+  return textOf(record) || `${record.kind}:${record.type}`;
+}
+
+function refreshImportance(record: MemoraRecord): "silent" | "notice" | "interrupt" {
+  if (record.state === "raw" || record.kind === "session_summary" || record.kind === "agent_note") return "silent";
+  if (record.type === "blocker" || record.type === "warning" || record.type === "conflict" || record.priority === "high") return "interrupt";
+  if (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75)) return "notice";
+  return "silent";
 }
 
 export function createEngine(deps: EngineDeps) {
@@ -118,33 +196,68 @@ export function createEngine(deps: EngineDeps) {
 
     async recall(input: RecallInput) {
       const records = (await currentRecords())
-        .filter((record) => record.state !== "archived" && record.state !== "quarantined")
-        .filter((record) => !input.kinds || input.kinds.includes(record.kind))
-        .map((record) => ({
-          record,
-          score: queryScore(record, input.query, input.project_id),
-          reason: [record.project_id === input.project_id ? "same_project" : record.scope, record.state]
-        }))
-        .filter((result) => result.score > 0 || !input.query)
+        .filter(isVisibleByDefault)
+        .filter((record) => recordProjectMatches(record, input.project_id))
+        .filter((record) => !input.record_ids?.length || input.record_ids.includes(record.id))
+        .filter((record) => !input.kinds?.length || input.kinds.includes(record.kind))
+        .filter((record) => !input.types?.length || input.types.includes(record.type))
+        .filter((record) => !input.states?.length || input.states.includes(record.state))
+        .filter((record) => matchesAny(record.tags, input.tags))
+        .filter((record) => !input.files?.length || input.files.some((file) => `${textOf(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())))
+        .map((record) => ({ record, ...reasonAndScore(record, input) }))
+        .filter((result) => result.score > 0 || (!input.query && !input.record_ids?.length))
         .sort((a, b) => b.score - a.score)
         .slice(0, input.limit ?? 10);
       return { results: records };
     },
 
     async boot(input: { project_id?: string }) {
-      const recall = await engine.recall({ project_id: input.project_id, limit: 10 });
+      const visibleRecords = (await currentRecords())
+        .filter(isVisibleByDefault)
+        .filter((record) => recordProjectMatches(record, input.project_id));
+      const records = visibleRecords
+        .filter(isTrustedForBoot)
+      const recent = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      const cursor = [...visibleRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at ?? new Date().toISOString();
       return {
-        profile: { user_preferences: [], soul: [], global_rules: [] },
+        profile: {
+          user_preferences: records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "preference"),
+          soul: records.filter((record) => record.kind === "soul"),
+          global_rules: records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule")
+        },
         project: {
           summary: "",
           tech_stack: [],
           active_goals: [],
-          important_decisions: recall.results.filter((r) => r.record.type === "decision").map((r) => r.record),
-          warnings: recall.results.filter((r) => r.record.type === "warning" || r.record.type === "blocker").map((r) => r.record)
+          important_decisions: records.filter((record) => record.kind === "memory" && record.type === "decision" && record.project_id === input.project_id),
+          warnings: records.filter((record) => record.kind === "memory" && (record.type === "warning" || record.type === "blocker") && record.project_id === input.project_id)
         },
-        skills: recall.results.filter((r) => r.record.kind === "skill").map((r) => r.record),
-        recent_changes: [],
-        sync: { cursor: new Date().toISOString(), remote_has_updates: false }
+        skills: records.filter((record) => record.kind === "skill"),
+        recent_changes: recent.filter((record) => record.kind !== "soul").slice(0, 5),
+        sync: { cursor, remote_has_updates: false }
+      };
+    },
+
+    async refresh(input: RefreshInput) {
+      const records = (await currentRecords())
+        .filter(isVisibleByDefault)
+        .filter((record) => recordProjectMatches(record, input.project_id))
+        .filter((record) => !input.cursor || record.updated_at > input.cursor)
+        .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
+      const changes = records
+        .map((record) => ({
+          record_id: record.id,
+          importance: refreshImportance(record),
+          summary: summarizeRecord(record),
+          recommended_action: record.state === "raw" ? "ignore unless relevant" : "call recall with record_id"
+        }))
+        .filter((change) => change.importance !== "silent")
+        .slice(0, input.limit ?? 20);
+      const latest = records.at(-1)?.updated_at ?? input.cursor ?? new Date().toISOString();
+      return {
+        cursor: latest,
+        changes,
+        should_interrupt: changes.some((change) => change.importance === "interrupt")
       };
     },
 

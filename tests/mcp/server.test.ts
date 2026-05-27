@@ -40,6 +40,7 @@ describe("MCP stdio server", () => {
           "list_recent",
           "promote",
           "recall",
+          "refresh",
           "revise",
           "write"
         ]);
@@ -93,6 +94,18 @@ describe("MCP stdio server", () => {
         expect(recentResult[0]?.id).toBe(writeResult.record.id);
         expect(recentResult[0]?.state).toBe("canonical");
         expect(recentResult[0]?.content.text).toBe("Use official MCP tools.");
+
+        const refreshResult = parseTextContent(await client.callTool({
+          name: "refresh",
+          arguments: {
+            project_id: "memora",
+            cursor: "2000-01-01T00:00:00.000Z"
+          }
+        })) as { changes: Array<{ record_id: string; importance: string }> };
+
+        expect(refreshResult.changes).toEqual([
+          expect.objectContaining({ record_id: writeResult.record.id, importance: "notice" })
+        ]);
       });
     } finally {
       await rm(store, { recursive: true, force: true });

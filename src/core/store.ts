@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { MemoraEvent } from "./types.js";
+import { parseEvent } from "./schema.js";
 
 function monthFromIso(iso: string): string {
   return iso.slice(0, 7);
@@ -43,6 +44,13 @@ async function walkJsonFiles(dir: string): Promise<string[]> {
 
 export async function readEvents(storePath: string): Promise<MemoraEvent[]> {
   const files = await walkJsonFiles(join(storePath, "events"));
-  const events = await Promise.all(files.map(async (file) => JSON.parse(await readFile(file, "utf8")) as MemoraEvent));
+  const events = await Promise.all(files.map(async (file) => {
+    try {
+      return parseEvent(JSON.parse(await readFile(file, "utf8")));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`${message} in ${file}`);
+    }
+  }));
   return events.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.event_id.localeCompare(b.event_id));
 }

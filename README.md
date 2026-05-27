@@ -187,6 +187,7 @@ The current MCP server uses the official Model Context Protocol TypeScript SDK o
 - `write`
 - `revise`
 - `promote`
+- `refresh`
 - `list_recent`
 
 Agents that do not support MCP can still use Memora through CLI commands.
@@ -198,8 +199,9 @@ The current implementation includes these commands:
 ```bash
 mem init
 mem boot --project-id memora
-mem write --kind memory --type decision --scope project --project-id memora --text "Use append-only events"
-mem recall "append-only events" --project-id memora
+mem write --kind memory --type decision --scope project --project-id memora --tag sync --state canonical --text "Use append-only events"
+mem recall "append-only events" --project-id memora --kind memory --type decision --state canonical --tag sync
+mem refresh --project-id memora --cursor 2026-05-27T00:00:00.000Z
 mem revise rec_... --set content.text="Updated memory" --reason "Refined wording"
 mem promote rec_... --state canonical --reason "User confirmed"
 mem list-recent
@@ -230,7 +232,7 @@ This returns ranked memory and skill candidates with reasons.
 When the user asks to refresh memory, or during a periodic check:
 
 ```text
-sync(cursor, current_task)
+refresh(cursor, current_task)
 ```
 
 This reports new changes as `silent`, `notice`, or `interrupt`.

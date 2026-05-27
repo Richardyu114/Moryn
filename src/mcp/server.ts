@@ -52,16 +52,26 @@ export async function runMcpServer(engine: Engine): Promise<void> {
       title: "Recall Memora Records",
       description: "Search memory, skills, soul, session summaries, and agent notes.",
       inputSchema: {
+        record_ids: z.array(z.string().min(1)).optional(),
         query: z.string().optional(),
         project_id: z.string().min(1).optional(),
         kinds: z.array(recordKindSchema).optional(),
+        types: z.array(z.string().min(1)).optional(),
+        states: z.array(recordStateSchema).optional(),
+        tags: z.array(z.string().min(1)).optional(),
+        files: z.array(z.string().min(1)).optional(),
         limit: z.number().int().positive().max(100).optional()
       }
     },
-    async ({ query, project_id, kinds, limit }) => jsonResult(await engine.recall({
+    async ({ record_ids, query, project_id, kinds, types, states, tags, files, limit }) => jsonResult(await engine.recall({
+      record_ids,
       query,
       project_id,
       kinds: kinds as RecordKind[] | undefined,
+      types,
+      states: states as RecordState[] | undefined,
+      tags,
+      files,
       limit
     }))
   );
@@ -139,6 +149,26 @@ export async function runMcpServer(engine: Engine): Promise<void> {
       target_state: target_state as RecordState,
       reason,
       source: source as RecordSource | undefined
+    }))
+  );
+
+  server.registerTool(
+    "refresh",
+    {
+      title: "Refresh Memora Changes",
+      description: "Return important changes since a cursor for periodic agent memory refresh.",
+      inputSchema: {
+        project_id: z.string().min(1).optional(),
+        cursor: z.string().optional(),
+        current_task: z.string().optional(),
+        limit: z.number().int().positive().max(100).optional()
+      }
+    },
+    async ({ project_id, cursor, current_task, limit }) => jsonResult(await engine.refresh({
+      project_id,
+      cursor,
+      current_task,
+      limit
     }))
   );
 

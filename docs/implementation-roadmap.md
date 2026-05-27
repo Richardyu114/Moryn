@@ -72,13 +72,14 @@ Turn raw records into useful bounded context packages.
 
 Deliverables:
 
-- Recall filters: record id, kind, type, state, scope, tags, project, and text.
-- Ranking reasons are explicit and stable.
-- Boot separates profile, project decisions, warnings, skills, recent changes,
+- Done: Recall filters: record id, kind, type, state, tags, files, project, and text.
+- Done: Ranking reasons are explicit and stable.
+- Done: Boot separates profile, project decisions, warnings, skills, recent changes,
   and sync status.
-- `mem refresh` reports changes since a cursor as `silent`, `notice`, or
+- Done: `mem refresh` reports changes since a cursor as `silent`, `notice`, or
   `interrupt`.
-- Agents can request explicit refresh through CLI or MCP.
+- Done: Agents can request explicit refresh through CLI or MCP.
+- Remaining: Add explicit scope filtering to recall.
 
 ## Phase 4: Git Sync
 

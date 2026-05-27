@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { MemoraEvent } from "./types.js";
 
 export const recordKindSchema = z.enum(["memory", "skill", "soul", "session_summary", "agent_note"]);
 export const recordStateSchema = z.enum(["raw", "candidate", "canonical", "archived", "quarantined"]);
@@ -39,10 +40,57 @@ export const recordSchema = z.object({
 
 export type ParsedRecord = z.infer<typeof recordSchema>;
 
+export const eventSchema = z.discriminatedUnion("op", [
+  z.object({
+    event_id: z.string().min(1),
+    op: z.literal("upsert_record"),
+    record: recordSchema,
+    created_at: z.string().datetime(),
+    source: recordSourceSchema
+  }),
+  z.object({
+    event_id: z.string().min(1),
+    op: z.literal("revise_record"),
+    record_id: z.string().min(1),
+    patch: z.record(z.string(), z.unknown()),
+    reason: z.string().optional(),
+    created_at: z.string().datetime(),
+    source: recordSourceSchema
+  }),
+  z.object({
+    event_id: z.string().min(1),
+    op: z.union([z.literal("promote_record"), z.literal("archive_record"), z.literal("quarantine_record")]),
+    record_id: z.string().min(1),
+    target_state: recordStateSchema.optional(),
+    reason: z.string().optional(),
+    created_at: z.string().datetime(),
+    source: recordSourceSchema
+  }),
+  z.object({
+    event_id: z.string().min(1),
+    op: z.literal("link_records"),
+    record_id: z.string().min(1),
+    linked_record_id: z.string().min(1),
+    link_type: z.string().min(1),
+    created_at: z.string().datetime(),
+    source: recordSourceSchema
+  })
+]);
+
+export type ParsedEvent = z.infer<typeof eventSchema>;
+
 export function parseRecord(input: unknown): ParsedRecord {
   const result = recordSchema.safeParse(input);
   if (!result.success) {
     throw new Error(`Invalid record: ${z.prettifyError(result.error)}`);
   }
   return result.data;
+}
+
+export function parseEvent(input: unknown): MemoraEvent {
+  const result = eventSchema.safeParse(input);
+  if (!result.success) {
+    throw new Error(`Invalid event: ${z.prettifyError(result.error)}`);
+  }
+  return result.data as MemoraEvent;
 }

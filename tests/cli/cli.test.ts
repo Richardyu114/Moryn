@@ -48,4 +48,42 @@ describe("mem CLI", () => {
       expect(recall.stdout).toContain("Use project config");
     });
   });
+
+  it("recalls with filters and refreshes changes from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const write = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "blocker",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--tag", "sync",
+        "--tag", "src/sync/git.ts",
+        "--state", "canonical",
+        "--priority", "high",
+        "--text", "Sync must not overwrite local events."
+      ]);
+      const recordId = (JSON.parse(write.stdout) as { record: { id: string } }).record.id;
+
+      const recall = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "recall",
+        "--record-id", recordId,
+        "--project-id", "memora",
+        "--kind", "memory",
+        "--type", "blocker",
+        "--state", "canonical",
+        "--tag", "sync",
+        "--file", "src/sync/git.ts"
+      ]);
+      expect(recall.stdout).toContain("file_match:src/sync/git.ts");
+      expect(recall.stdout).toContain("Sync must not overwrite local events.");
+
+      const refresh = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "refresh", "--project-id", "memora", "--cursor", "2000-01-01T00:00:00.000Z"]);
+      expect(refresh.stdout).toContain("\"importance\": \"interrupt\"");
+      expect(refresh.stdout).toContain(recordId);
+    });
+  });
 });
