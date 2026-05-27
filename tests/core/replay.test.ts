@@ -161,4 +161,48 @@ describe("event replay", () => {
       resolution: "needs_review"
     });
   });
+
+  it("clears replayed conflict metadata when a revision has no conflict", () => {
+    const records = replayEvents([
+      {
+        event_id: "evt_1",
+        op: "upsert_record",
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test" },
+        record: {
+          id: "rec_1",
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "memora",
+          tags: ["sync"],
+          content: { text: "Use SQLite as the source of truth.", format: "text" },
+          state: "canonical",
+          confidence: 0.5,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test" },
+          conflict: {
+            kind: "semantic",
+            with: ["rec_existing"],
+            resolution: "needs_review"
+          }
+        }
+      },
+      {
+        event_id: "evt_2",
+        op: "revise_record",
+        record_id: "rec_1",
+        patch: { "content.text": "Use append-only JSON events." },
+        reason: "Resolved conflict",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "cli" }
+      }
+    ]);
+
+    expect(records.get("rec_1")?.content.text).toBe("Use append-only JSON events.");
+    expect(records.get("rec_1")?.conflict).toBeUndefined();
+  });
 });

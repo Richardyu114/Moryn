@@ -37,6 +37,8 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
       next.updated_at = event.created_at;
       if (event.conflict) {
         next.conflict = event.conflict;
+      } else {
+        delete next.conflict;
       }
       records.set(event.record_id, next as unknown as MemoraRecord);
       continue;

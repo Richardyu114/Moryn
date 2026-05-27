@@ -1,5 +1,6 @@
 import { appendEvent, readEvents } from "./store.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
+import { parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MemoraEvent, MemoraRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { createId } from "./id.js";
@@ -422,6 +423,7 @@ export function createEngine(deps: EngineDeps) {
       const createdAt = nextMutationTimestamp(record, now());
       const source = input.source ?? { client: "memora" };
       const patched = applyRecordPatch(record, input.patch);
+      parseRecord(patched);
       const sensitive = detectSensitiveContent(sensitiveScanText(patched.content));
       const conflicts = !sensitive.sensitive && patched.state === "canonical"
         ? semanticConflicts(await currentRecords(), patched)
