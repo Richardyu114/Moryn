@@ -57,6 +57,12 @@ function validateOptionalString(value: unknown, name: string): void {
   }
 }
 
+function validateRequiredString(value: unknown, name: string): asserts value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Invalid argument: Invalid ${name}`);
+  }
+}
+
 function validateOptionalStringArray(value: unknown, name: string): void {
   if (value === undefined) return;
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.length === 0)) {
@@ -154,10 +160,12 @@ async function findProjectConfig(projectPath: string): Promise<ProjectConfigFile
 }
 
 export async function readProjectConfig(projectPath: string): Promise<ProjectConfig | undefined> {
+  validateRequiredString(projectPath, "projectPath");
   return (await findProjectConfig(projectPath))?.config;
 }
 
 export async function initializeProjectConfig(projectPath: string, input: InitializeProjectConfigInput = {}): Promise<{ config: ProjectConfig; path: string }> {
+  validateRequiredString(projectPath, "projectPath");
   validateInitializeProjectConfigInput(input);
   const resolved = resolve(projectPath);
   await mkdir(resolved, { recursive: true });

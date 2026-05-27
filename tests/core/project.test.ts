@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
-import { initializeProjectConfig, resolveProjectContext } from "../../src/core/project.js";
+import { initializeProjectConfig, readProjectConfig, resolveProjectContext } from "../../src/core/project.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
@@ -24,6 +24,16 @@ async function expectInvalidArgument(action: () => Promise<unknown>, expectedMes
   const envelope = toErrorEnvelope(caught);
   expect(envelope.error.code).toBe("INVALID_ARGUMENT");
   expect(envelope.error.message).toMatch(expectedMessage);
+}
+
+async function withCwd<T>(directory: string, action: () => Promise<T>): Promise<T> {
+  const previous = process.cwd();
+  process.chdir(directory);
+  try {
+    return await action();
+  } finally {
+    process.chdir(previous);
+  }
 }
 
 describe("project config", () => {
@@ -82,6 +92,31 @@ describe("project config", () => {
       );
 
       await expect(access(join(projectPath, ".memora.json"))).rejects.toMatchObject({ code: "ENOENT" });
+    });
+  });
+
+  it("rejects invalid project path arguments before writing config", async () => {
+    await withTempStore(async (projectPath) => {
+      await withCwd(projectPath, async () => {
+        await expectInvalidArgument(
+          () => initializeProjectConfig("", { project_id: "memora" }),
+          /Invalid projectPath/
+        );
+        await expectInvalidArgument(
+          () => initializeProjectConfig(null as never, { project_id: "memora" }),
+          /Invalid projectPath/
+        );
+        await expectInvalidArgument(
+          () => readProjectConfig(""),
+          /Invalid projectPath/
+        );
+        await expectInvalidArgument(
+          () => readProjectConfig(123 as never),
+          /Invalid projectPath/
+        );
+
+        await expect(access(join(projectPath, ".memora.json"))).rejects.toMatchObject({ code: "ENOENT" });
+      });
     });
   });
 
