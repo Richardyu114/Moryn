@@ -190,8 +190,8 @@ function validatePromoteInput(input: PromoteInput): void {
   validateOptionalConfirmed(input.confirmed);
 }
 
-function validateStateChangeInput(input: StateChangeInput): void {
-  assertPlainObject(input, "state change input");
+function validateStateChangeInput(input: StateChangeInput, name: string): void {
+  assertPlainObject(input, name);
   validateRecordId(input.record_id);
   validateOptionalReason(input.reason);
   validateOptionalSource(input.source);
@@ -644,7 +644,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async archive(input: StateChangeInput) {
-      validateStateChangeInput(input);
+      validateStateChangeInput(input, "archive input");
       const record = await requireRecord(input.record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {
@@ -660,7 +660,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async quarantine(input: StateChangeInput) {
-      validateStateChangeInput(input);
+      validateStateChangeInput(input, "quarantine input");
       const record = await requireRecord(input.record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {

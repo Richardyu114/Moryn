@@ -1583,10 +1583,12 @@ describe("core engine", () => {
         source: { client: "test" }
       }), "Invalid confirmed");
 
+      await expectInvalidArgument(() => engine.archive(null as never), "Invalid archive input");
       await expectInvalidArgument(() => engine.archive({
         record_id: "",
         source: { client: "test" }
       }), "Invalid record_id");
+      await expectInvalidArgument(() => engine.quarantine(null as never), "Invalid quarantine input");
       await expectInvalidArgument(() => engine.quarantine({
         record_id: existing.record.id,
         reason: 123 as never,
