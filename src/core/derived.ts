@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { replayEvents } from "./replay.js";
 import { readEvents } from "./store.js";
@@ -35,6 +35,15 @@ async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+async function readJsonIfExists(path: string): Promise<unknown | undefined> {
+  try {
+    return JSON.parse(await readFile(path, "utf8")) as unknown;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
 export async function rebuildDerivedViews(storePath: string): Promise<RebuildResult> {
   const records = [...replayEvents(await readEvents(storePath)).values()];
   const trusted = canonical(records);
@@ -42,12 +51,18 @@ export async function rebuildDerivedViews(storePath: string): Promise<RebuildRes
   const snapshotPath = join(storePath, "snapshots");
   const indexPath = join(storePath, "indexes");
   const generatedFromCursor = [...activeRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at;
+  const syncStatus = await readJsonIfExists(join(storePath, "state", "sync-status.json"))
+    ?? await readJsonIfExists(join(storePath, "indexes", "sync-status.json"));
 
   await rm(snapshotPath, { recursive: true, force: true });
   await rm(indexPath, { recursive: true, force: true });
   await mkdir(join(snapshotPath, "projects"), { recursive: true });
   await mkdir(join(snapshotPath, "skills"), { recursive: true });
   await mkdir(indexPath, { recursive: true });
+
+  if (syncStatus !== undefined) {
+    await writeJson(join(storePath, "state", "sync-status.json"), syncStatus);
+  }
 
   const user = {
     generated_from_cursor: generatedFromCursor,

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -385,6 +385,71 @@ describe("git sync adapter", () => {
         "Remote event should appear in rebuilt index.",
         "Local event should survive push rebase."
       ]));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves legacy sync status when rebuilding derived indexes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-status-migration-"));
+    const store = join(root, "store");
+    try {
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_legacy_sync"
+      });
+      await exec("git", ["init"], { cwd: store });
+      const legacyStatus = {
+        operation: "pull",
+        at: "2026-05-27T00:01:00.000Z",
+        commit: "abc123"
+      };
+      await mkdir(join(store, "indexes"), { recursive: true });
+      await writeFile(join(store, "indexes", "sync-status.json"), `${JSON.stringify(legacyStatus, null, 2)}\n`, "utf8");
+
+      await rebuildDerivedViews(store);
+
+      await expect(readFile(join(store, "indexes", "sync-status.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(store, "state", "sync-status.json"), "utf8")).resolves.toBe(`${JSON.stringify(legacyStatus, null, 2)}\n`);
+      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
+        last_sync: legacyStatus
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not overwrite current sync status with legacy index status during rebuild", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-status-current-"));
+    const store = join(root, "store");
+    try {
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_current_sync"
+      });
+      await exec("git", ["init"], { cwd: store });
+      const legacyStatus = {
+        operation: "pull",
+        at: "2026-05-27T00:01:00.000Z",
+        commit: "legacy"
+      };
+      const currentStatus = {
+        operation: "push",
+        at: "2026-05-27T00:02:00.000Z",
+        commit: "current"
+      };
+      await mkdir(join(store, "indexes"), { recursive: true });
+      await mkdir(join(store, "state"), { recursive: true });
+      await writeFile(join(store, "indexes", "sync-status.json"), `${JSON.stringify(legacyStatus, null, 2)}\n`, "utf8");
+      await writeFile(join(store, "state", "sync-status.json"), `${JSON.stringify(currentStatus, null, 2)}\n`, "utf8");
+
+      await rebuildDerivedViews(store);
+
+      await expect(readFile(join(store, "indexes", "sync-status.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(store, "state", "sync-status.json"), "utf8")).resolves.toBe(`${JSON.stringify(currentStatus, null, 2)}\n`);
+      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
+        last_sync: currentStatus
+      }));
     } finally {
       await rm(root, { recursive: true, force: true });
     }
