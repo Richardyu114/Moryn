@@ -1,15 +1,33 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import { toErrorEnvelope } from "../../src/core/errors.js";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeStore } from "../../src/core/config.js";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
+
+async function expectInvalidArgument(action: () => Promise<unknown>, expectedMessage: RegExp): Promise<void> {
+  let caught: unknown;
+  try {
+    await action();
+  } catch (error) {
+    caught = error;
+  }
+
+  if (!caught) {
+    throw new Error("Expected invalid argument");
+  }
+
+  const envelope = toErrorEnvelope(caught);
+  expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+  expect(envelope.error.message).toMatch(expectedMessage);
+}
 
 describe("git sync adapter", () => {
   it("reports unconfigured status outside a git repo", async () => {
@@ -19,6 +37,48 @@ describe("git sync adapter", () => {
       expect(status.configured).toBe(false);
     } finally {
       await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects invalid sync arguments before mutating git state", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-invalid-"));
+    const store = join(root, "store");
+    const remote = join(root, "remote.git");
+    try {
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_invalid"
+      });
+
+      await expectInvalidArgument(
+        () => initializeGitSync(store, ""),
+        /Invalid remoteUrl/
+      );
+      await expectInvalidArgument(
+        () => initializeGitSync("", remote),
+        /Invalid storePath/
+      );
+      await expectInvalidArgument(
+        () => getGitSyncStatus(""),
+        /Invalid storePath/
+      );
+      await expectInvalidArgument(
+        () => pullGitSync(123 as never),
+        /Invalid storePath/
+      );
+      await expectInvalidArgument(
+        () => pushGitSync(store, null as never),
+        /Invalid sync options/
+      );
+      await expectInvalidArgument(
+        () => pushGitSync(store, { message: "" }),
+        /Invalid message/
+      );
+
+      await expect(access(join(store, ".git"))).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(access(join(store, ".gitignore"))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 

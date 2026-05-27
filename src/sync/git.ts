@@ -32,6 +32,26 @@ export interface GitSyncResult {
   message?: string;
 }
 
+function validateRequiredString(value: unknown, name: string): asserts value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Invalid argument: Invalid ${name}`);
+  }
+}
+
+function validateOptionalString(value: unknown, name: string): void {
+  if (value === undefined) return;
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Invalid argument: Invalid ${name}`);
+  }
+}
+
+function validateSyncOptions(options: unknown): asserts options is { message?: string } {
+  if (options === null || typeof options !== "object" || Array.isArray(options)) {
+    throw new Error("Invalid argument: Invalid sync options");
+  }
+  validateOptionalString((options as { message?: unknown }).message, "message");
+}
+
 async function git(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await exec("git", args, { cwd });
   return stdout.trim();
@@ -111,6 +131,8 @@ async function ensureRemote(storePath: string, remoteUrl: string): Promise<void>
 }
 
 export async function initializeGitSync(storePath: string, remoteUrl: string): Promise<GitSyncResult> {
+  validateRequiredString(storePath, "storePath");
+  validateRequiredString(remoteUrl, "remoteUrl");
   if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) {
     await git(storePath, ["init"]);
   }
@@ -136,6 +158,7 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
 }
 
 export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus> {
+  validateRequiredString(storePath, "storePath");
   try {
     const configured = await gitOk(storePath, ["rev-parse", "--git-dir"]);
     if (!configured) return { configured: false, error: "Not a git repository" };
@@ -173,6 +196,7 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
 }
 
 export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
+  validateRequiredString(storePath, "storePath");
   if (!await hasRemoteHead(storePath)) {
     return { ok: true, pulled: false, message: "Remote branch main does not exist yet" };
   }
@@ -191,6 +215,8 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
 }
 
 export async function pushGitSync(storePath: string, options: { message?: string } = {}): Promise<GitSyncResult> {
+  validateRequiredString(storePath, "storePath");
+  validateSyncOptions(options);
   await ensureGitIgnore(storePath);
   await ensureGitIdentity(storePath);
   await ensureMainBranch(storePath);
