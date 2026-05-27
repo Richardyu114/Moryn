@@ -330,8 +330,14 @@ function projectScopedRecords(records: MemoraRecord[], projectId: string | undef
   return records.filter((record) => record.scope === "project" && record.project_id === projectId);
 }
 
-function uniqueTexts(records: MemoraRecord[]): string[] {
-  return [...new Set(records.map(textOf).filter(Boolean))];
+function boundedBootTexts(records: MemoraRecord[], limit = 5): string[] {
+  const texts: string[] = [];
+  for (const record of boundedBootRecords(records, records.length)) {
+    const text = textOf(record);
+    if (text && !texts.includes(text)) texts.push(text);
+    if (texts.length >= limit) break;
+  }
+  return texts;
 }
 
 function isImportantBootRecent(record: MemoraRecord): boolean {
@@ -871,8 +877,8 @@ export function createEngine(deps: EngineDeps) {
         },
         project: {
           summary: [...projectMemoryRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).find((record) => record.type === "summary" || record.type === "project_summary")?.content.text ?? "",
-          tech_stack: uniqueTexts(projectMemoryRecords.filter((record) => record.type === "tech_stack")),
-          active_goals: uniqueTexts(projectMemoryRecords.filter((record) => record.type === "active_goal" || record.type === "goal")),
+          tech_stack: boundedBootTexts(projectMemoryRecords.filter((record) => record.type === "tech_stack")),
+          active_goals: boundedBootTexts(projectMemoryRecords.filter((record) => record.type === "active_goal" || record.type === "goal")),
           important_decisions: boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "decision")),
           warnings: boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker"))
         },

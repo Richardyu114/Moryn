@@ -1487,6 +1487,8 @@ describe("core engine", () => {
       const warningIds: string[] = [];
       const skillIds: string[] = [];
       const preferenceIds: string[] = [];
+      const techStackTexts: string[] = [];
+      const goalTexts: string[] = [];
 
       for (let index = 1; index <= 7; index++) {
         const preference = await engine.write({
@@ -1533,6 +1535,30 @@ describe("core engine", () => {
           source: { client: "user" }
         });
         skillIds.push(skill.record.id);
+
+        const techStack = await engine.write({
+          kind: "memory",
+          type: "tech_stack",
+          scope: "project",
+          project_id: "memora",
+          content: { text: `Tech ${index}`, format: "text" },
+          state: "canonical",
+          priority: index <= 2 ? "high" : "normal",
+          source: { client: "test" }
+        });
+        techStackTexts.push(techStack.record.content.text);
+
+        const goal = await engine.write({
+          kind: "memory",
+          type: "active_goal",
+          scope: "project",
+          project_id: "memora",
+          content: { text: `Goal ${index}`, format: "text" },
+          state: "canonical",
+          priority: index <= 2 ? "high" : "normal",
+          source: { client: "test" }
+        });
+        goalTexts.push(goal.record.content.text);
       }
 
       const boot = await engine.boot({ project_id: "memora" });
@@ -1557,6 +1583,22 @@ describe("core engine", () => {
       ]);
       expect(boot.skills.map((record) => record.id)).toHaveLength(5);
       expect(boot.skills.map((record) => record.id)).toEqual(skillIds.slice(-5).reverse());
+      expect(boot.project.tech_stack).toHaveLength(5);
+      expect(boot.project.tech_stack).toEqual([
+        techStackTexts[1],
+        techStackTexts[0],
+        techStackTexts[6],
+        techStackTexts[5],
+        techStackTexts[4]
+      ]);
+      expect(boot.project.active_goals).toHaveLength(5);
+      expect(boot.project.active_goals).toEqual([
+        goalTexts[1],
+        goalTexts[0],
+        goalTexts[6],
+        goalTexts[5],
+        goalTexts[4]
+      ]);
     });
   });
 
