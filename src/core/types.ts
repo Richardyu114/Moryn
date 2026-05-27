@@ -30,6 +30,12 @@ export interface RecordLink {
   created_at: string;
 }
 
+export interface RecordConflict {
+  kind: "semantic";
+  with: string[];
+  resolution: "needs_review" | "resolved";
+}
+
 export interface MemoraRecord {
   id: string;
   kind: RecordKind;
@@ -46,6 +52,7 @@ export interface MemoraRecord {
   updated_at: string;
   source: RecordSource;
   provenance?: RecordProvenance;
+  conflict?: RecordConflict;
   links?: RecordLink[];
 }
 
@@ -72,6 +79,7 @@ export type MemoraEvent =
       record_id: string;
       target_state?: RecordState;
       reason?: string;
+      confirmed?: boolean;
       created_at: string;
       source: RecordSource;
     }

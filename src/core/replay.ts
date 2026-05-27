@@ -52,7 +52,7 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
           ? {
               ...(record.provenance ?? {}),
               reason: event.reason ?? record.provenance?.reason,
-              method: event.source.client === "user" ? "user-confirmed" : "rule-promoted",
+              method: event.confirmed === true || event.source.client === "user" ? "user-confirmed" : "rule-promoted",
               promoted_at: event.created_at
             }
           : record.provenance

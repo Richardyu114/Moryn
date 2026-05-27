@@ -377,6 +377,57 @@ describe("core engine", () => {
     });
   });
 
+  it("marks semantic conflicts and requires confirmation before conflicting canonical writes", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const existing = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        tags: ["sync", "storage"],
+        content: { text: "Use append-only JSON events.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      const conflicting = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        tags: ["sync", "storage"],
+        content: { text: "Use SQLite as the source of truth.", format: "text" },
+        state: "canonical",
+        source: { client: "agent" }
+      });
+
+      expect(conflicting.record.state).toBe("candidate");
+      expect(conflicting.warning?.code).toBe("CONFIRMATION_REQUIRED");
+      expect(conflicting.record.conflict).toEqual({
+        kind: "semantic",
+        with: [existing.record.id],
+        resolution: "needs_review"
+      });
+
+      const confirmed = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        tags: ["sync", "storage"],
+        content: { text: "Use SQLite for local indexes only.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      expect(confirmed.record.state).toBe("canonical");
+      expect(confirmed.record.conflict?.with).toContain(existing.record.id);
+    });
+  });
+
   it("rejects high-risk canonical promotion without user confirmation", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
@@ -409,6 +460,7 @@ describe("core engine", () => {
       });
       const confirmed = await engine.recall({ record_ids: [soul.record.id] });
       expect(confirmed.results[0]?.record.state).toBe("canonical");
+      expect(confirmed.results[0]?.record.provenance?.method).toBe("user-confirmed");
     });
   });
 

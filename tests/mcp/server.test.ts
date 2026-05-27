@@ -519,4 +519,52 @@ describe("MCP stdio server", () => {
       await rm(store, { recursive: true, force: true });
     }
   });
+
+  it("marks conflicting MCP canonical writes as candidates", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-conflict-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const existing = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            tags: ["sync"],
+            text: "Use append-only JSON events.",
+            state: "canonical",
+            confirmed: true,
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+
+        const conflicting = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            tags: ["sync"],
+            text: "Use SQLite as the source of truth.",
+            state: "canonical",
+            source: { client: "mcp-test" }
+          }
+        })) as {
+          record: { state: string; conflict?: { with: string[]; resolution: string } };
+          warning?: { code: string };
+        };
+
+        expect(conflicting.record.state).toBe("candidate");
+        expect(conflicting.warning?.code).toBe("CONFIRMATION_REQUIRED");
+        expect(conflicting.record.conflict?.with).toEqual([existing.record.id]);
+        expect(conflicting.record.conflict?.resolution).toBe("needs_review");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
 });

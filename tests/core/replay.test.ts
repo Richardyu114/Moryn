@@ -66,4 +66,46 @@ describe("event replay", () => {
       }
     ]);
   });
+
+  it("treats confirmed canonical promotion as user-confirmed provenance", () => {
+    const records = replayEvents([
+      {
+        event_id: "evt_1",
+        op: "upsert_record",
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "codex" },
+        record: {
+          id: "rec_1",
+          kind: "soul",
+          type: "preference",
+          scope: "global",
+          tags: [],
+          content: { text: "Prefer concise answers.", format: "text" },
+          state: "candidate",
+          confidence: 0.5,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "codex" }
+        }
+      },
+      {
+        event_id: "evt_2",
+        op: "promote_record",
+        record_id: "rec_1",
+        target_state: "canonical",
+        reason: "User confirmed",
+        confirmed: true,
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "cli" }
+      }
+    ]);
+
+    expect(records.get("rec_1")?.provenance).toEqual({
+      reason: "User confirmed",
+      method: "user-confirmed",
+      promoted_at: "2026-05-27T00:01:00.000Z"
+    });
+  });
 });

@@ -44,6 +44,11 @@ export const recordSchema = z.object({
     method: z.enum(["agent-proposed", "rule-promoted", "user-confirmed"]).optional(),
     promoted_at: z.string().datetime().optional()
   }).optional(),
+  conflict: z.object({
+    kind: z.literal("semantic"),
+    with: z.array(z.string().min(1)),
+    resolution: z.enum(["needs_review", "resolved"])
+  }).optional(),
   links: z.array(recordLinkSchema).optional()
 });
 
@@ -72,6 +77,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     record_id: z.string().min(1),
     target_state: recordStateSchema.optional(),
     reason: z.string().optional(),
+    confirmed: z.boolean().optional(),
     created_at: z.string().datetime(),
     source: recordSourceSchema
   }),

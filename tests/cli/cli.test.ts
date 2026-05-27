@@ -548,6 +548,47 @@ describe("mem CLI", () => {
     });
   });
 
+  it("marks conflicting CLI canonical writes as candidates", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      const existing = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--tag", "sync",
+        "--state", "canonical",
+        "--text", "Use append-only JSON events.",
+        "--confirm"
+      ]);
+      const existingId = (JSON.parse(existing.stdout) as { record: { id: string } }).record.id;
+
+      const conflicting = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--tag", "sync",
+        "--state", "canonical",
+        "--text", "Use SQLite as the source of truth."
+      ]);
+      const parsed = JSON.parse(conflicting.stdout) as {
+        record: { state: string; conflict?: { with: string[]; resolution: string } };
+        warning?: { code: string };
+      };
+
+      expect(parsed.record.state).toBe("candidate");
+      expect(parsed.warning?.code).toBe("CONFIRMATION_REQUIRED");
+      expect(parsed.record.conflict?.with).toEqual([existingId]);
+      expect(parsed.record.conflict?.resolution).toBe("needs_review");
+    });
+  });
+
   it("returns structured JSON errors before using an uninitialized store", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "missing-store");

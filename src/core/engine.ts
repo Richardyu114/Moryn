@@ -271,6 +271,28 @@ function requiresCanonicalConfirmation(input: { kind: RecordKind; type: string; 
     || (type === "rule" && input.scope === "global");
 }
 
+function textFromContent(content: Record<string, unknown> & { text?: string }): string {
+  return typeof content.text === "string" ? content.text.trim().toLowerCase() : JSON.stringify(content).toLowerCase();
+}
+
+function tagOverlap(left: string[], right: string[]): boolean {
+  const rightTags = new Set(right);
+  return left.some((tag) => rightTags.has(tag));
+}
+
+function semanticConflicts(records: MemoraRecord[], input: WriteInput): MemoraRecord[] {
+  if (input.kind !== "memory") return [];
+  const inputText = textFromContent(input.content);
+  if (!inputText) return [];
+  return records.filter((record) => record.state === "canonical")
+    .filter((record) => record.kind === input.kind)
+    .filter((record) => record.type === input.type)
+    .filter((record) => record.scope === input.scope)
+    .filter((record) => record.project_id === input.project_id)
+    .filter((record) => tagOverlap(record.tags, input.tags ?? []))
+    .filter((record) => textFromContent(record.content) !== inputText);
+}
+
 export function createEngine(deps: EngineDeps) {
   const now = deps.now ?? (() => new Date().toISOString());
   const id = deps.id ?? createId;
@@ -301,8 +323,10 @@ export function createEngine(deps: EngineDeps) {
     async write(input: WriteInput) {
       const createdAt = now();
       const sensitive = detectSensitiveContent(sensitiveScanText(input.content));
+      const conflicts = sensitive.sensitive ? [] : semanticConflicts(await currentRecords(), input);
+      const needsConflictConfirmation = input.state === "canonical" && conflicts.length > 0 && !isUserConfirmed(input.source, input.confirmed);
       const needsConfirmation = input.state === "canonical"
-        && requiresCanonicalConfirmation(input)
+        && (requiresCanonicalConfirmation(input) || conflicts.length > 0)
         && !isUserConfirmed(input.source, input.confirmed);
       const state = sensitive.sensitive
         ? "quarantined"
@@ -328,7 +352,10 @@ export function createEngine(deps: EngineDeps) {
         provenance: {
           ...(input.provenance ?? {}),
           method: input.provenance?.method ?? provenanceMethod(input.source, input.confirmed)
-        }
+        },
+        conflict: conflicts.length
+          ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
+          : undefined
       };
       const event: MemoraEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source: input.source };
       await appendEvent(deps.storePath, event);
@@ -337,7 +364,12 @@ export function createEngine(deps: EngineDeps) {
         warning: sensitive.sensitive
           ? { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason }
           : needsConfirmation
-            ? { code: "CONFIRMATION_REQUIRED", reason: "canonical state requires explicit user confirmation" }
+            ? {
+                code: "CONFIRMATION_REQUIRED",
+                reason: needsConflictConfirmation
+                  ? "conflicting canonical memory requires explicit user confirmation"
+                  : "canonical state requires explicit user confirmation"
+              }
             : undefined
       };
     },
@@ -394,6 +426,7 @@ export function createEngine(deps: EngineDeps) {
         record_id: input.record_id,
         target_state: input.target_state,
         reason: input.reason,
+        confirmed: input.confirmed,
         created_at: createdAt,
         source
       };
