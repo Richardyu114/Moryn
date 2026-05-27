@@ -190,6 +190,33 @@ describe("core engine", () => {
     });
   });
 
+  it("rejects revisions that attempt to change managed record state fields", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Use promotion events for state transitions.", format: "text" },
+        state: "candidate",
+        source: { client: "test" }
+      });
+
+      await expect(engine.revise({
+        record_id: written.record.id,
+        patch: { state: "canonical" },
+        reason: "Bypass promotion",
+        source: { client: "test" }
+      })).rejects.toThrow(/managed field/);
+
+      const recall = await engine.recall({ record_ids: [written.record.id], states: ["candidate"] });
+      expect(recall.results[0]?.record.state).toBe("candidate");
+    });
+  });
+
   it("scans full structured content for sensitive values", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

@@ -284,6 +284,41 @@ describe("mem CLI", () => {
     });
   });
 
+  it("rejects CLI revisions that attempt to change managed fields", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const write = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--state", "candidate",
+        "--text", "Use promote for state transitions."
+      ]);
+      const recordId = (JSON.parse(write.stdout) as { record: { id: string } }).record.id;
+
+      try {
+        await exec("node", [
+          "--import", "tsx", "src/cli.ts", "--store", dir,
+          "revise",
+          recordId,
+          "--set", "state=\"canonical\"",
+          "--reason", "Bypass promotion"
+        ]);
+        throw new Error("Expected mem revise to reject managed state patch");
+      } catch (error) {
+        if (!("stderr" in (error as object))) throw error;
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.message).toContain("managed field state");
+        expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+      }
+    });
+  });
+
   it("filters refresh interrupts by current task from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

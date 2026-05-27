@@ -262,6 +262,27 @@ function redactSensitivePatch(patch: Record<string, unknown>): Record<string, un
   return Object.fromEntries(Object.entries(patch).map(([path, value]) => [path, redactSensitiveValue(value, path)]));
 }
 
+const managedRevisionFields = new Set([
+  "id",
+  "kind",
+  "scope",
+  "state",
+  "visibility",
+  "created_at",
+  "updated_at",
+  "source",
+  "provenance",
+  "conflict",
+  "links"
+]);
+
+function assertRevisionPatchIsSafe(patch: Record<string, unknown>): void {
+  const managed = Object.keys(patch).find((path) => managedRevisionFields.has(path.split(".")[0] as string));
+  if (managed) {
+    throw new Error(`Invalid argument: revise cannot modify managed field ${managed}`);
+  }
+}
+
 function isUserConfirmed(source: RecordSource, confirmed?: boolean): boolean {
   return confirmed === true || source.client === "user";
 }
@@ -397,6 +418,7 @@ export function createEngine(deps: EngineDeps) {
 
     async revise(input: { record_id: string; patch: Record<string, unknown>; reason?: string; source?: RecordSource }) {
       const record = await requireRecord(input.record_id);
+      assertRevisionPatchIsSafe(input.patch);
       const createdAt = nextMutationTimestamp(record, now());
       const source = input.source ?? { client: "memora" };
       const patched = applyRecordPatch(record, input.patch);

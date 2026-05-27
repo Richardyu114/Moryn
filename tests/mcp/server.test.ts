@@ -436,6 +436,45 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns structured JSON errors for managed-field revisions over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-managed-revision-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const write = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            text: "Use promote for MCP state transitions.",
+            state: "candidate",
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+
+        const result = parseTextContent(await client.callTool({
+          name: "revise",
+          arguments: {
+            record_id: write.record.id,
+            patch: { state: "canonical" },
+            reason: "Bypass promotion",
+            source: { client: "mcp-test" }
+          }
+        })) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("managed field state");
+        expect(result.error.recommended_action).toBe("fix the command arguments and retry");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("requires explicit MCP confirmation for high-risk canonical changes", async () => {
     const store = await mkdtemp(join(tmpdir(), "memora-mcp-confirm-"));
     try {
