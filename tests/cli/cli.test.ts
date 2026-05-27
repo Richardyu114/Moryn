@@ -643,6 +643,36 @@ describe("mem CLI", () => {
     });
   });
 
+  it("returns structured JSON errors for CLI parser failures", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      for (const { args, message } of [
+        {
+          args: ["write", "--scope", "project", "--type", "decision", "--text", "Parser errors should still be structured."],
+          message: "required option '--kind <kind>'"
+        },
+        {
+          args: ["write", "--kind", "memory", "--scope", "project", "--text", "Parser errors should still be structured."],
+          message: "required option '--type <type>'"
+        }
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected mem ${args.join(" ")} to reject missing input`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recoverable: boolean; recommended_action: string } };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain(message);
+          expect(parsed.error.recoverable).toBe(true);
+          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        }
+      }
+    });
+  });
+
   it("returns structured JSON errors for malformed store config during init", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

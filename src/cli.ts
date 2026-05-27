@@ -2,7 +2,7 @@
 
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { Command } from "commander";
+import { Command, CommanderError } from "commander";
 import { version } from "./index.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
@@ -119,6 +119,10 @@ program
   .name("mem")
   .description("Memora CLI")
   .version(version)
+  .configureOutput({
+    outputError: () => {}
+  })
+  .exitOverride()
   .option("--store <path>", "Override Memora store path");
 
 program.command("init").action(async () => {
@@ -146,14 +150,14 @@ program.command("write")
     const project = options.project ? await resolveProjectContext({ projectPath: options.project, projectId: options.projectId }) : undefined;
     const type = options.type ?? (options.kind === "session_summary" ? "summary" : undefined);
     const scope = options.scope ?? (options.kind === "session_summary" ? "project" : undefined);
-    if (!type) throw new Error("Missing required option --type <type> for write");
-    if (!scope) throw new Error("Missing required option --scope <scope> for write");
+    if (!type) throw new Error("Invalid argument: required option '--type <type>' not specified");
+    if (!scope) throw new Error("Invalid argument: required option '--scope <scope>' not specified");
     const content = parseContentJson(options.contentJson);
     if (content && options.text !== undefined) {
       throw new Error("Invalid argument: use either --text or --content-json, not both");
     }
     if (!content && options.text === undefined) {
-      throw new Error("Missing required option --text <text> or --content-json <json> for write");
+      throw new Error("Invalid argument: required option '--text <text>' or '--content-json <json>' not specified");
     }
     const result = await engine.write({
       kind: parseEnum(options.kind, recordKinds, "--kind")!,
@@ -361,6 +365,18 @@ sync
   });
 
 program.parseAsync().catch((error: unknown) => {
+  if (error instanceof CommanderError && error.exitCode === 0) {
+    process.exitCode = 0;
+    return;
+  }
+
+  if (error instanceof CommanderError) {
+    const message = error.message.startsWith("error: ") ? error.message.slice("error: ".length) : error.message;
+    printError(new Error(`Invalid argument: ${message}`));
+    process.exitCode = error.exitCode;
+    return;
+  }
+
   printError(error);
   process.exitCode = 1;
 });
