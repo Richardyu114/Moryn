@@ -47,6 +47,19 @@ describe("event replay", () => {
       },
       {
         event_id: "evt_4",
+        op: "upsert_record",
+        created_at: "2026-05-27T00:02:30.000Z",
+        source: { client: "test" },
+        record: {
+          ...baseRecord,
+          id: "rec_2",
+          content: { text: "Superseded", format: "text" },
+          created_at: "2026-05-27T00:02:30.000Z",
+          updated_at: "2026-05-27T00:02:30.000Z"
+        }
+      },
+      {
+        event_id: "evt_5",
         op: "link_records",
         record_id: "rec_1",
         linked_record_id: "rec_2",
@@ -132,6 +145,61 @@ describe("event replay", () => {
         source: { client: "test" }
       }
     ])).toThrow(/Invalid replay state transition for event evt_4/);
+  });
+
+  it("rejects replayed mutation events that target missing records", () => {
+    expect(() => replayEvents([
+      {
+        event_id: "evt_missing_revision",
+        op: "revise_record",
+        record_id: "rec_missing",
+        patch: { "content.text": "No target exists." },
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "test" }
+      }
+    ])).toThrow(/Invalid replay target for event evt_missing_revision: Record not found: rec_missing/);
+
+    expect(() => replayEvents([
+      {
+        event_id: "evt_missing_promotion",
+        op: "promote_record",
+        record_id: "rec_missing",
+        target_state: "canonical",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "test" }
+      }
+    ])).toThrow(/Invalid replay target for event evt_missing_promotion: Record not found: rec_missing/);
+
+    expect(() => replayEvents([
+      {
+        event_id: "evt_missing_link",
+        op: "link_records",
+        record_id: "rec_missing",
+        linked_record_id: "rec_other",
+        link_type: "supersedes",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "test" }
+      }
+    ])).toThrow(/Invalid replay target for event evt_missing_link: Record not found: rec_missing/);
+
+    expect(() => replayEvents([
+      {
+        event_id: "evt_1",
+        op: "upsert_record",
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test" },
+        record: baseRecord
+      },
+      {
+        event_id: "evt_missing_linked_record",
+        op: "link_records",
+        record_id: "rec_1",
+        linked_record_id: "rec_missing",
+        link_type: "supersedes",
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "test" }
+      }
+    ])).toThrow(/Invalid replay target for event evt_missing_linked_record: Linked record not found: rec_missing/);
   });
 
   it("treats confirmed canonical promotion as user-confirmed provenance", () => {

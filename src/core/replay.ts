@@ -31,6 +31,14 @@ function validateReplayRecord(event: MemoraEvent, record: MemoraRecord): MemoraR
   }
 }
 
+function requireReplayRecord(records: Map<string, MemoraRecord>, event: MemoraEvent, recordId: string, label = "Record"): MemoraRecord {
+  const record = records.get(recordId);
+  if (!record) {
+    throw new Error(`Invalid replay target for event ${event.event_id}: ${label} not found: ${recordId}`);
+  }
+  return record;
+}
+
 function replayStateTransition(event: Extract<MemoraEvent, { op: "promote_record" | "archive_record" | "quarantine_record" }>): RecordState {
   if (event.op === "promote_record") {
     if (!event.target_state) {
@@ -57,8 +65,7 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
     }
 
     if (event.op === "revise_record") {
-      const record = records.get(event.record_id);
-      if (!record) continue;
+      const record = requireReplayRecord(records, event, event.record_id);
       const next = applyRecordPatch(record, event.patch) as unknown as Record<string, unknown>;
       next.updated_at = event.created_at;
       if (event.conflict) {
@@ -71,8 +78,7 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
     }
 
     if (event.op === "promote_record" || event.op === "archive_record" || event.op === "quarantine_record") {
-      const record = records.get(event.record_id);
-      if (!record) continue;
+      const record = requireReplayRecord(records, event, event.record_id);
       const state = replayStateTransition(event);
       records.set(event.record_id, validateReplayRecord(event, {
         ...record,
@@ -95,8 +101,8 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
     }
 
     if (event.op === "link_records") {
-      const record = records.get(event.record_id);
-      if (!record) continue;
+      const record = requireReplayRecord(records, event, event.record_id);
+      requireReplayRecord(records, event, event.linked_record_id, "Linked record");
       records.set(event.record_id, validateReplayRecord(event, {
         ...record,
         links: [
