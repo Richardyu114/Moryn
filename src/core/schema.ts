@@ -40,7 +40,9 @@ export const recordSchema = z.object({
   source: recordSourceSchema,
   provenance: z.object({
     derived_from: z.array(z.string()).optional(),
-    reason: z.string().optional()
+    reason: z.string().optional(),
+    method: z.enum(["agent-proposed", "rule-promoted", "user-confirmed"]).optional(),
+    promoted_at: z.string().datetime().optional()
   }).optional(),
   links: z.array(recordLinkSchema).optional()
 });

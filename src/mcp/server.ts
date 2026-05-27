@@ -168,6 +168,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         state: recordStateSchema.optional(),
         confidence: z.number().min(0).max(1).optional(),
         priority: z.enum(["low", "normal", "high"]).optional(),
+        provenance: z.object({
+          derived_from: z.array(z.string().min(1)).optional(),
+          reason: z.string().optional()
+        }).optional(),
         confirmed: z.boolean().optional(),
         source: sourceSchema.optional()
       }
@@ -186,7 +190,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         confidence: input.confidence,
         priority: input.priority,
         source: (input.source ?? { client: "mcp" }) as RecordSource,
-        confirmed: input.confirmed
+        confirmed: input.confirmed,
+        provenance: input.provenance
       });
     })
   );

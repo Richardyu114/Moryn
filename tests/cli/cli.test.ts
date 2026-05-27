@@ -112,6 +112,39 @@ describe("mem CLI", () => {
     });
   });
 
+  it("writes provenance from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const write = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--state", "candidate",
+        "--derived-from", "rec_source",
+        "--reason", "Derived from handoff summary.",
+        "--text", "Use provenance metadata."
+      ]);
+      const parsed = JSON.parse(write.stdout) as {
+        record: {
+          provenance?: {
+            derived_from?: string[];
+            reason?: string;
+            method?: string;
+          };
+        };
+      };
+
+      expect(parsed.record.provenance).toEqual({
+        derived_from: ["rec_source"],
+        reason: "Derived from handoff summary.",
+        method: "agent-proposed"
+      });
+    });
+  });
+
   it("writes project session summaries with handoff defaults from the CLI", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

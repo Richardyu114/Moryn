@@ -29,6 +29,49 @@ describe("core engine", () => {
     });
   });
 
+  it("preserves provenance on writes and canonical promotion", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        tags: ["sync"],
+        content: { text: "Use event provenance.", format: "text" },
+        state: "candidate",
+        source: { client: "codex", session_id: "sess_1" },
+        provenance: {
+          derived_from: ["rec_source"],
+          reason: "Derived from the design discussion."
+        }
+      });
+
+      expect(written.record.provenance).toEqual({
+        derived_from: ["rec_source"],
+        reason: "Derived from the design discussion.",
+        method: "agent-proposed"
+      });
+
+      await engine.promote({
+        record_id: written.record.id,
+        target_state: "canonical",
+        reason: "User confirmed this decision.",
+        source: { client: "user" }
+      });
+
+      const recall = await engine.recall({ record_ids: [written.record.id] });
+      expect(recall.results[0]?.record.provenance).toEqual({
+        derived_from: ["rec_source"],
+        reason: "User confirmed this decision.",
+        method: "user-confirmed",
+        promoted_at: "2026-05-27T00:00:00.001Z"
+      });
+    });
+  });
+
   it("orders rapid same-millisecond mutations after the record creation event", async () => {
     await withInitializedTempStore(async (storePath) => {
       const ids = ["rec_1", "evt_z_upsert", "evt_a_revise"];

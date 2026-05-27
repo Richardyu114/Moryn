@@ -20,6 +20,8 @@ export interface RecordSource {
 export interface RecordProvenance {
   derived_from?: string[];
   reason?: string;
+  method?: "agent-proposed" | "rule-promoted" | "user-confirmed";
+  promoted_at?: string;
 }
 
 export interface RecordLink {

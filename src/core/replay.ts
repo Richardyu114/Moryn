@@ -47,7 +47,15 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
         ...record,
         state: state as RecordState,
         visibility: state === "canonical" || state === "candidate" || state === "raw" ? "active" : state,
-        updated_at: event.created_at
+        updated_at: event.created_at,
+        provenance: event.op === "promote_record" && state === "canonical"
+          ? {
+              ...(record.provenance ?? {}),
+              reason: event.reason ?? record.provenance?.reason,
+              method: event.source.client === "user" ? "user-confirmed" : "rule-promoted",
+              promoted_at: event.created_at
+            }
+          : record.provenance
       });
       continue;
     }

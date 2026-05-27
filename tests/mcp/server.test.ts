@@ -485,4 +485,38 @@ describe("MCP stdio server", () => {
       await rm(store, { recursive: true, force: true });
     }
   });
+
+  it("writes provenance over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-provenance-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const write = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            text: "Use provenance metadata.",
+            state: "candidate",
+            provenance: {
+              derived_from: ["rec_source"],
+              reason: "Derived from handoff summary."
+            },
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { provenance?: { derived_from?: string[]; reason?: string; method?: string } } };
+
+        expect(write.record.provenance).toEqual({
+          derived_from: ["rec_source"],
+          reason: "Derived from handoff summary.",
+          method: "agent-proposed"
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
 });

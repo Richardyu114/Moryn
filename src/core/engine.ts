@@ -1,7 +1,7 @@
 import { appendEvent, readEvents } from "./store.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
-import { detectSensitiveContent, redactSensitiveContent } from "./sensitive.js";
-import type { MemoraEvent, MemoraRecord, RecordKind, RecordScope, RecordSource, RecordState } from "./types.js";
+import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
+import type { MemoraEvent, MemoraRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { createId } from "./id.js";
 
 interface EngineDeps {
@@ -23,6 +23,7 @@ interface WriteInput {
   priority?: "low" | "normal" | "high";
   source: RecordSource;
   confirmed?: boolean;
+  provenance?: RecordProvenance;
 }
 
 interface RecallInput {
@@ -223,29 +224,6 @@ function refreshImportance(record: MemoraRecord, currentTask: string | undefined
   return { importance: "silent" };
 }
 
-function collectSensitiveScanFragments(value: unknown, keyPath?: string): string[] {
-  if (typeof value === "string") {
-    return keyPath ? [value, `${keyPath}=${value}`] : [value];
-  }
-  if (Array.isArray(value)) {
-    return value.flatMap((item, index) => collectSensitiveScanFragments(item, keyPath ? `${keyPath}.${index}` : String(index)));
-  }
-  if (typeof value === "object" && value !== null) {
-    return Object.entries(value).flatMap(([key, nested]) => {
-      const nextPath = keyPath ? `${keyPath}.${key}` : key;
-      return collectSensitiveScanFragments(nested, nextPath);
-    });
-  }
-  return [];
-}
-
-function contentForSensitiveScan(content: unknown): string {
-  return [
-    ...collectSensitiveScanFragments(content),
-    JSON.stringify(content) ?? ""
-  ].join("\n");
-}
-
 function isSensitiveKey(key: string): boolean {
   return /(?:API[_-]?KEY|DATABASE_URL|REDIS_URL|SECRET|TOKEN|PASSWORD|PRIVATE[_-]?KEY)/i.test(key);
 }
@@ -274,6 +252,12 @@ function redactSensitivePatch(patch: Record<string, unknown>): Record<string, un
 
 function isUserConfirmed(source: RecordSource, confirmed?: boolean): boolean {
   return confirmed === true || source.client === "user";
+}
+
+function provenanceMethod(source: RecordSource, confirmed?: boolean): "agent-proposed" | "rule-promoted" | "user-confirmed" {
+  if (isUserConfirmed(source, confirmed)) return "user-confirmed";
+  if (source.client === "memora") return "rule-promoted";
+  return "agent-proposed";
 }
 
 function requiresCanonicalConfirmation(input: { kind: RecordKind; type: string; scope: RecordScope }): boolean {
@@ -316,7 +300,7 @@ export function createEngine(deps: EngineDeps) {
   const engine = {
     async write(input: WriteInput) {
       const createdAt = now();
-      const sensitive = detectSensitiveContent(contentForSensitiveScan(input.content));
+      const sensitive = detectSensitiveContent(sensitiveScanText(input.content));
       const needsConfirmation = input.state === "canonical"
         && requiresCanonicalConfirmation(input)
         && !isUserConfirmed(input.source, input.confirmed);
@@ -340,7 +324,11 @@ export function createEngine(deps: EngineDeps) {
         visibility: state === "quarantined" ? "quarantined" : state === "archived" ? "archived" : "active",
         created_at: createdAt,
         updated_at: createdAt,
-        source: input.source
+        source: input.source,
+        provenance: {
+          ...(input.provenance ?? {}),
+          method: input.provenance?.method ?? provenanceMethod(input.source, input.confirmed)
+        }
       };
       const event: MemoraEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source: input.source };
       await appendEvent(deps.storePath, event);
@@ -359,7 +347,7 @@ export function createEngine(deps: EngineDeps) {
       const createdAt = nextMutationTimestamp(record, now());
       const source = input.source ?? { client: "memora" };
       const patched = applyRecordPatch(record, input.patch);
-      const sensitive = detectSensitiveContent(contentForSensitiveScan(patched.content));
+      const sensitive = detectSensitiveContent(sensitiveScanText(patched.content));
       const patch = sensitive.sensitive ? redactSensitivePatch(input.patch) : input.patch;
       const event: MemoraEvent = {
         event_id: id("evt"),

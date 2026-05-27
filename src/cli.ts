@@ -86,6 +86,8 @@ program.command("write")
   .option("--state <state>")
   .option("--confidence <n>", "Record confidence")
   .option("--priority <priority>")
+  .option("--derived-from <id>", "Source record id for provenance", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--reason <reason>", "Provenance reason")
   .option("--confirm", "Confirm a high-risk canonical write")
   .requiredOption("--text <text>")
   .action(async (options) => {
@@ -107,7 +109,10 @@ program.command("write")
       confidence: options.confidence === undefined ? undefined : Number(options.confidence),
       priority: options.priority,
       source: { client: "cli" },
-      confirmed: options.confirm
+      confirmed: options.confirm,
+      provenance: options.reason || options.derivedFrom.length
+        ? { reason: options.reason, derived_from: options.derivedFrom }
+        : undefined
     });
     printJson(result);
   });

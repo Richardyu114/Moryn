@@ -2,6 +2,7 @@ import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { MemoraEvent } from "./types.js";
 import { parseEvent } from "./schema.js";
+import { detectSensitiveContent, sensitiveScanText } from "./sensitive.js";
 
 function monthFromIso(iso: string): string {
   return iso.slice(0, 7);
@@ -26,12 +27,20 @@ async function ensureStoreInitialized(storePath: string): Promise<void> {
   }
 }
 
+function assertNoUnredactedSensitiveContent(event: MemoraEvent): void {
+  const text = sensitiveScanText(event);
+  if (detectSensitiveContent(text).sensitive) {
+    throw new Error("Sensitive content detected: event must be redacted before append");
+  }
+}
+
 export async function appendEvent(storePath: string, event: MemoraEvent): Promise<string> {
   await ensureStoreInitialized(storePath);
-  parseEvent(event);
+  const parsed = parseEvent(event);
+  assertNoUnredactedSensitiveContent(parsed);
   const path = eventPath(storePath, event);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(event, null, 2)}\n`, "utf8");
+  await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
   return path;
 }
 

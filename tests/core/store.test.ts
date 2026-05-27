@@ -119,4 +119,36 @@ describe("event store", () => {
       } as never)).rejects.toThrow(/Invalid event/);
     });
   });
+
+  it("rejects unredacted sensitive events before appending", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await expect(appendEvent(storePath, {
+        event_id: "evt_secret",
+        op: "upsert_record",
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test" },
+        record: {
+          id: "rec_secret",
+          kind: "memory",
+          type: "warning",
+          scope: "project",
+          tags: [],
+          content: {
+            text: "Review deployment settings.",
+            format: "text",
+            token: "abcdef1234567890"
+          },
+          state: "quarantined",
+          confidence: 0.5,
+          priority: "normal",
+          visibility: "quarantined",
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test" }
+        }
+      })).rejects.toThrow(/Sensitive content detected/);
+
+      expect(await readEvents(storePath)).toHaveLength(0);
+    });
+  });
 });
