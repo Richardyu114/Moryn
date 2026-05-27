@@ -112,6 +112,50 @@ describe("mem CLI", () => {
     });
   });
 
+  it("writes project session summaries with handoff defaults from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts",
+        "project", "init",
+        "--path", project,
+        "--project-id", "memora",
+        "--tag", "handoff"
+      ]);
+
+      const write = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "session_summary",
+        "--project", project,
+        "--text", "Finished the task summary."
+      ]);
+      const parsed = JSON.parse(write.stdout) as {
+        record: {
+          kind: string;
+          type: string;
+          scope: string;
+          project_id?: string;
+          tags: string[];
+          state: string;
+          content: { text?: string };
+        };
+      };
+
+      expect(parsed.record).toMatchObject({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "memora",
+        tags: ["handoff"],
+        state: "candidate",
+        content: { text: "Finished the task summary." }
+      });
+    });
+  });
+
   it("revises records with repeated CLI assignments and JSON scalar values", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

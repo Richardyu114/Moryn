@@ -75,6 +75,11 @@ describe("git sync adapter", () => {
       expect(status.dirty).toBe(false);
       expect(status.ahead).toBe(0);
       expect(status.behind).toBe(0);
+      expect(status.last_sync).toEqual(expect.objectContaining({
+        operation: "pull",
+        commit: expect.any(String),
+        at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/)
+      }));
     } finally {
       await rm(root, { recursive: true, force: true });
     }

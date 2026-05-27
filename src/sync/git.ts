@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { rebuildDerivedViews } from "../core/derived.js";
@@ -13,8 +13,15 @@ export interface GitSyncStatus {
   dirty?: boolean;
   ahead?: number;
   behind?: number;
+  last_sync?: GitLastSync;
   last_commit?: string;
   error?: string;
+}
+
+export interface GitLastSync {
+  operation: "init" | "pull" | "push";
+  at: string;
+  commit?: string;
 }
 
 export interface GitSyncResult {
@@ -48,6 +55,26 @@ async function ensureGitIdentity(storePath: string): Promise<void> {
 
 async function ensureGitIgnore(storePath: string): Promise<void> {
   await writeFile(join(storePath, ".gitignore"), "config.json\nsnapshots/\nindexes/\n", "utf8");
+}
+
+async function readLastSync(storePath: string): Promise<GitLastSync | undefined> {
+  try {
+    return JSON.parse(await readFile(join(storePath, "indexes", "sync-status.json"), "utf8")) as GitLastSync;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+async function writeLastSync(storePath: string, operation: GitLastSync["operation"]): Promise<void> {
+  await mkdir(join(storePath, "indexes"), { recursive: true });
+  const commit = await git(storePath, ["rev-parse", "--short", "HEAD"]).catch(() => undefined);
+  const status: GitLastSync = {
+    operation,
+    at: new Date().toISOString(),
+    commit
+  };
+  await writeFile(join(storePath, "indexes", "sync-status.json"), `${JSON.stringify(status, null, 2)}\n`, "utf8");
 }
 
 async function ensureMainBranch(storePath: string): Promise<void> {
@@ -97,6 +124,7 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
       await git(storePath, ["push", "-u", "origin", "main"]);
     }
   }
+  await writeLastSync(storePath, "init");
   return { ok: true, message: "Git sync initialized" };
 }
 
@@ -109,6 +137,7 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
     const remote = await git(storePath, ["remote", "get-url", "origin"]).catch(() => undefined);
     const porcelain = await git(storePath, ["status", "--porcelain"]);
     const lastCommit = await git(storePath, ["rev-parse", "--short", "HEAD"]).catch(() => undefined);
+    const lastSync = await readLastSync(storePath);
     let ahead = 0;
     let behind = 0;
     if (remote && await gitOk(storePath, ["rev-parse", "--verify", "origin/main"])) {
@@ -124,6 +153,7 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
       dirty: porcelain.length > 0,
       ahead,
       behind,
+      last_sync: lastSync,
       last_commit: lastCommit
     };
   } catch (error) {
@@ -141,10 +171,12 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   if (!hasLocal) {
     await git(storePath, ["checkout", "-B", "main", "origin/main"]);
     await rebuildDerivedViews(storePath);
+    await writeLastSync(storePath, "pull");
     return { ok: true, pulled: true };
   }
   await git(storePath, ["pull", "--rebase", "origin", "main"]);
   await rebuildDerivedViews(storePath);
+  await writeLastSync(storePath, "pull");
   return { ok: true, pulled: true };
 }
 
@@ -165,5 +197,6 @@ export async function pushGitSync(storePath: string, options: { message?: string
     await git(storePath, ["pull", "--rebase", "origin", "main"]);
   }
   await git(storePath, ["push", "-u", "origin", "main"]);
+  await writeLastSync(storePath, "push");
   return { ok: true, committed, pushed: true };
 }

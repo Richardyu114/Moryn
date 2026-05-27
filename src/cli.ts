@@ -70,8 +70,8 @@ program.command("init").action(async () => {
 
 program.command("write")
   .requiredOption("--kind <kind>")
-  .requiredOption("--type <type>")
-  .requiredOption("--scope <scope>")
+  .option("--type <type>")
+  .option("--scope <scope>")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--tag <tag>", "Record tag", (value: string, previous: string[] = []) => [...previous, value], [])
@@ -83,10 +83,14 @@ program.command("write")
     const engine = createEngine({ storePath: storePath() });
     const projectId = await resolveOptionalProject(options);
     const project = options.project ? await resolveProjectContext({ projectPath: options.project, projectId: options.projectId }) : undefined;
+    const type = options.type ?? (options.kind === "session_summary" ? "summary" : undefined);
+    const scope = options.scope ?? (options.kind === "session_summary" ? "project" : undefined);
+    if (!type) throw new Error("Missing required option --type <type> for write");
+    if (!scope) throw new Error("Missing required option --scope <scope> for write");
     const result = await engine.write({
       kind: options.kind,
-      type: options.type,
-      scope: options.scope,
+      type,
+      scope,
       project_id: projectId,
       tags: [...(project?.config?.tags ?? []), ...options.tag],
       content: { text: options.text, format: "text" },
