@@ -108,4 +108,57 @@ describe("event replay", () => {
       promoted_at: "2026-05-27T00:01:00.000Z"
     });
   });
+
+  it("replays conflict metadata from confirmed revisions", () => {
+    const records = replayEvents([
+      {
+        event_id: "evt_1",
+        op: "upsert_record",
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test" },
+        record: {
+          id: "rec_1",
+          kind: "memory",
+          type: "warning",
+          scope: "project",
+          project_id: "memora",
+          tags: ["sync"],
+          content: { text: "Use private Git remotes.", format: "text" },
+          state: "canonical",
+          confidence: 0.5,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test" }
+        }
+      },
+      {
+        event_id: "evt_2",
+        op: "revise_record",
+        record_id: "rec_1",
+        patch: {
+          type: "decision",
+          "content.text": "Use SQLite as the source of truth."
+        },
+        reason: "User confirmed",
+        confirmed: true,
+        conflict: {
+          kind: "semantic",
+          with: ["rec_existing"],
+          resolution: "needs_review"
+        },
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "cli" }
+      }
+    ]);
+
+    expect(records.get("rec_1")?.type).toBe("decision");
+    expect(records.get("rec_1")?.content.text).toBe("Use SQLite as the source of truth.");
+    expect(records.get("rec_1")?.conflict).toEqual({
+      kind: "semantic",
+      with: ["rec_existing"],
+      resolution: "needs_review"
+    });
+  });
 });
