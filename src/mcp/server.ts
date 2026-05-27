@@ -50,7 +50,10 @@ async function toolResult(fn: () => Promise<unknown>) {
   try {
     return jsonResult(await fn());
   } catch (error) {
-    return jsonResult(toErrorEnvelope(error));
+    return {
+      ...jsonResult(toErrorEnvelope(error)),
+      isError: true
+    };
   }
 }
 

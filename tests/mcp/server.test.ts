@@ -487,10 +487,12 @@ describe("MCP stdio server", () => {
       await writeFile(join(project, ".memora.json"), "{\"project_id\":\"\"}\n", "utf8");
 
       await withMcpClient(store, async (client) => {
-        const result = parseTextContent(await client.callTool({
+        const response = await client.callTool({
           name: "boot",
           arguments: { project_path: project }
-        })) as { ok: boolean; error: { code: string; recoverable: boolean } };
+        });
+        expect("isError" in response ? response.isError : false).toBe(true);
+        const result = parseTextContent(response) as { ok: boolean; error: { code: string; recoverable: boolean } };
 
         expect(result.ok).toBe(false);
         expect(result.error.code).toBe("INVALID_PROJECT_CONFIG");
