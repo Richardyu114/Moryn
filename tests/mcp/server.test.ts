@@ -46,6 +46,7 @@ describe("MCP stdio server", () => {
           "init",
           "link",
           "list_recent",
+          "project_init",
           "promote",
           "quarantine",
           "rebuild",
@@ -325,6 +326,36 @@ describe("MCP stdio server", () => {
         })) as { results: Array<{ record: { id: string; project_id?: string } }> };
         expect(recall.results[0]?.record.id).toBe(decision.record.id);
         expect(recall.results[0]?.record.project_id).toBe("memora");
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("initializes project config over MCP", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-mcp-project-init-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await withMcpClient(store, async (client) => {
+        const init = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: project,
+            project_id: "memora",
+            tags: ["typescript", "mcp"],
+            default_skills: ["release"],
+            sync_mode: "session"
+          }
+        })) as { ok: boolean; config: { project_id: string; tags: string[]; default_skills: string[]; sync: { mode: string } } };
+
+        expect(init.ok).toBe(true);
+        expect(init.config).toMatchObject({
+          project_id: "memora",
+          tags: ["typescript", "mcp"],
+          default_skills: ["release"],
+          sync: { mode: "session" }
+        });
       });
     } finally {
       await rm(root, { recursive: true, force: true });

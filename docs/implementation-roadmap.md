@@ -48,9 +48,9 @@ Protocol TypeScript SDK over stdio.
 Deliverables:
 
 - `mem mcp` starts a real MCP server.
-- Tools: `init`, `boot`, `recall`, `write`, `revise`, `promote`, `archive`,
-  `quarantine`, `link`, `refresh`, `rebuild`, `sync_init`, `sync_status`,
-  `sync_pull`, `sync_push`, `list_recent`.
+- Tools: `init`, `project_init`, `boot`, `recall`, `write`, `revise`,
+  `promote`, `archive`, `quarantine`, `link`, `refresh`, `rebuild`,
+  `sync_init`, `sync_status`, `sync_pull`, `sync_push`, `list_recent`.
 - Tool schemas validate inputs.
 - MCP tests use an SDK client over stdio.
 - Built `dist/cli.js` is covered by an MCP stdio smoke test.

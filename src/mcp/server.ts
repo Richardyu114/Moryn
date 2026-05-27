@@ -4,7 +4,7 @@ import { z } from "zod";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
-import { resolveProjectContext } from "../core/project.js";
+import { initializeProjectConfig, resolveProjectContext } from "../core/project.js";
 import type { RecordKind, RecordScope, RecordSource, RecordState } from "../core/types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
 
@@ -58,6 +58,30 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {}
     },
     async () => jsonResult({ ok: true, ...await initializeStore(options.storePath) })
+  );
+
+  server.registerTool(
+    "project_init",
+    {
+      title: "Initialize Memora Project Config",
+      description: "Create or update a .memora.json project config.",
+      inputSchema: {
+        path: z.string().min(1),
+        project_id: z.string().min(1).optional(),
+        tags: z.array(z.string().min(1)).optional(),
+        default_skills: z.array(z.string().min(1)).optional(),
+        sync_mode: z.enum(["manual", "session", "auto"]).optional()
+      }
+    },
+    async ({ path, project_id, tags, default_skills, sync_mode }) => jsonResult({
+      ok: true,
+      ...await initializeProjectConfig(path, {
+        project_id,
+        tags,
+        default_skills,
+        sync: { mode: sync_mode ?? "session" }
+      })
+    })
   );
 
   server.registerTool(
