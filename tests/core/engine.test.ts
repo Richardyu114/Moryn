@@ -1648,6 +1648,11 @@ describe("core engine", () => {
       }), "Invalid patch");
       await expectInvalidArgument(() => engine.revise({
         record_id: existing.record.id,
+        patch: {},
+        source: { client: "test" }
+      }), "Invalid patch");
+      await expectInvalidArgument(() => engine.revise({
+        record_id: existing.record.id,
         patch: { "content.text": "No-op" },
         source: { client: "" }
       }), "Invalid source.client");

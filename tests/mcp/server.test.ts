@@ -506,20 +506,22 @@ describe("MCP stdio server", () => {
           }
         })) as { record: { id: string } };
 
-        const result = parseTextContent(await client.callTool({
-          name: "revise",
-          arguments: {
-            record_id: write.record.id,
-            patch: { "content.text": "" },
-            reason: "Invalid blank revision",
-            source: { client: "mcp-test" }
-          }
-        })) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+        for (const patch of [{ "content.text": "" }, {}]) {
+          const result = parseTextContent(await client.callTool({
+            name: "revise",
+            arguments: {
+              record_id: write.record.id,
+              patch,
+              reason: "Invalid revision patch",
+              source: { client: "mcp-test" }
+            }
+          })) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
 
-        expect(result.ok).toBe(false);
-        expect(result.error.code).toBe("INVALID_ARGUMENT");
-        expect(result.error.message).toContain("Invalid patch");
-        expect(result.error.recommended_action).toBe("fix the command arguments and retry");
+          expect(result.ok).toBe(false);
+          expect(result.error.code).toBe("INVALID_ARGUMENT");
+          expect(result.error.message).toContain("Invalid patch");
+          expect(result.error.recommended_action).toBe("fix the command arguments and retry");
+        }
       });
     } finally {
       await rm(store, { recursive: true, force: true });

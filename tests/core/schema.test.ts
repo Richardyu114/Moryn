@@ -81,4 +81,15 @@ describe("record schema", () => {
       source: { client: "codex" }
     })).toThrow(/Invalid event/);
   });
+
+  it("rejects empty revision event patches", () => {
+    expect(() => parseEvent({
+      event_id: "evt_empty_patch",
+      op: "revise_record",
+      record_id: "rec_test",
+      patch: {},
+      created_at: "2026-05-27T00:01:00.000Z",
+      source: { client: "codex" }
+    })).toThrow(/Invalid event/);
+  });
 });

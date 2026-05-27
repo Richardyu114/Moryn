@@ -189,7 +189,12 @@ function validateWriteInput(input: WriteInput): void {
 function validateRevisionInput(input: RevisionInput): void {
   assertPlainObject(input, "revise input");
   validateRecordId(input.record_id);
-  if (typeof input.patch !== "object" || input.patch === null || Array.isArray(input.patch)) {
+  if (
+    typeof input.patch !== "object" ||
+    input.patch === null ||
+    Array.isArray(input.patch) ||
+    Object.keys(input.patch).length === 0
+  ) {
     throw new Error("Invalid argument: Invalid patch");
   }
   validateOptionalReason(input.reason);

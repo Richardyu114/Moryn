@@ -16,6 +16,11 @@ export const recordSourceSchema = z.object({
   device_id: z.string().min(1).optional()
 });
 
+const revisionPatchSchema = z.record(z.string(), z.unknown()).refine(
+  (patch) => Object.keys(patch).length > 0,
+  { message: "Patch must not be empty" }
+);
+
 export const recordLinkSchema = z.object({
   record_id: z.string().min(1),
   link_type: z.string().min(1),
@@ -70,7 +75,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     event_id: z.string().min(1),
     op: z.literal("revise_record"),
     record_id: z.string().min(1),
-    patch: z.record(z.string(), z.unknown()),
+    patch: revisionPatchSchema,
     reason: nonEmptyStringSchema.optional(),
     confirmed: z.boolean().optional(),
     conflict: recordConflictSchema.optional(),
