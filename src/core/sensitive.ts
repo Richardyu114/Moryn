@@ -10,12 +10,22 @@ const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----/
 ];
 
+const ENV_ASSIGNMENT_PATTERN = /^\s*(?:export\s+)?[A-Z][A-Z0-9_]*\s*=\s*.+$/;
+
 export interface SensitiveCheckResult {
   sensitive: boolean;
   reason?: string;
 }
 
+function hasLargeEnvBlock(text: string): boolean {
+  const envLines = text.split(/\r?\n/).filter((line) => ENV_ASSIGNMENT_PATTERN.test(line));
+  return envLines.length >= 5;
+}
+
 export function detectSensitiveContent(text: string): SensitiveCheckResult {
+  if (hasLargeEnvBlock(text)) {
+    return { sensitive: true, reason: "large_env_block" };
+  }
   for (const pattern of SECRET_PATTERNS) {
     if (pattern.test(text)) {
       return { sensitive: true, reason: pattern.source };
@@ -60,6 +70,9 @@ export function redactSensitiveContent(text: string): string {
   do {
     previous = redacted;
     redacted = SECRET_PATTERNS.reduce((next, pattern) => next.replace(pattern, REDACTED_SECRET), redacted);
+    if (hasLargeEnvBlock(redacted)) {
+      redacted = REDACTED_SECRET;
+    }
   } while (redacted !== previous);
   return redacted;
 }

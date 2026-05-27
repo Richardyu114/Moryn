@@ -702,6 +702,38 @@ describe("core engine", () => {
     });
   });
 
+  it("quarantines large env-shaped content without obvious secret field names", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const envText = [
+        "APP_ENV=production",
+        "APP_HOST=internal.memora.local",
+        "PORT=3000",
+        "LOG_LEVEL=debug",
+        "FEATURE_FLAGS=sync,recall,mcp"
+      ].join("\n");
+      const written = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: { text: envText, format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      expect(written.record.state).toBe("quarantined");
+      expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
+      expect(written.record.content.text).toBe("[REDACTED_SECRET]");
+
+      const eventLog = JSON.stringify(await readEvents(storePath));
+      expect(eventLog).not.toContain("internal.memora.local");
+      expect(eventLog).toContain("[REDACTED_SECRET]");
+    });
+  });
+
   it("keeps high-risk canonical writes as candidates until user confirmation", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
