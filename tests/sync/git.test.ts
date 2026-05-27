@@ -85,6 +85,56 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("refreshes remote tracking status so boot can report pending remote updates", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-boot-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(storeA, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_a"
+      });
+      await initializeStore(storeB, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_b"
+      });
+      await initializeGitSync(storeA, remote);
+      await initializeGitSync(storeB, remote);
+
+      const engineA = createEngine({
+        storePath: storeA,
+        now: () => "2026-05-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_a`
+      });
+      await engineA.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Remote boot update is waiting.", format: "text" },
+        state: "canonical",
+        source: { client: "test", device_id: "device_a" }
+      });
+      await pushGitSync(storeA, { message: "device a writes boot update" });
+
+      const status = await getGitSyncStatus(storeB);
+      expect(status.configured).toBe(true);
+      expect(status.behind).toBeGreaterThan(0);
+
+      const engineB = createEngine({
+        storePath: storeB,
+        syncStatus: () => getGitSyncStatus(storeB)
+      });
+      const boot = await engineB.boot({ project_id: "memora" });
+
+      expect(boot.sync.remote_has_updates).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rebases local event commits when pulling remote device history", async () => {
     const root = await mkdtemp(join(tmpdir(), "memora-sync-rebase-"));
     const remote = join(root, "remote.git");

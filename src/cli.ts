@@ -26,6 +26,14 @@ function printError(error: unknown): void {
   process.stderr.write(`${JSON.stringify(toErrorEnvelope(error), null, 2)}\n`);
 }
 
+function createCliEngine() {
+  const path = storePath();
+  return createEngine({
+    storePath: path,
+    syncStatus: () => getGitSyncStatus(path)
+  });
+}
+
 async function resolveOptionalProject(options: { project?: string; projectId?: string }): Promise<string | undefined> {
   if (!options.project && !options.projectId) return undefined;
   return (await resolveProjectContext({ projectPath: options.project, projectId: options.projectId })).project_id;
@@ -80,7 +88,7 @@ program.command("write")
   .option("--priority <priority>")
   .requiredOption("--text <text>")
   .action(async (options) => {
-    const engine = createEngine({ storePath: storePath() });
+    const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options);
     const project = options.project ? await resolveProjectContext({ projectPath: options.project, projectId: options.projectId }) : undefined;
     const type = options.type ?? (options.kind === "session_summary" ? "summary" : undefined);
@@ -115,7 +123,7 @@ program.command("recall")
   .option("--file <path>", "Related file path", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--limit <n>", "Result limit", "10")
   .action(async (query, options) => {
-    const engine = createEngine({ storePath: storePath() });
+    const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options);
     printJson(await engine.recall({
       record_ids: options.recordId,
@@ -136,7 +144,7 @@ program.command("boot")
   .option("--project <path>")
   .option("--current-task <task>")
   .action(async (options) => {
-    const engine = createEngine({ storePath: storePath() });
+    const engine = createCliEngine();
     const project = await resolveProjectOptions(options);
     printJson(await engine.boot({
       project_id: project.project_id,
@@ -150,7 +158,7 @@ program.command("revise")
   .requiredOption("--set <assignment>", "Patch assignment, repeatable", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--reason <reason>")
   .action(async (recordId, options) => {
-    const engine = createEngine({ storePath: storePath() });
+    const engine = createCliEngine();
     printJson(await engine.revise({ record_id: recordId, patch: parseAssignments(options.set), reason: options.reason, source: { client: "cli" } }));
   });
 
@@ -159,7 +167,7 @@ program.command("promote")
   .requiredOption("--state <state>")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
-    const engine = createEngine({ storePath: storePath() });
+    const engine = createCliEngine();
     printJson(await engine.promote({ record_id: recordId, target_state: options.state, reason: options.reason, source: { client: "cli" } }));
   });
 
@@ -167,7 +175,7 @@ program.command("archive")
   .argument("<record-id>")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
-    const engine = createEngine({ storePath: storePath() });
+    const engine = createCliEngine();
     printJson(await engine.archive({ record_id: recordId, reason: options.reason, source: { client: "cli" } }));
   });
 
@@ -175,7 +183,7 @@ program.command("quarantine")
   .argument("<record-id>")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
-    const engine = createEngine({ storePath: storePath() });
+    const engine = createCliEngine();
     printJson(await engine.quarantine({ record_id: recordId, reason: options.reason, source: { client: "cli" } }));
   });
 
@@ -184,7 +192,7 @@ program.command("link")
   .argument("<linked-record-id>")
   .requiredOption("--type <type>")
   .action(async (recordId, linkedRecordId, options) => {
-    const engine = createEngine({ storePath: storePath() });
+    const engine = createCliEngine();
     printJson(await engine.link({
       record_id: recordId,
       linked_record_id: linkedRecordId,
@@ -196,7 +204,7 @@ program.command("link")
 program.command("list-recent")
   .option("--limit <n>", "Result limit", "20")
   .action(async (options) => {
-    const engine = createEngine({ storePath: storePath() });
+    const engine = createCliEngine();
     printJson(await engine.listRecent(Number(options.limit)));
   });
 
@@ -207,7 +215,7 @@ program.command("refresh")
   .option("--current-task <task>")
   .option("--limit <n>", "Change limit", "20")
   .action(async (options) => {
-    const engine = createEngine({ storePath: storePath() });
+    const engine = createCliEngine();
     printJson(await engine.refresh({
       project_id: await resolveOptionalProject(options),
       cursor: options.cursor,
@@ -222,7 +230,10 @@ program.command("rebuild").action(async () => {
 
 program.command("mcp").action(async () => {
   const path = storePath();
-  const engine = createEngine({ storePath: path });
+  const engine = createEngine({
+    storePath: path,
+    syncStatus: () => getGitSyncStatus(path)
+  });
   await runMcpServer(engine, { storePath: path });
 });
 

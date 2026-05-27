@@ -1,6 +1,7 @@
 const SECRET_PATTERNS = [
   /sk-[A-Za-z0-9_-]{10,}/,
   /api[_-]?key\s*=\s*["']?[A-Za-z0-9_-]{10,}/i,
+  /authorization\s*[:=]\s*(?:bearer|basic|token)\s+[^"'\s]{8,}/i,
   /password\s*=\s*["']?[^"'\s]{8,}/i,
   /-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----/
 ];

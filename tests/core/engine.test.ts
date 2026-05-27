@@ -78,6 +78,29 @@ describe("core engine", () => {
     });
   });
 
+  it("quarantines authorization headers on write", async () => {
+    await withTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Authorization: Bearer ghp_1234567890abcdef", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      expect(written.record.state).toBe("quarantined");
+      expect(written.record.visibility).toBe("quarantined");
+      expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
+      expect((await engine.boot({ project_id: "memora" })).project.warnings).toHaveLength(0);
+      expect((await engine.recall({ query: "Authorization", project_id: "memora" })).results).toHaveLength(0);
+    });
+  });
+
   it("recalls with record id, kind, type, state, tag, and file filters", async () => {
     await withTempStore(async (storePath) => {
       let nextId = 0;
@@ -241,6 +264,19 @@ describe("core engine", () => {
       expect(boot.skills.map((record) => record.content.text)).not.toContain("Unrelated global skill.");
       expect(boot.recent_changes.map((record) => record.content.text)).not.toContain("Raw note should not boot.");
       expect(boot.sync.cursor).toBe("2026-05-27T00:05:00.000Z");
+    });
+  });
+
+  it("marks boot sync status when the sync provider reports remote updates", async () => {
+    await withTempStore(async (storePath) => {
+      const engine = createEngine({
+        storePath,
+        syncStatus: async () => ({ behind: 2 })
+      });
+
+      const boot = await engine.boot({ project_id: "memora" });
+
+      expect(boot.sync.remote_has_updates).toBe(true);
     });
   });
 

@@ -8,6 +8,7 @@ interface EngineDeps {
   storePath: string;
   now?: () => string;
   id?: (prefix: string) => string;
+  syncStatus?: () => Promise<{ behind?: number; remote_has_updates?: boolean }>;
 }
 
 interface WriteInput {
@@ -237,6 +238,16 @@ export function createEngine(deps: EngineDeps) {
     return record;
   }
 
+  async function remoteHasUpdates(): Promise<boolean> {
+    if (!deps.syncStatus) return false;
+    try {
+      const status = await deps.syncStatus();
+      return Boolean(status.remote_has_updates || (status.behind ?? 0) > 0);
+    } catch {
+      return false;
+    }
+  }
+
   const engine = {
     async write(input: WriteInput) {
       const createdAt = now();
@@ -383,6 +394,7 @@ export function createEngine(deps: EngineDeps) {
           .slice(0, 5)
         : [];
       const cursor = [...visibleRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at ?? new Date().toISOString();
+      const remoteUpdates = await remoteHasUpdates();
       return {
         profile: {
           user_preferences: records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "preference"),
@@ -399,7 +411,7 @@ export function createEngine(deps: EngineDeps) {
         skills: bootSkills(records, input),
         task_relevant: taskRelevant,
         recent_changes: recent.filter((record) => record.kind !== "soul").slice(0, 5),
-        sync: { cursor, remote_has_updates: false }
+        sync: { cursor, remote_has_updates: remoteUpdates }
       };
     },
 

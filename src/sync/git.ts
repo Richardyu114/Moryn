@@ -135,6 +135,9 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
 
     const branch = await git(storePath, ["branch", "--show-current"]);
     const remote = await git(storePath, ["remote", "get-url", "origin"]).catch(() => undefined);
+    if (remote) {
+      await git(storePath, ["fetch", "origin", "main"]).catch(() => undefined);
+    }
     const porcelain = await git(storePath, ["status", "--porcelain"]);
     const lastCommit = await git(storePath, ["rev-parse", "--short", "HEAD"]).catch(() => undefined);
     const lastSync = await readLastSync(storePath);
