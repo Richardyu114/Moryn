@@ -27,4 +27,17 @@ describe("error envelopes", () => {
       }
     });
   });
+
+  it("classifies invalid replay failures as invalid record history", () => {
+    const envelope = toErrorEnvelope(new Error("Invalid replay target for event evt_missing_revision: Record not found: rec_missing"));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "INVALID_RECORD",
+        recoverable: true,
+        recommended_action: "inspect the reported event or record and rebuild from valid history"
+      }
+    });
+  });
 });

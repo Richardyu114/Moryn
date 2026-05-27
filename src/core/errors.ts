@@ -14,7 +14,7 @@ export function errorCode(message: string): string {
   if (message.startsWith("Invalid project config:")) return "INVALID_PROJECT_CONFIG";
   if (message.startsWith("Invalid store config:")) return "INVALID_STORE_CONFIG";
   if (message.startsWith("Invalid argument:")) return "INVALID_ARGUMENT";
-  if (message.startsWith("Invalid event:") || message.startsWith("Invalid record:")) return "INVALID_RECORD";
+  if (message.startsWith("Invalid event:") || message.startsWith("Invalid record:") || message.startsWith("Invalid replay ")) return "INVALID_RECORD";
   if (message.startsWith("Sensitive content detected:")) return "SENSITIVE_CONTENT_DETECTED";
   if (message.startsWith("Index stale:")) return "INDEX_STALE";
   if (message.startsWith("Record not found:")) return "RECORD_NOT_FOUND";
