@@ -1,12 +1,30 @@
 import { execFile } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import { toErrorEnvelope } from "../../src/core/errors.js";
 import { initializeProjectConfig, resolveProjectContext } from "../../src/core/project.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
+
+async function expectInvalidArgument(action: () => Promise<unknown>, expectedMessage: RegExp): Promise<void> {
+  let caught: unknown;
+  try {
+    await action();
+  } catch (error) {
+    caught = error;
+  }
+
+  if (!caught) {
+    throw new Error("Expected invalid argument");
+  }
+
+  const envelope = toErrorEnvelope(caught);
+  expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+  expect(envelope.error.message).toMatch(expectedMessage);
+}
 
 describe("project config", () => {
   it("initializes .memora.json with project defaults", async () => {
@@ -44,6 +62,29 @@ describe("project config", () => {
     });
   });
 
+  it("rejects invalid project config initialization input before writing", async () => {
+    await withTempStore(async (projectPath) => {
+      await expectInvalidArgument(
+        () => initializeProjectConfig(projectPath, { project_id: "" }),
+        /Invalid project_id/
+      );
+      await expectInvalidArgument(
+        () => initializeProjectConfig(projectPath, { tags: ["typescript", ""] }),
+        /Invalid tags/
+      );
+      await expectInvalidArgument(
+        () => initializeProjectConfig(projectPath, { default_skills: ["release", 123 as unknown as string] }),
+        /Invalid default_skills/
+      );
+      await expectInvalidArgument(
+        () => initializeProjectConfig(projectPath, { sync: { mode: "always" as never } }),
+        /Invalid sync\.mode/
+      );
+
+      await expect(access(join(projectPath, ".memora.json"))).rejects.toMatchObject({ code: "ENOENT" });
+    });
+  });
+
   it("resolves explicit id before project config", async () => {
     await withTempStore(async (projectPath) => {
       await initializeProjectConfig(projectPath, { project_id: "from-file" });
@@ -52,6 +93,25 @@ describe("project config", () => {
 
       expect(context.project_id).toBe("explicit");
       expect(context.source).toBe("explicit");
+    });
+  });
+
+  it("rejects invalid explicit project context input", async () => {
+    await withTempStore(async (projectPath) => {
+      await initializeProjectConfig(projectPath, { project_id: "from-file" });
+
+      await expectInvalidArgument(
+        () => resolveProjectContext({ projectPath, projectId: "" }),
+        /Invalid projectId/
+      );
+      await expectInvalidArgument(
+        () => resolveProjectContext({ projectPath: "" }),
+        /Invalid projectPath/
+      );
+      await expectInvalidArgument(
+        () => resolveProjectContext(null as never),
+        /Invalid project context input/
+      );
     });
   });
 

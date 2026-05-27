@@ -44,6 +44,52 @@ interface ProjectConfigFile {
   directory: string;
 }
 
+function assertPlainObject(value: unknown, name: string): asserts value is Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`Invalid argument: Invalid ${name}`);
+  }
+}
+
+function validateOptionalString(value: unknown, name: string): void {
+  if (value === undefined) return;
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Invalid argument: Invalid ${name}`);
+  }
+}
+
+function validateOptionalStringArray(value: unknown, name: string): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.length === 0)) {
+    throw new Error(`Invalid argument: Invalid ${name}`);
+  }
+}
+
+function validateInitializeProjectConfigInput(input: unknown): asserts input is InitializeProjectConfigInput {
+  assertPlainObject(input, "project config input");
+  validateOptionalString(input.project_id, "project_id");
+  validateOptionalStringArray(input.tags, "tags");
+  validateOptionalStringArray(input.default_skills, "default_skills");
+
+  if (input.sync !== undefined) {
+    assertPlainObject(input.sync, "sync");
+    if (
+      input.sync.mode !== undefined &&
+      input.sync.mode !== "manual" &&
+      input.sync.mode !== "session" &&
+      input.sync.mode !== "interval" &&
+      input.sync.mode !== "auto"
+    ) {
+      throw new Error("Invalid argument: Invalid sync.mode");
+    }
+  }
+}
+
+function validateResolveProjectContextInput(input: unknown): asserts input is { projectPath?: string; projectId?: string } {
+  assertPlainObject(input, "project context input");
+  validateOptionalString(input.projectPath, "projectPath");
+  validateOptionalString(input.projectId, "projectId");
+}
+
 function hashIdentity(input: string): string {
   return createHash("sha1").update(input).digest("hex").slice(0, 12);
 }
@@ -112,6 +158,7 @@ export async function readProjectConfig(projectPath: string): Promise<ProjectCon
 }
 
 export async function initializeProjectConfig(projectPath: string, input: InitializeProjectConfigInput = {}): Promise<{ config: ProjectConfig; path: string }> {
+  validateInitializeProjectConfigInput(input);
   const resolved = resolve(projectPath);
   await mkdir(resolved, { recursive: true });
   const existing = await readProjectConfigAt(resolved);
@@ -129,6 +176,7 @@ export async function initializeProjectConfig(projectPath: string, input: Initia
 }
 
 export async function resolveProjectContext(input: { projectPath?: string; projectId?: string }): Promise<ProjectContext> {
+  validateResolveProjectContextInput(input);
   const projectPath = resolve(input.projectPath ?? process.cwd());
   const configFile = await findProjectConfig(projectPath);
   const config = configFile?.config;
