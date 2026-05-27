@@ -150,6 +150,35 @@ describe("core engine", () => {
     });
   });
 
+  it("redacts structured authorization fields before appending events", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: {
+          text: "Review request headers.",
+          format: "text",
+          authorization: "Bearer ghp_1234567890abcdef"
+        },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      expect(written.record.state).toBe("quarantined");
+      expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
+      expect(written.record.content.authorization).toBe("[REDACTED_SECRET]");
+
+      const eventLog = JSON.stringify(await readEvents(storePath));
+      expect(eventLog).not.toContain("ghp_1234567890abcdef");
+      expect(eventLog).toContain("[REDACTED_SECRET]");
+    });
+  });
+
   it("rejects invalid core write arguments before appending events", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });

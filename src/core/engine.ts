@@ -465,6 +465,20 @@ function refreshImportance(record: MemoraRecord, currentTask: string | undefined
 }
 
 function isSensitiveKey(key: string): boolean {
+  const segments = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .split(/[.[\]_-]+/)
+    .filter(Boolean)
+    .map((segment) => segment.toUpperCase());
+  const joinedSegments = segments.join("_");
+  if (
+    segments.includes("AUTHORIZATION")
+    || segments.includes("COOKIE")
+    || joinedSegments.endsWith("AUTH_HEADER")
+    || joinedSegments.endsWith("SET_COOKIE")
+  ) {
+    return true;
+  }
   return /(?:API[_-]?KEY|DATABASE_URL|REDIS_URL|SECRET|TOKEN|PASSWORD|PRIVATE[_-]?KEY)/i.test(key);
 }
 
