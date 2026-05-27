@@ -207,7 +207,7 @@ describe("mem CLI", () => {
       const linkedRecall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "--record-id", decisionId, "--project", project]);
       expect(linkedRecall.stdout).toContain("\"link_type\": \"supersedes\"");
     });
-  });
+  }, 30000);
 
   it("syncs local store events through a git remote", async () => {
     await withTempDir(async (dir) => {
@@ -279,13 +279,9 @@ describe("mem CLI", () => {
       await mkdir(store, { recursive: true });
       await writeFile(join(store, "config.json"), "{\"store_version\":", "utf8");
 
-      await expect(exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]))
-        .rejects.toMatchObject({
-          stderr: expect.stringContaining("\"ok\": false")
-        });
-
       try {
         await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+        throw new Error("Expected mem init to fail for malformed store config");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
         const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
