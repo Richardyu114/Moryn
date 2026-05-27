@@ -143,6 +143,35 @@ describe("mem CLI", () => {
     });
   });
 
+  it("rejects invalid confidence options", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      for (const confidence of ["abc", "1.1"]) {
+        try {
+          await exec("node", [
+            "--import", "tsx", "src/cli.ts", "--store", dir,
+            "write",
+            "--kind", "memory",
+            "--type", "decision",
+            "--scope", "project",
+            "--project-id", "memora",
+            "--confidence", confidence,
+            "--text", "Invalid confidence should be rejected."
+          ]);
+          throw new Error(`Expected mem write to reject --confidence ${confidence}`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain("Invalid --confidence");
+          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        }
+      }
+    });
+  });
+
   it("writes provenance from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

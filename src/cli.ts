@@ -74,6 +74,15 @@ function parseLimit(value: string, option = "--limit"): number {
   return parsed;
 }
 
+function parseConfidence(value: string | undefined, option = "--confidence"): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    throw new Error(`Invalid argument: Invalid ${option}; must be a number between 0 and 1`);
+  }
+  return parsed;
+}
+
 program
   .name("mem")
   .description("Memora CLI")
@@ -114,7 +123,7 @@ program.command("write")
       tags: [...(project?.config?.tags ?? []), ...options.tag],
       content: { text: options.text, format: "text" },
       state: options.state,
-      confidence: options.confidence === undefined ? undefined : Number(options.confidence),
+      confidence: parseConfidence(options.confidence),
       priority: options.priority,
       source: { client: "cli" },
       confirmed: options.confirm,
