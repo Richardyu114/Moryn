@@ -1918,6 +1918,42 @@ describe("core engine", () => {
     });
   });
 
+  it("advances the refresh cursor past trailing silent changes after returning all reportable changes", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const timestamps = [
+        "2026-05-27T00:01:00.000Z",
+        "2026-05-27T00:02:00.000Z"
+      ];
+      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const decision = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Refresh should report this decision.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const raw = await engine.write({
+        kind: "memory",
+        type: "note",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Refresh should not report this raw note.", format: "text" },
+        state: "raw",
+        source: { client: "test" }
+      });
+
+      const refresh = await engine.refresh({ project_id: "memora", cursor: "2026-05-27T00:00:00.000Z", limit: 2 });
+
+      expect(refresh.cursor).toBe(raw.record.updated_at);
+      expect(refresh.changes.map((change) => change.record_id)).toEqual([decision.record.id]);
+    });
+  });
+
   it("uses current task text to interrupt only on related blockers and warnings", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

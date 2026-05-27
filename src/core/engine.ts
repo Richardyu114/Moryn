@@ -897,23 +897,24 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => recordBootContextMatches(record, input.project_id))
         .filter((record) => !input.cursor || record.updated_at > input.cursor)
         .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
-      const changes = records
-        .map((record) => {
-          const importance = refreshImportance(record, input.current_task);
-          return {
-            record,
-            change: {
-              record_id: record.id,
-              importance: importance.importance,
-              reason: importance.reason,
-              summary: summarizeRecord(record),
-              recommended_action: record.state === "raw" ? "ignore unless relevant" : "call recall with record_id"
-            }
-          };
-        })
-        .filter((change) => change.change.importance !== "silent")
-        .slice(0, limit);
-      const latest = changes.at(-1)?.record.updated_at ?? records.at(-1)?.updated_at ?? input.cursor ?? new Date().toISOString();
+      const allChanges = records.map((record) => {
+        const importance = refreshImportance(record, input.current_task);
+        return {
+          record,
+          change: {
+            record_id: record.id,
+            importance: importance.importance,
+            reason: importance.reason,
+            summary: summarizeRecord(record),
+            recommended_action: record.state === "raw" ? "ignore unless relevant" : "call recall with record_id"
+          }
+        };
+      });
+      const reportableChanges = allChanges.filter((change) => change.change.importance !== "silent");
+      const changes = reportableChanges.slice(0, limit);
+      const latest = (reportableChanges.length > changes.length ? changes.at(-1)?.record.updated_at : records.at(-1)?.updated_at)
+        ?? input.cursor
+        ?? new Date().toISOString();
       return {
         cursor: latest,
         changes: changes.map((change) => change.change),
