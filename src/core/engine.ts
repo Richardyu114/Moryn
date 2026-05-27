@@ -140,7 +140,7 @@ function validateWriteInput(input: WriteInput): void {
   if (input.project_id !== undefined && (typeof input.project_id !== "string" || !input.project_id.length)) {
     throw new Error("Invalid argument: Invalid project_id");
   }
-  if (input.tags !== undefined && (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === "string"))) {
+  if (input.tags !== undefined && (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === "string" && tag.length > 0))) {
     throw new Error("Invalid argument: Invalid tags");
   }
   if (typeof input.content !== "object" || input.content === null || Array.isArray(input.content)) {
@@ -163,10 +163,10 @@ function validateWriteInput(input: WriteInput): void {
     if (typeof input.provenance !== "object" || input.provenance === null || Array.isArray(input.provenance)) {
       throw new Error("Invalid argument: Invalid provenance");
     }
-    if (input.provenance.derived_from !== undefined && (!Array.isArray(input.provenance.derived_from) || !input.provenance.derived_from.every((recordId) => typeof recordId === "string"))) {
+    if (input.provenance.derived_from !== undefined && (!Array.isArray(input.provenance.derived_from) || !input.provenance.derived_from.every((recordId) => typeof recordId === "string" && recordId.length > 0))) {
       throw new Error("Invalid argument: Invalid provenance.derived_from");
     }
-    if (input.provenance.reason !== undefined && typeof input.provenance.reason !== "string") {
+    if (input.provenance.reason !== undefined && (typeof input.provenance.reason !== "string" || !input.provenance.reason.length)) {
       throw new Error("Invalid argument: Invalid provenance.reason");
     }
     if (

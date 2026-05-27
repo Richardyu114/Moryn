@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import { readEvents } from "../../src/core/store.js";
 
 const exec = promisify(execFile);
 
@@ -265,6 +266,49 @@ describe("mem CLI", () => {
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
         }
       }
+    });
+  });
+
+  it("rejects empty CLI string options before writing events", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      for (const { args, message } of [
+        {
+          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--text", ""],
+          message: "Invalid --text"
+        },
+        {
+          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--text", "Valid text", "--tag", ""],
+          message: "Invalid --tag"
+        },
+        {
+          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--text", "Valid text", "--derived-from", ""],
+          message: "Invalid --derived-from"
+        },
+        {
+          args: ["refresh", "--project-id", "memora", "--cursor", ""],
+          message: "Invalid --cursor"
+        },
+        {
+          args: ["sync", "--push", "--message", ""],
+          message: "Invalid --message"
+        }
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected mem ${args.join(" ")} to reject an empty string option`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain(message);
+          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        }
+      }
+
+      await expect(readEvents(dir)).resolves.toHaveLength(0);
     });
   });
 

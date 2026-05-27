@@ -36,4 +36,33 @@ describe("record schema", () => {
       })
     ).toThrow(/Invalid record/);
   });
+
+  it("rejects empty record metadata strings", () => {
+    const baseRecord = {
+      id: "rec_test",
+      kind: "memory",
+      type: "decision",
+      scope: "project",
+      project_id: "memora",
+      tags: ["sync"],
+      content: { text: "Use append-only events.", format: "text" },
+      state: "canonical",
+      confidence: 0.9,
+      priority: "normal",
+      visibility: "active",
+      created_at: "2026-05-27T00:00:00.000Z",
+      updated_at: "2026-05-27T00:00:00.000Z",
+      source: { client: "codex" }
+    };
+
+    expect(() => parseRecord({ ...baseRecord, tags: [""] })).toThrow(/Invalid record/);
+    expect(() => parseRecord({
+      ...baseRecord,
+      provenance: { derived_from: ["rec_source", ""] }
+    })).toThrow(/Invalid record/);
+    expect(() => parseRecord({
+      ...baseRecord,
+      provenance: { reason: "" }
+    })).toThrow(/Invalid record/);
+  });
 });

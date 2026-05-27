@@ -115,6 +115,23 @@ function parseEnumList<T extends string>(values: string[], allowed: readonly T[]
   return values.map((value) => parseEnum(value, allowed, option) as T);
 }
 
+function parseNonEmptyString(value: string | undefined, option: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (value.length === 0) {
+    throw new Error(`Invalid argument: Invalid ${option}; must not be empty`);
+  }
+  return value;
+}
+
+function collectNonEmptyOption(option: string) {
+  return (value: string, previous: string[] = []): string[] => {
+    if (value.length === 0) {
+      throw new Error(`Invalid argument: Invalid ${option}; must not be empty`);
+    }
+    return [...previous, value];
+  };
+}
+
 program
   .name("mem")
   .description("Memora CLI")
@@ -135,11 +152,11 @@ program.command("write")
   .option("--scope <scope>")
   .option("--project-id <id>")
   .option("--project <path>")
-  .option("--tag <tag>", "Record tag", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--tag <tag>", "Record tag", collectNonEmptyOption("--tag"), [])
   .option("--state <state>")
   .option("--confidence <n>", "Record confidence")
   .option("--priority <priority>")
-  .option("--derived-from <id>", "Source record id for provenance", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--derived-from <id>", "Source record id for provenance", collectNonEmptyOption("--derived-from"), [])
   .option("--reason <reason>", "Provenance reason")
   .option("--confirm", "Confirm a high-risk canonical write")
   .option("--text <text>")
@@ -153,10 +170,12 @@ program.command("write")
     if (!type) throw new Error("Invalid argument: required option '--type <type>' not specified");
     if (!scope) throw new Error("Invalid argument: required option '--scope <scope>' not specified");
     const content = parseContentJson(options.contentJson);
-    if (content && options.text !== undefined) {
+    const text = parseNonEmptyString(options.text, "--text");
+    const reason = parseNonEmptyString(options.reason, "--reason");
+    if (content && text !== undefined) {
       throw new Error("Invalid argument: use either --text or --content-json, not both");
     }
-    if (!content && options.text === undefined) {
+    if (!content && text === undefined) {
       throw new Error("Invalid argument: required option '--text <text>' or '--content-json <json>' not specified");
     }
     const result = await engine.write({
@@ -165,14 +184,14 @@ program.command("write")
       scope: parseEnum(scope, recordScopes, "--scope")!,
       project_id: projectId,
       tags: [...(project?.config?.tags ?? []), ...options.tag],
-      content: content ?? { text: options.text, format: "text" },
+      content: content ?? { text, format: "text" },
       state: parseEnum(options.state, recordStates, "--state"),
       confidence: parseConfidence(options.confidence),
       priority: parseEnum(options.priority, recordPriorities, "--priority"),
       source: { client: "cli" },
       confirmed: options.confirm,
-      provenance: options.reason || options.derivedFrom.length
-        ? { reason: options.reason, derived_from: options.derivedFrom }
+      provenance: reason || options.derivedFrom.length
+        ? { reason, derived_from: options.derivedFrom }
         : undefined
     });
     printJson(result);
@@ -180,22 +199,22 @@ program.command("write")
 
 program.command("recall")
   .argument("[query]", "Search query")
-  .option("--record-id <id>", "Record id", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--record-id <id>", "Record id", collectNonEmptyOption("--record-id"), [])
   .option("--project-id <id>")
   .option("--project <path>")
-  .option("--kind <kind>", "Record kind", (value: string, previous: string[] = []) => [...previous, value], [])
-  .option("--scope <scope>", "Record scope", (value: string, previous: string[] = []) => [...previous, value], [])
-  .option("--type <type>", "Record type", (value: string, previous: string[] = []) => [...previous, value], [])
-  .option("--state <state>", "Record state", (value: string, previous: string[] = []) => [...previous, value], [])
-  .option("--tag <tag>", "Record tag", (value: string, previous: string[] = []) => [...previous, value], [])
-  .option("--file <path>", "Related file path", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--kind <kind>", "Record kind", collectNonEmptyOption("--kind"), [])
+  .option("--scope <scope>", "Record scope", collectNonEmptyOption("--scope"), [])
+  .option("--type <type>", "Record type", collectNonEmptyOption("--type"), [])
+  .option("--state <state>", "Record state", collectNonEmptyOption("--state"), [])
+  .option("--tag <tag>", "Record tag", collectNonEmptyOption("--tag"), [])
+  .option("--file <path>", "Related file path", collectNonEmptyOption("--file"), [])
   .option("--limit <n>", "Result limit", "10")
   .action(async (query, options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options);
     printJson(await engine.recall({
       record_ids: options.recordId,
-      query,
+      query: parseNonEmptyString(query, "query"),
       project_id: projectId,
       kinds: parseEnumList(options.kind, recordKinds, "--kind"),
       scopes: parseEnumList(options.scope, recordScopes, "--scope"),
@@ -217,7 +236,7 @@ program.command("boot")
     printJson(await engine.boot({
       project_id: project.project_id,
       default_skills: project.default_skills,
-      current_task: options.currentTask
+      current_task: parseNonEmptyString(options.currentTask, "--current-task")
     }));
   });
 
@@ -231,7 +250,7 @@ program.command("revise")
     printJson(await engine.revise({
       record_id: recordId,
       patch: parseAssignments(options.set),
-      reason: options.reason,
+      reason: parseNonEmptyString(options.reason, "--reason"),
       source: { client: "cli" },
       confirmed: options.confirm
     }));
@@ -247,7 +266,7 @@ program.command("promote")
     printJson(await engine.promote({
       record_id: recordId,
       target_state: parseEnum(options.state, recordStates, "--state")!,
-      reason: options.reason,
+      reason: parseNonEmptyString(options.reason, "--reason"),
       source: { client: "cli" },
       confirmed: options.confirm
     }));
@@ -258,7 +277,7 @@ program.command("archive")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    printJson(await engine.archive({ record_id: recordId, reason: options.reason, source: { client: "cli" } }));
+    printJson(await engine.archive({ record_id: recordId, reason: parseNonEmptyString(options.reason, "--reason"), source: { client: "cli" } }));
   });
 
 program.command("quarantine")
@@ -266,7 +285,7 @@ program.command("quarantine")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    printJson(await engine.quarantine({ record_id: recordId, reason: options.reason, source: { client: "cli" } }));
+    printJson(await engine.quarantine({ record_id: recordId, reason: parseNonEmptyString(options.reason, "--reason"), source: { client: "cli" } }));
   });
 
 program.command("link")
@@ -300,8 +319,8 @@ program.command("refresh")
     const engine = createCliEngine();
     printJson(await engine.refresh({
       project_id: await resolveOptionalProject(options),
-      cursor: options.cursor,
-      current_task: options.currentTask,
+      cursor: parseNonEmptyString(options.cursor, "--cursor"),
+      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
       limit: parseLimit(options.limit)
     }));
   });
@@ -324,8 +343,8 @@ const project = program.command("project");
 project.command("init")
   .option("--path <path>", "Project path", process.cwd())
   .option("--project-id <id>")
-  .option("--tag <tag>", "Project tag", (value: string, previous: string[] = []) => [...previous, value], [])
-  .option("--default-skill <selector>", "Default skill selector", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--tag <tag>", "Project tag", collectNonEmptyOption("--tag"), [])
+  .option("--default-skill <selector>", "Default skill selector", collectNonEmptyOption("--default-skill"), [])
   .option("--sync-mode <mode>", "Sync mode", "session")
   .action(async (options) => {
     printJson({
@@ -354,7 +373,7 @@ sync
   .option("--message <message>", "Commit message for --push")
   .action(async (options) => {
     if (options.push) {
-      printJson(await pushGitSync(storePath(), { message: options.message }));
+      printJson(await pushGitSync(storePath(), { message: parseNonEmptyString(options.message, "--message") }));
       return;
     }
     if (options.pull) {

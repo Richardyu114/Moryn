@@ -200,6 +200,14 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        tags: [""],
+        content: { text: "Empty tag.", format: "text" },
+        source: { client: "test" }
+      }, "Invalid tags");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
         content: "Invalid content." as never,
         source: { client: "test" }
       }, "Invalid content");
@@ -233,6 +241,22 @@ describe("core engine", () => {
         source: { client: "test" },
         provenance: { method: "imported" } as never
       }, "Invalid provenance");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: { text: "Empty provenance source.", format: "text" },
+        source: { client: "test" },
+        provenance: { derived_from: [""] }
+      }, "Invalid provenance.derived_from");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: { text: "Empty provenance reason.", format: "text" },
+        source: { client: "test" },
+        provenance: { reason: "" }
+      }, "Invalid provenance.reason");
       await expectInvalidArgument({
         kind: "memory",
         type: "decision",

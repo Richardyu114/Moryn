@@ -7,6 +7,7 @@ export const recordScopeSchema = z.enum(["global", "project", "topic", "session"
 export const recordPrioritySchema = z.enum(["low", "normal", "high"]);
 export const recordVisibilitySchema = z.enum(["active", "archived", "quarantined"]);
 export const isoDateTimeSchema = z.string().datetime();
+const nonEmptyStringSchema = z.string().min(1);
 
 export const recordSourceSchema = z.object({
   client: z.string().min(1),
@@ -33,7 +34,7 @@ export const recordSchema = z.object({
   type: z.string().min(1),
   scope: recordScopeSchema,
   project_id: z.string().min(1).optional(),
-  tags: z.array(z.string()).default([]),
+  tags: z.array(nonEmptyStringSchema).default([]),
   content: z.record(z.string(), z.unknown()).and(z.object({
     text: z.string().optional(),
     format: z.enum(["text", "json"]).optional()
@@ -46,8 +47,8 @@ export const recordSchema = z.object({
   updated_at: isoDateTimeSchema,
   source: recordSourceSchema,
   provenance: z.object({
-    derived_from: z.array(z.string()).optional(),
-    reason: z.string().optional(),
+    derived_from: z.array(nonEmptyStringSchema).optional(),
+    reason: nonEmptyStringSchema.optional(),
     method: z.enum(["agent-proposed", "rule-promoted", "user-confirmed"]).optional(),
     promoted_at: isoDateTimeSchema.optional()
   }).optional(),
