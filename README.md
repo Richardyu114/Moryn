@@ -6,7 +6,7 @@ Memora is a personal memory, skill, and soul layer for AI agents.
 
 It is designed for people who use multiple AI agents across multiple projects and want those agents to share the same durable context without making memory belong to any single agent. Agents are readers and writers; the long-lived context belongs to the user, projects, topics, and artifacts.
 
-> Status: design-stage project. The initial design spec lives in [docs/memora-design.md](docs/memora-design.md).
+> Status: early MVP implementation. Core local memory operations are being built from the first-version design in [docs/memora-design.md](docs/memora-design.md).
 
 ## What Memora Is
 
@@ -156,6 +156,22 @@ mem mcp
 ```
 
 Agents that do not support MCP can still use Memora through CLI commands.
+
+## Current MVP Commands
+
+The first implementation targets these commands:
+
+```bash
+mem init
+mem boot --project-id memora
+mem write --kind memory --type decision --scope project --project-id memora --text "Use append-only events"
+mem recall "append-only events" --project-id memora
+mem revise rec_... --set content.text="Updated memory" --reason "Refined wording"
+mem promote rec_... --state canonical --reason "User confirmed"
+mem list-recent
+mem sync --status
+mem mcp
+```
 
 ## Agent Workflow
 
