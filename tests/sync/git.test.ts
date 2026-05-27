@@ -327,6 +327,74 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("pulls remote event history without dropping uncommitted local events", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-uncommitted-pull-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(storeA, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_a"
+      });
+      await initializeStore(storeB, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_b"
+      });
+
+      await initializeGitSync(storeA, remote);
+      await initializeGitSync(storeB, remote);
+
+      const engineA = createEngine({
+        storePath: storeA,
+        now: () => "2026-05-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_a`
+      });
+      const engineB = createEngine({
+        storePath: storeB,
+        now: () => "2026-05-27T00:02:00.000Z",
+        id: (prefix) => `${prefix}_b`
+      });
+
+      await engineA.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Remote uncommitted pull event survives.", format: "text" },
+        state: "canonical",
+        source: { client: "test", device_id: "device_a" }
+      });
+      await pushGitSync(storeA, { message: "device a writes remote event" });
+
+      await engineB.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Local uncommitted event survives pull.", format: "text" },
+        state: "canonical",
+        source: { client: "test", device_id: "device_b" }
+      });
+
+      const pull = await pullGitSync(storeB);
+      expect(pull.pulled).toBe(true);
+
+      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      expect(recallIndex.records.map((record) => record.text)).toEqual(expect.arrayContaining([
+        "Remote uncommitted pull event survives.",
+        "Local uncommitted event survives pull."
+      ]));
+
+      const engineBAfterPull = createEngine({ storePath: storeB });
+      expect((await engineBAfterPull.recall({ query: "Remote uncommitted", project_id: "memora" })).results[0]?.record.content.text).toBe("Remote uncommitted pull event survives.");
+      expect((await engineBAfterPull.recall({ query: "Local uncommitted", project_id: "memora" })).results[0]?.record.content.text).toBe("Local uncommitted event survives pull.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rebuilds derived views after push rebases remote event history", async () => {
     const root = await mkdtemp(join(tmpdir(), "memora-sync-push-rebase-derived-"));
     const remote = join(root, "remote.git");
