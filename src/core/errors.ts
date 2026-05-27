@@ -18,6 +18,7 @@ export function errorCode(message: string): string {
   if (message.startsWith("Sensitive content detected:")) return "SENSITIVE_CONTENT_DETECTED";
   if (message.startsWith("Index stale:")) return "INDEX_STALE";
   if (message.startsWith("Record not found:")) return "RECORD_NOT_FOUND";
+  if (message.startsWith("Sync not configured")) return "SYNC_NOT_CONFIGURED";
   if (message.includes("Authentication failed") || message.includes("Permission denied")) return "PERMISSION_DENIED";
   if (message.toLowerCase().includes("conflict")) return "SYNC_CONFLICT";
   if (message.toLowerCase().includes("remote") || message.toLowerCase().includes("repository")) return "SYNC_REMOTE_UNAVAILABLE";
@@ -50,6 +51,8 @@ export function recommendedAction(code: string): string {
       return "run mem rebuild";
     case "PERMISSION_DENIED":
       return "check Git credentials and filesystem permissions";
+    case "SYNC_NOT_CONFIGURED":
+      return "run mem sync init <remote>";
     case "SYNC_CONFLICT":
       return "inspect Git sync state before retrying";
     case "SYNC_REMOTE_UNAVAILABLE":

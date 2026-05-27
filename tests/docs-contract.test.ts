@@ -15,6 +15,7 @@ describe("documentation contracts", () => {
       "SENSITIVE_CONTENT_DETECTED",
       "INDEX_STALE",
       "RECORD_NOT_FOUND",
+      "SYNC_NOT_CONFIGURED",
       "PERMISSION_DENIED",
       "SYNC_CONFLICT",
       "SYNC_REMOTE_UNAVAILABLE",

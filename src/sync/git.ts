@@ -119,6 +119,15 @@ async function hasRemoteHead(storePath: string): Promise<boolean> {
   return gitOk(storePath, ["ls-remote", "--exit-code", "--heads", "origin", "main"]);
 }
 
+async function ensureGitSyncConfigured(storePath: string): Promise<void> {
+  if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) {
+    throw new Error("Sync not configured: run mem sync init <remote>");
+  }
+  if (!await git(storePath, ["remote", "get-url", "origin"]).catch(() => "")) {
+    throw new Error("Sync not configured: run mem sync init <remote>");
+  }
+}
+
 async function ensureRemote(storePath: string, remoteUrl: string): Promise<void> {
   const current = await git(storePath, ["remote", "get-url", "origin"]).catch(() => "");
   if (!current) {
@@ -197,6 +206,7 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
 
 export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
+  await ensureGitSyncConfigured(storePath);
   if (!await hasRemoteHead(storePath)) {
     return { ok: true, pulled: false, message: "Remote branch main does not exist yet" };
   }
@@ -217,6 +227,7 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
 export async function pushGitSync(storePath: string, options: { message?: string } = {}): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
   validateSyncOptions(options);
+  await ensureGitSyncConfigured(storePath);
   await ensureGitIgnore(storePath);
   await ensureGitIdentity(storePath);
   await ensureMainBranch(storePath);

@@ -82,6 +82,36 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("rejects pull and push before Git sync is initialized", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-unconfigured-"));
+    const store = join(root, "store");
+    try {
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_unconfigured"
+      });
+
+      for (const action of [() => pullGitSync(store), () => pushGitSync(store)]) {
+        let caught: unknown;
+        try {
+          await action();
+        } catch (error) {
+          caught = error;
+        }
+
+        if (!caught) {
+          throw new Error("Expected unconfigured sync operation to fail");
+        }
+
+        const envelope = toErrorEnvelope(caught);
+        expect(envelope.error.code).toBe("SYNC_NOT_CONFIGURED");
+        expect(envelope.error.recommended_action).toBe("run mem sync init <remote>");
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("initializes a store repo, pushes events, and pulls them on another device", async () => {
     const root = await mkdtemp(join(tmpdir(), "memora-sync-"));
     const remote = join(root, "remote.git");
