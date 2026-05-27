@@ -86,4 +86,32 @@ describe("mem CLI", () => {
       expect(refresh.stdout).toContain(recordId);
     });
   });
+
+  it("syncs local store events through a git remote", async () => {
+    await withTempDir(async (dir) => {
+      const remote = join(dir, "remote.git");
+      const storeA = join(dir, "store-a");
+      const storeB = join(dir, "store-b");
+      await exec("git", ["init", "--bare", remote]);
+
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "init"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "init"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "init", remote]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--state", "canonical", "--text", "CLI sync uses Git"]);
+
+      const push = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "--push"]);
+      expect(push.stdout).toContain("\"pushed\": true");
+
+      const pull = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--pull"]);
+      expect(pull.stdout).toContain("\"pulled\": true");
+
+      const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "recall", "Git", "--project-id", "memora"]);
+      expect(recall.stdout).toContain("CLI sync uses Git");
+
+      const status = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--status"]);
+      expect(status.stdout).toContain("\"configured\": true");
+      expect(status.stdout).toContain("\"dirty\": false");
+    });
+  });
 });

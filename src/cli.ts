@@ -8,7 +8,7 @@ import { initializeStore } from "./core/config.js";
 import { createEngine } from "./core/engine.js";
 import { initializeProjectConfig, resolveProjectContext } from "./core/project.js";
 import { runMcpServer } from "./mcp/server.js";
-import { getGitSyncStatus } from "./sync/git.js";
+import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
 
 const program = new Command();
 
@@ -161,10 +161,28 @@ project.command("init")
     });
   });
 
-program.command("sync")
+const sync = program.command("sync");
+
+sync.command("init")
+  .argument("<remote>")
+  .action(async (remote) => {
+    printJson(await initializeGitSync(storePath(), remote));
+  });
+
+sync
   .option("--status", "Show sync status")
-  .action(async () => {
-    printJson(await getGitSyncStatus(process.cwd()));
+  .option("--push", "Commit and push local events")
+  .option("--pull", "Pull remote events")
+  .action(async (options) => {
+    if (options.push) {
+      printJson(await pushGitSync(storePath()));
+      return;
+    }
+    if (options.pull) {
+      printJson(await pullGitSync(storePath()));
+      return;
+    }
+    printJson(await getGitSyncStatus(storePath()));
   });
 
 program.parseAsync().catch((error: unknown) => {

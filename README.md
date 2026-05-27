@@ -119,6 +119,16 @@ mem sync init git@github.com:yourname/memora-store.git
 
 The sync repo should be a user-owned private repository for Memora data. It should be separate from the Memora source code repository.
 
+Sync commands operate on the Memora store, not the current source repo:
+
+```bash
+mem sync --status
+mem sync --push
+mem sync --pull
+```
+
+The default Git sync commits event files and `.gitignore`. Local `config.json`, snapshots, and indexes remain device-local or rebuildable.
+
 ### 4. Initialize a Project
 
 Inside a project repo:
@@ -206,6 +216,8 @@ mem revise rec_... --set content.text="Updated memory" --reason "Refined wording
 mem promote rec_... --state canonical --reason "User confirmed"
 mem list-recent
 mem sync --status
+mem sync --push
+mem sync --pull
 mem mcp
 ```
 

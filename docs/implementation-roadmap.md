@@ -87,13 +87,14 @@ Implement private-repo sync as the first cross-device backend.
 
 Deliverables:
 
-- `mem sync init <repo-url>` creates or connects the store Git repo.
-- `mem sync --pull` fetches and merges remote event history.
-- `mem sync --push` commits local event files and pushes.
-- `mem sync --status` reports configured remote, branch, dirty state, ahead,
+- Done: `mem sync init <repo-url>` creates or connects the store Git repo.
+- Done: `mem sync --pull` fetches and merges remote event history.
+- Done: `mem sync --push` commits local event files and pushes.
+- Done: `mem sync --status` reports configured remote, branch, dirty state, ahead,
   behind, and last sync.
-- Generated snapshots/indexes are excluded from sync by default.
-- Sync failures do not block local read/write.
+- Done: Generated snapshots/indexes are excluded from sync by default.
+- Done: Local `config.json` is excluded from sync to avoid device identity conflicts.
+- Remaining: Add post-pull snapshot/index rebuild once derived views exist.
 
 ## Phase 5: Derived Views
 
