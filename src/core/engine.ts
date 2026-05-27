@@ -813,7 +813,7 @@ export function createEngine(deps: EngineDeps) {
         .map((record) => ({ record, ...reasonAndScore(record, input) }))
         .filter((result) => matchesQuery(result, input))
         .filter((result) => result.score > 0 || (!input.query && !input.record_ids?.length))
-        .sort((a, b) => b.score - a.score)
+        .sort((a, b) => (b.score - a.score) || b.record.updated_at.localeCompare(a.record.updated_at) || a.record.id.localeCompare(b.record.id))
         .slice(0, limit);
       return { results: records };
     },

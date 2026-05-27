@@ -1086,6 +1086,44 @@ describe("core engine", () => {
     });
   });
 
+  it("uses recency as a stable recall ranking tie-breaker", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const timestamps = [
+        "2026-05-27T00:00:00.000Z",
+        "2026-05-27T00:01:00.000Z"
+      ];
+      const engine = createEngine({ storePath, now: () => timestamps[nextId] ?? "2026-05-27T00:02:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const older = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Auth middleware stores project records.", format: "text" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+
+      const newer = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Auth session refreshes derived indexes.", format: "text" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+
+      expect(older.record.state).toBe("canonical");
+      expect(newer.record.state).toBe("canonical");
+
+      const recall = await engine.recall({ query: "auth", project_id: "memora", kinds: ["memory"], limit: 2 });
+
+      expect(recall.results.map((result) => result.record.id)).toEqual([newer.record.id, older.record.id]);
+    });
+  });
+
   it("recalls an explicit record id even when the current project context differs", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
