@@ -553,8 +553,9 @@ mem write --kind session_summary --project . --text "Completed the initial desig
 mem write --kind memory --type decision --scope project --project . --content-json '{"text":"Structured memory","format":"json","evidence":["cli"]}'
 ```
 
-CLI callers can provide either `--text` for text content or `--content-json`
-for a structured JSON object. MCP callers can provide `content` directly.
+CLI callers must provide exactly one of `--text` for text content or
+`--content-json` for a structured JSON object. MCP callers must provide
+exactly one of `text` or `content`.
 
 ### `revise`
 

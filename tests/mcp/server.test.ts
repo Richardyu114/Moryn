@@ -578,6 +578,47 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("rejects ambiguous MCP write content inputs", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-content-input-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const both = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            text: "Plain text",
+            content: { text: "Structured text", format: "json" },
+            source: { client: "mcp-test" }
+          }
+        })) as { ok: boolean; error: { code: string; message: string } };
+        expect(both.ok).toBe(false);
+        expect(both.error.code).toBe("INVALID_ARGUMENT");
+        expect(both.error.message).toContain("either text or content");
+
+        const neither = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            source: { client: "mcp-test" }
+          }
+        })) as { ok: boolean; error: { code: string; message: string } };
+        expect(neither.ok).toBe(false);
+        expect(neither.error.code).toBe("INVALID_ARGUMENT");
+        expect(neither.error.message).toContain("text or content");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("marks conflicting MCP canonical writes as candidates", async () => {
     const store = await mkdtemp(join(tmpdir(), "memora-mcp-conflict-"));
     try {

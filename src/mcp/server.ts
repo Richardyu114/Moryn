@@ -177,6 +177,12 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       }
     },
     async (input) => toolResult(async () => {
+      if (input.content && input.text !== undefined) {
+        throw new Error("Invalid argument: use either text or content, not both");
+      }
+      if (!input.content && input.text === undefined) {
+        throw new Error("Invalid argument: write requires text or content");
+      }
       const content = input.content ?? { text: input.text ?? "", format: "text" as const };
       const project = await resolveProjectInput({ project_id: input.project_id, project_path: input.project_path });
       return engine.write({

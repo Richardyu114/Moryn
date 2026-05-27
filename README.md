@@ -186,6 +186,9 @@ mem recall "append-only events" --project /path/to/project
 mem boot --project /path/to/project
 ```
 
+For writes, CLI callers must provide exactly one of `--text` or
+`--content-json`; MCP callers must provide exactly one of `text` or `content`.
+
 ### 5. Connect Agents Through MCP
 
 Start the Memora MCP server:
