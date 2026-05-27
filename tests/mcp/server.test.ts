@@ -60,6 +60,8 @@ describe("MCP stdio server", () => {
           "write"
         ]);
 
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
         const writeResult = parseTextContent(await client.callTool({
           name: "write",
           arguments: {
@@ -285,6 +287,8 @@ describe("MCP stdio server", () => {
       });
 
       await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
         const skill = parseTextContent(await client.callTool({
           name: "write",
           arguments: {
@@ -393,6 +397,8 @@ describe("MCP stdio server", () => {
     const store = await mkdtemp(join(tmpdir(), "memora-mcp-missing-record-"));
     try {
       await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
         const result = parseTextContent(await client.callTool({
           name: "archive",
           arguments: {

@@ -2,11 +2,40 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { appendEvent, readEvents } from "../../src/core/store.js";
-import { withTempStore } from "../helpers/temp-store.js";
+import { withInitializedTempStore, withTempStore } from "../helpers/temp-store.js";
 
 describe("event store", () => {
-  it("appends events under device and month partitions", async () => {
+  it("requires store initialization before reading or appending events", async () => {
     await withTempStore(async (storePath) => {
+      const uninitialized = join(storePath, "uninitialized");
+
+      await expect(readEvents(uninitialized)).rejects.toThrow(/Store not initialized/);
+      await expect(appendEvent(uninitialized, {
+        event_id: "evt_missing_store",
+        op: "upsert_record",
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test", device_id: "device_a" },
+        record: {
+          id: "rec_missing_store",
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          tags: [],
+          content: { text: "Should not write before init.", format: "text" },
+          state: "canonical",
+          confidence: 1,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test" }
+        }
+      })).rejects.toThrow(/Store not initialized/);
+    });
+  });
+
+  it("appends events under device and month partitions", async () => {
+    await withInitializedTempStore(async (storePath) => {
       await appendEvent(storePath, {
         event_id: "evt_1",
         op: "upsert_record",
@@ -36,7 +65,7 @@ describe("event store", () => {
   });
 
   it("rejects invalid event files while reading", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       const path = join(storePath, "events", "device_default", "2026-05", "evt_invalid.json");
       await mkdir(join(storePath, "events", "device_default", "2026-05"), { recursive: true });
       await writeFile(path, `${JSON.stringify({
@@ -66,7 +95,7 @@ describe("event store", () => {
   });
 
   it("rejects invalid events before appending", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       await expect(appendEvent(storePath, {
         event_id: "evt_invalid",
         op: "upsert_record",

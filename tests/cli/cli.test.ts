@@ -442,6 +442,41 @@ describe("mem CLI", () => {
     });
   });
 
+  it("returns structured JSON errors before using an uninitialized store", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "missing-store");
+      async function expectStoreNotInitialized(args: string[]): Promise<void> {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, ...args]);
+          throw new Error(`Expected mem ${args.join(" ")} to fail before mem init`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const stderr = (error as { stderr: string }).stderr;
+          const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("STORE_NOT_INITIALIZED");
+          expect(parsed.error.recoverable).toBe(true);
+          expect(parsed.error.recommended_action).toBe("run mem init");
+        }
+      }
+
+      await expectStoreNotInitialized([
+        "boot",
+        "--project-id",
+        "memora"
+      ]);
+
+      await expectStoreNotInitialized([
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--text", "This should not create a store implicitly."
+      ]);
+    });
+  });
+
   it("returns sync remote errors while preserving local write and boot", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

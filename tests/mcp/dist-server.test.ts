@@ -37,6 +37,8 @@ describe("built MCP stdio server", () => {
         const tools = await client.listTools();
         expect(tools.tools.map((tool) => tool.name)).toContain("boot");
 
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
         const write = parseTextContent(await client.callTool({
           name: "write",
           arguments: {

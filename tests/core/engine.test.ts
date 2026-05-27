@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
-import { withTempStore } from "../helpers/temp-store.js";
+import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 describe("core engine", () => {
   it("writes, recalls, revises, and promotes records", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -29,7 +29,7 @@ describe("core engine", () => {
   });
 
   it("orders rapid same-millisecond mutations after the record creation event", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       const ids = ["rec_1", "evt_z_upsert", "evt_a_revise"];
       const engine = createEngine({
         storePath,
@@ -60,7 +60,7 @@ describe("core engine", () => {
   });
 
   it("quarantines sensitive content on write", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -79,7 +79,7 @@ describe("core engine", () => {
   });
 
   it("quarantines authorization headers on write", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -101,8 +101,60 @@ describe("core engine", () => {
     });
   });
 
+  it("quarantines cookie headers on write", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const written = await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Cookie: session=abcdef1234567890; csrf=ghijklmnop123456", format: "text" },
+        source: { client: "test" }
+      });
+
+      expect(written.record.state).toBe("quarantined");
+      expect(written.record.visibility).toBe("quarantined");
+      expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
+      expect((await engine.recall({ query: "session", project_id: "memora" })).results).toHaveLength(0);
+    });
+  });
+
+  it("quarantines pasted env files on write", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: {
+          text: [
+            "DATABASE_URL=postgres://memora:secret@localhost:5432/memora",
+            "REDIS_URL=redis://localhost:6379",
+            "SESSION_SECRET=abcdefghijklmnopqrstuvwxyz",
+            "WEBHOOK_TOKEN=whsec_1234567890abcdef"
+          ].join("\n"),
+          format: "text"
+        },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      expect(written.record.state).toBe("quarantined");
+      expect(written.record.visibility).toBe("quarantined");
+      expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
+      expect((await engine.boot({ project_id: "memora" })).project.warnings).toHaveLength(0);
+      expect((await engine.recall({ query: "DATABASE_URL", project_id: "memora" })).results).toHaveLength(0);
+    });
+  });
+
   it("recalls with record id, kind, type, state, tag, and file filters", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => `2026-05-27T00:00:0${nextId}.000Z`, id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -156,7 +208,7 @@ describe("core engine", () => {
   });
 
   it("recalls with explicit scope filtering", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -187,7 +239,7 @@ describe("core engine", () => {
   });
 
   it("builds boot context from trusted profile, project, skill, and recent records", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
       const timestamps = [
@@ -268,7 +320,7 @@ describe("core engine", () => {
   });
 
   it("marks boot sync status when the sync provider reports remote updates", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({
         storePath,
         syncStatus: async () => ({ behind: 2 })
@@ -281,7 +333,7 @@ describe("core engine", () => {
   });
 
   it("builds project summary, tech stack, and active goals from trusted project records", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -357,7 +409,7 @@ describe("core engine", () => {
   });
 
   it("includes only important visible updates in boot recent changes", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
       const timestamps = [
@@ -414,7 +466,7 @@ describe("core engine", () => {
   });
 
   it("adds configured default skill selectors to boot context", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -445,7 +497,7 @@ describe("core engine", () => {
   });
 
   it("adds task-relevant trusted records to boot context when current task is provided", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -498,7 +550,7 @@ describe("core engine", () => {
   });
 
   it("reports refresh changes since a cursor with notice and interrupt importance", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
       const timestamps = [
@@ -549,7 +601,7 @@ describe("core engine", () => {
   });
 
   it("uses current task text to interrupt only on related blockers and warnings", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       let nextTime = 0;
       const timestamps = [
@@ -598,7 +650,7 @@ describe("core engine", () => {
   });
 
   it("keeps raw agent notes out of boot until promotion and preserves skill identity through revision", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -639,7 +691,7 @@ describe("core engine", () => {
   });
 
   it("archives, quarantines, links, and recalls hidden records only when explicitly requested", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -700,7 +752,7 @@ describe("core engine", () => {
   });
 
   it("rejects mutation events that target missing records", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
       const existing = await engine.write({

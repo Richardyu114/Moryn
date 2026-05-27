@@ -9,6 +9,7 @@ export interface MemoraErrorEnvelope {
 }
 
 export function errorCode(message: string): string {
+  if (message.startsWith("Store not initialized") || message.includes("ENOENT")) return "STORE_NOT_INITIALIZED";
   if (message.startsWith("Invalid project config:")) return "INVALID_PROJECT_CONFIG";
   if (message.startsWith("Invalid store config:")) return "INVALID_STORE_CONFIG";
   if (message.startsWith("Invalid event:") || message.startsWith("Invalid record:")) return "INVALID_RECORD";

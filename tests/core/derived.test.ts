@@ -3,11 +3,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
-import { withTempStore } from "../helpers/temp-store.js";
+import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 describe("derived views", () => {
   it("rebuilds snapshots and recall index from replayed events", async () => {
-    await withTempStore(async (storePath) => {
+    await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
       const engine = createEngine({
         storePath,

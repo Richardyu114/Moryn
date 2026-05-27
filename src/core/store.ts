@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { MemoraEvent } from "./types.js";
 import { parseEvent } from "./schema.js";
@@ -15,7 +15,19 @@ function eventPath(storePath: string, event: MemoraEvent): string {
   return join(storePath, "events", deviceFromEvent(event), monthFromIso(event.created_at), `${event.event_id}.json`);
 }
 
+async function ensureStoreInitialized(storePath: string): Promise<void> {
+  try {
+    await access(join(storePath, "config.json"));
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      throw new Error("Store not initialized");
+    }
+    throw error;
+  }
+}
+
 export async function appendEvent(storePath: string, event: MemoraEvent): Promise<string> {
+  await ensureStoreInitialized(storePath);
   parseEvent(event);
   const path = eventPath(storePath, event);
   await mkdir(dirname(path), { recursive: true });
@@ -44,6 +56,7 @@ async function walkJsonFiles(dir: string): Promise<string[]> {
 }
 
 export async function readEvents(storePath: string): Promise<MemoraEvent[]> {
+  await ensureStoreInitialized(storePath);
   const files = await walkJsonFiles(join(storePath, "events"));
   const events = await Promise.all(files.map(async (file) => {
     try {
