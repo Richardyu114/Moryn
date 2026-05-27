@@ -196,6 +196,53 @@ describe("mem CLI", () => {
     });
   });
 
+  it("does not leak project records into boot without project context", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "preference",
+        "--scope", "global",
+        "--state", "canonical",
+        "--text", "Prefer concise engineering updates."
+      ]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project-id", "alpha",
+        "--state", "canonical",
+        "--priority", "high",
+        "--tag", "auth",
+        "--text", "Alpha auth token refresh is blocked by stale credentials."
+      ]);
+
+      const boot = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "boot",
+        "--current-task", "fix auth token refresh"
+      ]);
+      const parsed = JSON.parse(boot.stdout) as {
+        profile: { user_preferences: Array<{ content: { text?: string } }> };
+        project: { warnings: unknown[]; important_decisions: unknown[] };
+        task_relevant: unknown[];
+        recent_changes: Array<{ scope: string; content: { text?: string } }>;
+      };
+
+      expect(parsed.profile.user_preferences.map((record) => record.content.text)).toEqual(["Prefer concise engineering updates."]);
+      expect(parsed.project.warnings).toEqual([]);
+      expect(parsed.project.important_decisions).toEqual([]);
+      expect(parsed.task_relevant).toEqual([]);
+      expect(parsed.recent_changes.every((record) => record.scope === "global")).toBe(true);
+      expect(JSON.stringify(parsed)).not.toContain("Alpha auth token refresh is blocked");
+    });
+  });
+
   it("rejects invalid confidence options", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

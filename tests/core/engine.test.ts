@@ -1312,6 +1312,60 @@ describe("core engine", () => {
     });
   });
 
+  it("does not include arbitrary project records in boot without project context", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const timestamps = [
+        "2026-05-27T00:00:00.000Z",
+        "2026-05-27T00:01:00.000Z",
+        "2026-05-27T00:02:00.000Z",
+        "2026-05-27T00:03:00.000Z"
+      ];
+      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const preference = await engine.write({
+        kind: "memory",
+        type: "preference",
+        scope: "global",
+        content: { text: "Prefer direct engineering updates.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "alpha",
+        tags: ["auth"],
+        content: { text: "Alpha auth token refresh uses rotating credentials.", format: "text" },
+        state: "canonical",
+        priority: "high",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "beta",
+        tags: ["auth"],
+        content: { text: "Beta auth token refresh is blocked by stale credentials.", format: "text" },
+        state: "canonical",
+        priority: "high",
+        source: { client: "test" }
+      });
+
+      const boot = await engine.boot({ current_task: "fix auth token refresh" });
+
+      expect(boot.profile.user_preferences.map((record) => record.id)).toEqual([preference.record.id]);
+      expect(boot.project.important_decisions).toEqual([]);
+      expect(boot.project.warnings).toEqual([]);
+      expect(boot.task_relevant).toEqual([]);
+      expect(boot.recent_changes.map((record) => record.id)).toEqual([preference.record.id]);
+      expect(boot.recent_changes.every((record) => record.scope === "global")).toBe(true);
+    });
+  });
+
   it("reports refresh changes since a cursor with notice and interrupt importance", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

@@ -264,6 +264,10 @@ function recordProjectMatches(record: MemoraRecord, projectId: string | undefine
   return !projectId || record.project_id === projectId || record.scope === "global";
 }
 
+function recordBootContextMatches(record: MemoraRecord, projectId: string | undefined): boolean {
+  return record.scope === "global" || (Boolean(projectId) && record.project_id === projectId);
+}
+
 function recordProjectMatchesRecall(record: MemoraRecord, input: RecallInput): boolean {
   return Boolean(input.record_ids?.length) || recordProjectMatches(record, input.project_id);
 }
@@ -774,7 +778,7 @@ export function createEngine(deps: EngineDeps) {
       validateBootInput(input);
       const visibleRecords = (await currentRecords())
         .filter(isVisibleByDefault)
-        .filter((record) => recordProjectMatches(record, input.project_id));
+        .filter((record) => recordBootContextMatches(record, input.project_id));
       const records = visibleRecords
         .filter(isTrustedForBoot)
       const recent = [...visibleRecords]
