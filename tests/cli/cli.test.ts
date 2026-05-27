@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
 import { readEvents } from "../../src/core/store.js";
 
 const exec = promisify(execFile);
+const repoRoot = process.cwd();
+const tsxLoader = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
+const cliPath = join(repoRoot, "src/cli.ts");
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "memora-cli-"));
@@ -141,6 +144,55 @@ describe("mem CLI", () => {
 
       expect(parsedWrite.record.confidence).toBe(0.9);
       expect(parsedBoot.recent_changes.map((record) => record.id)).toContain(parsedWrite.record.id);
+    });
+  });
+
+  it("does not apply ambient project config when only --project-id is provided", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+      await writeFile(join(project, ".memora.json"), JSON.stringify({
+        project_id: "ambient",
+        tags: ["ambient-tag"],
+        default_skills: ["ambient-skill"]
+      }), "utf8");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "skill",
+        "--type", "procedure",
+        "--scope", "global",
+        "--tag", "ambient-skill",
+        "--state", "canonical",
+        "--text", "Ambient default skill must not attach to explicit project id.",
+        "--confirm"
+      ]);
+
+      const write = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "explicit",
+        "--text", "Explicit CLI project id should stand alone."
+      ], { cwd: project });
+      const parsed = JSON.parse(write.stdout) as { record: { project_id?: string; tags: string[] } };
+
+      expect(parsed.record.project_id).toBe("explicit");
+      expect(parsed.record.tags).toEqual([]);
+
+      const boot = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "boot",
+        "--project-id", "explicit"
+      ], { cwd: project });
+      const parsedBoot = JSON.parse(boot.stdout) as { skills: Array<{ id: string }> };
+
+      expect(parsedBoot.skills).toEqual([]);
     });
   });
 

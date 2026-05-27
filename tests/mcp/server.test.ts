@@ -10,12 +10,15 @@ import { readEvents } from "../../src/core/store.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 
 const exec = promisify(execFile);
+const repoRoot = process.cwd();
+const tsxLoader = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
+const cliPath = join(repoRoot, "src/cli.ts");
 
-async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promise<T>): Promise<T> {
+async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promise<T>, cwd = repoRoot): Promise<T> {
   const transport = new StdioClientTransport({
     command: "node",
-    args: ["--import", "tsx", "src/cli.ts", "--store", storePath, "mcp"],
-    cwd: process.cwd(),
+    args: ["--import", tsxLoader, cliPath, "--store", storePath, "mcp"],
+    cwd,
     stderr: "pipe"
   });
   const client = new Client({ name: "memora-test-client", version: "0.1.0" });
@@ -396,6 +399,39 @@ describe("MCP stdio server", () => {
           sync: { mode: "interval" }
         });
       });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not apply ambient project config when only project_id is provided over MCP", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-mcp-explicit-project-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, {
+        project_id: "ambient",
+        tags: ["ambient-tag"],
+        default_skills: ["ambient-skill"]
+      });
+
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const write = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "explicit",
+            text: "Explicit MCP project id should stand alone."
+          }
+        })) as { record: { project_id?: string; tags: string[] } };
+
+        expect(write.record.project_id).toBe("explicit");
+        expect(write.record.tags).toEqual([]);
+      }, project);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

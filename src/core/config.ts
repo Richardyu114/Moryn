@@ -21,6 +21,12 @@ function isNotFoundError(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
+function validateStorePath(storePath: unknown): asserts storePath is string {
+  if (typeof storePath !== "string" || storePath.length === 0) {
+    throw new Error("Invalid argument: Invalid storePath");
+  }
+}
+
 async function ensureStoreDirectories(storePath: string): Promise<void> {
   for (const name of ["events", "snapshots", "indexes", "state"]) {
     const dir = join(storePath, name);
@@ -30,6 +36,7 @@ async function ensureStoreDirectories(storePath: string): Promise<void> {
 }
 
 export async function readStoreConfig(storePath: string): Promise<StoreConfig> {
+  validateStorePath(storePath);
   let raw: unknown;
   try {
     raw = JSON.parse(await readFile(join(storePath, "config.json"), "utf8")) as unknown;
@@ -48,6 +55,7 @@ export async function readStoreConfig(storePath: string): Promise<StoreConfig> {
 }
 
 export async function initializeStore(storePath: string, options: InitializeStoreOptions = {}): Promise<{ config: StoreConfig; store: string }> {
+  validateStorePath(storePath);
   const now = options.now ?? (() => new Date().toISOString());
   const id = options.id ?? (() => createId("device"));
   await mkdir(storePath, { recursive: true });

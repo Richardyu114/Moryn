@@ -131,6 +131,21 @@ describe("project config", () => {
     });
   });
 
+  it("resolves explicit id without reading ambient project config", async () => {
+    await withTempStore(async (projectPath) => {
+      await writeFile(join(projectPath, ".memora.json"), "{\"project_id\":", "utf8");
+
+      await withCwd(projectPath, async () => {
+        const context = await resolveProjectContext({ projectId: "explicit" });
+
+        expect(context.project_id).toBe("explicit");
+        expect(context.project_path).toBe(projectPath);
+        expect(context.source).toBe("explicit");
+        expect(context.config).toBeUndefined();
+      });
+    });
+  });
+
   it("rejects invalid explicit project context input", async () => {
     await withTempStore(async (projectPath) => {
       await initializeProjectConfig(projectPath, { project_id: "from-file" });

@@ -186,6 +186,11 @@ export async function initializeProjectConfig(projectPath: string, input: Initia
 export async function resolveProjectContext(input: { projectPath?: string; projectId?: string }): Promise<ProjectContext> {
   validateResolveProjectContextInput(input);
   const projectPath = resolve(input.projectPath ?? process.cwd());
+
+  if (input.projectId && !input.projectPath) {
+    return { project_id: input.projectId, project_path: projectPath, source: "explicit" };
+  }
+
   const configFile = await findProjectConfig(projectPath);
   const config = configFile?.config;
   const resolvedProjectPath = configFile?.directory ?? projectPath;
