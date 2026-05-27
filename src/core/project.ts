@@ -111,6 +111,26 @@ function repoId(input: string): string {
   return `repo-${hashIdentity(input)}`;
 }
 
+function normalizedRemoteIdentity(remote: string): string {
+  const trimmed = remote.trim();
+  const normalizeGitHubPath = (path: string) => path.replace(/^\/+/, "").replace(/\/+$/, "").replace(/\.git$/i, "").toLowerCase();
+  const scpLike = /^git@github\.com:(.+)$/i.exec(trimmed);
+  if (scpLike) {
+    return `github.com/${normalizeGitHubPath(scpLike[1])}`;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    if (url.hostname.toLowerCase() === "github.com") {
+      return `github.com/${normalizeGitHubPath(url.pathname)}`;
+    }
+  } catch {
+    return trimmed;
+  }
+
+  return trimmed;
+}
+
 async function git(args: string[], cwd: string): Promise<string | undefined> {
   try {
     const { stdout } = await exec("git", args, { cwd });
@@ -205,7 +225,7 @@ export async function resolveProjectContext(input: { projectPath?: string; proje
 
   const remote = await git(["remote", "get-url", "origin"], projectPath);
   if (remote) {
-    return { project_id: repoId(remote), project_path: projectPath, source: "git_remote", config };
+    return { project_id: repoId(normalizedRemoteIdentity(remote)), project_path: projectPath, source: "git_remote", config };
   }
 
   const root = await git(["rev-parse", "--show-toplevel"], projectPath);

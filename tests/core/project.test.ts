@@ -212,6 +212,33 @@ describe("project config", () => {
     });
   });
 
+  it("normalizes equivalent GitHub remote URLs for project identity", async () => {
+    await withTempStore(async (root) => {
+      const sshProject = join(root, "ssh");
+      const httpsProject = join(root, "https");
+      const sshUrlProject = join(root, "ssh-url");
+      await mkdir(sshProject, { recursive: true });
+      await mkdir(httpsProject, { recursive: true });
+      await mkdir(sshUrlProject, { recursive: true });
+      await exec("git", ["init"], { cwd: sshProject });
+      await exec("git", ["init"], { cwd: httpsProject });
+      await exec("git", ["init"], { cwd: sshUrlProject });
+      await exec("git", ["remote", "add", "origin", "git@github.com:Richardyu114/Memora.git"], { cwd: sshProject });
+      await exec("git", ["remote", "add", "origin", "https://github.com/Richardyu114/Memora.git"], { cwd: httpsProject });
+      await exec("git", ["remote", "add", "origin", "ssh://git@github.com/Richardyu114/Memora.git/"], { cwd: sshUrlProject });
+
+      const sshContext = await resolveProjectContext({ projectPath: sshProject });
+      const httpsContext = await resolveProjectContext({ projectPath: httpsProject });
+      const sshUrlContext = await resolveProjectContext({ projectPath: sshUrlProject });
+
+      expect(sshContext.source).toBe("git_remote");
+      expect(httpsContext.source).toBe("git_remote");
+      expect(sshUrlContext.source).toBe("git_remote");
+      expect(httpsContext.project_id).toBe(sshContext.project_id);
+      expect(sshUrlContext.project_id).toBe(sshContext.project_id);
+    });
+  });
+
   it("falls back to git root path before directory name", async () => {
     await withTempStore(async (projectPath) => {
       await exec("git", ["init"], { cwd: projectPath });
