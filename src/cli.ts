@@ -110,12 +110,14 @@ program.command("recall")
 program.command("boot")
   .option("--project-id <id>")
   .option("--project <path>")
+  .option("--current-task <task>")
   .action(async (options) => {
     const engine = createEngine({ storePath: storePath() });
     const project = await resolveProjectOptions(options);
     printJson(await engine.boot({
       project_id: project.project_id,
-      default_skills: project.default_skills
+      default_skills: project.default_skills,
+      current_task: options.currentTask
     }));
   });
 

@@ -244,6 +244,59 @@ describe("core engine", () => {
     });
   });
 
+  it("adds task-relevant trusted records to boot context when current task is provided", async () => {
+    await withTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const authDecision = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        tags: ["auth"],
+        content: { text: "Auth token refresh uses rotating credentials.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "skill",
+        type: "procedure",
+        scope: "global",
+        tags: ["release"],
+        content: { text: "Release skill from project config.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        tags: ["release"],
+        content: { text: "Release requires npm credentials.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "memora",
+        tags: ["auth"],
+        content: { text: "Raw auth note should stay out of boot.", format: "text" },
+        source: { client: "test" }
+      });
+
+      const boot = await engine.boot({ project_id: "memora", current_task: "fix auth token refresh" });
+
+      expect(boot.task_relevant.map((record) => record.id)).toEqual([authDecision.record.id]);
+      expect(boot.task_relevant.map((record) => record.content.text)).not.toContain("Release requires npm credentials.");
+      expect(boot.task_relevant.map((record) => record.content.text)).not.toContain("Release skill from project config.");
+      expect(boot.task_relevant.map((record) => record.content.text)).not.toContain("Raw auth note should stay out of boot.");
+    });
+  });
+
   it("reports refresh changes since a cursor with notice and interrupt importance", async () => {
     await withTempStore(async (storePath) => {
       let nextId = 0;

@@ -195,6 +195,27 @@ describe("mem CLI", () => {
       expect(boot.stdout).toContain(skillId);
       expect(boot.stdout).toContain("safe-release: run tests before publishing");
 
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project", project,
+        "--state", "canonical",
+        "--tag", "auth",
+        "--text", "Auth token refresh uses rotating credentials"
+      ]);
+      const taskBoot = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "boot",
+        "--project", project,
+        "--current-task", "fix auth token refresh"
+      ]);
+      const parsedTaskBoot = JSON.parse(taskBoot.stdout) as { task_relevant: Array<{ content: { text: string } }> };
+      expect(parsedTaskBoot.task_relevant.map((record) => record.content.text)).toContain("Auth token refresh uses rotating credentials");
+      expect(parsedTaskBoot.task_relevant.map((record) => record.content.text)).not.toContain("Review this warning");
+
       const hiddenRecall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "Old linked memory", "--project", project]);
       expect(hiddenRecall.stdout).not.toContain("Old linked memory");
 

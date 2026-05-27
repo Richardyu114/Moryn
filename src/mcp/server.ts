@@ -101,14 +101,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         project_id: z.string().min(1).optional(),
         project_path: z.string().min(1).optional(),
+        current_task: z.string().optional(),
         default_skills: z.array(z.string().min(1)).optional()
       }
     },
-    async ({ project_id, project_path, default_skills }) => toolResult(async () => {
+    async ({ project_id, project_path, current_task, default_skills }) => toolResult(async () => {
       const project = await resolveProjectInput({ project_id, project_path });
       return engine.boot({
         project_id: project.project_id,
-        default_skills: default_skills ?? project.default_skills
+        default_skills: default_skills ?? project.default_skills,
+        current_task
       });
     })
   );

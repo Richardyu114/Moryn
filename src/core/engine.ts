@@ -46,6 +46,7 @@ interface RefreshInput {
 interface BootInput {
   project_id?: string;
   default_skills?: string[];
+  current_task?: string;
 }
 
 interface StateChangeInput {
@@ -167,14 +168,20 @@ function summarizeRecord(record: MemoraRecord): string {
 }
 
 function taskTokens(task: string | undefined): string[] {
-  return (task ?? "").toLowerCase().split(/\W+/).filter((token) => token.length >= 3);
+  const stopWords = new Set(["add", "build", "check", "debug", "fix", "for", "from", "implement", "make", "path", "project", "the", "this", "use", "with"]);
+  return (task ?? "")
+    .toLowerCase()
+    .split(/\W+/)
+    .filter((token) => token.length >= 3)
+    .filter((token) => !stopWords.has(token));
 }
 
 function matchesCurrentTask(record: MemoraRecord, currentTask: string | undefined): boolean {
   const tokens = taskTokens(currentTask);
   if (!tokens.length) return false;
   const haystack = `${textOf(record)} ${record.tags.join(" ")} ${record.type}`.toLowerCase();
-  return tokens.some((token) => haystack.includes(token));
+  const matches = tokens.filter((token) => haystack.includes(token)).length;
+  return matches >= Math.min(2, tokens.length);
 }
 
 function refreshImportance(record: MemoraRecord, currentTask: string | undefined): { importance: "silent" | "notice" | "interrupt"; reason?: string } {
@@ -335,6 +342,12 @@ export function createEngine(deps: EngineDeps) {
       const records = visibleRecords
         .filter(isTrustedForBoot)
       const recent = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      const taskRelevant = input.current_task
+        ? records
+          .filter((record) => record.kind === "memory" && record.scope === "project")
+          .filter((record) => matchesCurrentTask(record, input.current_task))
+          .slice(0, 5)
+        : [];
       const cursor = [...visibleRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at ?? new Date().toISOString();
       return {
         profile: {
@@ -350,6 +363,7 @@ export function createEngine(deps: EngineDeps) {
           warnings: records.filter((record) => (record.type === "warning" || record.type === "blocker") && record.project_id === input.project_id)
         },
         skills: bootSkills(records, input),
+        task_relevant: taskRelevant,
         recent_changes: recent.filter((record) => record.kind !== "soul").slice(0, 5),
         sync: { cursor, remote_has_updates: false }
       };

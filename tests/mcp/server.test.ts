@@ -315,10 +315,14 @@ describe("MCP stdio server", () => {
 
         const boot = parseTextContent(await client.callTool({
           name: "boot",
-          arguments: { project_path: project }
-        })) as { skills: Array<{ id: string }>; project: { important_decisions: Array<{ id: string }> } };
+          arguments: {
+            project_path: project,
+            current_task: "resolve config"
+          }
+        })) as { skills: Array<{ id: string }>; project: { important_decisions: Array<{ id: string }> }; task_relevant: Array<{ id: string }> };
         expect(boot.skills.map((record) => record.id)).toEqual([skill.record.id]);
         expect(boot.project.important_decisions.map((record) => record.id)).toEqual([decision.record.id]);
+        expect(boot.task_relevant.map((record) => record.id)).toEqual([decision.record.id]);
 
         const recall = parseTextContent(await client.callTool({
           name: "recall",
