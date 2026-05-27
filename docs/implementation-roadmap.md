@@ -6,7 +6,7 @@ small, verified commits on `main`.
 
 ## Current Baseline
 
-The repository currently has an early local MVP:
+The repository currently has the first-version local MVP:
 
 - TypeScript package and `mem` CLI.
 - Append-only JSON event store.
@@ -42,8 +42,8 @@ Memora is functionally complete for the first product version when:
 
 ## Phase 1: Real Agent Access
 
-Replace the placeholder JSON-line server with the official Model Context
-Protocol TypeScript SDK over stdio.
+Use the official Model Context Protocol TypeScript SDK over stdio for real
+agent access.
 
 Deliverables:
 
@@ -96,6 +96,8 @@ Deliverables:
 
 - Done: `mem sync init <repo-url>` creates or connects the store Git repo.
 - Done: `mem sync --pull` fetches and merges remote event history.
+- Done: `mem sync --pull` rebases local event commits when remote history has
+  moved ahead.
 - Done: `mem sync --push` commits local event files and pushes.
 - Done: `mem sync --status` reports configured remote, branch, dirty state, ahead,
   behind, and last sync.

@@ -143,7 +143,7 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
     await rebuildDerivedViews(storePath);
     return { ok: true, pulled: true };
   }
-  await git(storePath, ["pull", "--ff-only", "origin", "main"]);
+  await git(storePath, ["pull", "--rebase", "origin", "main"]);
   await rebuildDerivedViews(storePath);
   return { ok: true, pulled: true };
 }

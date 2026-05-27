@@ -79,4 +79,71 @@ describe("git sync adapter", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("rebases local event commits when pulling remote device history", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-rebase-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(storeA, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_a"
+      });
+      await initializeStore(storeB, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_b"
+      });
+
+      await initializeGitSync(storeA, remote);
+      await initializeGitSync(storeB, remote);
+
+      const engineA = createEngine({
+        storePath: storeA,
+        now: () => "2026-05-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_a`
+      });
+      const engineB = createEngine({
+        storePath: storeB,
+        now: () => "2026-05-27T00:02:00.000Z",
+        id: (prefix) => `${prefix}_b`
+      });
+
+      await engineA.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Device A event survives sync.", format: "text" },
+        state: "canonical",
+        source: { client: "test", device_id: "device_a" }
+      });
+      await pushGitSync(storeA, { message: "device a writes first" });
+
+      await engineB.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Device B event survives sync.", format: "text" },
+        state: "canonical",
+        source: { client: "test", device_id: "device_b" }
+      });
+      await exec("git", ["add", "events", ".gitignore"], { cwd: storeB });
+      await exec("git", ["commit", "-m", "device b local commit before pull"], { cwd: storeB });
+
+      const pull = await pullGitSync(storeB);
+      expect(pull.pulled).toBe(true);
+
+      const engineBAfterPull = createEngine({ storePath: storeB });
+      const recallA = await engineBAfterPull.recall({ query: "Device A", project_id: "memora" });
+      const recallB = await engineBAfterPull.recall({ query: "Device B", project_id: "memora" });
+
+      expect(recallA.results[0]?.record.content.text).toBe("Device A event survives sync.");
+      expect(recallB.results[0]?.record.content.text).toBe("Device B event survives sync.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
