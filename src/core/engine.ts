@@ -392,8 +392,9 @@ function reasonAndScore(record: MemoraRecord, input: RecallInput): { score: numb
     score += 8;
     reason.push("canonical");
   } else if (record.state === "candidate") {
-    score += 4;
-    reason.push("candidate");
+    const highConfidence = record.confidence >= 0.75;
+    score += highConfidence ? 6 : 4;
+    reason.push(highConfidence ? "high_confidence_candidate" : "candidate");
   } else {
     reason.push(record.state);
   }

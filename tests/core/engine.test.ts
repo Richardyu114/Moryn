@@ -1195,6 +1195,43 @@ describe("core engine", () => {
     });
   });
 
+  it("ranks high-confidence recall candidates above lower-confidence candidates", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const timestamps = [
+        "2026-05-27T00:00:00.000Z",
+        "2026-05-27T00:01:00.000Z"
+      ];
+      const engine = createEngine({ storePath, now: () => timestamps[nextId] ?? "2026-05-27T00:02:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const highConfidence = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Auth session refresh candidate with strong evidence.", format: "text" },
+        state: "candidate",
+        confidence: 0.9,
+        source: { client: "codex" }
+      });
+      const lowConfidence = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Auth middleware candidate from an uncertain guess.", format: "text" },
+        state: "candidate",
+        confidence: 0.2,
+        source: { client: "codex" }
+      });
+
+      const recall = await engine.recall({ query: "auth", project_id: "memora", kinds: ["memory"], states: ["candidate"], limit: 2 });
+
+      expect(recall.results.map((result) => result.record.id)).toEqual([highConfidence.record.id, lowConfidence.record.id]);
+      expect(recall.results[0]?.reason).toContain("high_confidence_candidate");
+    });
+  });
+
   it("recalls an explicit record id even when the current project context differs", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
