@@ -23,6 +23,23 @@ describe("event store", () => {
     expect(envelope.error.message).toContain("Invalid storePath");
   }
 
+  async function expectInvalidEventPathComponent(action: () => Promise<unknown>, componentName: string): Promise<void> {
+    let caught: unknown;
+    try {
+      await action();
+    } catch (error) {
+      caught = error;
+    }
+
+    if (!caught) {
+      throw new Error("Expected invalid event path component");
+    }
+
+    const envelope = toErrorEnvelope(caught);
+    expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+    expect(envelope.error.message).toContain(`Invalid event path component: ${componentName}`);
+  }
+
   it("requires store initialization before reading or appending events", async () => {
     await withTempStore(async (storePath) => {
       const uninitialized = join(storePath, "uninitialized");
@@ -217,6 +234,61 @@ describe("event store", () => {
           source: { client: "test" }
         }
       } as never)).rejects.toThrow(/Invalid event/);
+    });
+  });
+
+  it("rejects unsafe event path components before writing files", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      await withTempStore(async (root) => {
+        const outsidePath = join(root, "evt_escape.json");
+
+        await expectInvalidEventPathComponent(() => appendEvent(storePath, {
+          event_id: `..${outsidePath}`,
+          op: "upsert_record",
+          created_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test", device_id: "device_a" },
+          record: {
+            id: "rec_unsafe_event_id",
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            tags: [],
+            content: { text: "Unsafe event ids must not affect file paths.", format: "text" },
+            state: "canonical",
+            confidence: 1,
+            priority: "normal",
+            visibility: "active",
+            created_at: "2026-05-27T00:00:00.000Z",
+            updated_at: "2026-05-27T00:00:00.000Z",
+            source: { client: "test" }
+          }
+        }), "event_id");
+
+        await expectInvalidEventPathComponent(() => appendEvent(storePath, {
+          event_id: "evt_unsafe_device",
+          op: "upsert_record",
+          created_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test", device_id: "../device_escape" },
+          record: {
+            id: "rec_unsafe_device",
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            tags: [],
+            content: { text: "Unsafe device ids must not affect file paths.", format: "text" },
+            state: "canonical",
+            confidence: 1,
+            priority: "normal",
+            visibility: "active",
+            created_at: "2026-05-27T00:00:00.000Z",
+            updated_at: "2026-05-27T00:00:00.000Z",
+            source: { client: "test" }
+          }
+        }), "source.device_id");
+
+        await expect(readFile(outsidePath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+        expect(await readEvents(storePath)).toHaveLength(0);
+      });
     });
   });
 

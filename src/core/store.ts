@@ -13,8 +13,17 @@ function deviceFromEvent(event: MemoraEvent): string {
   return event.source.device_id ?? "device_default";
 }
 
+function assertSafeEventPathComponent(value: string, name: string): void {
+  if (value === "." || value === ".." || /[/\\\0]/.test(value)) {
+    throw new Error(`Invalid argument: Invalid event path component: ${name}`);
+  }
+}
+
 function eventPath(storePath: string, event: MemoraEvent): string {
-  return join(storePath, "events", deviceFromEvent(event), monthFromIso(event.created_at), `${event.event_id}.json`);
+  const deviceId = deviceFromEvent(event);
+  assertSafeEventPathComponent(deviceId, "source.device_id");
+  assertSafeEventPathComponent(event.event_id, "event_id");
+  return join(storePath, "events", deviceId, monthFromIso(event.created_at), `${event.event_id}.json`);
 }
 
 async function ensureStoreInitialized(storePath: string): Promise<void> {
