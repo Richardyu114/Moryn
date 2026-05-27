@@ -36,7 +36,7 @@ export const recordSchema = z.object({
   project_id: z.string().min(1).optional(),
   tags: z.array(nonEmptyStringSchema).default([]),
   content: z.record(z.string(), z.unknown()).and(z.object({
-    text: z.string().optional(),
+    text: nonEmptyStringSchema.optional(),
     format: z.enum(["text", "json"]).optional()
   })),
   state: recordStateSchema,

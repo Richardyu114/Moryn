@@ -146,7 +146,7 @@ function validateWriteInput(input: WriteInput): void {
   if (typeof input.content !== "object" || input.content === null || Array.isArray(input.content)) {
     throw new Error("Invalid argument: Invalid content");
   }
-  if (input.content.text !== undefined && typeof input.content.text !== "string") {
+  if (input.content.text !== undefined && (typeof input.content.text !== "string" || !input.content.text.length)) {
     throw new Error("Invalid argument: Invalid content.text");
   }
   if (input.content.format !== undefined && input.content.format !== "text" && input.content.format !== "json") {

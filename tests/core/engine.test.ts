@@ -215,6 +215,13 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
+        content: { text: "", format: "text" },
+        source: { client: "test" }
+      }, "Invalid content.text");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
         content: { text: "Invalid format.", format: "markdown" as never },
         source: { client: "test" }
       }, "Invalid content.format");

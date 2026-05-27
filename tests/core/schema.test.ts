@@ -2,23 +2,25 @@ import { describe, expect, it } from "vitest";
 import { parseEvent, parseRecord } from "../../src/core/schema.js";
 
 describe("record schema", () => {
+  const validRecord = {
+    id: "rec_test",
+    kind: "memory",
+    type: "decision",
+    scope: "project",
+    project_id: "memora",
+    tags: ["sync"],
+    content: { text: "Use append-only events.", format: "text" },
+    state: "canonical",
+    confidence: 0.9,
+    priority: "normal",
+    visibility: "active",
+    created_at: "2026-05-27T00:00:00.000Z",
+    updated_at: "2026-05-27T00:00:00.000Z",
+    source: { client: "codex", session_id: "sess_1", model: "gpt-5" }
+  };
+
   it("accepts a valid memory record", () => {
-    const record = parseRecord({
-      id: "rec_test",
-      kind: "memory",
-      type: "decision",
-      scope: "project",
-      project_id: "memora",
-      tags: ["sync"],
-      content: { text: "Use append-only events.", format: "text" },
-      state: "canonical",
-      confidence: 0.9,
-      priority: "normal",
-      visibility: "active",
-      created_at: "2026-05-27T00:00:00.000Z",
-      updated_at: "2026-05-27T00:00:00.000Z",
-      source: { client: "codex", session_id: "sess_1", model: "gpt-5" }
-    });
+    const record = parseRecord(validRecord);
 
     expect(record.kind).toBe("memory");
   });
@@ -37,31 +39,23 @@ describe("record schema", () => {
     ).toThrow(/Invalid record/);
   });
 
-  it("rejects empty record metadata strings", () => {
-    const baseRecord = {
-      id: "rec_test",
-      kind: "memory",
-      type: "decision",
-      scope: "project",
-      project_id: "memora",
-      tags: ["sync"],
-      content: { text: "Use append-only events.", format: "text" },
-      state: "canonical",
-      confidence: 0.9,
-      priority: "normal",
-      visibility: "active",
-      created_at: "2026-05-27T00:00:00.000Z",
-      updated_at: "2026-05-27T00:00:00.000Z",
-      source: { client: "codex" }
-    };
+  it("rejects empty record content text", () => {
+    expect(() =>
+      parseRecord({
+        ...validRecord,
+        content: { text: "", format: "text" }
+      })
+    ).toThrow(/Invalid record/);
+  });
 
-    expect(() => parseRecord({ ...baseRecord, tags: [""] })).toThrow(/Invalid record/);
+  it("rejects empty record metadata strings", () => {
+    expect(() => parseRecord({ ...validRecord, tags: [""] })).toThrow(/Invalid record/);
     expect(() => parseRecord({
-      ...baseRecord,
+      ...validRecord,
       provenance: { derived_from: ["rec_source", ""] }
     })).toThrow(/Invalid record/);
     expect(() => parseRecord({
-      ...baseRecord,
+      ...validRecord,
       provenance: { reason: "" }
     })).toThrow(/Invalid record/);
   });
