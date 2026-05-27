@@ -85,6 +85,18 @@ flowchart LR
 
 ### 1. Install the CLI
 
+From source:
+
+```bash
+git clone git@github.com:Richardyu114/Memora.git
+cd Memora
+npm install
+npm run build
+npm link
+```
+
+After npm publication:
+
 ```bash
 npm install -g @richardyu114/memora
 ```
