@@ -86,7 +86,7 @@ flowchart LR
 ### 1. Install the CLI
 
 ```bash
-npm install -g memora
+npm install -g @richardyu114/memora
 ```
 
 The planned CLI command is:
@@ -336,12 +336,11 @@ The full first-version design is here:
 
 ## License
 
-Not specified yet.
+MIT
 
 ## Release Checklist
 
-- Choose and publish a license.
-- Verify package name availability or choose a scoped package.
+- Package name uses the public scoped package `@richardyu114/memora` because `memora` is already occupied on npm.
 - Run `npm test`, `npm run typecheck`, and `npm run build`.
 - Test `mem mcp` from at least one MCP host.
 - Test Git sync with a private user-owned repository.

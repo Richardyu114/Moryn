@@ -119,5 +119,5 @@ Deliverables:
 - Done: README includes Codex, Claude, Cursor, and shell-agent usage examples where
   practical.
 - Done: Release checklist is documented.
-- Remaining: Choose a license before npm publication.
-- Remaining: Confirm npm package name availability before publication.
+- Done: MIT license is included.
+- Done: npm package metadata uses scoped package `@richardyu114/memora` because `memora` is already occupied.
