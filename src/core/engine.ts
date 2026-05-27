@@ -59,6 +59,29 @@ interface StateChangeInput {
   source?: RecordSource;
 }
 
+interface RevisionInput {
+  record_id: string;
+  patch: Record<string, unknown>;
+  reason?: string;
+  source?: RecordSource;
+  confirmed?: boolean;
+}
+
+interface PromoteInput {
+  record_id: string;
+  target_state: RecordState;
+  reason?: string;
+  source?: RecordSource;
+  confirmed?: boolean;
+}
+
+interface LinkInput {
+  record_id: string;
+  linked_record_id: string;
+  link_type: string;
+  source?: RecordSource;
+}
+
 function textOf(record: MemoraRecord): string {
   return String(record.content.text ?? "");
 }
@@ -71,8 +94,30 @@ function validateLimit(limit: number | undefined, fallback: number): number {
   return resolved;
 }
 
+function assertPlainObject(value: unknown, name: string): asserts value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Invalid argument: Invalid ${name}`);
+  }
+}
+
+function validateRecordId(recordId: unknown, name = "record_id"): void {
+  if (typeof recordId !== "string" || !recordId.length) throw new Error(`Invalid argument: Invalid ${name}`);
+}
+
+function validateOptionalReason(reason: unknown): void {
+  if (reason !== undefined && typeof reason !== "string") throw new Error("Invalid argument: Invalid reason");
+}
+
+function validateOptionalSource(source: unknown): void {
+  if (source !== undefined && !recordSourceSchema.safeParse(source).success) throw new Error("Invalid argument: Invalid source.client");
+}
+
+function validateOptionalConfirmed(confirmed: unknown): void {
+  if (confirmed !== undefined && typeof confirmed !== "boolean") throw new Error("Invalid argument: Invalid confirmed");
+}
+
 function validateWriteInput(input: WriteInput): void {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) throw new Error("Invalid argument: Invalid write input");
+  assertPlainObject(input, "write input");
   if (!recordKindSchema.safeParse(input.kind).success) throw new Error("Invalid argument: Invalid kind");
   if (typeof input.type !== "string" || !input.type.length) throw new Error("Invalid argument: Invalid type");
   if (!recordScopeSchema.safeParse(input.scope).success) throw new Error("Invalid argument: Invalid scope");
@@ -97,7 +142,7 @@ function validateWriteInput(input: WriteInput): void {
   }
   if (input.priority !== undefined && !recordPrioritySchema.safeParse(input.priority).success) throw new Error("Invalid argument: Invalid priority");
   if (!recordSourceSchema.safeParse(input.source).success) throw new Error("Invalid argument: Invalid source.client");
-  if (input.confirmed !== undefined && typeof input.confirmed !== "boolean") throw new Error("Invalid argument: Invalid confirmed");
+  validateOptionalConfirmed(input.confirmed);
   if (input.provenance !== undefined) {
     if (typeof input.provenance !== "object" || input.provenance === null || Array.isArray(input.provenance)) {
       throw new Error("Invalid argument: Invalid provenance");
@@ -123,6 +168,41 @@ function validateWriteInput(input: WriteInput): void {
       throw new Error("Invalid argument: Invalid provenance.promoted_at");
     }
   }
+}
+
+function validateRevisionInput(input: RevisionInput): void {
+  assertPlainObject(input, "revise input");
+  validateRecordId(input.record_id);
+  if (typeof input.patch !== "object" || input.patch === null || Array.isArray(input.patch)) {
+    throw new Error("Invalid argument: Invalid patch");
+  }
+  validateOptionalReason(input.reason);
+  validateOptionalSource(input.source);
+  validateOptionalConfirmed(input.confirmed);
+}
+
+function validatePromoteInput(input: PromoteInput): void {
+  assertPlainObject(input, "promote input");
+  validateRecordId(input.record_id);
+  if (!recordStateSchema.safeParse(input.target_state).success) throw new Error("Invalid argument: Invalid target_state");
+  validateOptionalReason(input.reason);
+  validateOptionalSource(input.source);
+  validateOptionalConfirmed(input.confirmed);
+}
+
+function validateStateChangeInput(input: StateChangeInput): void {
+  assertPlainObject(input, "state change input");
+  validateRecordId(input.record_id);
+  validateOptionalReason(input.reason);
+  validateOptionalSource(input.source);
+}
+
+function validateLinkInput(input: LinkInput): void {
+  assertPlainObject(input, "link input");
+  validateRecordId(input.record_id);
+  validateRecordId(input.linked_record_id, "linked_record_id");
+  if (typeof input.link_type !== "string" || !input.link_type.length) throw new Error("Invalid argument: Invalid link_type");
+  validateOptionalSource(input.source);
 }
 
 function matchesAny(values: string[], filters: string[] | undefined): boolean {
@@ -480,7 +560,8 @@ export function createEngine(deps: EngineDeps) {
       };
     },
 
-    async revise(input: { record_id: string; patch: Record<string, unknown>; reason?: string; source?: RecordSource; confirmed?: boolean }) {
+    async revise(input: RevisionInput) {
+      validateRevisionInput(input);
       const record = await requireRecord(input.record_id);
       assertRevisionPatchIsSafe(input.patch);
       const createdAt = nextMutationTimestamp(record, now());
@@ -529,7 +610,8 @@ export function createEngine(deps: EngineDeps) {
       };
     },
 
-    async promote(input: { record_id: string; target_state: RecordState; reason?: string; source?: RecordSource; confirmed?: boolean }) {
+    async promote(input: PromoteInput) {
+      validatePromoteInput(input);
       const record = await requireRecord(input.record_id);
       const source = input.source ?? { client: "memora" };
       const conflicts = input.target_state === "canonical" ? semanticConflicts(await currentRecords(), record) : [];
@@ -562,6 +644,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async archive(input: StateChangeInput) {
+      validateStateChangeInput(input);
       const record = await requireRecord(input.record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {
@@ -577,6 +660,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async quarantine(input: StateChangeInput) {
+      validateStateChangeInput(input);
       const record = await requireRecord(input.record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {
@@ -591,7 +675,8 @@ export function createEngine(deps: EngineDeps) {
       return { event };
     },
 
-    async link(input: { record_id: string; linked_record_id: string; link_type: string; source?: RecordSource }) {
+    async link(input: LinkInput) {
+      validateLinkInput(input);
       const record = await requireRecord(input.record_id);
       await requireRecord(input.linked_record_id);
       const createdAt = nextMutationTimestamp(record, now());

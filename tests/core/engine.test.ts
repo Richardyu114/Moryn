@@ -1518,4 +1518,99 @@ describe("core engine", () => {
       expect(recall.results[0]?.record.links).toBeUndefined();
     });
   });
+
+  it("rejects invalid core mutation arguments before appending events", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const existing = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Existing memory.", format: "text" },
+        source: { client: "test" }
+      });
+      const linked = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Linked memory.", format: "text" },
+        source: { client: "test" }
+      });
+      const originalEvents = await readEvents(storePath);
+
+      async function expectInvalidArgument(action: () => Promise<unknown>, message: string): Promise<void> {
+        try {
+          await action();
+          throw new Error("Expected mutation to reject invalid input");
+        } catch (error) {
+          const envelope = toErrorEnvelope(error);
+          expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+          expect(envelope.error.message).toContain(message);
+        }
+        expect(await readEvents(storePath)).toHaveLength(originalEvents.length);
+      }
+
+      await expectInvalidArgument(() => engine.revise(null as never), "Invalid revise input");
+      await expectInvalidArgument(() => engine.revise({
+        record_id: "",
+        patch: { "content.text": "No-op" },
+        source: { client: "test" }
+      }), "Invalid record_id");
+      await expectInvalidArgument(() => engine.revise({
+        record_id: existing.record.id,
+        patch: [] as never,
+        source: { client: "test" }
+      }), "Invalid patch");
+      await expectInvalidArgument(() => engine.revise({
+        record_id: existing.record.id,
+        patch: { "content.text": "No-op" },
+        source: { client: "" }
+      }), "Invalid source.client");
+
+      await expectInvalidArgument(() => engine.promote(null as never), "Invalid promote input");
+      await expectInvalidArgument(() => engine.promote({
+        record_id: existing.record.id,
+        target_state: "published" as never,
+        source: { client: "test" }
+      }), "Invalid target_state");
+      await expectInvalidArgument(() => engine.promote({
+        record_id: existing.record.id,
+        target_state: "canonical",
+        confirmed: "yes" as never,
+        source: { client: "test" }
+      }), "Invalid confirmed");
+
+      await expectInvalidArgument(() => engine.archive({
+        record_id: "",
+        source: { client: "test" }
+      }), "Invalid record_id");
+      await expectInvalidArgument(() => engine.quarantine({
+        record_id: existing.record.id,
+        reason: 123 as never,
+        source: { client: "test" }
+      }), "Invalid reason");
+
+      await expectInvalidArgument(() => engine.link({
+        record_id: existing.record.id,
+        linked_record_id: "",
+        link_type: "supersedes",
+        source: { client: "test" }
+      }), "Invalid linked_record_id");
+      await expectInvalidArgument(() => engine.link({
+        record_id: existing.record.id,
+        linked_record_id: linked.record.id,
+        link_type: "",
+        source: { client: "test" }
+      }), "Invalid link_type");
+      await expectInvalidArgument(() => engine.link({
+        record_id: existing.record.id,
+        linked_record_id: linked.record.id,
+        link_type: "supersedes",
+        source: { client: "" }
+      }), "Invalid source.client");
+    });
+  });
 });
