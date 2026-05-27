@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
+import { readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
 describe("core engine", () => {
@@ -98,6 +99,10 @@ describe("core engine", () => {
       expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
       expect((await engine.boot({ project_id: "memora" })).project.warnings).toHaveLength(0);
       expect((await engine.recall({ query: "Authorization", project_id: "memora" })).results).toHaveLength(0);
+
+      const eventLog = JSON.stringify(await readEvents(storePath));
+      expect(eventLog).not.toContain("ghp_1234567890abcdef");
+      expect(eventLog).toContain("[REDACTED_SECRET]");
     });
   });
 
@@ -134,7 +139,11 @@ describe("core engine", () => {
       });
       expect(quarantined.results[0]?.record.state).toBe("quarantined");
       expect(quarantined.results[0]?.record.visibility).toBe("quarantined");
-      expect(quarantined.results[0]?.record.content.text).toBe("Authorization: Bearer ghp_1234567890abcdef");
+      expect(quarantined.results[0]?.record.content.text).toBe("[REDACTED_SECRET]");
+
+      const eventLog = JSON.stringify(await readEvents(storePath));
+      expect(eventLog).not.toContain("ghp_1234567890abcdef");
+      expect(eventLog).toContain("[REDACTED_SECRET]");
     });
   });
 
@@ -179,6 +188,34 @@ describe("core engine", () => {
       expect(revised.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
       const quarantined = await engine.recall({ record_ids: [clean.record.id], states: ["quarantined"] });
       expect(quarantined.results[0]?.record.state).toBe("quarantined");
+    });
+  });
+
+  it("redacts sensitive structured values detected by field names", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: {
+          text: "Review deployment settings.",
+          format: "text",
+          token: "abcdef1234567890"
+        },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      expect(written.record.state).toBe("quarantined");
+      expect(written.record.content.token).toBe("[REDACTED_SECRET]");
+
+      const eventLog = JSON.stringify(await readEvents(storePath));
+      expect(eventLog).not.toContain("abcdef1234567890");
+      expect(eventLog).toContain("[REDACTED_SECRET]");
     });
   });
 

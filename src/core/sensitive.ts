@@ -21,3 +21,7 @@ export function detectSensitiveContent(text: string): SensitiveCheckResult {
   }
   return { sensitive: false };
 }
+
+export function redactSensitiveContent(text: string): string {
+  return SECRET_PATTERNS.reduce((redacted, pattern) => redacted.replace(pattern, "[REDACTED_SECRET]"), text);
+}

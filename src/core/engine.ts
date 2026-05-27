@@ -1,6 +1,6 @@
 import { appendEvent, readEvents } from "./store.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
-import { detectSensitiveContent } from "./sensitive.js";
+import { detectSensitiveContent, redactSensitiveContent } from "./sensitive.js";
 import type { MemoraEvent, MemoraRecord, RecordKind, RecordScope, RecordSource, RecordState } from "./types.js";
 import { createId } from "./id.js";
 
@@ -246,6 +246,32 @@ function contentForSensitiveScan(content: unknown): string {
   ].join("\n");
 }
 
+function isSensitiveKey(key: string): boolean {
+  return /(?:API[_-]?KEY|DATABASE_URL|REDIS_URL|SECRET|TOKEN|PASSWORD|PRIVATE[_-]?KEY)/i.test(key);
+}
+
+function redactSensitiveValue(value: unknown, keyPath?: string): unknown {
+  if (typeof value === "string") {
+    return keyPath && isSensitiveKey(keyPath) ? "[REDACTED_SECRET]" : redactSensitiveContent(value);
+  }
+  if (Array.isArray(value)) return value.map((item, index) => redactSensitiveValue(item, keyPath ? `${keyPath}.${index}` : String(index)));
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(Object.entries(value).map(([key, nested]) => {
+      const nextPath = keyPath ? `${keyPath}.${key}` : key;
+      return [key, redactSensitiveValue(nested, nextPath)];
+    }));
+  }
+  return value;
+}
+
+function redactSensitiveRecordContent<T extends Record<string, unknown>>(content: T): T {
+  return redactSensitiveValue(content) as T;
+}
+
+function redactSensitivePatch(patch: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(patch).map(([path, value]) => [path, redactSensitiveValue(value, path)]));
+}
+
 function isUserConfirmed(source: RecordSource, confirmed?: boolean): boolean {
   return confirmed === true || source.client === "user";
 }
@@ -299,6 +325,7 @@ export function createEngine(deps: EngineDeps) {
         : needsConfirmation
           ? "candidate"
           : (input.state ?? (input.kind === "agent_note" ? "raw" : "candidate"));
+      const content = sensitive.sensitive ? redactSensitiveRecordContent(input.content) : input.content;
       const record: MemoraRecord = {
         id: id("rec"),
         kind: input.kind,
@@ -306,7 +333,7 @@ export function createEngine(deps: EngineDeps) {
         scope: input.scope,
         project_id: input.project_id,
         tags: input.tags ?? [],
-        content: input.content,
+        content,
         state,
         confidence: input.confidence ?? 0.5,
         priority: input.priority ?? "normal",
@@ -333,11 +360,12 @@ export function createEngine(deps: EngineDeps) {
       const source = input.source ?? { client: "memora" };
       const patched = applyRecordPatch(record, input.patch);
       const sensitive = detectSensitiveContent(contentForSensitiveScan(patched.content));
+      const patch = sensitive.sensitive ? redactSensitivePatch(input.patch) : input.patch;
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "revise_record",
         record_id: input.record_id,
-        patch: input.patch,
+        patch,
         reason: input.reason,
         created_at: createdAt,
         source
