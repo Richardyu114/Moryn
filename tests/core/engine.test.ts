@@ -1355,6 +1355,16 @@ describe("core engine", () => {
     });
   });
 
+  it("rejects invalid core result limits", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+
+      await expect(engine.recall({ limit: 0 })).rejects.toThrow(/Invalid limit/);
+      await expect(engine.refresh({ limit: 101 })).rejects.toThrow(/Invalid limit/);
+      await expect(engine.listRecent(-1)).rejects.toThrow(/Invalid limit/);
+    });
+  });
+
   it("rejects mutation events that target missing records", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

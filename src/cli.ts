@@ -65,7 +65,7 @@ function parseAssignments(assignments: string[]): Record<string, unknown> {
   return Object.fromEntries(assignments.map((assignment) => {
     const [key, ...rest] = assignment.split("=");
     if (!key || !rest.length) {
-      throw new Error(`Invalid assignment: ${assignment}`);
+      throw new Error(`Invalid argument: Invalid --set assignment: ${assignment}`);
     }
     return [key, parseAssignmentValue(rest.join("="))];
   }));

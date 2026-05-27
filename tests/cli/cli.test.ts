@@ -382,6 +382,31 @@ describe("mem CLI", () => {
     });
   });
 
+  it("rejects malformed CLI revision assignments as invalid arguments", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      try {
+        await exec("node", [
+          "--import", "tsx", "src/cli.ts", "--store", dir,
+          "revise",
+          "rec_missing",
+          "--set",
+          "content.text"
+        ]);
+        throw new Error("Expected mem revise to reject malformed --set assignment");
+      } catch (error) {
+        if (!("stderr" in (error as object))) throw error;
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recoverable: boolean; recommended_action: string } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.message).toContain("Invalid --set assignment");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+      }
+    });
+  });
+
   it("filters refresh interrupts by current task from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

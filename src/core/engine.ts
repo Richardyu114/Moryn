@@ -63,6 +63,14 @@ function textOf(record: MemoraRecord): string {
   return String(record.content.text ?? "");
 }
 
+function validateLimit(limit: number | undefined, fallback: number): number {
+  const resolved = limit ?? fallback;
+  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
+    throw new Error("Invalid argument: Invalid limit; must be an integer between 1 and 100");
+  }
+  return resolved;
+}
+
 function matchesAny(values: string[], filters: string[] | undefined): boolean {
   return !filters?.length || filters.some((filter) => values.includes(filter));
 }
@@ -546,6 +554,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async recall(input: RecallInput) {
+      const limit = validateLimit(input.limit, 10);
       const records = (await currentRecords())
         .filter((record) => includesHiddenState(input) || includesRawState(input) || isVisibleInDefaultRecall(record))
         .filter((record) => recordProjectMatchesRecall(record, input))
@@ -560,7 +569,7 @@ export function createEngine(deps: EngineDeps) {
         .filter((result) => matchesQuery(result, input))
         .filter((result) => result.score > 0 || (!input.query && !input.record_ids?.length))
         .sort((a, b) => b.score - a.score)
-        .slice(0, input.limit ?? 10);
+        .slice(0, limit);
       return { results: records };
     },
 
@@ -604,6 +613,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async refresh(input: RefreshInput) {
+      const limit = validateLimit(input.limit, 20);
       const records = (await currentRecords())
         .filter(isVisibleByDefault)
         .filter((record) => recordProjectMatches(record, input.project_id))
@@ -621,7 +631,7 @@ export function createEngine(deps: EngineDeps) {
           };
         })
         .filter((change) => change.importance !== "silent")
-        .slice(0, input.limit ?? 20);
+        .slice(0, limit);
       const latest = records.at(-1)?.updated_at ?? input.cursor ?? new Date().toISOString();
       return {
         cursor: latest,
@@ -631,7 +641,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async listRecent(limit = 20) {
-      return (await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, limit);
+      return (await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20));
     }
   };
 
