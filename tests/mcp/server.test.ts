@@ -35,6 +35,17 @@ function parseTextContent(result: Awaited<ReturnType<Client["callTool"]>>): unkn
   return JSON.parse(first.text);
 }
 
+async function expectInvalidMcpArguments(action: () => Promise<Awaited<ReturnType<Client["callTool"]>>>, expectedMessage: RegExp): Promise<void> {
+  const result = await action();
+  expect("isError" in result ? result.isError : false).toBe(true);
+  const first = "content" in result ? result.content[0] : undefined;
+  expect(first?.type).toBe("text");
+  if (!first || first.type !== "text") {
+    throw new Error("Expected a text MCP validation error");
+  }
+  expect(first.text).toMatch(expectedMessage);
+}
+
 describe("MCP stdio server", () => {
   it("exposes Memora tools over the official MCP protocol", async () => {
     const store = await mkdtemp(join(tmpdir(), "memora-mcp-"));
@@ -693,6 +704,68 @@ describe("MCP stdio server", () => {
         expect(neither.ok).toBe(false);
         expect(neither.error.code).toBe("INVALID_ARGUMENT");
         expect(neither.error.message).toContain("text or content");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects empty optional MCP string inputs at the schema boundary", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-empty-input-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        await expectInvalidMcpArguments(
+          () => client.callTool({
+            name: "write",
+            arguments: {
+              kind: "memory",
+              type: "decision",
+              scope: "project",
+              project_id: "memora",
+              text: "",
+              source: { client: "mcp-test" }
+            }
+          }),
+          /Invalid arguments/
+        );
+        await expectInvalidMcpArguments(
+          () => client.callTool({
+            name: "write",
+            arguments: {
+              kind: "memory",
+              type: "decision",
+              scope: "project",
+              project_id: "memora",
+              text: "Valid text",
+              tags: [""],
+              source: { client: "mcp-test" }
+            }
+          }),
+          /Invalid arguments/
+        );
+        await expectInvalidMcpArguments(
+          () => client.callTool({
+            name: "recall",
+            arguments: { project_id: "memora", query: "" }
+          }),
+          /Invalid arguments/
+        );
+        await expectInvalidMcpArguments(
+          () => client.callTool({
+            name: "refresh",
+            arguments: { project_id: "memora", cursor: "" }
+          }),
+          /Invalid arguments/
+        );
+        await expectInvalidMcpArguments(
+          () => client.callTool({
+            name: "promote",
+            arguments: { record_id: "rec_missing", target_state: "canonical", reason: "" }
+          }),
+          /Invalid arguments/
+        );
       });
     } finally {
       await rm(store, { recursive: true, force: true });

@@ -14,12 +14,13 @@ type Engine = ReturnType<typeof createEngine>;
 const recordKindSchema = z.enum(["memory", "skill", "soul", "session_summary", "agent_note"]);
 const recordScopeSchema = z.enum(["global", "project", "topic", "session", "artifact"]);
 const recordStateSchema = z.enum(["raw", "candidate", "canonical", "archived", "quarantined"]);
+const nonEmptyStringSchema = z.string().min(1);
 
 const sourceSchema = z.object({
-  client: z.string().min(1).default("mcp"),
-  session_id: z.string().min(1).optional(),
-  model: z.string().min(1).optional(),
-  device_id: z.string().min(1).optional()
+  client: nonEmptyStringSchema.default("mcp"),
+  session_id: nonEmptyStringSchema.optional(),
+  model: nonEmptyStringSchema.optional(),
+  device_id: nonEmptyStringSchema.optional()
 });
 
 async function resolveProjectInput(input: { project_id?: string; project_path?: string }): Promise<{ project_id?: string; tags: string[]; default_skills: string[] }> {
@@ -76,9 +77,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Create or update a .memora.json project config.",
       inputSchema: {
         path: z.string().min(1),
-        project_id: z.string().min(1).optional(),
-        tags: z.array(z.string().min(1)).optional(),
-        default_skills: z.array(z.string().min(1)).optional(),
+        project_id: nonEmptyStringSchema.optional(),
+        tags: z.array(nonEmptyStringSchema).optional(),
+        default_skills: z.array(nonEmptyStringSchema).optional(),
         sync_mode: z.enum(["manual", "session", "interval"]).optional()
       }
     },
@@ -99,10 +100,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Boot Memora Context",
       description: "Return a bounded context package for an agent starting work.",
       inputSchema: {
-        project_id: z.string().min(1).optional(),
-        project_path: z.string().min(1).optional(),
-        current_task: z.string().optional(),
-        default_skills: z.array(z.string().min(1)).optional()
+        project_id: nonEmptyStringSchema.optional(),
+        project_path: nonEmptyStringSchema.optional(),
+        current_task: nonEmptyStringSchema.optional(),
+        default_skills: z.array(nonEmptyStringSchema).optional()
       }
     },
     async ({ project_id, project_path, current_task, default_skills }) => toolResult(async () => {
@@ -121,16 +122,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Recall Memora Records",
       description: "Search memory, skills, soul, session summaries, and agent notes.",
       inputSchema: {
-        record_ids: z.array(z.string().min(1)).optional(),
-        query: z.string().optional(),
-        project_id: z.string().min(1).optional(),
-        project_path: z.string().min(1).optional(),
+        record_ids: z.array(nonEmptyStringSchema).optional(),
+        query: nonEmptyStringSchema.optional(),
+        project_id: nonEmptyStringSchema.optional(),
+        project_path: nonEmptyStringSchema.optional(),
         kinds: z.array(recordKindSchema).optional(),
         scopes: z.array(recordScopeSchema).optional(),
-        types: z.array(z.string().min(1)).optional(),
+        types: z.array(nonEmptyStringSchema).optional(),
         states: z.array(recordStateSchema).optional(),
-        tags: z.array(z.string().min(1)).optional(),
-        files: z.array(z.string().min(1)).optional(),
+        tags: z.array(nonEmptyStringSchema).optional(),
+        files: z.array(nonEmptyStringSchema).optional(),
         limit: z.number().int().positive().max(100).optional()
       }
     },
@@ -158,19 +159,19 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Append a new Memora record event.",
       inputSchema: {
         kind: recordKindSchema,
-        type: z.string().min(1),
+        type: nonEmptyStringSchema,
         scope: recordScopeSchema,
-        project_id: z.string().min(1).optional(),
-        project_path: z.string().min(1).optional(),
-        tags: z.array(z.string()).optional(),
-        text: z.string().optional(),
+        project_id: nonEmptyStringSchema.optional(),
+        project_path: nonEmptyStringSchema.optional(),
+        tags: z.array(nonEmptyStringSchema).optional(),
+        text: nonEmptyStringSchema.optional(),
         content: z.record(z.string(), z.unknown()).optional(),
         state: recordStateSchema.optional(),
         confidence: z.number().min(0).max(1).optional(),
         priority: z.enum(["low", "normal", "high"]).optional(),
         provenance: z.object({
-          derived_from: z.array(z.string().min(1)).optional(),
-          reason: z.string().optional()
+          derived_from: z.array(nonEmptyStringSchema).optional(),
+          reason: nonEmptyStringSchema.optional()
         }).optional(),
         confirmed: z.boolean().optional(),
         source: sourceSchema.optional()
@@ -208,9 +209,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Revise Memora Record",
       description: "Append a logical revision event for an existing record.",
       inputSchema: {
-        record_id: z.string().min(1),
+        record_id: nonEmptyStringSchema,
         patch: z.record(z.string(), z.unknown()),
-        reason: z.string().optional(),
+        reason: nonEmptyStringSchema.optional(),
         confirmed: z.boolean().optional(),
         source: sourceSchema.optional()
       }
@@ -230,9 +231,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Promote Memora Record",
       description: "Change a record state by appending a promotion/state event.",
       inputSchema: {
-        record_id: z.string().min(1),
+        record_id: nonEmptyStringSchema,
         target_state: recordStateSchema,
-        reason: z.string().optional(),
+        reason: nonEmptyStringSchema.optional(),
         confirmed: z.boolean().optional(),
         source: sourceSchema.optional()
       }
@@ -252,8 +253,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Archive Memora Record",
       description: "Hide a record from default boot and recall while preserving history.",
       inputSchema: {
-        record_id: z.string().min(1),
-        reason: z.string().optional(),
+        record_id: nonEmptyStringSchema,
+        reason: nonEmptyStringSchema.optional(),
         source: sourceSchema.optional()
       }
     },
@@ -270,8 +271,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Quarantine Memora Record",
       description: "Mark a record as sensitive or unsafe so it is excluded by default.",
       inputSchema: {
-        record_id: z.string().min(1),
-        reason: z.string().optional(),
+        record_id: nonEmptyStringSchema,
+        reason: nonEmptyStringSchema.optional(),
         source: sourceSchema.optional()
       }
     },
@@ -288,9 +289,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Link Memora Records",
       description: "Append a relationship from one record to another.",
       inputSchema: {
-        record_id: z.string().min(1),
-        linked_record_id: z.string().min(1),
-        link_type: z.string().min(1),
+        record_id: nonEmptyStringSchema,
+        linked_record_id: nonEmptyStringSchema,
+        link_type: nonEmptyStringSchema,
         source: sourceSchema.optional()
       }
     },
@@ -308,10 +309,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Refresh Memora Changes",
       description: "Return important changes since a cursor for periodic agent memory refresh.",
       inputSchema: {
-        project_id: z.string().min(1).optional(),
-        project_path: z.string().min(1).optional(),
-        cursor: z.string().optional(),
-        current_task: z.string().optional(),
+        project_id: nonEmptyStringSchema.optional(),
+        project_path: nonEmptyStringSchema.optional(),
+        cursor: nonEmptyStringSchema.optional(),
+        current_task: nonEmptyStringSchema.optional(),
         limit: z.number().int().positive().max(100).optional()
       }
     },
@@ -342,7 +343,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Initialize Memora Git Sync",
       description: "Initialize or connect the local Memora store to a Git remote.",
       inputSchema: {
-        remote: z.string().min(1)
+        remote: nonEmptyStringSchema
       }
     },
     async ({ remote }) => toolResult(async () => initializeGitSync(options.storePath, remote))
@@ -374,7 +375,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Push Memora Git Sync",
       description: "Commit and push local event history from the Memora store.",
       inputSchema: {
-        message: z.string().min(1).optional()
+        message: nonEmptyStringSchema.optional()
       }
     },
     async ({ message }) => toolResult(async () => pushGitSync(options.storePath, { message }))
