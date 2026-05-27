@@ -193,6 +193,7 @@ Then configure an agent host that supports MCP to run that command. The exact ho
 
 The current MCP server uses the official Model Context Protocol TypeScript SDK over stdio and exposes these tools:
 
+- `init`
 - `boot`
 - `project_init`
 - `recall`

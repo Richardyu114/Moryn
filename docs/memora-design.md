@@ -399,6 +399,30 @@ Revision event example:
 
 The MCP server and CLI expose the same semantics.
 
+### `init`
+
+Used to initialize the local Memora store.
+
+CLI:
+
+```bash
+mem init
+```
+
+MCP tool: `init`.
+
+### `project_init`
+
+Used to create or update `.memora.json`.
+
+CLI:
+
+```bash
+mem project init --path /path/to/project --project-id memora --default-skill release
+```
+
+MCP tool: `project_init`.
+
 ### `boot`
 
 Used when an agent starts work, enters a project, or connects to Memora.
