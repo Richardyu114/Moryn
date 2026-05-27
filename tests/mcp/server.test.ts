@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -356,6 +356,29 @@ describe("MCP stdio server", () => {
           default_skills: ["release"],
           sync: { mode: "session" }
         });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns structured JSON errors from MCP tools", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-mcp-error-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await mkdir(project, { recursive: true });
+      await writeFile(join(project, ".memora.json"), "{\"project_id\":\"\"}\n", "utf8");
+
+      await withMcpClient(store, async (client) => {
+        const result = parseTextContent(await client.callTool({
+          name: "boot",
+          arguments: { project_path: project }
+        })) as { ok: boolean; error: { code: string; recoverable: boolean } };
+
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe("INVALID_PROJECT_CONFIG");
+        expect(result.error.recoverable).toBe(true);
       });
     } finally {
       await rm(root, { recursive: true, force: true });

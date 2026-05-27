@@ -7,6 +7,7 @@ import { version } from "./index.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
+import { toErrorEnvelope } from "./core/errors.js";
 import { initializeProjectConfig, resolveProjectContext } from "./core/project.js";
 import { runMcpServer } from "./mcp/server.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
@@ -19,6 +20,10 @@ function storePath(): string {
 
 function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function printError(error: unknown): void {
+  process.stderr.write(`${JSON.stringify(toErrorEnvelope(error), null, 2)}\n`);
 }
 
 async function resolveOptionalProject(options: { project?: string; projectId?: string }): Promise<string | undefined> {
@@ -241,7 +246,6 @@ sync
   });
 
 program.parseAsync().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
+  printError(error);
   process.exitCode = 1;
 });

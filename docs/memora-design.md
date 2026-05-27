@@ -959,7 +959,9 @@ Sensitive patterns to detect:
 
 ## Error Handling
 
-All interfaces return structured errors.
+CLI runtime failures and MCP tool failures return structured JSON errors.
+MCP protocol-level validation errors can still be reported by the MCP host
+before Memora tool logic runs.
 
 Example:
 

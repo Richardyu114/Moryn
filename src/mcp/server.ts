@@ -4,6 +4,7 @@ import { z } from "zod";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
+import { toErrorEnvelope } from "../core/errors.js";
 import { initializeProjectConfig, resolveProjectContext } from "../core/project.js";
 import type { RecordKind, RecordScope, RecordSource, RecordState } from "../core/types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
@@ -44,6 +45,14 @@ function jsonResult(value: unknown) {
   };
 }
 
+async function toolResult(fn: () => Promise<unknown>) {
+  try {
+    return jsonResult(await fn());
+  } catch (error) {
+    return jsonResult(toErrorEnvelope(error));
+  }
+}
+
 export async function runMcpServer(engine: Engine, options: { storePath: string }): Promise<void> {
   const server = new McpServer({
     name: "memora",
@@ -57,7 +66,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Create or update the local Memora store configuration and directories.",
       inputSchema: {}
     },
-    async () => jsonResult({ ok: true, ...await initializeStore(options.storePath) })
+    async () => toolResult(async () => ({ ok: true, ...await initializeStore(options.storePath) }))
   );
 
   server.registerTool(
@@ -73,7 +82,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_mode: z.enum(["manual", "session", "auto"]).optional()
       }
     },
-    async ({ path, project_id, tags, default_skills, sync_mode }) => jsonResult({
+    async ({ path, project_id, tags, default_skills, sync_mode }) => toolResult(async () => ({
       ok: true,
       ...await initializeProjectConfig(path, {
         project_id,
@@ -81,7 +90,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         default_skills,
         sync: { mode: sync_mode ?? "session" }
       })
-    })
+    }))
   );
 
   server.registerTool(
@@ -95,13 +104,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         default_skills: z.array(z.string().min(1)).optional()
       }
     },
-    async ({ project_id, project_path, default_skills }) => {
+    async ({ project_id, project_path, default_skills }) => toolResult(async () => {
       const project = await resolveProjectInput({ project_id, project_path });
-      return jsonResult(await engine.boot({
+      return engine.boot({
         project_id: project.project_id,
         default_skills: default_skills ?? project.default_skills
-      }));
-    }
+      });
+    })
   );
 
   server.registerTool(
@@ -123,9 +132,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit: z.number().int().positive().max(100).optional()
       }
     },
-    async ({ record_ids, query, project_id, project_path, kinds, scopes, types, states, tags, files, limit }) => {
+    async ({ record_ids, query, project_id, project_path, kinds, scopes, types, states, tags, files, limit }) => toolResult(async () => {
       const project = await resolveProjectInput({ project_id, project_path });
-      return jsonResult(await engine.recall({
+      return engine.recall({
         record_ids,
         query,
         project_id: project.project_id,
@@ -136,8 +145,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         tags,
         files,
         limit
-      }));
-    }
+      });
+    })
   );
 
   server.registerTool(
@@ -160,10 +169,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         source: sourceSchema.optional()
       }
     },
-    async (input) => {
+    async (input) => toolResult(async () => {
       const content = input.content ?? { text: input.text ?? "", format: "text" as const };
       const project = await resolveProjectInput({ project_id: input.project_id, project_path: input.project_path });
-      return jsonResult(await engine.write({
+      return engine.write({
         kind: input.kind as RecordKind,
         type: input.type,
         scope: input.scope as RecordScope,
@@ -174,8 +183,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         confidence: input.confidence,
         priority: input.priority,
         source: (input.source ?? { client: "mcp" }) as RecordSource
-      }));
-    }
+      });
+    })
   );
 
   server.registerTool(
@@ -190,7 +199,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         source: sourceSchema.optional()
       }
     },
-    async ({ record_id, patch, reason, source }) => jsonResult(await engine.revise({
+    async ({ record_id, patch, reason, source }) => toolResult(async () => engine.revise({
       record_id,
       patch,
       reason,
@@ -210,7 +219,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         source: sourceSchema.optional()
       }
     },
-    async ({ record_id, target_state, reason, source }) => jsonResult(await engine.promote({
+    async ({ record_id, target_state, reason, source }) => toolResult(async () => engine.promote({
       record_id,
       target_state: target_state as RecordState,
       reason,
@@ -229,7 +238,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         source: sourceSchema.optional()
       }
     },
-    async ({ record_id, reason, source }) => jsonResult(await engine.archive({
+    async ({ record_id, reason, source }) => toolResult(async () => engine.archive({
       record_id,
       reason,
       source: source as RecordSource | undefined
@@ -247,7 +256,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         source: sourceSchema.optional()
       }
     },
-    async ({ record_id, reason, source }) => jsonResult(await engine.quarantine({
+    async ({ record_id, reason, source }) => toolResult(async () => engine.quarantine({
       record_id,
       reason,
       source: source as RecordSource | undefined
@@ -266,7 +275,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         source: sourceSchema.optional()
       }
     },
-    async ({ record_id, linked_record_id, link_type, source }) => jsonResult(await engine.link({
+    async ({ record_id, linked_record_id, link_type, source }) => toolResult(async () => engine.link({
       record_id,
       linked_record_id,
       link_type,
@@ -287,15 +296,15 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit: z.number().int().positive().max(100).optional()
       }
     },
-    async ({ project_id, project_path, cursor, current_task, limit }) => {
+    async ({ project_id, project_path, cursor, current_task, limit }) => toolResult(async () => {
       const project = await resolveProjectInput({ project_id, project_path });
-      return jsonResult(await engine.refresh({
+      return engine.refresh({
         project_id: project.project_id,
         cursor,
         current_task,
         limit
-      }));
-    }
+      });
+    })
   );
 
   server.registerTool(
@@ -305,7 +314,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Regenerate snapshots and indexes from append-only events.",
       inputSchema: {}
     },
-    async () => jsonResult(await rebuildDerivedViews(options.storePath))
+    async () => toolResult(async () => rebuildDerivedViews(options.storePath))
   );
 
   server.registerTool(
@@ -317,7 +326,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         remote: z.string().min(1)
       }
     },
-    async ({ remote }) => jsonResult(await initializeGitSync(options.storePath, remote))
+    async ({ remote }) => toolResult(async () => initializeGitSync(options.storePath, remote))
   );
 
   server.registerTool(
@@ -327,7 +336,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Return Git sync configuration and local/remote status.",
       inputSchema: {}
     },
-    async () => jsonResult(await getGitSyncStatus(options.storePath))
+    async () => toolResult(async () => getGitSyncStatus(options.storePath))
   );
 
   server.registerTool(
@@ -337,7 +346,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Pull remote event history into the local Memora store.",
       inputSchema: {}
     },
-    async () => jsonResult(await pullGitSync(options.storePath))
+    async () => toolResult(async () => pullGitSync(options.storePath))
   );
 
   server.registerTool(
@@ -349,7 +358,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         message: z.string().min(1).optional()
       }
     },
-    async ({ message }) => jsonResult(await pushGitSync(options.storePath, { message }))
+    async ({ message }) => toolResult(async () => pushGitSync(options.storePath, { message }))
   );
 
   server.registerTool(
@@ -361,7 +370,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit: z.number().int().positive().max(100).optional()
       }
     },
-    async ({ limit }) => jsonResult(await engine.listRecent(limit))
+    async ({ limit }) => toolResult(async () => engine.listRecent(limit))
   );
 
   await server.connect(new StdioServerTransport());

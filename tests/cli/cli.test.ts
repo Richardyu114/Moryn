@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -247,6 +247,29 @@ describe("mem CLI", () => {
 
       const recallIndex = JSON.parse(await readFile(join(dir, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
       expect(recallIndex.records[0]?.text).toBe("CLI rebuild creates indexes");
+    });
+  });
+
+  it("returns structured JSON errors from runtime failures", async () => {
+    await withTempDir(async (dir) => {
+      const project = join(dir, "project");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", join(dir, "store"), "init"]);
+      await mkdir(project, { recursive: true });
+      await writeFile(join(project, ".memora.json"), "{\"project_id\":\"\"}\n", "utf8");
+
+      await expect(exec("node", ["--import", "tsx", "src/cli.ts", "--store", join(dir, "store"), "boot", "--project", project]))
+        .rejects.toMatchObject({
+          stderr: expect.stringContaining("\"ok\": false")
+        });
+      try {
+        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", join(dir, "store"), "boot", "--project", project]);
+      } catch (error) {
+        const stderr = (error as { stderr: string }).stderr;
+        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; message: string; recoverable: boolean } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_PROJECT_CONFIG");
+        expect(parsed.error.recoverable).toBe(true);
+      }
     });
   });
 });
