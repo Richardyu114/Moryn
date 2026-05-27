@@ -216,12 +216,12 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       }
     },
     async ({ record_id, patch, reason, confirmed, source }) => toolResult(async () => engine.revise({
-      record_id,
-      patch,
-      reason,
-      confirmed,
-      source: source as RecordSource | undefined
-    }))
+        record_id,
+        patch,
+        reason,
+        confirmed,
+        source: (source ?? { client: "mcp" }) as RecordSource
+      }))
   );
 
   server.registerTool(
@@ -241,7 +241,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       record_id,
       target_state: target_state as RecordState,
       reason,
-      source: source as RecordSource | undefined,
+      source: (source ?? { client: "mcp" }) as RecordSource,
       confirmed
     }))
   );
@@ -260,7 +260,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     async ({ record_id, reason, source }) => toolResult(async () => engine.archive({
       record_id,
       reason,
-      source: source as RecordSource | undefined
+      source: (source ?? { client: "mcp" }) as RecordSource
     }))
   );
 
@@ -278,7 +278,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     async ({ record_id, reason, source }) => toolResult(async () => engine.quarantine({
       record_id,
       reason,
-      source: source as RecordSource | undefined
+      source: (source ?? { client: "mcp" }) as RecordSource
     }))
   );
 
@@ -298,7 +298,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       record_id,
       linked_record_id,
       link_type,
-      source: source as RecordSource | undefined
+      source: (source ?? { client: "mcp" }) as RecordSource
     }))
   );
 

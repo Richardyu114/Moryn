@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { describe, expect, it } from "vitest";
+import { readEvents } from "../../src/core/store.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 
 const exec = promisify(execFile);
@@ -572,6 +573,85 @@ describe("MCP stdio server", () => {
           reason: "Derived from handoff summary.",
           method: "agent-proposed"
         });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("uses MCP as the default source for mutation events", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-default-source-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const target = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            text: "MCP mutation source target.",
+            state: "candidate"
+          }
+        })) as { record: { id: string } };
+        const linked = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            text: "MCP mutation source linked record.",
+            state: "candidate"
+          }
+        })) as { record: { id: string } };
+
+        parseTextContent(await client.callTool({
+          name: "revise",
+          arguments: {
+            record_id: target.record.id,
+            patch: { "content.text": "MCP mutation source revised target." },
+            reason: "Default MCP source"
+          }
+        }));
+        parseTextContent(await client.callTool({
+          name: "promote",
+          arguments: {
+            record_id: target.record.id,
+            target_state: "canonical",
+            reason: "Default MCP source"
+          }
+        }));
+        parseTextContent(await client.callTool({
+          name: "link",
+          arguments: {
+            record_id: target.record.id,
+            linked_record_id: linked.record.id,
+            link_type: "related"
+          }
+        }));
+        parseTextContent(await client.callTool({
+          name: "archive",
+          arguments: {
+            record_id: linked.record.id,
+            reason: "Default MCP source"
+          }
+        }));
+        parseTextContent(await client.callTool({
+          name: "quarantine",
+          arguments: {
+            record_id: target.record.id,
+            reason: "Default MCP source"
+          }
+        }));
+
+        const events = await readEvents(store);
+        const mutationClients = events
+          .filter((event) => event.op !== "upsert_record")
+          .map((event) => event.source.client);
+        expect(mutationClients).toEqual(["mcp", "mcp", "mcp", "mcp", "mcp"]);
       });
     } finally {
       await rm(store, { recursive: true, force: true });
