@@ -48,8 +48,9 @@ Protocol TypeScript SDK over stdio.
 Deliverables:
 
 - `mem mcp` starts a real MCP server.
-- Tools: `boot`, `recall`, `write`, `revise`, `promote`, `archive`,
-  `quarantine`, `link`, `refresh`, `list_recent`.
+- Tools: `init`, `boot`, `recall`, `write`, `revise`, `promote`, `archive`,
+  `quarantine`, `link`, `refresh`, `rebuild`, `sync_init`, `sync_status`,
+  `sync_pull`, `sync_push`, `list_recent`.
 - Tool schemas validate inputs.
 - MCP tests use an SDK client over stdio.
 - Built `dist/cli.js` is covered by an MCP stdio smoke test.
@@ -80,6 +81,8 @@ Deliverables:
   and sync status.
 - Done: `mem refresh` reports changes since a cursor as `silent`, `notice`, or
   `interrupt`.
+- Done: `current_task` narrows refresh interrupts to related blockers, warnings,
+  conflicts, and high-priority changes.
 - Done: Agents can request explicit refresh through CLI or MCP.
 - Done: Explicit scope filtering is supported in core, CLI, and MCP recall.
 - Done: Text queries require a text/tag/type match instead of returning unrelated

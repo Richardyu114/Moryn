@@ -1,9 +1,14 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { describe, expect, it } from "vitest";
+import { initializeProjectConfig } from "../../src/core/project.js";
+
+const exec = promisify(execFile);
 
 async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promise<T>): Promise<T> {
   const transport = new StdioClientTransport({
@@ -38,13 +43,19 @@ describe("MCP stdio server", () => {
         expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
           "archive",
           "boot",
+          "init",
           "link",
           "list_recent",
           "promote",
           "quarantine",
+          "rebuild",
           "recall",
           "refresh",
           "revise",
+          "sync_init",
+          "sync_pull",
+          "sync_push",
+          "sync_status",
           "write"
         ]);
 
@@ -102,7 +113,8 @@ describe("MCP stdio server", () => {
           name: "refresh",
           arguments: {
             project_id: "memora",
-            cursor: "2000-01-01T00:00:00.000Z"
+            cursor: "2000-01-01T00:00:00.000Z",
+            current_task: "real MCP"
           }
         })) as { changes: Array<{ record_id: string; importance: string }> };
 
@@ -183,6 +195,139 @@ describe("MCP stdio server", () => {
       });
     } finally {
       await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("exposes rebuild and Git sync operations over MCP", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-mcp-sync-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await withMcpClient(storeA, async (agentA) => {
+        await withMcpClient(storeB, async (agentB) => {
+          expect((parseTextContent(await agentA.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+          expect((parseTextContent(await agentB.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+          const initA = parseTextContent(await agentA.callTool({
+            name: "sync_init",
+            arguments: { remote }
+          })) as { ok: boolean };
+          const initB = parseTextContent(await agentB.callTool({
+            name: "sync_init",
+            arguments: { remote }
+          })) as { ok: boolean };
+
+          expect(initA.ok).toBe(true);
+          expect(initB.ok).toBe(true);
+
+          parseTextContent(await agentA.callTool({
+            name: "write",
+            arguments: {
+              kind: "memory",
+              type: "decision",
+              scope: "project",
+              project_id: "memora",
+              text: "MCP sync shares events.",
+              state: "canonical",
+              source: { client: "mcp-sync-test", device_id: "device_a" }
+            }
+          }));
+
+          const push = parseTextContent(await agentA.callTool({
+            name: "sync_push",
+            arguments: { message: "sync from mcp agent a" }
+          })) as { ok: boolean; pushed?: boolean };
+          expect(push.ok).toBe(true);
+          expect(push.pushed).toBe(true);
+
+          const pull = parseTextContent(await agentB.callTool({
+            name: "sync_pull",
+            arguments: {}
+          })) as { ok: boolean; pulled?: boolean };
+          expect(pull.ok).toBe(true);
+          expect(pull.pulled).toBe(true);
+
+          const rebuild = parseTextContent(await agentB.callTool({
+            name: "rebuild",
+            arguments: {}
+          })) as { ok: boolean; records: number };
+          expect(rebuild.ok).toBe(true);
+          expect(rebuild.records).toBe(1);
+
+          const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+          expect(recallIndex.records.map((record) => record.text)).toContain("MCP sync shares events.");
+
+          const status = parseTextContent(await agentB.callTool({
+            name: "sync_status",
+            arguments: {}
+          })) as { configured: boolean; remote?: string };
+          expect(status.configured).toBe(true);
+          expect(status.remote).toBe(remote);
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
+
+  it("resolves project paths and project config through MCP", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-mcp-project-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, {
+        project_id: "memora",
+        tags: ["typescript"],
+        default_skills: ["release"]
+      });
+
+      await withMcpClient(store, async (client) => {
+        const skill = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "skill",
+            type: "procedure",
+            scope: "global",
+            tags: ["release"],
+            text: "Release skill from project config.",
+            state: "canonical",
+            source: { client: "mcp-project-test" }
+          }
+        })) as { record: { id: string } };
+        const decision = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_path: project,
+            text: "MCP project path resolves config.",
+            state: "canonical",
+            source: { client: "mcp-project-test" }
+          }
+        })) as { record: { id: string; project_id?: string; tags: string[] } };
+
+        expect(decision.record.project_id).toBe("memora");
+        expect(decision.record.tags).toContain("typescript");
+
+        const boot = parseTextContent(await client.callTool({
+          name: "boot",
+          arguments: { project_path: project }
+        })) as { skills: Array<{ id: string }>; project: { important_decisions: Array<{ id: string }> } };
+        expect(boot.skills.map((record) => record.id)).toEqual([skill.record.id]);
+        expect(boot.project.important_decisions.map((record) => record.id)).toEqual([decision.record.id]);
+
+        const recall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: { query: "project path", project_path: project }
+        })) as { results: Array<{ record: { id: string; project_id?: string } }> };
+        expect(recall.results[0]?.record.id).toBe(decision.record.id);
+        expect(recall.results[0]?.record.project_id).toBe("memora");
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 });

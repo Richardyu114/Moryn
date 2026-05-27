@@ -88,6 +88,47 @@ describe("mem CLI", () => {
     });
   });
 
+  it("filters refresh interrupts by current task from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const authWarning = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--tag", "auth",
+        "--state", "canonical",
+        "--text", "Auth token refresh has a blocker"
+      ]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--tag", "release",
+        "--state", "canonical",
+        "--text", "Release requires npm credentials"
+      ]);
+      const recordId = (JSON.parse(authWarning.stdout) as { record: { id: string } }).record.id;
+
+      const refresh = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "refresh",
+        "--project-id", "memora",
+        "--cursor", "2000-01-01T00:00:00.000Z",
+        "--current-task", "fix auth token refresh"
+      ]);
+
+      expect(refresh.stdout).toContain(recordId);
+      expect(refresh.stdout).toContain("current_task_match");
+      expect(refresh.stdout).not.toContain("Release requires npm credentials");
+    });
+  });
+
   it("archives, quarantines, links, and boots project default skills from the CLI", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

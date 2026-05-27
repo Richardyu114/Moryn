@@ -407,6 +407,7 @@ Input:
 
 ```json
 {
+  "project_path": "/path/to/repo",
   "project_id": "optional",
   "default_skills": ["optional skill selector"]
 }
@@ -443,9 +444,9 @@ CLI:
 mem boot --project .
 ```
 
-CLI `--project` reads `.memora.json`, resolves `project_id`, and applies
-configured `default_skills`. MCP hosts pass `project_id` and optional
-`default_skills` directly.
+CLI `--project` and MCP `project_path` read `.memora.json`, resolve
+`project_id`, and apply configured `default_skills`. MCP hosts can also pass
+`project_id` and optional `default_skills` directly.
 
 ### `recall`
 
@@ -456,6 +457,7 @@ Input:
 ```json
 {
   "query": "fix auth middleware bug",
+  "project_path": "/path/to/repo",
   "project_id": "memora",
   "files": ["src/auth.ts"],
   "kinds": ["memory", "skill"],
@@ -504,6 +506,7 @@ Input:
   "kind": "session_summary",
   "type": "summary",
   "scope": "project",
+  "project_path": "/path/to/repo",
   "project_id": "memora",
   "content": {
     "text": "Completed the initial design discussion."
@@ -567,6 +570,7 @@ Output:
     {
       "record_id": "rec_...",
       "importance": "notice",
+      "reason": "current_task_match",
       "summary": "A new project decision was recorded.",
       "recommended_action": "call recall with record_id"
     }
@@ -578,7 +582,7 @@ Output:
 CLI:
 
 ```bash
-mem refresh --project . --cursor previous_cursor
+mem refresh --project . --cursor previous_cursor --current-task "fix auth"
 ```
 
 ### `sync`
@@ -592,6 +596,19 @@ mem sync init git@github.com:yourname/memora-store.git
 mem sync --status
 mem sync --pull
 mem sync --push
+```
+
+MCP exposes the same sync semantics as separate tools: `sync_init`,
+`sync_status`, `sync_pull`, and `sync_push`.
+
+### `rebuild`
+
+Used to regenerate snapshots and indexes from event history.
+
+CLI:
+
+```bash
+mem rebuild
 ```
 
 ### `promote`

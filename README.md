@@ -202,9 +202,18 @@ The current MCP server uses the official Model Context Protocol TypeScript SDK o
 - `quarantine`
 - `link`
 - `refresh`
+- `rebuild`
+- `sync_init`
+- `sync_status`
+- `sync_pull`
+- `sync_push`
 - `list_recent`
 
 Agents that do not support MCP can still use Memora through CLI commands.
+
+MCP tools accept `project_id` directly. Project-aware tools also accept
+`project_path`; when provided, Memora resolves `.memora.json`, applies project
+tags to writes, and applies configured `default_skills` during boot.
 
 ### Agent Host Examples
 
@@ -227,7 +236,7 @@ Shell-based agents can use the CLI directly:
 mem boot --project .
 mem recall "current task" --project . --scope project --kind memory --kind skill
 mem write --kind session_summary --type summary --scope project --project . --text "Finished the task summary."
-mem refresh --project . --cursor <previous-cursor>
+mem refresh --project . --cursor <previous-cursor> --current-task "current task"
 ```
 
 ## Current MVP Commands
@@ -239,7 +248,7 @@ mem init
 mem boot --project-id memora
 mem write --kind memory --type decision --scope project --project-id memora --tag sync --state canonical --text "Use append-only events"
 mem recall "append-only events" --project-id memora --kind memory --type decision --state canonical --tag sync
-mem refresh --project-id memora --cursor 2026-05-27T00:00:00.000Z
+mem refresh --project-id memora --cursor 2026-05-27T00:00:00.000Z --current-task "fix auth"
 mem revise rec_... --set content.text="Updated memory" --reason "Refined wording"
 mem promote rec_... --state canonical --reason "User confirmed"
 mem archive rec_... --reason "Superseded"

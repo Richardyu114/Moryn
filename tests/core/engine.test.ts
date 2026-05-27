@@ -295,6 +295,55 @@ describe("core engine", () => {
     });
   });
 
+  it("uses current task text to interrupt only on related blockers and warnings", async () => {
+    await withTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const timestamps = [
+        "2026-05-27T00:00:00.000Z",
+        "2026-05-27T00:01:00.000Z",
+        "2026-05-27T00:02:00.000Z"
+      ];
+      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const authWarning = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        tags: ["auth"],
+        content: { text: "Auth middleware has a token refresh blocker.", format: "text" },
+        state: "canonical",
+        source: { client: "agent-a" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        tags: ["release"],
+        content: { text: "Release workflow needs npm credentials.", format: "text" },
+        state: "canonical",
+        source: { client: "agent-a" }
+      });
+
+      const refresh = await engine.refresh({
+        project_id: "memora",
+        cursor: "2026-05-26T00:00:00.000Z",
+        current_task: "fix auth token refresh"
+      });
+
+      expect(refresh.should_interrupt).toBe(true);
+      expect(refresh.changes).toEqual([
+        expect.objectContaining({
+          record_id: authWarning.record.id,
+          importance: "interrupt",
+          reason: "current_task_match"
+        })
+      ]);
+    });
+  });
+
   it("keeps raw agent notes out of boot until promotion and preserves skill identity through revision", async () => {
     await withTempStore(async (storePath) => {
       let nextId = 0;

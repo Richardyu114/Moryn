@@ -166,11 +166,27 @@ function summarizeRecord(record: MemoraRecord): string {
   return textOf(record) || `${record.kind}:${record.type}`;
 }
 
-function refreshImportance(record: MemoraRecord): "silent" | "notice" | "interrupt" {
-  if (record.state === "raw" || record.kind === "session_summary" || record.kind === "agent_note") return "silent";
-  if (record.type === "blocker" || record.type === "warning" || record.type === "conflict" || record.priority === "high") return "interrupt";
-  if (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75)) return "notice";
-  return "silent";
+function taskTokens(task: string | undefined): string[] {
+  return (task ?? "").toLowerCase().split(/\W+/).filter((token) => token.length >= 3);
+}
+
+function matchesCurrentTask(record: MemoraRecord, currentTask: string | undefined): boolean {
+  const tokens = taskTokens(currentTask);
+  if (!tokens.length) return false;
+  const haystack = `${textOf(record)} ${record.tags.join(" ")} ${record.type}`.toLowerCase();
+  return tokens.some((token) => haystack.includes(token));
+}
+
+function refreshImportance(record: MemoraRecord, currentTask: string | undefined): { importance: "silent" | "notice" | "interrupt"; reason?: string } {
+  if (record.state === "raw" || record.kind === "session_summary" || record.kind === "agent_note") return { importance: "silent" };
+  const interruptCandidate = record.type === "blocker" || record.type === "warning" || record.type === "conflict" || record.priority === "high";
+  if (interruptCandidate) {
+    if (!currentTask) return { importance: "interrupt" };
+    if (matchesCurrentTask(record, currentTask)) return { importance: "interrupt", reason: "current_task_match" };
+    return { importance: "silent" };
+  }
+  if (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75)) return { importance: "notice" };
+  return { importance: "silent" };
 }
 
 export function createEngine(deps: EngineDeps) {
@@ -332,12 +348,16 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => !input.cursor || record.updated_at > input.cursor)
         .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
       const changes = records
-        .map((record) => ({
-          record_id: record.id,
-          importance: refreshImportance(record),
-          summary: summarizeRecord(record),
-          recommended_action: record.state === "raw" ? "ignore unless relevant" : "call recall with record_id"
-        }))
+        .map((record) => {
+          const importance = refreshImportance(record, input.current_task);
+          return {
+            record_id: record.id,
+            importance: importance.importance,
+            reason: importance.reason,
+            summary: summarizeRecord(record),
+            recommended_action: record.state === "raw" ? "ignore unless relevant" : "call recall with record_id"
+          };
+        })
         .filter((change) => change.importance !== "silent")
         .slice(0, input.limit ?? 20);
       const latest = records.at(-1)?.updated_at ?? input.cursor ?? new Date().toISOString();

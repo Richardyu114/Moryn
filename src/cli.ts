@@ -174,12 +174,14 @@ program.command("refresh")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--cursor <cursor>")
+  .option("--current-task <task>")
   .option("--limit <n>", "Change limit", "20")
   .action(async (options) => {
     const engine = createEngine({ storePath: storePath() });
     printJson(await engine.refresh({
       project_id: await resolveOptionalProject(options),
       cursor: options.cursor,
+      current_task: options.currentTask,
       limit: Number(options.limit)
     }));
   });
@@ -189,8 +191,9 @@ program.command("rebuild").action(async () => {
 });
 
 program.command("mcp").action(async () => {
-  const engine = createEngine({ storePath: storePath() });
-  await runMcpServer(engine);
+  const path = storePath();
+  const engine = createEngine({ storePath: path });
+  await runMcpServer(engine, { storePath: path });
 });
 
 const project = program.command("project");
