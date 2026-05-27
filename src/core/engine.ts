@@ -197,6 +197,14 @@ export function createEngine(deps: EngineDeps) {
     return [...replayEvents(await readEvents(deps.storePath)).values()];
   }
 
+  async function requireRecord(recordId: string): Promise<MemoraRecord> {
+    const record = replayEvents(await readEvents(deps.storePath)).get(recordId);
+    if (!record) {
+      throw new Error(`Record not found: ${recordId}`);
+    }
+    return record;
+  }
+
   const engine = {
     async write(input: WriteInput) {
       const createdAt = now();
@@ -228,6 +236,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async revise(input: { record_id: string; patch: Record<string, unknown>; reason?: string; source?: RecordSource }) {
+      await requireRecord(input.record_id);
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "revise_record",
@@ -242,6 +251,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async promote(input: { record_id: string; target_state: RecordState; reason?: string; source?: RecordSource }) {
+      await requireRecord(input.record_id);
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "promote_record",
@@ -256,6 +266,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async archive(input: StateChangeInput) {
+      await requireRecord(input.record_id);
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "archive_record",
@@ -269,6 +280,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async quarantine(input: StateChangeInput) {
+      await requireRecord(input.record_id);
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "quarantine_record",
@@ -282,6 +294,8 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async link(input: { record_id: string; linked_record_id: string; link_type: string; source?: RecordSource }) {
+      await requireRecord(input.record_id);
+      await requireRecord(input.linked_record_id);
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "link_records",

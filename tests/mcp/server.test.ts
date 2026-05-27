@@ -384,4 +384,26 @@ describe("MCP stdio server", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("returns structured JSON errors for missing record mutations over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-missing-record-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const result = parseTextContent(await client.callTool({
+          name: "archive",
+          arguments: {
+            record_id: "rec_missing",
+            reason: "Should fail"
+          }
+        })) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe("RECORD_NOT_FOUND");
+        expect(result.error.recoverable).toBe(true);
+        expect(result.error.recommended_action).toBe("check the record id or call recall/list-recent to find it");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
 });

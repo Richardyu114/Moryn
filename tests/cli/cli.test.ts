@@ -292,4 +292,29 @@ describe("mem CLI", () => {
       }
     });
   });
+
+  it("returns structured JSON errors for missing record mutations", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+
+      try {
+        await exec("node", [
+          "--import", "tsx", "src/cli.ts", "--store", store,
+          "promote",
+          "rec_missing",
+          "--state",
+          "canonical"
+        ]);
+        throw new Error("Expected mem promote to fail for a missing record");
+      } catch (error) {
+        const stderr = (error as { stderr: string }).stderr;
+        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("RECORD_NOT_FOUND");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("check the record id or call recall/list-recent to find it");
+      }
+    });
+  });
 });

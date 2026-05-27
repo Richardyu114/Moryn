@@ -445,4 +445,53 @@ describe("core engine", () => {
       ]);
     });
   });
+
+  it("rejects mutation events that target missing records", async () => {
+    await withTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const existing = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Existing memory.", format: "text" },
+        source: { client: "test" }
+      });
+
+      await expect(engine.revise({
+        record_id: "rec_missing",
+        patch: { "content.text": "No-op" },
+        source: { client: "test" }
+      })).rejects.toThrow("Record not found: rec_missing");
+      await expect(engine.promote({
+        record_id: "rec_missing",
+        target_state: "canonical",
+        source: { client: "test" }
+      })).rejects.toThrow("Record not found: rec_missing");
+      await expect(engine.archive({
+        record_id: "rec_missing",
+        source: { client: "test" }
+      })).rejects.toThrow("Record not found: rec_missing");
+      await expect(engine.quarantine({
+        record_id: "rec_missing",
+        source: { client: "test" }
+      })).rejects.toThrow("Record not found: rec_missing");
+      await expect(engine.link({
+        record_id: "rec_missing",
+        linked_record_id: existing.record.id,
+        link_type: "supersedes",
+        source: { client: "test" }
+      })).rejects.toThrow("Record not found: rec_missing");
+      await expect(engine.link({
+        record_id: existing.record.id,
+        linked_record_id: "rec_missing",
+        link_type: "supersedes",
+        source: { client: "test" }
+      })).rejects.toThrow("Record not found: rec_missing");
+
+      const recall = await engine.recall({ record_ids: [existing.record.id] });
+      expect(recall.results[0]?.record.links).toBeUndefined();
+    });
+  });
 });
