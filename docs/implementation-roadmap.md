@@ -52,6 +52,7 @@ Deliverables:
   `quarantine`, `link`, `refresh`, `list_recent`.
 - Tool schemas validate inputs.
 - MCP tests use an SDK client over stdio.
+- Built `dist/cli.js` is covered by an MCP stdio smoke test.
 - README shows a working MCP host command.
 
 ## Phase 2: Store and Project Configuration
@@ -121,6 +122,8 @@ Deliverables:
 - Done: Skill revisions keep canonical skill identity while preserving history.
 - Done: README includes Codex, Claude, Cursor, and shell-agent usage examples where
   practical.
+- Done: Packed-package smoke test installs the generated tarball and runs the
+  `mem` binary from `node_modules/.bin`.
 - Done: Release checklist is documented.
 - Done: MIT license is included.
 - Done: npm package metadata uses scoped package `@richardyu114/memora` because `memora` is already occupied.

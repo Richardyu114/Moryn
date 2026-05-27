@@ -1010,7 +1010,7 @@ The MVP is successful when this flow works:
 
 ## Open Design Boundaries
 
-These are intentionally deferred beyond the first implementation plan:
+These are intentionally deferred beyond the first product version:
 
 - Hosted sync service.
 - Public skill marketplace.

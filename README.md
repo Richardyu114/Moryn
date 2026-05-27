@@ -359,6 +359,7 @@ MIT
 
 - Package name uses the public scoped package `@richardyu114/memora` because `memora` is already occupied on npm.
 - Run `npm test`, `npm run typecheck`, and `npm run build`.
-- Test `mem mcp` from at least one MCP host.
+- Automated smoke tests cover `mem mcp` through the MCP SDK from both source and built `dist/cli.js`.
+- Automated package smoke test installs the packed tarball and runs the installed `mem` binary.
 - Test Git sync with a private user-owned repository.
 - Publish only after confirming no private memory store data is included.
