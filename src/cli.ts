@@ -26,6 +26,15 @@ async function resolveOptionalProject(options: { project?: string; projectId?: s
   return (await resolveProjectContext({ projectPath: options.project, projectId: options.projectId })).project_id;
 }
 
+async function resolveProjectOptions(options: { project?: string; projectId?: string }): Promise<{ project_id?: string; default_skills?: string[] }> {
+  if (!options.project && !options.projectId) return {};
+  const project = await resolveProjectContext({ projectPath: options.project, projectId: options.projectId });
+  return {
+    project_id: project.project_id,
+    default_skills: project.config?.default_skills
+  };
+}
+
 program
   .name("mem")
   .description("Memora CLI")
@@ -98,7 +107,11 @@ program.command("boot")
   .option("--project <path>")
   .action(async (options) => {
     const engine = createEngine({ storePath: storePath() });
-    printJson(await engine.boot({ project_id: await resolveOptionalProject(options) }));
+    const project = await resolveProjectOptions(options);
+    printJson(await engine.boot({
+      project_id: project.project_id,
+      default_skills: project.default_skills
+    }));
   });
 
 program.command("revise")
@@ -118,6 +131,36 @@ program.command("promote")
   .action(async (recordId, options) => {
     const engine = createEngine({ storePath: storePath() });
     printJson(await engine.promote({ record_id: recordId, target_state: options.state, reason: options.reason, source: { client: "cli" } }));
+  });
+
+program.command("archive")
+  .argument("<record-id>")
+  .option("--reason <reason>")
+  .action(async (recordId, options) => {
+    const engine = createEngine({ storePath: storePath() });
+    printJson(await engine.archive({ record_id: recordId, reason: options.reason, source: { client: "cli" } }));
+  });
+
+program.command("quarantine")
+  .argument("<record-id>")
+  .option("--reason <reason>")
+  .action(async (recordId, options) => {
+    const engine = createEngine({ storePath: storePath() });
+    printJson(await engine.quarantine({ record_id: recordId, reason: options.reason, source: { client: "cli" } }));
+  });
+
+program.command("link")
+  .argument("<record-id>")
+  .argument("<linked-record-id>")
+  .requiredOption("--type <type>")
+  .action(async (recordId, linkedRecordId, options) => {
+    const engine = createEngine({ storePath: storePath() });
+    printJson(await engine.link({
+      record_id: recordId,
+      linked_record_id: linkedRecordId,
+      link_type: options.type,
+      source: { client: "cli" }
+    }));
   });
 
 program.command("list-recent")
@@ -156,6 +199,7 @@ project.command("init")
   .option("--path <path>", "Project path", process.cwd())
   .option("--project-id <id>")
   .option("--tag <tag>", "Project tag", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--default-skill <selector>", "Default skill selector", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--sync-mode <mode>", "Sync mode", "session")
   .action(async (options) => {
     printJson({
@@ -163,6 +207,7 @@ project.command("init")
       ...await initializeProjectConfig(options.path, {
         project_id: options.projectId,
         tags: options.tag,
+        default_skills: options.defaultSkill,
         sync: { mode: options.syncMode }
       })
     });

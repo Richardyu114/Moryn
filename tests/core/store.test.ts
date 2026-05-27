@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { appendEvent, readEvents } from "../../src/core/store.js";
 import { withTempStore } from "../helpers/temp-store.js";
@@ -35,7 +37,9 @@ describe("event store", () => {
 
   it("rejects invalid event files while reading", async () => {
     await withTempStore(async (storePath) => {
-      await appendEvent(storePath, {
+      const path = join(storePath, "events", "device_default", "2026-05", "evt_invalid.json");
+      await mkdir(join(storePath, "events", "device_default", "2026-05"), { recursive: true });
+      await writeFile(path, `${JSON.stringify({
         event_id: "evt_invalid",
         op: "upsert_record",
         created_at: "2026-05-27T00:00:00.000Z",
@@ -55,9 +59,35 @@ describe("event store", () => {
           updated_at: "2026-05-27T00:00:00.000Z",
           source: { client: "test" }
         }
-      } as never);
+      })}\n`, "utf8");
 
       await expect(readEvents(storePath)).rejects.toThrow(/Invalid event/);
+    });
+  });
+
+  it("rejects invalid events before appending", async () => {
+    await withTempStore(async (storePath) => {
+      await expect(appendEvent(storePath, {
+        event_id: "evt_invalid",
+        op: "upsert_record",
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test" },
+        record: {
+          id: "rec_bad",
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          tags: [],
+          content: { text: "Bad", format: "text" },
+          state: "published",
+          confidence: 0.5,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-05-27T00:00:00.000Z",
+          updated_at: "2026-05-27T00:00:00.000Z",
+          source: { client: "test" }
+        }
+      } as never)).rejects.toThrow(/Invalid event/);
     });
   });
 });

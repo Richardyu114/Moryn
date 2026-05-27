@@ -141,7 +141,8 @@ describe("core engine", () => {
         "2026-05-27T00:01:00.000Z",
         "2026-05-27T00:02:00.000Z",
         "2026-05-27T00:03:00.000Z",
-        "2026-05-27T00:04:00.000Z"
+        "2026-05-27T00:04:00.000Z",
+        "2026-05-27T00:05:00.000Z"
       ];
       const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
@@ -183,6 +184,15 @@ describe("core engine", () => {
         source: { client: "test" }
       });
       await engine.write({
+        kind: "skill",
+        type: "procedure",
+        scope: "global",
+        tags: ["unrelated"],
+        content: { text: "Unrelated global skill.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
         kind: "agent_note",
         type: "note",
         scope: "project",
@@ -197,8 +207,40 @@ describe("core engine", () => {
       expect(boot.project.important_decisions.map((record) => record.content.text)).toEqual(["Use append-only events."]);
       expect(boot.project.warnings.map((record) => record.content.text)).toEqual(["Do not include secrets in memory."]);
       expect(boot.skills.map((record) => record.content.text)).toEqual(["Run tests before committing."]);
+      expect(boot.skills.map((record) => record.content.text)).not.toContain("Unrelated global skill.");
       expect(boot.recent_changes.map((record) => record.content.text)).not.toContain("Raw note should not boot.");
-      expect(boot.sync.cursor).toBe("2026-05-27T00:04:00.000Z");
+      expect(boot.sync.cursor).toBe("2026-05-27T00:05:00.000Z");
+    });
+  });
+
+  it("adds configured default skill selectors to boot context", async () => {
+    await withTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const releaseSkill = await engine.write({
+        kind: "skill",
+        type: "procedure",
+        scope: "global",
+        tags: ["release"],
+        content: { name: "safe-release", text: "Run tests, typecheck, build, then publish.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "skill",
+        type: "procedure",
+        scope: "global",
+        tags: ["unrelated"],
+        content: { name: "unrelated-skill", text: "Do unrelated work.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const boot = await engine.boot({ project_id: "memora", default_skills: ["safe-release", releaseSkill.record.id] });
+
+      expect(boot.skills.map((record) => record.id)).toEqual([releaseSkill.record.id]);
+      expect(boot.skills[0]?.content.text).toBe("Run tests, typecheck, build, then publish.");
     });
   });
 
@@ -291,6 +333,67 @@ describe("core engine", () => {
 
       expect(recall.results[0]?.record.id).toBe(skill.record.id);
       expect(recall.results[0]?.record.content.text).toBe("Run tests and typecheck.");
+    });
+  });
+
+  it("archives, quarantines, links, and recalls hidden records only when explicitly requested", async () => {
+    await withTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const decision = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Use durable links between related records.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const superseded = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Old sync strategy.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const sensitive = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Internal warning that should be quarantined.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      await engine.link({
+        record_id: decision.record.id,
+        linked_record_id: superseded.record.id,
+        link_type: "supersedes",
+        source: { client: "test" }
+      });
+      await engine.archive({ record_id: superseded.record.id, reason: "Superseded", source: { client: "test" } });
+      await engine.quarantine({ record_id: sensitive.record.id, reason: "Needs review", source: { client: "test" } });
+
+      expect((await engine.recall({ query: "Old sync", project_id: "memora" })).results).toHaveLength(0);
+      expect((await engine.recall({ query: "Internal warning", project_id: "memora" })).results).toHaveLength(0);
+
+      const archived = await engine.recall({ record_ids: [superseded.record.id], states: ["archived"], project_id: "memora" });
+      const quarantined = await engine.recall({ record_ids: [sensitive.record.id], states: ["quarantined"], project_id: "memora" });
+      const linked = await engine.recall({ record_ids: [decision.record.id], project_id: "memora" });
+
+      expect(archived.results[0]?.record.state).toBe("archived");
+      expect(quarantined.results[0]?.record.state).toBe("quarantined");
+      expect(linked.results[0]?.record.links).toEqual([
+        {
+          record_id: superseded.record.id,
+          link_type: "supersedes",
+          created_at: "2026-05-27T00:00:00.000Z"
+        }
+      ]);
     });
   });
 });

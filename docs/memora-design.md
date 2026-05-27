@@ -407,10 +407,8 @@ Input:
 
 ```json
 {
-  "project_path": "/path/to/repo",
   "project_id": "optional",
-  "client": "codex",
-  "current_task": "optional task description"
+  "default_skills": ["optional skill selector"]
 }
 ```
 
@@ -445,6 +443,10 @@ CLI:
 mem boot --project .
 ```
 
+CLI `--project` reads `.memora.json`, resolves `project_id`, and applies
+configured `default_skills`. MCP hosts pass `project_id` and optional
+`default_skills` directly.
+
 ### `recall`
 
 Used to retrieve records relevant to a task, file set, tag set, or type.
@@ -458,6 +460,7 @@ Input:
   "files": ["src/auth.ts"],
   "kinds": ["memory", "skill"],
   "types": ["decision", "warning", "procedure"],
+  "states": ["canonical"],
   "limit": 10
 }
 ```
@@ -486,6 +489,9 @@ CLI:
 ```bash
 mem recall "fix auth middleware bug" --project . --kind memory --kind skill
 ```
+
+Archived and quarantined records are excluded by default. To inspect them,
+query by explicit record id with a matching state filter.
 
 ### `write`
 
@@ -538,9 +544,9 @@ CLI:
 mem revise rec_123 --set confidence=0.92 --reason "Clarified sync semantics after review."
 ```
 
-### `sync`
+### `refresh`
 
-Used for startup sync, periodic sync, manual fetch, pull, and push.
+Used for periodic memory refresh after sync or while an agent is running.
 
 Input:
 
@@ -548,8 +554,7 @@ Input:
 {
   "project_id": "memora",
   "cursor": "previous_cursor",
-  "current_task": "optional",
-  "mode": "check"
+  "current_task": "optional"
 }
 ```
 
@@ -573,8 +578,19 @@ Output:
 CLI:
 
 ```bash
-mem sync --project . --mode check
-mem sync --project . --pull
+mem refresh --project . --cursor previous_cursor
+```
+
+### `sync`
+
+Used for Git-backed startup sync, manual pull, status checks, and push.
+
+CLI:
+
+```bash
+mem sync init git@github.com:yourname/memora-store.git
+mem sync --status
+mem sync --pull
 mem sync --push
 ```
 
@@ -596,7 +612,38 @@ CLI:
 
 ```bash
 mem promote rec_123 --state canonical
-mem promote rec_123 --state archived
+```
+
+### `archive`
+
+Used to preserve a record in history while hiding it from default boot and
+recall.
+
+CLI:
+
+```bash
+mem archive rec_123 --reason "Superseded"
+```
+
+### `quarantine`
+
+Used to mark a record as sensitive, suspicious, conflicting, or unsafe for
+default recall.
+
+CLI:
+
+```bash
+mem quarantine rec_123 --reason "Needs review"
+```
+
+### `link`
+
+Used to append a relationship from one record to another.
+
+CLI:
+
+```bash
+mem link rec_123 rec_456 --type supersedes
 ```
 
 ### `list_recent`
@@ -606,7 +653,7 @@ Used for audit and review.
 CLI:
 
 ```bash
-mem list-recent --project . --limit 20
+mem list-recent --limit 20
 ```
 
 ## Agent Usage Contract

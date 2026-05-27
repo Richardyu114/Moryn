@@ -43,6 +43,17 @@ interface RefreshInput {
   limit?: number;
 }
 
+interface BootInput {
+  project_id?: string;
+  default_skills?: string[];
+}
+
+interface StateChangeInput {
+  record_id: string;
+  reason?: string;
+  source?: RecordSource;
+}
+
 function textOf(record: MemoraRecord): string {
   return String(record.content.text ?? "");
 }
@@ -61,6 +72,34 @@ function isVisibleByDefault(record: MemoraRecord): boolean {
 
 function isTrustedForBoot(record: MemoraRecord): boolean {
   return record.state === "canonical";
+}
+
+function includesHiddenState(input: RecallInput): boolean {
+  return input.states?.some((state) => state === "archived" || state === "quarantined") ?? false;
+}
+
+function skillMatchesSelector(record: MemoraRecord, selector: string): boolean {
+  const normalized = selector.toLowerCase();
+  return record.id === selector
+    || record.type.toLowerCase() === normalized
+    || record.tags.some((tag) => tag.toLowerCase() === normalized)
+    || String(record.content.name ?? "").toLowerCase() === normalized
+    || textOf(record).toLowerCase().includes(normalized);
+}
+
+function isProjectSkill(record: MemoraRecord, projectId: string | undefined): boolean {
+  return record.kind === "skill"
+    && Boolean(projectId)
+    && (record.project_id === projectId || record.tags.includes(projectId as string));
+}
+
+function bootSkills(records: MemoraRecord[], input: BootInput): MemoraRecord[] {
+  const selectors = input.default_skills ?? [];
+  const selected = records.filter((record) => record.kind === "skill" && (
+    isProjectSkill(record, input.project_id)
+    || selectors.some((selector) => skillMatchesSelector(record, selector))
+  ));
+  return [...new Map(selected.map((record) => [record.id, record])).values()];
 }
 
 function reasonAndScore(record: MemoraRecord, input: RecallInput): { score: number; reason: string[] } {
@@ -116,6 +155,11 @@ function reasonAndScore(record: MemoraRecord, input: RecallInput): { score: numb
     }
   }
   return { score, reason: [...new Set(reason)] };
+}
+
+function matchesQuery(result: { reason: string[] }, input: RecallInput): boolean {
+  if (!input.query || input.record_ids?.length) return true;
+  return result.reason.some((reason) => reason.startsWith("text_match:"));
 }
 
 function summarizeRecord(record: MemoraRecord): string {
@@ -195,9 +239,49 @@ export function createEngine(deps: EngineDeps) {
       return { event };
     },
 
+    async archive(input: StateChangeInput) {
+      const event: MemoraEvent = {
+        event_id: id("evt"),
+        op: "archive_record",
+        record_id: input.record_id,
+        reason: input.reason,
+        created_at: now(),
+        source: input.source ?? { client: "memora" }
+      };
+      await appendEvent(deps.storePath, event);
+      return { event };
+    },
+
+    async quarantine(input: StateChangeInput) {
+      const event: MemoraEvent = {
+        event_id: id("evt"),
+        op: "quarantine_record",
+        record_id: input.record_id,
+        reason: input.reason,
+        created_at: now(),
+        source: input.source ?? { client: "memora" }
+      };
+      await appendEvent(deps.storePath, event);
+      return { event };
+    },
+
+    async link(input: { record_id: string; linked_record_id: string; link_type: string; source?: RecordSource }) {
+      const event: MemoraEvent = {
+        event_id: id("evt"),
+        op: "link_records",
+        record_id: input.record_id,
+        linked_record_id: input.linked_record_id,
+        link_type: input.link_type,
+        created_at: now(),
+        source: input.source ?? { client: "memora" }
+      };
+      await appendEvent(deps.storePath, event);
+      return { event };
+    },
+
     async recall(input: RecallInput) {
       const records = (await currentRecords())
-        .filter(isVisibleByDefault)
+        .filter((record) => includesHiddenState(input) || isVisibleByDefault(record))
         .filter((record) => recordProjectMatches(record, input.project_id))
         .filter((record) => !input.record_ids?.length || input.record_ids.includes(record.id))
         .filter((record) => !input.kinds?.length || input.kinds.includes(record.kind))
@@ -207,13 +291,14 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => matchesAny(record.tags, input.tags))
         .filter((record) => !input.files?.length || input.files.some((file) => `${textOf(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())))
         .map((record) => ({ record, ...reasonAndScore(record, input) }))
+        .filter((result) => matchesQuery(result, input))
         .filter((result) => result.score > 0 || (!input.query && !input.record_ids?.length))
         .sort((a, b) => b.score - a.score)
         .slice(0, input.limit ?? 10);
       return { results: records };
     },
 
-    async boot(input: { project_id?: string }) {
+    async boot(input: BootInput) {
       const visibleRecords = (await currentRecords())
         .filter(isVisibleByDefault)
         .filter((record) => recordProjectMatches(record, input.project_id));
@@ -234,7 +319,7 @@ export function createEngine(deps: EngineDeps) {
           important_decisions: records.filter((record) => record.type === "decision" && record.project_id === input.project_id),
           warnings: records.filter((record) => (record.type === "warning" || record.type === "blocker") && record.project_id === input.project_id)
         },
-        skills: records.filter((record) => record.kind === "skill"),
+        skills: bootSkills(records, input),
         recent_changes: recent.filter((record) => record.kind !== "soul").slice(0, 5),
         sync: { cursor, remote_has_updates: false }
       };

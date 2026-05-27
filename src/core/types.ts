@@ -22,6 +22,12 @@ export interface RecordProvenance {
   reason?: string;
 }
 
+export interface RecordLink {
+  record_id: string;
+  link_type: string;
+  created_at: string;
+}
+
 export interface MemoraRecord {
   id: string;
   kind: RecordKind;
@@ -38,6 +44,7 @@ export interface MemoraRecord {
   updated_at: string;
   source: RecordSource;
   provenance?: RecordProvenance;
+  links?: RecordLink[];
 }
 
 export type MemoraEvent =

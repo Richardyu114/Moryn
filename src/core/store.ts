@@ -16,6 +16,7 @@ function eventPath(storePath: string, event: MemoraEvent): string {
 }
 
 export async function appendEvent(storePath: string, event: MemoraEvent): Promise<string> {
+  parseEvent(event);
   const path = eventPath(storePath, event);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(event, null, 2)}\n`, "utf8");

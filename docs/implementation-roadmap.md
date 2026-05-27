@@ -11,10 +11,10 @@ The repository currently has an early local MVP:
 - TypeScript package and `mem` CLI.
 - Append-only JSON event store.
 - Record kinds for memory, skill, soul, session summary, and agent note.
-- Logical revise/promote replay model.
-- Basic recall, boot, list recent, and sensitive-content quarantine.
-- Minimal Git status check.
-- A placeholder stdio JSON server for agent access.
+- Logical revise, promote, archive, quarantine, and link replay model.
+- Recall, boot, refresh, list recent, and sensitive-content quarantine.
+- Git init, status, pull, and push for a user-owned store repo.
+- A real stdio MCP server using the official MCP TypeScript SDK.
 
 ## Completion Criteria
 
@@ -48,7 +48,8 @@ Protocol TypeScript SDK over stdio.
 Deliverables:
 
 - `mem mcp` starts a real MCP server.
-- Tools: `boot`, `recall`, `write`, `revise`, `promote`, `list_recent`.
+- Tools: `boot`, `recall`, `write`, `revise`, `promote`, `archive`,
+  `quarantine`, `link`, `refresh`, `list_recent`.
 - Tool schemas validate inputs.
 - MCP tests use an SDK client over stdio.
 - README shows a working MCP host command.
@@ -63,8 +64,8 @@ Deliverables:
 - Done: `mem project init` writes `.memora.json`.
 - Done: CLI accepts `--project <path>` and resolves project identity consistently.
 - Done: Project config can add default tags and sync mode.
-- Remaining: Project config default skills are not yet applied to boot context.
-- Remaining: Event validation happens on read and write.
+- Done: Project config default skills are applied to boot context.
+- Done: Event validation happens on read and write.
 
 ## Phase 3: Recall, Boot, and Refresh Semantics
 
@@ -80,6 +81,8 @@ Deliverables:
   `interrupt`.
 - Done: Agents can request explicit refresh through CLI or MCP.
 - Done: Explicit scope filtering is supported in core, CLI, and MCP recall.
+- Done: Text queries require a text/tag/type match instead of returning unrelated
+  same-project records.
 
 ## Phase 4: Git Sync
 

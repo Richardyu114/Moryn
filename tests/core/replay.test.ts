@@ -42,6 +42,15 @@ describe("event replay", () => {
         reason: "Confirmed",
         created_at: "2026-05-27T00:02:00.000Z",
         source: { client: "test" }
+      },
+      {
+        event_id: "evt_4",
+        op: "link_records",
+        record_id: "rec_1",
+        linked_record_id: "rec_2",
+        link_type: "supersedes",
+        created_at: "2026-05-27T00:03:00.000Z",
+        source: { client: "test" }
       }
     ]);
 
@@ -49,5 +58,12 @@ describe("event replay", () => {
     expect(record?.content.text).toBe("New");
     expect(record?.confidence).toBe(0.9);
     expect(record?.state).toBe("canonical");
+    expect(record?.links).toEqual([
+      {
+        record_id: "rec_2",
+        link_type: "supersedes",
+        created_at: "2026-05-27T00:03:00.000Z"
+      }
+    ]);
   });
 });

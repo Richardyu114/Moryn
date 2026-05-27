@@ -36,9 +36,12 @@ describe("MCP stdio server", () => {
       await withMcpClient(store, async (client) => {
         const tools = await client.listTools();
         expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
+          "archive",
           "boot",
+          "link",
           "list_recent",
           "promote",
+          "quarantine",
           "recall",
           "refresh",
           "revise",
@@ -106,6 +109,77 @@ describe("MCP stdio server", () => {
         expect(refreshResult.changes).toEqual([
           expect.objectContaining({ record_id: writeResult.record.id, importance: "notice" })
         ]);
+
+        const oldResult = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            text: "Old MCP decision.",
+            state: "canonical",
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+
+        parseTextContent(await client.callTool({
+          name: "link",
+          arguments: {
+            record_id: writeResult.record.id,
+            linked_record_id: oldResult.record.id,
+            link_type: "supersedes",
+            source: { client: "mcp-test" }
+          }
+        }));
+        parseTextContent(await client.callTool({
+          name: "archive",
+          arguments: {
+            record_id: oldResult.record.id,
+            reason: "Superseded through MCP",
+            source: { client: "mcp-test" }
+          }
+        }));
+
+        const archivedRecall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            record_ids: [oldResult.record.id],
+            states: ["archived"],
+            project_id: "memora"
+          }
+        })) as { results: Array<{ record: { state: string } }> };
+        const linkedRecall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            record_ids: [writeResult.record.id],
+            project_id: "memora"
+          }
+        })) as { results: Array<{ record: { links?: Array<{ record_id: string; link_type: string }> } }> };
+
+        expect(archivedRecall.results[0]?.record.state).toBe("archived");
+        expect(linkedRecall.results[0]?.record.links).toEqual([
+          expect.objectContaining({ record_id: oldResult.record.id, link_type: "supersedes" })
+        ]);
+
+        parseTextContent(await client.callTool({
+          name: "quarantine",
+          arguments: {
+            record_id: writeResult.record.id,
+            reason: "Manual review through MCP",
+            source: { client: "mcp-test" }
+          }
+        }));
+        const quarantinedRecall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            record_ids: [writeResult.record.id],
+            states: ["quarantined"],
+            project_id: "memora"
+          }
+        })) as { results: Array<{ record: { state: string } }> };
+
+        expect(quarantinedRecall.results[0]?.record.state).toBe("quarantined");
       });
     } finally {
       await rm(store, { recursive: true, force: true });

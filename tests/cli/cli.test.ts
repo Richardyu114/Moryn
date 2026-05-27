@@ -88,6 +88,86 @@ describe("mem CLI", () => {
     });
   });
 
+  it("archives, quarantines, links, and boots project default skills from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts",
+        "project", "init",
+        "--path", project,
+        "--project-id", "memora",
+        "--default-skill", "safe-release"
+      ]);
+
+      const skillWrite = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "skill",
+        "--type", "procedure",
+        "--scope", "global",
+        "--tag", "release",
+        "--state", "canonical",
+        "--text", "safe-release: run tests before publishing"
+      ]);
+      const decisionWrite = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project", project,
+        "--state", "canonical",
+        "--text", "Use linked memories"
+      ]);
+      const oldWrite = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project", project,
+        "--state", "canonical",
+        "--text", "Old linked memory"
+      ]);
+      const secretWrite = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project", project,
+        "--state", "canonical",
+        "--text", "Review this warning"
+      ]);
+      const skillId = (JSON.parse(skillWrite.stdout) as { record: { id: string } }).record.id;
+      const decisionId = (JSON.parse(decisionWrite.stdout) as { record: { id: string } }).record.id;
+      const oldId = (JSON.parse(oldWrite.stdout) as { record: { id: string } }).record.id;
+      const secretId = (JSON.parse(secretWrite.stdout) as { record: { id: string } }).record.id;
+
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "link", decisionId, oldId, "--type", "supersedes"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "archive", oldId, "--reason", "Superseded"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "quarantine", secretId, "--reason", "Needs review"]);
+
+      const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "boot", "--project", project]);
+      expect(boot.stdout).toContain(skillId);
+      expect(boot.stdout).toContain("safe-release: run tests before publishing");
+
+      const hiddenRecall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "Old linked memory", "--project", project]);
+      expect(hiddenRecall.stdout).not.toContain("Old linked memory");
+
+      const archivedRecall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "--record-id", oldId, "--state", "archived", "--project", project]);
+      expect(archivedRecall.stdout).toContain("\"state\": \"archived\"");
+
+      const quarantinedRecall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "--record-id", secretId, "--state", "quarantined", "--project", project]);
+      expect(quarantinedRecall.stdout).toContain("\"state\": \"quarantined\"");
+
+      const linkedRecall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "--record-id", decisionId, "--project", project]);
+      expect(linkedRecall.stdout).toContain("\"link_type\": \"supersedes\"");
+    });
+  });
+
   it("syncs local store events through a git remote", async () => {
     await withTempDir(async (dir) => {
       const remote = join(dir, "remote.git");

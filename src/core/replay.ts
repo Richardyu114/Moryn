@@ -44,6 +44,24 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
         visibility: state === "canonical" || state === "candidate" || state === "raw" ? "active" : state,
         updated_at: event.created_at
       });
+      continue;
+    }
+
+    if (event.op === "link_records") {
+      const record = records.get(event.record_id);
+      if (!record) continue;
+      records.set(event.record_id, {
+        ...record,
+        links: [
+          ...(record.links ?? []),
+          {
+            record_id: event.linked_record_id,
+            link_type: event.link_type,
+            created_at: event.created_at
+          }
+        ],
+        updated_at: event.created_at
+      });
     }
   }
 

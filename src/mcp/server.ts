@@ -40,10 +40,11 @@ export async function runMcpServer(engine: Engine): Promise<void> {
       title: "Boot Memora Context",
       description: "Return a bounded context package for an agent starting work.",
       inputSchema: {
-        project_id: z.string().min(1).optional()
+        project_id: z.string().min(1).optional(),
+        default_skills: z.array(z.string().min(1)).optional()
       }
     },
-    async ({ project_id }) => jsonResult(await engine.boot({ project_id }))
+    async ({ project_id, default_skills }) => jsonResult(await engine.boot({ project_id, default_skills }))
   );
 
   server.registerTool(
@@ -150,6 +151,62 @@ export async function runMcpServer(engine: Engine): Promise<void> {
       record_id,
       target_state: target_state as RecordState,
       reason,
+      source: source as RecordSource | undefined
+    }))
+  );
+
+  server.registerTool(
+    "archive",
+    {
+      title: "Archive Memora Record",
+      description: "Hide a record from default boot and recall while preserving history.",
+      inputSchema: {
+        record_id: z.string().min(1),
+        reason: z.string().optional(),
+        source: sourceSchema.optional()
+      }
+    },
+    async ({ record_id, reason, source }) => jsonResult(await engine.archive({
+      record_id,
+      reason,
+      source: source as RecordSource | undefined
+    }))
+  );
+
+  server.registerTool(
+    "quarantine",
+    {
+      title: "Quarantine Memora Record",
+      description: "Mark a record as sensitive or unsafe so it is excluded by default.",
+      inputSchema: {
+        record_id: z.string().min(1),
+        reason: z.string().optional(),
+        source: sourceSchema.optional()
+      }
+    },
+    async ({ record_id, reason, source }) => jsonResult(await engine.quarantine({
+      record_id,
+      reason,
+      source: source as RecordSource | undefined
+    }))
+  );
+
+  server.registerTool(
+    "link",
+    {
+      title: "Link Memora Records",
+      description: "Append a relationship from one record to another.",
+      inputSchema: {
+        record_id: z.string().min(1),
+        linked_record_id: z.string().min(1),
+        link_type: z.string().min(1),
+        source: sourceSchema.optional()
+      }
+    },
+    async ({ record_id, linked_record_id, link_type, source }) => jsonResult(await engine.link({
+      record_id,
+      linked_record_id,
+      link_type,
       source: source as RecordSource | undefined
     }))
   );

@@ -6,7 +6,7 @@ Memora is a personal memory, skill, and soul layer for AI agents.
 
 It is designed for people who use multiple AI agents across multiple projects and want those agents to share the same durable context without making memory belong to any single agent. Agents are readers and writers; the long-lived context belongs to the user, projects, topics, and artifacts.
 
-> Status: early MVP implementation. Core local memory operations and a real stdio MCP server are being built from the first-version design in [docs/memora-design.md](docs/memora-design.md). The remaining work is tracked in [docs/implementation-roadmap.md](docs/implementation-roadmap.md).
+> Status: early MVP implementation. Core local memory operations, Git sync, and a real stdio MCP server are implemented from the first-version design in [docs/memora-design.md](docs/memora-design.md). The roadmap is tracked in [docs/implementation-roadmap.md](docs/implementation-roadmap.md).
 
 ## What Memora Is
 
@@ -18,7 +18,7 @@ Memora provides a local-first shared context layer for:
 - `session_summary`: handoff notes from one agent session to another.
 - `agent_note`: raw agent observations that can later be promoted into durable memory.
 
-The first version is planned as a local tool with GitHub private repo sync. The local store is the runtime source of availability. GitHub is a sync backend, not the live database.
+The first version is a local tool with GitHub private repo sync. The local store is the runtime source of availability. GitHub is a sync backend, not the live database.
 
 ## Why
 
@@ -81,7 +81,7 @@ flowchart LR
   Git -->|"merge event history"| Events
 ```
 
-## Planned Usage
+## Usage
 
 ### 1. Install the CLI
 
@@ -89,7 +89,7 @@ flowchart LR
 npm install -g @richardyu114/memora
 ```
 
-The planned CLI command is:
+The CLI command is:
 
 ```bash
 mem
@@ -149,16 +149,17 @@ Example:
 {
   "project_id": "my-project",
   "tags": ["typescript", "mcp"],
+  "default_skills": ["release"],
   "sync": {
     "mode": "session"
   }
 }
 ```
 
-You can also initialize a specific path with tags:
+You can also initialize a specific path with tags and default skill selectors:
 
 ```bash
-mem project init --path /path/to/project --project-id my-project --tag typescript --tag mcp
+mem project init --path /path/to/project --project-id my-project --tag typescript --tag mcp --default-skill release
 ```
 
 Project-aware commands accept either an explicit project id or a project path:
@@ -197,6 +198,9 @@ The current MCP server uses the official Model Context Protocol TypeScript SDK o
 - `write`
 - `revise`
 - `promote`
+- `archive`
+- `quarantine`
+- `link`
 - `refresh`
 - `list_recent`
 
@@ -238,6 +242,9 @@ mem recall "append-only events" --project-id memora --kind memory --type decisio
 mem refresh --project-id memora --cursor 2026-05-27T00:00:00.000Z
 mem revise rec_... --set content.text="Updated memory" --reason "Refined wording"
 mem promote rec_... --state canonical --reason "User confirmed"
+mem archive rec_... --reason "Superseded"
+mem quarantine rec_... --reason "Needs review"
+mem link rec_... rec_other... --type supersedes
 mem list-recent
 mem rebuild
 mem sync --status
@@ -298,6 +305,16 @@ promote(record_id, target_state="canonical")
 
 This moves the record into the default recall layer.
 
+When a record should be hidden or related to another record:
+
+```text
+archive(record_id, reason)
+quarantine(record_id, reason)
+link(record_id, linked_record_id, link_type)
+```
+
+Archived and quarantined records stay in history but are excluded from default boot and recall. They can still be fetched explicitly with a matching `state` filter.
+
 ## Memory Promotion Model
 
 Memora separates recording from durable memory.
@@ -318,7 +335,7 @@ This keeps agent-specific notes from polluting the shared context while still ma
 
 ## Sync Model
 
-Memora is planned as local-first:
+Memora is local-first:
 
 - Local reads and writes should work even when remote sync is unavailable.
 - Writes append events.
@@ -326,7 +343,7 @@ Memora is planned as local-first:
 - Snapshots and indexes are derived and rebuildable.
 - GitHub private repos are the first sync backend.
 
-The default sync mode is planned to be `session`: pull at task start and push at session end or explicit sync.
+The default sync mode is `session`: pull at task start and push at session end or explicit sync.
 
 ## Design Spec
 

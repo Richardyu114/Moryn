@@ -14,6 +14,12 @@ export const recordSourceSchema = z.object({
   device_id: z.string().min(1).optional()
 });
 
+export const recordLinkSchema = z.object({
+  record_id: z.string().min(1),
+  link_type: z.string().min(1),
+  created_at: z.string().datetime()
+});
+
 export const recordSchema = z.object({
   id: z.string().min(1),
   kind: recordKindSchema,
@@ -35,7 +41,8 @@ export const recordSchema = z.object({
   provenance: z.object({
     derived_from: z.array(z.string()).optional(),
     reason: z.string().optional()
-  }).optional()
+  }).optional(),
+  links: z.array(recordLinkSchema).optional()
 });
 
 export type ParsedRecord = z.infer<typeof recordSchema>;
