@@ -517,6 +517,20 @@ function tagOverlap(left: string[], right: string[]): boolean {
   return left.some((tag) => rightTags.has(tag));
 }
 
+function subjectTokens(content: Record<string, unknown> & { text?: string }): string[] {
+  const stopWords = new Set(["about", "after", "agent", "before", "from", "into", "only", "source", "that", "the", "this", "truth", "with"]);
+  return textFromContent(content)
+    .split(/\W+/)
+    .filter((token) => token.length >= 4)
+    .filter((token) => !stopWords.has(token));
+}
+
+function subjectOverlap(left: Record<string, unknown> & { text?: string }, right: Record<string, unknown> & { text?: string }): boolean {
+  const rightTokens = new Set(subjectTokens(right));
+  const matches = subjectTokens(left).filter((token) => rightTokens.has(token));
+  return new Set(matches).size >= 2;
+}
+
 function semanticConflicts(records: MemoraRecord[], input: {
   id?: string;
   kind: RecordKind;
@@ -535,7 +549,7 @@ function semanticConflicts(records: MemoraRecord[], input: {
     .filter((record) => record.type === input.type)
     .filter((record) => record.scope === input.scope)
     .filter((record) => record.project_id === input.project_id)
-    .filter((record) => tagOverlap(record.tags, input.tags ?? []))
+    .filter((record) => tagOverlap(record.tags, input.tags ?? []) || subjectOverlap(record.content, input.content))
     .filter((record) => textFromContent(record.content) !== inputText);
 }
 

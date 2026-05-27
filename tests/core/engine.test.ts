@@ -787,6 +787,68 @@ describe("core engine", () => {
     });
   });
 
+  it("marks untagged same-subject canonical memory conflicts", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const existing = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Use append-only JSON events for sync storage.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      const conflicting = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Use SQLite as the source of truth for sync storage.", format: "text" },
+        state: "canonical",
+        source: { client: "agent" }
+      });
+
+      expect(conflicting.record.state).toBe("candidate");
+      expect(conflicting.warning?.code).toBe("CONFIRMATION_REQUIRED");
+      expect(conflicting.record.conflict?.with).toEqual([existing.record.id]);
+    });
+  });
+
+  it("does not mark unrelated untagged canonical memories as conflicts", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Use append-only JSON events for sync storage.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      const unrelated = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Render dashboard charts with canvas for performance.", format: "text" },
+        state: "canonical",
+        source: { client: "agent" }
+      });
+
+      expect(unrelated.record.state).toBe("canonical");
+      expect(unrelated.warning).toBeUndefined();
+      expect(unrelated.record.conflict).toBeUndefined();
+    });
+  });
+
   it("rejects conflicting canonical promotion without user confirmation", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
