@@ -155,6 +155,7 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
   if (!await hasCommits(storePath) && await hasRemoteHead(storePath)) {
     await git(storePath, ["fetch", "origin", "main"]);
     await git(storePath, ["reset", "--hard", "origin/main"]);
+    await rebuildDerivedViews(storePath);
   }
 
   await git(storePath, ["add", "events", ".gitignore"]);

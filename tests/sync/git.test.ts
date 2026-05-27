@@ -260,6 +260,49 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("rebuilds derived views after sync init imports an existing remote history", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-init-derived-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(storeA, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_a"
+      });
+
+      await initializeGitSync(storeA, remote);
+      const engineA = createEngine({
+        storePath: storeA,
+        now: () => "2026-05-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_a`
+      });
+      await engineA.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Existing remote history is indexed on sync init.", format: "text" },
+        state: "canonical",
+        source: { client: "test", device_id: "device_a" }
+      });
+      await pushGitSync(storeA, { message: "seed remote history" });
+
+      await initializeStore(storeB, {
+        now: () => "2026-05-27T00:02:00.000Z",
+        id: () => "device_b"
+      });
+      const init = await initializeGitSync(storeB, remote);
+
+      expect(init.ok).toBe(true);
+      const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      expect(recallIndex.records.map((record) => record.text)).toContain("Existing remote history is indexed on sync init.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rebases local event commits when pulling remote device history", async () => {
     const root = await mkdtemp(join(tmpdir(), "memora-sync-rebase-"));
     const remote = join(root, "remote.git");
