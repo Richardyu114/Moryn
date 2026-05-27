@@ -135,7 +135,7 @@ Sync commands operate on the Memora store, not the current source repo:
 
 ```bash
 mem sync --status
-mem sync --push
+mem sync --push --message "sync after session"
 mem sync --pull
 ```
 
@@ -267,6 +267,7 @@ mem write --kind memory --type decision --scope project --project-id memora --ta
 mem recall "append-only events" --project-id memora --kind memory --type decision --state canonical --tag sync
 mem refresh --project-id memora --cursor 2026-05-27T00:00:00.000Z --current-task "fix auth"
 mem revise rec_... --set content.text="Updated memory" --reason "Refined wording"
+mem revise rec_... --set content.text="User-confirmed replacement" --reason "User confirmed conflict resolution" --confirm
 mem promote rec_... --state canonical --reason "User confirmed"
 mem promote rec_... --state canonical --reason "User confirmed high-risk memory" --confirm
 mem archive rec_... --reason "Superseded"
@@ -315,6 +316,9 @@ revise(record_id, patch, reason)
 ```
 
 This logically updates the record while appending a new event to preserve history.
+If a revision would make a canonical record conflict with existing canonical
+memory, CLI callers must add `--confirm`; MCP callers must pass
+`confirmed: true`.
 
 At the end of meaningful work:
 
@@ -370,7 +374,9 @@ Memora is local-first:
 - Snapshots and indexes are derived and rebuildable.
 - GitHub private repos are the first sync backend.
 
-The default sync mode is `session`: pull at task start and push at session end or explicit sync.
+The default sync mode is `session`: agents should pull at task start and push
+at session end or explicit sync. CLI pushes can set a commit message with
+`mem sync --push --message "session summary"`.
 
 ## Design Spec
 

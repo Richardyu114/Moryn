@@ -475,8 +475,10 @@ describe("mem CLI", () => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote]);
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--state", "canonical", "--text", "CLI sync uses Git"]);
 
-      const push = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "--push"]);
+      const push = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "--push", "--message", "custom cli sync"]);
       expect(push.stdout).toContain("\"pushed\": true");
+      const commitMessage = await exec("git", ["log", "-1", "--pretty=%s"], { cwd: storeA });
+      expect(commitMessage.stdout.trim()).toBe("custom cli sync");
 
       const pull = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--pull"]);
       expect(pull.stdout).toContain("\"pulled\": true");

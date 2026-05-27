@@ -324,9 +324,10 @@ sync
   .option("--status", "Show sync status")
   .option("--push", "Commit and push local events")
   .option("--pull", "Pull remote events")
+  .option("--message <message>", "Commit message for --push")
   .action(async (options) => {
     if (options.push) {
-      printJson(await pushGitSync(storePath()));
+      printJson(await pushGitSync(storePath(), { message: options.message }));
       return;
     }
     if (options.pull) {

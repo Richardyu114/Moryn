@@ -565,7 +565,8 @@ Input:
     "content.text": "Use GitHub private repos as the first sync backend, with events as the only default synced source of truth.",
     "confidence": 0.92
   },
-  "reason": "Clarified sync semantics after review."
+  "reason": "Clarified sync semantics after review.",
+  "confirmed": false
 }
 ```
 
@@ -573,7 +574,12 @@ CLI:
 
 ```bash
 mem revise rec_123 --set confidence=0.92 --reason "Clarified sync semantics after review."
+mem revise rec_123 --set content.text="User-confirmed replacement" --reason "User confirmed conflict resolution" --confirm
 ```
+
+Canonical revisions that would conflict with existing canonical memory require
+explicit confirmation. CLI callers pass `--confirm`; MCP callers pass
+`confirmed: true`.
 
 ### `refresh`
 
@@ -624,6 +630,7 @@ mem sync init git@github.com:yourname/memora-store.git
 mem sync --status
 mem sync --pull
 mem sync --push
+mem sync --push --message "sync after session"
 ```
 
 MCP exposes the same sync semantics as separate tools: `sync_init`,
