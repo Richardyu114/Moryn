@@ -88,6 +88,41 @@ describe("mem CLI", () => {
     });
   });
 
+  it("revises records with repeated CLI assignments and JSON scalar values", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const write = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--state", "candidate",
+        "--text", "Use old sync wording"
+      ]);
+      const recordId = (JSON.parse(write.stdout) as { record: { id: string } }).record.id;
+
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "revise",
+        recordId,
+        "--set", "content.text=\"Use private Git sync\"",
+        "--set", "confidence=0.92",
+        "--reason", "Clarified wording"
+      ]);
+      const recall = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "recall",
+        "--record-id", recordId
+      ]);
+      const parsed = JSON.parse(recall.stdout) as { results: Array<{ record: { content: { text: string }; confidence: number } }> };
+
+      expect(parsed.results[0]?.record.content.text).toBe("Use private Git sync");
+      expect(parsed.results[0]?.record.confidence).toBe(0.92);
+    });
+  });
+
   it("filters refresh interrupts by current task from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

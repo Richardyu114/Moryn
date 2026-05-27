@@ -28,6 +28,37 @@ describe("core engine", () => {
     });
   });
 
+  it("orders rapid same-millisecond mutations after the record creation event", async () => {
+    await withTempStore(async (storePath) => {
+      const ids = ["rec_1", "evt_z_upsert", "evt_a_revise"];
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => ids.shift() ?? `${prefix}_extra`
+      });
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Use old sync wording", format: "text" },
+        state: "candidate",
+        source: { client: "test" }
+      });
+
+      await engine.revise({
+        record_id: written.record.id,
+        patch: { "content.text": "Use private Git sync" },
+        reason: "Clarified wording",
+        source: { client: "test" }
+      });
+
+      const recall = await engine.recall({ record_ids: [written.record.id] });
+      expect(recall.results[0]?.record.content.text).toBe("Use private Git sync");
+    });
+  });
+
   it("quarantines sensitive content on write", async () => {
     await withTempStore(async (storePath) => {
       let nextId = 0;
@@ -493,7 +524,7 @@ describe("core engine", () => {
         {
           record_id: superseded.record.id,
           link_type: "supersedes",
-          created_at: "2026-05-27T00:00:00.000Z"
+          created_at: "2026-05-27T00:00:00.001Z"
         }
       ]);
     });

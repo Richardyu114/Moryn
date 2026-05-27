@@ -184,6 +184,13 @@ function matchesCurrentTask(record: MemoraRecord, currentTask: string | undefine
   return matches >= Math.min(2, tokens.length);
 }
 
+function nextMutationTimestamp(record: MemoraRecord, candidate: string): string {
+  const candidateTime = Date.parse(candidate);
+  const previousTime = Date.parse(record.updated_at);
+  if (Number.isFinite(candidateTime) && candidateTime > previousTime) return new Date(candidateTime).toISOString();
+  return new Date(previousTime + 1).toISOString();
+}
+
 function refreshImportance(record: MemoraRecord, currentTask: string | undefined): { importance: "silent" | "notice" | "interrupt"; reason?: string } {
   if (record.state === "raw" || record.kind === "session_summary" || record.kind === "agent_note") return { importance: "silent" };
   const interruptCandidate = record.type === "blocker" || record.type === "warning" || record.type === "conflict" || record.priority === "high";
@@ -243,14 +250,15 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async revise(input: { record_id: string; patch: Record<string, unknown>; reason?: string; source?: RecordSource }) {
-      await requireRecord(input.record_id);
+      const record = await requireRecord(input.record_id);
+      const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "revise_record",
         record_id: input.record_id,
         patch: input.patch,
         reason: input.reason,
-        created_at: now(),
+        created_at: createdAt,
         source: input.source ?? { client: "memora" }
       };
       await appendEvent(deps.storePath, event);
@@ -258,14 +266,15 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async promote(input: { record_id: string; target_state: RecordState; reason?: string; source?: RecordSource }) {
-      await requireRecord(input.record_id);
+      const record = await requireRecord(input.record_id);
+      const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "promote_record",
         record_id: input.record_id,
         target_state: input.target_state,
         reason: input.reason,
-        created_at: now(),
+        created_at: createdAt,
         source: input.source ?? { client: "memora" }
       };
       await appendEvent(deps.storePath, event);
@@ -273,13 +282,14 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async archive(input: StateChangeInput) {
-      await requireRecord(input.record_id);
+      const record = await requireRecord(input.record_id);
+      const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "archive_record",
         record_id: input.record_id,
         reason: input.reason,
-        created_at: now(),
+        created_at: createdAt,
         source: input.source ?? { client: "memora" }
       };
       await appendEvent(deps.storePath, event);
@@ -287,13 +297,14 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async quarantine(input: StateChangeInput) {
-      await requireRecord(input.record_id);
+      const record = await requireRecord(input.record_id);
+      const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "quarantine_record",
         record_id: input.record_id,
         reason: input.reason,
-        created_at: now(),
+        created_at: createdAt,
         source: input.source ?? { client: "memora" }
       };
       await appendEvent(deps.storePath, event);
@@ -301,15 +312,16 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async link(input: { record_id: string; linked_record_id: string; link_type: string; source?: RecordSource }) {
-      await requireRecord(input.record_id);
+      const record = await requireRecord(input.record_id);
       await requireRecord(input.linked_record_id);
+      const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "link_records",
         record_id: input.record_id,
         linked_record_id: input.linked_record_id,
         link_type: input.link_type,
-        created_at: now(),
+        created_at: createdAt,
         source: input.source ?? { client: "memora" }
       };
       await appendEvent(deps.storePath, event);

@@ -40,6 +40,24 @@ async function resolveProjectOptions(options: { project?: string; projectId?: st
   };
 }
 
+function parseAssignmentValue(value: string): unknown {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
+}
+
+function parseAssignments(assignments: string[]): Record<string, unknown> {
+  return Object.fromEntries(assignments.map((assignment) => {
+    const [key, ...rest] = assignment.split("=");
+    if (!key || !rest.length) {
+      throw new Error(`Invalid assignment: ${assignment}`);
+    }
+    return [key, parseAssignmentValue(rest.join("="))];
+  }));
+}
+
 program
   .name("mem")
   .description("Memora CLI")
@@ -123,12 +141,11 @@ program.command("boot")
 
 program.command("revise")
   .argument("<record-id>")
-  .requiredOption("--set <assignment>")
+  .requiredOption("--set <assignment>", "Patch assignment, repeatable", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--reason <reason>")
   .action(async (recordId, options) => {
-    const [key, ...rest] = String(options.set).split("=");
     const engine = createEngine({ storePath: storePath() });
-    printJson(await engine.revise({ record_id: recordId, patch: { [key]: rest.join("=") }, reason: options.reason, source: { client: "cli" } }));
+    printJson(await engine.revise({ record_id: recordId, patch: parseAssignments(options.set), reason: options.reason, source: { client: "cli" } }));
   });
 
 program.command("promote")
