@@ -1,5 +1,5 @@
 import { appendEvent, readEvents } from "./store.js";
-import { replayEvents } from "./replay.js";
+import { applyRecordPatch, replayEvents } from "./replay.js";
 import { detectSensitiveContent } from "./sensitive.js";
 import type { MemoraEvent, MemoraRecord, RecordKind, RecordScope, RecordSource, RecordState } from "./types.js";
 import { createId } from "./id.js";
@@ -22,6 +22,7 @@ interface WriteInput {
   confidence?: number;
   priority?: "low" | "normal" | "high";
   source: RecordSource;
+  confirmed?: boolean;
 }
 
 interface RecallInput {
@@ -222,6 +223,21 @@ function refreshImportance(record: MemoraRecord, currentTask: string | undefined
   return { importance: "silent" };
 }
 
+function isUserConfirmed(source: RecordSource, confirmed?: boolean): boolean {
+  return confirmed === true || source.client === "user";
+}
+
+function requiresCanonicalConfirmation(input: { kind: RecordKind; type: string; scope: RecordScope }): boolean {
+  if (input.kind === "soul") return true;
+  if (input.kind === "skill" && input.scope === "global") return true;
+  const type = input.type.toLowerCase();
+  return type === "security_rule"
+    || type === "deployment_rule"
+    || type === "permission_rule"
+    || type === "credential_rule"
+    || (type === "rule" && input.scope === "global");
+}
+
 export function createEngine(deps: EngineDeps) {
   const now = deps.now ?? (() => new Date().toISOString());
   const id = deps.id ?? createId;
@@ -253,7 +269,14 @@ export function createEngine(deps: EngineDeps) {
       const createdAt = now();
       const text = typeof input.content.text === "string" ? input.content.text : JSON.stringify(input.content);
       const sensitive = detectSensitiveContent(text);
-      const state = sensitive.sensitive ? "quarantined" : (input.state ?? (input.kind === "agent_note" ? "raw" : "candidate"));
+      const needsConfirmation = input.state === "canonical"
+        && requiresCanonicalConfirmation(input)
+        && !isUserConfirmed(input.source, input.confirmed);
+      const state = sensitive.sensitive
+        ? "quarantined"
+        : needsConfirmation
+          ? "candidate"
+          : (input.state ?? (input.kind === "agent_note" ? "raw" : "candidate"));
       const record: MemoraRecord = {
         id: id("rec"),
         kind: input.kind,
@@ -274,13 +297,21 @@ export function createEngine(deps: EngineDeps) {
       await appendEvent(deps.storePath, event);
       return {
         record,
-        warning: sensitive.sensitive ? { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason } : undefined
+        warning: sensitive.sensitive
+          ? { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason }
+          : needsConfirmation
+            ? { code: "CONFIRMATION_REQUIRED", reason: "canonical state requires explicit user confirmation" }
+            : undefined
       };
     },
 
     async revise(input: { record_id: string; patch: Record<string, unknown>; reason?: string; source?: RecordSource }) {
       const record = await requireRecord(input.record_id);
       const createdAt = nextMutationTimestamp(record, now());
+      const source = input.source ?? { client: "memora" };
+      const patched = applyRecordPatch(record, input.patch);
+      const text = typeof patched.content.text === "string" ? patched.content.text : JSON.stringify(patched.content);
+      const sensitive = detectSensitiveContent(text);
       const event: MemoraEvent = {
         event_id: id("evt"),
         op: "revise_record",
@@ -288,14 +319,37 @@ export function createEngine(deps: EngineDeps) {
         patch: input.patch,
         reason: input.reason,
         created_at: createdAt,
-        source: input.source ?? { client: "memora" }
+        source
       };
       await appendEvent(deps.storePath, event);
-      return { event };
+      if (!sensitive.sensitive) return { event };
+
+      const revisedRecord = { ...record, updated_at: createdAt };
+      const quarantineCreatedAt = nextMutationTimestamp(revisedRecord, now());
+      const quarantineEvent: MemoraEvent = {
+        event_id: id("evt"),
+        op: "quarantine_record",
+        record_id: input.record_id,
+        reason: "SENSITIVE_CONTENT_DETECTED",
+        created_at: quarantineCreatedAt,
+        source
+      };
+      await appendEvent(deps.storePath, quarantineEvent);
+      return {
+        event,
+        quarantine_event: quarantineEvent,
+        warning: { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason }
+      };
     },
 
-    async promote(input: { record_id: string; target_state: RecordState; reason?: string; source?: RecordSource }) {
+    async promote(input: { record_id: string; target_state: RecordState; reason?: string; source?: RecordSource; confirmed?: boolean }) {
       const record = await requireRecord(input.record_id);
+      const source = input.source ?? { client: "memora" };
+      if (input.target_state === "canonical"
+        && requiresCanonicalConfirmation(record)
+        && !isUserConfirmed(source, input.confirmed)) {
+        throw new Error("Confirmation required: canonical state requires explicit user confirmation");
+      }
       const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {
         event_id: id("evt"),
@@ -304,7 +358,7 @@ export function createEngine(deps: EngineDeps) {
         target_state: input.target_state,
         reason: input.reason,
         created_at: createdAt,
-        source: input.source ?? { client: "memora" }
+        source
       };
       await appendEvent(deps.storePath, event);
       return { event };

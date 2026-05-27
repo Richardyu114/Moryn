@@ -13,6 +13,14 @@ function setPath(target: Record<string, unknown>, path: string, value: unknown):
   cursor[parts[parts.length - 1] as string] = value;
 }
 
+export function applyRecordPatch(record: MemoraRecord, patch: Record<string, unknown>): MemoraRecord {
+  const next = structuredClone(record) as unknown as Record<string, unknown>;
+  for (const [path, value] of Object.entries(patch)) {
+    setPath(next, path, value);
+  }
+  return next as unknown as MemoraRecord;
+}
+
 export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
   const records = new Map<string, MemoraRecord>();
 
@@ -25,10 +33,7 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
     if (event.op === "revise_record") {
       const record = records.get(event.record_id);
       if (!record) continue;
-      const next = structuredClone(record) as unknown as Record<string, unknown>;
-      for (const [path, value] of Object.entries(event.patch)) {
-        setPath(next, path, value);
-      }
+      const next = applyRecordPatch(record, event.patch) as unknown as Record<string, unknown>;
       next.updated_at = event.created_at;
       records.set(event.record_id, next as unknown as MemoraRecord);
       continue;

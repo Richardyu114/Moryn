@@ -39,7 +39,8 @@ describe("published package smoke", () => {
           "--scope", "global",
           "--tag", "release",
           "--state", "canonical",
-          "--text", "Release from packed CLI"
+          "--text", "Release from packed CLI",
+          "--confirm"
         ], { cwd: dir });
         const decision = await exec(mem, [
           "--store", store,

@@ -86,6 +86,7 @@ program.command("write")
   .option("--state <state>")
   .option("--confidence <n>", "Record confidence")
   .option("--priority <priority>")
+  .option("--confirm", "Confirm a high-risk canonical write")
   .requiredOption("--text <text>")
   .action(async (options) => {
     const engine = createCliEngine();
@@ -105,7 +106,8 @@ program.command("write")
       state: options.state,
       confidence: options.confidence === undefined ? undefined : Number(options.confidence),
       priority: options.priority,
-      source: { client: "cli" }
+      source: { client: "cli" },
+      confirmed: options.confirm
     });
     printJson(result);
   });
@@ -166,9 +168,16 @@ program.command("promote")
   .argument("<record-id>")
   .requiredOption("--state <state>")
   .option("--reason <reason>")
+  .option("--confirm", "Confirm a high-risk canonical promotion")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    printJson(await engine.promote({ record_id: recordId, target_state: options.state, reason: options.reason, source: { client: "cli" } }));
+    printJson(await engine.promote({
+      record_id: recordId,
+      target_state: options.state,
+      reason: options.reason,
+      source: { client: "cli" },
+      confirmed: options.confirm
+    }));
   });
 
 program.command("archive")

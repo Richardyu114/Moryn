@@ -298,7 +298,7 @@ describe("MCP stdio server", () => {
             tags: ["release"],
             text: "Release skill from project config.",
             state: "canonical",
-            source: { client: "mcp-project-test" }
+            source: { client: "user" }
           }
         })) as { record: { id: string } };
         const decision = parseTextContent(await client.callTool({
@@ -411,6 +411,75 @@ describe("MCP stdio server", () => {
         expect(result.error.code).toBe("RECORD_NOT_FOUND");
         expect(result.error.recoverable).toBe(true);
         expect(result.error.recommended_action).toBe("check the record id or call recall/list-recent to find it");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("requires explicit MCP confirmation for high-risk canonical changes", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-confirm-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const write = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "soul",
+            type: "preference",
+            scope: "global",
+            text: "Prefer terse answers.",
+            state: "canonical",
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string; state: string }; warning?: { code: string } };
+        expect(write.record.state).toBe("candidate");
+        expect(write.warning?.code).toBe("CONFIRMATION_REQUIRED");
+
+        const rejected = parseTextContent(await client.callTool({
+          name: "promote",
+          arguments: {
+            record_id: write.record.id,
+            target_state: "canonical",
+            reason: "Agent inferred this preference",
+            source: { client: "mcp-test" }
+          }
+        })) as { ok: boolean; error: { code: string; recommended_action: string } };
+        expect(rejected.ok).toBe(false);
+        expect(rejected.error.code).toBe("CONFIRMATION_REQUIRED");
+        expect(rejected.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+
+        parseTextContent(await client.callTool({
+          name: "promote",
+          arguments: {
+            record_id: write.record.id,
+            target_state: "canonical",
+            reason: "User confirmed",
+            confirmed: true,
+            source: { client: "mcp-test" }
+          }
+        }));
+        const recall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: { record_ids: [write.record.id] }
+        })) as { results: Array<{ record: { state: string } }> };
+        expect(recall.results[0]?.record.state).toBe("canonical");
+
+        const confirmedWrite = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "skill",
+            type: "procedure",
+            scope: "global",
+            text: "Global release checklist.",
+            state: "canonical",
+            confirmed: true,
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { state: string }; warning?: unknown };
+        expect(confirmedWrite.record.state).toBe("canonical");
+        expect(confirmedWrite.warning).toBeUndefined();
       });
     } finally {
       await rm(store, { recursive: true, force: true });

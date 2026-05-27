@@ -24,7 +24,7 @@ describe("derived views", () => {
         scope: "global",
         content: { text: "Prefer concise updates.", format: "text" },
         state: "canonical",
-        source: { client: "test" }
+        source: { client: "user" }
       });
       await engine.write({
         kind: "memory",
@@ -87,7 +87,7 @@ describe("derived views", () => {
         tags: ["release"],
         content: { text: "Run tests before release.", format: "text" },
         state: "canonical",
-        source: { client: "test" }
+        source: { client: "user" }
       });
 
       const result = await rebuildDerivedViews(storePath);

@@ -101,6 +101,43 @@ describe("core engine", () => {
     });
   });
 
+  it("quarantines records revised with sensitive content", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Review auth middleware before release.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const revised = await engine.revise({
+        record_id: written.record.id,
+        patch: { "content.text": "Authorization: Bearer ghp_1234567890abcdef" },
+        reason: "Pasted request header",
+        source: { client: "test" }
+      });
+
+      expect(revised.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
+      expect((await engine.boot({ project_id: "memora" })).project.warnings).toHaveLength(0);
+      expect((await engine.recall({ query: "Authorization", project_id: "memora" })).results).toHaveLength(0);
+
+      const quarantined = await engine.recall({
+        record_ids: [written.record.id],
+        states: ["quarantined"],
+        project_id: "memora"
+      });
+      expect(quarantined.results[0]?.record.state).toBe("quarantined");
+      expect(quarantined.results[0]?.record.visibility).toBe("quarantined");
+      expect(quarantined.results[0]?.record.content.text).toBe("Authorization: Bearer ghp_1234567890abcdef");
+    });
+  });
+
   it("quarantines cookie headers on write", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
@@ -150,6 +187,104 @@ describe("core engine", () => {
       expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
       expect((await engine.boot({ project_id: "memora" })).project.warnings).toHaveLength(0);
       expect((await engine.recall({ query: "DATABASE_URL", project_id: "memora" })).results).toHaveLength(0);
+    });
+  });
+
+  it("keeps high-risk canonical writes as candidates until user confirmation", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const soul = await engine.write({
+        kind: "soul",
+        type: "preference",
+        scope: "global",
+        content: { text: "Always prefer terse answers.", format: "text" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+      const globalSkill = await engine.write({
+        kind: "skill",
+        type: "procedure",
+        scope: "global",
+        content: { text: "Deploy production after smoke tests.", format: "text" },
+        state: "canonical",
+        source: { client: "mcp" }
+      });
+      const securityRule = await engine.write({
+        kind: "memory",
+        type: "security_rule",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Agents may rotate production credentials.", format: "text" },
+        state: "canonical",
+        source: { client: "agent" }
+      });
+
+      expect(soul.record.state).toBe("candidate");
+      expect(soul.warning?.code).toBe("CONFIRMATION_REQUIRED");
+      expect(globalSkill.record.state).toBe("candidate");
+      expect(globalSkill.warning?.code).toBe("CONFIRMATION_REQUIRED");
+      expect(securityRule.record.state).toBe("candidate");
+      expect(securityRule.warning?.code).toBe("CONFIRMATION_REQUIRED");
+
+      const userConfirmed = await engine.write({
+        kind: "soul",
+        type: "preference",
+        scope: "global",
+        content: { text: "Prefer direct engineering updates.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+      expect(userConfirmed.record.state).toBe("canonical");
+      expect(userConfirmed.warning).toBeUndefined();
+
+      const explicitlyConfirmed = await engine.write({
+        kind: "skill",
+        type: "procedure",
+        scope: "global",
+        content: { text: "Run release checks before publishing.", format: "text" },
+        state: "canonical",
+        source: { client: "cli" },
+        confirmed: true
+      });
+      expect(explicitlyConfirmed.record.state).toBe("canonical");
+      expect(explicitlyConfirmed.warning).toBeUndefined();
+    });
+  });
+
+  it("rejects high-risk canonical promotion without user confirmation", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+      const soul = await engine.write({
+        kind: "soul",
+        type: "preference",
+        scope: "global",
+        content: { text: "Prefer very terse answers.", format: "text" },
+        state: "candidate",
+        source: { client: "codex" }
+      });
+
+      await expect(engine.promote({
+        record_id: soul.record.id,
+        target_state: "canonical",
+        reason: "Agent inferred this preference",
+        source: { client: "agent" }
+      })).rejects.toThrow(/Confirmation required/);
+
+      const stillCandidate = await engine.recall({ record_ids: [soul.record.id], states: ["candidate"] });
+      expect(stillCandidate.results[0]?.record.state).toBe("candidate");
+
+      await engine.promote({
+        record_id: soul.record.id,
+        target_state: "canonical",
+        reason: "User confirmed",
+        source: { client: "cli" },
+        confirmed: true
+      });
+      const confirmed = await engine.recall({ record_ids: [soul.record.id] });
+      expect(confirmed.results[0]?.record.state).toBe("canonical");
     });
   });
 
@@ -258,7 +393,7 @@ describe("core engine", () => {
         scope: "global",
         content: { text: "Prefer concise engineering updates.", format: "text" },
         state: "canonical",
-        source: { client: "test" }
+        source: { client: "user" }
       });
       await engine.write({
         kind: "memory",
@@ -287,7 +422,7 @@ describe("core engine", () => {
         tags: ["memora"],
         content: { text: "Run tests before committing.", format: "text" },
         state: "canonical",
-        source: { client: "test" }
+        source: { client: "user" }
       });
       await engine.write({
         kind: "skill",
@@ -296,7 +431,7 @@ describe("core engine", () => {
         tags: ["unrelated"],
         content: { text: "Unrelated global skill.", format: "text" },
         state: "canonical",
-        source: { client: "test" }
+        source: { client: "user" }
       });
       await engine.write({
         kind: "agent_note",
@@ -477,7 +612,7 @@ describe("core engine", () => {
         tags: ["release"],
         content: { name: "safe-release", text: "Run tests, typecheck, build, then publish.", format: "text" },
         state: "canonical",
-        source: { client: "test" }
+        source: { client: "user" }
       });
       await engine.write({
         kind: "skill",
@@ -486,7 +621,7 @@ describe("core engine", () => {
         tags: ["unrelated"],
         content: { name: "unrelated-skill", text: "Do unrelated work.", format: "text" },
         state: "canonical",
-        source: { client: "test" }
+        source: { client: "user" }
       });
 
       const boot = await engine.boot({ project_id: "memora", default_skills: ["safe-release", releaseSkill.record.id] });

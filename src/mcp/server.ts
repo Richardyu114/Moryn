@@ -168,6 +168,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         state: recordStateSchema.optional(),
         confidence: z.number().min(0).max(1).optional(),
         priority: z.enum(["low", "normal", "high"]).optional(),
+        confirmed: z.boolean().optional(),
         source: sourceSchema.optional()
       }
     },
@@ -184,7 +185,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         state: input.state as RecordState | undefined,
         confidence: input.confidence,
         priority: input.priority,
-        source: (input.source ?? { client: "mcp" }) as RecordSource
+        source: (input.source ?? { client: "mcp" }) as RecordSource,
+        confirmed: input.confirmed
       });
     })
   );
@@ -218,14 +220,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         record_id: z.string().min(1),
         target_state: recordStateSchema,
         reason: z.string().optional(),
+        confirmed: z.boolean().optional(),
         source: sourceSchema.optional()
       }
     },
-    async ({ record_id, target_state, reason, source }) => toolResult(async () => engine.promote({
+    async ({ record_id, target_state, reason, confirmed, source }) => toolResult(async () => engine.promote({
       record_id,
       target_state: target_state as RecordState,
       reason,
-      source: source as RecordSource | undefined
+      source: source as RecordSource | undefined,
+      confirmed
     }))
   );
 

@@ -649,7 +649,8 @@ Input:
 {
   "record_id": "rec_...",
   "target_state": "canonical",
-  "reason": "User confirmed this as a stable project decision."
+  "reason": "User confirmed this as a stable project decision.",
+  "confirmed": true
 }
 ```
 
@@ -657,6 +658,7 @@ CLI:
 
 ```bash
 mem promote rec_123 --state canonical
+mem promote rec_123 --state canonical --reason "User confirmed high-risk memory" --confirm
 ```
 
 ### `archive`

@@ -265,6 +265,7 @@ mem recall "append-only events" --project-id memora --kind memory --type decisio
 mem refresh --project-id memora --cursor 2026-05-27T00:00:00.000Z --current-task "fix auth"
 mem revise rec_... --set content.text="Updated memory" --reason "Refined wording"
 mem promote rec_... --state canonical --reason "User confirmed"
+mem promote rec_... --state canonical --reason "User confirmed high-risk memory" --confirm
 mem archive rec_... --reason "Superseded"
 mem quarantine rec_... --reason "Needs review"
 mem link rec_... rec_other... --type supersedes

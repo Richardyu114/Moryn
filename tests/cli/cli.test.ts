@@ -253,7 +253,8 @@ describe("mem CLI", () => {
         "--scope", "global",
         "--tag", "release",
         "--state", "canonical",
-        "--text", "safe-release: run tests before publishing"
+        "--text", "safe-release: run tests before publishing",
+        "--confirm"
       ]);
       const decisionWrite = await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,
@@ -439,6 +440,78 @@ describe("mem CLI", () => {
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("check the record id or call recall/list-recent to find it");
       }
+    });
+  });
+
+  it("requires explicit CLI confirmation for high-risk canonical changes", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+
+      const write = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "soul",
+        "--type", "preference",
+        "--scope", "global",
+        "--state", "canonical",
+        "--text", "Prefer terse answers."
+      ]);
+      const parsedWrite = JSON.parse(write.stdout) as { record: { id: string; state: string }; warning?: { code: string } };
+      expect(parsedWrite.record.state).toBe("candidate");
+      expect(parsedWrite.warning?.code).toBe("CONFIRMATION_REQUIRED");
+
+      try {
+        await exec("node", [
+          "--import", "tsx", "src/cli.ts", "--store", store,
+          "promote",
+          parsedWrite.record.id,
+          "--state",
+          "canonical",
+          "--reason",
+          "User confirmed"
+        ]);
+        throw new Error("Expected mem promote to require confirmation");
+      } catch (error) {
+        const stderr = (error as { stderr: string }).stderr;
+        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+      }
+
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "promote",
+        parsedWrite.record.id,
+        "--state",
+        "canonical",
+        "--reason",
+        "User confirmed",
+        "--confirm"
+      ]);
+      const recall = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "recall",
+        "--record-id",
+        parsedWrite.record.id
+      ])).stdout) as { results: Array<{ record: { state: string } }> };
+      expect(recall.results[0]?.record.state).toBe("canonical");
+
+      const confirmedWrite = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "skill",
+        "--type", "procedure",
+        "--scope", "global",
+        "--state", "canonical",
+        "--text", "Global release checklist.",
+        "--confirm"
+      ]);
+      const parsedConfirmedWrite = JSON.parse(confirmedWrite.stdout) as { record: { state: string }; warning?: unknown };
+      expect(parsedConfirmedWrite.record.state).toBe("canonical");
+      expect(parsedConfirmedWrite.warning).toBeUndefined();
     });
   });
 

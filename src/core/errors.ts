@@ -10,6 +10,7 @@ export interface MemoraErrorEnvelope {
 
 export function errorCode(message: string): string {
   if (message.startsWith("Store not initialized") || message.includes("ENOENT")) return "STORE_NOT_INITIALIZED";
+  if (message.startsWith("Confirmation required:")) return "CONFIRMATION_REQUIRED";
   if (message.startsWith("Invalid project config:")) return "INVALID_PROJECT_CONFIG";
   if (message.startsWith("Invalid store config:")) return "INVALID_STORE_CONFIG";
   if (message.startsWith("Invalid event:") || message.startsWith("Invalid record:")) return "INVALID_RECORD";
@@ -34,6 +35,8 @@ export function recommendedAction(code: string): string {
       return "check the record id or call recall/list-recent to find it";
     case "STORE_NOT_INITIALIZED":
       return "run mem init";
+    case "CONFIRMATION_REQUIRED":
+      return "ask the user to confirm before retrying with confirmed=true or --confirm";
     case "INVALID_RECORD":
       return "inspect the reported event or record and rebuild from valid history";
     case "PERMISSION_DENIED":
