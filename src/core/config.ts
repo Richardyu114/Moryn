@@ -79,7 +79,11 @@ export async function initializeStore(storePath: string, options: InitializeStor
     created_at: existing?.created_at ?? timestamp,
     updated_at: timestamp
   };
+  const result = storeConfigSchema.safeParse(config);
+  if (!result.success) {
+    throw new Error(`Invalid store config: ${z.prettifyError(result.error)}`);
+  }
 
-  await writeFile(join(storePath, "config.json"), `${JSON.stringify(config, null, 2)}\n`, "utf8");
-  return { config, store: storePath };
+  await writeFile(join(storePath, "config.json"), `${JSON.stringify(result.data, null, 2)}\n`, "utf8");
+  return { config: result.data, store: storePath };
 }

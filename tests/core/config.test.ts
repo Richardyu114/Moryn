@@ -75,6 +75,17 @@ describe("store config", () => {
     });
   });
 
+  it("rejects generated invalid store config before writing config.json", async () => {
+    await withTempStore(async (storePath) => {
+      await expect(initializeStore(storePath, {
+        now: () => "not-a-date",
+        id: () => ""
+      })).rejects.toThrow(/Invalid store config/);
+
+      await expect(access(join(storePath, "config.json"))).rejects.toMatchObject({ code: "ENOENT" });
+    });
+  });
+
   it("rejects malformed existing config during init", async () => {
     await withTempStore(async (storePath) => {
       await mkdir(storePath, { recursive: true });
