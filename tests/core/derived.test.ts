@@ -139,4 +139,63 @@ describe("derived views", () => {
       expect(rebuiltRecallRaw).toBe(firstRecallRaw);
     });
   });
+
+  it("keeps generated views current after engine mutations", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const timestamps = [
+        "2026-05-27T00:00:00.000Z",
+        "2026-05-27T00:01:00.000Z",
+        "2026-05-27T00:02:00.000Z"
+      ];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+      const recallTexts = async () => {
+        const recall = JSON.parse(await readFile(join(storePath, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+        return recall.records.map((record) => record.text);
+      };
+      const projectDecisionTexts = async () => {
+        let raw: string;
+        try {
+          raw = await readFile(join(storePath, "snapshots", "projects", "memora.json"), "utf8");
+        } catch (error) {
+          if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+          throw error;
+        }
+        const project = JSON.parse(raw) as { decisions: Array<{ content: { text: string } }> };
+        return project.decisions.map((record) => record.content.text);
+      };
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Generated recall indexes update after writes.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      await expect(recallTexts()).resolves.toContain("Generated recall indexes update after writes.");
+      await expect(projectDecisionTexts()).resolves.toContain("Generated recall indexes update after writes.");
+
+      await engine.revise({
+        record_id: written.record.id,
+        patch: { "content.text": "Generated recall indexes update after revisions." },
+        source: { client: "test" }
+      });
+
+      await expect(recallTexts()).resolves.toContain("Generated recall indexes update after revisions.");
+      await expect(projectDecisionTexts()).resolves.toContain("Generated recall indexes update after revisions.");
+
+      await engine.archive({ record_id: written.record.id, source: { client: "test" } });
+
+      await expect(recallTexts()).resolves.not.toContain("Generated recall indexes update after revisions.");
+      await expect(projectDecisionTexts()).resolves.not.toContain("Generated recall indexes update after revisions.");
+    });
+  });
 });

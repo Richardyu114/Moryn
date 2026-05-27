@@ -1,4 +1,5 @@
 import { appendEvent, readEvents } from "./store.js";
+import { rebuildDerivedViews } from "./derived.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
 import { isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
@@ -635,6 +636,11 @@ export function createEngine(deps: EngineDeps) {
     }
   }
 
+  async function appendEventAndRebuild(event: MemoraEvent): Promise<void> {
+    await appendEvent(deps.storePath, event);
+    await rebuildDerivedViews(deps.storePath);
+  }
+
   const engine = {
     async write(input: WriteInput) {
       validateWriteInput(input);
@@ -675,7 +681,7 @@ export function createEngine(deps: EngineDeps) {
           : undefined
       };
       const event: MemoraEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source: input.source };
-      await appendEvent(deps.storePath, event);
+      await appendEventAndRebuild(event);
       return {
         record,
         warning: sensitive.sensitive
@@ -726,7 +732,10 @@ export function createEngine(deps: EngineDeps) {
         source
       };
       await appendEvent(deps.storePath, event);
-      if (!sensitive.sensitive) return { event };
+      if (!sensitive.sensitive) {
+        await rebuildDerivedViews(deps.storePath);
+        return { event };
+      }
 
       const revisedRecord = { ...record, updated_at: createdAt };
       const quarantineCreatedAt = nextMutationTimestamp(revisedRecord, now());
@@ -739,6 +748,7 @@ export function createEngine(deps: EngineDeps) {
         source
       };
       await appendEvent(deps.storePath, quarantineEvent);
+      await rebuildDerivedViews(deps.storePath);
       return {
         event,
         quarantine_event: quarantineEvent,
@@ -775,7 +785,7 @@ export function createEngine(deps: EngineDeps) {
         created_at: createdAt,
         source
       };
-      await appendEvent(deps.storePath, event);
+      await appendEventAndRebuild(event);
       return { event };
     },
 
@@ -791,7 +801,7 @@ export function createEngine(deps: EngineDeps) {
         created_at: createdAt,
         source: input.source ?? { client: "memora" }
       };
-      await appendEvent(deps.storePath, event);
+      await appendEventAndRebuild(event);
       return { event };
     },
 
@@ -807,7 +817,7 @@ export function createEngine(deps: EngineDeps) {
         created_at: createdAt,
         source: input.source ?? { client: "memora" }
       };
-      await appendEvent(deps.storePath, event);
+      await appendEventAndRebuild(event);
       return { event };
     },
 
@@ -825,7 +835,7 @@ export function createEngine(deps: EngineDeps) {
         created_at: createdAt,
         source: input.source ?? { client: "memora" }
       };
-      await appendEvent(deps.storePath, event);
+      await appendEventAndRebuild(event);
       return { event };
     },
 
