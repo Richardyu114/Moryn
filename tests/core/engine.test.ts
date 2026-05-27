@@ -1473,6 +1473,93 @@ describe("core engine", () => {
     });
   });
 
+  it("bounds boot context sections to the most relevant trusted records", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => new Date(Date.UTC(2026, 4, 27, 0, nextTime++, 0)).toISOString(),
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      const decisionIds: string[] = [];
+      const warningIds: string[] = [];
+      const skillIds: string[] = [];
+      const preferenceIds: string[] = [];
+
+      for (let index = 1; index <= 7; index++) {
+        const preference = await engine.write({
+          kind: "memory",
+          type: "preference",
+          scope: "global",
+          content: { text: `Preference ${index}`, format: "text" },
+          state: "canonical",
+          source: { client: "user" }
+        });
+        preferenceIds.push(preference.record.id);
+
+        const decision = await engine.write({
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "memora",
+          content: { text: `Decision ${index}`, format: "text" },
+          state: "canonical",
+          priority: index <= 2 ? "high" : "normal",
+          source: { client: "test" }
+        });
+        decisionIds.push(decision.record.id);
+
+        const warning = await engine.write({
+          kind: "memory",
+          type: index % 2 === 0 ? "blocker" : "warning",
+          scope: "project",
+          project_id: "memora",
+          content: { text: `Warning ${index}`, format: "text" },
+          state: "canonical",
+          priority: index <= 2 ? "high" : "normal",
+          source: { client: "test" }
+        });
+        warningIds.push(warning.record.id);
+
+        const skill = await engine.write({
+          kind: "skill",
+          type: "procedure",
+          scope: "global",
+          tags: ["memora"],
+          content: { text: `Skill ${index}`, format: "text" },
+          state: "canonical",
+          source: { client: "user" }
+        });
+        skillIds.push(skill.record.id);
+      }
+
+      const boot = await engine.boot({ project_id: "memora" });
+
+      expect(boot.profile.user_preferences.map((record) => record.id)).toHaveLength(5);
+      expect(boot.profile.user_preferences.map((record) => record.id)).toEqual(preferenceIds.slice(-5).reverse());
+      expect(boot.project.important_decisions.map((record) => record.id)).toHaveLength(5);
+      expect(boot.project.important_decisions.map((record) => record.id)).toEqual([
+        decisionIds[1],
+        decisionIds[0],
+        decisionIds[6],
+        decisionIds[5],
+        decisionIds[4]
+      ]);
+      expect(boot.project.warnings.map((record) => record.id)).toHaveLength(5);
+      expect(boot.project.warnings.map((record) => record.id)).toEqual([
+        warningIds[1],
+        warningIds[0],
+        warningIds[6],
+        warningIds[5],
+        warningIds[4]
+      ]);
+      expect(boot.skills.map((record) => record.id)).toHaveLength(5);
+      expect(boot.skills.map((record) => record.id)).toEqual(skillIds.slice(-5).reverse());
+    });
+  });
+
   it("adds configured default skill selectors to boot context", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

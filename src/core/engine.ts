@@ -339,6 +339,16 @@ function isImportantBootRecent(record: MemoraRecord): boolean {
     && (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75));
 }
 
+function bootPriorityScore(record: MemoraRecord): number {
+  return (record.priority === "high" ? 100 : 0) + recallSourceTrust(record).score;
+}
+
+function boundedBootRecords(records: MemoraRecord[], limit = 5): MemoraRecord[] {
+  return [...records]
+    .sort((a, b) => (bootPriorityScore(b) - bootPriorityScore(a)) || b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id))
+    .slice(0, limit);
+}
+
 function recallTypePriority(type: string): { score: number; reason: string } | undefined {
   const normalized = type.toLowerCase();
   if (normalized === "blocker" || normalized === "warning" || normalized === "conflict") return { score: 4, reason: `type_priority:${normalized}` };
@@ -855,18 +865,18 @@ export function createEngine(deps: EngineDeps) {
       const remoteUpdates = await remoteHasUpdates();
       return {
         profile: {
-          user_preferences: records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "preference"),
-          soul: records.filter((record) => record.kind === "soul"),
-          global_rules: records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule")
+          user_preferences: boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "preference")),
+          soul: boundedBootRecords(records.filter((record) => record.kind === "soul")),
+          global_rules: boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule"))
         },
         project: {
           summary: [...projectMemoryRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).find((record) => record.type === "summary" || record.type === "project_summary")?.content.text ?? "",
           tech_stack: uniqueTexts(projectMemoryRecords.filter((record) => record.type === "tech_stack")),
           active_goals: uniqueTexts(projectMemoryRecords.filter((record) => record.type === "active_goal" || record.type === "goal")),
-          important_decisions: trustedProjectRecords.filter((record) => record.type === "decision"),
-          warnings: trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker")
+          important_decisions: boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "decision")),
+          warnings: boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker"))
         },
-        skills: bootSkills(records, input),
+        skills: boundedBootRecords(bootSkills(records, input)),
         task_relevant: taskRelevant,
         recent_changes: recent.filter((record) => record.kind !== "soul").slice(0, 5),
         sync: { cursor, remote_has_updates: remoteUpdates }
