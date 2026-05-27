@@ -205,13 +205,15 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         record_id: z.string().min(1),
         patch: z.record(z.string(), z.unknown()),
         reason: z.string().optional(),
+        confirmed: z.boolean().optional(),
         source: sourceSchema.optional()
       }
     },
-    async ({ record_id, patch, reason, source }) => toolResult(async () => engine.revise({
+    async ({ record_id, patch, reason, confirmed, source }) => toolResult(async () => engine.revise({
       record_id,
       patch,
       reason,
+      confirmed,
       source: source as RecordSource | undefined
     }))
   );

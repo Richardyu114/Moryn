@@ -695,4 +695,76 @@ describe("MCP stdio server", () => {
       await rm(store, { recursive: true, force: true });
     }
   });
+
+  it("requires explicit MCP confirmation for conflicting canonical revisions", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-revise-conflict-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const existing = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            tags: ["sync"],
+            text: "Use append-only JSON events.",
+            state: "canonical",
+            confirmed: true,
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+        const target = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "warning",
+            scope: "project",
+            project_id: "memora",
+            tags: ["sync"],
+            text: "Use private Git remotes.",
+            state: "canonical",
+            confirmed: true,
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+
+        const rejected = parseTextContent(await client.callTool({
+          name: "revise",
+          arguments: {
+            record_id: target.record.id,
+            patch: { type: "decision", "content.text": "Use SQLite as the source of truth." },
+            reason: "Agent inferred this replacement",
+            source: { client: "mcp-test" }
+          }
+        })) as { ok: boolean; error: { code: string; recommended_action: string } };
+        expect(rejected.ok).toBe(false);
+        expect(rejected.error.code).toBe("CONFIRMATION_REQUIRED");
+        expect(rejected.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+
+        parseTextContent(await client.callTool({
+          name: "revise",
+          arguments: {
+            record_id: target.record.id,
+            patch: { type: "decision", "content.text": "Use SQLite as the source of truth." },
+            reason: "User confirmed",
+            confirmed: true,
+            source: { client: "mcp-test" }
+          }
+        }));
+        const recall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: { record_ids: [target.record.id] }
+        })) as { results: Array<{ record: { type: string; content: { text: string }; conflict?: { with: string[]; resolution: string } } }> };
+        expect(recall.results[0]?.record.type).toBe("decision");
+        expect(recall.results[0]?.record.content.text).toBe("Use SQLite as the source of truth.");
+        expect(recall.results[0]?.record.conflict?.with).toEqual([existing.record.id]);
+        expect(recall.results[0]?.record.conflict?.resolution).toBe("needs_review");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
 });

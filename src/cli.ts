@@ -17,6 +17,7 @@ const recordKinds = ["memory", "skill", "soul", "session_summary", "agent_note"]
 const recordScopes = ["global", "project", "topic", "session", "artifact"] as const;
 const recordStates = ["raw", "candidate", "canonical", "archived", "quarantined"] as const;
 const recordPriorities = ["low", "normal", "high"] as const;
+const syncModes = ["manual", "session", "interval"] as const;
 
 function storePath(): string {
   return program.opts<{ store?: string }>().store ?? join(homedir(), ".memora");
@@ -197,9 +198,16 @@ program.command("revise")
   .argument("<record-id>")
   .requiredOption("--set <assignment>", "Patch assignment, repeatable", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--reason <reason>")
+  .option("--confirm", "Confirm a high-risk or conflicting canonical revision")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    printJson(await engine.revise({ record_id: recordId, patch: parseAssignments(options.set), reason: options.reason, source: { client: "cli" } }));
+    printJson(await engine.revise({
+      record_id: recordId,
+      patch: parseAssignments(options.set),
+      reason: options.reason,
+      source: { client: "cli" },
+      confirmed: options.confirm
+    }));
   });
 
 program.command("promote")
@@ -299,7 +307,7 @@ project.command("init")
         project_id: options.projectId,
         tags: options.tag,
         default_skills: options.defaultSkill,
-        sync: { mode: options.syncMode }
+        sync: { mode: parseEnum(options.syncMode, syncModes, "--sync-mode") }
       })
     });
   });

@@ -70,6 +70,8 @@ export const eventSchema = z.discriminatedUnion("op", [
     record_id: z.string().min(1),
     patch: z.record(z.string(), z.unknown()),
     reason: z.string().optional(),
+    confirmed: z.boolean().optional(),
+    conflict: recordConflictSchema.optional(),
     created_at: z.string().datetime(),
     source: recordSourceSchema
   }),

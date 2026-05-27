@@ -70,6 +70,8 @@ export type MemoraEvent =
       record_id: string;
       patch: Record<string, unknown>;
       reason?: string;
+      confirmed?: boolean;
+      conflict?: RecordConflict;
       created_at: string;
       source: RecordSource;
     }

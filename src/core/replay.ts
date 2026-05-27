@@ -35,6 +35,9 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
       if (!record) continue;
       const next = applyRecordPatch(record, event.patch) as unknown as Record<string, unknown>;
       next.updated_at = event.created_at;
+      if (event.conflict) {
+        next.conflict = event.conflict;
+      }
       records.set(event.record_id, next as unknown as MemoraRecord);
       continue;
     }

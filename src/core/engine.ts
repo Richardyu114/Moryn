@@ -416,13 +416,19 @@ export function createEngine(deps: EngineDeps) {
       };
     },
 
-    async revise(input: { record_id: string; patch: Record<string, unknown>; reason?: string; source?: RecordSource }) {
+    async revise(input: { record_id: string; patch: Record<string, unknown>; reason?: string; source?: RecordSource; confirmed?: boolean }) {
       const record = await requireRecord(input.record_id);
       assertRevisionPatchIsSafe(input.patch);
       const createdAt = nextMutationTimestamp(record, now());
       const source = input.source ?? { client: "memora" };
       const patched = applyRecordPatch(record, input.patch);
       const sensitive = detectSensitiveContent(sensitiveScanText(patched.content));
+      const conflicts = !sensitive.sensitive && patched.state === "canonical"
+        ? semanticConflicts(await currentRecords(), patched)
+        : [];
+      if (conflicts.length > 0 && !isUserConfirmed(source, input.confirmed)) {
+        throw new Error("Confirmation required: conflicting canonical memory requires explicit user confirmation");
+      }
       const patch = sensitive.sensitive ? redactSensitivePatch(input.patch) : input.patch;
       const event: MemoraEvent = {
         event_id: id("evt"),
@@ -430,6 +436,10 @@ export function createEngine(deps: EngineDeps) {
         record_id: input.record_id,
         patch,
         reason: input.reason,
+        confirmed: input.confirmed,
+        conflict: conflicts.length
+          ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
+          : undefined,
         created_at: createdAt,
         source
       };

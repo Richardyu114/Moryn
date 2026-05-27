@@ -560,7 +560,8 @@ describe("mem CLI", () => {
         ["write", "--kind", "nonsense", "--type", "decision", "--scope", "project", "--text", "Invalid kind."],
         ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--priority", "urgent", "--text", "Invalid priority."],
         ["recall", "--kind", "nonsense"],
-        ["promote", "rec_missing", "--state", "nonsense"]
+        ["promote", "rec_missing", "--state", "nonsense"],
+        ["project", "init", "--path", dir, "--sync-mode", "sometimes"]
       ]) {
         try {
           await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
@@ -801,6 +802,77 @@ describe("mem CLI", () => {
         candidateId
       ])).stdout) as { results: Array<{ record: { state: string; conflict?: { with: string[]; resolution: string } } }> };
       expect(recall.results[0]?.record.state).toBe("canonical");
+      expect(recall.results[0]?.record.conflict?.with).toEqual([existingId]);
+      expect(recall.results[0]?.record.conflict?.resolution).toBe("needs_review");
+    });
+  });
+
+  it("requires explicit CLI confirmation for conflicting canonical revisions", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      const existing = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--tag", "sync",
+        "--state", "canonical",
+        "--text", "Use append-only JSON events.",
+        "--confirm"
+      ]);
+      const existingId = (JSON.parse(existing.stdout) as { record: { id: string } }).record.id;
+      const target = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--tag", "sync",
+        "--state", "canonical",
+        "--text", "Use private Git remotes.",
+        "--confirm"
+      ]);
+      const targetId = (JSON.parse(target.stdout) as { record: { id: string } }).record.id;
+
+      try {
+        await exec("node", [
+          "--import", "tsx", "src/cli.ts", "--store", store,
+          "revise",
+          targetId,
+          "--set", "type=decision",
+          "--set", "content.text=Use SQLite as the source of truth.",
+          "--reason", "Agent inferred this replacement"
+        ]);
+        throw new Error("Expected mem revise to require conflict confirmation");
+      } catch (error) {
+        const stderr = (error as { stderr: string }).stderr;
+        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recommended_action: string } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
+        expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+      }
+
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "revise",
+        targetId,
+        "--set", "type=decision",
+        "--set", "content.text=Use SQLite as the source of truth.",
+        "--reason", "User confirmed",
+        "--confirm"
+      ]);
+      const recall = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "recall",
+        "--record-id",
+        targetId
+      ])).stdout) as { results: Array<{ record: { type: string; content: { text: string }; conflict?: { with: string[]; resolution: string } } }> };
+      expect(recall.results[0]?.record.type).toBe("decision");
+      expect(recall.results[0]?.record.content.text).toBe("Use SQLite as the source of truth.");
       expect(recall.results[0]?.record.conflict?.with).toEqual([existingId]);
       expect(recall.results[0]?.record.conflict?.resolution).toBe("needs_review");
     });

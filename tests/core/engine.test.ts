@@ -217,6 +217,92 @@ describe("core engine", () => {
     });
   });
 
+  it("rejects revisions that would create unconfirmed canonical conflicts", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const existing = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        tags: ["sync"],
+        content: { text: "Use append-only JSON events.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+      const revisedTarget = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        tags: ["sync"],
+        content: { text: "Use private Git remotes.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      await expect(engine.revise({
+        record_id: revisedTarget.record.id,
+        patch: { type: "decision", "content.text": "Use SQLite as the source of truth." },
+        reason: "Agent inferred this replacement",
+        source: { client: "agent" }
+      })).rejects.toThrow(/conflicting canonical memory requires explicit user confirmation/);
+
+      const unchanged = await engine.recall({ record_ids: [revisedTarget.record.id] });
+      expect(unchanged.results[0]?.record.content.text).toBe("Use private Git remotes.");
+      expect(unchanged.results[0]?.record.type).toBe("warning");
+      expect(unchanged.results[0]?.record.conflict).toBeUndefined();
+      expect(existing.record.id).toBeTruthy();
+    });
+  });
+
+  it("records confirmed canonical revision conflicts without rewriting history", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const existing = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        tags: ["sync"],
+        content: { text: "Use append-only JSON events.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+      const revisedTarget = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        tags: ["sync"],
+        content: { text: "Use private Git remotes.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      await engine.revise({
+        record_id: revisedTarget.record.id,
+        patch: { type: "decision", "content.text": "Use SQLite as the source of truth." },
+        reason: "User confirmed the replacement",
+        source: { client: "agent" },
+        confirmed: true
+      });
+
+      const revised = await engine.recall({ record_ids: [revisedTarget.record.id] });
+      expect(revised.results[0]?.record.type).toBe("decision");
+      expect(revised.results[0]?.record.content.text).toBe("Use SQLite as the source of truth.");
+      expect(revised.results[0]?.record.conflict).toEqual({
+        kind: "semantic",
+        with: [existing.record.id],
+        resolution: "needs_review"
+      });
+    });
+  });
+
   it("scans full structured content for sensitive values", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
