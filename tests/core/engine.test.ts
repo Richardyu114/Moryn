@@ -1470,6 +1470,41 @@ describe("core engine", () => {
     });
   });
 
+  it("rejects invalid core read arguments", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+
+      async function expectInvalidArgument(action: () => Promise<unknown>, message: string): Promise<void> {
+        try {
+          await action();
+          throw new Error("Expected read to reject invalid input");
+        } catch (error) {
+          const envelope = toErrorEnvelope(error);
+          expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+          expect(envelope.error.message).toContain(message);
+        }
+      }
+
+      await expectInvalidArgument(() => engine.recall(null as never), "Invalid recall input");
+      await expectInvalidArgument(() => engine.recall({ project_id: "" }), "Invalid project_id");
+      await expectInvalidArgument(() => engine.recall({ query: 123 as never }), "Invalid query");
+      await expectInvalidArgument(() => engine.recall({ record_ids: ["rec_1", 123] as never }), "Invalid record_ids");
+      await expectInvalidArgument(() => engine.recall({ kinds: ["note"] as never }), "Invalid kinds");
+      await expectInvalidArgument(() => engine.recall({ scopes: ["repository"] as never }), "Invalid scopes");
+      await expectInvalidArgument(() => engine.recall({ states: ["published"] as never }), "Invalid states");
+      await expectInvalidArgument(() => engine.recall({ tags: "sync" as never }), "Invalid tags");
+      await expectInvalidArgument(() => engine.recall({ files: ["src/auth.ts", 123] as never }), "Invalid files");
+
+      await expectInvalidArgument(() => engine.boot(null as never), "Invalid boot input");
+      await expectInvalidArgument(() => engine.boot({ default_skills: ["release", 123] as never }), "Invalid default_skills");
+      await expectInvalidArgument(() => engine.boot({ current_task: 123 as never }), "Invalid current_task");
+
+      await expectInvalidArgument(() => engine.refresh(null as never), "Invalid refresh input");
+      await expectInvalidArgument(() => engine.refresh({ cursor: 123 as never }), "Invalid cursor");
+      await expectInvalidArgument(() => engine.refresh({ current_task: 123 as never }), "Invalid current_task");
+    });
+  });
+
   it("rejects mutation events that target missing records", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

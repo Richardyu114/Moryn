@@ -116,6 +116,22 @@ function validateOptionalConfirmed(confirmed: unknown): void {
   if (confirmed !== undefined && typeof confirmed !== "boolean") throw new Error("Invalid argument: Invalid confirmed");
 }
 
+function validateOptionalString(value: unknown, name: string): void {
+  if (value !== undefined && (typeof value !== "string" || !value.length)) throw new Error(`Invalid argument: Invalid ${name}`);
+}
+
+function validateOptionalStringArray(value: unknown, name: string): void {
+  if (value !== undefined && (!Array.isArray(value) || !value.every((item) => typeof item === "string" && item.length > 0))) {
+    throw new Error(`Invalid argument: Invalid ${name}`);
+  }
+}
+
+function validateOptionalEnumArray<T extends string>(value: unknown, name: string, schema: { safeParse: (value: unknown) => { success: boolean } }): void {
+  if (value !== undefined && (!Array.isArray(value) || !value.every((item): item is T => schema.safeParse(item).success))) {
+    throw new Error(`Invalid argument: Invalid ${name}`);
+  }
+}
+
 function validateWriteInput(input: WriteInput): void {
   assertPlainObject(input, "write input");
   if (!recordKindSchema.safeParse(input.kind).success) throw new Error("Invalid argument: Invalid kind");
@@ -203,6 +219,33 @@ function validateLinkInput(input: LinkInput): void {
   validateRecordId(input.linked_record_id, "linked_record_id");
   if (typeof input.link_type !== "string" || !input.link_type.length) throw new Error("Invalid argument: Invalid link_type");
   validateOptionalSource(input.source);
+}
+
+function validateRecallInput(input: RecallInput): void {
+  assertPlainObject(input, "recall input");
+  validateOptionalStringArray(input.record_ids, "record_ids");
+  validateOptionalString(input.query, "query");
+  validateOptionalString(input.project_id, "project_id");
+  validateOptionalEnumArray<RecordKind>(input.kinds, "kinds", recordKindSchema);
+  validateOptionalEnumArray<RecordScope>(input.scopes, "scopes", recordScopeSchema);
+  validateOptionalStringArray(input.types, "types");
+  validateOptionalEnumArray<RecordState>(input.states, "states", recordStateSchema);
+  validateOptionalStringArray(input.tags, "tags");
+  validateOptionalStringArray(input.files, "files");
+}
+
+function validateBootInput(input: BootInput): void {
+  assertPlainObject(input, "boot input");
+  validateOptionalString(input.project_id, "project_id");
+  validateOptionalStringArray(input.default_skills, "default_skills");
+  validateOptionalString(input.current_task, "current_task");
+}
+
+function validateRefreshInput(input: RefreshInput): void {
+  assertPlainObject(input, "refresh input");
+  validateOptionalString(input.project_id, "project_id");
+  validateOptionalString(input.cursor, "cursor");
+  validateOptionalString(input.current_task, "current_task");
 }
 
 function matchesAny(values: string[], filters: string[] | undefined): boolean {
@@ -694,6 +737,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async recall(input: RecallInput) {
+      validateRecallInput(input);
       const limit = validateLimit(input.limit, 10);
       const records = (await currentRecords())
         .filter((record) => includesHiddenState(input) || includesRawState(input) || isVisibleInDefaultRecall(record))
@@ -714,6 +758,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async boot(input: BootInput) {
+      validateBootInput(input);
       const visibleRecords = (await currentRecords())
         .filter(isVisibleByDefault)
         .filter((record) => recordProjectMatches(record, input.project_id));
@@ -753,6 +798,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async refresh(input: RefreshInput) {
+      validateRefreshInput(input);
       const limit = validateLimit(input.limit, 20);
       const records = (await currentRecords())
         .filter(isVisibleByDefault)
