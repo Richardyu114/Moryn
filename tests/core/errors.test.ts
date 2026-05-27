@@ -14,4 +14,17 @@ describe("error envelopes", () => {
       }
     });
   });
+
+  it("classifies stale index failures with the documented error code", () => {
+    const envelope = toErrorEnvelope(new Error("Index stale: rebuild derived views before retrying"));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "INDEX_STALE",
+        recoverable: true,
+        recommended_action: "run mem rebuild"
+      }
+    });
+  });
 });

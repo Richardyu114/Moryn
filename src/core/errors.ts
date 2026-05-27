@@ -16,6 +16,7 @@ export function errorCode(message: string): string {
   if (message.startsWith("Invalid argument:")) return "INVALID_ARGUMENT";
   if (message.startsWith("Invalid event:") || message.startsWith("Invalid record:")) return "INVALID_RECORD";
   if (message.startsWith("Sensitive content detected:")) return "SENSITIVE_CONTENT_DETECTED";
+  if (message.startsWith("Index stale:")) return "INDEX_STALE";
   if (message.startsWith("Record not found:")) return "RECORD_NOT_FOUND";
   if (message.includes("Authentication failed") || message.includes("Permission denied")) return "PERMISSION_DENIED";
   if (message.toLowerCase().includes("conflict")) return "SYNC_CONFLICT";
@@ -45,6 +46,8 @@ export function recommendedAction(code: string): string {
       return "inspect the reported event or record and rebuild from valid history";
     case "SENSITIVE_CONTENT_DETECTED":
       return "remove or redact sensitive content before retrying";
+    case "INDEX_STALE":
+      return "run mem rebuild";
     case "PERMISSION_DENIED":
       return "check Git credentials and filesystem permissions";
     case "SYNC_CONFLICT":
