@@ -244,6 +244,139 @@ describe("core engine", () => {
     });
   });
 
+  it("builds project summary, tech stack, and active goals from trusted project records", async () => {
+    await withTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      await engine.write({
+        kind: "memory",
+        type: "summary",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Memora is a local-first agent memory layer.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "tech_stack",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "TypeScript", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "tech_stack",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Node.js", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "active_goal",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Ship the first MCP-backed MVP.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "goal",
+        scope: "project",
+        project_id: "other",
+        content: { text: "Other project goal.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "summary",
+        scope: "global",
+        content: { text: "Global summary should not become project summary.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "tech_stack",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Candidate stack entry.", format: "text" },
+        state: "candidate",
+        source: { client: "test" }
+      });
+
+      const boot = await engine.boot({ project_id: "memora" });
+
+      expect(boot.project.summary).toBe("Memora is a local-first agent memory layer.");
+      expect(boot.project.tech_stack).toEqual(["TypeScript", "Node.js"]);
+      expect(boot.project.active_goals).toEqual(["Ship the first MCP-backed MVP."]);
+    });
+  });
+
+  it("includes only important visible updates in boot recent changes", async () => {
+    await withTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const timestamps = [
+        "2026-05-27T00:00:00.000Z",
+        "2026-05-27T00:01:00.000Z",
+        "2026-05-27T00:02:00.000Z",
+        "2026-05-27T00:03:00.000Z"
+      ];
+      const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const highConfidence = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Candidate release decision is ready for review.", format: "text" },
+        state: "candidate",
+        confidence: 0.9,
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Low confidence candidate should stay out.", format: "text" },
+        state: "candidate",
+        confidence: 0.4,
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Session summary should stay out of boot recents.", format: "text" },
+        state: "candidate",
+        confidence: 0.9,
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Raw note should stay out of boot recents.", format: "text" },
+        source: { client: "test" }
+      });
+
+      const boot = await engine.boot({ project_id: "memora" });
+
+      expect(boot.recent_changes.map((record) => record.id)).toEqual([highConfidence.record.id]);
+    });
+  });
+
   it("adds configured default skill selectors to boot context", async () => {
     await withTempStore(async (storePath) => {
       let nextId = 0;

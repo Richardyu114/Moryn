@@ -103,6 +103,23 @@ function bootSkills(records: MemoraRecord[], input: BootInput): MemoraRecord[] {
   return [...new Map(selected.map((record) => [record.id, record])).values()];
 }
 
+function projectMemory(records: MemoraRecord[], projectId: string | undefined): MemoraRecord[] {
+  return records.filter((record) => record.kind === "memory" && record.scope === "project" && record.project_id === projectId);
+}
+
+function projectScopedRecords(records: MemoraRecord[], projectId: string | undefined): MemoraRecord[] {
+  return records.filter((record) => record.scope === "project" && record.project_id === projectId);
+}
+
+function uniqueTexts(records: MemoraRecord[]): string[] {
+  return [...new Set(records.map(textOf).filter(Boolean))];
+}
+
+function isImportantBootRecent(record: MemoraRecord): boolean {
+  return (record.kind === "memory" || record.kind === "skill")
+    && (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75));
+}
+
 function reasonAndScore(record: MemoraRecord, input: RecallInput): { score: number; reason: string[] } {
   let score = 0;
   const reason: string[] = [];
@@ -353,7 +370,11 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => recordProjectMatches(record, input.project_id));
       const records = visibleRecords
         .filter(isTrustedForBoot)
-      const recent = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      const recent = [...visibleRecords]
+        .filter(isImportantBootRecent)
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      const projectMemoryRecords = projectMemory(records, input.project_id);
+      const trustedProjectRecords = projectScopedRecords(records, input.project_id);
       const taskRelevant = input.current_task
         ? records
           .filter((record) => record.kind === "memory" && record.scope === "project")
@@ -368,11 +389,11 @@ export function createEngine(deps: EngineDeps) {
           global_rules: records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule")
         },
         project: {
-          summary: "",
-          tech_stack: [],
-          active_goals: [],
-          important_decisions: records.filter((record) => record.type === "decision" && record.project_id === input.project_id),
-          warnings: records.filter((record) => (record.type === "warning" || record.type === "blocker") && record.project_id === input.project_id)
+          summary: [...projectMemoryRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).find((record) => record.type === "summary" || record.type === "project_summary")?.content.text ?? "",
+          tech_stack: uniqueTexts(projectMemoryRecords.filter((record) => record.type === "tech_stack")),
+          active_goals: uniqueTexts(projectMemoryRecords.filter((record) => record.type === "active_goal" || record.type === "goal")),
+          important_decisions: trustedProjectRecords.filter((record) => record.type === "decision"),
+          warnings: trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker")
         },
         skills: bootSkills(records, input),
         task_relevant: taskRelevant,
