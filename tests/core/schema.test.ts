@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRecord } from "../../src/core/schema.js";
+import { parseEvent, parseRecord } from "../../src/core/schema.js";
 
 describe("record schema", () => {
   it("accepts a valid memory record", () => {
@@ -64,5 +64,27 @@ describe("record schema", () => {
       ...baseRecord,
       provenance: { reason: "" }
     })).toThrow(/Invalid record/);
+  });
+
+  it("rejects empty mutation event reasons", () => {
+    const baseEvent = {
+      event_id: "evt_test",
+      op: "revise_record",
+      record_id: "rec_test",
+      patch: { "content.text": "Updated text." },
+      created_at: "2026-05-27T00:01:00.000Z",
+      source: { client: "codex" }
+    };
+
+    expect(() => parseEvent({ ...baseEvent, reason: "" })).toThrow(/Invalid event/);
+    expect(() => parseEvent({
+      event_id: "evt_promote",
+      op: "promote_record",
+      record_id: "rec_test",
+      target_state: "canonical",
+      reason: "",
+      created_at: "2026-05-27T00:01:00.000Z",
+      source: { client: "codex" }
+    })).toThrow(/Invalid event/);
   });
 });

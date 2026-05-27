@@ -105,7 +105,7 @@ function validateRecordId(recordId: unknown, name = "record_id"): void {
 }
 
 function validateOptionalReason(reason: unknown): void {
-  if (reason !== undefined && typeof reason !== "string") throw new Error("Invalid argument: Invalid reason");
+  if (reason !== undefined && (typeof reason !== "string" || !reason.length)) throw new Error("Invalid argument: Invalid reason");
 }
 
 function validateOptionalSource(source: unknown): void {

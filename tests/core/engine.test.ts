@@ -1628,6 +1628,12 @@ describe("core engine", () => {
         patch: { "content.text": "No-op" },
         source: { client: "" }
       }), "Invalid source.client");
+      await expectInvalidArgument(() => engine.revise({
+        record_id: existing.record.id,
+        patch: { "content.text": "No-op" },
+        reason: "",
+        source: { client: "test" }
+      }), "Invalid reason");
 
       await expectInvalidArgument(() => engine.promote(null as never), "Invalid promote input");
       await expectInvalidArgument(() => engine.promote({
@@ -1641,16 +1647,32 @@ describe("core engine", () => {
         confirmed: "yes" as never,
         source: { client: "test" }
       }), "Invalid confirmed");
+      await expectInvalidArgument(() => engine.promote({
+        record_id: existing.record.id,
+        target_state: "canonical",
+        reason: "",
+        source: { client: "test" }
+      }), "Invalid reason");
 
       await expectInvalidArgument(() => engine.archive(null as never), "Invalid archive input");
       await expectInvalidArgument(() => engine.archive({
         record_id: "",
         source: { client: "test" }
       }), "Invalid record_id");
+      await expectInvalidArgument(() => engine.archive({
+        record_id: existing.record.id,
+        reason: "",
+        source: { client: "test" }
+      }), "Invalid reason");
       await expectInvalidArgument(() => engine.quarantine(null as never), "Invalid quarantine input");
       await expectInvalidArgument(() => engine.quarantine({
         record_id: existing.record.id,
         reason: 123 as never,
+        source: { client: "test" }
+      }), "Invalid reason");
+      await expectInvalidArgument(() => engine.quarantine({
+        record_id: existing.record.id,
+        reason: "",
         source: { client: "test" }
       }), "Invalid reason");
 
