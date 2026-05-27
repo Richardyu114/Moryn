@@ -10,19 +10,36 @@ import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.
 
 const exec = promisify(execFile);
 
+interface TwoAgentStores {
+  root: string;
+  remote: string;
+  storeA: string;
+  storeB: string;
+}
+
+async function withTwoAgentStores(fn: (stores: TwoAgentStores) => Promise<void>): Promise<void> {
+  const root = await mkdtemp(join(tmpdir(), "memora-e2e-"));
+  try {
+    const stores = {
+      root,
+      remote: join(root, "remote.git"),
+      storeA: join(root, "agent-a"),
+      storeB: join(root, "agent-b")
+    };
+    await exec("git", ["init", "--bare", stores.remote]);
+    await initializeStore(stores.storeA, { now: () => "2026-05-27T00:00:00.000Z", id: () => "device_a" });
+    await initializeStore(stores.storeB, { now: () => "2026-05-27T00:00:00.000Z", id: () => "device_b" });
+    await initializeGitSync(stores.storeA, stores.remote);
+    await initializeGitSync(stores.storeB, stores.remote);
+    await fn(stores);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
 describe("cross-agent workflow", () => {
   it("shares promoted project memory between two agent stores", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-e2e-"));
-    try {
-      const remote = join(root, "remote.git");
-      const storeA = join(root, "agent-a");
-      const storeB = join(root, "agent-b");
-      await exec("git", ["init", "--bare", remote]);
-      await initializeStore(storeA, { now: () => "2026-05-27T00:00:00.000Z", id: () => "device_a" });
-      await initializeStore(storeB, { now: () => "2026-05-27T00:00:00.000Z", id: () => "device_b" });
-      await initializeGitSync(storeA, remote);
-      await initializeGitSync(storeB, remote);
-
+    await withTwoAgentStores(async ({ storeA, storeB }) => {
       let nextId = 0;
       const agentA = createEngine({
         storePath: storeA,
@@ -57,8 +74,87 @@ describe("cross-agent workflow", () => {
         "Use promoted memories for boot context."
       ]);
       expect(recall.results[0]?.record.id).toBe(note.record.id);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
+    });
+  });
+
+  it("notices synced session summaries without interrupting", async () => {
+    await withTwoAgentStores(async ({ storeA, storeB }) => {
+      let nextId = 0;
+      const agentA = createEngine({
+        storePath: storeA,
+        now: () => "2026-05-27T00:01:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      const summary = await agentA.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Agent A finished initial sync wiring.", format: "text" },
+        source: { client: "agent-a", device_id: "device_a" }
+      });
+      await pushGitSync(storeA, { message: "agent a session summary" });
+      await pullGitSync(storeB);
+
+      const agentB = createEngine({ storePath: storeB });
+      const refresh = await agentB.refresh({
+        project_id: "memora",
+        cursor: "2026-05-27T00:00:00.000Z"
+      });
+
+      expect(refresh.should_interrupt).toBe(false);
+      expect(refresh.cursor).toBe(summary.record.updated_at);
+      expect(refresh.changes).toEqual([
+        expect.objectContaining({
+          record_id: summary.record.id,
+          importance: "notice",
+          summary: "Agent A finished initial sync wiring.",
+          recommended_action: "call recall with record_id"
+        })
+      ]);
+    });
+  });
+
+  it("interrupts another agent for a synced related blocker", async () => {
+    await withTwoAgentStores(async ({ storeA, storeB }) => {
+      let nextId = 0;
+      const agentA = createEngine({
+        storePath: storeA,
+        now: () => "2026-05-27T00:02:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      const blocker = await agentA.write({
+        kind: "memory",
+        type: "blocker",
+        scope: "project",
+        project_id: "memora",
+        tags: ["auth"],
+        content: { text: "Auth token refresh is blocked by stale credentials.", format: "text" },
+        state: "canonical",
+        priority: "high",
+        source: { client: "agent-a", device_id: "device_a" }
+      });
+      await pushGitSync(storeA, { message: "agent a blocker" });
+      await pullGitSync(storeB);
+
+      const agentB = createEngine({ storePath: storeB });
+      const refresh = await agentB.refresh({
+        project_id: "memora",
+        cursor: "2026-05-27T00:00:00.000Z",
+        current_task: "fix auth token refresh"
+      });
+
+      expect(refresh.should_interrupt).toBe(true);
+      expect(refresh.changes).toEqual([
+        expect.objectContaining({
+          record_id: blocker.record.id,
+          importance: "interrupt",
+          reason: "current_task_match",
+          summary: "Auth token refresh is blocked by stale credentials."
+        })
+      ]);
+    });
   });
 });

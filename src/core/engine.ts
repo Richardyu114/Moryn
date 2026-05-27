@@ -209,7 +209,8 @@ function nextMutationTimestamp(record: MemoraRecord, candidate: string): string 
 }
 
 function refreshImportance(record: MemoraRecord, currentTask: string | undefined): { importance: "silent" | "notice" | "interrupt"; reason?: string } {
-  if (record.state === "raw" || record.kind === "session_summary" || record.kind === "agent_note") return { importance: "silent" };
+  if (record.state === "raw" || record.kind === "agent_note") return { importance: "silent" };
+  if (record.kind === "session_summary") return { importance: "notice" };
   const interruptCandidate = record.type === "blocker" || record.type === "warning" || record.type === "conflict" || record.priority === "high";
   if (interruptCandidate) {
     if (!currentTask) return { importance: "interrupt" };

@@ -49,6 +49,21 @@ describe("project config", () => {
     });
   });
 
+  it("resolves project config from an ancestor directory", async () => {
+    await withTempStore(async (projectPath) => {
+      await initializeProjectConfig(projectPath, { project_id: "from-root", tags: ["typescript"] });
+      const nested = join(projectPath, "packages", "app");
+      await mkdir(nested, { recursive: true });
+
+      const context = await resolveProjectContext({ projectPath: nested });
+
+      expect(context.project_id).toBe("from-root");
+      expect(context.project_path).toBe(projectPath);
+      expect(context.source).toBe("config");
+      expect(context.config?.tags).toEqual(["typescript"]);
+    });
+  });
+
   it("rejects malformed project config JSON", async () => {
     await withTempStore(async (projectPath) => {
       await writeFile(join(projectPath, ".memora.json"), "{\"project_id\":", "utf8");
