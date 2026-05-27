@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
+import { toErrorEnvelope } from "../../src/core/errors.js";
 import { readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
@@ -146,6 +147,110 @@ describe("core engine", () => {
       const eventLog = JSON.stringify(await readEvents(storePath));
       expect(eventLog).not.toContain("ghp_1234567890abcdef");
       expect(eventLog).toContain("[REDACTED_SECRET]");
+    });
+  });
+
+  it("rejects invalid core write arguments before appending events", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+
+      async function expectInvalidArgument(input: Parameters<typeof engine.write>[0], message: string): Promise<void> {
+        try {
+          await engine.write(input);
+          throw new Error("Expected write to reject invalid input");
+        } catch (error) {
+          const envelope = toErrorEnvelope(error);
+          expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+          expect(envelope.error.message).toContain(message);
+        }
+      }
+
+      await expectInvalidArgument(null as never, "Invalid write input");
+      await expectInvalidArgument({
+        kind: "note" as never,
+        type: "decision",
+        scope: "project",
+        content: { text: "Invalid kind.", format: "text" },
+        source: { client: "test" }
+      }, "Invalid kind");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "",
+        scope: "project",
+        content: { text: "Invalid type.", format: "text" },
+        source: { client: "test" }
+      }, "Invalid type");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: { text: "Invalid confidence.", format: "text" },
+        confidence: 2,
+        source: { client: "test" }
+      }, "Invalid confidence");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        tags: ["valid", 123] as never,
+        content: { text: "Invalid tags.", format: "text" },
+        source: { client: "test" }
+      }, "Invalid tags");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: "Invalid content." as never,
+        source: { client: "test" }
+      }, "Invalid content");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: { text: "Invalid format.", format: "markdown" as never },
+        source: { client: "test" }
+      }, "Invalid content.format");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: { text: "Invalid source.", format: "text" },
+        source: { client: "" }
+      }, "Invalid source.client");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: { text: "Invalid confirmed.", format: "text" },
+        source: { client: "test" },
+        confirmed: "yes" as never
+      }, "Invalid confirmed");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: { text: "Invalid provenance.", format: "text" },
+        source: { client: "test" },
+        provenance: { method: "imported" } as never
+      }, "Invalid provenance");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: { text: "Invalid provenance timestamp.", format: "text" },
+        source: { client: "test" },
+        provenance: { promoted_at: "not-a-date" }
+      }, "Invalid provenance.promoted_at");
+      await expectInvalidArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content: { text: "Date-only provenance timestamp.", format: "text" },
+        source: { client: "test" },
+        provenance: { promoted_at: "2026-05-27" }
+      }, "Invalid provenance.promoted_at");
+
+      expect(await readEvents(storePath)).toHaveLength(0);
     });
   });
 

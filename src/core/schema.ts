@@ -6,6 +6,7 @@ export const recordStateSchema = z.enum(["raw", "candidate", "canonical", "archi
 export const recordScopeSchema = z.enum(["global", "project", "topic", "session", "artifact"]);
 export const recordPrioritySchema = z.enum(["low", "normal", "high"]);
 export const recordVisibilitySchema = z.enum(["active", "archived", "quarantined"]);
+export const isoDateTimeSchema = z.string().datetime();
 
 export const recordSourceSchema = z.object({
   client: z.string().min(1),
@@ -17,7 +18,7 @@ export const recordSourceSchema = z.object({
 export const recordLinkSchema = z.object({
   record_id: z.string().min(1),
   link_type: z.string().min(1),
-  created_at: z.string().datetime()
+  created_at: isoDateTimeSchema
 });
 
 export const recordConflictSchema = z.object({
@@ -41,14 +42,14 @@ export const recordSchema = z.object({
   confidence: z.number().min(0).max(1).default(0.5),
   priority: recordPrioritySchema.default("normal"),
   visibility: recordVisibilitySchema.default("active"),
-  created_at: z.string().datetime(),
-  updated_at: z.string().datetime(),
+  created_at: isoDateTimeSchema,
+  updated_at: isoDateTimeSchema,
   source: recordSourceSchema,
   provenance: z.object({
     derived_from: z.array(z.string()).optional(),
     reason: z.string().optional(),
     method: z.enum(["agent-proposed", "rule-promoted", "user-confirmed"]).optional(),
-    promoted_at: z.string().datetime().optional()
+    promoted_at: isoDateTimeSchema.optional()
   }).optional(),
   conflict: recordConflictSchema.optional(),
   links: z.array(recordLinkSchema).optional()
@@ -61,7 +62,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     event_id: z.string().min(1),
     op: z.literal("upsert_record"),
     record: recordSchema,
-    created_at: z.string().datetime(),
+    created_at: isoDateTimeSchema,
     source: recordSourceSchema
   }),
   z.object({
@@ -72,7 +73,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     reason: z.string().optional(),
     confirmed: z.boolean().optional(),
     conflict: recordConflictSchema.optional(),
-    created_at: z.string().datetime(),
+    created_at: isoDateTimeSchema,
     source: recordSourceSchema
   }),
   z.object({
@@ -83,7 +84,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     reason: z.string().optional(),
     confirmed: z.boolean().optional(),
     conflict: recordConflictSchema.optional(),
-    created_at: z.string().datetime(),
+    created_at: isoDateTimeSchema,
     source: recordSourceSchema
   }),
   z.object({
@@ -92,7 +93,7 @@ export const eventSchema = z.discriminatedUnion("op", [
     record_id: z.string().min(1),
     linked_record_id: z.string().min(1),
     link_type: z.string().min(1),
-    created_at: z.string().datetime(),
+    created_at: isoDateTimeSchema,
     source: recordSourceSchema
   })
 ]);

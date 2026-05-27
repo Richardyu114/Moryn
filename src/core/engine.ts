@@ -1,6 +1,6 @@
 import { appendEvent, readEvents } from "./store.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
-import { parseRecord } from "./schema.js";
+import { isoDateTimeSchema, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MemoraEvent, MemoraRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { createId } from "./id.js";
@@ -69,6 +69,60 @@ function validateLimit(limit: number | undefined, fallback: number): number {
     throw new Error("Invalid argument: Invalid limit; must be an integer between 1 and 100");
   }
   return resolved;
+}
+
+function validateWriteInput(input: WriteInput): void {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) throw new Error("Invalid argument: Invalid write input");
+  if (!recordKindSchema.safeParse(input.kind).success) throw new Error("Invalid argument: Invalid kind");
+  if (typeof input.type !== "string" || !input.type.length) throw new Error("Invalid argument: Invalid type");
+  if (!recordScopeSchema.safeParse(input.scope).success) throw new Error("Invalid argument: Invalid scope");
+  if (input.project_id !== undefined && (typeof input.project_id !== "string" || !input.project_id.length)) {
+    throw new Error("Invalid argument: Invalid project_id");
+  }
+  if (input.tags !== undefined && (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === "string"))) {
+    throw new Error("Invalid argument: Invalid tags");
+  }
+  if (typeof input.content !== "object" || input.content === null || Array.isArray(input.content)) {
+    throw new Error("Invalid argument: Invalid content");
+  }
+  if (input.content.text !== undefined && typeof input.content.text !== "string") {
+    throw new Error("Invalid argument: Invalid content.text");
+  }
+  if (input.content.format !== undefined && input.content.format !== "text" && input.content.format !== "json") {
+    throw new Error("Invalid argument: Invalid content.format");
+  }
+  if (input.state !== undefined && !recordStateSchema.safeParse(input.state).success) throw new Error("Invalid argument: Invalid state");
+  if (input.confidence !== undefined && (!Number.isFinite(input.confidence) || input.confidence < 0 || input.confidence > 1)) {
+    throw new Error("Invalid argument: Invalid confidence");
+  }
+  if (input.priority !== undefined && !recordPrioritySchema.safeParse(input.priority).success) throw new Error("Invalid argument: Invalid priority");
+  if (!recordSourceSchema.safeParse(input.source).success) throw new Error("Invalid argument: Invalid source.client");
+  if (input.confirmed !== undefined && typeof input.confirmed !== "boolean") throw new Error("Invalid argument: Invalid confirmed");
+  if (input.provenance !== undefined) {
+    if (typeof input.provenance !== "object" || input.provenance === null || Array.isArray(input.provenance)) {
+      throw new Error("Invalid argument: Invalid provenance");
+    }
+    if (input.provenance.derived_from !== undefined && (!Array.isArray(input.provenance.derived_from) || !input.provenance.derived_from.every((recordId) => typeof recordId === "string"))) {
+      throw new Error("Invalid argument: Invalid provenance.derived_from");
+    }
+    if (input.provenance.reason !== undefined && typeof input.provenance.reason !== "string") {
+      throw new Error("Invalid argument: Invalid provenance.reason");
+    }
+    if (
+      input.provenance.method !== undefined
+      && input.provenance.method !== "agent-proposed"
+      && input.provenance.method !== "rule-promoted"
+      && input.provenance.method !== "user-confirmed"
+    ) {
+      throw new Error("Invalid argument: Invalid provenance.method");
+    }
+    if (
+      input.provenance.promoted_at !== undefined
+      && !isoDateTimeSchema.safeParse(input.provenance.promoted_at).success
+    ) {
+      throw new Error("Invalid argument: Invalid provenance.promoted_at");
+    }
+  }
 }
 
 function matchesAny(values: string[], filters: string[] | undefined): boolean {
@@ -372,6 +426,7 @@ export function createEngine(deps: EngineDeps) {
 
   const engine = {
     async write(input: WriteInput) {
+      validateWriteInput(input);
       const createdAt = now();
       const sensitive = detectSensitiveContent(sensitiveScanText(input.content));
       const conflicts = sensitive.sensitive ? [] : semanticConflicts(await currentRecords(), input);
