@@ -862,10 +862,9 @@ export function createEngine(deps: EngineDeps) {
       const projectMemoryRecords = projectMemory(records, input.project_id);
       const trustedProjectRecords = projectScopedRecords(records, input.project_id);
       const taskRelevant = input.current_task
-        ? records
+        ? boundedBootRecords(records
           .filter((record) => record.kind === "memory" && record.scope === "project")
-          .filter((record) => matchesCurrentTask(record, input.current_task))
-          .slice(0, 5)
+          .filter((record) => matchesCurrentTask(record, input.current_task)))
         : [];
       const cursor = [...visibleRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at ?? new Date().toISOString();
       const remoteUpdates = await remoteHasUpdates();

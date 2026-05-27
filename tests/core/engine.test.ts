@@ -1686,6 +1686,45 @@ describe("core engine", () => {
     });
   });
 
+  it("bounds task-relevant boot records by priority and recency", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => new Date(Date.UTC(2026, 4, 27, 0, nextTime++, 0)).toISOString(),
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      const matchingIds: string[] = [];
+      for (let index = 1; index <= 7; index++) {
+        const written = await engine.write({
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "memora",
+          tags: ["auth"],
+          content: { text: `Auth token memory ${index}`, format: "text" },
+          state: "canonical",
+          priority: index >= 6 ? "high" : "normal",
+          source: { client: "user" }
+        });
+        matchingIds.push(written.record.id);
+      }
+
+      const boot = await engine.boot({ project_id: "memora", current_task: "fix auth token refresh" });
+
+      expect(boot.task_relevant.map((record) => record.id)).toHaveLength(5);
+      expect(boot.task_relevant.map((record) => record.id)).toEqual([
+        matchingIds[6],
+        matchingIds[5],
+        matchingIds[4],
+        matchingIds[3],
+        matchingIds[2]
+      ]);
+    });
+  });
+
   it("does not include arbitrary project records in boot without project context", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
