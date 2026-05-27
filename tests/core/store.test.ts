@@ -1,10 +1,28 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { toErrorEnvelope } from "../../src/core/errors.js";
 import { appendEvent, readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore, withTempStore } from "../helpers/temp-store.js";
 
 describe("event store", () => {
+  async function expectInvalidStorePath(action: () => Promise<unknown>): Promise<void> {
+    let caught: unknown;
+    try {
+      await action();
+    } catch (error) {
+      caught = error;
+    }
+
+    if (!caught) {
+      throw new Error("Expected invalid store path");
+    }
+
+    const envelope = toErrorEnvelope(caught);
+    expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+    expect(envelope.error.message).toContain("Invalid storePath");
+  }
+
   it("requires store initialization before reading or appending events", async () => {
     await withTempStore(async (storePath) => {
       const uninitialized = join(storePath, "uninitialized");
@@ -32,6 +50,53 @@ describe("event store", () => {
         }
       })).rejects.toThrow(/Store not initialized/);
     });
+  });
+
+  it("rejects invalid store paths before checking initialization", async () => {
+    await expectInvalidStorePath(() => readEvents(""));
+    await expectInvalidStorePath(() => readEvents(null as never));
+    await expectInvalidStorePath(() => appendEvent("", {
+      event_id: "evt_invalid_store_path",
+      op: "upsert_record",
+      created_at: "2026-05-27T00:00:00.000Z",
+      source: { client: "test", device_id: "device_a" },
+      record: {
+        id: "rec_invalid_store_path",
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        tags: [],
+        content: { text: "Should reject path before initialization checks.", format: "text" },
+        state: "canonical",
+        confidence: 1,
+        priority: "normal",
+        visibility: "active",
+        created_at: "2026-05-27T00:00:00.000Z",
+        updated_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test" }
+      }
+    }));
+    await expectInvalidStorePath(() => appendEvent(123 as never, {
+      event_id: "evt_invalid_store_path_number",
+      op: "upsert_record",
+      created_at: "2026-05-27T00:00:00.000Z",
+      source: { client: "test", device_id: "device_a" },
+      record: {
+        id: "rec_invalid_store_path_number",
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        tags: [],
+        content: { text: "Should reject non-string path before initialization checks.", format: "text" },
+        state: "canonical",
+        confidence: 1,
+        priority: "normal",
+        visibility: "active",
+        created_at: "2026-05-27T00:00:00.000Z",
+        updated_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test" }
+      }
+    }));
   });
 
   it("appends events under device and month partitions", async () => {

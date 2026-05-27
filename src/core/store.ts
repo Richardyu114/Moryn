@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import type { MemoraEvent } from "./types.js";
 import { parseEvent } from "./schema.js";
 import { detectSensitiveContent, sensitiveScanText } from "./sensitive.js";
-import { readStoreConfig } from "./config.js";
+import { readStoreConfig, validateStorePath } from "./config.js";
 
 function monthFromIso(iso: string): string {
   return iso.slice(0, 7);
@@ -18,6 +18,7 @@ function eventPath(storePath: string, event: MemoraEvent): string {
 }
 
 async function ensureStoreInitialized(storePath: string): Promise<void> {
+  validateStorePath(storePath);
   try {
     await access(join(storePath, "config.json"));
   } catch (error) {

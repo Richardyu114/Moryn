@@ -21,7 +21,7 @@ function isNotFoundError(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
-function validateStorePath(storePath: unknown): asserts storePath is string {
+export function validateStorePath(storePath: unknown): asserts storePath is string {
   if (typeof storePath !== "string" || storePath.length === 0) {
     throw new Error("Invalid argument: Invalid storePath");
   }
