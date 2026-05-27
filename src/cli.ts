@@ -70,6 +70,7 @@ program.command("recall")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--kind <kind>", "Record kind", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--scope <scope>", "Record scope", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--type <type>", "Record type", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--state <state>", "Record state", (value: string, previous: string[] = []) => [...previous, value], [])
   .option("--tag <tag>", "Record tag", (value: string, previous: string[] = []) => [...previous, value], [])
@@ -83,6 +84,7 @@ program.command("recall")
       query,
       project_id: projectId,
       kinds: options.kind,
+      scopes: options.scope,
       types: options.type,
       states: options.state,
       tags: options.tag,

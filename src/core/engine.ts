@@ -28,6 +28,7 @@ interface RecallInput {
   query?: string;
   project_id?: string;
   kinds?: RecordKind[];
+  scopes?: RecordScope[];
   types?: string[];
   states?: RecordState[];
   tags?: string[];
@@ -200,6 +201,7 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => recordProjectMatches(record, input.project_id))
         .filter((record) => !input.record_ids?.length || input.record_ids.includes(record.id))
         .filter((record) => !input.kinds?.length || input.kinds.includes(record.kind))
+        .filter((record) => !input.scopes?.length || input.scopes.includes(record.scope))
         .filter((record) => !input.types?.length || input.types.includes(record.type))
         .filter((record) => !input.states?.length || input.states.includes(record.state))
         .filter((record) => matchesAny(record.tags, input.tags))
@@ -229,8 +231,8 @@ export function createEngine(deps: EngineDeps) {
           summary: "",
           tech_stack: [],
           active_goals: [],
-          important_decisions: records.filter((record) => record.kind === "memory" && record.type === "decision" && record.project_id === input.project_id),
-          warnings: records.filter((record) => record.kind === "memory" && (record.type === "warning" || record.type === "blocker") && record.project_id === input.project_id)
+          important_decisions: records.filter((record) => record.type === "decision" && record.project_id === input.project_id),
+          warnings: records.filter((record) => (record.type === "warning" || record.type === "blocker") && record.project_id === input.project_id)
         },
         skills: records.filter((record) => record.kind === "skill"),
         recent_changes: recent.filter((record) => record.kind !== "soul").slice(0, 5),

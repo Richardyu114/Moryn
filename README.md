@@ -202,6 +202,30 @@ The current MCP server uses the official Model Context Protocol TypeScript SDK o
 
 Agents that do not support MCP can still use Memora through CLI commands.
 
+### Agent Host Examples
+
+Codex, Claude Desktop, Cursor, and other MCP-capable hosts should point to the same stdio command:
+
+```json
+{
+  "mcpServers": {
+    "memora": {
+      "command": "mem",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Shell-based agents can use the CLI directly:
+
+```bash
+mem boot --project .
+mem recall "current task" --project . --scope project --kind memory --kind skill
+mem write --kind session_summary --type summary --scope project --project . --text "Finished the task summary."
+mem refresh --project . --cursor <previous-cursor>
+```
+
 ## Current MVP Commands
 
 The current implementation includes these commands:
@@ -313,3 +337,12 @@ The full first-version design is here:
 ## License
 
 Not specified yet.
+
+## Release Checklist
+
+- Choose and publish a license.
+- Verify package name availability or choose a scoped package.
+- Run `npm test`, `npm run typecheck`, and `npm run build`.
+- Test `mem mcp` from at least one MCP host.
+- Test Git sync with a private user-owned repository.
+- Publish only after confirming no private memory store data is included.

@@ -79,7 +79,7 @@ Deliverables:
 - Done: `mem refresh` reports changes since a cursor as `silent`, `notice`, or
   `interrupt`.
 - Done: Agents can request explicit refresh through CLI or MCP.
-- Remaining: Add explicit scope filtering to recall.
+- Done: Explicit scope filtering is supported in core, CLI, and MCP recall.
 
 ## Phase 4: Git Sync
 
@@ -113,9 +113,11 @@ Make the intended product loop reliable in real use.
 
 Deliverables:
 
-- End-to-end tests simulate two agents sharing one store.
-- Candidate promotion workflow prevents raw notes from polluting boot.
-- Skill revisions keep canonical skill identity while preserving history.
-- README includes Codex, Claude, Cursor, and shell-agent usage examples where
+- Done: End-to-end tests simulate two agents sharing one store.
+- Done: Candidate promotion workflow prevents raw notes from polluting boot.
+- Done: Skill revisions keep canonical skill identity while preserving history.
+- Done: README includes Codex, Claude, Cursor, and shell-agent usage examples where
   practical.
-- Release checklist and package metadata are ready for npm publication.
+- Done: Release checklist is documented.
+- Remaining: Choose a license before npm publication.
+- Remaining: Confirm npm package name availability before publication.

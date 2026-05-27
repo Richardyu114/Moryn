@@ -73,6 +73,7 @@ describe("mem CLI", () => {
         "--record-id", recordId,
         "--project-id", "memora",
         "--kind", "memory",
+        "--scope", "project",
         "--type", "blocker",
         "--state", "canonical",
         "--tag", "sync",

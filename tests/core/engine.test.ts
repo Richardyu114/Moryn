@@ -101,6 +101,37 @@ describe("core engine", () => {
     });
   });
 
+  it("recalls with explicit scope filtering", async () => {
+    await withTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "global",
+        tags: ["policy"],
+        content: { text: "Global policy memory.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        tags: ["policy"],
+        content: { text: "Project policy memory.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const recall = await engine.recall({ query: "policy", scopes: ["project"], project_id: "memora" });
+
+      expect(recall.results.map((result) => result.record.content.text)).toEqual(["Project policy memory."]);
+    });
+  });
+
   it("builds boot context from trusted profile, project, skill, and recent records", async () => {
     await withTempStore(async (storePath) => {
       let nextId = 0;
@@ -219,6 +250,47 @@ describe("core engine", () => {
         expect.objectContaining({ record_id: decision.record.id, importance: "notice" }),
         expect.objectContaining({ record_id: blocker.record.id, importance: "interrupt" })
       ]);
+    });
+  });
+
+  it("keeps raw agent notes out of boot until promotion and preserves skill identity through revision", async () => {
+    await withTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const rawNote = await engine.write({
+        kind: "agent_note",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Use candidate workflow before boot exposure.", format: "text" },
+        source: { client: "agent-a" }
+      });
+      const hiddenBoot = await engine.boot({ project_id: "memora" });
+      expect(hiddenBoot.project.important_decisions).toHaveLength(0);
+
+      await engine.promote({ record_id: rawNote.record.id, target_state: "canonical", reason: "User confirmed", source: { client: "user" } });
+      const visibleBoot = await engine.boot({ project_id: "memora" });
+      expect(visibleBoot.project.important_decisions.map((record) => record.id)).toEqual([rawNote.record.id]);
+
+      const skill = await engine.write({
+        kind: "skill",
+        type: "procedure",
+        scope: "global",
+        content: { text: "Run tests.", format: "text" },
+        state: "canonical",
+        source: { client: "agent-a" }
+      });
+      await engine.revise({
+        record_id: skill.record.id,
+        patch: { "content.text": "Run tests and typecheck." },
+        reason: "Refined workflow",
+        source: { client: "agent-b" }
+      });
+      const recall = await engine.recall({ record_ids: [skill.record.id], kinds: ["skill"] });
+
+      expect(recall.results[0]?.record.id).toBe(skill.record.id);
+      expect(recall.results[0]?.record.content.text).toBe("Run tests and typecheck.");
     });
   });
 });

@@ -56,6 +56,7 @@ export async function runMcpServer(engine: Engine): Promise<void> {
         query: z.string().optional(),
         project_id: z.string().min(1).optional(),
         kinds: z.array(recordKindSchema).optional(),
+        scopes: z.array(recordScopeSchema).optional(),
         types: z.array(z.string().min(1)).optional(),
         states: z.array(recordStateSchema).optional(),
         tags: z.array(z.string().min(1)).optional(),
@@ -63,11 +64,12 @@ export async function runMcpServer(engine: Engine): Promise<void> {
         limit: z.number().int().positive().max(100).optional()
       }
     },
-    async ({ record_ids, query, project_id, kinds, types, states, tags, files, limit }) => jsonResult(await engine.recall({
+    async ({ record_ids, query, project_id, kinds, scopes, types, states, tags, files, limit }) => jsonResult(await engine.recall({
       record_ids,
       query,
       project_id,
       kinds: kinds as RecordKind[] | undefined,
+      scopes: scopes as RecordScope[] | undefined,
       types,
       states: states as RecordState[] | undefined,
       tags,
