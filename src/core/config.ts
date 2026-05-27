@@ -22,7 +22,7 @@ function isNotFoundError(error: unknown): boolean {
 }
 
 async function ensureStoreDirectories(storePath: string): Promise<void> {
-  for (const name of ["events", "snapshots", "indexes"]) {
+  for (const name of ["events", "snapshots", "indexes", "state"]) {
     const dir = join(storePath, name);
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, ".gitkeep"), "", "utf8");

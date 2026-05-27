@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeStore } from "../../src/core/config.js";
+import { rebuildDerivedViews } from "../../src/core/derived.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
@@ -79,6 +80,11 @@ describe("git sync adapter", () => {
         operation: "pull",
         commit: expect.any(String),
         at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/)
+      }));
+
+      await rebuildDerivedViews(storeB);
+      await expect(getGitSyncStatus(storeB)).resolves.toEqual(expect.objectContaining({
+        last_sync: expect.objectContaining({ operation: "pull" })
       }));
     } finally {
       await rm(root, { recursive: true, force: true });

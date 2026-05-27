@@ -48,6 +48,9 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
         state: state as RecordState,
         visibility: state === "canonical" || state === "candidate" || state === "raw" ? "active" : state,
         updated_at: event.created_at,
+        conflict: event.op === "promote_record" && state === "canonical" && event.conflict
+          ? event.conflict
+          : record.conflict,
         provenance: event.op === "promote_record" && state === "canonical"
           ? {
               ...(record.provenance ?? {}),

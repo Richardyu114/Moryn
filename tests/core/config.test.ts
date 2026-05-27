@@ -21,6 +21,7 @@ describe("store config", () => {
       await expect(readFile(join(storePath, "events", ".gitkeep"), "utf8")).resolves.toBe("");
       await expect(readFile(join(storePath, "snapshots", ".gitkeep"), "utf8")).resolves.toBe("");
       await expect(readFile(join(storePath, "indexes", ".gitkeep"), "utf8")).resolves.toBe("");
+      await expect(readFile(join(storePath, "state", ".gitkeep"), "utf8")).resolves.toBe("");
     });
   });
 

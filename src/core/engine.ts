@@ -280,11 +280,20 @@ function tagOverlap(left: string[], right: string[]): boolean {
   return left.some((tag) => rightTags.has(tag));
 }
 
-function semanticConflicts(records: MemoraRecord[], input: WriteInput): MemoraRecord[] {
+function semanticConflicts(records: MemoraRecord[], input: {
+  id?: string;
+  kind: RecordKind;
+  type: string;
+  scope: RecordScope;
+  project_id?: string;
+  tags?: string[];
+  content: Record<string, unknown> & { text?: string };
+}): MemoraRecord[] {
   if (input.kind !== "memory") return [];
   const inputText = textFromContent(input.content);
   if (!inputText) return [];
   return records.filter((record) => record.state === "canonical")
+    .filter((record) => record.id !== input.id)
     .filter((record) => record.kind === input.kind)
     .filter((record) => record.type === input.type)
     .filter((record) => record.scope === input.scope)
@@ -414,10 +423,16 @@ export function createEngine(deps: EngineDeps) {
     async promote(input: { record_id: string; target_state: RecordState; reason?: string; source?: RecordSource; confirmed?: boolean }) {
       const record = await requireRecord(input.record_id);
       const source = input.source ?? { client: "memora" };
+      const conflicts = input.target_state === "canonical" ? semanticConflicts(await currentRecords(), record) : [];
       if (input.target_state === "canonical"
         && requiresCanonicalConfirmation(record)
         && !isUserConfirmed(source, input.confirmed)) {
         throw new Error("Confirmation required: canonical state requires explicit user confirmation");
+      }
+      if (input.target_state === "canonical"
+        && conflicts.length > 0
+        && !isUserConfirmed(source, input.confirmed)) {
+        throw new Error("Confirmation required: conflicting canonical memory requires explicit user confirmation");
       }
       const createdAt = nextMutationTimestamp(record, now());
       const event: MemoraEvent = {
@@ -427,6 +442,9 @@ export function createEngine(deps: EngineDeps) {
         target_state: input.target_state,
         reason: input.reason,
         confirmed: input.confirmed,
+        conflict: conflicts.length
+          ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
+          : undefined,
         created_at: createdAt,
         source
       };

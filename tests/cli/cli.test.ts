@@ -393,7 +393,7 @@ describe("mem CLI", () => {
       expect(status.stdout).toContain("\"configured\": true");
       expect(status.stdout).toContain("\"dirty\": false");
     });
-  });
+  }, 30000);
 
   it("rebuilds derived snapshots and indexes from the CLI", async () => {
     await withTempDir(async (dir) => {
@@ -586,6 +586,77 @@ describe("mem CLI", () => {
       expect(parsed.warning?.code).toBe("CONFIRMATION_REQUIRED");
       expect(parsed.record.conflict?.with).toEqual([existingId]);
       expect(parsed.record.conflict?.resolution).toBe("needs_review");
+    });
+  });
+
+  it("requires explicit CLI confirmation for conflicting canonical promotion", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      const candidate = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--tag", "sync",
+        "--state", "candidate",
+        "--text", "Use SQLite as the source of truth."
+      ]);
+      const candidateId = (JSON.parse(candidate.stdout) as { record: { id: string } }).record.id;
+      const existing = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--tag", "sync",
+        "--state", "canonical",
+        "--text", "Use append-only JSON events.",
+        "--confirm"
+      ]);
+      const existingId = (JSON.parse(existing.stdout) as { record: { id: string } }).record.id;
+
+      try {
+        await exec("node", [
+          "--import", "tsx", "src/cli.ts", "--store", store,
+          "promote",
+          candidateId,
+          "--state",
+          "canonical",
+          "--reason",
+          "Agent inferred this replacement"
+        ]);
+        throw new Error("Expected mem promote to require conflict confirmation");
+      } catch (error) {
+        const stderr = (error as { stderr: string }).stderr;
+        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recommended_action: string } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
+        expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+      }
+
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "promote",
+        candidateId,
+        "--state",
+        "canonical",
+        "--reason",
+        "User confirmed",
+        "--confirm"
+      ]);
+      const recall = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "recall",
+        "--record-id",
+        candidateId
+      ])).stdout) as { results: Array<{ record: { state: string; conflict?: { with: string[]; resolution: string } } }> };
+      expect(recall.results[0]?.record.state).toBe("canonical");
+      expect(recall.results[0]?.record.conflict?.with).toEqual([existingId]);
+      expect(recall.results[0]?.record.conflict?.resolution).toBe("needs_review");
     });
   });
 

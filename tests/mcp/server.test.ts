@@ -567,4 +567,74 @@ describe("MCP stdio server", () => {
       await rm(store, { recursive: true, force: true });
     }
   });
+
+  it("requires explicit MCP confirmation for conflicting canonical promotion", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-promote-conflict-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const candidate = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            tags: ["sync"],
+            text: "Use SQLite as the source of truth.",
+            state: "candidate",
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+        const existing = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "memora",
+            tags: ["sync"],
+            text: "Use append-only JSON events.",
+            state: "canonical",
+            confirmed: true,
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+
+        const rejected = parseTextContent(await client.callTool({
+          name: "promote",
+          arguments: {
+            record_id: candidate.record.id,
+            target_state: "canonical",
+            reason: "Agent inferred this replacement",
+            source: { client: "mcp-test" }
+          }
+        })) as { ok: boolean; error: { code: string; recommended_action: string } };
+        expect(rejected.ok).toBe(false);
+        expect(rejected.error.code).toBe("CONFIRMATION_REQUIRED");
+        expect(rejected.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+
+        parseTextContent(await client.callTool({
+          name: "promote",
+          arguments: {
+            record_id: candidate.record.id,
+            target_state: "canonical",
+            reason: "User confirmed",
+            confirmed: true,
+            source: { client: "mcp-test" }
+          }
+        }));
+        const recall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: { record_ids: [candidate.record.id] }
+        })) as { results: Array<{ record: { state: string; conflict?: { with: string[]; resolution: string } } }> };
+        expect(recall.results[0]?.record.state).toBe("canonical");
+        expect(recall.results[0]?.record.conflict?.with).toEqual([existing.record.id]);
+        expect(recall.results[0]?.record.conflict?.resolution).toBe("needs_review");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
 });

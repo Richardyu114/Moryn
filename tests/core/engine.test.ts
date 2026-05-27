@@ -428,6 +428,62 @@ describe("core engine", () => {
     });
   });
 
+  it("rejects conflicting canonical promotion without user confirmation", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const candidate = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        tags: ["sync"],
+        content: { text: "Use SQLite as the source of truth.", format: "text" },
+        state: "candidate",
+        source: { client: "agent" }
+      });
+      const existing = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        tags: ["sync"],
+        content: { text: "Use append-only JSON events.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      expect(candidate.record.conflict).toBeUndefined();
+
+      await expect(engine.promote({
+        record_id: candidate.record.id,
+        target_state: "canonical",
+        reason: "Agent inferred this replacement",
+        source: { client: "agent" }
+      })).rejects.toThrow(/conflicting canonical memory requires explicit user confirmation/);
+
+      const stillCandidate = await engine.recall({ record_ids: [candidate.record.id], states: ["candidate"] });
+      expect(stillCandidate.results[0]?.record.state).toBe("candidate");
+
+      await engine.promote({
+        record_id: candidate.record.id,
+        target_state: "canonical",
+        reason: "User confirmed",
+        source: { client: "cli" },
+        confirmed: true
+      });
+
+      const confirmed = await engine.recall({ record_ids: [candidate.record.id] });
+      expect(confirmed.results[0]?.record.state).toBe("canonical");
+      expect(confirmed.results[0]?.record.conflict).toEqual({
+        kind: "semantic",
+        with: [existing.record.id],
+        resolution: "needs_review"
+      });
+    });
+  });
+
   it("rejects high-risk canonical promotion without user confirmation", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

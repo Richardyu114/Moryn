@@ -54,10 +54,17 @@ async function ensureGitIdentity(storePath: string): Promise<void> {
 }
 
 async function ensureGitIgnore(storePath: string): Promise<void> {
-  await writeFile(join(storePath, ".gitignore"), "config.json\nsnapshots/\nindexes/\n", "utf8");
+  await writeFile(join(storePath, ".gitignore"), "config.json\nsnapshots/\nindexes/\nstate/\n", "utf8");
 }
 
 async function readLastSync(storePath: string): Promise<GitLastSync | undefined> {
+  const statePath = join(storePath, "state", "sync-status.json");
+  try {
+    return JSON.parse(await readFile(statePath, "utf8")) as GitLastSync;
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+  }
+
   try {
     return JSON.parse(await readFile(join(storePath, "indexes", "sync-status.json"), "utf8")) as GitLastSync;
   } catch (error) {
@@ -67,14 +74,14 @@ async function readLastSync(storePath: string): Promise<GitLastSync | undefined>
 }
 
 async function writeLastSync(storePath: string, operation: GitLastSync["operation"]): Promise<void> {
-  await mkdir(join(storePath, "indexes"), { recursive: true });
+  await mkdir(join(storePath, "state"), { recursive: true });
   const commit = await git(storePath, ["rev-parse", "--short", "HEAD"]).catch(() => undefined);
   const status: GitLastSync = {
     operation,
     at: new Date().toISOString(),
     commit
   };
-  await writeFile(join(storePath, "indexes", "sync-status.json"), `${JSON.stringify(status, null, 2)}\n`, "utf8");
+  await writeFile(join(storePath, "state", "sync-status.json"), `${JSON.stringify(status, null, 2)}\n`, "utf8");
 }
 
 async function ensureMainBranch(storePath: string): Promise<void> {

@@ -80,6 +80,7 @@ export type MemoraEvent =
       target_state?: RecordState;
       reason?: string;
       confirmed?: boolean;
+      conflict?: RecordConflict;
       created_at: string;
       source: RecordSource;
     }
