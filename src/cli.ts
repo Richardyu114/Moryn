@@ -132,10 +132,13 @@ function collectNonEmptyOption(option: string) {
   };
 }
 
-function assertSingleSyncOperation(options: { status?: boolean; push?: boolean; pull?: boolean }): void {
+function validateSyncOperationOptions(options: { status?: boolean; push?: boolean; pull?: boolean; message?: string }): void {
   const selected = [options.status, options.push, options.pull].filter(Boolean).length;
   if (selected > 1) {
     throw new Error("Invalid argument: choose only one sync operation");
+  }
+  if (options.message !== undefined && !options.push) {
+    throw new Error("Invalid argument: --message requires --push");
   }
 }
 
@@ -379,7 +382,7 @@ sync
   .option("--pull", "Pull remote events")
   .option("--message <message>", "Commit message for --push")
   .action(async (options) => {
-    assertSingleSyncOperation(options);
+    validateSyncOperationOptions(options);
     if (options.push) {
       printJson(await pushGitSync(storePath(), { message: parseNonEmptyString(options.message, "--message") }));
       return;

@@ -678,6 +678,29 @@ describe("mem CLI", () => {
     });
   });
 
+  it("rejects CLI sync messages without push", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      for (const args of [
+        ["sync", "--message", "ignored message"],
+        ["sync", "--pull", "--message", "ignored message"]
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected mem ${args.join(" ")} to reject message without push`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain("--message requires --push");
+          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        }
+      }
+    });
+  });
+
   it("rebuilds derived snapshots and indexes from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
