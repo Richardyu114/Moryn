@@ -2,6 +2,22 @@ import { describe, expect, it } from "vitest";
 import { replayEvents } from "../../src/core/replay.js";
 
 describe("event replay", () => {
+  const baseRecord = {
+    id: "rec_1",
+    kind: "memory",
+    type: "decision",
+    scope: "project",
+    tags: [],
+    content: { text: "Old", format: "text" },
+    state: "candidate",
+    confidence: 0.5,
+    priority: "normal",
+    visibility: "active",
+    created_at: "2026-05-27T00:00:00.000Z",
+    updated_at: "2026-05-27T00:00:00.000Z",
+    source: { client: "test" }
+  } as const;
+
   it("applies upsert, revise, and promote events", () => {
     const records = replayEvents([
       {
@@ -9,21 +25,7 @@ describe("event replay", () => {
         op: "upsert_record",
         created_at: "2026-05-27T00:00:00.000Z",
         source: { client: "test" },
-        record: {
-          id: "rec_1",
-          kind: "memory",
-          type: "decision",
-          scope: "project",
-          tags: [],
-          content: { text: "Old", format: "text" },
-          state: "candidate",
-          confidence: 0.5,
-          priority: "normal",
-          visibility: "active",
-          created_at: "2026-05-27T00:00:00.000Z",
-          updated_at: "2026-05-27T00:00:00.000Z",
-          source: { client: "test" }
-        }
+        record: baseRecord
       },
       {
         event_id: "evt_2",
@@ -65,6 +67,26 @@ describe("event replay", () => {
         created_at: "2026-05-27T00:03:00.000Z"
       }
     ]);
+  });
+
+  it("rejects replayed revisions that would make records invalid", () => {
+    expect(() => replayEvents([
+      {
+        event_id: "evt_1",
+        op: "upsert_record",
+        created_at: "2026-05-27T00:00:00.000Z",
+        source: { client: "test" },
+        record: baseRecord
+      },
+      {
+        event_id: "evt_2",
+        op: "revise_record",
+        record_id: "rec_1",
+        patch: { "content.text": "" },
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "test" }
+      }
+    ])).toThrow(/Invalid replay result for event evt_2/);
   });
 
   it("treats confirmed canonical promotion as user-confirmed provenance", () => {

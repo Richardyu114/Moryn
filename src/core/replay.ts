@@ -1,4 +1,5 @@
 import type { MemoraEvent, MemoraRecord, RecordState } from "./types.js";
+import { parseRecord } from "./schema.js";
 
 function setPath(target: Record<string, unknown>, path: string, value: unknown): void {
   const parts = path.split(".");
@@ -21,12 +22,22 @@ export function applyRecordPatch(record: MemoraRecord, patch: Record<string, unk
   return next as unknown as MemoraRecord;
 }
 
+function validateReplayRecord(event: MemoraEvent, record: MemoraRecord): MemoraRecord {
+  try {
+    return parseRecord(record);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid replay result for event ${event.event_id}: ${message}`);
+  }
+}
+
 export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
   const records = new Map<string, MemoraRecord>();
 
   for (const event of events) {
     if (event.op === "upsert_record") {
-      records.set(event.record.id, structuredClone(event.record));
+      const record = validateReplayRecord(event, structuredClone(event.record));
+      records.set(record.id, record);
       continue;
     }
 
@@ -40,7 +51,7 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
       } else {
         delete next.conflict;
       }
-      records.set(event.record_id, next as unknown as MemoraRecord);
+      records.set(event.record_id, validateReplayRecord(event, next as unknown as MemoraRecord));
       continue;
     }
 
@@ -48,7 +59,7 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
       const record = records.get(event.record_id);
       if (!record) continue;
       const state = event.target_state ?? (event.op === "archive_record" ? "archived" : "quarantined");
-      records.set(event.record_id, {
+      records.set(event.record_id, validateReplayRecord(event, {
         ...record,
         state: state as RecordState,
         visibility: state === "canonical" || state === "candidate" || state === "raw" ? "active" : state,
@@ -64,14 +75,14 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
               promoted_at: event.created_at
             }
           : record.provenance
-      });
+      }));
       continue;
     }
 
     if (event.op === "link_records") {
       const record = records.get(event.record_id);
       if (!record) continue;
-      records.set(event.record_id, {
+      records.set(event.record_id, validateReplayRecord(event, {
         ...record,
         links: [
           ...(record.links ?? []),
@@ -82,7 +93,7 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
           }
         ],
         updated_at: event.created_at
-      });
+      }));
     }
   }
 
