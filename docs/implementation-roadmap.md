@@ -59,11 +59,12 @@ Make local setup predictable across machines and projects.
 
 Deliverables:
 
-- `mem init` writes `config.json` with device id and store version.
-- `mem project init` writes `.memora.json`.
-- CLI accepts `--project <path>` and resolves project identity consistently.
-- Project config can add default tags, skills, and sync mode.
-- Event validation happens on read and write.
+- Done: `mem init` writes `config.json` with device id and store version.
+- Done: `mem project init` writes `.memora.json`.
+- Done: CLI accepts `--project <path>` and resolves project identity consistently.
+- Done: Project config can add default tags and sync mode.
+- Remaining: Project config default skills are not yet applied to boot context.
+- Remaining: Event validation happens on read and write.
 
 ## Phase 3: Recall, Boot, and Refresh Semantics
 
@@ -116,4 +117,3 @@ Deliverables:
 - README includes Codex, Claude, Cursor, and shell-agent usage examples where
   practical.
 - Release checklist and package metadata are ready for npm publication.
-

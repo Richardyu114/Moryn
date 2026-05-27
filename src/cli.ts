@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { Command } from "commander";
 import { version } from "./index.js";
+import { initializeStore } from "./core/config.js";
 import { createEngine } from "./core/engine.js";
+import { initializeProjectConfig, resolveProjectContext } from "./core/project.js";
 import { runMcpServer } from "./mcp/server.js";
 import { getGitSyncStatus } from "./sync/git.js";
 
@@ -26,11 +27,7 @@ program
   .option("--store <path>", "Override Memora store path");
 
 program.command("init").action(async () => {
-  const path = storePath();
-  await mkdir(join(path, "events"), { recursive: true });
-  await mkdir(join(path, "snapshots"), { recursive: true });
-  await mkdir(join(path, "indexes"), { recursive: true });
-  printJson({ ok: true, store: path });
+  printJson({ ok: true, ...await initializeStore(storePath()) });
 });
 
 program.command("write")
@@ -38,14 +35,17 @@ program.command("write")
   .requiredOption("--type <type>")
   .requiredOption("--scope <scope>")
   .option("--project-id <id>")
+  .option("--project <path>")
   .requiredOption("--text <text>")
   .action(async (options) => {
     const engine = createEngine({ storePath: storePath() });
+    const project = await resolveProjectContext({ projectPath: options.project, projectId: options.projectId });
     const result = await engine.write({
       kind: options.kind,
       type: options.type,
       scope: options.scope,
-      project_id: options.projectId,
+      project_id: project.project_id,
+      tags: project.config?.tags,
       content: { text: options.text, format: "text" },
       source: { client: "cli" }
     });
@@ -55,17 +55,21 @@ program.command("write")
 program.command("recall")
   .argument("[query]", "Search query")
   .option("--project-id <id>")
+  .option("--project <path>")
   .option("--limit <n>", "Result limit", "10")
   .action(async (query, options) => {
     const engine = createEngine({ storePath: storePath() });
-    printJson(await engine.recall({ query, project_id: options.projectId, limit: Number(options.limit) }));
+    const project = await resolveProjectContext({ projectPath: options.project, projectId: options.projectId });
+    printJson(await engine.recall({ query, project_id: project.project_id, limit: Number(options.limit) }));
   });
 
 program.command("boot")
   .option("--project-id <id>")
+  .option("--project <path>")
   .action(async (options) => {
     const engine = createEngine({ storePath: storePath() });
-    printJson(await engine.boot({ project_id: options.projectId }));
+    const project = await resolveProjectContext({ projectPath: options.project, projectId: options.projectId });
+    printJson(await engine.boot({ project_id: project.project_id }));
   });
 
 program.command("revise")
@@ -98,6 +102,24 @@ program.command("mcp").action(async () => {
   const engine = createEngine({ storePath: storePath() });
   await runMcpServer(engine);
 });
+
+const project = program.command("project");
+
+project.command("init")
+  .option("--path <path>", "Project path", process.cwd())
+  .option("--project-id <id>")
+  .option("--tag <tag>", "Project tag", (value: string, previous: string[] = []) => [...previous, value], [])
+  .option("--sync-mode <mode>", "Sync mode", "session")
+  .action(async (options) => {
+    printJson({
+      ok: true,
+      ...await initializeProjectConfig(options.path, {
+        project_id: options.projectId,
+        tags: options.tag,
+        sync: { mode: options.syncMode }
+      })
+    });
+  });
 
 program.command("sync")
   .option("--status", "Show sync status")

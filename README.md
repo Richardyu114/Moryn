@@ -105,6 +105,10 @@ This creates:
 
 ```text
 ~/.memora/
+  config.json
+  events/
+  snapshots/
+  indexes/
 ```
 
 ### 3. Connect a Private Sync Repo
@@ -139,6 +143,20 @@ Example:
     "mode": "session"
   }
 }
+```
+
+You can also initialize a specific path with tags:
+
+```bash
+mem project init --path /path/to/project --project-id my-project --tag typescript --tag mcp
+```
+
+Project-aware commands accept either an explicit project id or a project path:
+
+```bash
+mem write --kind memory --type decision --scope project --project /path/to/project --text "Use append-only events"
+mem recall "append-only events" --project /path/to/project
+mem boot --project /path/to/project
 ```
 
 ### 5. Connect Agents Through MCP

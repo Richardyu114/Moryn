@@ -1,9 +1,117 @@
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
+import { promisify } from "node:util";
+import { z } from "zod";
+
+const exec = promisify(execFile);
+
+const projectConfigSchema = z.object({
+  project_id: z.string().min(1).optional(),
+  tags: z.array(z.string().min(1)).default([]),
+  default_skills: z.array(z.string().min(1)).default([]),
+  sync: z.object({
+    mode: z.enum(["manual", "session", "auto"]).default("session")
+  }).default({ mode: "session" })
+});
+
+export type ProjectConfig = z.infer<typeof projectConfigSchema>;
+export type ProjectIdentitySource = "explicit" | "config" | "git_remote" | "git_root" | "directory";
+
+export interface ProjectContext {
+  project_id: string;
+  project_path: string;
+  source: ProjectIdentitySource;
+  config?: ProjectConfig;
+}
+
+export interface InitializeProjectConfigInput {
+  project_id?: string;
+  tags?: string[];
+  default_skills?: string[];
+  sync?: { mode?: "manual" | "session" | "auto" };
+}
+
+function hashIdentity(input: string): string {
+  return createHash("sha1").update(input).digest("hex").slice(0, 12);
+}
 
 export function projectIdFromPath(projectPath: string): string {
   const resolved = resolve(projectPath);
   const name = basename(resolved) || "project";
   const hash = createHash("sha1").update(resolved).digest("hex").slice(0, 8);
   return `${name}-${hash}`;
+}
+
+function repoId(input: string): string {
+  return `repo-${hashIdentity(input)}`;
+}
+
+async function git(args: string[], cwd: string): Promise<string | undefined> {
+  try {
+    const { stdout } = await exec("git", args, { cwd });
+    const trimmed = stdout.trim();
+    return trimmed || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function readProjectConfig(projectPath: string): Promise<ProjectConfig | undefined> {
+  try {
+    const raw = JSON.parse(await readFile(resolve(projectPath, ".memora.json"), "utf8")) as unknown;
+    const result = projectConfigSchema.safeParse(raw);
+    if (!result.success) {
+      throw new Error(`Invalid project config: ${z.prettifyError(result.error)}`);
+    }
+    return result.data;
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Invalid project config:")) {
+      throw error;
+    }
+    return undefined;
+  }
+}
+
+export async function initializeProjectConfig(projectPath: string, input: InitializeProjectConfigInput = {}): Promise<{ config: ProjectConfig; path: string }> {
+  const resolved = resolve(projectPath);
+  await mkdir(resolved, { recursive: true });
+  const existing = await readProjectConfig(resolved);
+  const parsed = projectConfigSchema.parse({
+    project_id: input.project_id ?? existing?.project_id ?? projectIdFromPath(resolved),
+    tags: input.tags ?? existing?.tags ?? [],
+    default_skills: input.default_skills ?? existing?.default_skills ?? [],
+    sync: {
+      mode: input.sync?.mode ?? existing?.sync.mode ?? "session"
+    }
+  });
+  const path = resolve(resolved, ".memora.json");
+  await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+  return { config: parsed, path };
+}
+
+export async function resolveProjectContext(input: { projectPath?: string; projectId?: string }): Promise<ProjectContext> {
+  const projectPath = resolve(input.projectPath ?? process.cwd());
+  const config = await readProjectConfig(projectPath);
+
+  if (input.projectId) {
+    return { project_id: input.projectId, project_path: projectPath, source: "explicit", config };
+  }
+
+  if (config?.project_id) {
+    return { project_id: config.project_id, project_path: projectPath, source: "config", config };
+  }
+
+  const remote = await git(["remote", "get-url", "origin"], projectPath);
+  if (remote) {
+    return { project_id: repoId(remote), project_path: projectPath, source: "git_remote", config };
+  }
+
+  const root = await git(["rev-parse", "--show-toplevel"], projectPath);
+  if (root) {
+    return { project_id: repoId(resolve(root)), project_path: projectPath, source: "git_root", config };
+  }
+
+  return { project_id: projectIdFromPath(projectPath), project_path: projectPath, source: "directory", config };
 }
