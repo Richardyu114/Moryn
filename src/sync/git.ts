@@ -244,6 +244,7 @@ export async function pushGitSync(storePath: string, options: { message?: string
 
   if (await hasRemoteHead(storePath)) {
     await git(storePath, ["pull", "--rebase", "origin", "main"]);
+    await rebuildDerivedViews(storePath);
   }
   await git(storePath, ["push", "-u", "origin", "main"]);
   await writeLastSync(storePath, "push");

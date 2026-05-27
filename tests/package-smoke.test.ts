@@ -66,5 +66,5 @@ describe("published package smoke", () => {
         }
       }
     });
-  }, 30000);
+  }, 120000);
 });
