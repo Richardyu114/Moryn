@@ -990,7 +990,7 @@ Example:
     "code": "SYNC_REMOTE_UNAVAILABLE",
     "message": "Remote sync is unavailable; local store is still usable.",
     "recoverable": true,
-    "recommended_action": "continue_with_local_context"
+    "recommended_action": "continue locally and retry sync later"
   }
 }
 ```
@@ -998,12 +998,18 @@ Example:
 First-version error codes:
 
 - `STORE_NOT_INITIALIZED`
+- `CONFIRMATION_REQUIRED`
+- `INVALID_PROJECT_CONFIG`
+- `INVALID_STORE_CONFIG`
+- `INVALID_ARGUMENT`
 - `INVALID_RECORD`
 - `SENSITIVE_CONTENT_DETECTED`
-- `SYNC_REMOTE_UNAVAILABLE`
-- `SYNC_CONFLICT`
 - `INDEX_STALE`
+- `RECORD_NOT_FOUND`
 - `PERMISSION_DENIED`
+- `SYNC_CONFLICT`
+- `SYNC_REMOTE_UNAVAILABLE`
+- `INTERNAL_ERROR`
 
 Principles:
 
