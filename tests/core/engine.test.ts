@@ -764,6 +764,14 @@ describe("core engine", () => {
         state: "canonical",
         source: { client: "agent" }
       });
+      const globalPreference = await engine.write({
+        kind: "memory",
+        type: "preference",
+        scope: "global",
+        content: { text: "Always prefer terse answers.", format: "text" },
+        state: "canonical",
+        source: { client: "agent" }
+      });
 
       expect(soul.record.state).toBe("candidate");
       expect(soul.warning?.code).toBe("CONFIRMATION_REQUIRED");
@@ -771,6 +779,8 @@ describe("core engine", () => {
       expect(globalSkill.warning?.code).toBe("CONFIRMATION_REQUIRED");
       expect(securityRule.record.state).toBe("candidate");
       expect(securityRule.warning?.code).toBe("CONFIRMATION_REQUIRED");
+      expect(globalPreference.record.state).toBe("candidate");
+      expect(globalPreference.warning?.code).toBe("CONFIRMATION_REQUIRED");
 
       const userConfirmed = await engine.write({
         kind: "soul",

@@ -81,9 +81,12 @@ export async function rebuildDerivedViews(storePath: string): Promise<RebuildRes
   };
   await writeJson(join(snapshotPath, "user.json"), user);
 
-  const projectIds = [...new Set(activeRecords.map((record) => record.project_id).filter((id): id is string => Boolean(id)))].sort();
+  const projectIds = [...new Set(activeRecords
+    .filter((record) => record.scope === "project")
+    .map((record) => record.project_id)
+    .filter((id): id is string => Boolean(id)))].sort();
   for (const projectId of projectIds) {
-    const projectRecords = trusted.filter((record) => record.project_id === projectId);
+    const projectRecords = trusted.filter((record) => record.scope === "project" && record.project_id === projectId);
     await writeJson(join(snapshotPath, "projects", `${projectId}.json`), {
       project_id: projectId,
       generated_from_cursor: generatedFromCursor,

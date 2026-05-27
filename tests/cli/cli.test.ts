@@ -207,7 +207,8 @@ describe("mem CLI", () => {
         "--type", "preference",
         "--scope", "global",
         "--state", "canonical",
-        "--text", "Prefer concise engineering updates."
+        "--text", "Prefer concise engineering updates.",
+        "--confirm"
       ]);
       await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,
@@ -681,7 +682,8 @@ describe("mem CLI", () => {
         "--type", "preference",
         "--scope", "global",
         "--state", "canonical",
-        "--text", "Prefer concise engineering updates."
+        "--text", "Prefer concise engineering updates.",
+        "--confirm"
       ]);
       await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", dir,
@@ -1093,6 +1095,19 @@ describe("mem CLI", () => {
       const parsedWrite = JSON.parse(write.stdout) as { record: { id: string; state: string }; warning?: { code: string } };
       expect(parsedWrite.record.state).toBe("candidate");
       expect(parsedWrite.warning?.code).toBe("CONFIRMATION_REQUIRED");
+
+      const memoryPreference = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "preference",
+        "--scope", "global",
+        "--state", "canonical",
+        "--text", "Prefer concise engineering updates."
+      ]);
+      const parsedMemoryPreference = JSON.parse(memoryPreference.stdout) as { record: { state: string }; warning?: { code: string } };
+      expect(parsedMemoryPreference.record.state).toBe("candidate");
+      expect(parsedMemoryPreference.warning?.code).toBe("CONFIRMATION_REQUIRED");
 
       try {
         await exec("node", [

@@ -64,6 +64,24 @@ describe("derived views", () => {
       await engine.write({
         kind: "memory",
         type: "summary",
+        scope: "global",
+        project_id: "memora",
+        content: { text: "Global summary with project metadata should not become project summary.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "summary",
+        scope: "global",
+        project_id: "metadata-only",
+        content: { text: "Global metadata should not create a project snapshot.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "summary",
         scope: "project",
         project_id: "memora",
         content: { text: "Memora is a local-first agent memory layer.", format: "text" },
@@ -92,7 +110,7 @@ describe("derived views", () => {
 
       const result = await rebuildDerivedViews(storePath);
 
-      expect(result.records).toBe(8);
+      expect(result.records).toBe(10);
       expect(result.projects).toEqual(["memora", "other"]);
       expect(result.skills).toBe(1);
 
@@ -116,8 +134,8 @@ describe("derived views", () => {
       const rebuiltRecallRaw = await readFile(join(storePath, "indexes", "recall.json"), "utf8");
       const rebuiltRecall = JSON.parse(rebuiltRecallRaw) as { records: Array<{ id: string }> };
 
-      expect(rebuilt.records).toBe(8);
-      expect(rebuiltRecall.records).toHaveLength(8);
+      expect(rebuilt.records).toBe(10);
+      expect(rebuiltRecall.records).toHaveLength(10);
       expect(rebuiltRecallRaw).toBe(firstRecallRaw);
     });
   });

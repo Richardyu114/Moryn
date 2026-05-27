@@ -148,6 +148,7 @@ describe("MCP stdio server", () => {
             scope: "global",
             text: "Prefer concise MCP updates.",
             state: "canonical",
+            confirmed: true,
             source: { client: "mcp-test" }
           }
         })) as { record: { id: string } };
@@ -633,6 +634,20 @@ describe("MCP stdio server", () => {
         })) as { record: { id: string; state: string }; warning?: { code: string } };
         expect(write.record.state).toBe("candidate");
         expect(write.warning?.code).toBe("CONFIRMATION_REQUIRED");
+
+        const memoryPreference = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "preference",
+            scope: "global",
+            text: "Prefer concise MCP updates.",
+            state: "canonical",
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { state: string }; warning?: { code: string } };
+        expect(memoryPreference.record.state).toBe("candidate");
+        expect(memoryPreference.warning?.code).toBe("CONFIRMATION_REQUIRED");
 
         const rejected = parseTextContent(await client.callTool({
           name: "promote",

@@ -539,6 +539,7 @@ function requiresCanonicalConfirmation(input: { kind: RecordKind; type: string; 
   if (input.kind === "soul") return true;
   if (input.kind === "skill" && input.scope === "global") return true;
   const type = input.type.toLowerCase();
+  if (input.kind === "memory" && input.scope === "global" && type === "preference") return true;
   return type === "security_rule"
     || type === "deployment_rule"
     || type === "permission_rule"
