@@ -10,7 +10,7 @@ export interface MemoraErrorEnvelope {
 
 export function errorCode(message: string): string {
   if (message.startsWith("Invalid project config:")) return "INVALID_PROJECT_CONFIG";
-  if (message.startsWith("Invalid store config:")) return "STORE_NOT_INITIALIZED";
+  if (message.startsWith("Invalid store config:")) return "INVALID_STORE_CONFIG";
   if (message.startsWith("Invalid event:") || message.startsWith("Invalid record:")) return "INVALID_RECORD";
   if (message.includes("Authentication failed") || message.includes("Permission denied")) return "PERMISSION_DENIED";
   if (message.toLowerCase().includes("conflict")) return "SYNC_CONFLICT";
@@ -26,6 +26,8 @@ export function recommendedAction(code: string): string {
   switch (code) {
     case "INVALID_PROJECT_CONFIG":
       return "fix .memora.json or pass an explicit project id";
+    case "INVALID_STORE_CONFIG":
+      return "fix or remove config.json, then run mem init";
     case "STORE_NOT_INITIALIZED":
       return "run mem init";
     case "INVALID_RECORD":

@@ -17,6 +17,10 @@ export interface InitializeStoreOptions {
   id?: () => string;
 }
 
+function isNotFoundError(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
 async function ensureStoreDirectories(storePath: string): Promise<void> {
   for (const name of ["events", "snapshots", "indexes"]) {
     const dir = join(storePath, name);
@@ -26,7 +30,16 @@ async function ensureStoreDirectories(storePath: string): Promise<void> {
 }
 
 export async function readStoreConfig(storePath: string): Promise<StoreConfig> {
-  const raw = JSON.parse(await readFile(join(storePath, "config.json"), "utf8")) as unknown;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await readFile(join(storePath, "config.json"), "utf8")) as unknown;
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid store config: ${message}`);
+  }
   const result = storeConfigSchema.safeParse(raw);
   if (!result.success) {
     throw new Error(`Invalid store config: ${z.prettifyError(result.error)}`);
@@ -43,8 +56,12 @@ export async function initializeStore(storePath: string, options: InitializeStor
   let existing: StoreConfig | undefined;
   try {
     existing = await readStoreConfig(storePath);
-  } catch {
-    existing = undefined;
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      existing = undefined;
+    } else {
+      throw error;
+    }
   }
 
   const timestamp = now();

@@ -1,4 +1,4 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { initializeStore, readStoreConfig } from "../../src/core/config.js";
@@ -41,6 +41,15 @@ describe("store config", () => {
       expect(result.config.created_at).toBe("2026-05-27T00:00:00.000Z");
       expect(result.config.updated_at).toBe("2026-05-28T00:00:00.000Z");
       await expect(readStoreConfig(storePath)).resolves.toEqual(result.config);
+    });
+  });
+
+  it("rejects malformed existing config during init", async () => {
+    await withTempStore(async (storePath) => {
+      await mkdir(storePath, { recursive: true });
+      await writeFile(join(storePath, "config.json"), "{\"store_version\":", "utf8");
+
+      await expect(initializeStore(storePath)).rejects.toThrow(/Invalid store config/);
     });
   });
 });

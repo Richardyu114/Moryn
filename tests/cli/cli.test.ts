@@ -272,4 +272,28 @@ describe("mem CLI", () => {
       }
     });
   });
+
+  it("returns structured JSON errors for malformed store config during init", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await mkdir(store, { recursive: true });
+      await writeFile(join(store, "config.json"), "{\"store_version\":", "utf8");
+
+      await expect(exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]))
+        .rejects.toMatchObject({
+          stderr: expect.stringContaining("\"ok\": false")
+        });
+
+      try {
+        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      } catch (error) {
+        const stderr = (error as { stderr: string }).stderr;
+        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_STORE_CONFIG");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("fix or remove config.json, then run mem init");
+      }
+    });
+  });
 });
