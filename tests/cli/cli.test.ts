@@ -671,6 +671,53 @@ describe("mem CLI", () => {
     });
   });
 
+  it("does not leak project refresh changes without project context", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "preference",
+        "--scope", "global",
+        "--state", "canonical",
+        "--text", "Prefer concise engineering updates."
+      ]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "blocker",
+        "--scope", "project",
+        "--project-id", "alpha",
+        "--state", "canonical",
+        "--priority", "high",
+        "--tag", "auth",
+        "--text", "Alpha auth token refresh is blocked by stale credentials."
+      ]);
+
+      const refresh = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "refresh",
+        "--cursor", "2000-01-01T00:00:00.000Z",
+        "--current-task", "fix auth token refresh"
+      ]);
+      const parsed = JSON.parse(refresh.stdout) as {
+        should_interrupt: boolean;
+        changes: Array<{ summary: string; importance: string }>;
+      };
+
+      expect(parsed.should_interrupt).toBe(false);
+      expect(parsed.changes).toEqual([
+        expect.objectContaining({
+          summary: "Prefer concise engineering updates.",
+          importance: "notice"
+        })
+      ]);
+      expect(JSON.stringify(parsed)).not.toContain("Alpha auth token refresh is blocked");
+    });
+  });
+
   it("archives, quarantines, links, and boots project default skills from the CLI", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

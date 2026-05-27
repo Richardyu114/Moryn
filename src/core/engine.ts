@@ -822,7 +822,7 @@ export function createEngine(deps: EngineDeps) {
       const limit = validateLimit(input.limit, 20);
       const records = (await currentRecords())
         .filter(isVisibleByDefault)
-        .filter((record) => recordProjectMatches(record, input.project_id))
+        .filter((record) => recordBootContextMatches(record, input.project_id))
         .filter((record) => !input.cursor || record.updated_at > input.cursor)
         .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
       const changes = records

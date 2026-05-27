@@ -140,6 +140,47 @@ describe("MCP stdio server", () => {
           expect.objectContaining({ record_id: writeResult.record.id, importance: "notice" })
         ]);
 
+        const globalPreference = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "preference",
+            scope: "global",
+            text: "Prefer concise MCP updates.",
+            state: "canonical",
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+        parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "blocker",
+            scope: "project",
+            project_id: "other",
+            tags: ["mcp"],
+            text: "Other MCP project is blocked by stale credentials.",
+            state: "canonical",
+            priority: "high",
+            source: { client: "mcp-test" }
+          }
+        }));
+        const globalRefresh = parseTextContent(await client.callTool({
+          name: "refresh",
+          arguments: {
+            cursor: "2000-01-01T00:00:00.000Z",
+            current_task: "fix mcp stale credentials"
+          }
+        })) as { should_interrupt: boolean; changes: Array<{ record_id: string; summary: string; importance: string }> };
+
+        expect(globalRefresh.should_interrupt).toBe(false);
+        expect(globalRefresh.changes).toContainEqual(expect.objectContaining({
+          record_id: globalPreference.record.id,
+          summary: "Prefer concise MCP updates.",
+          importance: "notice"
+        }));
+        expect(JSON.stringify(globalRefresh)).not.toContain("Other MCP project is blocked");
+
         const oldResult = parseTextContent(await client.callTool({
           name: "write",
           arguments: {
