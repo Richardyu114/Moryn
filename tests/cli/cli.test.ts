@@ -53,6 +53,18 @@ describe("mem CLI", () => {
     });
   });
 
+  it("preserves existing project sync mode when the CLI updates config without --sync-mode", async () => {
+    await withTempDir(async (dir) => {
+      const project = join(dir, "project");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "memora", "--sync-mode", "interval"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--tag", "typescript"]);
+
+      const projectConfig = JSON.parse(await readFile(join(project, ".memora.json"), "utf8")) as { tags: string[]; sync: { mode: string } };
+      expect(projectConfig.tags).toEqual(["typescript"]);
+      expect(projectConfig.sync.mode).toBe("interval");
+    });
+  });
+
   it("recalls an explicit record id through the CLI even when --project differs", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

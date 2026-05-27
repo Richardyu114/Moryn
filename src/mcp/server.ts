@@ -92,7 +92,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id,
         tags,
         default_skills,
-        sync: { mode: sync_mode ?? "session" }
+        sync: sync_mode === undefined ? undefined : { mode: sync_mode }
       })
     }))
   );

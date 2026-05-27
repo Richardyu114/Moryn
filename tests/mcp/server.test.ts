@@ -446,6 +446,37 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("preserves existing project sync mode when MCP updates config without sync_mode", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-mcp-project-init-preserve-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await withMcpClient(store, async (client) => {
+        parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: project,
+            project_id: "memora",
+            sync_mode: "interval"
+          }
+        }));
+        const updated = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: project,
+            tags: ["typescript"]
+          }
+        })) as { ok: boolean; config: { tags: string[]; sync: { mode: string } } };
+
+        expect(updated.ok).toBe(true);
+        expect(updated.config.tags).toEqual(["typescript"]);
+        expect(updated.config.sync.mode).toBe("interval");
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("does not apply ambient project config when only project_id is provided over MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "memora-mcp-explicit-project-"));
     const store = join(root, "store");

@@ -356,7 +356,7 @@ project.command("init")
   .option("--project-id <id>")
   .option("--tag <tag>", "Project tag", collectNonEmptyOption("--tag"), [])
   .option("--default-skill <selector>", "Default skill selector", collectNonEmptyOption("--default-skill"), [])
-  .option("--sync-mode <mode>", "Sync mode", "session")
+  .option("--sync-mode <mode>", "Sync mode")
   .action(async (options) => {
     printJson({
       ok: true,
@@ -364,7 +364,9 @@ project.command("init")
         project_id: options.projectId,
         tags: options.tag,
         default_skills: options.defaultSkill,
-        sync: { mode: parseEnum(options.syncMode, syncModes, "--sync-mode") }
+        sync: options.syncMode === undefined
+          ? undefined
+          : { mode: parseEnum(options.syncMode, syncModes, "--sync-mode") }
       })
     });
   });
