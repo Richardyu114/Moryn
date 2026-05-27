@@ -60,7 +60,14 @@ async function git(args: string[], cwd: string): Promise<string | undefined> {
 
 export async function readProjectConfig(projectPath: string): Promise<ProjectConfig | undefined> {
   try {
-    const raw = JSON.parse(await readFile(resolve(projectPath, ".memora.json"), "utf8")) as unknown;
+    const rawText = await readFile(resolve(projectPath, ".memora.json"), "utf8");
+    let raw: unknown;
+    try {
+      raw = JSON.parse(rawText) as unknown;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Invalid project config: ${message}`);
+    }
     const result = projectConfigSchema.safeParse(raw);
     if (!result.success) {
       throw new Error(`Invalid project config: ${z.prettifyError(result.error)}`);
@@ -70,7 +77,10 @@ export async function readProjectConfig(projectPath: string): Promise<ProjectCon
     if (error instanceof Error && error.message.startsWith("Invalid project config:")) {
       throw error;
     }
-    return undefined;
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
   }
 }
 

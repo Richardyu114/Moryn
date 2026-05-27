@@ -49,6 +49,14 @@ describe("project config", () => {
     });
   });
 
+  it("rejects malformed project config JSON", async () => {
+    await withTempStore(async (projectPath) => {
+      await writeFile(join(projectPath, ".memora.json"), "{\"project_id\":", "utf8");
+
+      await expect(resolveProjectContext({ projectPath })).rejects.toThrow(/Invalid project config/);
+    });
+  });
+
   it("uses git remote identity across local paths when config is absent", async () => {
     await withTempStore(async (projectPath) => {
       await exec("git", ["init"], { cwd: projectPath });
