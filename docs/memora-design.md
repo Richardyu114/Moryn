@@ -556,6 +556,9 @@ mem write --kind memory --type decision --scope project --project . --content-js
 CLI callers must provide exactly one of `--text` for text content or
 `--content-json` for a structured JSON object. MCP callers must provide
 exactly one of `text` or `content`.
+For `session_summary` handoffs, CLI and MCP callers may omit `type` and
+`scope`; Memora defaults them to `summary` and `project`. Other record kinds
+must provide both fields explicitly.
 
 ### `revise`
 

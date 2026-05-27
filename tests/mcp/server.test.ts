@@ -882,6 +882,72 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("writes project session summaries with handoff defaults over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-session-summary-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const write = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "session_summary",
+            project_id: "memora",
+            text: "Finished the task summary."
+          }
+        })) as {
+          record: {
+            kind: string;
+            type: string;
+            scope: string;
+            project_id?: string;
+            state: string;
+            content: { text?: string };
+            source: { client: string };
+          };
+        };
+
+        expect(write.record).toMatchObject({
+          kind: "session_summary",
+          type: "summary",
+          scope: "project",
+          project_id: "memora",
+          state: "candidate",
+          content: { text: "Finished the task summary." },
+          source: { client: "mcp" }
+        });
+
+        const missingType = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            scope: "project",
+            project_id: "memora",
+            text: "Ordinary MCP memories still need a type."
+          }
+        })) as { ok: boolean; error: { code: string; message: string } };
+        expect(missingType.ok).toBe(false);
+        expect(missingType.error.code).toBe("INVALID_ARGUMENT");
+        expect(missingType.error.message).toContain("write requires type");
+
+        const missingScope = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            project_id: "memora",
+            text: "Ordinary MCP memories still need a scope."
+          }
+        })) as { ok: boolean; error: { code: string; message: string } };
+        expect(missingScope.ok).toBe(false);
+        expect(missingScope.error.code).toBe("INVALID_ARGUMENT");
+        expect(missingScope.error.message).toContain("write requires scope");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("rejects empty optional MCP string inputs at the schema boundary", async () => {
     const store = await mkdtemp(join(tmpdir(), "memora-mcp-empty-input-"));
     try {

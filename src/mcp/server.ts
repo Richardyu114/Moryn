@@ -162,8 +162,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Append a new Memora record event.",
       inputSchema: {
         kind: recordKindSchema,
-        type: nonEmptyStringSchema,
-        scope: recordScopeSchema,
+        type: nonEmptyStringSchema.optional(),
+        scope: recordScopeSchema.optional(),
         project_id: nonEmptyStringSchema.optional(),
         project_path: nonEmptyStringSchema.optional(),
         tags: z.array(nonEmptyStringSchema).optional(),
@@ -189,10 +189,18 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       }
       const content = input.content ?? { text: input.text ?? "", format: "text" as const };
       const project = await resolveProjectInput({ project_id: input.project_id, project_path: input.project_path });
+      const type = input.type ?? (input.kind === "session_summary" ? "summary" : undefined);
+      const scope = input.scope ?? (input.kind === "session_summary" ? "project" : undefined);
+      if (!type) {
+        throw new Error("Invalid argument: write requires type");
+      }
+      if (!scope) {
+        throw new Error("Invalid argument: write requires scope");
+      }
       return engine.write({
         kind: input.kind as RecordKind,
-        type: input.type,
-        scope: input.scope as RecordScope,
+        type,
+        scope: scope as RecordScope,
         project_id: project.project_id,
         tags: [...project.tags, ...(input.tags ?? [])],
         content,

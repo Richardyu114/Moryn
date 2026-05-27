@@ -188,6 +188,9 @@ mem boot --project /path/to/project
 
 For writes, CLI callers must provide exactly one of `--text` or
 `--content-json`; MCP callers must provide exactly one of `text` or `content`.
+For `session_summary` handoffs, CLI and MCP callers may omit `type` and
+`scope`; Memora defaults them to `summary` and `project`. Other record kinds
+must provide both fields explicitly.
 
 ### 5. Connect Agents Through MCP
 
