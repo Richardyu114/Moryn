@@ -339,6 +339,22 @@ function isImportantBootRecent(record: MemoraRecord): boolean {
     && (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75));
 }
 
+function recallTypePriority(type: string): { score: number; reason: string } | undefined {
+  const normalized = type.toLowerCase();
+  if (normalized === "blocker" || normalized === "warning" || normalized === "conflict") return { score: 4, reason: `type_priority:${normalized}` };
+  if (normalized === "decision") return { score: 3, reason: "type_priority:decision" };
+  if (normalized === "preference") return { score: 2, reason: "type_priority:preference" };
+  if (normalized === "summary" || normalized === "project_summary") return { score: 1, reason: "type_priority:summary" };
+  return undefined;
+}
+
+function recallSourceTrust(record: MemoraRecord): { score: number; reason: string } {
+  const method = record.provenance?.method ?? provenanceMethod(record.source);
+  if (method === "user-confirmed") return { score: 3, reason: "source_trust:user-confirmed" };
+  if (method === "rule-promoted") return { score: 2, reason: "source_trust:rule-promoted" };
+  return { score: 1, reason: "source_trust:agent-proposed" };
+}
+
 function reasonAndScore(record: MemoraRecord, input: RecallInput): { score: number; reason: string[] } {
   let score = 0;
   const reason: string[] = [];
@@ -369,6 +385,14 @@ function reasonAndScore(record: MemoraRecord, input: RecallInput): { score: numb
     score += 5;
     reason.push("high_priority");
   }
+  const typePriority = recallTypePriority(record.type);
+  if (typePriority) {
+    score += typePriority.score;
+    reason.push(typePriority.reason);
+  }
+  const sourceTrust = recallSourceTrust(record);
+  score += sourceTrust.score;
+  reason.push(sourceTrust.reason);
   for (const tag of input.tags ?? []) {
     if (record.tags.includes(tag)) {
       score += 5;

@@ -1026,6 +1026,66 @@ describe("core engine", () => {
     });
   });
 
+  it("ranks recall by type importance and provenance trust", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const decision = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Auth alpha middleware decision.", format: "text" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+
+      const agentWarning = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Auth beta retry latency.", format: "text" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+
+      const ruleWarning = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Auth gamma timeout threshold.", format: "text" },
+        state: "canonical",
+        source: { client: "memora" }
+      });
+
+      const userWarning = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Auth delta token expiry.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      const recall = await engine.recall({ query: "auth", project_id: "memora", kinds: ["memory"], limit: 4 });
+
+      expect(recall.results.map((result) => result.record.id)).toEqual([
+        userWarning.record.id,
+        ruleWarning.record.id,
+        agentWarning.record.id,
+        decision.record.id
+      ]);
+      expect(recall.results[0]?.reason).toContain("type_priority:warning");
+      expect(recall.results[0]?.reason).toContain("source_trust:user-confirmed");
+      expect(recall.results[1]?.reason).toContain("source_trust:rule-promoted");
+      expect(recall.results[2]?.reason).toContain("source_trust:agent-proposed");
+    });
+  });
+
   it("recalls an explicit record id even when the current project context differs", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
