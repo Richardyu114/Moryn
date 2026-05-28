@@ -510,7 +510,17 @@ function doctorNextActions(input: AgentLifecycleInput) {
   ];
 }
 
-function doctorReadiness(checks: DoctorCheck[], next: { recommended_action: string; tool: string; command: string }) {
+function doctorReadiness(
+  checks: DoctorCheck[],
+  next: {
+    recommended_action: string;
+    tool: string;
+    safe_to_run: boolean;
+    command: string;
+    required_fields?: string[];
+    arguments?: Record<string, unknown>;
+  }
+) {
   return {
     safe_to_start: next.tool === "agent_start",
     blocking_checks: checks
@@ -518,7 +528,10 @@ function doctorReadiness(checks: DoctorCheck[], next: { recommended_action: stri
       .map((check) => check.name),
     recommended_action: next.recommended_action,
     next_tool: next.tool,
-    next_command: next.command
+    next_command: next.command,
+    next_safe_to_run: next.safe_to_run,
+    next_required_fields: next.required_fields ?? [],
+    next_arguments: next.arguments ?? {}
   };
 }
 

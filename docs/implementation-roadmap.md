@@ -143,6 +143,9 @@ Deliverables:
 - Done: Lifecycle `next.actions` and guide templates expose action-level
   `safe_to_run` metadata so agents can distinguish automatic refresh/start
   helpers from status/finish writes that need authored content.
+- Done: `agent_doctor.readiness` mirrors the selected next action's safety,
+  required fields, and arguments so agents can start or recover without
+  recombining nested objects.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

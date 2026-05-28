@@ -1707,6 +1707,9 @@ describe("moryn CLI", () => {
           recommended_action: string;
           next_tool: string;
           next_command: string;
+          next_safe_to_run: boolean;
+          next_required_fields: string[];
+          next_arguments: Record<string, unknown>;
         };
         next: {
           command: string;
@@ -1724,7 +1727,15 @@ describe("moryn CLI", () => {
         blocking_checks: [],
         recommended_action: "call_agent_start",
         next_tool: "agent_start",
-        next_command: parsed.next.command
+        next_command: parsed.next.command,
+        next_safe_to_run: true,
+        next_required_fields: [],
+        next_arguments: {
+          project_path: project,
+          sync_remote: remote,
+          current_task: "start safely",
+          agent: { client: "codex", session_id: "codex-doctor" }
+        }
       });
       expect(parsed.next.command).toContain("moryn agent start");
       expect(parsed.next.command).toContain("--sync-remote");
@@ -1794,7 +1805,10 @@ describe("moryn CLI", () => {
         blocking_checks: ["sync"],
         recommended_action: "resolve_sync_conflict_before_lifecycle",
         next_tool: "sync_status",
-        next_command: "moryn sync --status"
+        next_command: "moryn sync --status",
+        next_safe_to_run: true,
+        next_required_fields: [],
+        next_arguments: {}
       });
 
       const entered = await exec("node", [

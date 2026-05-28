@@ -487,7 +487,15 @@ describe("agent lifecycle", () => {
         blocking_checks: [],
         recommended_action: "call_agent_start",
         next_tool: "agent_start",
-        next_command: doctor.next.command
+        next_command: doctor.next.command,
+        next_safe_to_run: true,
+        next_required_fields: [],
+        next_arguments: {
+          project_path: project,
+          sync_remote: remote,
+          current_task: "continue safely on a new machine",
+          agent: { client: "gemini", session_id: "gemini-doctor" }
+        }
       });
       expect(doctor.checks).toContainEqual(expect.objectContaining({
         name: "store",
@@ -583,7 +591,10 @@ describe("agent lifecycle", () => {
         blocking_checks: ["sync"],
         recommended_action: "resolve_sync_conflict_before_lifecycle",
         next_tool: "sync_status",
-        next_command: "moryn sync --status"
+        next_command: "moryn sync --status",
+        next_safe_to_run: true,
+        next_required_fields: [],
+        next_arguments: {}
       });
 
       const entered = await agentEnter({
@@ -662,6 +673,16 @@ describe("agent lifecycle", () => {
         tool: "project_list",
         safe_to_run: true,
         command: "moryn project list"
+      });
+      expect(doctor.readiness).toEqual({
+        safe_to_start: false,
+        blocking_checks: [],
+        recommended_action: "list_projects",
+        next_tool: "project_list",
+        next_command: "moryn project list",
+        next_safe_to_run: true,
+        next_required_fields: [],
+        next_arguments: {}
       });
       expect(doctor.next.actions).toContainEqual(expect.objectContaining({
         action: "list_projects",

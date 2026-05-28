@@ -354,8 +354,10 @@ commands (`agent start`, `agent status`, and `agent finish`) also reject missing
 project context in a populated store unless the current directory resolves via a
 `.moryn.json` config; agents should call `agent enter` or `project list` first.
 `agent doctor` also returns a top-level `readiness` summary with
-`safe_to_start`, `blocking_checks`, and the selected next tool/command, so
-agents can decide whether startup is allowed without inferring from every check.
+`safe_to_start`, `blocking_checks`, and the selected next tool/command,
+`safe_to_run`, required fields, and arguments, so agents can decide whether
+startup is allowed without inferring from every check or recombining fields from
+the full `next` object.
 After a lifecycle command resolves a project from `.moryn.json`, returned
 `next.actions` include the resolved `project_id`, so agents can reuse those
 commands from another cwd or MCP host without relying on ambient directory

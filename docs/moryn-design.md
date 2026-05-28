@@ -777,6 +777,9 @@ can discover a shared project, start, or verify the shared Git path without
 inferring commands from prose. It also returns a `readiness` summary:
 `safe_to_start` is true only when the selected next tool is `agent_start`, and
 `blocking_checks` lists warning-level checks that prevent lifecycle startup.
+The same summary repeats the selected next tool, command, `safe_to_run`,
+required fields, and arguments so a lightweight agent can follow readiness
+without merging data from the full `next` object.
 
 ### `project_list`
 
