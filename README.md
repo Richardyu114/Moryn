@@ -404,7 +404,9 @@ agent_status(project_path, status, current_task, agent)
 
 This records an in-progress status checkpoint and pushes it when sync is
 configured. Other agents see it through `agent_start.refresh.changes` and
-`boot.recent_changes`.
+`boot.recent_changes`. `agent_status.next.actions` includes machine-readable
+templates for finishing the session and refreshing context from the status
+record cursor.
 
 When existing memory or skill needs correction:
 
@@ -425,7 +427,8 @@ agent_finish(project_path, summary, agent)
 
 This records a `session_summary` handoff and pushes it when sync is configured.
 Agents should prefer `agent_finish` over manually composing `write` and
-`sync_push`.
+`sync_push`. `agent_finish.next.actions` includes a machine-readable
+`start_next_session` template for the next agent or device.
 
 When a candidate should become durable shared context:
 

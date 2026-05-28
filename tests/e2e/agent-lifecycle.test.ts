@@ -43,6 +43,16 @@ describe("agent lifecycle", () => {
       expect(codexFinish.record.content.text).toBe("Codex finished lifecycle wiring and left a Gemini handoff.");
       expect(codexFinish.sync.push?.pushed).toBe(true);
       expect(codexFinish.next.recommended_start_command).toBe("moryn agent start --project <path> --current-task <task>");
+      expect(codexFinish.next.actions).toContainEqual(expect.objectContaining({
+        action: "start_next_session",
+        tool: "agent_start",
+        command: expect.stringMatching(/moryn agent start.*--current-task <current_task>/),
+        required_fields: ["current_task"],
+        arguments: expect.objectContaining({
+          project_path: project,
+          agent: { client: "codex", device_id: "device_codex", session_id: "codex-1" }
+        })
+      }));
 
       const geminiStart = await agentStart({
         storePath: storeB,
@@ -239,6 +249,29 @@ describe("agent lifecycle", () => {
         })
       });
       expect(status.sync.push?.pushed).toBe(true);
+      expect(status.next.actions).toContainEqual(expect.objectContaining({
+        action: "finish_session",
+        tool: "agent_finish",
+        command: expect.stringContaining("moryn agent finish"),
+        required_fields: ["summary"],
+        arguments: expect.objectContaining({
+          project_path: project,
+          sync_remote: remote,
+          current_task: "lifecycle status propagation"
+        })
+      }));
+      expect(status.next.actions).toContainEqual(expect.objectContaining({
+        action: "refresh_context",
+        tool: "agent_start",
+        command: expect.stringContaining("moryn agent start"),
+        required_fields: [],
+        arguments: expect.objectContaining({
+          project_path: project,
+          sync_remote: remote,
+          refresh_since: status.record.updated_at,
+          current_task: "lifecycle status propagation"
+        })
+      }));
 
       const start = await agentStart({
         storePath: storeB,

@@ -707,7 +707,9 @@ Agents should prefer this over separately calling `write` and `sync_push`. The
 handoff summary is intentionally visible to the next agent through
 `agent_start.refresh.changes` and `boot.recent_changes`. When `--sync-remote`
 or MCP `sync_remote` is provided, `agent_finish` creates the local store if
-needed and initializes Git sync before writing and pushing the handoff.
+needed and initializes Git sync before writing and pushing the handoff. Its
+`next.actions` includes a `start_next_session` template so another agent can
+restart through `agent_start` without inferring arguments from prose.
 
 ### `agent_status`
 
@@ -726,7 +728,9 @@ MCP tool: `agent_status`.
 Agents should prefer this over manually composing `write` and `sync_push` for
 in-progress coordination. Status records are intentionally visible to the next
 agent through `agent_start.refresh.changes` and `boot.recent_changes`, while
-remaining distinguishable from final handoffs by `type=status`.
+remaining distinguishable from final handoffs by `type=status`. Its
+`next.actions` includes templates for `finish_session` and `refresh_context`
+using the status record timestamp as the next refresh cursor.
 
 ### `rebuild`
 
@@ -810,9 +814,9 @@ Agents should follow this contract:
 2. Pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
 3. Call `agent_start` at task start.
 4. Call `recall` when context is missing or uncertain.
-5. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread.
+5. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions` for finish or refresh.
 6. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
-7. Call `agent_finish` at the end of meaningful work.
+7. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
 8. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
 9. Write raw notes as `agent_note`, not canonical memory.
 10. Do not promote long-term preferences, soul records, or global skills without user confirmation.

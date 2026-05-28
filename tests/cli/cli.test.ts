@@ -1151,9 +1151,23 @@ describe("moryn CLI", () => {
         "--session-id", "codex-cli",
         "--summary", "CLI Codex finished the lifecycle protocol."
       ]);
-      const parsedFinish = JSON.parse(finish.stdout) as { record: { content: { text: string } }; sync: { push?: { pushed?: boolean } } };
+      const parsedFinish = JSON.parse(finish.stdout) as {
+        record: { content: { text: string } };
+        sync: { push?: { pushed?: boolean } };
+        next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+      };
       expect(parsedFinish.record.content.text).toBe("CLI Codex finished the lifecycle protocol.");
       expect(parsedFinish.sync.push?.pushed).toBe(true);
+      expect(parsedFinish.next.actions).toContainEqual(expect.objectContaining({
+        action: "start_next_session",
+        tool: "agent_start",
+        command: expect.stringContaining("moryn agent start"),
+        required_fields: ["current_task"],
+        arguments: expect.objectContaining({
+          project_path: project,
+          agent: expect.objectContaining({ client: "codex", session_id: "codex-cli" })
+        })
+      }));
 
       const start = await exec("node", [
         "--import", tsxLoader, cliPath, "--store", storeB,
@@ -1265,8 +1279,9 @@ describe("moryn CLI", () => {
         "--status", "CLI Codex is currently wiring status propagation."
       ]);
       const parsedStatus = JSON.parse(status.stdout) as {
-        record: { kind: string; type: string; content: { text: string; current_task?: string } };
+        record: { kind: string; type: string; updated_at: string; content: { text: string; current_task?: string } };
         sync: { push?: { pushed?: boolean } };
+        next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
       };
       expect(parsedStatus.record).toMatchObject({
         kind: "session_summary",
@@ -1277,6 +1292,29 @@ describe("moryn CLI", () => {
         }
       });
       expect(parsedStatus.sync.push?.pushed).toBe(true);
+      expect(parsedStatus.next.actions).toContainEqual(expect.objectContaining({
+        action: "finish_session",
+        tool: "agent_finish",
+        command: expect.stringContaining("moryn agent finish"),
+        required_fields: ["summary"],
+        arguments: expect.objectContaining({
+          project_path: project,
+          sync_remote: remote,
+          current_task: "coordinate status"
+        })
+      }));
+      expect(parsedStatus.next.actions).toContainEqual(expect.objectContaining({
+        action: "refresh_context",
+        tool: "agent_start",
+        command: expect.stringContaining("--refresh-since"),
+        required_fields: [],
+        arguments: expect.objectContaining({
+          project_path: project,
+          sync_remote: remote,
+          refresh_since: parsedStatus.record.updated_at,
+          current_task: "coordinate status"
+        })
+      }));
 
       const start = await exec("node", [
         "--import", tsxLoader, cliPath, "--store", storeB,

@@ -108,6 +108,23 @@ function buildAgentStartCommand(input: AgentLifecycleInput): string {
   return parts.join(" ");
 }
 
+function buildAgentStartTemplateCommand(input: AgentLifecycleInput, requiredFields: string[]): string {
+  const parts = ["moryn", "agent", "start"];
+  appendOption(parts, "--project", input.projectPath);
+  appendOption(parts, "--project-id", input.projectId);
+  appendOption(parts, "--sync-remote", input.syncRemote);
+  if (input.currentTask) {
+    appendOption(parts, "--current-task", input.currentTask);
+  } else if (requiredFields.includes("current_task")) {
+    parts.push("--current-task", "<current_task>");
+  }
+  appendOption(parts, "--agent", input.agent?.client);
+  appendOption(parts, "--session-id", input.agent?.session_id);
+  appendOption(parts, "--model", input.agent?.model);
+  appendOption(parts, "--device-id", input.agent?.device_id);
+  return parts.join(" ");
+}
+
 function buildAgentRefreshCommand(input: AgentLifecycleInput, cursor: string): string {
   const parts = ["moryn", "agent", "start"];
   appendOption(parts, "--project", input.projectPath);
@@ -187,6 +204,16 @@ function refreshActionArguments(input: AgentLifecycleInput, cursor: string): {
   };
 }
 
+function agentStartActionArguments(input: AgentLifecycleInput): {
+  project_path?: string;
+  project_id?: string;
+  sync_remote?: string;
+  current_task?: string;
+  agent?: AgentIdentity;
+} {
+  return lifecycleActionArguments(input);
+}
+
 function nextActions(input: AgentLifecycleInput, cursor?: string) {
   const args = lifecycleActionArguments(input);
   const actions = [
@@ -215,6 +242,38 @@ function nextActions(input: AgentLifecycleInput, cursor?: string) {
     });
   }
   return actions;
+}
+
+function finishNextActions(input: AgentLifecycleInput) {
+  const requiredFields = input.currentTask ? [] : ["current_task"];
+  return [
+    {
+      action: "start_next_session",
+      tool: "agent_start",
+      command: buildAgentStartTemplateCommand(input, requiredFields),
+      required_fields: requiredFields,
+      arguments: agentStartActionArguments(input)
+    }
+  ];
+}
+
+function statusNextActions(input: AgentLifecycleInput, cursor: string) {
+  return [
+    {
+      action: "finish_session",
+      tool: "agent_finish",
+      command: buildAgentFinishCommand(input),
+      required_fields: ["summary"],
+      arguments: lifecycleActionArguments(input)
+    },
+    {
+      action: "refresh_context",
+      tool: "agent_start",
+      command: buildAgentRefreshCommand(input, cursor),
+      required_fields: [],
+      arguments: refreshActionArguments(input, cursor)
+    }
+  ];
 }
 
 async function initializeLifecycleSync(storePath: string, syncRemote: string | undefined, result: BootstrapResult): Promise<void> {
@@ -429,7 +488,8 @@ export async function agentFinish(input: AgentFinishInput) {
     warning: record.warning,
     sync,
     next: {
-      recommended_start_command: "moryn agent start --project <path> --current-task <task>"
+      recommended_start_command: "moryn agent start --project <path> --current-task <task>",
+      actions: finishNextActions(input)
     }
   };
 }
@@ -479,7 +539,8 @@ export async function agentStatus(input: AgentStatusInput) {
     warning: record.warning,
     sync,
     next: {
-      recommended_finish_action: "call agent_finish with the final session_summary when meaningful work ends"
+      recommended_finish_action: "call agent_finish with the final session_summary when meaningful work ends",
+      actions: statusNextActions(input, record.record.updated_at)
     }
   };
 }

@@ -363,9 +363,23 @@ describe("MCP stdio server", () => {
               summary: "MCP Codex left a lifecycle handoff.",
               agent: { client: "codex", session_id: "codex-mcp", device_id: "device_a" }
             }
-          })) as { record: { content: { text: string } }; sync: { push?: { pushed?: boolean } } };
+          })) as {
+            record: { content: { text: string } };
+            sync: { push?: { pushed?: boolean } };
+            next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+          };
           expect(finish.record.content.text).toBe("MCP Codex left a lifecycle handoff.");
           expect(finish.sync.push?.pushed).toBe(true);
+          expect(finish.next.actions).toContainEqual(expect.objectContaining({
+            action: "start_next_session",
+            tool: "agent_start",
+            command: expect.stringContaining("moryn agent start"),
+            required_fields: ["current_task"],
+            arguments: expect.objectContaining({
+              project_path: project,
+              agent: { client: "codex", session_id: "codex-mcp", device_id: "device_a" }
+            })
+          }));
 
           const start = parseTextContent(await agentB.callTool({
             name: "agent_start",
@@ -487,8 +501,9 @@ describe("MCP stdio server", () => {
               agent: { client: "codex", session_id: "codex-mcp-status" }
             }
           })) as {
-            record: { kind: string; type: string; content: { text: string; current_task?: string } };
+            record: { kind: string; type: string; updated_at: string; content: { text: string; current_task?: string } };
             sync: { push?: { pushed?: boolean } };
+            next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
           };
           expect(status.record).toMatchObject({
             kind: "session_summary",
@@ -499,6 +514,29 @@ describe("MCP stdio server", () => {
             }
           });
           expect(status.sync.push?.pushed).toBe(true);
+          expect(status.next.actions).toContainEqual(expect.objectContaining({
+            action: "finish_session",
+            tool: "agent_finish",
+            command: expect.stringContaining("moryn agent finish"),
+            required_fields: ["summary"],
+            arguments: expect.objectContaining({
+              project_path: project,
+              sync_remote: remote,
+              current_task: "coordinate MCP status"
+            })
+          }));
+          expect(status.next.actions).toContainEqual(expect.objectContaining({
+            action: "refresh_context",
+            tool: "agent_start",
+            command: expect.stringContaining("--refresh-since"),
+            required_fields: [],
+            arguments: expect.objectContaining({
+              project_path: project,
+              sync_remote: remote,
+              refresh_since: status.record.updated_at,
+              current_task: "coordinate MCP status"
+            })
+          }));
 
           const start = parseTextContent(await agentB.callTool({
             name: "agent_start",
