@@ -542,6 +542,28 @@ describe("MCP stdio server", () => {
             arguments: {},
             safe_to_run: true
           });
+
+          const status = parseTextContent(await agentB.callTool({
+            name: "sync_status",
+            arguments: {}
+          })) as {
+            sync_state?: string;
+            conflict?: {
+              operation?: string;
+              files?: string[];
+              safe_to_auto_resolve?: boolean;
+              safe_to_retry_sync?: boolean;
+              recommended_action?: string;
+            };
+          };
+          expect(status.sync_state).toBe("conflict");
+          expect(status.conflict).toEqual({
+            operation: "rebase",
+            files: [conflictFile],
+            safe_to_auto_resolve: false,
+            safe_to_retry_sync: false,
+            recommended_action: "resolve Git conflicts before retrying sync"
+          });
         });
       });
     } finally {

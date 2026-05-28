@@ -650,6 +650,32 @@ moryn sync --push --message "sync after session"
 MCP exposes the same sync semantics as separate tools: `sync_init`,
 `sync_status`, `sync_pull`, and `sync_push`.
 
+When Git is left in a conflict state after pull or push, `sync_status` returns
+structured conflict diagnostics instead of only a dirty worktree flag:
+
+```json
+{
+  "configured": true,
+  "branch": "",
+  "remote": "git@github.com:yourname/moryn-store.git",
+  "dirty": true,
+  "sync_state": "conflict",
+  "conflict": {
+    "operation": "rebase",
+    "files": [
+      "events/shared-device/2026-05/evt_conflict.json"
+    ],
+    "safe_to_auto_resolve": false,
+    "safe_to_retry_sync": false,
+    "recommended_action": "resolve Git conflicts before retrying sync"
+  }
+}
+```
+
+Agents must treat `sync_state: "conflict"` as a stop sign for automatic sync
+retry. The status response is safe to inspect, but conflict resolution itself
+requires explicit user or host policy.
+
 ### `agent_guide`
 
 Used as a read-only workflow contract for agent hosts that need exact lifecycle

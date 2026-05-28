@@ -260,6 +260,54 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("reports structured conflict diagnostics after a failed pull", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-conflict-status-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    const conflictFile = join("events", "shared-device", "2026-05", "evt_conflict.json");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(storeA, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_a"
+      });
+      await initializeStore(storeB, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_b"
+      });
+      await initializeGitSync(storeA, remote);
+      await initializeGitSync(storeB, remote);
+
+      await mkdir(join(storeA, "events", "shared-device", "2026-05"), { recursive: true });
+      await mkdir(join(storeB, "events", "shared-device", "2026-05"), { recursive: true });
+      await writeFile(join(storeA, conflictFile), "{\"from\":\"a\"}\n", "utf8");
+      await writeFile(join(storeB, conflictFile), "{\"from\":\"b\"}\n", "utf8");
+      await exec("git", ["add", conflictFile], { cwd: storeA });
+      await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: storeA });
+      await exec("git", ["push", "-u", "origin", "main"], { cwd: storeA });
+      await exec("git", ["add", conflictFile], { cwd: storeB });
+      await exec("git", ["commit", "-m", "device b conflicting event"], { cwd: storeB });
+
+      await expect(pullGitSync(storeB)).rejects.toThrow(/conflict/i);
+
+      await expect(getGitSyncStatus(storeB)).resolves.toEqual(expect.objectContaining({
+        configured: true,
+        dirty: true,
+        sync_state: "conflict",
+        conflict: {
+          operation: "rebase",
+          files: [conflictFile],
+          safe_to_auto_resolve: false,
+          safe_to_retry_sync: false,
+          recommended_action: "resolve Git conflicts before retrying sync"
+        }
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rebuilds derived views after sync init imports an existing remote history", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-derived-"));
     const remote = join(root, "remote.git");

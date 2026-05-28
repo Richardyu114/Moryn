@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import type { StoreConfig } from "../core/config.js";
@@ -13,11 +13,21 @@ export interface GitSyncStatus {
   branch?: string;
   remote?: string;
   dirty?: boolean;
+  sync_state?: "clean" | "dirty" | "conflict";
+  conflict?: GitSyncConflictStatus;
   ahead?: number;
   behind?: number;
   last_sync?: GitLastSync;
   last_commit?: string;
   error?: string;
+}
+
+export interface GitSyncConflictStatus {
+  operation: "merge" | "rebase" | "cherry-pick" | "unknown";
+  files: string[];
+  safe_to_auto_resolve: boolean;
+  safe_to_retry_sync: boolean;
+  recommended_action: string;
 }
 
 export interface GitLastSync {
@@ -65,6 +75,16 @@ async function gitOk(cwd: string, args: string[]): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
+    throw error;
   }
 }
 
@@ -165,6 +185,30 @@ async function ensureRemote(storePath: string, remoteUrl: string): Promise<void>
   }
 }
 
+async function gitConflictStatus(storePath: string): Promise<GitSyncConflictStatus | undefined> {
+  const gitDir = await git(storePath, ["rev-parse", "--git-dir"]);
+  const operation =
+    await pathExists(join(storePath, gitDir, "rebase-merge")) || await pathExists(join(storePath, gitDir, "rebase-apply"))
+      ? "rebase"
+      : await pathExists(join(storePath, gitDir, "MERGE_HEAD"))
+        ? "merge"
+        : await pathExists(join(storePath, gitDir, "CHERRY_PICK_HEAD"))
+          ? "cherry-pick"
+          : "unknown";
+  const files = (await git(storePath, ["diff", "--name-only", "--diff-filter=U"]))
+    .split(/\r?\n/)
+    .map((file) => file.trim())
+    .filter(Boolean);
+  if (operation === "unknown" && files.length === 0) return undefined;
+  return {
+    operation,
+    files,
+    safe_to_auto_resolve: false,
+    safe_to_retry_sync: false,
+    recommended_action: "resolve Git conflicts before retrying sync"
+  };
+}
+
 export async function initializeGitSync(storePath: string, remoteUrl: string): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
   validateRequiredString(remoteUrl, "remoteUrl");
@@ -210,6 +254,7 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
       await git(storePath, ["fetch", "origin", "main"]).catch(() => undefined);
     }
     const porcelain = await git(storePath, ["status", "--porcelain"]);
+    const conflict = await gitConflictStatus(storePath);
     const lastCommit = await git(storePath, ["rev-parse", "--short", "HEAD"]).catch(() => undefined);
     const lastSync = await readLastSync(storePath);
     let ahead = 0;
@@ -225,6 +270,8 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
       branch,
       remote,
       dirty: porcelain.length > 0,
+      sync_state: conflict ? "conflict" : porcelain.length > 0 ? "dirty" : "clean",
+      ...(conflict ? { conflict } : {}),
       ahead,
       behind,
       last_sync: lastSync,

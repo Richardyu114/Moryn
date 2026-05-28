@@ -101,6 +101,8 @@ Deliverables:
 - Done: `moryn sync --push` commits local event files and pushes.
 - Done: `moryn sync --status` reports configured remote, branch, dirty state, ahead,
   behind, and last sync.
+- Done: `moryn sync --status` reports structured conflict diagnostics after a
+  failed pull or push so agents do not infer recovery from a dirty worktree.
 - Done: Generated snapshots/indexes are excluded from sync by default.
 - Done: Local `config.json` is excluded from sync to avoid device identity conflicts.
 - Done: Post-pull snapshot/index rebuild runs after successful pull.

@@ -1315,6 +1315,26 @@ describe("moryn CLI", () => {
           safe_to_run: true
         });
       }
+
+      const status = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--status"]);
+      const parsedStatus = JSON.parse(status.stdout) as {
+        sync_state?: string;
+        conflict?: {
+          operation?: string;
+          files?: string[];
+          safe_to_auto_resolve?: boolean;
+          safe_to_retry_sync?: boolean;
+          recommended_action?: string;
+        };
+      };
+      expect(parsedStatus.sync_state).toBe("conflict");
+      expect(parsedStatus.conflict).toEqual({
+        operation: "rebase",
+        files: [conflictFile],
+        safe_to_auto_resolve: false,
+        safe_to_retry_sync: false,
+        recommended_action: "resolve Git conflicts before retrying sync"
+      });
     });
   });
 
