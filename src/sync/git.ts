@@ -120,6 +120,10 @@ async function hasRemoteHead(storePath: string): Promise<boolean> {
   return gitOk(storePath, ["ls-remote", "--exit-code", "--heads", "origin", "main"]);
 }
 
+async function hasStagedChanges(storePath: string): Promise<boolean> {
+  return !await gitOk(storePath, ["diff", "--cached", "--quiet"]);
+}
+
 async function ensureGitSyncConfigured(storePath: string): Promise<void> {
   if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) {
     throw new Error("Sync not configured: run mem sync init <remote>");
@@ -159,9 +163,10 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
   }
 
   await git(storePath, ["add", "events", ".gitignore"]);
-  if (!await hasCommits(storePath)) {
+  const shouldPushInitialCommit = !await hasRemoteHead(storePath);
+  if (await hasStagedChanges(storePath)) {
     await git(storePath, ["commit", "-m", "Initialize Memora store"]);
-    if (!await hasRemoteHead(storePath)) {
+    if (shouldPushInitialCommit) {
       await git(storePath, ["push", "-u", "origin", "main"]);
     }
   }
@@ -236,9 +241,8 @@ export async function pushGitSync(storePath: string, options: { message?: string
   await ensureMainBranch(storePath);
   await git(storePath, ["add", "events", ".gitignore"]);
 
-  const hasStagedChanges = !await gitOk(storePath, ["diff", "--cached", "--quiet"]);
   let committed = false;
-  if (hasStagedChanges) {
+  if (await hasStagedChanges(storePath)) {
     await git(storePath, ["commit", "-m", options.message ?? "Sync Memora events"]);
     committed = true;
   }
