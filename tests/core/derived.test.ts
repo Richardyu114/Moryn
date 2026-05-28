@@ -84,7 +84,7 @@ describe("derived views", () => {
         type: "summary",
         scope: "project",
         project_id: "memora",
-        content: { text: "Memora is a local-first agent memory layer.", format: "text" },
+        content: { format: "json", summary: "Memora is a local-first agent memory layer." },
         state: "canonical",
         source: { client: "test" }
       });

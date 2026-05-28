@@ -1732,6 +1732,97 @@ describe("core engine", () => {
     });
   });
 
+  it("matches configured default skill selectors against structured skill content", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const releaseSkill = await engine.write({
+        kind: "skill",
+        type: "procedure",
+        scope: "global",
+        tags: ["publishing"],
+        content: {
+          format: "json",
+          purpose: "Safe release workflow for npm packages.",
+          instructions: ["Run tests", "Run typecheck", "Build before publish"]
+        },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      const boot = await engine.boot({ project_id: "memora", default_skills: ["release"] });
+
+      expect(boot.skills.map((record) => record.id)).toEqual([releaseSkill.record.id]);
+    });
+  });
+
+  it("matches configured default skill selectors against structured fields even when skill text exists", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const releaseSkill = await engine.write({
+        kind: "skill",
+        type: "procedure",
+        scope: "global",
+        tags: ["publishing"],
+        content: {
+          format: "json",
+          text: "Run the release checklist.",
+          purpose: "Safe npm package release workflow."
+        },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      const boot = await engine.boot({ project_id: "memora", default_skills: ["npm"] });
+
+      expect(boot.skills.map((record) => record.id)).toEqual([releaseSkill.record.id]);
+    });
+  });
+
+  it("builds boot project text fields from structured content values", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      await engine.write({
+        kind: "memory",
+        type: "summary",
+        scope: "project",
+        project_id: "memora",
+        content: { format: "json", summary: "Memora keeps structured boot context available." },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "tech_stack",
+        scope: "project",
+        project_id: "memora",
+        content: { format: "json", language: "TypeScript", runtime: "Node.js" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "active_goal",
+        scope: "project",
+        project_id: "memora",
+        content: { format: "json", summary: "Ship structured boot support." },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const boot = await engine.boot({ project_id: "memora" });
+
+      expect(boot.project.summary).toBe("Memora keeps structured boot context available.");
+      expect(boot.project.tech_stack).toEqual(["TypeScript Node.js"]);
+      expect(boot.project.active_goals).toEqual(["Ship structured boot support."]);
+    });
+  });
+
   it("adds task-relevant trusted records to boot context when current task is provided", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
@@ -2013,6 +2104,36 @@ describe("core engine", () => {
 
       expect(refresh.cursor).toBe(raw.record.updated_at);
       expect(refresh.changes.map((change) => change.record_id)).toEqual([decision.record.id]);
+    });
+  });
+
+  it("summarizes refresh changes from structured content values", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:01:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      const warning = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "memora",
+        content: {
+          format: "json",
+          summary: "Structured refresh warning.",
+          files: ["src/auth.ts"]
+        },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const refresh = await engine.refresh({ project_id: "memora", cursor: "2026-05-27T00:00:00.000Z" });
+
+      expect(refresh.changes).toEqual([
+        expect.objectContaining({
+          record_id: warning.record.id,
+          summary: "Structured refresh warning. src/auth.ts"
+        })
+      ]);
     });
   });
 

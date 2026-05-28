@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { replayEvents } from "./replay.js";
 import { readEvents } from "./store.js";
 import type { MemoraRecord } from "./types.js";
-import { searchableRecordText } from "./content-text.js";
+import { displayRecordText, searchableRecordText } from "./content-text.js";
 
 export interface RebuildResult {
   ok: true;
@@ -13,7 +13,7 @@ export interface RebuildResult {
 }
 
 function textOf(record: MemoraRecord): string {
-  return searchableRecordText(record);
+  return displayRecordText(record);
 }
 
 function active(records: MemoraRecord[]): MemoraRecord[] {
@@ -25,10 +25,11 @@ function canonical(records: MemoraRecord[]): MemoraRecord[] {
 }
 
 function projectSummary(records: MemoraRecord[]): string {
-  return [...records]
+  const summary = [...records]
     .filter((record) => record.kind === "memory")
     .filter((record) => record.type === "summary" || record.type === "project_summary")
-    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.content.text ?? "";
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
+  return summary ? textOf(summary) : "";
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {
@@ -118,7 +119,7 @@ export async function rebuildDerivedViews(storePath: string): Promise<RebuildRes
         state: record.state,
         priority: record.priority,
         tags: record.tags,
-        text: textOf(record),
+        text: searchableRecordText(record),
         updated_at: record.updated_at
       }))
   });

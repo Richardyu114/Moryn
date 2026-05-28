@@ -14,3 +14,7 @@ export function searchableRecordText(record: MemoraRecord): string {
     .filter(Boolean)
     .join(" ");
 }
+
+export function displayRecordText(record: MemoraRecord): string {
+  return typeof record.content.text === "string" ? record.content.text : searchableRecordText(record);
+}

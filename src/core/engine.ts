@@ -5,7 +5,7 @@ import { isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySc
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MemoraEvent, MemoraRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { createId } from "./id.js";
-import { searchableRecordText } from "./content-text.js";
+import { displayRecordText, searchableRecordText } from "./content-text.js";
 
 interface EngineDeps {
   storePath: string;
@@ -85,7 +85,7 @@ interface LinkInput {
 }
 
 function textOf(record: MemoraRecord): string {
-  return String(record.content.text ?? "");
+  return displayRecordText(record);
 }
 
 function searchableText(record: MemoraRecord): string {
@@ -310,7 +310,7 @@ function skillMatchesSelector(record: MemoraRecord, selector: string): boolean {
     || record.type.toLowerCase() === normalized
     || record.tags.some((tag) => tag.toLowerCase() === normalized)
     || String(record.content.name ?? "").toLowerCase() === normalized
-    || textOf(record).toLowerCase().includes(normalized);
+    || searchableText(record).toLowerCase().includes(normalized);
 }
 
 function isProjectSkill(record: MemoraRecord, projectId: string | undefined): boolean {
@@ -448,6 +448,13 @@ function matchesQuery(result: { reason: string[] }, input: RecallInput): boolean
 
 function summarizeRecord(record: MemoraRecord): string {
   return textOf(record) || `${record.kind}:${record.type}`;
+}
+
+function projectSummary(records: MemoraRecord[]): string {
+  const summary = [...records]
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    .find((record) => record.type === "summary" || record.type === "project_summary");
+  return summary ? textOf(summary) : "";
 }
 
 function taskTokens(task: string | undefined): string[] {
@@ -891,7 +898,7 @@ export function createEngine(deps: EngineDeps) {
           global_rules: boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule"))
         },
         project: {
-          summary: [...projectMemoryRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).find((record) => record.type === "summary" || record.type === "project_summary")?.content.text ?? "",
+          summary: projectSummary(projectMemoryRecords),
           tech_stack: boundedBootTexts(projectMemoryRecords.filter((record) => record.type === "tech_stack")),
           active_goals: boundedBootTexts(projectMemoryRecords.filter((record) => record.type === "active_goal" || record.type === "goal")),
           important_decisions: boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "decision")),
