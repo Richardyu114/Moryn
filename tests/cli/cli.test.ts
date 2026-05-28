@@ -1844,6 +1844,55 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("does not start from the CLI when project path config conflicts with explicit project id", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+
+      const doctor = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "doctor",
+        "--project", project,
+        "--project-id", "other",
+        "--agent", "codex",
+        "--current-task", "avoid conflicting project id"
+      ]);
+      const parsedDoctor = JSON.parse(doctor.stdout) as {
+        project: { ok: boolean; error?: string };
+        next: { tool: string; safe_to_run: boolean };
+      };
+      expect(parsedDoctor.project.ok).toBe(false);
+      expect(parsedDoctor.project.error).toContain("Project id conflict");
+      expect(parsedDoctor.next).toMatchObject({
+        tool: "project_init",
+        safe_to_run: false
+      });
+
+      try {
+        await exec("node", [
+          "--import", tsxLoader, cliPath, "--store", store,
+          "agent", "start",
+          "--project", project,
+          "--project-id", "other",
+          "--agent", "codex",
+          "--current-task", "avoid conflicting project id"
+        ]);
+        throw new Error("Expected conflicting lifecycle project identity to reject");
+      } catch (error) {
+        if (!("stderr" in (error as object))) throw error;
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+        };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("PROJECT_ID_CONFLICT");
+        expect(parsed.error.message).toContain("Project id conflict");
+        expect(parsed.error.recommended_action).toBe("pass the project id from .moryn.json or update the project config");
+      }
+    });
+  });
+
   it("rejects direct lifecycle CLI commands without project input in a populated store", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

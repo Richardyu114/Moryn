@@ -925,6 +925,60 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("does not recommend agent_start when project path config conflicts with explicit project id", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-conflicting-project-id-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+
+      const doctor = await agentDoctor({
+        storePath: store,
+        projectPath: project,
+        projectId: "other",
+        agent: { client: "codex" },
+        currentTask: "avoid conflicting project id"
+      });
+
+      expect(doctor.project).toMatchObject({
+        ok: false,
+        error: expect.stringContaining("Project id conflict")
+      });
+      expect(doctor.next).toMatchObject({
+        recommended_action: "fix_project_config",
+        tool: "project_init",
+        safe_to_run: false
+      });
+
+      const entered = await agentEnter({
+        storePath: store,
+        projectPath: project,
+        projectId: "other",
+        agent: { client: "codex" },
+        currentTask: "avoid conflicting project id"
+      });
+
+      expect(entered).toMatchObject({
+        ok: true,
+        mode: "needs_setup",
+        next: {
+          tool: "project_init",
+          safe_to_run: false
+        }
+      });
+
+      await expect(agentStart({
+        storePath: store,
+        projectPath: project,
+        projectId: "other",
+        agent: { client: "codex" },
+        currentTask: "avoid conflicting project id"
+      })).rejects.toThrow("Project id conflict");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects direct lifecycle commands without project input in a populated store", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-direct-ambiguous-project-"));
     const store = join(root, "store");

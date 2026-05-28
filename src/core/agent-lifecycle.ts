@@ -132,6 +132,9 @@ async function resolveLifecycleProjectContext(input: AgentLifecycleInput, option
   }
 
   const project = await resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
+  if (input.projectPath && input.projectId && project.config?.project_id && project.config.project_id !== input.projectId) {
+    throw new Error(`Project id conflict: project_path resolves to ${project.config.project_id}, but project_id was ${input.projectId}. Use the .moryn.json project_id or update the project config.`);
+  }
   if (options.requireExplicitProject && !input.projectPath && !input.projectId && project.source !== "config") {
     const projectIds = await knownProjectIds(input);
     if (projectIds.length > 0) {

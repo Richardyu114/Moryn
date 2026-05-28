@@ -331,7 +331,10 @@ recommends `project_list` unless the current directory resolves through a
 agent lifecycle commands do not guess a new project id; they return
 `project_init` as the safe setup action. When an explicit `--project-id` is not
 present in a populated store, they return `project_list` so the agent chooses a
-known project instead of writing handoffs under a typo. Direct lifecycle
+known project instead of writing handoffs under a typo. When `--project` points
+at a `.moryn.json` with a different project id than `--project-id`, lifecycle
+commands reject the conflict instead of letting one identity silently override
+the other. Direct lifecycle
 commands (`agent start`, `agent status`, and `agent finish`) also reject missing
 project context in a populated store unless the current directory resolves via a
 `.moryn.json` config; agents should call `agent enter` or `project list` first.
@@ -442,7 +445,9 @@ machine has no explicit project context. It also returns machine-readable
 `moryn-agent-smoke`. If `project_path` is explicit and missing, it returns
 `project_init` instead of treating the typo as a new project. If `project_id`
 is explicit but unknown in a populated store, it returns `project_list` instead
-of starting a new typo project. Direct `agent_start`, `agent_status`, and
+of starting a new typo project. If `project_path` config and explicit
+`project_id` disagree, it returns a project id conflict instead of starting.
+Direct `agent_start`, `agent_status`, and
 `agent_finish` calls require `project_path`, `project_id`, or a `.moryn.json`
 config when the store already has known projects. Their returned `next.actions`
 are portable: if project context was resolved from `.moryn.json`, the actions

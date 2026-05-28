@@ -1041,6 +1041,57 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("does not recommend agent_start through MCP when project path config conflicts with explicit project id", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-conflicting-project-id-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await withMcpClient(store, async (client) => {
+        const doctor = parseTextContent(await client.callTool({
+          name: "agent_doctor",
+          arguments: {
+            project_path: project,
+            project_id: "other",
+            current_task: "avoid conflicting project id",
+            agent: { client: "codex" }
+          }
+        })) as {
+          project: { ok: boolean; error?: string };
+          next: { tool: string; safe_to_run: boolean };
+        };
+
+        expect(doctor.project.ok).toBe(false);
+        expect(doctor.project.error).toContain("Project id conflict");
+        expect(doctor.next).toMatchObject({
+          tool: "project_init",
+          safe_to_run: false
+        });
+
+        const start = await client.callTool({
+          name: "agent_start",
+          arguments: {
+            project_path: project,
+            project_id: "other",
+            current_task: "avoid conflicting project id",
+            agent: { client: "codex" }
+          }
+        });
+        expect("isError" in start ? start.isError : false).toBe(true);
+        const parsedStart = parseTextContent(start) as {
+          ok: boolean;
+          error: { code: string; message: string; recommended_action: string };
+        };
+        expect(parsedStart.ok).toBe(false);
+        expect(parsedStart.error.code).toBe("PROJECT_ID_CONFLICT");
+        expect(parsedStart.error.message).toContain("Project id conflict");
+        expect(parsedStart.error.recommended_action).toBe("pass the project id from .moryn.json or update the project config");
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects direct lifecycle MCP tools without project input in a populated store", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-direct-ambiguous-project-"));
     const store = join(root, "store");

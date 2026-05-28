@@ -691,7 +691,9 @@ explicit `project_path` does not exist, lifecycle commands return `needs_setup`
 with `project_init`; they do not silently derive a new project id from the typo.
 If an explicit `project_id` is not present in a populated store, they return
 `discover_projects`/`project_list` so the agent selects a known project before
-writing lifecycle records. Direct `agent_start`, `agent_status`, and
+writing lifecycle records. If `project_path` resolves `.moryn.json` with a
+different project id than explicit `project_id`, they return a project id
+conflict instead of choosing one silently. Direct `agent_start`, `agent_status`, and
 `agent_finish` calls reject missing project context in populated stores unless
 the current directory resolves through `.moryn.json`; agents should use
 `agent_enter` for discovery before writing lifecycle records. When a lifecycle

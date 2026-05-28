@@ -13,6 +13,7 @@ export function errorCode(message: string): string {
   if (message.startsWith("Confirmation required:")) return "CONFIRMATION_REQUIRED";
   if (message.startsWith("Invalid project config:")) return "INVALID_PROJECT_CONFIG";
   if (message.startsWith("Project context required:")) return "PROJECT_CONTEXT_REQUIRED";
+  if (message.startsWith("Project id conflict:")) return "PROJECT_ID_CONFLICT";
   if (message.startsWith("Invalid store config:")) return "INVALID_STORE_CONFIG";
   if (message.startsWith("Invalid argument:")) return "INVALID_ARGUMENT";
   if (message.startsWith("Invalid event:") || message.startsWith("Invalid record:") || message.startsWith("Invalid replay ")) return "INVALID_RECORD";
@@ -36,6 +37,8 @@ export function recommendedAction(code: string): string {
       return "fix .moryn.json or pass an explicit project id";
     case "PROJECT_CONTEXT_REQUIRED":
       return "run moryn project list or moryn agent enter, then retry with --project-id or --project";
+    case "PROJECT_ID_CONFLICT":
+      return "pass the project id from .moryn.json or update the project config";
     case "INVALID_STORE_CONFIG":
       return "fix or remove config.json, then run moryn init";
     case "INVALID_ARGUMENT":
