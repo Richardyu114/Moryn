@@ -356,6 +356,76 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("untracks legacy synced config and generated views during sync init import", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-init-untrack-"));
+    const remote = join(root, "remote.git");
+    const seed = join(root, "seed");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await mkdir(join(seed, "events", "device_seed", "2026-05"), { recursive: true });
+      await mkdir(join(seed, "snapshots"), { recursive: true });
+      await mkdir(join(seed, "indexes"), { recursive: true });
+      await exec("git", ["init"], { cwd: seed });
+      await exec("git", ["config", "user.name", "Seed"], { cwd: seed });
+      await exec("git", ["config", "user.email", "seed@example.local"], { cwd: seed });
+      await writeFile(join(seed, "config.json"), `${JSON.stringify({
+        store_version: 1,
+        device_id: "device_seed",
+        created_at: "2026-05-27T00:00:00.000Z"
+      }, null, 2)}\n`, "utf8");
+      await writeFile(join(seed, "events", "device_seed", "2026-05", "evt_seed.json"), `${JSON.stringify({
+        event_id: "evt_seed",
+        op: "upsert_record",
+        record: {
+          id: "rec_seed",
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "memora",
+          tags: [],
+          content: { text: "Imported remote event with legacy generated files.", format: "text" },
+          state: "canonical",
+          confidence: 0.5,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-05-27T00:01:00.000Z",
+          updated_at: "2026-05-27T00:01:00.000Z",
+          source: { client: "seed", device_id: "device_seed" }
+        },
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "seed", device_id: "device_seed" }
+      }, null, 2)}\n`, "utf8");
+      await writeFile(join(seed, "snapshots", "user.json"), "{\"legacy\":true}\n", "utf8");
+      await writeFile(join(seed, "indexes", "recall.json"), "{\"legacy\":true}\n", "utf8");
+      await exec("git", ["add", "."], { cwd: seed });
+      await exec("git", ["commit", "-m", "Seed legacy synced generated files"], { cwd: seed });
+      await exec("git", ["branch", "-M", "main"], { cwd: seed });
+      await exec("git", ["remote", "add", "origin", remote], { cwd: seed });
+      await exec("git", ["push", "-u", "origin", "main"], { cwd: seed });
+
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_importer"
+      });
+      await initializeGitSync(store, remote);
+
+      const localConfig = JSON.parse(await readFile(join(store, "config.json"), "utf8")) as { device_id: string };
+      expect(localConfig.device_id).toBe("device_importer");
+      const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
+      expect(tracked).toContain(".gitignore");
+      expect(tracked).toContain("events/device_seed/2026-05/evt_seed.json");
+      expect(tracked).not.toContain("config.json");
+      expect(tracked).not.toContain("snapshots/user.json");
+      expect(tracked).not.toContain("indexes/recall.json");
+      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
+        dirty: false
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rebases local event commits when pulling remote device history", async () => {
     const root = await mkdtemp(join(tmpdir(), "memora-sync-rebase-"));
     const remote = join(root, "remote.git");

@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import type { StoreConfig } from "../core/config.js";
 import { readStoreConfig } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 
@@ -78,6 +79,14 @@ async function ensureGitIgnore(storePath: string): Promise<void> {
   await writeFile(join(storePath, ".gitignore"), "config.json\nsnapshots/\nindexes/\nstate/\n", "utf8");
 }
 
+async function writeStoreConfig(storePath: string, config: StoreConfig): Promise<void> {
+  await writeFile(join(storePath, "config.json"), `${JSON.stringify(config, null, 2)}\n`, "utf8");
+}
+
+async function untrackLocalOnlyPaths(storePath: string): Promise<void> {
+  await git(storePath, ["rm", "--cached", "-r", "--ignore-unmatch", "config.json", "snapshots", "indexes", "state"]);
+}
+
 async function readLastSync(storePath: string): Promise<GitLastSync | undefined> {
   const statePath = join(storePath, "state", "sync-status.json");
   try {
@@ -147,7 +156,7 @@ async function ensureRemote(storePath: string, remoteUrl: string): Promise<void>
 export async function initializeGitSync(storePath: string, remoteUrl: string): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
   validateRequiredString(remoteUrl, "remoteUrl");
-  await readStoreConfig(storePath);
+  const localConfig = await readStoreConfig(storePath);
   if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) {
     await git(storePath, ["init"]);
   }
@@ -159,9 +168,12 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
   if (!await hasCommits(storePath) && await hasRemoteHead(storePath)) {
     await git(storePath, ["fetch", "origin", "main"]);
     await git(storePath, ["reset", "--hard", "origin/main"]);
+    await writeStoreConfig(storePath, localConfig);
     await rebuildDerivedViews(storePath);
   }
 
+  await ensureGitIgnore(storePath);
+  await untrackLocalOnlyPaths(storePath);
   await git(storePath, ["add", "events", ".gitignore"]);
   const shouldPushInitialCommit = !await hasRemoteHead(storePath);
   if (await hasStagedChanges(storePath)) {
