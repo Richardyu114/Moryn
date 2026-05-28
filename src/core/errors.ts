@@ -14,6 +14,8 @@ export interface MorynErrorNextAction {
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
+  rejected_arguments?: Record<string, unknown>;
+  candidate_project_ids?: string[];
   safe_to_run: boolean;
 }
 
@@ -91,6 +93,27 @@ function projectPathFromMessage(message: string): string | undefined {
   return end === -1 ? details : details.slice(0, end);
 }
 
+function unknownProjectIdFromMessage(message: string): { rejectedProjectId?: string; candidateProjectIds?: string[] } {
+  const prefix = "Project id is not known in this store: ";
+  if (!message.startsWith(prefix)) return {};
+  const details = message.slice(prefix.length);
+  const splitMarker = ". Run project_list and choose one of: ";
+  const markerIndex = details.indexOf(splitMarker);
+  if (markerIndex === -1) {
+    return { rejectedProjectId: details };
+  }
+  const rejectedProjectId = details.slice(0, markerIndex);
+  const candidateText = details.slice(markerIndex + splitMarker.length).replace(/\.$/, "");
+  const candidateProjectIds = candidateText
+    .split(",")
+    .map((projectId) => projectId.trim())
+    .filter(Boolean);
+  return {
+    rejectedProjectId,
+    ...(candidateProjectIds.length > 0 ? { candidateProjectIds } : {})
+  };
+}
+
 export function nextAction(code: string, message = ""): MorynErrorNextAction | undefined {
   switch (code) {
     case "PROJECT_CONTEXT_REQUIRED":
@@ -113,13 +136,18 @@ export function nextAction(code: string, message = ""): MorynErrorNextAction | u
         };
       }
     case "PROJECT_ID_NOT_FOUND":
-      return {
-        recommended_action: "list_projects_and_retry_with_known_project_id",
-        tool: "project_list",
-        command: "moryn project list",
-        arguments: {},
-        safe_to_run: true
-      };
+      {
+        const { rejectedProjectId, candidateProjectIds } = unknownProjectIdFromMessage(message);
+        return {
+          recommended_action: "list_projects_and_retry_with_known_project_id",
+          tool: "project_list",
+          command: "moryn project list",
+          arguments: {},
+          ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
+          ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
+          safe_to_run: true
+        };
+      }
     default:
       return undefined;
   }

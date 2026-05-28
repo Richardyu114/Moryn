@@ -65,6 +65,8 @@ describe("error envelopes", () => {
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          rejected_arguments: { project_id: "morym" },
+          candidate_project_ids: ["moryn"],
           safe_to_run: true
         }
       }

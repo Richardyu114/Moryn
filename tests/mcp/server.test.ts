@@ -989,7 +989,15 @@ describe("MCP stdio server", () => {
             message: string;
             recoverable: boolean;
             recommended_action: string;
-            next_action: { recommended_action: string; tool: string; command: string; arguments: Record<string, unknown>; safe_to_run: boolean };
+            next_action: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              rejected_arguments?: Record<string, unknown>;
+              candidate_project_ids?: string[];
+              safe_to_run: boolean;
+            };
           };
         };
         expect(parsedStart.ok).toBe(false);
@@ -1097,6 +1105,8 @@ describe("MCP stdio server", () => {
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          rejected_arguments: { project_id: "morym" },
+          candidate_project_ids: ["moryn"],
           safe_to_run: true
         });
       });

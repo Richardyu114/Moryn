@@ -706,10 +706,13 @@ project listing, or corrected retry arguments. These error envelopes also carry
 `error.next_action` with `tool`, `command`, `arguments`, and `safe_to_run`, so
 agents can recover from the envelope without parsing prose. For
 `PROJECT_PATH_NOT_FOUND`, the `next_action.arguments.path` value is the exact
-missing path when it can be derived from the error. When a lifecycle command
-resolves project context from `.moryn.json`, its returned `next.actions` are
-prefilled with the resolved `project_id` so they can be reused outside the
-original cwd.
+missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
+`next_action.rejected_arguments.project_id` preserves the rejected id and
+`next_action.candidate_project_ids` lists known choices while
+`next_action.arguments` remains valid for the target recovery tool. When a
+lifecycle command resolves project context from `.moryn.json`, its returned
+`next.actions` are prefilled with the resolved `project_id` so they can be
+reused outside the original cwd.
 
 ### `agent_doctor`
 
@@ -1261,6 +1264,35 @@ action is parameterized from the error message:
         "path": "/workspace/missing"
       },
       "safe_to_run": false
+    }
+  }
+}
+```
+
+When a direct lifecycle call uses an unknown project id in a populated store,
+the recovery action keeps the `project_list` call arguments valid and puts the
+rejected id plus known choices in metadata:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "PROJECT_ID_NOT_FOUND",
+    "message": "Project id is not known in this store: morym. Run project_list and choose one of: moryn.",
+    "recoverable": true,
+    "recommended_action": "run moryn project list or moryn agent enter, then retry with a known --project-id",
+    "next_action": {
+      "recommended_action": "list_projects_and_retry_with_known_project_id",
+      "tool": "project_list",
+      "command": "moryn project list",
+      "arguments": {},
+      "rejected_arguments": {
+        "project_id": "morym"
+      },
+      "candidate_project_ids": [
+        "moryn"
+      ],
+      "safe_to_run": true
     }
   }
 }
