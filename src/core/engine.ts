@@ -648,6 +648,7 @@ function promoteCandidateNextAction(recordId: string): MorynErrorNextAction {
       reason,
       confirmed: true
     },
+    required_fields: [],
     safe_to_run: false
   };
 }

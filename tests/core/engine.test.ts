@@ -957,6 +957,7 @@ describe("core engine", () => {
           reason: "User confirmed",
           confirmed: true
         },
+        required_fields: [],
         safe_to_run: false
       });
       expect(globalSkill.record.state).toBe("candidate");
@@ -1030,6 +1031,7 @@ describe("core engine", () => {
           reason: "User confirmed",
           confirmed: true
         },
+        required_fields: [],
         safe_to_run: false
       });
       expect(conflicting.record.conflict).toEqual({

@@ -517,6 +517,7 @@ describe("moryn CLI", () => {
           command: "moryn project list",
           arguments: {},
           rejected_arguments: { scope: "project" },
+          required_fields: [],
           safe_to_run: true
         });
       }
@@ -1330,6 +1331,7 @@ describe("moryn CLI", () => {
               tool: string;
               command: string;
               arguments: Record<string, unknown>;
+              required_fields: string[];
               safe_to_run: boolean;
             };
           };
@@ -1343,6 +1345,7 @@ describe("moryn CLI", () => {
           tool: "sync_status",
           command: "moryn sync --status",
           arguments: {},
+          required_fields: [],
           safe_to_run: true
         });
       }
@@ -1863,6 +1866,7 @@ describe("moryn CLI", () => {
           tool: "sync_status",
           command: "moryn sync --status",
           arguments: {},
+          required_fields: [],
           safe_to_run: true
         });
       }
@@ -1908,6 +1912,7 @@ describe("moryn CLI", () => {
             tool: "sync_status",
             command: "moryn sync --status",
             arguments: {},
+            required_fields: [],
             safe_to_run: true
           });
         }
@@ -2085,6 +2090,7 @@ describe("moryn CLI", () => {
           tool: "project_init",
           command: `moryn project init --path ${project} --repair`,
           arguments: { path: project, repair: true },
+          required_fields: [],
           safe_to_run: false
         });
       }
@@ -2198,6 +2204,7 @@ describe("moryn CLI", () => {
           tool: "project_init",
           command: `moryn project init --path ${missingProject}`,
           arguments: { path: missingProject },
+          required_fields: [],
           safe_to_run: false
         });
       }
@@ -2290,6 +2297,7 @@ describe("moryn CLI", () => {
           arguments: {},
           rejected_arguments: { project_id: "morym" },
           candidate_project_ids: ["moryn"],
+          required_fields: [],
           safe_to_run: true
         });
       }
@@ -2368,6 +2376,7 @@ describe("moryn CLI", () => {
           arguments: { project_id: "moryn" },
           rejected_arguments: { project_id: "other" },
           candidate_project_ids: ["moryn"],
+          required_fields: [],
           safe_to_run: false
         });
       }
@@ -2418,6 +2427,7 @@ describe("moryn CLI", () => {
             command: "moryn project list",
             arguments: {},
             candidate_project_ids: ["moryn"],
+            required_fields: [],
             safe_to_run: true
           });
         }
@@ -2564,6 +2574,7 @@ describe("moryn CLI", () => {
           tool: "init",
           command: "moryn init --repair",
           arguments: { repair: true },
+          required_fields: [],
           safe_to_run: false
         });
       }
@@ -2627,6 +2638,7 @@ describe("moryn CLI", () => {
           command: "moryn list-recent",
           arguments: {},
           rejected_arguments: { record_id: "rec_missing" },
+          required_fields: [],
           safe_to_run: true
         });
       }
@@ -2672,6 +2684,7 @@ describe("moryn CLI", () => {
           reason: "User confirmed",
           confirmed: true
         },
+        required_fields: [],
         safe_to_run: false
       });
 
@@ -2728,10 +2741,11 @@ describe("moryn CLI", () => {
             record_id: parsedWrite.record.id,
             target_state: "canonical",
             reason: "User confirmed",
-            confirmed: true
-          },
-          safe_to_run: false
-        });
+          confirmed: true
+        },
+        required_fields: [],
+        safe_to_run: false
+      });
       }
 
       await exec("node", [
@@ -2822,6 +2836,7 @@ describe("moryn CLI", () => {
           reason: "User confirmed",
           confirmed: true
         }),
+        required_fields: [],
         safe_to_run: false
       });
       expect(parsed.record.conflict?.with).toEqual([existingId]);
@@ -2899,6 +2914,7 @@ describe("moryn CLI", () => {
             reason: "Agent inferred this replacement",
             confirmed: true
           },
+          required_fields: [],
           safe_to_run: false
         });
       }
@@ -2995,6 +3011,7 @@ describe("moryn CLI", () => {
             reason: "Agent inferred this replacement",
             confirmed: true
           },
+          required_fields: [],
           safe_to_run: false
         });
       }
@@ -3055,6 +3072,7 @@ describe("moryn CLI", () => {
             tool: "init",
             command: "moryn init",
             arguments: {},
+            required_fields: [],
             safe_to_run: false
           });
         }
@@ -3117,6 +3135,7 @@ describe("moryn CLI", () => {
           tool: "sync_status",
           command: "moryn sync --status",
           arguments: {},
+          required_fields: [],
           safe_to_run: true
         });
       }
@@ -3175,6 +3194,7 @@ describe("moryn CLI", () => {
           tool: "sync_init",
           command: "moryn sync init <remote>",
           arguments: { remote: "<remote>" },
+          required_fields: ["remote"],
           safe_to_run: false
         }
       });
@@ -3197,6 +3217,7 @@ describe("moryn CLI", () => {
               tool: string;
               command: string;
               arguments: Record<string, unknown>;
+              required_fields: string[];
               safe_to_run: boolean;
             };
           };
@@ -3211,6 +3232,7 @@ describe("moryn CLI", () => {
           tool: "sync_init",
           command: "moryn sync init <remote>",
           arguments: { remote: "<remote>" },
+          required_fields: ["remote"],
           safe_to_run: false
         }
       });

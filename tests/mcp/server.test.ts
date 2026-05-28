@@ -514,6 +514,7 @@ describe("MCP stdio server", () => {
           tool: "sync_status",
           command: "moryn sync --status",
           arguments: {},
+          required_fields: [],
           safe_to_run: true
         });
       });
@@ -559,6 +560,7 @@ describe("MCP stdio server", () => {
                 tool: string;
                 command: string;
                 arguments: Record<string, unknown>;
+                required_fields: string[];
                 safe_to_run: boolean;
               };
             };
@@ -571,6 +573,7 @@ describe("MCP stdio server", () => {
             tool: "sync_status",
             command: "moryn sync --status",
             arguments: {},
+            required_fields: [],
             safe_to_run: true
           });
 
@@ -1072,6 +1075,7 @@ describe("MCP stdio server", () => {
           tool: "sync_status",
           command: "moryn sync --status",
           arguments: {},
+          required_fields: [],
           safe_to_run: true
         });
 
@@ -1118,6 +1122,7 @@ describe("MCP stdio server", () => {
             tool: "sync_status",
             command: "moryn sync --status",
             arguments: {},
+            required_fields: [],
             safe_to_run: true
           });
         }
@@ -1359,6 +1364,7 @@ describe("MCP stdio server", () => {
           tool: "project_init",
           command: `moryn project init --path ${missingProject}`,
           arguments: { path: missingProject },
+          required_fields: [],
           safe_to_run: false
         });
       });
@@ -1456,6 +1462,7 @@ describe("MCP stdio server", () => {
           arguments: {},
           rejected_arguments: { project_id: "morym" },
           candidate_project_ids: ["moryn"],
+          required_fields: [],
           safe_to_run: true
         });
       });
@@ -1535,6 +1542,7 @@ describe("MCP stdio server", () => {
           arguments: { project_id: "moryn" },
           rejected_arguments: { project_id: "other" },
           candidate_project_ids: ["moryn"],
+          required_fields: [],
           safe_to_run: false
         });
       });
@@ -1607,6 +1615,7 @@ describe("MCP stdio server", () => {
             command: "moryn project list",
             arguments: {},
             candidate_project_ids: ["moryn"],
+            required_fields: [],
             safe_to_run: true
           });
         }
@@ -1655,6 +1664,7 @@ describe("MCP stdio server", () => {
             tool: "sync_init",
             command: "moryn sync init <remote>",
             arguments: { remote: "<remote>" },
+            required_fields: ["remote"],
             safe_to_run: false
           }
         });
@@ -1677,6 +1687,7 @@ describe("MCP stdio server", () => {
                 tool: string;
                 command: string;
                 arguments: Record<string, unknown>;
+                required_fields: string[];
                 safe_to_run: boolean;
               };
             };
@@ -1691,6 +1702,7 @@ describe("MCP stdio server", () => {
             tool: "sync_init",
             command: "moryn sync init <remote>",
             arguments: { remote: "<remote>" },
+            required_fields: ["remote"],
             safe_to_run: false
           }
         });
@@ -2017,6 +2029,7 @@ describe("MCP stdio server", () => {
           tool: "init",
           command: "moryn init",
           arguments: {},
+          required_fields: [],
           safe_to_run: false
         });
       });
@@ -2056,6 +2069,7 @@ describe("MCP stdio server", () => {
           tool: "init",
           command: "moryn init --repair",
           arguments: { repair: true },
+          required_fields: [],
           safe_to_run: false
         });
       });
@@ -2123,6 +2137,7 @@ describe("MCP stdio server", () => {
           command: "moryn list-recent",
           arguments: {},
           rejected_arguments: { record_id: "rec_missing" },
+          required_fields: [],
           safe_to_run: true
         });
       });
@@ -2259,6 +2274,7 @@ describe("MCP stdio server", () => {
             reason: "User confirmed",
             confirmed: true
           },
+          required_fields: [],
           safe_to_run: false
         });
 
@@ -2312,6 +2328,7 @@ describe("MCP stdio server", () => {
             source: { client: "mcp-test" },
             confirmed: true
           },
+          required_fields: [],
           safe_to_run: false
         });
 
@@ -2563,6 +2580,7 @@ describe("MCP stdio server", () => {
           command: "moryn project list",
           arguments: {},
           rejected_arguments: { scope: "project" },
+          required_fields: [],
           safe_to_run: true
         });
         expect(await readEvents(store)).toHaveLength(0);
@@ -2839,6 +2857,7 @@ describe("MCP stdio server", () => {
             reason: "User confirmed",
             confirmed: true
           }),
+          required_fields: [],
           safe_to_run: false
         });
         expect(conflicting.record.conflict?.with).toEqual([existing.record.id]);
@@ -2919,6 +2938,7 @@ describe("MCP stdio server", () => {
             source: { client: "mcp-test" },
             confirmed: true
           },
+          required_fields: [],
           safe_to_run: false
         });
 
@@ -3016,6 +3036,7 @@ describe("MCP stdio server", () => {
             source: { client: "mcp-test" },
             confirmed: true
           },
+          required_fields: [],
           safe_to_run: false
         });
 

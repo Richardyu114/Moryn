@@ -14,6 +14,7 @@ export interface MorynErrorNextAction {
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
+  required_fields: string[];
   rejected_arguments?: Record<string, unknown>;
   candidate_project_ids?: string[];
   safe_to_run: boolean;
@@ -187,6 +188,7 @@ function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextActi
       ...context.arguments,
       confirmed: true
     },
+    required_fields: [],
     safe_to_run: false
   };
 }
@@ -219,6 +221,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         tool: "init",
         command: "moryn init",
         arguments: {},
+        required_fields: [],
         safe_to_run: false
       };
     case "CONFIRMATION_REQUIRED":
@@ -229,6 +232,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         tool: "init",
         command: "moryn init --repair",
         arguments: { repair: true },
+        required_fields: [],
         safe_to_run: false
       };
     case "INVALID_PROJECT_CONFIG":
@@ -240,6 +244,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           tool: "project_init",
           command: `moryn project init --path ${path} --repair`,
           arguments: { path, repair: true },
+          required_fields: path === "<path>" ? ["path"] : [],
           safe_to_run: false
         };
       }
@@ -249,6 +254,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         tool: "rebuild",
         command: "moryn rebuild",
         arguments: {},
+        required_fields: [],
         safe_to_run: true
       };
     case "SYNC_NOT_CONFIGURED":
@@ -257,6 +263,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         tool: "sync_init",
         command: "moryn sync init <remote>",
         arguments: { remote: "<remote>" },
+        required_fields: ["remote"],
         safe_to_run: false
       };
     case "SYNC_REMOTE_UNAVAILABLE":
@@ -265,6 +272,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         tool: "sync_status",
         command: "moryn sync --status",
         arguments: {},
+        required_fields: [],
         safe_to_run: true
       };
     case "SYNC_CONFLICT":
@@ -273,6 +281,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         tool: "sync_status",
         command: "moryn sync --status",
         arguments: {},
+        required_fields: [],
         safe_to_run: true
       };
     case "RECORD_NOT_FOUND":
@@ -283,6 +292,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           tool: "list_recent",
           command: "moryn list-recent",
           arguments: {},
+          required_fields: [],
           ...(recordId ? { rejected_arguments: { record_id: recordId } } : {}),
           safe_to_run: true
         };
@@ -294,6 +304,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          required_fields: [],
           rejected_arguments: { scope: "project" },
           safe_to_run: true
         };
@@ -308,6 +319,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           tool: "agent_enter",
           command: `moryn agent enter --project-id ${projectId}`,
           arguments: { project_id: projectId },
+          required_fields: resolvedProjectId ? [] : ["project_id"],
           ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
           ...(resolvedProjectId ? { candidate_project_ids: [resolvedProjectId] } : {}),
           safe_to_run: false
@@ -321,6 +333,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          required_fields: [],
           ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
           safe_to_run: true
         };
@@ -333,6 +346,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           tool: "project_init",
           command: `moryn project init --path ${path}`,
           arguments: { path },
+          required_fields: path === "<path>" ? ["path"] : [],
           safe_to_run: false
         };
       }
@@ -344,6 +358,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          required_fields: [],
           ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
           ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
           safe_to_run: true

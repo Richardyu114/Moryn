@@ -29,6 +29,7 @@ describe("error envelopes", () => {
           tool: "rebuild",
           command: "moryn rebuild",
           arguments: {},
+          required_fields: [],
           safe_to_run: true
         }
       }
@@ -48,6 +49,7 @@ describe("error envelopes", () => {
           tool: "sync_init",
           command: "moryn sync init <remote>",
           arguments: { remote: "<remote>" },
+          required_fields: ["remote"],
           safe_to_run: false
         }
       }
@@ -67,6 +69,7 @@ describe("error envelopes", () => {
           tool: "sync_status",
           command: "moryn sync --status",
           arguments: {},
+          required_fields: [],
           safe_to_run: true
         }
       }
@@ -235,6 +238,7 @@ describe("error envelopes", () => {
           tool: "project_init",
           command: "moryn project init --path /tmp/missing",
           arguments: { path: "/tmp/missing" },
+          required_fields: [],
           safe_to_run: false
         }
       }
@@ -249,6 +253,7 @@ describe("error envelopes", () => {
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          required_fields: [],
           rejected_arguments: { project_id: "morym" },
           candidate_project_ids: ["moryn"],
           safe_to_run: true
@@ -265,6 +270,7 @@ describe("error envelopes", () => {
           tool: "agent_enter",
           command: "moryn agent enter --project-id moryn",
           arguments: { project_id: "moryn" },
+          required_fields: [],
           rejected_arguments: { project_id: "other" },
           candidate_project_ids: ["moryn"],
           safe_to_run: false
@@ -281,6 +287,7 @@ describe("error envelopes", () => {
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          required_fields: [],
           candidate_project_ids: ["moryn"],
           safe_to_run: true
         }

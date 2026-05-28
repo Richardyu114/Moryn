@@ -739,8 +739,9 @@ calls also classify explicit project mistakes as recoverable structured errors:
 `PROJECT_ID_NOT_FOUND` for a `project_id` that is not known in the populated
 store. Their `recommended_action` values point agents to project initialization,
 project listing, or corrected retry arguments. These error envelopes also carry
-`error.next_action` with `tool`, `command`, `arguments`, and `safe_to_run`, so
-agents can recover from the envelope without parsing prose. For
+`error.next_action` with `tool`, `command`, `arguments`, `required_fields`, and
+`safe_to_run`, so agents can recover from the envelope without parsing prose or
+guessing placeholder values. For
 `PROJECT_PATH_NOT_FOUND`, the `next_action.arguments.path` value is the exact
 missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
 `next_action.rejected_arguments.project_id` preserves the rejected id and
