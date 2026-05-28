@@ -487,6 +487,39 @@ describe("core engine", () => {
     });
   });
 
+  it("does not treat shared project tags alone as a semantic conflict", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["typescript", "mcp", "positioning"],
+        content: { text: "Moryn should be positioned as a local-first personal context layer for AI agents, not as another vector-memory SDK.", format: "text" },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      const syncDecision = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["typescript", "mcp", "sync", "dogfood"],
+        content: { text: "Second-device sync can import Moryn GitHub private store history and push new events back.", format: "text" },
+        state: "canonical",
+        source: { client: "agent" }
+      });
+
+      expect(syncDecision.record.state).toBe("canonical");
+      expect(syncDecision.record.conflict).toBeUndefined();
+      expect(syncDecision.warning).toBeUndefined();
+    });
+  });
+
   it("records confirmed canonical revision conflicts without rewriting history", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

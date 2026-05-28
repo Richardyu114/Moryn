@@ -582,8 +582,9 @@ function textFromContent(content: Record<string, unknown> & { text?: string }): 
 }
 
 function tagOverlap(left: string[], right: string[]): boolean {
-  const rightTags = new Set(right);
-  return left.some((tag) => rightTags.has(tag));
+  const genericProjectTags = new Set(["javascript", "mcp", "node", "nodejs", "python", "typescript"]);
+  const rightTags = new Set(right.filter((tag) => !genericProjectTags.has(tag.toLowerCase())));
+  return left.some((tag) => rightTags.has(tag) && !genericProjectTags.has(tag.toLowerCase()));
 }
 
 function subjectTokens(content: Record<string, unknown> & { text?: string }): string[] {
