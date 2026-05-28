@@ -41,6 +41,14 @@ export interface AgentStatusInput extends AgentLifecycleInput {
 
 type DoctorSeverity = "ok" | "notice" | "warning";
 type DoctorCheck = { name: string; ok: boolean; severity: DoctorSeverity; message: string };
+type LifecycleActionTemplate = {
+  action: string;
+  tool: string;
+  safe_to_run: boolean;
+  command: string;
+  required_fields: string[];
+  arguments: Record<string, unknown>;
+};
 
 export interface AgentDoctorInput extends AgentLifecycleInput {}
 
@@ -361,14 +369,46 @@ function refreshActionArguments(input: AgentLifecycleInput, cursor: string): {
   };
 }
 
-function agentStartActionArguments(input: AgentLifecycleInput): {
+function statusActionArguments(input: AgentLifecycleInput): {
+  project_path?: string;
+  project_id?: string;
+  sync_remote?: string;
+  current_task?: string;
+  status: string;
+  agent?: AgentIdentity;
+} {
+  return {
+    ...lifecycleActionArguments(input),
+    status: "<status>"
+  };
+}
+
+function finishActionArguments(input: AgentLifecycleInput): {
+  project_path?: string;
+  project_id?: string;
+  sync_remote?: string;
+  current_task?: string;
+  summary: string;
+  agent?: AgentIdentity;
+} {
+  return {
+    ...lifecycleActionArguments(input),
+    summary: "<summary>"
+  };
+}
+
+function agentStartActionArguments(input: AgentLifecycleInput, requiredFields: string[] = []): {
   project_path?: string;
   project_id?: string;
   sync_remote?: string;
   current_task?: string;
   agent?: AgentIdentity;
 } {
-  return lifecycleActionArguments(input);
+  const args = lifecycleActionArguments(input);
+  if (requiredFields.includes("current_task") && !input.currentTask) {
+    return { ...args, current_task: "<current_task>" };
+  }
+  return args;
 }
 
 function portableLifecycleInput(input: AgentLifecycleInput, project: ProjectContext): AgentLifecycleInput {
@@ -376,16 +416,15 @@ function portableLifecycleInput(input: AgentLifecycleInput, project: ProjectCont
   return { ...input, projectId: project.project_id };
 }
 
-function nextActions(input: AgentLifecycleInput, cursor?: string) {
-  const args = lifecycleActionArguments(input);
-  const actions = [
+function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActionTemplate[] {
+  const actions: LifecycleActionTemplate[] = [
     {
       action: "publish_status",
       tool: "agent_status",
       safe_to_run: false,
       command: buildAgentStatusCommand(input),
       required_fields: ["status"],
-      arguments: args
+      arguments: statusActionArguments(input)
     },
     {
       action: "finish_session",
@@ -393,7 +432,7 @@ function nextActions(input: AgentLifecycleInput, cursor?: string) {
       safe_to_run: false,
       command: buildAgentFinishCommand(input),
       required_fields: ["summary"],
-      arguments: args
+      arguments: finishActionArguments(input)
     }
   ];
   if (cursor) {
@@ -449,7 +488,7 @@ function finishNextActions(input: AgentLifecycleInput) {
       safe_to_run: true,
       command: buildAgentStartTemplateCommand(input, requiredFields),
       required_fields: requiredFields,
-      arguments: agentStartActionArguments(input)
+      arguments: agentStartActionArguments(input, requiredFields)
     }
   ];
 }
@@ -462,7 +501,7 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
       safe_to_run: false,
       command: buildAgentFinishCommand(input),
       required_fields: ["summary"],
-      arguments: lifecycleActionArguments(input)
+      arguments: finishActionArguments(input)
     },
     {
       action: "refresh_context",
@@ -477,15 +516,15 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
 
 function buildLifecycleSmokeCommand(input: AgentLifecycleInput): string {
   const parts = ["moryn-agent-smoke"];
-  appendOption(parts, "--remote", input.syncRemote);
+  appendTemplateOption(parts, "--remote", input.syncRemote ?? "<remote>");
   return parts.join(" ");
 }
 
 function lifecycleSmokeActionArguments(input: AgentLifecycleInput): {
-  remote?: string;
+  remote: string;
 } {
   return {
-    remote: input.syncRemote
+    remote: input.syncRemote ?? "<remote>"
   };
 }
 
@@ -574,7 +613,7 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
       command: buildAgentStatusTemplateCommand(lifecycleInput),
       required_fields: guideRequiredFields(input, ["status"]),
-      arguments: { ...lifecycleArguments, status: undefined }
+      arguments: { ...lifecycleArguments, status: "<status>" }
     },
     {
       step: "finish_handoff",
@@ -583,7 +622,7 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
       command: buildAgentFinishTemplateCommand(lifecycleInput),
       required_fields: guideRequiredFields(input, ["summary"]),
-      arguments: { ...lifecycleArguments, summary: undefined }
+      arguments: { ...lifecycleArguments, summary: "<summary>" }
     },
     {
       step: "refresh_context",

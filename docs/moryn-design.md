@@ -751,6 +751,9 @@ missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
 populated store can name known projects. When a lifecycle command resolves
 project context from `.moryn.json`, its returned `next.actions` are prefilled
 with the resolved `project_id` so they can be reused outside the original cwd.
+When an action lists `required_fields`, the same required field appears in
+`arguments` with a `<field>` placeholder; agents should replace those JSON
+argument values rather than parse the CLI command template.
 
 ### `agent_doctor`
 
@@ -780,7 +783,9 @@ inferring commands from prose. It also returns a `readiness` summary:
 `blocking_checks` lists warning-level checks that prevent lifecycle startup.
 The same summary repeats the selected next tool, command, `safe_to_run`,
 required fields, and arguments so a lightweight agent can follow readiness
-without merging data from the full `next` object.
+without merging data from the full `next` object. If `run_lifecycle_smoke`
+requires a remote, the action and command both carry the `<remote>` placeholder
+and `arguments.remote` is prefilled as `"<remote>"`.
 
 ### `project_list`
 
@@ -854,7 +859,9 @@ tool name, CLI command template, required fields, prefilled arguments, and
 refresh context (`agent_start` with `refresh_since` set to the returned cursor).
 Actions that only start, discover, inspect, or refresh lifecycle context are
 `safe_to_run: true`; actions that write agent-authored status or summary content
-are `safe_to_run: false`.
+are `safe_to_run: false`. Required authored values are still present in
+`arguments` as `<status>` and `<summary>` placeholders so MCP clients can update
+only those fields before calling the next tool.
 
 ### `agent_finish`
 
@@ -877,7 +884,8 @@ or MCP `sync_remote` is provided, `agent_finish` creates the local store if
 needed and initializes Git sync before writing and pushing the handoff. Its
 `next.actions` includes a `start_next_session` template so another agent can
 restart through `agent_start` without inferring arguments from prose. That
-restart template is marked `safe_to_run: true`.
+restart template is marked `safe_to_run: true`; when the next task is unknown,
+`arguments.current_task` is set to `"<current_task>"`.
 
 ### `agent_status`
 
@@ -899,7 +907,8 @@ agent through `agent_start.refresh.changes` and `boot.recent_changes`, while
 remaining distinguishable from final handoffs by `type=status`. Its
 `next.actions` includes templates for `finish_session` and `refresh_context`
 using the status record timestamp as the next refresh cursor; `finish_session`
-is `safe_to_run: false`, while `refresh_context` is `safe_to_run: true`.
+is `safe_to_run: false` and carries `arguments.summary: "<summary>"`, while
+`refresh_context` is `safe_to_run: true`.
 
 ### `rebuild`
 

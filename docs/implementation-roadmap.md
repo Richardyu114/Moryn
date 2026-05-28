@@ -149,6 +149,9 @@ Deliverables:
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.
+- Done: Lifecycle actions and guide templates mirror required field placeholders
+  in `arguments` (`<status>`, `<summary>`, `<current_task>`, `<remote>`) so MCP
+  agents can replace JSON fields instead of parsing command strings.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

@@ -361,7 +361,10 @@ the full `next` object.
 After a lifecycle command resolves a project from `.moryn.json`, returned
 `next.actions` include the resolved `project_id`, so agents can reuse those
 commands from another cwd or MCP host without relying on ambient directory
-state.
+state. When an action lists `required_fields`, the same field appears in
+`arguments` with a `<field>` placeholder; agents should replace those argument
+values and call the listed tool instead of parsing placeholders out of the CLI
+command string.
 
 `agent start` is the low-friction startup command for agents. It resolves
 `.moryn.json`, creates the store if needed, initializes sync when
@@ -436,7 +439,9 @@ status, finish, and refresh, plus rules that tell the agent not to guess
 project ids or manually compose lower-level sync/boot/refresh calls. If no
 project is provided, the startup command stays as `agent_enter`, while later
 status, finish, and refresh templates explicitly require `project_id` from the
-discovery result.
+discovery result. Required template values such as `<status>`, `<summary>`, and
+`<refresh_since>` are also present in `arguments`, so MCP agents can fill the
+JSON fields directly.
 
 When the target project is unknown:
 
@@ -470,6 +475,9 @@ machine has no explicit project context. It also returns machine-readable
 is explicit but unknown in a populated store, it returns `project_list` instead
 of starting a new typo project. If `project_path` config and explicit
 `project_id` disagree, it returns a project id conflict instead of starting.
+When `run_lifecycle_smoke` needs a remote, the action includes
+`required_fields: ["remote"]`, `arguments.remote: "<remote>"`, and
+`--remote <remote>` in the command template.
 The returned setup action does not echo the conflicting `project_id`. Direct
 `agent_start`, `agent_status`, and `agent_finish` calls require `project_path`,
 `project_id`, or a `.moryn.json` config when the store already has known
@@ -538,7 +546,9 @@ prefilled arguments for `agent_status`, `agent_finish`, and `refresh_context`
 (`agent_start` with the returned refresh cursor). Each action carries
 `safe_to_run`: refresh/start/discovery helpers are `true`, while status and
 finish templates are `false` because the agent must provide user-meaningful
-content before writing a checkpoint or handoff.
+content before writing a checkpoint or handoff. For those authored fields,
+`arguments.status` and `arguments.summary` are prefilled as `<status>` and
+`<summary>` placeholders.
 If the local Git sync state is already conflicted, `agent_start` fails before
 boot/refresh with `SYNC_CONFLICT` and a `sync_status` recovery action, so agents
 do not parse half-merged event files or write new lifecycle records into an
@@ -571,7 +581,8 @@ configured. Other agents see it through `agent_start.refresh.changes` and
 `boot.recent_changes`. `agent_status.next.actions` includes machine-readable
 templates for finishing the session and refreshing context from the status
 record cursor, with `safe_to_run` marking finish as a user-content write and
-refresh as an automatic context update.
+refresh as an automatic context update. The finish template includes
+`arguments.summary: "<summary>"`.
 
 When existing memory or skill needs correction:
 
@@ -594,7 +605,8 @@ This records a `session_summary` handoff and pushes it when sync is configured.
 Agents should prefer `agent_finish` over manually composing `write` and
 `sync_push`. `agent_finish.next.actions` includes a machine-readable
 `start_next_session` template for the next agent or device, marked
-`safe_to_run: true`.
+`safe_to_run: true`. If the next task is not already known, the template carries
+`arguments.current_task: "<current_task>"`.
 
 When a candidate should become durable shared context:
 

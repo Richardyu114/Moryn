@@ -92,6 +92,7 @@ describe("agent lifecycle", () => {
         required_fields: ["current_task"],
         arguments: expect.objectContaining({
           project_path: project,
+          current_task: "<current_task>",
           agent: { client: "codex", device_id: "device_codex", session_id: "codex-1" }
         })
       }));
@@ -140,6 +141,7 @@ describe("agent lifecycle", () => {
         required_fields: ["status"],
         arguments: expect.objectContaining({
           project_path: project,
+          status: "<status>",
           current_task: "continue lifecycle wiring",
           agent: { client: "gemini", device_id: "device_gemini", session_id: "gemini-1" }
         })
@@ -152,6 +154,7 @@ describe("agent lifecycle", () => {
         required_fields: ["summary"],
         arguments: expect.objectContaining({
           project_path: project,
+          summary: "<summary>",
           current_task: "continue lifecycle wiring",
           agent: { client: "gemini", device_id: "device_gemini", session_id: "gemini-1" }
         })
@@ -536,6 +539,33 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("returns placeholder arguments for doctor smoke when remote is omitted", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-smoke-placeholder-"));
+    const store = join(root, "fresh-store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+
+      const doctor = await agentDoctor({
+        storePath: store,
+        projectPath: project,
+        currentTask: "check lifecycle smoke template",
+        agent: { client: "codex", session_id: "codex-doctor-placeholder" }
+      });
+
+      expect(doctor.next.actions).toContainEqual(expect.objectContaining({
+        action: "run_lifecycle_smoke",
+        tool: "moryn-agent-smoke",
+        safe_to_run: true,
+        command: "moryn-agent-smoke --remote <remote>",
+        required_fields: ["remote"],
+        arguments: { remote: "<remote>" }
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("does not recommend lifecycle writes while sync has unresolved conflicts", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-sync-conflict-"));
     const remote = join(root, "remote.git");
@@ -745,14 +775,16 @@ describe("agent lifecycle", () => {
             tool: "agent_status",
             safe_to_run: false,
             command: "moryn agent status --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --status <status>",
-            required_fields: ["status"]
+            required_fields: ["status"],
+            arguments: expect.objectContaining({ project_id: "moryn", status: "<status>" })
           }),
           expect.objectContaining({
             step: "finish_handoff",
             tool: "agent_finish",
             safe_to_run: false,
             command: "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --summary <summary>",
-            required_fields: ["summary"]
+            required_fields: ["summary"],
+            arguments: expect.objectContaining({ project_id: "moryn", summary: "<summary>" })
           }),
           expect.objectContaining({
             step: "refresh_context",
