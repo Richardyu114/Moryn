@@ -396,7 +396,10 @@ agent_guide(project_path, sync_remote, current_task, agent)
 This call is read-only. It returns the preferred startup entrypoint
 (`agent_enter`), a complete CLI command, MCP arguments, lifecycle steps for
 status, finish, and refresh, plus rules that tell the agent not to guess
-project ids or manually compose lower-level sync/boot/refresh calls.
+project ids or manually compose lower-level sync/boot/refresh calls. If no
+project is provided, the startup command stays as `agent_enter`, while later
+status, finish, and refresh templates explicitly require `project_id` from the
+discovery result.
 
 When the target project is unknown:
 

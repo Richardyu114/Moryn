@@ -114,6 +114,50 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("requires explicit project id in MCP agent guide lifecycle templates when project is unknown", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-guide-discovery-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const guide = parseTextContent(await client.callTool({
+          name: "agent_guide",
+          arguments: {
+            sync_remote: "git@github.com:user/moryn-store.git",
+            current_task: "find MCP project",
+            agent: { client: "gemini", session_id: "gemini-mcp-guide-discovery" }
+          }
+        })) as {
+          startup: { command: string; arguments: { project_id?: string } };
+          lifecycle: Array<{
+            step: string;
+            tool: string;
+            command: string;
+            required_fields: string[];
+            arguments: { project_id?: string; refresh_since?: string };
+          }>;
+        };
+
+        expect(guide.startup.command).toBe("moryn agent enter --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-guide-discovery");
+        expect(guide.startup.arguments.project_id).toBeUndefined();
+        expect(guide.lifecycle).toContainEqual(expect.objectContaining({
+          step: "publish_status",
+          tool: "agent_status",
+          command: "moryn agent status --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-guide-discovery --status <status>",
+          required_fields: ["project_id", "status"],
+          arguments: expect.objectContaining({ project_id: "<project_id>" })
+        }));
+        expect(guide.lifecycle).toContainEqual(expect.objectContaining({
+          step: "refresh_context",
+          tool: "agent_start",
+          command: "moryn agent start --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-guide-discovery --refresh-since <refresh_since>",
+          required_fields: ["project_id", "refresh_since"],
+          arguments: expect.objectContaining({ project_id: "<project_id>", refresh_since: "<refresh_since>" })
+        }));
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("exposes Moryn tools over the official MCP protocol", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-"));
     try {

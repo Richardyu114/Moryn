@@ -94,6 +94,53 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("requires explicit project id in agent guide lifecycle templates when project is unknown", async () => {
+    await withTempDir(async (dir) => {
+      const guide = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", join(dir, "store"),
+        "agent", "guide",
+        "--sync-remote", "git@github.com:user/moryn-store.git",
+        "--current-task", "find project",
+        "--agent", "gemini",
+        "--session-id", "gemini-guide-discovery"
+      ]);
+      const parsed = JSON.parse(guide.stdout) as {
+        startup: { command: string; arguments: { project_id?: string } };
+        lifecycle: Array<{
+          step: string;
+          tool: string;
+          command: string;
+          required_fields: string[];
+          arguments: { project_id?: string; refresh_since?: string };
+        }>;
+      };
+
+      expect(parsed.startup.command).toBe("moryn agent enter --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery");
+      expect(parsed.startup.arguments.project_id).toBeUndefined();
+      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
+        step: "publish_status",
+        tool: "agent_status",
+        command: "moryn agent status --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery --status <status>",
+        required_fields: ["project_id", "status"],
+        arguments: expect.objectContaining({ project_id: "<project_id>" })
+      }));
+      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
+        step: "finish_handoff",
+        tool: "agent_finish",
+        command: "moryn agent finish --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery --summary <summary>",
+        required_fields: ["project_id", "summary"],
+        arguments: expect.objectContaining({ project_id: "<project_id>" })
+      }));
+      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
+        step: "refresh_context",
+        tool: "agent_start",
+        command: "moryn agent start --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery --refresh-since <refresh_since>",
+        required_fields: ["project_id", "refresh_since"],
+        arguments: expect.objectContaining({ project_id: "<project_id>", refresh_since: "<refresh_since>" })
+      }));
+    });
+  });
+
   it("initializes a store and writes a record", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

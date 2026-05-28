@@ -116,6 +116,20 @@ function appendOption(parts: string[], name: string, value: string | undefined):
   parts.push(name, shellQuote(value));
 }
 
+function appendTemplateOption(parts: string[], name: string, value: string | undefined): void {
+  if (value === undefined) return;
+  parts.push(name, /^<[^>]+>$/.test(value) ? value : shellQuote(value));
+}
+
+function ensureGuideProjectIdentity(input: AgentLifecycleInput): AgentLifecycleInput {
+  if (input.projectPath || input.projectId) return input;
+  return { ...input, projectId: "<project_id>" };
+}
+
+function guideRequiredFields(input: AgentLifecycleInput, fields: string[]): string[] {
+  return input.projectPath || input.projectId ? fields : ["project_id", ...fields];
+}
+
 function buildAgentStartCommand(input: AgentLifecycleInput): string {
   const parts = ["moryn", "agent", "start"];
   appendOption(parts, "--project", input.projectPath);
@@ -176,7 +190,7 @@ function buildAgentRefreshCommand(input: AgentLifecycleInput, cursor: string): s
 function buildAgentRefreshTemplateCommand(input: AgentLifecycleInput): string {
   const parts = ["moryn", "agent", "start"];
   appendOption(parts, "--project", input.projectPath);
-  appendOption(parts, "--project-id", input.projectId);
+  appendTemplateOption(parts, "--project-id", input.projectId);
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
   appendOption(parts, "--agent", input.agent?.client);
@@ -184,6 +198,20 @@ function buildAgentRefreshTemplateCommand(input: AgentLifecycleInput): string {
   appendOption(parts, "--model", input.agent?.model);
   appendOption(parts, "--device-id", input.agent?.device_id);
   parts.push("--refresh-since", "<refresh_since>");
+  return parts.join(" ");
+}
+
+function buildAgentStatusTemplateCommand(input: AgentLifecycleInput): string {
+  const parts = ["moryn", "agent", "status"];
+  appendOption(parts, "--project", input.projectPath);
+  appendTemplateOption(parts, "--project-id", input.projectId);
+  appendOption(parts, "--sync-remote", input.syncRemote);
+  appendOption(parts, "--current-task", input.currentTask);
+  appendOption(parts, "--agent", input.agent?.client);
+  appendOption(parts, "--session-id", input.agent?.session_id);
+  appendOption(parts, "--model", input.agent?.model);
+  appendOption(parts, "--device-id", input.agent?.device_id);
+  parts.push("--status", "<status>");
   return parts.join(" ");
 }
 
@@ -198,6 +226,20 @@ function buildAgentStatusCommand(input: AgentLifecycleInput): string {
   appendOption(parts, "--model", input.agent?.model);
   appendOption(parts, "--device-id", input.agent?.device_id);
   parts.push("--status", "<status>");
+  return parts.join(" ");
+}
+
+function buildAgentFinishTemplateCommand(input: AgentLifecycleInput): string {
+  const parts = ["moryn", "agent", "finish"];
+  appendOption(parts, "--project", input.projectPath);
+  appendTemplateOption(parts, "--project-id", input.projectId);
+  appendOption(parts, "--sync-remote", input.syncRemote);
+  appendOption(parts, "--current-task", input.currentTask);
+  appendOption(parts, "--agent", input.agent?.client);
+  appendOption(parts, "--session-id", input.agent?.session_id);
+  appendOption(parts, "--model", input.agent?.model);
+  appendOption(parts, "--device-id", input.agent?.device_id);
+  parts.push("--summary", "<summary>");
   return parts.join(" ");
 }
 
@@ -703,6 +745,8 @@ export async function agentEnter(input: AgentEnterInput) {
 export function agentGuide(input: AgentGuideInput) {
   const command = buildAgentEnterCommand(input);
   const startupArguments = lifecycleActionArguments(input);
+  const lifecycleInput = ensureGuideProjectIdentity(input);
+  const lifecycleArguments = lifecycleActionArguments(lifecycleInput);
   return {
     ok: true,
     recommended_entrypoint: "agent_enter",
@@ -724,25 +768,25 @@ export function agentGuide(input: AgentGuideInput) {
         step: "publish_status",
         tool: "agent_status",
         required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
-        command: buildAgentStatusCommand(input),
-        required_fields: ["status"],
-        arguments: { ...startupArguments, status: undefined }
+        command: buildAgentStatusTemplateCommand(lifecycleInput),
+        required_fields: guideRequiredFields(input, ["status"]),
+        arguments: { ...lifecycleArguments, status: undefined }
       },
       {
         step: "finish_handoff",
         tool: "agent_finish",
         required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
-        command: buildAgentFinishCommand(input),
-        required_fields: ["summary"],
-        arguments: { ...startupArguments, summary: undefined }
+        command: buildAgentFinishTemplateCommand(lifecycleInput),
+        required_fields: guideRequiredFields(input, ["summary"]),
+        arguments: { ...lifecycleArguments, summary: undefined }
       },
       {
         step: "refresh_context",
         tool: "agent_start",
         required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
-        command: buildAgentRefreshTemplateCommand(input),
-        required_fields: ["refresh_since"],
-        arguments: { ...startupArguments, refresh_since: "<refresh_since>" }
+        command: buildAgentRefreshTemplateCommand(lifecycleInput),
+        required_fields: guideRequiredFields(input, ["refresh_since"]),
+        arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" }
       }
     ],
     rules: [
