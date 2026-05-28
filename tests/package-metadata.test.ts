@@ -13,14 +13,14 @@ describe("package metadata", () => {
     };
     const license = await readFile("LICENSE", "utf8");
 
-    expect(packageJson.name).toBe("@richardyu114/memora");
+    expect(packageJson.name).toBe("@richardyu114/moryn");
     expect(packageJson.license).toBe("MIT");
     expect(packageJson.repository).toEqual({
       type: "git",
-      url: "git+ssh://git@github.com/Richardyu114/Memora.git"
+      url: "git+ssh://git@github.com/Richardyu114/Moryn.git"
     });
-    expect(packageJson.bugs?.url).toBe("https://github.com/Richardyu114/Memora/issues");
-    expect(packageJson.homepage).toBe("https://github.com/Richardyu114/Memora#readme");
+    expect(packageJson.bugs?.url).toBe("https://github.com/Richardyu114/Moryn/issues");
+    expect(packageJson.homepage).toBe("https://github.com/Richardyu114/Moryn#readme");
     expect(packageJson.publishConfig?.access).toBe("public");
     expect(license).toContain("MIT License");
     expect(license).toContain("Richard Yu");

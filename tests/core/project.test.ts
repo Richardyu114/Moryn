@@ -37,16 +37,16 @@ async function withCwd<T>(directory: string, action: () => Promise<T>): Promise<
 }
 
 describe("project config", () => {
-  it("initializes .memora.json with project defaults", async () => {
+  it("initializes .moryn.json with project defaults", async () => {
     await withTempStore(async (projectPath) => {
       const result = await initializeProjectConfig(projectPath, {
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["typescript", "mcp"],
         sync: { mode: "session" }
       });
 
       expect(result.config).toEqual({
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["typescript", "mcp"],
         default_skills: [],
         sync: { mode: "session" }
@@ -57,13 +57,13 @@ describe("project config", () => {
   it("supports interval sync mode and normalizes legacy auto mode", async () => {
     await withTempStore(async (projectPath) => {
       const interval = await initializeProjectConfig(projectPath, {
-        project_id: "memora",
+        project_id: "moryn",
         sync: { mode: "interval" }
       });
       expect(interval.config.sync.mode).toBe("interval");
 
-      await writeFile(join(projectPath, ".memora.json"), JSON.stringify({
-        project_id: "memora",
+      await writeFile(join(projectPath, ".moryn.json"), JSON.stringify({
+        project_id: "moryn",
         sync: { mode: "auto" }
       }), "utf8");
 
@@ -91,7 +91,7 @@ describe("project config", () => {
         /Invalid sync\.mode/
       );
 
-      await expect(access(join(projectPath, ".memora.json"))).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(access(join(projectPath, ".moryn.json"))).rejects.toMatchObject({ code: "ENOENT" });
     });
   });
 
@@ -99,11 +99,11 @@ describe("project config", () => {
     await withTempStore(async (projectPath) => {
       await withCwd(projectPath, async () => {
         await expectInvalidArgument(
-          () => initializeProjectConfig("", { project_id: "memora" }),
+          () => initializeProjectConfig("", { project_id: "moryn" }),
           /Invalid projectPath/
         );
         await expectInvalidArgument(
-          () => initializeProjectConfig(null as never, { project_id: "memora" }),
+          () => initializeProjectConfig(null as never, { project_id: "moryn" }),
           /Invalid projectPath/
         );
         await expectInvalidArgument(
@@ -115,7 +115,7 @@ describe("project config", () => {
           /Invalid projectPath/
         );
 
-        await expect(access(join(projectPath, ".memora.json"))).rejects.toMatchObject({ code: "ENOENT" });
+        await expect(access(join(projectPath, ".moryn.json"))).rejects.toMatchObject({ code: "ENOENT" });
       });
     });
   });
@@ -133,7 +133,7 @@ describe("project config", () => {
 
   it("resolves explicit id without reading ambient project config", async () => {
     await withTempStore(async (projectPath) => {
-      await writeFile(join(projectPath, ".memora.json"), "{\"project_id\":", "utf8");
+      await writeFile(join(projectPath, ".moryn.json"), "{\"project_id\":", "utf8");
 
       await withCwd(projectPath, async () => {
         const context = await resolveProjectContext({ projectId: "explicit" });
@@ -194,7 +194,7 @@ describe("project config", () => {
 
   it("rejects malformed project config JSON", async () => {
     await withTempStore(async (projectPath) => {
-      await writeFile(join(projectPath, ".memora.json"), "{\"project_id\":", "utf8");
+      await writeFile(join(projectPath, ".moryn.json"), "{\"project_id\":", "utf8");
 
       await expect(resolveProjectContext({ projectPath })).rejects.toThrow(/Invalid project config/);
     });
@@ -203,7 +203,7 @@ describe("project config", () => {
   it("uses git remote identity across local paths when config is absent", async () => {
     await withTempStore(async (projectPath) => {
       await exec("git", ["init"], { cwd: projectPath });
-      await exec("git", ["remote", "add", "origin", "git@github.com:Richardyu114/Memora.git"], { cwd: projectPath });
+      await exec("git", ["remote", "add", "origin", "git@github.com:Richardyu114/Moryn.git"], { cwd: projectPath });
 
       const context = await resolveProjectContext({ projectPath });
 
@@ -223,9 +223,9 @@ describe("project config", () => {
       await exec("git", ["init"], { cwd: sshProject });
       await exec("git", ["init"], { cwd: httpsProject });
       await exec("git", ["init"], { cwd: sshUrlProject });
-      await exec("git", ["remote", "add", "origin", "git@github.com:Richardyu114/Memora.git"], { cwd: sshProject });
-      await exec("git", ["remote", "add", "origin", "https://github.com/Richardyu114/Memora.git"], { cwd: httpsProject });
-      await exec("git", ["remote", "add", "origin", "ssh://git@github.com/Richardyu114/Memora.git/"], { cwd: sshUrlProject });
+      await exec("git", ["remote", "add", "origin", "git@github.com:Richardyu114/Moryn.git"], { cwd: sshProject });
+      await exec("git", ["remote", "add", "origin", "https://github.com/Richardyu114/Moryn.git"], { cwd: httpsProject });
+      await exec("git", ["remote", "add", "origin", "ssh://git@github.com/Richardyu114/Moryn.git/"], { cwd: sshUrlProject });
 
       const sshContext = await resolveProjectContext({ projectPath: sshProject });
       const httpsContext = await resolveProjectContext({ projectPath: httpsProject });

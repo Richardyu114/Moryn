@@ -1,4 +1,4 @@
-import type { MemoraEvent, MemoraRecord, RecordState } from "./types.js";
+import type { MorynEvent, MorynRecord, RecordState } from "./types.js";
 import { parseRecord } from "./schema.js";
 
 function setPath(target: Record<string, unknown>, path: string, value: unknown): void {
@@ -14,15 +14,15 @@ function setPath(target: Record<string, unknown>, path: string, value: unknown):
   cursor[parts[parts.length - 1] as string] = value;
 }
 
-export function applyRecordPatch(record: MemoraRecord, patch: Record<string, unknown>): MemoraRecord {
+export function applyRecordPatch(record: MorynRecord, patch: Record<string, unknown>): MorynRecord {
   const next = structuredClone(record) as unknown as Record<string, unknown>;
   for (const [path, value] of Object.entries(patch)) {
     setPath(next, path, value);
   }
-  return next as unknown as MemoraRecord;
+  return next as unknown as MorynRecord;
 }
 
-function validateReplayRecord(event: MemoraEvent, record: MemoraRecord): MemoraRecord {
+function validateReplayRecord(event: MorynEvent, record: MorynRecord): MorynRecord {
   try {
     return parseRecord(record);
   } catch (error) {
@@ -31,7 +31,7 @@ function validateReplayRecord(event: MemoraEvent, record: MemoraRecord): MemoraR
   }
 }
 
-function requireReplayRecord(records: Map<string, MemoraRecord>, event: MemoraEvent, recordId: string, label = "Record"): MemoraRecord {
+function requireReplayRecord(records: Map<string, MorynRecord>, event: MorynEvent, recordId: string, label = "Record"): MorynRecord {
   const record = records.get(recordId);
   if (!record) {
     throw new Error(`Invalid replay target for event ${event.event_id}: ${label} not found: ${recordId}`);
@@ -39,7 +39,7 @@ function requireReplayRecord(records: Map<string, MemoraRecord>, event: MemoraEv
   return record;
 }
 
-function replayStateTransition(event: Extract<MemoraEvent, { op: "promote_record" | "archive_record" | "quarantine_record" }>): RecordState {
+function replayStateTransition(event: Extract<MorynEvent, { op: "promote_record" | "archive_record" | "quarantine_record" }>): RecordState {
   if (event.op === "promote_record") {
     if (!event.target_state) {
       throw new Error(`Invalid replay state transition for event ${event.event_id}: promote_record requires target_state`);
@@ -54,8 +54,8 @@ function replayStateTransition(event: Extract<MemoraEvent, { op: "promote_record
   return event.op === "archive_record" ? "archived" : "quarantined";
 }
 
-export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
-  const records = new Map<string, MemoraRecord>();
+export function replayEvents(events: MorynEvent[]): Map<string, MorynRecord> {
+  const records = new Map<string, MorynRecord>();
 
   for (const event of events) {
     if (event.op === "upsert_record") {
@@ -73,7 +73,7 @@ export function replayEvents(events: MemoraEvent[]): Map<string, MemoraRecord> {
       } else {
         delete next.conflict;
       }
-      records.set(event.record_id, validateReplayRecord(event, next as unknown as MemoraRecord));
+      records.set(event.record_id, validateReplayRecord(event, next as unknown as MorynRecord));
       continue;
     }
 

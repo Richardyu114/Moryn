@@ -21,7 +21,7 @@ const recordPriorities = ["low", "normal", "high"] as const;
 const syncModes = ["manual", "session", "interval"] as const;
 
 function storePath(): string {
-  return parseNonEmptyString(program.opts<{ store?: string }>().store, "--store") ?? join(homedir(), ".memora");
+  return parseNonEmptyString(program.opts<{ store?: string }>().store, "--store") ?? join(homedir(), ".moryn");
 }
 
 function printJson(value: unknown): void {
@@ -144,14 +144,14 @@ function validateSyncOperationOptions(options: { status?: boolean; push?: boolea
 }
 
 program
-  .name("mem")
-  .description("Memora CLI")
+  .name("moryn")
+  .description("Moryn CLI")
   .version(version)
   .configureOutput({
     outputError: () => {}
   })
   .exitOverride()
-  .option("--store <path>", "Override Memora store path");
+  .option("--store <path>", "Override Moryn store path");
 
 program.command("init").action(async () => {
   printJson({ ok: true, ...await initializeStore(storePath()) });

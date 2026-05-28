@@ -7,7 +7,7 @@ describe("record schema", () => {
     kind: "memory",
     type: "decision",
     scope: "project",
-    project_id: "memora",
+    project_id: "moryn",
     tags: ["sync"],
     content: { text: "Use append-only events.", format: "text" },
     state: "canonical",

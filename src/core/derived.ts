@@ -2,7 +2,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { replayEvents } from "./replay.js";
 import { readEvents } from "./store.js";
-import type { MemoraRecord } from "./types.js";
+import type { MorynRecord } from "./types.js";
 import { displayRecordText, searchableRecordText } from "./content-text.js";
 
 export interface RebuildResult {
@@ -12,19 +12,19 @@ export interface RebuildResult {
   skills: number;
 }
 
-function textOf(record: MemoraRecord): string {
+function textOf(record: MorynRecord): string {
   return displayRecordText(record);
 }
 
-function active(records: MemoraRecord[]): MemoraRecord[] {
+function active(records: MorynRecord[]): MorynRecord[] {
   return records.filter((record) => record.state !== "archived" && record.state !== "quarantined");
 }
 
-function canonical(records: MemoraRecord[]): MemoraRecord[] {
+function canonical(records: MorynRecord[]): MorynRecord[] {
   return active(records).filter((record) => record.state === "canonical");
 }
 
-function projectSummary(records: MemoraRecord[]): string {
+function projectSummary(records: MorynRecord[]): string {
   const summary = [...records]
     .filter((record) => record.kind === "memory")
     .filter((record) => record.type === "summary" || record.type === "project_summary")

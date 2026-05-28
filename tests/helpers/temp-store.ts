@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { initializeStore } from "../../src/core/config.js";
 
 export async function withTempStore<T>(fn: (storePath: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), "memora-test-"));
+  const dir = await mkdtemp(join(tmpdir(), "moryn-test-"));
   try {
     return await fn(dir);
   } finally {

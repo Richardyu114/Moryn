@@ -12,7 +12,7 @@ async function withDistMcpClient<T>(storePath: string, fn: (client: Client) => P
     cwd: process.cwd(),
     stderr: "pipe"
   });
-  const client = new Client({ name: "memora-dist-test-client", version: "0.1.0" });
+  const client = new Client({ name: "moryn-dist-test-client", version: "0.1.0" });
   await client.connect(transport);
   try {
     return await fn(client);
@@ -31,7 +31,7 @@ function parseTextContent(result: Awaited<ReturnType<Client["callTool"]>>): unkn
 
 describe("built MCP stdio server", () => {
   it("serves MCP tools from dist/cli.js", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-dist-mcp-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-dist-mcp-"));
     try {
       await withDistMcpClient(store, async (client) => {
         const tools = await client.listTools();
@@ -45,7 +45,7 @@ describe("built MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             text: "Built MCP server works.",
             state: "canonical",
             source: { client: "dist-mcp-test" }
@@ -56,7 +56,7 @@ describe("built MCP stdio server", () => {
           name: "recall",
           arguments: {
             record_ids: [write.record.id],
-            project_id: "memora"
+            project_id: "moryn"
           }
         })) as { results: Array<{ record: { content: { text: string } } }> };
 

@@ -21,7 +21,7 @@ async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promi
     cwd,
     stderr: "pipe"
   });
-  const client = new Client({ name: "memora-test-client", version: "0.1.0" });
+  const client = new Client({ name: "moryn-test-client", version: "0.1.0" });
   await client.connect(transport);
   try {
     return await fn(client);
@@ -50,8 +50,8 @@ async function expectInvalidMcpArguments(action: () => Promise<Awaited<ReturnTyp
 }
 
 describe("MCP stdio server", () => {
-  it("exposes Memora tools over the official MCP protocol", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-"));
+  it("exposes Moryn tools over the official MCP protocol", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-"));
     try {
       await withMcpClient(store, async (client) => {
         const tools = await client.listTools();
@@ -83,7 +83,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             text: "Use real MCP tools.",
             state: "canonical",
             source: { client: "mcp-test" }
@@ -92,7 +92,7 @@ describe("MCP stdio server", () => {
 
         const recallResult = parseTextContent(await client.callTool({
           name: "recall",
-          arguments: { query: "real MCP", project_id: "memora", limit: 5 }
+          arguments: { query: "real MCP", project_id: "moryn", limit: 5 }
         })) as { results: Array<{ record: { id: string; content: { text: string } } }> };
 
         expect(recallResult.results[0]?.record.id).toBe(writeResult.record.id);
@@ -130,7 +130,7 @@ describe("MCP stdio server", () => {
         const refreshResult = parseTextContent(await client.callTool({
           name: "refresh",
           arguments: {
-            project_id: "memora",
+            project_id: "moryn",
             cursor: "2000-01-01T00:00:00.000Z",
             current_task: "real MCP"
           }
@@ -188,7 +188,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             text: "Old MCP decision.",
             state: "canonical",
             source: { client: "mcp-test" }
@@ -218,14 +218,14 @@ describe("MCP stdio server", () => {
           arguments: {
             record_ids: [oldResult.record.id],
             states: ["archived"],
-            project_id: "memora"
+            project_id: "moryn"
           }
         })) as { results: Array<{ record: { state: string } }> };
         const linkedRecall = parseTextContent(await client.callTool({
           name: "recall",
           arguments: {
             record_ids: [writeResult.record.id],
-            project_id: "memora"
+            project_id: "moryn"
           }
         })) as { results: Array<{ record: { links?: Array<{ record_id: string; link_type: string }> } }> };
 
@@ -247,7 +247,7 @@ describe("MCP stdio server", () => {
           arguments: {
             record_ids: [writeResult.record.id],
             states: ["quarantined"],
-            project_id: "memora"
+            project_id: "moryn"
           }
         })) as { results: Array<{ record: { state: string } }> };
 
@@ -259,7 +259,7 @@ describe("MCP stdio server", () => {
   });
 
   it("exposes rebuild and Git sync operations over MCP", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-mcp-sync-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-sync-"));
     const remote = join(root, "remote.git");
     const storeA = join(root, "store-a");
     const storeB = join(root, "store-b");
@@ -288,7 +288,7 @@ describe("MCP stdio server", () => {
               kind: "memory",
               type: "decision",
               scope: "project",
-              project_id: "memora",
+              project_id: "moryn",
               text: "MCP sync shares events.",
               state: "canonical",
               source: { client: "mcp-sync-test", device_id: "device_a" }
@@ -333,12 +333,12 @@ describe("MCP stdio server", () => {
   }, 30000);
 
   it("resolves project paths and project config through MCP", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-mcp-project-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-"));
     const store = join(root, "store");
     const project = join(root, "project");
     try {
       await initializeProjectConfig(project, {
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["typescript"],
         default_skills: ["release"]
       });
@@ -371,7 +371,7 @@ describe("MCP stdio server", () => {
           }
         })) as { record: { id: string; project_id?: string; tags: string[] } };
 
-        expect(decision.record.project_id).toBe("memora");
+        expect(decision.record.project_id).toBe("moryn");
         expect(decision.record.tags).toContain("typescript");
 
         const boot = parseTextContent(await client.callTool({
@@ -390,7 +390,7 @@ describe("MCP stdio server", () => {
           arguments: { query: "project path", project_path: project }
         })) as { results: Array<{ record: { id: string; project_id?: string } }> };
         expect(recall.results[0]?.record.id).toBe(decision.record.id);
-        expect(recall.results[0]?.record.project_id).toBe("memora");
+        expect(recall.results[0]?.record.project_id).toBe("moryn");
 
         const otherProject = parseTextContent(await client.callTool({
           name: "write",
@@ -417,7 +417,7 @@ describe("MCP stdio server", () => {
   });
 
   it("initializes project config over MCP", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-mcp-project-init-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-init-"));
     const store = join(root, "store");
     const project = join(root, "project");
     try {
@@ -426,7 +426,7 @@ describe("MCP stdio server", () => {
           name: "project_init",
           arguments: {
             path: project,
-            project_id: "memora",
+            project_id: "moryn",
             tags: ["typescript", "mcp"],
             default_skills: ["release"],
             sync_mode: "interval"
@@ -435,7 +435,7 @@ describe("MCP stdio server", () => {
 
         expect(init.ok).toBe(true);
         expect(init.config).toMatchObject({
-          project_id: "memora",
+          project_id: "moryn",
           tags: ["typescript", "mcp"],
           default_skills: ["release"],
           sync: { mode: "interval" }
@@ -447,7 +447,7 @@ describe("MCP stdio server", () => {
   });
 
   it("preserves existing project sync mode when MCP updates config without sync_mode", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-mcp-project-init-preserve-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-init-preserve-"));
     const store = join(root, "store");
     const project = join(root, "project");
     try {
@@ -456,7 +456,7 @@ describe("MCP stdio server", () => {
           name: "project_init",
           arguments: {
             path: project,
-            project_id: "memora",
+            project_id: "moryn",
             sync_mode: "interval"
           }
         }));
@@ -478,7 +478,7 @@ describe("MCP stdio server", () => {
   });
 
   it("does not apply ambient project config when only project_id is provided over MCP", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-mcp-explicit-project-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-explicit-project-"));
     const store = join(root, "store");
     const project = join(root, "project");
     try {
@@ -511,12 +511,12 @@ describe("MCP stdio server", () => {
   });
 
   it("returns structured JSON errors from MCP tools", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-mcp-error-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-error-"));
     const store = join(root, "store");
     const project = join(root, "project");
     try {
       await mkdir(project, { recursive: true });
-      await writeFile(join(project, ".memora.json"), "{\"project_id\":\"\"}\n", "utf8");
+      await writeFile(join(project, ".moryn.json"), "{\"project_id\":\"\"}\n", "utf8");
 
       await withMcpClient(store, async (client) => {
         const response = await client.callTool({
@@ -536,7 +536,7 @@ describe("MCP stdio server", () => {
   });
 
   it("returns structured JSON errors for missing record mutations over MCP", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-missing-record-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-missing-record-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -560,7 +560,7 @@ describe("MCP stdio server", () => {
   });
 
   it("returns structured JSON errors for managed-field revisions over MCP", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-managed-revision-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-managed-revision-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -571,7 +571,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             text: "Use promote for MCP state transitions.",
             state: "candidate",
             source: { client: "mcp-test" }
@@ -599,7 +599,7 @@ describe("MCP stdio server", () => {
   });
 
   it("returns structured JSON errors for invalid revision patches over MCP", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-invalid-revision-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-invalid-revision-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -610,7 +610,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             text: "Keep MCP revision patches valid.",
             state: "candidate",
             source: { client: "mcp-test" }
@@ -647,7 +647,7 @@ describe("MCP stdio server", () => {
   });
 
   it("requires explicit MCP confirmation for high-risk canonical changes", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-confirm-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-confirm-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -730,7 +730,7 @@ describe("MCP stdio server", () => {
   });
 
   it("writes provenance over MCP", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-provenance-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-provenance-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -741,7 +741,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             text: "Use provenance metadata.",
             state: "candidate",
             provenance: {
@@ -764,7 +764,7 @@ describe("MCP stdio server", () => {
   });
 
   it("uses MCP as the default source for mutation events", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-default-source-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-default-source-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -775,7 +775,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             text: "MCP mutation source target.",
             state: "candidate"
           }
@@ -786,7 +786,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             text: "MCP mutation source linked record.",
             state: "candidate"
           }
@@ -843,7 +843,7 @@ describe("MCP stdio server", () => {
   });
 
   it("rejects ambiguous MCP write content inputs", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-content-input-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-content-input-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -854,7 +854,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             text: "Plain text",
             content: { text: "Structured text", format: "json" },
             source: { client: "mcp-test" }
@@ -870,7 +870,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             source: { client: "mcp-test" }
           }
         })) as { ok: boolean; error: { code: string; message: string } };
@@ -884,7 +884,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             content: {},
             source: { client: "mcp-test" }
           }
@@ -899,7 +899,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             content: { text: "", format: "json" },
             source: { client: "mcp-test" }
           }
@@ -929,7 +929,7 @@ describe("MCP stdio server", () => {
   });
 
   it("surfaces structured JSON content without text through MCP boot refresh and recall", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-structured-content-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-structured-content-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -940,7 +940,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "summary",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             state: "canonical",
             content: {
               format: "json",
@@ -954,7 +954,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "warning",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             state: "canonical",
             content: {
               format: "json",
@@ -967,12 +967,12 @@ describe("MCP stdio server", () => {
 
         const boot = parseTextContent(await client.callTool({
           name: "boot",
-          arguments: { project_id: "memora" }
+          arguments: { project_id: "moryn" }
         })) as { project: { summary: string; warnings: Array<{ id: string }> } };
         const refresh = parseTextContent(await client.callTool({
           name: "refresh",
           arguments: {
-            project_id: "memora",
+            project_id: "moryn",
             cursor: "2000-01-01T00:00:00.000Z"
           }
         })) as { changes: Array<{ record_id: string; summary: string }> };
@@ -980,7 +980,7 @@ describe("MCP stdio server", () => {
           name: "recall",
           arguments: {
             query: "mcp-structured",
-            project_id: "memora"
+            project_id: "moryn"
           }
         })) as { results: Array<{ record: { id: string }; reason: string[] }> };
 
@@ -1003,7 +1003,7 @@ describe("MCP stdio server", () => {
   });
 
   it("writes project session summaries with handoff defaults over MCP", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-session-summary-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-session-summary-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -1012,7 +1012,7 @@ describe("MCP stdio server", () => {
           name: "write",
           arguments: {
             kind: "session_summary",
-            project_id: "memora",
+            project_id: "moryn",
             text: "Finished the task summary."
           }
         })) as {
@@ -1031,7 +1031,7 @@ describe("MCP stdio server", () => {
           kind: "session_summary",
           type: "summary",
           scope: "project",
-          project_id: "memora",
+          project_id: "moryn",
           state: "candidate",
           content: { text: "Finished the task summary." },
           source: { client: "mcp" }
@@ -1042,7 +1042,7 @@ describe("MCP stdio server", () => {
           arguments: {
             kind: "memory",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             text: "Ordinary MCP memories still need a type."
           }
         })) as { ok: boolean; error: { code: string; message: string } };
@@ -1055,7 +1055,7 @@ describe("MCP stdio server", () => {
           arguments: {
             kind: "memory",
             type: "decision",
-            project_id: "memora",
+            project_id: "moryn",
             text: "Ordinary MCP memories still need a scope."
           }
         })) as { ok: boolean; error: { code: string; message: string } };
@@ -1069,7 +1069,7 @@ describe("MCP stdio server", () => {
   });
 
   it("rejects empty optional MCP string inputs at the schema boundary", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-empty-input-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-empty-input-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -1081,7 +1081,7 @@ describe("MCP stdio server", () => {
               kind: "memory",
               type: "decision",
               scope: "project",
-              project_id: "memora",
+              project_id: "moryn",
               text: "",
               source: { client: "mcp-test" }
             }
@@ -1095,7 +1095,7 @@ describe("MCP stdio server", () => {
               kind: "memory",
               type: "decision",
               scope: "project",
-              project_id: "memora",
+              project_id: "moryn",
               text: "Valid text",
               tags: [""],
               source: { client: "mcp-test" }
@@ -1106,20 +1106,20 @@ describe("MCP stdio server", () => {
         await expectInvalidMcpArguments(
           () => client.callTool({
             name: "recall",
-            arguments: { project_id: "memora", query: "" }
+            arguments: { project_id: "moryn", query: "" }
           }),
           /Invalid arguments/
         );
         await expectInvalidMcpArguments(
           () => client.callTool({
             name: "refresh",
-            arguments: { project_id: "memora", cursor: "" }
+            arguments: { project_id: "moryn", cursor: "" }
           }),
           /Invalid arguments/
         );
         const invalidCursor = parseTextContent(await client.callTool({
           name: "refresh",
-          arguments: { project_id: "memora", cursor: "not-a-date" }
+          arguments: { project_id: "moryn", cursor: "not-a-date" }
         })) as { ok: boolean; error: { code: string; message: string } };
         expect(invalidCursor.ok).toBe(false);
         expect(invalidCursor.error.code).toBe("INVALID_ARGUMENT");
@@ -1138,7 +1138,7 @@ describe("MCP stdio server", () => {
   });
 
   it("marks conflicting MCP canonical writes as candidates", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-conflict-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-conflict-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -1149,7 +1149,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             tags: ["sync"],
             text: "Use append-only JSON events.",
             state: "canonical",
@@ -1164,7 +1164,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             tags: ["sync"],
             text: "Use SQLite as the source of truth.",
             state: "canonical",
@@ -1186,7 +1186,7 @@ describe("MCP stdio server", () => {
   });
 
   it("requires explicit MCP confirmation for conflicting canonical promotion", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-promote-conflict-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-promote-conflict-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -1197,7 +1197,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             tags: ["sync"],
             text: "Use SQLite as the source of truth.",
             state: "candidate",
@@ -1210,7 +1210,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             tags: ["sync"],
             text: "Use append-only JSON events.",
             state: "canonical",
@@ -1256,7 +1256,7 @@ describe("MCP stdio server", () => {
   });
 
   it("requires explicit MCP confirmation for conflicting canonical revisions", async () => {
-    const store = await mkdtemp(join(tmpdir(), "memora-mcp-revise-conflict-"));
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-revise-conflict-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -1267,7 +1267,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "decision",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             tags: ["sync"],
             text: "Use append-only JSON events.",
             state: "canonical",
@@ -1281,7 +1281,7 @@ describe("MCP stdio server", () => {
             kind: "memory",
             type: "warning",
             scope: "project",
-            project_id: "memora",
+            project_id: "moryn",
             tags: ["sync"],
             text: "Use private Git remotes.",
             state: "canonical",

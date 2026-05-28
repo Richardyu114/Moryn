@@ -1,4 +1,4 @@
-export interface MemoraErrorEnvelope {
+export interface MorynErrorEnvelope {
   ok: false;
   error: {
     code: string;
@@ -32,15 +32,15 @@ export function isRecoverable(code: string): boolean {
 export function recommendedAction(code: string): string {
   switch (code) {
     case "INVALID_PROJECT_CONFIG":
-      return "fix .memora.json or pass an explicit project id";
+      return "fix .moryn.json or pass an explicit project id";
     case "INVALID_STORE_CONFIG":
-      return "fix or remove config.json, then run mem init";
+      return "fix or remove config.json, then run moryn init";
     case "INVALID_ARGUMENT":
       return "fix the command arguments and retry";
     case "RECORD_NOT_FOUND":
       return "check the record id or call recall/list-recent to find it";
     case "STORE_NOT_INITIALIZED":
-      return "run mem init";
+      return "run moryn init";
     case "CONFIRMATION_REQUIRED":
       return "ask the user to confirm before retrying with confirmed=true or --confirm";
     case "INVALID_RECORD":
@@ -48,11 +48,11 @@ export function recommendedAction(code: string): string {
     case "SENSITIVE_CONTENT_DETECTED":
       return "remove or redact sensitive content before retrying";
     case "INDEX_STALE":
-      return "run mem rebuild";
+      return "run moryn rebuild";
     case "PERMISSION_DENIED":
       return "check Git credentials and filesystem permissions";
     case "SYNC_NOT_CONFIGURED":
-      return "run mem sync init <remote>";
+      return "run moryn sync init <remote>";
     case "SYNC_CONFLICT":
       return "inspect Git sync state before retrying";
     case "SYNC_REMOTE_UNAVAILABLE":
@@ -62,7 +62,7 @@ export function recommendedAction(code: string): string {
   }
 }
 
-export function toErrorEnvelope(error: unknown): MemoraErrorEnvelope {
+export function toErrorEnvelope(error: unknown): MorynErrorEnvelope {
   const message = error instanceof Error ? error.message : String(error);
   const code = errorCode(message);
   return {

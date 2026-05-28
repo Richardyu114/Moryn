@@ -1,4 +1,4 @@
-# Memora Implementation Roadmap
+# Moryn Implementation Roadmap
 
 This roadmap tracks the remaining work from the approved design to a usable
 personal memory layer for multiple AI agents. The project should keep moving in
@@ -8,7 +8,7 @@ small, verified commits on `main`.
 
 The repository currently has the first-version local MVP:
 
-- TypeScript package and `mem` CLI.
+- TypeScript package and `moryn` CLI.
 - Append-only JSON event store.
 - Record kinds for memory, skill, soul, session summary, and agent note.
 - Logical revise, promote, archive, quarantine, and link replay model.
@@ -18,12 +18,12 @@ The repository currently has the first-version local MVP:
 
 ## Completion Criteria
 
-Memora is functionally complete for the first product version when:
+Moryn is functionally complete for the first product version when:
 
 1. Agents can connect through a real MCP stdio server.
 2. CLI and MCP expose the same core operations.
 3. Local store configuration is initialized and validated.
-4. Project identity resolves from explicit input, `.memora.json`, Git remote,
+4. Project identity resolves from explicit input, `.moryn.json`, Git remote,
    Git root, and path fallback.
 5. Boot returns a useful bounded context package for a project/task.
 6. Recall supports project, kind, type, tag, state, text query, and record-id
@@ -47,7 +47,7 @@ agent access.
 
 Deliverables:
 
-- `mem mcp` starts a real MCP server.
+- `moryn mcp` starts a real MCP server.
 - Tools: `init`, `project_init`, `boot`, `recall`, `write`, `revise`,
   `promote`, `archive`, `quarantine`, `link`, `refresh`, `rebuild`,
   `sync_init`, `sync_status`, `sync_pull`, `sync_push`, `list_recent`.
@@ -62,8 +62,8 @@ Make local setup predictable across machines and projects.
 
 Deliverables:
 
-- Done: `mem init` writes `config.json` with device id and store version.
-- Done: `mem project init` writes `.memora.json`.
+- Done: `moryn init` writes `config.json` with device id and store version.
+- Done: `moryn project init` writes `.moryn.json`.
 - Done: CLI accepts `--project <path>` and resolves project identity consistently.
 - Done: Project config can add default tags and sync mode.
 - Done: Project config default skills are applied to boot context.
@@ -79,7 +79,7 @@ Deliverables:
 - Done: Ranking reasons are explicit and stable.
 - Done: Boot separates profile, project decisions, warnings, skills, recent changes,
   and sync status.
-- Done: `mem refresh` reports changes since a cursor as `silent`, `notice`, or
+- Done: `moryn refresh` reports changes since a cursor as `silent`, `notice`, or
   `interrupt`.
 - Done: `current_task` narrows refresh interrupts to related blockers, warnings,
   conflicts, and high-priority changes.
@@ -94,12 +94,12 @@ Implement private-repo sync as the first cross-device backend.
 
 Deliverables:
 
-- Done: `mem sync init <repo-url>` creates or connects the store Git repo.
-- Done: `mem sync --pull` fetches and merges remote event history.
-- Done: `mem sync --pull` rebases local event commits when remote history has
+- Done: `moryn sync init <repo-url>` creates or connects the store Git repo.
+- Done: `moryn sync --pull` fetches and merges remote event history.
+- Done: `moryn sync --pull` rebases local event commits when remote history has
   moved ahead.
-- Done: `mem sync --push` commits local event files and pushes.
-- Done: `mem sync --status` reports configured remote, branch, dirty state, ahead,
+- Done: `moryn sync --push` commits local event files and pushes.
+- Done: `moryn sync --status` reports configured remote, branch, dirty state, ahead,
   behind, and last sync.
 - Done: Generated snapshots/indexes are excluded from sync by default.
 - Done: Local `config.json` is excluded from sync to avoid device identity conflicts.
@@ -111,7 +111,7 @@ Add rebuildable snapshots and indexes for performance and correctness.
 
 Deliverables:
 
-- Done: `mem rebuild` regenerates snapshots and recall indexes from events.
+- Done: `moryn rebuild` regenerates snapshots and recall indexes from events.
 - Done: Snapshots include user profile, project summaries, and skill index.
 - Done: Indexes are deterministic and safe to delete.
 - Done: Tests prove event replay is the source of truth.
@@ -128,11 +128,11 @@ Deliverables:
 - Done: README includes Codex, Claude, Cursor, and shell-agent usage examples where
   practical.
 - Done: Packed-package smoke test installs the generated tarball and runs the
-  `mem` binary from `node_modules/.bin`.
+  `moryn` binary from `node_modules/.bin`.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
-  `MEMORA_PRIVATE_GIT_REMOTE`.
+  `MORYN_PRIVATE_GIT_REMOTE`.
 - Done: Release checklist is documented with the private Git remote validation
   command.
 - Done: MIT license is included.
-- Done: npm package metadata uses scoped package `@richardyu114/memora` because `memora` is already occupied.
+- Done: npm package metadata uses scoped package `@richardyu114/moryn`.

@@ -59,15 +59,15 @@ async function toolResult(fn: () => Promise<unknown>) {
 
 export async function runMcpServer(engine: Engine, options: { storePath: string }): Promise<void> {
   const server = new McpServer({
-    name: "memora",
+    name: "moryn",
     version: "0.1.0"
   });
 
   server.registerTool(
     "init",
     {
-      title: "Initialize Memora Store",
-      description: "Create or update the local Memora store configuration and directories.",
+      title: "Initialize Moryn Store",
+      description: "Create or update the local Moryn store configuration and directories.",
       inputSchema: {}
     },
     async () => toolResult(async () => ({ ok: true, ...await initializeStore(options.storePath) }))
@@ -76,8 +76,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "project_init",
     {
-      title: "Initialize Memora Project Config",
-      description: "Create or update a .memora.json project config.",
+      title: "Initialize Moryn Project Config",
+      description: "Create or update a .moryn.json project config.",
       inputSchema: {
         path: z.string().min(1),
         project_id: nonEmptyStringSchema.optional(),
@@ -100,7 +100,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "boot",
     {
-      title: "Boot Memora Context",
+      title: "Boot Moryn Context",
       description: "Return a bounded context package for an agent starting work.",
       inputSchema: {
         project_id: nonEmptyStringSchema.optional(),
@@ -122,7 +122,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "recall",
     {
-      title: "Recall Memora Records",
+      title: "Recall Moryn Records",
       description: "Search memory, skills, soul, session summaries, and agent notes.",
       inputSchema: {
         record_ids: z.array(nonEmptyStringSchema).optional(),
@@ -158,8 +158,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "write",
     {
-      title: "Write Memora Record",
-      description: "Append a new Memora record event.",
+      title: "Write Moryn Record",
+      description: "Append a new Moryn record event.",
       inputSchema: {
         kind: recordKindSchema,
         type: nonEmptyStringSchema.optional(),
@@ -217,7 +217,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "revise",
     {
-      title: "Revise Memora Record",
+      title: "Revise Moryn Record",
       description: "Append a logical revision event for an existing record.",
       inputSchema: {
         record_id: nonEmptyStringSchema,
@@ -239,7 +239,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "promote",
     {
-      title: "Promote Memora Record",
+      title: "Promote Moryn Record",
       description: "Change a record state by appending a promotion/state event.",
       inputSchema: {
         record_id: nonEmptyStringSchema,
@@ -261,7 +261,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "archive",
     {
-      title: "Archive Memora Record",
+      title: "Archive Moryn Record",
       description: "Hide a record from default boot and recall while preserving history.",
       inputSchema: {
         record_id: nonEmptyStringSchema,
@@ -279,7 +279,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "quarantine",
     {
-      title: "Quarantine Memora Record",
+      title: "Quarantine Moryn Record",
       description: "Mark a record as sensitive or unsafe so it is excluded by default.",
       inputSchema: {
         record_id: nonEmptyStringSchema,
@@ -297,7 +297,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "link",
     {
-      title: "Link Memora Records",
+      title: "Link Moryn Records",
       description: "Append a relationship from one record to another.",
       inputSchema: {
         record_id: nonEmptyStringSchema,
@@ -317,7 +317,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "refresh",
     {
-      title: "Refresh Memora Changes",
+      title: "Refresh Moryn Changes",
       description: "Return important changes since a cursor for periodic agent memory refresh.",
       inputSchema: {
         project_id: nonEmptyStringSchema.optional(),
@@ -341,7 +341,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "rebuild",
     {
-      title: "Rebuild Memora Derived Views",
+      title: "Rebuild Moryn Derived Views",
       description: "Regenerate snapshots and indexes from append-only events.",
       inputSchema: {}
     },
@@ -351,8 +351,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "sync_init",
     {
-      title: "Initialize Memora Git Sync",
-      description: "Initialize or connect the local Memora store to a Git remote.",
+      title: "Initialize Moryn Git Sync",
+      description: "Initialize or connect the local Moryn store to a Git remote.",
       inputSchema: {
         remote: nonEmptyStringSchema
       }
@@ -363,7 +363,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "sync_status",
     {
-      title: "Get Memora Git Sync Status",
+      title: "Get Moryn Git Sync Status",
       description: "Return Git sync configuration and local/remote status.",
       inputSchema: {}
     },
@@ -373,8 +373,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "sync_pull",
     {
-      title: "Pull Memora Git Sync",
-      description: "Pull remote event history into the local Memora store.",
+      title: "Pull Moryn Git Sync",
+      description: "Pull remote event history into the local Moryn store.",
       inputSchema: {}
     },
     async () => toolResult(async () => pullGitSync(options.storePath))
@@ -383,8 +383,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "sync_push",
     {
-      title: "Push Memora Git Sync",
-      description: "Commit and push local event history from the Memora store.",
+      title: "Push Moryn Git Sync",
+      description: "Commit and push local event history from the Moryn store.",
       inputSchema: {
         message: nonEmptyStringSchema.optional()
       }
@@ -395,7 +395,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   server.registerTool(
     "list_recent",
     {
-      title: "List Recent Memora Records",
+      title: "List Recent Moryn Records",
       description: "Return recently updated records.",
       inputSchema: {
         limit: z.number().int().positive().max(100).optional()

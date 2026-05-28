@@ -1,16 +1,16 @@
-# Memora
+# Moryn
 
-![Memora hero](assets/memora-hero.png)
+![Moryn hero](assets/moryn-hero.png)
 
-Memora is a personal memory, skill, and soul layer for AI agents.
+Moryn is a personal memory, skill, and soul layer for AI agents.
 
 It is designed for people who use multiple AI agents across multiple projects and want those agents to share the same durable context without making memory belong to any single agent. Agents are readers and writers; the long-lived context belongs to the user, projects, topics, and artifacts.
 
-> Status: first-version MVP implementation. Core local memory operations, Git sync, and a real stdio MCP server are implemented from the first-version design in [docs/memora-design.md](docs/memora-design.md). The roadmap is tracked in [docs/implementation-roadmap.md](docs/implementation-roadmap.md).
+> Status: first-version MVP implementation. Core local memory operations, Git sync, and a real stdio MCP server are implemented from the first-version design in [docs/moryn-design.md](docs/moryn-design.md). The roadmap is tracked in [docs/implementation-roadmap.md](docs/implementation-roadmap.md).
 
-## What Memora Is
+## What Moryn Is
 
-Memora provides a local-first shared context layer for:
+Moryn provides a local-first shared context layer for:
 
 - `memory`: project facts, decisions, warnings, preferences, and state.
 - `skill`: reusable workflows, procedures, instructions, and command declarations.
@@ -24,7 +24,7 @@ The first version is a local tool with GitHub private repo sync. The local store
 
 AI agents often work in isolated sessions. One agent may learn a project constraint, debug a failure, or refine a workflow, but another agent starts later without that context.
 
-Memora aims to make that context portable:
+Moryn aims to make that context portable:
 
 - Codex can write a session summary after finishing work.
 - Claude or Cursor can fetch the same project's canonical decisions later.
@@ -45,7 +45,7 @@ flowchart LR
 
   subgraph AccessLayer["Access layer"]
     MCP["MCP server"]
-    CLI["CLI: mem"]
+    CLI["CLI: moryn"]
   end
 
   subgraph EngineLayer["Core memory engine"]
@@ -88,8 +88,8 @@ flowchart LR
 From source:
 
 ```bash
-git clone git@github.com:Richardyu114/Memora.git
-cd Memora
+git clone git@github.com:Richardyu114/Moryn.git
+cd Moryn
 npm install
 npm run build
 npm link
@@ -98,25 +98,25 @@ npm link
 After npm publication:
 
 ```bash
-npm install -g @richardyu114/memora
+npm install -g @richardyu114/moryn
 ```
 
 The CLI command is:
 
 ```bash
-mem
+moryn
 ```
 
 ### 2. Initialize the Local Store
 
 ```bash
-mem init
+moryn init
 ```
 
 This creates:
 
 ```text
-~/.memora/
+~/.moryn/
   config.json
   events/
   snapshots/
@@ -126,17 +126,17 @@ This creates:
 ### 3. Connect a Private Sync Repo
 
 ```bash
-mem sync init git@github.com:yourname/memora-store.git
+moryn sync init git@github.com:yourname/moryn-store.git
 ```
 
-The sync repo should be a user-owned private repository for Memora data. It should be separate from the Memora source code repository.
+The sync repo should be a user-owned private repository for Moryn data. It should be separate from the Moryn source code repository.
 
-Sync commands operate on the Memora store, not the current source repo:
+Sync commands operate on the Moryn store, not the current source repo:
 
 ```bash
-mem sync --status
-mem sync --push --message "sync after session"
-mem sync --pull
+moryn sync --status
+moryn sync --push --message "sync after session"
+moryn sync --pull
 ```
 
 The default Git sync commits event files and `.gitignore`. Local `config.json`, snapshots, and indexes remain device-local or rebuildable.
@@ -146,13 +146,13 @@ The default Git sync commits event files and `.gitignore`. Local `config.json`, 
 Inside a project repo:
 
 ```bash
-mem project init
+moryn project init
 ```
 
 This creates an optional project config:
 
 ```text
-.memora.json
+.moryn.json
 ```
 
 Example:
@@ -171,7 +171,7 @@ Example:
 You can also initialize a specific path with tags and default skill selectors:
 
 ```bash
-mem project init --path /path/to/project --project-id my-project --tag typescript --tag mcp --default-skill release
+moryn project init --path /path/to/project --project-id my-project --tag typescript --tag mcp --default-skill release
 ```
 
 Supported sync modes are `manual`, `session`, and `interval`. The default is
@@ -180,24 +180,24 @@ Supported sync modes are `manual`, `session`, and `interval`. The default is
 Project-aware commands accept either an explicit project id or a project path:
 
 ```bash
-mem write --kind memory --type decision --scope project --project /path/to/project --text "Use append-only events"
-mem write --kind memory --type decision --scope project --project /path/to/project --content-json '{"text":"Use structured content","format":"json","evidence":["cli"]}'
-mem recall "append-only events" --project /path/to/project
-mem boot --project /path/to/project
+moryn write --kind memory --type decision --scope project --project /path/to/project --text "Use append-only events"
+moryn write --kind memory --type decision --scope project --project /path/to/project --content-json '{"text":"Use structured content","format":"json","evidence":["cli"]}'
+moryn recall "append-only events" --project /path/to/project
+moryn boot --project /path/to/project
 ```
 
 For writes, CLI callers must provide exactly one of `--text` or
 `--content-json`; MCP callers must provide exactly one of `text` or `content`.
 For `session_summary` handoffs, CLI and MCP callers may omit `type` and
-`scope`; Memora defaults them to `summary` and `project`. Other record kinds
+`scope`; Moryn defaults them to `summary` and `project`. Other record kinds
 must provide both fields explicitly.
 
 ### 5. Connect Agents Through MCP
 
-Start the Memora MCP server:
+Start the Moryn MCP server:
 
 ```bash
-mem mcp
+moryn mcp
 ```
 
 Then configure an agent host that supports MCP to run that command. The exact host config will vary, but the target command is the same:
@@ -205,8 +205,8 @@ Then configure an agent host that supports MCP to run that command. The exact ho
 ```json
 {
   "mcpServers": {
-    "memora": {
-      "command": "mem",
+    "moryn": {
+      "command": "moryn",
       "args": ["mcp"]
     }
   }
@@ -233,10 +233,10 @@ The current MCP server uses the official Model Context Protocol TypeScript SDK o
 - `sync_push`
 - `list_recent`
 
-Agents that do not support MCP can still use Memora through CLI commands.
+Agents that do not support MCP can still use Moryn through CLI commands.
 
 MCP tools accept `project_id` directly. Project-aware tools also accept
-`project_path`; when provided, Memora resolves `.memora.json`, applies project
+`project_path`; when provided, Moryn resolves `.moryn.json`, applies project
 tags to writes, and applies configured `default_skills` during boot.
 
 ### Agent Host Examples
@@ -246,8 +246,8 @@ Codex, Claude Desktop, Cursor, and other MCP-capable hosts should point to the s
 ```json
 {
   "mcpServers": {
-    "memora": {
-      "command": "mem",
+    "moryn": {
+      "command": "moryn",
       "args": ["mcp"]
     }
   }
@@ -257,10 +257,10 @@ Codex, Claude Desktop, Cursor, and other MCP-capable hosts should point to the s
 Shell-based agents can use the CLI directly:
 
 ```bash
-mem boot --project .
-mem recall "current task" --project . --scope project --kind memory --kind skill
-mem write --kind session_summary --type summary --scope project --project . --text "Finished the task summary."
-mem refresh --project . --cursor <previous-cursor> --current-task "current task"
+moryn boot --project .
+moryn recall "current task" --project . --scope project --kind memory --kind skill
+moryn write --kind session_summary --type summary --scope project --project . --text "Finished the task summary."
+moryn refresh --project . --cursor <previous-cursor> --current-task "current task"
 ```
 
 ## Current MVP Commands
@@ -268,29 +268,29 @@ mem refresh --project . --cursor <previous-cursor> --current-task "current task"
 The current implementation includes these commands:
 
 ```bash
-mem init
-mem boot --project-id memora --current-task "fix auth"
-mem write --kind memory --type decision --scope project --project-id memora --tag sync --state canonical --text "Use append-only events"
-mem recall "append-only events" --project-id memora --kind memory --type decision --state canonical --tag sync
-mem refresh --project-id memora --cursor 2026-05-27T00:00:00.000Z --current-task "fix auth"
-mem revise rec_... --set content.text="Updated memory" --reason "Refined wording"
-mem revise rec_... --set content.text="User-confirmed replacement" --reason "User confirmed conflict resolution" --confirm
-mem promote rec_... --state canonical --reason "User confirmed"
-mem promote rec_... --state canonical --reason "User confirmed high-risk memory" --confirm
-mem archive rec_... --reason "Superseded"
-mem quarantine rec_... --reason "Needs review"
-mem link rec_... rec_other... --type supersedes
-mem list-recent
-mem rebuild
-mem sync --status
-mem sync --push
-mem sync --pull
-mem mcp
+moryn init
+moryn boot --project-id moryn --current-task "fix auth"
+moryn write --kind memory --type decision --scope project --project-id moryn --tag sync --state canonical --text "Use append-only events"
+moryn recall "append-only events" --project-id moryn --kind memory --type decision --state canonical --tag sync
+moryn refresh --project-id moryn --cursor 2026-05-27T00:00:00.000Z --current-task "fix auth"
+moryn revise rec_... --set content.text="Updated memory" --reason "Refined wording"
+moryn revise rec_... --set content.text="User-confirmed replacement" --reason "User confirmed conflict resolution" --confirm
+moryn promote rec_... --state canonical --reason "User confirmed"
+moryn promote rec_... --state canonical --reason "User confirmed high-risk memory" --confirm
+moryn archive rec_... --reason "Superseded"
+moryn quarantine rec_... --reason "Needs review"
+moryn link rec_... rec_other... --type supersedes
+moryn list-recent
+moryn rebuild
+moryn sync --status
+moryn sync --push
+moryn sync --pull
+moryn mcp
 ```
 
 ## Agent Workflow
 
-Agents should use Memora through a consistent protocol.
+Agents should use Moryn through a consistent protocol.
 
 At task start:
 
@@ -355,7 +355,7 @@ Archived and quarantined records stay in history but are excluded from default b
 
 ## Memory Promotion Model
 
-Memora separates recording from durable memory.
+Moryn separates recording from durable memory.
 
 ```text
 raw -> candidate -> canonical
@@ -373,7 +373,7 @@ This keeps agent-specific notes from polluting the shared context while still ma
 
 ## Sync Model
 
-Memora is local-first:
+Moryn is local-first:
 
 - Local reads and writes should work even when remote sync is unavailable.
 - Writes append events.
@@ -383,13 +383,13 @@ Memora is local-first:
 
 The default sync mode is `session`: agents should pull at task start and push
 at session end or explicit sync. CLI pushes can set a commit message with
-`mem sync --push --message "session summary"`.
+`moryn sync --push --message "session summary"`.
 
 ## Design Spec
 
 The full first-version design is here:
 
-- [Memora Design Spec](docs/memora-design.md)
+- [Moryn Design Spec](docs/moryn-design.md)
 
 ## License
 
@@ -397,14 +397,14 @@ MIT
 
 ## Release Checklist
 
-- Package name uses the public scoped package `@richardyu114/memora` because `memora` is already occupied on npm.
+- Package name uses the public scoped package `@richardyu114/moryn`.
 - Run `npm run release:check`.
-- Automated smoke tests cover `mem mcp` through the MCP SDK from both source and built `dist/cli.js`.
-- Automated package smoke test installs the packed tarball and runs the installed `mem` binary.
-- Test Git sync with a dedicated private user-owned test repository by setting `MEMORA_PRIVATE_GIT_REMOTE` before running the release check. The script writes a release-check event, so do not point this at a production Memora data repo.
+- Automated smoke tests cover `moryn mcp` through the MCP SDK from both source and built `dist/cli.js`.
+- Automated package smoke test installs the packed tarball and runs the installed `moryn` binary.
+- Test Git sync with a dedicated private user-owned test repository by setting `MORYN_PRIVATE_GIT_REMOTE` before running the release check. The script writes a release-check event, so do not point this at a production Moryn data repo.
 
 ```bash
-MEMORA_PRIVATE_GIT_REMOTE=git@github.com:yourname/memora-store-release-test.git npm run release:check
+MORYN_PRIVATE_GIT_REMOTE=git@github.com:yourname/moryn-store-release-test.git npm run release:check
 ```
 
 - Publish only after confirming no private memory store data is included.

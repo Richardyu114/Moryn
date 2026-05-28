@@ -1,4 +1,4 @@
-import type { MemoraRecord } from "./types.js";
+import type { MorynRecord } from "./types.js";
 
 export function contentValueText(value: unknown): string {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
@@ -15,10 +15,10 @@ export function searchableContentText(content: Record<string, unknown>): string 
     .join(" ");
 }
 
-export function searchableRecordText(record: MemoraRecord): string {
+export function searchableRecordText(record: MorynRecord): string {
   return searchableContentText(record.content);
 }
 
-export function displayRecordText(record: MemoraRecord): string {
+export function displayRecordText(record: MorynRecord): string {
   return typeof record.content.text === "string" ? record.content.text : searchableRecordText(record);
 }

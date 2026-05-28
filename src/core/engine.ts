@@ -3,7 +3,7 @@ import { rebuildDerivedViews } from "./derived.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
 import { isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
-import type { MemoraEvent, MemoraRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
+import type { MorynEvent, MorynRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 
@@ -84,11 +84,11 @@ interface LinkInput {
   source?: RecordSource;
 }
 
-function textOf(record: MemoraRecord): string {
+function textOf(record: MorynRecord): string {
   return displayRecordText(record);
 }
 
-function searchableText(record: MemoraRecord): string {
+function searchableText(record: MorynRecord): string {
   return searchableRecordText(record);
 }
 
@@ -272,23 +272,23 @@ function matchesAny(values: string[], filters: string[] | undefined): boolean {
   return !filters?.length || filters.some((filter) => values.includes(filter));
 }
 
-function recordProjectMatches(record: MemoraRecord, projectId: string | undefined): boolean {
+function recordProjectMatches(record: MorynRecord, projectId: string | undefined): boolean {
   return !projectId || record.project_id === projectId || record.scope === "global";
 }
 
-function recordBootContextMatches(record: MemoraRecord, projectId: string | undefined): boolean {
+function recordBootContextMatches(record: MorynRecord, projectId: string | undefined): boolean {
   return record.scope === "global" || (Boolean(projectId) && record.project_id === projectId);
 }
 
-function recordProjectMatchesRecall(record: MemoraRecord, input: RecallInput): boolean {
+function recordProjectMatchesRecall(record: MorynRecord, input: RecallInput): boolean {
   return Boolean(input.record_ids?.length) || recordProjectMatches(record, input.project_id);
 }
 
-function isVisibleByDefault(record: MemoraRecord): boolean {
+function isVisibleByDefault(record: MorynRecord): boolean {
   return record.state !== "archived" && record.state !== "quarantined";
 }
 
-function isTrustedForBoot(record: MemoraRecord): boolean {
+function isTrustedForBoot(record: MorynRecord): boolean {
   return record.state === "canonical";
 }
 
@@ -300,11 +300,11 @@ function includesRawState(input: RecallInput): boolean {
   return input.states?.includes("raw") ?? false;
 }
 
-function isVisibleInDefaultRecall(record: MemoraRecord): boolean {
+function isVisibleInDefaultRecall(record: MorynRecord): boolean {
   return isVisibleByDefault(record) && record.state !== "raw";
 }
 
-function skillMatchesSelector(record: MemoraRecord, selector: string): boolean {
+function skillMatchesSelector(record: MorynRecord, selector: string): boolean {
   const normalized = selector.toLowerCase();
   return record.id === selector
     || record.type.toLowerCase() === normalized
@@ -313,13 +313,13 @@ function skillMatchesSelector(record: MemoraRecord, selector: string): boolean {
     || searchableText(record).toLowerCase().includes(normalized);
 }
 
-function isProjectSkill(record: MemoraRecord, projectId: string | undefined): boolean {
+function isProjectSkill(record: MorynRecord, projectId: string | undefined): boolean {
   return record.kind === "skill"
     && Boolean(projectId)
     && (record.project_id === projectId || record.tags.includes(projectId as string));
 }
 
-function bootSkills(records: MemoraRecord[], input: BootInput): MemoraRecord[] {
+function bootSkills(records: MorynRecord[], input: BootInput): MorynRecord[] {
   const selectors = input.default_skills ?? [];
   const selected = records.filter((record) => record.kind === "skill" && (
     isProjectSkill(record, input.project_id)
@@ -328,15 +328,15 @@ function bootSkills(records: MemoraRecord[], input: BootInput): MemoraRecord[] {
   return [...new Map(selected.map((record) => [record.id, record])).values()];
 }
 
-function projectMemory(records: MemoraRecord[], projectId: string | undefined): MemoraRecord[] {
+function projectMemory(records: MorynRecord[], projectId: string | undefined): MorynRecord[] {
   return records.filter((record) => record.kind === "memory" && record.scope === "project" && record.project_id === projectId);
 }
 
-function projectScopedRecords(records: MemoraRecord[], projectId: string | undefined): MemoraRecord[] {
+function projectScopedRecords(records: MorynRecord[], projectId: string | undefined): MorynRecord[] {
   return records.filter((record) => record.scope === "project" && record.project_id === projectId);
 }
 
-function boundedBootTexts(records: MemoraRecord[], limit = 5): string[] {
+function boundedBootTexts(records: MorynRecord[], limit = 5): string[] {
   const texts: string[] = [];
   for (const record of boundedBootRecords(records, records.length)) {
     const text = textOf(record);
@@ -346,16 +346,16 @@ function boundedBootTexts(records: MemoraRecord[], limit = 5): string[] {
   return texts;
 }
 
-function isImportantBootRecent(record: MemoraRecord): boolean {
+function isImportantBootRecent(record: MorynRecord): boolean {
   return (record.kind === "memory" || record.kind === "skill")
     && (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75));
 }
 
-function bootPriorityScore(record: MemoraRecord): number {
+function bootPriorityScore(record: MorynRecord): number {
   return (record.priority === "high" ? 100 : 0) + recallSourceTrust(record).score;
 }
 
-function boundedBootRecords(records: MemoraRecord[], limit = 5): MemoraRecord[] {
+function boundedBootRecords(records: MorynRecord[], limit = 5): MorynRecord[] {
   return [...records]
     .sort((a, b) => (bootPriorityScore(b) - bootPriorityScore(a)) || b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id))
     .slice(0, limit);
@@ -370,14 +370,14 @@ function recallTypePriority(type: string): { score: number; reason: string } | u
   return undefined;
 }
 
-function recallSourceTrust(record: MemoraRecord): { score: number; reason: string } {
+function recallSourceTrust(record: MorynRecord): { score: number; reason: string } {
   const method = record.provenance?.method ?? provenanceMethod(record.source);
   if (method === "user-confirmed") return { score: 3, reason: "source_trust:user-confirmed" };
   if (method === "rule-promoted") return { score: 2, reason: "source_trust:rule-promoted" };
   return { score: 1, reason: "source_trust:agent-proposed" };
 }
 
-function reasonAndScore(record: MemoraRecord, input: RecallInput): { score: number; reason: string[] } {
+function reasonAndScore(record: MorynRecord, input: RecallInput): { score: number; reason: string[] } {
   let score = 0;
   const reason: string[] = [];
 
@@ -446,11 +446,11 @@ function matchesQuery(result: { reason: string[] }, input: RecallInput): boolean
   return result.reason.some((reason) => reason.startsWith("text_match:"));
 }
 
-function summarizeRecord(record: MemoraRecord): string {
+function summarizeRecord(record: MorynRecord): string {
   return textOf(record) || `${record.kind}:${record.type}`;
 }
 
-function projectSummary(records: MemoraRecord[]): string {
+function projectSummary(records: MorynRecord[]): string {
   const summary = [...records]
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
     .find((record) => record.type === "summary" || record.type === "project_summary");
@@ -466,7 +466,7 @@ function taskTokens(task: string | undefined): string[] {
     .filter((token) => !stopWords.has(token));
 }
 
-function matchesCurrentTask(record: MemoraRecord, currentTask: string | undefined): boolean {
+function matchesCurrentTask(record: MorynRecord, currentTask: string | undefined): boolean {
   const tokens = taskTokens(currentTask);
   if (!tokens.length) return false;
   const haystack = `${searchableText(record)} ${record.tags.join(" ")} ${record.type}`.toLowerCase();
@@ -474,14 +474,14 @@ function matchesCurrentTask(record: MemoraRecord, currentTask: string | undefine
   return matches >= Math.min(2, tokens.length);
 }
 
-function nextMutationTimestamp(record: MemoraRecord, candidate: string): string {
+function nextMutationTimestamp(record: MorynRecord, candidate: string): string {
   const candidateTime = Date.parse(candidate);
   const previousTime = Date.parse(record.updated_at);
   if (Number.isFinite(candidateTime) && candidateTime > previousTime) return new Date(candidateTime).toISOString();
   return new Date(previousTime + 1).toISOString();
 }
 
-function refreshImportance(record: MemoraRecord, currentTask: string | undefined): { importance: "silent" | "notice" | "interrupt"; reason?: string } {
+function refreshImportance(record: MorynRecord, currentTask: string | undefined): { importance: "silent" | "notice" | "interrupt"; reason?: string } {
   if (record.state === "raw" || record.kind === "agent_note") return { importance: "silent" };
   if (record.kind === "session_summary") return { importance: "notice" };
   const interruptCandidate = record.type === "blocker" || record.type === "warning" || record.type === "conflict" || record.priority === "high";
@@ -561,7 +561,7 @@ function isUserConfirmed(source: RecordSource, confirmed?: boolean): boolean {
 
 function provenanceMethod(source: RecordSource, confirmed?: boolean): "agent-proposed" | "rule-promoted" | "user-confirmed" {
   if (isUserConfirmed(source, confirmed)) return "user-confirmed";
-  if (source.client === "memora") return "rule-promoted";
+  if (source.client === "moryn") return "rule-promoted";
   return "agent-proposed";
 }
 
@@ -600,7 +600,7 @@ function subjectOverlap(left: Record<string, unknown> & { text?: string }, right
   return new Set(matches).size >= 2;
 }
 
-function semanticConflicts(records: MemoraRecord[], input: {
+function semanticConflicts(records: MorynRecord[], input: {
   id?: string;
   kind: RecordKind;
   type: string;
@@ -608,7 +608,7 @@ function semanticConflicts(records: MemoraRecord[], input: {
   project_id?: string;
   tags?: string[];
   content: Record<string, unknown> & { text?: string };
-}): MemoraRecord[] {
+}): MorynRecord[] {
   if (input.kind !== "memory") return [];
   const inputText = textFromContent(input.content);
   if (!inputText) return [];
@@ -626,11 +626,11 @@ export function createEngine(deps: EngineDeps) {
   const now = deps.now ?? (() => new Date().toISOString());
   const id = deps.id ?? createId;
 
-  async function currentRecords(): Promise<MemoraRecord[]> {
+  async function currentRecords(): Promise<MorynRecord[]> {
     return [...replayEvents(await readEvents(deps.storePath)).values()];
   }
 
-  async function requireRecord(recordId: string): Promise<MemoraRecord> {
+  async function requireRecord(recordId: string): Promise<MorynRecord> {
     const record = replayEvents(await readEvents(deps.storePath)).get(recordId);
     if (!record) {
       throw new Error(`Record not found: ${recordId}`);
@@ -648,7 +648,7 @@ export function createEngine(deps: EngineDeps) {
     }
   }
 
-  async function appendEventAndRebuild(event: MemoraEvent): Promise<void> {
+  async function appendEventAndRebuild(event: MorynEvent): Promise<void> {
     await appendEvent(deps.storePath, event);
     await rebuildDerivedViews(deps.storePath);
   }
@@ -669,7 +669,7 @@ export function createEngine(deps: EngineDeps) {
           ? "candidate"
           : (input.state ?? (input.kind === "agent_note" ? "raw" : "candidate"));
       const content = sensitive.sensitive ? redactSensitiveRecordContent(input.content) : input.content;
-      const record: MemoraRecord = {
+      const record: MorynRecord = {
         id: id("rec"),
         kind: input.kind,
         type: input.type,
@@ -692,7 +692,7 @@ export function createEngine(deps: EngineDeps) {
           ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
           : undefined
       };
-      const event: MemoraEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source: input.source };
+      const event: MorynEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source: input.source };
       await appendEventAndRebuild(event);
       return {
         record,
@@ -714,7 +714,7 @@ export function createEngine(deps: EngineDeps) {
       const record = await requireRecord(input.record_id);
       assertRevisionPatchIsSafe(input.patch);
       const createdAt = nextMutationTimestamp(record, now());
-      const source = input.source ?? { client: "memora" };
+      const source = input.source ?? { client: "moryn" };
       const patched = applyRecordPatch(record, input.patch);
       try {
         parseRecord(patched);
@@ -730,7 +730,7 @@ export function createEngine(deps: EngineDeps) {
         throw new Error("Confirmation required: conflicting canonical memory requires explicit user confirmation");
       }
       const patch = sensitive.sensitive ? redactSensitivePatch(input.patch) : input.patch;
-      const event: MemoraEvent = {
+      const event: MorynEvent = {
         event_id: id("evt"),
         op: "revise_record",
         record_id: input.record_id,
@@ -751,7 +751,7 @@ export function createEngine(deps: EngineDeps) {
 
       const revisedRecord = { ...record, updated_at: createdAt };
       const quarantineCreatedAt = nextMutationTimestamp(revisedRecord, now());
-      const quarantineEvent: MemoraEvent = {
+      const quarantineEvent: MorynEvent = {
         event_id: id("evt"),
         op: "quarantine_record",
         record_id: input.record_id,
@@ -771,7 +771,7 @@ export function createEngine(deps: EngineDeps) {
     async promote(input: PromoteInput) {
       validatePromoteInput(input);
       const record = await requireRecord(input.record_id);
-      const source = input.source ?? { client: "memora" };
+      const source = input.source ?? { client: "moryn" };
       const conflicts = input.target_state === "canonical" ? semanticConflicts(await currentRecords(), record) : [];
       if (input.target_state === "canonical"
         && requiresCanonicalConfirmation(record)
@@ -784,7 +784,7 @@ export function createEngine(deps: EngineDeps) {
         throw new Error("Confirmation required: conflicting canonical memory requires explicit user confirmation");
       }
       const createdAt = nextMutationTimestamp(record, now());
-      const event: MemoraEvent = {
+      const event: MorynEvent = {
         event_id: id("evt"),
         op: "promote_record",
         record_id: input.record_id,
@@ -805,13 +805,13 @@ export function createEngine(deps: EngineDeps) {
       validateStateChangeInput(input, "archive input");
       const record = await requireRecord(input.record_id);
       const createdAt = nextMutationTimestamp(record, now());
-      const event: MemoraEvent = {
+      const event: MorynEvent = {
         event_id: id("evt"),
         op: "archive_record",
         record_id: input.record_id,
         reason: input.reason,
         created_at: createdAt,
-        source: input.source ?? { client: "memora" }
+        source: input.source ?? { client: "moryn" }
       };
       await appendEventAndRebuild(event);
       return { event };
@@ -821,13 +821,13 @@ export function createEngine(deps: EngineDeps) {
       validateStateChangeInput(input, "quarantine input");
       const record = await requireRecord(input.record_id);
       const createdAt = nextMutationTimestamp(record, now());
-      const event: MemoraEvent = {
+      const event: MorynEvent = {
         event_id: id("evt"),
         op: "quarantine_record",
         record_id: input.record_id,
         reason: input.reason,
         created_at: createdAt,
-        source: input.source ?? { client: "memora" }
+        source: input.source ?? { client: "moryn" }
       };
       await appendEventAndRebuild(event);
       return { event };
@@ -838,14 +838,14 @@ export function createEngine(deps: EngineDeps) {
       const record = await requireRecord(input.record_id);
       await requireRecord(input.linked_record_id);
       const createdAt = nextMutationTimestamp(record, now());
-      const event: MemoraEvent = {
+      const event: MorynEvent = {
         event_id: id("evt"),
         op: "link_records",
         record_id: input.record_id,
         linked_record_id: input.linked_record_id,
         link_type: input.link_type,
         created_at: createdAt,
-        source: input.source ?? { client: "memora" }
+        source: input.source ?? { client: "moryn" }
       };
       await appendEventAndRebuild(event);
       return { event };

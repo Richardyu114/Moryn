@@ -14,7 +14,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use GitHub sync.", format: "text" },
         state: "candidate",
@@ -24,7 +24,7 @@ describe("core engine", () => {
       await engine.revise({ record_id: written.record.id, patch: { "content.text": "Use private GitHub sync." }, reason: "Clarify privacy" });
       await engine.promote({ record_id: written.record.id, target_state: "canonical", reason: "User confirmed" });
 
-      const recall = await engine.recall({ query: "github sync", project_id: "memora", limit: 5 });
+      const recall = await engine.recall({ query: "github sync", project_id: "moryn", limit: 5 });
       expect(recall.results[0]?.record.content.text).toBe("Use private GitHub sync.");
       expect(recall.results[0]?.record.state).toBe("canonical");
     });
@@ -39,7 +39,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use event provenance.", format: "text" },
         state: "candidate",
@@ -86,7 +86,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use old sync wording", format: "text" },
         state: "candidate",
         source: { client: "test" }
@@ -113,7 +113,7 @@ describe("core engine", () => {
         kind: "agent_note",
         type: "note",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "API_KEY=sk-1234567890abcdef", format: "text" },
         source: { client: "test" }
       });
@@ -132,7 +132,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Authorization: Bearer ghp_1234567890abcdef", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -141,8 +141,8 @@ describe("core engine", () => {
       expect(written.record.state).toBe("quarantined");
       expect(written.record.visibility).toBe("quarantined");
       expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
-      expect((await engine.boot({ project_id: "memora" })).project.warnings).toHaveLength(0);
-      expect((await engine.recall({ query: "Authorization", project_id: "memora" })).results).toHaveLength(0);
+      expect((await engine.boot({ project_id: "moryn" })).project.warnings).toHaveLength(0);
+      expect((await engine.recall({ query: "Authorization", project_id: "moryn" })).results).toHaveLength(0);
 
       const eventLog = JSON.stringify(await readEvents(storePath));
       expect(eventLog).not.toContain("ghp_1234567890abcdef");
@@ -159,7 +159,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {
           text: "Review request headers.",
           format: "text",
@@ -213,7 +213,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Invalid confidence.", format: "text" },
         confidence: 2,
         source: { client: "test" }
@@ -222,7 +222,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["valid", 123] as never,
         content: { text: "Invalid tags.", format: "text" },
         source: { client: "test" }
@@ -231,7 +231,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: [""],
         content: { text: "Empty tag.", format: "text" },
         source: { client: "test" }
@@ -240,7 +240,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: "Invalid content." as never,
         source: { client: "test" }
       }, "Invalid content");
@@ -248,7 +248,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {},
         source: { client: "test" }
       }, "Invalid content");
@@ -256,7 +256,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "", format: "text" },
         source: { client: "test" }
       }, "Invalid content.text");
@@ -264,7 +264,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Invalid format.", format: "markdown" as never },
         source: { client: "test" }
       }, "Invalid content.format");
@@ -272,7 +272,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Invalid source.", format: "text" },
         source: { client: "" }
       }, "Invalid source.client");
@@ -280,7 +280,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Invalid confirmed.", format: "text" },
         source: { client: "test" },
         confirmed: "yes" as never
@@ -289,7 +289,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Invalid provenance.", format: "text" },
         source: { client: "test" },
         provenance: { method: "imported" } as never
@@ -298,7 +298,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Empty provenance source.", format: "text" },
         source: { client: "test" },
         provenance: { derived_from: [""] }
@@ -307,7 +307,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Empty provenance reason.", format: "text" },
         source: { client: "test" },
         provenance: { reason: "" }
@@ -316,7 +316,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Invalid provenance timestamp.", format: "text" },
         source: { client: "test" },
         provenance: { promoted_at: "not-a-date" }
@@ -325,7 +325,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Date-only provenance timestamp.", format: "text" },
         source: { client: "test" },
         provenance: { promoted_at: "2026-05-27" }
@@ -344,7 +344,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Review auth middleware before release.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -358,13 +358,13 @@ describe("core engine", () => {
       });
 
       expect(revised.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
-      expect((await engine.boot({ project_id: "memora" })).project.warnings).toHaveLength(0);
-      expect((await engine.recall({ query: "Authorization", project_id: "memora" })).results).toHaveLength(0);
+      expect((await engine.boot({ project_id: "moryn" })).project.warnings).toHaveLength(0);
+      expect((await engine.recall({ query: "Authorization", project_id: "moryn" })).results).toHaveLength(0);
 
       const quarantined = await engine.recall({
         record_ids: [written.record.id],
         states: ["quarantined"],
-        project_id: "memora"
+        project_id: "moryn"
       });
       expect(quarantined.results[0]?.record.state).toBe("quarantined");
       expect(quarantined.results[0]?.record.visibility).toBe("quarantined");
@@ -385,7 +385,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use promotion events for state transitions.", format: "text" },
         state: "candidate",
         source: { client: "test" }
@@ -412,7 +412,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Keep replayable records valid after revision.", format: "text" },
         state: "candidate",
         source: { client: "test" }
@@ -455,7 +455,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use append-only JSON events.", format: "text" },
         state: "canonical",
@@ -465,7 +465,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use private Git remotes.", format: "text" },
         state: "canonical",
@@ -496,7 +496,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use append-only JSON events.", format: "text" },
         state: "canonical",
@@ -506,7 +506,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use private Git remotes.", format: "text" },
         state: "canonical",
@@ -541,7 +541,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use append-only JSON events.", format: "text" },
         state: "canonical",
@@ -551,7 +551,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use private Git remotes.", format: "text" },
         state: "canonical",
@@ -587,7 +587,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {
           text: "Review deployment settings.",
           format: "text",
@@ -604,7 +604,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Review deployment settings.", format: "text" },
         state: "candidate",
         source: { client: "test" }
@@ -631,7 +631,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {
           text: "Review deployment settings.",
           format: "text",
@@ -659,7 +659,7 @@ describe("core engine", () => {
         kind: "agent_note",
         type: "note",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Cookie: session=abcdef1234567890; csrf=ghijklmnop123456", format: "text" },
         source: { client: "test" }
       });
@@ -667,7 +667,7 @@ describe("core engine", () => {
       expect(written.record.state).toBe("quarantined");
       expect(written.record.visibility).toBe("quarantined");
       expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
-      expect((await engine.recall({ query: "session", project_id: "memora" })).results).toHaveLength(0);
+      expect((await engine.recall({ query: "session", project_id: "moryn" })).results).toHaveLength(0);
     });
   });
 
@@ -680,10 +680,10 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {
           text: [
-            "DATABASE_URL=postgres://memora:secret@localhost:5432/memora",
+            "DATABASE_URL=postgres://moryn:secret@localhost:5432/moryn",
             "REDIS_URL=redis://localhost:6379",
             "SESSION_SECRET=abcdefghijklmnopqrstuvwxyz",
             "WEBHOOK_TOKEN=whsec_1234567890abcdef"
@@ -697,8 +697,8 @@ describe("core engine", () => {
       expect(written.record.state).toBe("quarantined");
       expect(written.record.visibility).toBe("quarantined");
       expect(written.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
-      expect((await engine.boot({ project_id: "memora" })).project.warnings).toHaveLength(0);
-      expect((await engine.recall({ query: "DATABASE_URL", project_id: "memora" })).results).toHaveLength(0);
+      expect((await engine.boot({ project_id: "moryn" })).project.warnings).toHaveLength(0);
+      expect((await engine.recall({ query: "DATABASE_URL", project_id: "moryn" })).results).toHaveLength(0);
     });
   });
 
@@ -709,7 +709,7 @@ describe("core engine", () => {
 
       const envText = [
         "APP_ENV=production",
-        "APP_HOST=internal.memora.local",
+        "APP_HOST=internal.moryn.local",
         "PORT=3000",
         "LOG_LEVEL=debug",
         "FEATURE_FLAGS=sync,recall,mcp"
@@ -718,7 +718,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: envText, format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -729,7 +729,7 @@ describe("core engine", () => {
       expect(written.record.content.text).toBe("[REDACTED_SECRET]");
 
       const eventLog = JSON.stringify(await readEvents(storePath));
-      expect(eventLog).not.toContain("internal.memora.local");
+      expect(eventLog).not.toContain("internal.moryn.local");
       expect(eventLog).toContain("[REDACTED_SECRET]");
     });
   });
@@ -759,7 +759,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "security_rule",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Agents may rotate production credentials.", format: "text" },
         state: "canonical",
         source: { client: "agent" }
@@ -816,7 +816,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync", "storage"],
         content: { text: "Use append-only JSON events.", format: "text" },
         state: "canonical",
@@ -827,7 +827,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync", "storage"],
         content: { text: "Use SQLite as the source of truth.", format: "text" },
         state: "canonical",
@@ -846,7 +846,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync", "storage"],
         content: { text: "Use SQLite for local indexes only.", format: "text" },
         state: "canonical",
@@ -867,7 +867,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use append-only JSON events for sync storage.", format: "text" },
         state: "canonical",
         source: { client: "user" }
@@ -877,7 +877,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use SQLite as the source of truth for sync storage.", format: "text" },
         state: "canonical",
         source: { client: "agent" }
@@ -898,7 +898,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use append-only JSON events for sync storage.", format: "text" },
         state: "canonical",
         source: { client: "user" }
@@ -908,7 +908,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Render dashboard charts with canvas for performance.", format: "text" },
         state: "canonical",
         source: { client: "agent" }
@@ -929,7 +929,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {
           format: "json",
           summary: "Use append-only JSON events for sync storage."
@@ -942,7 +942,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {
           format: "json",
           summary: "Render dashboard charts with canvas for performance."
@@ -966,7 +966,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use SQLite as the source of truth.", format: "text" },
         state: "candidate",
@@ -976,7 +976,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use append-only JSON events.", format: "text" },
         state: "canonical",
@@ -1058,7 +1058,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["auth", "src/auth.ts"],
         content: { text: "Auth middleware uses signed cookies.", format: "text" },
         state: "canonical",
@@ -1086,7 +1086,7 @@ describe("core engine", () => {
 
       const recall = await engine.recall({
         record_ids: [decision.record.id],
-        project_id: "memora",
+        project_id: "moryn",
         kinds: ["memory"],
         types: ["decision"],
         states: ["canonical"],
@@ -1112,7 +1112,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {
           format: "json",
           summary: "Use signed cookies for auth middleware.",
@@ -1125,7 +1125,7 @@ describe("core engine", () => {
 
       const recall = await engine.recall({
         query: "mcp-parity",
-        project_id: "memora",
+        project_id: "moryn",
         files: ["src/auth.ts"],
         limit: 5
       });
@@ -1146,7 +1146,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {
           format: "json",
           summary: "Structured metadata should not create a format-only match."
@@ -1157,7 +1157,7 @@ describe("core engine", () => {
 
       const recall = await engine.recall({
         query: "json",
-        project_id: "memora",
+        project_id: "moryn",
         limit: 5
       });
 
@@ -1183,14 +1183,14 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["policy"],
         content: { text: "Project policy memory.", format: "text" },
         state: "canonical",
         source: { client: "test" }
       });
 
-      const recall = await engine.recall({ query: "policy", scopes: ["project"], project_id: "memora" });
+      const recall = await engine.recall({ query: "policy", scopes: ["project"], project_id: "moryn" });
 
       expect(recall.results.map((result) => result.record.content.text)).toEqual(["Project policy memory."]);
     });
@@ -1205,7 +1205,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Auth alpha middleware decision.", format: "text" },
         state: "canonical",
         source: { client: "codex" }
@@ -1215,7 +1215,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Auth beta retry latency.", format: "text" },
         state: "canonical",
         source: { client: "codex" }
@@ -1225,23 +1225,23 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Auth gamma timeout threshold.", format: "text" },
         state: "canonical",
-        source: { client: "memora" }
+        source: { client: "moryn" }
       });
 
       const userWarning = await engine.write({
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Auth delta token expiry.", format: "text" },
         state: "canonical",
         source: { client: "user" }
       });
 
-      const recall = await engine.recall({ query: "auth", project_id: "memora", kinds: ["memory"], limit: 4 });
+      const recall = await engine.recall({ query: "auth", project_id: "moryn", kinds: ["memory"], limit: 4 });
 
       expect(recall.results.map((result) => result.record.id)).toEqual([
         userWarning.record.id,
@@ -1269,7 +1269,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Auth middleware stores project records.", format: "text" },
         state: "canonical",
         source: { client: "codex" }
@@ -1279,7 +1279,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Auth session refreshes derived indexes.", format: "text" },
         state: "canonical",
         source: { client: "codex" }
@@ -1288,7 +1288,7 @@ describe("core engine", () => {
       expect(older.record.state).toBe("canonical");
       expect(newer.record.state).toBe("canonical");
 
-      const recall = await engine.recall({ query: "auth", project_id: "memora", kinds: ["memory"], limit: 2 });
+      const recall = await engine.recall({ query: "auth", project_id: "moryn", kinds: ["memory"], limit: 2 });
 
       expect(recall.results.map((result) => result.record.id)).toEqual([newer.record.id, older.record.id]);
     });
@@ -1307,7 +1307,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Auth session refresh candidate with strong evidence.", format: "text" },
         state: "candidate",
         confidence: 0.9,
@@ -1317,14 +1317,14 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Auth middleware candidate from an uncertain guess.", format: "text" },
         state: "candidate",
         confidence: 0.2,
         source: { client: "codex" }
       });
 
-      const recall = await engine.recall({ query: "auth", project_id: "memora", kinds: ["memory"], states: ["candidate"], limit: 2 });
+      const recall = await engine.recall({ query: "auth", project_id: "moryn", kinds: ["memory"], states: ["candidate"], limit: 2 });
 
       expect(recall.results.map((result) => result.record.id)).toEqual([highConfidence.record.id, lowConfidence.record.id]);
       expect(recall.results[0]?.reason).toContain("high_confidence_candidate");
@@ -1348,7 +1348,7 @@ describe("core engine", () => {
 
       const recall = await engine.recall({
         record_ids: [otherProject.record.id],
-        project_id: "memora"
+        project_id: "moryn"
       });
 
       expect(recall.results).toHaveLength(1);
@@ -1366,16 +1366,16 @@ describe("core engine", () => {
         kind: "agent_note",
         type: "note",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Raw implementation detail should stay source material.", format: "text" },
         source: { client: "agent-a" }
       });
 
-      expect((await engine.recall({ query: "implementation detail", project_id: "memora" })).results).toHaveLength(0);
+      expect((await engine.recall({ query: "implementation detail", project_id: "moryn" })).results).toHaveLength(0);
 
       const explicit = await engine.recall({
         query: "implementation detail",
-        project_id: "memora",
+        project_id: "moryn",
         states: ["raw"]
       });
       expect(explicit.results[0]?.record.id).toBe(note.record.id);
@@ -1408,7 +1408,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use append-only events.", format: "text" },
         state: "canonical",
         priority: "high",
@@ -1418,7 +1418,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Do not include secrets in memory.", format: "text" },
         state: "canonical",
         priority: "high",
@@ -1428,7 +1428,7 @@ describe("core engine", () => {
         kind: "skill",
         type: "procedure",
         scope: "global",
-        tags: ["memora"],
+        tags: ["moryn"],
         content: { text: "Run tests before committing.", format: "text" },
         state: "canonical",
         source: { client: "user" }
@@ -1446,12 +1446,12 @@ describe("core engine", () => {
         kind: "agent_note",
         type: "note",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Raw note should not boot.", format: "text" },
         source: { client: "test" }
       });
 
-      const boot = await engine.boot({ project_id: "memora" });
+      const boot = await engine.boot({ project_id: "moryn" });
 
       expect(boot.profile.soul.map((record) => record.content.text)).toEqual(["Prefer concise engineering updates."]);
       expect(boot.project.important_decisions.map((record) => record.content.text)).toEqual(["Use append-only events."]);
@@ -1470,7 +1470,7 @@ describe("core engine", () => {
         syncStatus: async () => ({ behind: 2 })
       });
 
-      const boot = await engine.boot({ project_id: "memora" });
+      const boot = await engine.boot({ project_id: "moryn" });
 
       expect(boot.sync.remote_has_updates).toBe(true);
     });
@@ -1485,8 +1485,8 @@ describe("core engine", () => {
         kind: "memory",
         type: "summary",
         scope: "project",
-        project_id: "memora",
-        content: { text: "Memora is a local-first agent memory layer.", format: "text" },
+        project_id: "moryn",
+        content: { text: "Moryn is a local-first agent memory layer.", format: "text" },
         state: "canonical",
         source: { client: "test" }
       });
@@ -1494,7 +1494,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "tech_stack",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "TypeScript", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -1503,7 +1503,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "tech_stack",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Node.js", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -1512,7 +1512,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "active_goal",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Ship the first MCP-backed MVP.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -1538,15 +1538,15 @@ describe("core engine", () => {
         kind: "memory",
         type: "tech_stack",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Candidate stack entry.", format: "text" },
         state: "candidate",
         source: { client: "test" }
       });
 
-      const boot = await engine.boot({ project_id: "memora" });
+      const boot = await engine.boot({ project_id: "moryn" });
 
-      expect(boot.project.summary).toBe("Memora is a local-first agent memory layer.");
+      expect(boot.project.summary).toBe("Moryn is a local-first agent memory layer.");
       expect(boot.project.tech_stack).toEqual(["TypeScript", "Node.js"]);
       expect(boot.project.active_goals).toEqual(["Ship the first MCP-backed MVP."]);
     });
@@ -1568,7 +1568,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Candidate release decision is ready for review.", format: "text" },
         state: "candidate",
         confidence: 0.9,
@@ -1578,7 +1578,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Low confidence candidate should stay out.", format: "text" },
         state: "candidate",
         confidence: 0.4,
@@ -1588,7 +1588,7 @@ describe("core engine", () => {
         kind: "session_summary",
         type: "summary",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Session summary should stay out of boot recents.", format: "text" },
         state: "candidate",
         confidence: 0.9,
@@ -1598,12 +1598,12 @@ describe("core engine", () => {
         kind: "agent_note",
         type: "note",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Raw note should stay out of boot recents.", format: "text" },
         source: { client: "test" }
       });
 
-      const boot = await engine.boot({ project_id: "memora" });
+      const boot = await engine.boot({ project_id: "moryn" });
 
       expect(boot.recent_changes.map((record) => record.id)).toEqual([highConfidence.record.id]);
     });
@@ -1641,7 +1641,7 @@ describe("core engine", () => {
           kind: "memory",
           type: "decision",
           scope: "project",
-          project_id: "memora",
+          project_id: "moryn",
           content: { text: `Decision ${index}`, format: "text" },
           state: "canonical",
           priority: index <= 2 ? "high" : "normal",
@@ -1653,7 +1653,7 @@ describe("core engine", () => {
           kind: "memory",
           type: index % 2 === 0 ? "blocker" : "warning",
           scope: "project",
-          project_id: "memora",
+          project_id: "moryn",
           content: { text: `Warning ${index}`, format: "text" },
           state: "canonical",
           priority: index <= 2 ? "high" : "normal",
@@ -1665,7 +1665,7 @@ describe("core engine", () => {
           kind: "skill",
           type: "procedure",
           scope: "global",
-          tags: ["memora"],
+          tags: ["moryn"],
           content: { text: `Skill ${index}`, format: "text" },
           state: "canonical",
           source: { client: "user" }
@@ -1676,7 +1676,7 @@ describe("core engine", () => {
           kind: "memory",
           type: "tech_stack",
           scope: "project",
-          project_id: "memora",
+          project_id: "moryn",
           content: { text: `Tech ${index}`, format: "text" },
           state: "canonical",
           priority: index <= 2 ? "high" : "normal",
@@ -1688,7 +1688,7 @@ describe("core engine", () => {
           kind: "memory",
           type: "active_goal",
           scope: "project",
-          project_id: "memora",
+          project_id: "moryn",
           content: { text: `Goal ${index}`, format: "text" },
           state: "canonical",
           priority: index <= 2 ? "high" : "normal",
@@ -1697,7 +1697,7 @@ describe("core engine", () => {
         goalTexts.push(goal.record.content.text);
       }
 
-      const boot = await engine.boot({ project_id: "memora" });
+      const boot = await engine.boot({ project_id: "moryn" });
 
       expect(boot.profile.user_preferences.map((record) => record.id)).toHaveLength(5);
       expect(boot.profile.user_preferences.map((record) => record.id)).toEqual(preferenceIds.slice(-5).reverse());
@@ -1762,7 +1762,7 @@ describe("core engine", () => {
         source: { client: "user" }
       });
 
-      const boot = await engine.boot({ project_id: "memora", default_skills: ["safe-release", releaseSkill.record.id] });
+      const boot = await engine.boot({ project_id: "moryn", default_skills: ["safe-release", releaseSkill.record.id] });
 
       expect(boot.skills.map((record) => record.id)).toEqual([releaseSkill.record.id]);
       expect(boot.skills[0]?.content.text).toBe("Run tests, typecheck, build, then publish.");
@@ -1788,7 +1788,7 @@ describe("core engine", () => {
         source: { client: "user" }
       });
 
-      const boot = await engine.boot({ project_id: "memora", default_skills: ["release"] });
+      const boot = await engine.boot({ project_id: "moryn", default_skills: ["release"] });
 
       expect(boot.skills.map((record) => record.id)).toEqual([releaseSkill.record.id]);
     });
@@ -1813,7 +1813,7 @@ describe("core engine", () => {
         source: { client: "user" }
       });
 
-      const boot = await engine.boot({ project_id: "memora", default_skills: ["npm"] });
+      const boot = await engine.boot({ project_id: "moryn", default_skills: ["npm"] });
 
       expect(boot.skills.map((record) => record.id)).toEqual([releaseSkill.record.id]);
     });
@@ -1828,8 +1828,8 @@ describe("core engine", () => {
         kind: "memory",
         type: "summary",
         scope: "project",
-        project_id: "memora",
-        content: { format: "json", summary: "Memora keeps structured boot context available." },
+        project_id: "moryn",
+        content: { format: "json", summary: "Moryn keeps structured boot context available." },
         state: "canonical",
         source: { client: "test" }
       });
@@ -1837,7 +1837,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "tech_stack",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { format: "json", language: "TypeScript", runtime: "Node.js" },
         state: "canonical",
         source: { client: "test" }
@@ -1846,15 +1846,15 @@ describe("core engine", () => {
         kind: "memory",
         type: "active_goal",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { format: "json", summary: "Ship structured boot support." },
         state: "canonical",
         source: { client: "test" }
       });
 
-      const boot = await engine.boot({ project_id: "memora" });
+      const boot = await engine.boot({ project_id: "moryn" });
 
-      expect(boot.project.summary).toBe("Memora keeps structured boot context available.");
+      expect(boot.project.summary).toBe("Moryn keeps structured boot context available.");
       expect(boot.project.tech_stack).toEqual(["TypeScript Node.js"]);
       expect(boot.project.active_goals).toEqual(["Ship structured boot support."]);
     });
@@ -1869,7 +1869,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["auth"],
         content: { text: "Auth token refresh uses rotating credentials.", format: "text" },
         state: "canonical",
@@ -1888,7 +1888,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["release"],
         content: { text: "Release requires npm credentials.", format: "text" },
         state: "canonical",
@@ -1898,13 +1898,13 @@ describe("core engine", () => {
         kind: "agent_note",
         type: "note",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["auth"],
         content: { text: "Raw auth note should stay out of boot.", format: "text" },
         source: { client: "test" }
       });
 
-      const boot = await engine.boot({ project_id: "memora", current_task: "fix auth token refresh" });
+      const boot = await engine.boot({ project_id: "moryn", current_task: "fix auth token refresh" });
 
       expect(boot.task_relevant.map((record) => record.id)).toEqual([authDecision.record.id]);
       expect(boot.task_relevant.map((record) => record.content.text)).not.toContain("Release requires npm credentials.");
@@ -1929,7 +1929,7 @@ describe("core engine", () => {
           kind: "memory",
           type: "decision",
           scope: "project",
-          project_id: "memora",
+          project_id: "moryn",
           tags: ["auth"],
           content: { text: `Auth token memory ${index}`, format: "text" },
           state: "canonical",
@@ -1939,7 +1939,7 @@ describe("core engine", () => {
         matchingIds.push(written.record.id);
       }
 
-      const boot = await engine.boot({ project_id: "memora", current_task: "fix auth token refresh" });
+      const boot = await engine.boot({ project_id: "moryn", current_task: "fix auth token refresh" });
 
       expect(boot.task_relevant.map((record) => record.id)).toHaveLength(5);
       expect(boot.task_relevant.map((record) => record.id)).toEqual([
@@ -2021,7 +2021,7 @@ describe("core engine", () => {
         kind: "session_summary",
         type: "summary",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Session finished.", format: "text" },
         state: "raw",
         source: { client: "test" }
@@ -2030,7 +2030,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use MCP for agent access.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -2039,14 +2039,14 @@ describe("core engine", () => {
         kind: "memory",
         type: "blocker",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Sync must not overwrite local events.", format: "text" },
         state: "canonical",
         priority: "high",
         source: { client: "test" }
       });
 
-      const refresh = await engine.refresh({ project_id: "memora", cursor: "2026-05-27T00:00:00.000Z" });
+      const refresh = await engine.refresh({ project_id: "moryn", cursor: "2026-05-27T00:00:00.000Z" });
 
       expect(refresh.cursor).toBe("2026-05-27T00:06:00.000Z");
       expect(refresh.should_interrupt).toBe(true);
@@ -2072,7 +2072,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use event replay for refresh cursor tests.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -2081,7 +2081,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Keep refresh pages bounded.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -2090,18 +2090,18 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Do not skip later refresh changes.", format: "text" },
         state: "canonical",
         source: { client: "test" }
       });
 
-      const firstPage = await engine.refresh({ project_id: "memora", cursor: "2026-05-27T00:00:00.000Z", limit: 2 });
+      const firstPage = await engine.refresh({ project_id: "moryn", cursor: "2026-05-27T00:00:00.000Z", limit: 2 });
 
       expect(firstPage.cursor).toBe(second.record.updated_at);
       expect(firstPage.changes.map((change) => change.record_id)).toEqual([first.record.id, second.record.id]);
 
-      const secondPage = await engine.refresh({ project_id: "memora", cursor: firstPage.cursor, limit: 2 });
+      const secondPage = await engine.refresh({ project_id: "moryn", cursor: firstPage.cursor, limit: 2 });
 
       expect(secondPage.cursor).toBe(third.record.updated_at);
       expect(secondPage.changes.map((change) => change.record_id)).toEqual([third.record.id]);
@@ -2122,7 +2122,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Refresh should report this decision.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -2131,13 +2131,13 @@ describe("core engine", () => {
         kind: "memory",
         type: "note",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Refresh should not report this raw note.", format: "text" },
         state: "raw",
         source: { client: "test" }
       });
 
-      const refresh = await engine.refresh({ project_id: "memora", cursor: "2026-05-27T00:00:00.000Z", limit: 2 });
+      const refresh = await engine.refresh({ project_id: "moryn", cursor: "2026-05-27T00:00:00.000Z", limit: 2 });
 
       expect(refresh.cursor).toBe(raw.record.updated_at);
       expect(refresh.changes.map((change) => change.record_id)).toEqual([decision.record.id]);
@@ -2153,7 +2153,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {
           format: "json",
           summary: "Structured refresh warning.",
@@ -2163,7 +2163,7 @@ describe("core engine", () => {
         source: { client: "test" }
       });
 
-      const refresh = await engine.refresh({ project_id: "memora", cursor: "2026-05-27T00:00:00.000Z" });
+      const refresh = await engine.refresh({ project_id: "moryn", cursor: "2026-05-27T00:00:00.000Z" });
 
       expect(refresh.changes).toEqual([
         expect.objectContaining({
@@ -2189,7 +2189,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["auth"],
         content: { text: "Auth middleware has a token refresh blocker.", format: "text" },
         state: "canonical",
@@ -2199,7 +2199,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["release"],
         content: { text: "Release workflow needs npm credentials.", format: "text" },
         state: "canonical",
@@ -2207,7 +2207,7 @@ describe("core engine", () => {
       });
 
       const refresh = await engine.refresh({
-        project_id: "memora",
+        project_id: "moryn",
         cursor: "2026-05-26T00:00:00.000Z",
         current_task: "fix auth token refresh"
       });
@@ -2278,15 +2278,15 @@ describe("core engine", () => {
         kind: "agent_note",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use candidate workflow before boot exposure.", format: "text" },
         source: { client: "agent-a" }
       });
-      const hiddenBoot = await engine.boot({ project_id: "memora" });
+      const hiddenBoot = await engine.boot({ project_id: "moryn" });
       expect(hiddenBoot.project.important_decisions).toHaveLength(0);
 
       await engine.promote({ record_id: rawNote.record.id, target_state: "canonical", reason: "User confirmed", source: { client: "user" } });
-      const visibleBoot = await engine.boot({ project_id: "memora" });
+      const visibleBoot = await engine.boot({ project_id: "moryn" });
       expect(visibleBoot.project.important_decisions.map((record) => record.id)).toEqual([rawNote.record.id]);
 
       const skill = await engine.write({
@@ -2319,7 +2319,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use durable links between related records.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -2328,7 +2328,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Old sync strategy.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -2337,7 +2337,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "warning",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Internal warning that should be quarantined.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -2352,12 +2352,12 @@ describe("core engine", () => {
       await engine.archive({ record_id: superseded.record.id, reason: "Superseded", source: { client: "test" } });
       await engine.quarantine({ record_id: sensitive.record.id, reason: "Needs review", source: { client: "test" } });
 
-      expect((await engine.recall({ query: "Old sync", project_id: "memora" })).results).toHaveLength(0);
-      expect((await engine.recall({ query: "Internal warning", project_id: "memora" })).results).toHaveLength(0);
+      expect((await engine.recall({ query: "Old sync", project_id: "moryn" })).results).toHaveLength(0);
+      expect((await engine.recall({ query: "Internal warning", project_id: "moryn" })).results).toHaveLength(0);
 
-      const archived = await engine.recall({ record_ids: [superseded.record.id], states: ["archived"], project_id: "memora" });
-      const quarantined = await engine.recall({ record_ids: [sensitive.record.id], states: ["quarantined"], project_id: "memora" });
-      const linked = await engine.recall({ record_ids: [decision.record.id], project_id: "memora" });
+      const archived = await engine.recall({ record_ids: [superseded.record.id], states: ["archived"], project_id: "moryn" });
+      const quarantined = await engine.recall({ record_ids: [sensitive.record.id], states: ["quarantined"], project_id: "moryn" });
+      const linked = await engine.recall({ record_ids: [decision.record.id], project_id: "moryn" });
 
       expect(archived.results[0]?.record.state).toBe("archived");
       expect(quarantined.results[0]?.record.state).toBe("quarantined");
@@ -2425,7 +2425,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Existing memory.", format: "text" },
         source: { client: "test" }
       });
@@ -2474,7 +2474,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Existing memory.", format: "text" },
         source: { client: "test" }
       });
@@ -2482,7 +2482,7 @@ describe("core engine", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Linked memory.", format: "text" },
         source: { client: "test" }
       });

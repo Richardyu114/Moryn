@@ -30,7 +30,7 @@ export function assertSafePackageFiles(files: string[]): void {
   const unsafe = files.filter((file) => {
     const normalized = file.replace(/\\/g, "/").replace(/^package\//, "");
     return normalized === "config.json"
-      || normalized.startsWith(".memora/")
+      || normalized.startsWith(".moryn/")
       || normalized.startsWith("events/")
       || normalized.startsWith("snapshots/")
       || normalized.startsWith("indexes/")
@@ -38,7 +38,7 @@ export function assertSafePackageFiles(files: string[]): void {
   });
 
   if (unsafe.length) {
-    throw new Error(`Package contains private Memora store data: ${unsafe.join(", ")}`);
+    throw new Error(`Package contains private Moryn store data: ${unsafe.join(", ")}`);
   }
 }
 
@@ -68,18 +68,18 @@ async function assertPackageContentsAreSafe(): Promise<void> {
 }
 
 async function runPrivateGitRemoteValidation(remote: string): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), "memora-private-git-release-"));
+  const root = await mkdtemp(join(tmpdir(), "moryn-private-git-release-"));
   const storeA = join(root, "store-a");
   const storeB = join(root, "store-b");
-  const mem = join(process.cwd(), "dist", "cli.js");
+  const moryn = join(process.cwd(), "dist", "cli.js");
 
   try {
-    await run("node", [mem, "--store", storeA, "init"]);
-    await run("node", [mem, "--store", storeB, "init"]);
-    await run("node", [mem, "--store", storeA, "sync", "init", remote]);
-    await run("node", [mem, "--store", storeB, "sync", "init", remote]);
+    await run("node", [moryn, "--store", storeA, "init"]);
+    await run("node", [moryn, "--store", storeB, "init"]);
+    await run("node", [moryn, "--store", storeA, "sync", "init", remote]);
+    await run("node", [moryn, "--store", storeB, "sync", "init", remote]);
     await run("node", [
-      mem,
+      moryn,
       "--store",
       storeA,
       "write",
@@ -90,22 +90,22 @@ async function runPrivateGitRemoteValidation(remote: string): Promise<void> {
       "--scope",
       "project",
       "--project-id",
-      "memora-release-check",
+      "moryn-release-check",
       "--state",
       "canonical",
       "--text",
       `Private Git remote release check ${new Date().toISOString()}`
     ]);
-    await run("node", [mem, "--store", storeA, "sync", "--push"]);
-    await run("node", [mem, "--store", storeB, "sync", "--pull"]);
+    await run("node", [moryn, "--store", storeA, "sync", "--push"]);
+    await run("node", [moryn, "--store", storeB, "sync", "--pull"]);
     const recall = await run("node", [
-      mem,
+      moryn,
       "--store",
       storeB,
       "recall",
       "Private Git remote release check",
       "--project-id",
-      "memora-release-check"
+      "moryn-release-check"
     ]);
     if (!recall.includes("Private Git remote release check")) {
       throw new Error("Private Git remote validation did not recall the pushed event");
@@ -116,7 +116,7 @@ async function runPrivateGitRemoteValidation(remote: string): Promise<void> {
 }
 
 export async function main(): Promise<void> {
-  const skipSlowChecks = process.env.MEMORA_SKIP_SLOW_CHECKS === "1";
+  const skipSlowChecks = process.env.MORYN_SKIP_SLOW_CHECKS === "1";
   if (!skipSlowChecks) {
     await run("npm", ["run", "build"]);
     await run("npm", ["run", "typecheck"]);
@@ -124,12 +124,12 @@ export async function main(): Promise<void> {
   }
   await assertPackageContentsAreSafe();
 
-  const privateRemote = process.env.MEMORA_PRIVATE_GIT_REMOTE?.trim();
+  const privateRemote = process.env.MORYN_PRIVATE_GIT_REMOTE?.trim();
   if (privateRemote) {
     await runPrivateGitRemoteValidation(privateRemote);
     log("private Git remote validation passed");
   } else {
-    log("private Git remote validation skipped: set MEMORA_PRIVATE_GIT_REMOTE to run it");
+    log("private Git remote validation skipped: set MORYN_PRIVATE_GIT_REMOTE to run it");
   }
 
   log("release check passed");

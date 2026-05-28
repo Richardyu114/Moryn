@@ -1,13 +1,13 @@
-# Memora Design Spec
+# Moryn Design Spec
 
 Status: Approved for initial design documentation
 Date: 2026-05-27
 
 ## Summary
 
-Memora is a personal memory, skill, and soul layer for AI agents. It lets one user run multiple agents across multiple projects while sharing a common operating context. Agents can read relevant context, write session outcomes, propose durable memories, reuse skills, and sync the store across devices.
+Moryn is a personal memory, skill, and soul layer for AI agents. It lets one user run multiple agents across multiple projects while sharing a common operating context. Agents can read relevant context, write session outcomes, propose durable memories, reuse skills, and sync the store across devices.
 
-Memora is not an agent-specific memory store. Agents are readers and writers. The durable context belongs to the user, projects, topics, and artifacts.
+Moryn is not an agent-specific memory store. Agents are readers and writers. The durable context belongs to the user, projects, topics, and artifacts.
 
 The first version is local-first and syncs through a user-owned GitHub private repository. It uses structured, agent-friendly storage instead of human-oriented note files.
 
@@ -35,30 +35,28 @@ The first version is local-first and syncs through a user-owned GitHub private r
 
 ## Naming
 
-The project name is Memora.
+The project name is Moryn.
 
-Memora is a coined product name derived from memory and memoria. It is broad enough to cover memory, skill, soul, and personal context instead of being limited to agent-specific memory.
+Moryn is a coined product name that keeps the soft, memorable feel of the original name while avoiding the crowded "memora/memoria" naming space. It is broad enough to cover memory, skill, soul, and personal context instead of being limited to agent-specific memory.
 
 Recommended CLI command:
 
 ```text
-mem
+moryn
 ```
 
 Recommended package name:
 
 ```text
-memora
+@richardyu114/moryn
 ```
-
-If a public package namespace conflicts, use a scoped package.
 
 ## Product Principles
 
 1. Agent identity is provenance, not ownership.
 2. Local storage is the source of runtime availability.
 3. GitHub is a sync backend, not the live database.
-4. All content written to the Memora store is syncable by default.
+4. All content written to the Moryn store is syncable by default.
 5. Recall is selective even when storage is fully synced.
 6. Durable memory requires promotion.
 7. Raw session material is useful but should not pollute boot context.
@@ -66,7 +64,7 @@ If a public package namespace conflicts, use a scoped package.
 
 ## Architecture
 
-Memora has four layers:
+Moryn has four layers:
 
 ```text
 Agent clients
@@ -87,7 +85,7 @@ flowchart LR
 
   subgraph AccessLayer["Access layer"]
     MCP["MCP server"]
-    CLI["CLI: mem"]
+    CLI["CLI: moryn"]
   end
 
   subgraph EngineLayer["Core memory engine"]
@@ -137,14 +135,14 @@ flowchart LR
 
 ### Agent Access Layer
 
-Memora exposes two first-version entry points:
+Moryn exposes two first-version entry points:
 
 - MCP server for tool-capable agents.
 - CLI for general use, debugging, and agents that can run shell commands.
 
 Both entry points call the same core engine. They must not implement separate memory behavior.
 
-Memora supports logical updates to memory, skills, and soul records. Those updates are stored as new events instead of in-place edits, so the system keeps an auditable history while still exposing the latest corrected state through snapshots and recall.
+Moryn supports logical updates to memory, skills, and soul records. Those updates are stored as new events instead of in-place edits, so the system keeps an auditable history while still exposing the latest corrected state through snapshots and recall.
 
 ### Core Memory Engine
 
@@ -167,13 +165,13 @@ The core engine treats agent clients as sources. It does not partition memory ow
 The default store path is:
 
 ```text
-~/.memora/
+~/.moryn/
 ```
 
 The repo under active work may optionally contain:
 
 ```text
-.memora.json
+.moryn.json
 ```
 
 That file can override project identity, tags, default skills, and sync policy. It is not required.
@@ -181,7 +179,7 @@ That file can override project identity, tags, default skills, and sync policy. 
 Recommended local store layout:
 
 ```text
-~/.memora/
+~/.moryn/
   config.json
   events/
     <device_id>/
@@ -213,7 +211,7 @@ The sync adapter owns:
 - Event merge.
 - Snapshot and index rebuild after merge.
 
-Future adapters can target S3, Supabase, Postgres, or a hosted Memora service without changing the core record model.
+Future adapters can target S3, Supabase, Postgres, or a hosted Moryn service without changing the core record model.
 
 ## Project Identity
 
@@ -226,7 +224,7 @@ explicit project_id
   > current directory name
 ```
 
-The explicit `project_id` can come from `.memora.json` or API input.
+The explicit `project_id` can come from `.moryn.json` or API input.
 
 Git remote URL is preferred across devices because local paths vary.
 
@@ -242,7 +240,7 @@ Example:
   "kind": "memory",
   "type": "decision",
   "scope": "project",
-  "project_id": "memora",
+  "project_id": "moryn",
   "tags": ["sync", "github"],
   "content": {
     "text": "Use GitHub private repos as the first sync backend.",
@@ -345,7 +343,7 @@ Adapter data isolates client behavior. It must not redefine the canonical skill.
 
 All writes append events. Events are immutable facts. Derived views are rebuilt from events.
 
-Memora still supports modifying records at the logical level. A memory, skill, or soul can be corrected, refined, promoted, archived, or quarantined. Each change appends a new event that references the target record. Replay produces the current state.
+Moryn still supports modifying records at the logical level. A memory, skill, or soul can be corrected, refined, promoted, archived, or quarantined. Each change appends a new event that references the target record. Replay produces the current state.
 
 Example event:
 
@@ -401,31 +399,31 @@ The MCP server and CLI expose the same semantics.
 
 ### `init`
 
-Used to initialize the local Memora store.
+Used to initialize the local Moryn store.
 
 CLI:
 
 ```bash
-mem init
+moryn init
 ```
 
 MCP tool: `init`.
 
 ### `project_init`
 
-Used to create or update `.memora.json`.
+Used to create or update `.moryn.json`.
 
 CLI:
 
 ```bash
-mem project init --path /path/to/project --project-id memora --default-skill release
+moryn project init --path /path/to/project --project-id moryn --default-skill release
 ```
 
 MCP tool: `project_init`.
 
 ### `boot`
 
-Used when an agent starts work, enters a project, or connects to Memora.
+Used when an agent starts work, enters a project, or connects to Moryn.
 
 Input:
 
@@ -467,10 +465,10 @@ Output:
 CLI:
 
 ```bash
-mem boot --project . --current-task "fix auth token refresh"
+moryn boot --project . --current-task "fix auth token refresh"
 ```
 
-CLI `--project` and MCP `project_path` read `.memora.json`, resolve
+CLI `--project` and MCP `project_path` read `.moryn.json`, resolve
 `project_id`, and apply configured `default_skills`. MCP hosts can also pass
 `project_id` and optional `default_skills` directly. When `current_task` is
 provided, boot includes a bounded `task_relevant` list of trusted project
@@ -486,7 +484,7 @@ Input:
 {
   "query": "fix auth middleware bug",
   "project_path": "/path/to/repo",
-  "project_id": "memora",
+  "project_id": "moryn",
   "files": ["src/auth.ts"],
   "kinds": ["memory", "skill"],
   "types": ["decision", "warning", "procedure"],
@@ -517,7 +515,7 @@ Output:
 CLI:
 
 ```bash
-mem recall "fix auth middleware bug" --project . --kind memory --kind skill
+moryn recall "fix auth middleware bug" --project . --kind memory --kind skill
 ```
 
 Archived and quarantined records are excluded by default. To inspect them,
@@ -535,7 +533,7 @@ Input:
   "type": "summary",
   "scope": "project",
   "project_path": "/path/to/repo",
-  "project_id": "memora",
+  "project_id": "moryn",
   "content": {
     "text": "Completed the initial design discussion."
   },
@@ -549,15 +547,15 @@ Input:
 CLI:
 
 ```bash
-mem write --kind session_summary --project . --text "Completed the initial design discussion."
-mem write --kind memory --type decision --scope project --project . --content-json '{"text":"Structured memory","format":"json","evidence":["cli"]}'
+moryn write --kind session_summary --project . --text "Completed the initial design discussion."
+moryn write --kind memory --type decision --scope project --project . --content-json '{"text":"Structured memory","format":"json","evidence":["cli"]}'
 ```
 
 CLI callers must provide exactly one of `--text` for text content or
 `--content-json` for a structured JSON object. MCP callers must provide
 exactly one of `text` or `content`.
 For `session_summary` handoffs, CLI and MCP callers may omit `type` and
-`scope`; Memora defaults them to `summary` and `project`. Other record kinds
+`scope`; Moryn defaults them to `summary` and `project`. Other record kinds
 must provide both fields explicitly.
 
 ### `revise`
@@ -581,8 +579,8 @@ Input:
 CLI:
 
 ```bash
-mem revise rec_123 --set confidence=0.92 --reason "Clarified sync semantics after review."
-mem revise rec_123 --set content.text="User-confirmed replacement" --reason "User confirmed conflict resolution" --confirm
+moryn revise rec_123 --set confidence=0.92 --reason "Clarified sync semantics after review."
+moryn revise rec_123 --set content.text="User-confirmed replacement" --reason "User confirmed conflict resolution" --confirm
 ```
 
 Canonical revisions that would conflict with existing canonical memory require
@@ -597,7 +595,7 @@ Input:
 
 ```json
 {
-  "project_id": "memora",
+  "project_id": "moryn",
   "cursor": "previous_cursor",
   "current_task": "optional"
 }
@@ -624,7 +622,7 @@ Output:
 CLI:
 
 ```bash
-mem refresh --project . --cursor previous_cursor --current-task "fix auth"
+moryn refresh --project . --cursor previous_cursor --current-task "fix auth"
 ```
 
 ### `sync`
@@ -634,11 +632,11 @@ Used for Git-backed startup sync, manual pull, status checks, and push.
 CLI:
 
 ```bash
-mem sync init git@github.com:yourname/memora-store.git
-mem sync --status
-mem sync --pull
-mem sync --push
-mem sync --push --message "sync after session"
+moryn sync init git@github.com:yourname/moryn-store.git
+moryn sync --status
+moryn sync --pull
+moryn sync --push
+moryn sync --push --message "sync after session"
 ```
 
 MCP exposes the same sync semantics as separate tools: `sync_init`,
@@ -651,7 +649,7 @@ Used to regenerate snapshots and indexes from event history.
 CLI:
 
 ```bash
-mem rebuild
+moryn rebuild
 ```
 
 ### `promote`
@@ -672,8 +670,8 @@ Input:
 CLI:
 
 ```bash
-mem promote rec_123 --state canonical
-mem promote rec_123 --state canonical --reason "User confirmed high-risk memory" --confirm
+moryn promote rec_123 --state canonical
+moryn promote rec_123 --state canonical --reason "User confirmed high-risk memory" --confirm
 ```
 
 ### `archive`
@@ -684,7 +682,7 @@ recall.
 CLI:
 
 ```bash
-mem archive rec_123 --reason "Superseded"
+moryn archive rec_123 --reason "Superseded"
 ```
 
 ### `quarantine`
@@ -695,7 +693,7 @@ default recall.
 CLI:
 
 ```bash
-mem quarantine rec_123 --reason "Needs review"
+moryn quarantine rec_123 --reason "Needs review"
 ```
 
 ### `link`
@@ -705,7 +703,7 @@ Used to append a relationship from one record to another.
 CLI:
 
 ```bash
-mem link rec_123 rec_456 --type supersedes
+moryn link rec_123 rec_456 --type supersedes
 ```
 
 ### `list_recent`
@@ -715,7 +713,7 @@ Used for audit and review.
 CLI:
 
 ```bash
-mem list-recent --limit 20
+moryn list-recent --limit 20
 ```
 
 ## Agent Usage Contract
@@ -731,11 +729,11 @@ Agents should follow this contract:
 7. Do not promote long-term preferences, soul records, or global skills without user confirmation.
 8. Treat sync `interrupt` results as a reason to pause and inspect related records.
 
-Memora cannot force-push new content into a running agent context. Agents or host applications must call sync or recall.
+Moryn cannot force-push new content into a running agent context. Agents or host applications must call sync or recall.
 
 ## Boot, Recall, and Sync Return Strategy
 
-Memora returns layered context instead of full history.
+Moryn returns layered context instead of full history.
 
 ### Boot
 
@@ -803,7 +801,7 @@ Target size: under 1,000 tokens.
 
 ## Write and Promotion Rules
 
-Memora separates recording from durable promotion.
+Moryn separates recording from durable promotion.
 
 Default states:
 
@@ -953,7 +951,7 @@ Optional embedding metadata:
 
 ## Privacy and Security
 
-Memora syncs all stored content by default, so the tool must reduce accidental sensitive writes.
+Moryn syncs all stored content by default, so the tool must reduce accidental sensitive writes.
 
 First-version safeguards:
 
@@ -967,7 +965,7 @@ First-version safeguards:
 
 Important boundary:
 
-GitHub private repos are not zero-knowledge encrypted storage. If secrets enter Git history, removing them later is difficult. Memora should prevent obvious credentials from entering the event log.
+GitHub private repos are not zero-knowledge encrypted storage. If secrets enter Git history, removing them later is difficult. Moryn should prevent obvious credentials from entering the event log.
 
 Sensitive patterns to detect:
 
@@ -982,7 +980,7 @@ Sensitive patterns to detect:
 
 CLI runtime failures and MCP tool failures return structured JSON errors.
 MCP protocol-level validation errors can still be reported by the MCP host
-before Memora tool logic runs.
+before Moryn tool logic runs.
 
 Example:
 
@@ -1058,11 +1056,11 @@ End-to-end scenarios:
 
 The MVP is successful when this flow works:
 
-1. Agent A calls `mem boot --project .`.
+1. Agent A calls `moryn boot --project .`.
 2. Agent A finishes work and writes a session summary plus candidate memory.
 3. The user promotes a project decision to canonical.
-4. `mem sync --push` pushes events to a GitHub private repo.
-5. Another device runs `mem sync --pull`.
+4. `moryn sync --push` pushes events to a GitHub private repo.
+5. Another device runs `moryn sync --pull`.
 6. Agent B enters the same project and calls `boot`.
 7. Agent B sees the canonical project decision.
 8. A related blocker or warning written by another agent appears as a sync interrupt.
@@ -1071,10 +1069,10 @@ The MVP is successful when this flow works:
 
 - Language: TypeScript.
 - Runtime: Node.js.
-- CLI command: `mem`.
-- Package name: `memora` or a scoped package if needed.
-- Store path: `~/.memora`.
-- Project config: optional `.memora.json`.
+- CLI command: `moryn`.
+- Package name: `@richardyu114/moryn`.
+- Store path: `~/.moryn`.
+- Project config: optional `.moryn.json`.
 - Sync backend: GitHub private repo through SSH or user-configured Git credentials.
 - Sync mode: `session`.
 - Retrieval: rule-based by default, optional embeddings later.

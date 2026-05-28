@@ -71,8 +71,8 @@ async function gitOk(cwd: string, args: string[]): Promise<boolean> {
 async function ensureGitIdentity(storePath: string): Promise<void> {
   const hasName = await gitOk(storePath, ["config", "user.name"]);
   const hasEmail = await gitOk(storePath, ["config", "user.email"]);
-  if (!hasName) await git(storePath, ["config", "user.name", "Memora"]);
-  if (!hasEmail) await git(storePath, ["config", "user.email", "memora@example.local"]);
+  if (!hasName) await git(storePath, ["config", "user.name", "Moryn"]);
+  if (!hasEmail) await git(storePath, ["config", "user.email", "moryn@example.local"]);
 }
 
 async function ensureGitIgnore(storePath: string): Promise<void> {
@@ -141,16 +141,16 @@ async function restoreLocalOnlyStateAfterGitUpdate(storePath: string, localConfi
   await git(storePath, ["add", ".gitignore"]);
   await ensureGitIdentity(storePath);
   if (await hasStagedChanges(storePath)) {
-    await git(storePath, ["commit", "-m", "Migrate Memora local-only files"]);
+    await git(storePath, ["commit", "-m", "Migrate Moryn local-only files"]);
   }
 }
 
 async function ensureGitSyncConfigured(storePath: string): Promise<void> {
   if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) {
-    throw new Error("Sync not configured: run mem sync init <remote>");
+    throw new Error("Sync not configured: run moryn sync init <remote>");
   }
   if (!await git(storePath, ["remote", "get-url", "origin"]).catch(() => "")) {
-    throw new Error("Sync not configured: run mem sync init <remote>");
+    throw new Error("Sync not configured: run moryn sync init <remote>");
   }
 }
 
@@ -189,7 +189,7 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
   await git(storePath, ["add", "events", ".gitignore"]);
   const shouldPushInitialCommit = !await hasRemoteHead(storePath);
   if (await hasStagedChanges(storePath)) {
-    await git(storePath, ["commit", "-m", "Initialize Memora store"]);
+    await git(storePath, ["commit", "-m", "Initialize Moryn store"]);
     if (shouldPushInitialCommit) {
       await git(storePath, ["push", "-u", "origin", "main"]);
     }
@@ -270,7 +270,7 @@ export async function pushGitSync(storePath: string, options: { message?: string
 
   let committed = false;
   if (await hasStagedChanges(storePath)) {
-    await git(storePath, ["commit", "-m", options.message ?? "Sync Memora events"]);
+    await git(storePath, ["commit", "-m", options.message ?? "Sync Moryn events"]);
     committed = true;
   }
 

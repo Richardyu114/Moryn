@@ -36,7 +36,7 @@ export interface RecordConflict {
   resolution: "needs_review" | "resolved";
 }
 
-export interface MemoraRecord {
+export interface MorynRecord {
   id: string;
   kind: RecordKind;
   type: string;
@@ -56,11 +56,11 @@ export interface MemoraRecord {
   links?: RecordLink[];
 }
 
-export type MemoraEvent =
+export type MorynEvent =
   | {
       event_id: string;
       op: "upsert_record";
-      record: MemoraRecord;
+      record: MorynRecord;
       created_at: string;
       source: RecordSource;
     }

@@ -12,7 +12,7 @@ const tsxLoader = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
 const cliPath = join(repoRoot, "src/cli.ts");
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), "memora-cli-"));
+  const dir = await mkdtemp(join(tmpdir(), "moryn-cli-"));
   try {
     return await fn(dir);
   } finally {
@@ -20,7 +20,7 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   }
 }
 
-describe("mem CLI", () => {
+describe("moryn CLI", () => {
   it("initializes a store and writes a record", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
@@ -28,9 +28,9 @@ describe("mem CLI", () => {
       expect(config.store_version).toBe(1);
       expect(config.device_id).toMatch(/^device_/);
 
-      const write = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--text", "Use events"]);
+      const write = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", "Use events"]);
       expect(write.stdout).toContain("rec_");
-      const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "recall", "events", "--project-id", "memora"]);
+      const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "recall", "events", "--project-id", "moryn"]);
       expect(recall.stdout).toContain("Use events");
     });
   });
@@ -40,15 +40,15 @@ describe("mem CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "memora", "--tag", "typescript", "--tag", "mcp", "--sync-mode", "interval"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn", "--tag", "typescript", "--tag", "mcp", "--sync-mode", "interval"]);
 
-      const projectConfig = JSON.parse(await readFile(join(project, ".memora.json"), "utf8")) as { project_id: string; tags: string[]; sync: { mode: string } };
-      expect(projectConfig).toMatchObject({ project_id: "memora", tags: ["typescript", "mcp"], sync: { mode: "interval" } });
+      const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as { project_id: string; tags: string[]; sync: { mode: string } };
+      expect(projectConfig).toMatchObject({ project_id: "moryn", tags: ["typescript", "mcp"], sync: { mode: "interval" } });
 
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project", project, "--text", "Use project config"]);
       const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "recall", "project config", "--project", project]);
 
-      expect(recall.stdout).toContain("\"project_id\": \"memora\"");
+      expect(recall.stdout).toContain("\"project_id\": \"moryn\"");
       expect(recall.stdout).toContain("Use project config");
     });
   });
@@ -56,10 +56,10 @@ describe("mem CLI", () => {
   it("preserves existing project sync mode when the CLI updates config without --sync-mode", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "memora", "--sync-mode", "interval"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn", "--sync-mode", "interval"]);
       await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--tag", "typescript"]);
 
-      const projectConfig = JSON.parse(await readFile(join(project, ".memora.json"), "utf8")) as { tags: string[]; sync: { mode: string } };
+      const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as { tags: string[]; sync: { mode: string } };
       expect(projectConfig.tags).toEqual(["typescript"]);
       expect(projectConfig.sync.mode).toBe("interval");
     });
@@ -70,7 +70,7 @@ describe("mem CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "memora"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
 
       const other = await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,
@@ -105,7 +105,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "blocker",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--tag", "sync",
         "--tag", "src/sync/git.ts",
         "--state", "canonical",
@@ -118,7 +118,7 @@ describe("mem CLI", () => {
         "--import", "tsx", "src/cli.ts", "--store", dir,
         "recall",
         "--record-id", recordId,
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--kind", "memory",
         "--scope", "project",
         "--type", "blocker",
@@ -129,7 +129,7 @@ describe("mem CLI", () => {
       expect(recall.stdout).toContain("file_match:src/sync/git.ts");
       expect(recall.stdout).toContain("Sync must not overwrite local events.");
 
-      const refresh = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "refresh", "--project-id", "memora", "--cursor", "2000-01-01T00:00:00.000Z"]);
+      const refresh = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "refresh", "--project-id", "moryn", "--cursor", "2000-01-01T00:00:00.000Z"]);
       expect(refresh.stdout).toContain("\"importance\": \"interrupt\"");
       expect(refresh.stdout).toContain(recordId);
     });
@@ -144,14 +144,14 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--state", "candidate",
         "--confidence", "0.9",
         "--text", "Candidate release decision is ready for review."
       ]);
       const parsedWrite = JSON.parse(write.stdout) as { record: { id: string; confidence: number } };
 
-      const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "boot", "--project-id", "memora"]);
+      const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "boot", "--project-id", "moryn"]);
       const parsedBoot = JSON.parse(boot.stdout) as { recent_changes: Array<{ id: string }> };
 
       expect(parsedWrite.record.confidence).toBe(0.9);
@@ -164,7 +164,7 @@ describe("mem CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await mkdir(project, { recursive: true });
-      await writeFile(join(project, ".memora.json"), JSON.stringify({
+      await writeFile(join(project, ".moryn.json"), JSON.stringify({
         project_id: "ambient",
         tags: ["ambient-tag"],
         default_skills: ["ambient-skill"]
@@ -268,11 +268,11 @@ describe("mem CLI", () => {
             "--kind", "memory",
             "--type", "decision",
             "--scope", "project",
-            "--project-id", "memora",
+            "--project-id", "moryn",
             "--confidence", confidence,
             "--text", "Invalid confidence should be rejected."
           ]);
-          throw new Error(`Expected mem write to reject --confidence ${confidence}`);
+          throw new Error(`Expected moryn write to reject --confidence ${confidence}`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
@@ -298,7 +298,7 @@ describe("mem CLI", () => {
           "--scope", "project",
           "--text", "Project records need an explicit project context."
         ]);
-        throw new Error("Expected mem write to reject a project-scoped record without project context");
+        throw new Error("Expected moryn write to reject a project-scoped record without project context");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
         const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
@@ -315,7 +315,7 @@ describe("mem CLI", () => {
   it("rejects empty global store paths at the CLI boundary", async () => {
     try {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", "", "init"]);
-      throw new Error("Expected mem init to reject an empty --store path");
+      throw new Error("Expected moryn init to reject an empty --store path");
     } catch (error) {
       if (!("stderr" in (error as object))) throw error;
       const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
@@ -335,7 +335,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--state", "candidate",
         "--derived-from", "rec_source",
         "--reason", "Derived from handoff summary.",
@@ -368,7 +368,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--content-json", JSON.stringify({
           text: "Use structured CLI content.",
           format: "json",
@@ -402,7 +402,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "summary",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--state", "canonical",
         "--content-json", JSON.stringify({
           format: "json",
@@ -415,7 +415,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "warning",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--state", "canonical",
         "--content-json", JSON.stringify({
           format: "json",
@@ -430,19 +430,19 @@ describe("mem CLI", () => {
       const boot = JSON.parse((await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", dir,
         "boot",
-        "--project-id", "memora"
+        "--project-id", "moryn"
       ])).stdout) as { project: { summary: string; warnings: Array<{ id: string }> } };
       const refresh = JSON.parse((await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", dir,
         "refresh",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--cursor", "2000-01-01T00:00:00.000Z"
       ])).stdout) as { changes: Array<{ record_id: string; summary: string }> };
       const recall = JSON.parse((await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", dir,
         "recall",
         "cli-structured",
-        "--project-id", "memora"
+        "--project-id", "moryn"
       ])).stdout) as { results: Array<{ record: { id: string }; reason: string[] }> };
 
       expect(boot.project.summary).toBe("CLI structured boot summary.");
@@ -477,10 +477,10 @@ describe("mem CLI", () => {
             "--kind", "memory",
             "--type", "decision",
             "--scope", "project",
-            "--project-id", "memora",
+            "--project-id", "moryn",
             ...args
           ]);
-          throw new Error(`Expected mem write ${args.join(" ")} to reject invalid content options`);
+          throw new Error(`Expected moryn write ${args.join(" ")} to reject invalid content options`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string } };
@@ -497,19 +497,19 @@ describe("mem CLI", () => {
 
       for (const { args, message } of [
         {
-          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--text", ""],
+          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", ""],
           message: "Invalid --text"
         },
         {
-          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--text", "Valid text", "--tag", ""],
+          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", "Valid text", "--tag", ""],
           message: "Invalid --tag"
         },
         {
-          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--text", "Valid text", "--derived-from", ""],
+          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", "Valid text", "--derived-from", ""],
           message: "Invalid --derived-from"
         },
         {
-          args: ["refresh", "--project-id", "memora", "--cursor", ""],
+          args: ["refresh", "--project-id", "moryn", "--cursor", ""],
           message: "Invalid --cursor"
         },
         {
@@ -519,7 +519,7 @@ describe("mem CLI", () => {
       ]) {
         try {
           await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
-          throw new Error(`Expected mem ${args.join(" ")} to reject an empty string option`);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject an empty string option`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
@@ -543,7 +543,7 @@ describe("mem CLI", () => {
         "--import", "tsx", "src/cli.ts",
         "project", "init",
         "--path", project,
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--tag", "handoff"
       ]);
 
@@ -570,7 +570,7 @@ describe("mem CLI", () => {
         kind: "session_summary",
         type: "summary",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["handoff"],
         state: "candidate",
         content: { text: "Finished the task summary." }
@@ -587,7 +587,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--state", "candidate",
         "--text", "Use old sync wording"
       ]);
@@ -622,7 +622,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--state", "candidate",
         "--text", "Use promote for state transitions."
       ]);
@@ -636,7 +636,7 @@ describe("mem CLI", () => {
           "--set", "state=\"canonical\"",
           "--reason", "Bypass promotion"
         ]);
-        throw new Error("Expected mem revise to reject managed state patch");
+        throw new Error("Expected moryn revise to reject managed state patch");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
         const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
@@ -657,7 +657,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--state", "candidate",
         "--text", "Keep revision patches valid."
       ]);
@@ -671,7 +671,7 @@ describe("mem CLI", () => {
           "--set", "content.text=",
           "--reason", "Invalid blank revision"
         ]);
-        throw new Error("Expected mem revise to reject blank content.text patch");
+        throw new Error("Expected moryn revise to reject blank content.text patch");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
         const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
@@ -696,7 +696,7 @@ describe("mem CLI", () => {
             "--set",
             assignment
           ]);
-          throw new Error("Expected mem revise to reject malformed --set assignment");
+          throw new Error("Expected moryn revise to reject malformed --set assignment");
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recoverable: boolean; recommended_action: string } };
@@ -719,7 +719,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "warning",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--tag", "auth",
         "--state", "canonical",
         "--text", "Auth token refresh has a blocker"
@@ -730,7 +730,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "warning",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--tag", "release",
         "--state", "canonical",
         "--text", "Release requires npm credentials"
@@ -740,7 +740,7 @@ describe("mem CLI", () => {
       const refresh = await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", dir,
         "refresh",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--cursor", "2000-01-01T00:00:00.000Z",
         "--current-task", "fix auth token refresh"
       ]);
@@ -808,7 +808,7 @@ describe("mem CLI", () => {
         "--import", "tsx", "src/cli.ts",
         "project", "init",
         "--path", project,
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--default-skill", "safe-release"
       ]);
 
@@ -912,7 +912,7 @@ describe("mem CLI", () => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "init"]);
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "init", remote]);
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--state", "canonical", "--text", "CLI sync uses Git"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--state", "canonical", "--text", "CLI sync uses Git"]);
 
       const push = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "--push", "--message", "custom cli sync"]);
       expect(push.stdout).toContain("\"pushed\": true");
@@ -922,7 +922,7 @@ describe("mem CLI", () => {
       const pull = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--pull"]);
       expect(pull.stdout).toContain("\"pulled\": true");
 
-      const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "recall", "Git", "--project-id", "memora"]);
+      const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "recall", "Git", "--project-id", "moryn"]);
       expect(recall.stdout).toContain("CLI sync uses Git");
 
       const status = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--status"]);
@@ -942,7 +942,7 @@ describe("mem CLI", () => {
 
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "init"]);
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "memora"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "init", remote]);
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote]);
 
@@ -1043,7 +1043,7 @@ describe("mem CLI", () => {
 
       try {
         await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "sync", "--push", "--pull"]);
-        throw new Error("Expected mem sync to reject conflicting operation flags");
+        throw new Error("Expected moryn sync to reject conflicting operation flags");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
         const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
@@ -1065,7 +1065,7 @@ describe("mem CLI", () => {
       ]) {
         try {
           await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
-          throw new Error(`Expected mem ${args.join(" ")} to reject message without push`);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject message without push`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
@@ -1081,7 +1081,7 @@ describe("mem CLI", () => {
   it("rebuilds derived snapshots and indexes from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "memora", "--state", "canonical", "--text", "CLI rebuild creates indexes"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--state", "canonical", "--text", "CLI rebuild creates indexes"]);
 
       const rebuild = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "rebuild"]);
       expect(rebuild.stdout).toContain("\"records\": 1");
@@ -1096,7 +1096,7 @@ describe("mem CLI", () => {
       const project = join(dir, "project");
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", join(dir, "store"), "init"]);
       await mkdir(project, { recursive: true });
-      await writeFile(join(project, ".memora.json"), "{\"project_id\":\"\"}\n", "utf8");
+      await writeFile(join(project, ".moryn.json"), "{\"project_id\":\"\"}\n", "utf8");
 
       await expect(exec("node", ["--import", "tsx", "src/cli.ts", "--store", join(dir, "store"), "boot", "--project", project]))
         .rejects.toMatchObject({
@@ -1125,7 +1125,7 @@ describe("mem CLI", () => {
       ]) {
         try {
           await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
-          throw new Error(`Expected mem ${args.join(" ")} to reject an invalid limit`);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject an invalid limit`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const stderr = (error as { stderr: string }).stderr;
@@ -1150,7 +1150,7 @@ describe("mem CLI", () => {
           "refresh",
           "--cursor", "not-a-date"
         ]);
-        throw new Error("Expected mem refresh to reject an invalid cursor");
+        throw new Error("Expected moryn refresh to reject an invalid cursor");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
         const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
@@ -1175,7 +1175,7 @@ describe("mem CLI", () => {
       ]) {
         try {
           await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
-          throw new Error(`Expected mem ${args.join(" ")} to reject an invalid enum option`);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject an invalid enum option`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
@@ -1204,7 +1204,7 @@ describe("mem CLI", () => {
       ]) {
         try {
           await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
-          throw new Error(`Expected mem ${args.join(" ")} to reject missing input`);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject missing input`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recoverable: boolean; recommended_action: string } };
@@ -1226,14 +1226,14 @@ describe("mem CLI", () => {
 
       try {
         await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
-        throw new Error("Expected mem init to fail for malformed store config");
+        throw new Error("Expected moryn init to fail for malformed store config");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
         const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("INVALID_STORE_CONFIG");
         expect(parsed.error.recoverable).toBe(true);
-        expect(parsed.error.recommended_action).toBe("fix or remove config.json, then run mem init");
+        expect(parsed.error.recommended_action).toBe("fix or remove config.json, then run moryn init");
       }
     });
   });
@@ -1251,7 +1251,7 @@ describe("mem CLI", () => {
           "--state",
           "canonical"
         ]);
-        throw new Error("Expected mem promote to fail for a missing record");
+        throw new Error("Expected moryn promote to fail for a missing record");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
         const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
@@ -1304,7 +1304,7 @@ describe("mem CLI", () => {
           "--reason",
           "User confirmed"
         ]);
-        throw new Error("Expected mem promote to require confirmation");
+        throw new Error("Expected moryn promote to require confirmation");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
         const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
@@ -1358,7 +1358,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--tag", "sync",
         "--state", "canonical",
         "--text", "Use append-only JSON events.",
@@ -1372,7 +1372,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--tag", "sync",
         "--state", "canonical",
         "--text", "Use SQLite as the source of truth."
@@ -1399,7 +1399,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--tag", "sync",
         "--state", "candidate",
         "--text", "Use SQLite as the source of truth."
@@ -1411,7 +1411,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--tag", "sync",
         "--state", "canonical",
         "--text", "Use append-only JSON events.",
@@ -1429,7 +1429,7 @@ describe("mem CLI", () => {
           "--reason",
           "Agent inferred this replacement"
         ]);
-        throw new Error("Expected mem promote to require conflict confirmation");
+        throw new Error("Expected moryn promote to require conflict confirmation");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
         const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recommended_action: string } };
@@ -1470,7 +1470,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--tag", "sync",
         "--state", "canonical",
         "--text", "Use append-only JSON events.",
@@ -1483,7 +1483,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "warning",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--tag", "sync",
         "--state", "canonical",
         "--text", "Use private Git remotes.",
@@ -1500,7 +1500,7 @@ describe("mem CLI", () => {
           "--set", "content.text=Use SQLite as the source of truth.",
           "--reason", "Agent inferred this replacement"
         ]);
-        throw new Error("Expected mem revise to require conflict confirmation");
+        throw new Error("Expected moryn revise to require conflict confirmation");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
         const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recommended_action: string } };
@@ -1537,7 +1537,7 @@ describe("mem CLI", () => {
       async function expectStoreNotInitialized(args: string[]): Promise<void> {
         try {
           await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, ...args]);
-          throw new Error(`Expected mem ${args.join(" ")} to fail before mem init`);
+          throw new Error(`Expected moryn ${args.join(" ")} to fail before moryn init`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const stderr = (error as { stderr: string }).stderr;
@@ -1545,14 +1545,14 @@ describe("mem CLI", () => {
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("STORE_NOT_INITIALIZED");
           expect(parsed.error.recoverable).toBe(true);
-          expect(parsed.error.recommended_action).toBe("run mem init");
+          expect(parsed.error.recommended_action).toBe("run moryn init");
         }
       }
 
       await expectStoreNotInitialized([
         "boot",
         "--project-id",
-        "memora"
+        "moryn"
       ]);
 
       await expectStoreNotInitialized([
@@ -1560,7 +1560,7 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--text", "This should not create a store implicitly."
       ]);
     });
@@ -1579,7 +1579,7 @@ describe("mem CLI", () => {
           "init",
           missingRemote
         ]);
-        throw new Error("Expected mem sync init to fail for an unavailable remote");
+        throw new Error("Expected moryn sync init to fail for an unavailable remote");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
         const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
@@ -1595,11 +1595,11 @@ describe("mem CLI", () => {
         "--kind", "memory",
         "--type", "decision",
         "--scope", "project",
-        "--project-id", "memora",
+        "--project-id", "moryn",
         "--state", "canonical",
         "--text", "Local memory survives remote sync failure."
       ]);
-      const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "boot", "--project-id", "memora"]);
+      const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "boot", "--project-id", "moryn"]);
 
       expect(boot.stdout).toContain("Local memory survives remote sync failure.");
     });

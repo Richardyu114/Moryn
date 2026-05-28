@@ -143,7 +143,7 @@ async function git(args: string[], cwd: string): Promise<string | undefined> {
 
 async function readProjectConfigAt(projectPath: string): Promise<ProjectConfig | undefined> {
   try {
-    const rawText = await readFile(resolve(projectPath, ".memora.json"), "utf8");
+    const rawText = await readFile(resolve(projectPath, ".moryn.json"), "utf8");
     let raw: unknown;
     try {
       raw = JSON.parse(rawText) as unknown;
@@ -198,7 +198,7 @@ export async function initializeProjectConfig(projectPath: string, input: Initia
       mode: input.sync?.mode ?? existing?.sync.mode ?? "session"
     }
   });
-  const path = resolve(resolved, ".memora.json");
+  const path = resolve(resolved, ".moryn.json");
   await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
   return { config: parsed, path };
 }

@@ -1,6 +1,6 @@
 import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { MemoraEvent } from "./types.js";
+import type { MorynEvent } from "./types.js";
 import { parseEvent } from "./schema.js";
 import { detectSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import { readStoreConfig, validateStorePath } from "./config.js";
@@ -9,7 +9,7 @@ function monthFromIso(iso: string): string {
   return iso.slice(0, 7);
 }
 
-function deviceFromEvent(event: MemoraEvent): string {
+function deviceFromEvent(event: MorynEvent): string {
   return event.source.device_id ?? "device_default";
 }
 
@@ -19,7 +19,7 @@ function assertSafeEventPathComponent(value: string, name: string): void {
   }
 }
 
-function eventPath(storePath: string, event: MemoraEvent): string {
+function eventPath(storePath: string, event: MorynEvent): string {
   const deviceId = deviceFromEvent(event);
   assertSafeEventPathComponent(deviceId, "source.device_id");
   assertSafeEventPathComponent(event.event_id, "event_id");
@@ -38,7 +38,7 @@ async function ensureStoreInitialized(storePath: string): Promise<void> {
   }
 }
 
-function withDefaultDeviceId(event: MemoraEvent, deviceId: string): MemoraEvent {
+function withDefaultDeviceId(event: MorynEvent, deviceId: string): MorynEvent {
   if (event.source.device_id) return event;
   const source = { ...event.source, device_id: deviceId };
   if (event.op !== "upsert_record") return { ...event, source };
@@ -52,14 +52,14 @@ function withDefaultDeviceId(event: MemoraEvent, deviceId: string): MemoraEvent 
   };
 }
 
-function assertNoUnredactedSensitiveContent(event: MemoraEvent): void {
+function assertNoUnredactedSensitiveContent(event: MorynEvent): void {
   const text = sensitiveScanText(event);
   if (detectSensitiveContent(text).sensitive) {
     throw new Error("Sensitive content detected: event must be redacted before append");
   }
 }
 
-export async function appendEvent(storePath: string, event: MemoraEvent): Promise<string> {
+export async function appendEvent(storePath: string, event: MorynEvent): Promise<string> {
   await ensureStoreInitialized(storePath);
   const config = await readStoreConfig(storePath);
   const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
@@ -90,7 +90,7 @@ async function walkJsonFiles(dir: string): Promise<string[]> {
   return files;
 }
 
-export async function readEvents(storePath: string): Promise<MemoraEvent[]> {
+export async function readEvents(storePath: string): Promise<MorynEvent[]> {
   await ensureStoreInitialized(storePath);
   const files = await walkJsonFiles(join(storePath, "events"));
   const events = await Promise.all(files.map(async (file) => {

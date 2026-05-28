@@ -18,7 +18,7 @@ interface TwoAgentStores {
 }
 
 async function withTwoAgentStores(fn: (stores: TwoAgentStores) => Promise<void>): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), "memora-e2e-"));
+  const root = await mkdtemp(join(tmpdir(), "moryn-e2e-"));
   try {
     const stores = {
       root,
@@ -50,12 +50,12 @@ describe("cross-agent workflow", () => {
         kind: "agent_note",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Use promoted memories for boot context.", format: "text" },
         source: { client: "agent-a", device_id: "device_a" }
       });
 
-      expect((await agentA.boot({ project_id: "memora" })).project.important_decisions).toHaveLength(0);
+      expect((await agentA.boot({ project_id: "moryn" })).project.important_decisions).toHaveLength(0);
 
       await agentA.promote({
         record_id: note.record.id,
@@ -67,8 +67,8 @@ describe("cross-agent workflow", () => {
       await pullGitSync(storeB);
 
       const agentB = createEngine({ storePath: storeB });
-      const boot = await agentB.boot({ project_id: "memora" });
-      const recall = await agentB.recall({ query: "boot context", project_id: "memora", scopes: ["project"] });
+      const boot = await agentB.boot({ project_id: "moryn" });
+      const recall = await agentB.recall({ query: "boot context", project_id: "moryn", scopes: ["project"] });
 
       expect(boot.project.important_decisions.map((record) => record.content.text)).toEqual([
         "Use promoted memories for boot context."
@@ -90,7 +90,7 @@ describe("cross-agent workflow", () => {
         kind: "session_summary",
         type: "summary",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Agent A finished initial sync wiring.", format: "text" },
         source: { client: "agent-a", device_id: "device_a" }
       });
@@ -99,7 +99,7 @@ describe("cross-agent workflow", () => {
 
       const agentB = createEngine({ storePath: storeB });
       const refresh = await agentB.refresh({
-        project_id: "memora",
+        project_id: "moryn",
         cursor: "2026-05-27T00:00:00.000Z"
       });
 
@@ -129,7 +129,7 @@ describe("cross-agent workflow", () => {
         kind: "memory",
         type: "blocker",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["auth"],
         content: { text: "Auth token refresh is blocked by stale credentials.", format: "text" },
         state: "canonical",
@@ -141,7 +141,7 @@ describe("cross-agent workflow", () => {
 
       const agentB = createEngine({ storePath: storeB });
       const refresh = await agentB.refresh({
-        project_id: "memora",
+        project_id: "moryn",
         cursor: "2026-05-27T00:00:00.000Z",
         current_task: "fix auth token refresh"
       });

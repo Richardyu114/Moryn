@@ -23,7 +23,7 @@ describe("error envelopes", () => {
       error: {
         code: "INDEX_STALE",
         recoverable: true,
-        recommended_action: "run mem rebuild"
+        recommended_action: "run moryn rebuild"
       }
     });
   });

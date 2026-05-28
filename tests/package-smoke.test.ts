@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 const exec = promisify(execFile);
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), "memora-package-smoke-"));
+  const dir = await mkdtemp(join(tmpdir(), "moryn-package-smoke-"));
   try {
     return await fn(dir);
   } finally {
@@ -28,10 +28,10 @@ describe("published package smoke", () => {
         await exec("npm", ["init", "-y"], { cwd: dir });
         await exec("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
 
-        const mem = join(dir, "node_modules", ".bin", "mem");
-        await exec(mem, ["--store", store, "init"], { cwd: dir });
-        await exec(mem, ["project", "init", "--path", project, "--project-id", "memora", "--default-skill", "release"], { cwd: dir });
-        await exec(mem, [
+        const moryn = join(dir, "node_modules", ".bin", "moryn");
+        await exec(moryn, ["--store", store, "init"], { cwd: dir });
+        await exec(moryn, ["project", "init", "--path", project, "--project-id", "moryn", "--default-skill", "release"], { cwd: dir });
+        await exec(moryn, [
           "--store", store,
           "write",
           "--kind", "skill",
@@ -42,7 +42,7 @@ describe("published package smoke", () => {
           "--text", "Release from packed CLI",
           "--confirm"
         ], { cwd: dir });
-        const decision = await exec(mem, [
+        const decision = await exec(moryn, [
           "--store", store,
           "write",
           "--kind", "memory",
@@ -54,8 +54,8 @@ describe("published package smoke", () => {
         ], { cwd: dir });
 
         const recordId = (JSON.parse(decision.stdout) as { record: { id: string } }).record.id;
-        const boot = await exec(mem, ["--store", store, "boot", "--project", project], { cwd: dir });
-        const recall = await exec(mem, ["--store", store, "recall", "--record-id", recordId, "--project", project], { cwd: dir });
+        const boot = await exec(moryn, ["--store", store, "boot", "--project", project], { cwd: dir });
+        const recall = await exec(moryn, ["--store", store, "recall", "--record-id", recordId, "--project", project], { cwd: dir });
 
         expect(boot.stdout).toContain("Release from packed CLI");
         expect(recall.stdout).toContain("Packed CLI can write memory");

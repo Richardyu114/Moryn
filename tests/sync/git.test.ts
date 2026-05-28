@@ -31,7 +31,7 @@ async function expectInvalidArgument(action: () => Promise<unknown>, expectedMes
 
 describe("git sync adapter", () => {
   it("reports unconfigured status outside a git repo", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "memora-sync-"));
+    const dir = await mkdtemp(join(tmpdir(), "moryn-sync-"));
     try {
       const status = await getGitSyncStatus(dir);
       expect(status.configured).toBe(false);
@@ -41,7 +41,7 @@ describe("git sync adapter", () => {
   });
 
   it("rejects invalid sync arguments before mutating git state", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-invalid-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-invalid-"));
     const store = join(root, "store");
     const remote = join(root, "remote.git");
     try {
@@ -82,8 +82,8 @@ describe("git sync adapter", () => {
     }
   });
 
-  it("rejects sync initialization before the Memora store is initialized", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-missing-store-"));
+  it("rejects sync initialization before the Moryn store is initialized", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-missing-store-"));
     const store = join(root, "store");
     const remote = join(root, "remote.git");
     try {
@@ -98,12 +98,12 @@ describe("git sync adapter", () => {
       }
 
       if (!caught) {
-        throw new Error("Expected sync init to reject before mem init");
+        throw new Error("Expected sync init to reject before moryn init");
       }
 
       const envelope = toErrorEnvelope(caught);
       expect(envelope.error.code).toBe("STORE_NOT_INITIALIZED");
-      expect(envelope.error.recommended_action).toBe("run mem init");
+      expect(envelope.error.recommended_action).toBe("run moryn init");
       await expect(access(join(store, ".git"))).rejects.toMatchObject({ code: "ENOENT" });
       await expect(access(join(store, ".gitignore"))).rejects.toMatchObject({ code: "ENOENT" });
     } finally {
@@ -112,7 +112,7 @@ describe("git sync adapter", () => {
   });
 
   it("rejects pull and push before Git sync is initialized", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-unconfigured-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-unconfigured-"));
     const store = join(root, "store");
     try {
       await initializeStore(store, {
@@ -134,7 +134,7 @@ describe("git sync adapter", () => {
 
         const envelope = toErrorEnvelope(caught);
         expect(envelope.error.code).toBe("SYNC_NOT_CONFIGURED");
-        expect(envelope.error.recommended_action).toBe("run mem sync init <remote>");
+        expect(envelope.error.recommended_action).toBe("run moryn sync init <remote>");
       }
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -142,7 +142,7 @@ describe("git sync adapter", () => {
   });
 
   it("initializes a store repo, pushes events, and pulls them on another device", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-"));
     const remote = join(root, "remote.git");
     const storeA = join(root, "store-a");
     const storeB = join(root, "store-b");
@@ -169,7 +169,7 @@ describe("git sync adapter", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Sync events through Git.", format: "text" },
         state: "canonical",
         source: { client: "test", device_id: "device_a" }
@@ -185,7 +185,7 @@ describe("git sync adapter", () => {
       expect(recallIndex.records.map((record) => record.text)).toContain("Sync events through Git.");
 
       const engineB = createEngine({ storePath: storeB });
-      const recall = await engineB.recall({ query: "Git", project_id: "memora" });
+      const recall = await engineB.recall({ query: "Git", project_id: "moryn" });
       expect(recall.results[0]?.record.content.text).toBe("Sync events through Git.");
 
       const status = await getGitSyncStatus(storeB);
@@ -211,7 +211,7 @@ describe("git sync adapter", () => {
   });
 
   it("refreshes remote tracking status so boot can report pending remote updates", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-boot-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-boot-"));
     const remote = join(root, "remote.git");
     const storeA = join(root, "store-a");
     const storeB = join(root, "store-b");
@@ -237,7 +237,7 @@ describe("git sync adapter", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Remote boot update is waiting.", format: "text" },
         state: "canonical",
         source: { client: "test", device_id: "device_a" }
@@ -252,7 +252,7 @@ describe("git sync adapter", () => {
         storePath: storeB,
         syncStatus: () => getGitSyncStatus(storeB)
       });
-      const boot = await engineB.boot({ project_id: "memora" });
+      const boot = await engineB.boot({ project_id: "moryn" });
 
       expect(boot.sync.remote_has_updates).toBe(true);
     } finally {
@@ -261,7 +261,7 @@ describe("git sync adapter", () => {
   });
 
   it("rebuilds derived views after sync init imports an existing remote history", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-init-derived-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-derived-"));
     const remote = join(root, "remote.git");
     const storeA = join(root, "store-a");
     const storeB = join(root, "store-b");
@@ -282,7 +282,7 @@ describe("git sync adapter", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Existing remote history is indexed on sync init.", format: "text" },
         state: "canonical",
         source: { client: "test", device_id: "device_a" }
@@ -304,7 +304,7 @@ describe("git sync adapter", () => {
   });
 
   it("keeps generated views ignored when sync init imports older remote history", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-init-ignore-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-ignore-"));
     const remote = join(root, "remote.git");
     const seed = join(root, "seed");
     const store = join(root, "store");
@@ -322,7 +322,7 @@ describe("git sync adapter", () => {
           kind: "memory",
           type: "decision",
           scope: "project",
-          project_id: "memora",
+          project_id: "moryn",
           tags: [],
           content: { text: "Imported older remote event.", format: "text" },
           state: "canonical",
@@ -337,7 +337,7 @@ describe("git sync adapter", () => {
         source: { client: "seed", device_id: "device_seed" }
       }, null, 2)}\n`, "utf8");
       await exec("git", ["add", "events"], { cwd: seed });
-      await exec("git", ["commit", "-m", "Seed legacy Memora events"], { cwd: seed });
+      await exec("git", ["commit", "-m", "Seed legacy Moryn events"], { cwd: seed });
       await exec("git", ["branch", "-M", "main"], { cwd: seed });
       await exec("git", ["remote", "add", "origin", remote], { cwd: seed });
       await exec("git", ["push", "-u", "origin", "main"], { cwd: seed });
@@ -357,7 +357,7 @@ describe("git sync adapter", () => {
   });
 
   it("untracks legacy synced config and generated views during sync init import", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-init-untrack-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-init-untrack-"));
     const remote = join(root, "remote.git");
     const seed = join(root, "seed");
     const store = join(root, "store");
@@ -382,7 +382,7 @@ describe("git sync adapter", () => {
           kind: "memory",
           type: "decision",
           scope: "project",
-          project_id: "memora",
+          project_id: "moryn",
           tags: [],
           content: { text: "Imported remote event with legacy generated files.", format: "text" },
           state: "canonical",
@@ -427,7 +427,7 @@ describe("git sync adapter", () => {
   });
 
   it("untracks legacy synced config and generated views during push from configured stores", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-push-untrack-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-push-untrack-"));
     const remote = join(root, "remote.git");
     const store = join(root, "store");
     try {
@@ -465,7 +465,7 @@ describe("git sync adapter", () => {
   });
 
   it("preserves local config and untracks legacy synced local-only files during pull", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-pull-untrack-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-pull-untrack-"));
     const remote = join(root, "remote.git");
     const store = join(root, "store");
     const legacy = join(root, "legacy");
@@ -519,7 +519,7 @@ describe("git sync adapter", () => {
   });
 
   it("preserves local config and untracks legacy synced local-only files during push rebase", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-push-rebase-untrack-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-push-rebase-untrack-"));
     const remote = join(root, "remote.git");
     const store = join(root, "store");
     const legacy = join(root, "legacy");
@@ -551,7 +551,7 @@ describe("git sync adapter", () => {
           kind: "memory",
           type: "decision",
           scope: "project",
-          project_id: "memora",
+          project_id: "moryn",
           tags: [],
           content: { text: "Legacy remote event survives push rebase.", format: "text" },
           state: "canonical",
@@ -580,7 +580,7 @@ describe("git sync adapter", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Local event survives legacy push rebase.", format: "text" },
         state: "canonical",
         source: { client: "test", device_id: "device_push_rebase_untrack" }
@@ -617,7 +617,7 @@ describe("git sync adapter", () => {
   });
 
   it("rebases local event commits when pulling remote device history", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-rebase-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-rebase-"));
     const remote = join(root, "remote.git");
     const storeA = join(root, "store-a");
     const storeB = join(root, "store-b");
@@ -650,7 +650,7 @@ describe("git sync adapter", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Device A event survives sync.", format: "text" },
         state: "canonical",
         source: { client: "test", device_id: "device_a" }
@@ -661,7 +661,7 @@ describe("git sync adapter", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Device B event survives sync.", format: "text" },
         state: "canonical",
         source: { client: "test", device_id: "device_b" }
@@ -673,8 +673,8 @@ describe("git sync adapter", () => {
       expect(pull.pulled).toBe(true);
 
       const engineBAfterPull = createEngine({ storePath: storeB });
-      const recallA = await engineBAfterPull.recall({ query: "Device A", project_id: "memora" });
-      const recallB = await engineBAfterPull.recall({ query: "Device B", project_id: "memora" });
+      const recallA = await engineBAfterPull.recall({ query: "Device A", project_id: "moryn" });
+      const recallB = await engineBAfterPull.recall({ query: "Device B", project_id: "moryn" });
 
       expect(recallA.results[0]?.record.content.text).toBe("Device A event survives sync.");
       expect(recallB.results[0]?.record.content.text).toBe("Device B event survives sync.");
@@ -684,7 +684,7 @@ describe("git sync adapter", () => {
   });
 
   it("pulls remote event history without dropping uncommitted local events", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-uncommitted-pull-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-uncommitted-pull-"));
     const remote = join(root, "remote.git");
     const storeA = join(root, "store-a");
     const storeB = join(root, "store-b");
@@ -717,7 +717,7 @@ describe("git sync adapter", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Remote uncommitted pull event survives.", format: "text" },
         state: "canonical",
         source: { client: "test", device_id: "device_a" }
@@ -728,7 +728,7 @@ describe("git sync adapter", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Local uncommitted event survives pull.", format: "text" },
         state: "canonical",
         source: { client: "test", device_id: "device_b" }
@@ -744,15 +744,15 @@ describe("git sync adapter", () => {
       ]));
 
       const engineBAfterPull = createEngine({ storePath: storeB });
-      expect((await engineBAfterPull.recall({ query: "Remote uncommitted", project_id: "memora" })).results[0]?.record.content.text).toBe("Remote uncommitted pull event survives.");
-      expect((await engineBAfterPull.recall({ query: "Local uncommitted", project_id: "memora" })).results[0]?.record.content.text).toBe("Local uncommitted event survives pull.");
+      expect((await engineBAfterPull.recall({ query: "Remote uncommitted", project_id: "moryn" })).results[0]?.record.content.text).toBe("Remote uncommitted pull event survives.");
+      expect((await engineBAfterPull.recall({ query: "Local uncommitted", project_id: "moryn" })).results[0]?.record.content.text).toBe("Local uncommitted event survives pull.");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
   it("rebuilds derived views after push rebases remote event history", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-push-rebase-derived-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-push-rebase-derived-"));
     const remote = join(root, "remote.git");
     const storeA = join(root, "store-a");
     const storeB = join(root, "store-b");
@@ -785,7 +785,7 @@ describe("git sync adapter", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Remote event should appear in rebuilt index.", format: "text" },
         state: "canonical",
         source: { client: "test", device_id: "device_a" }
@@ -796,7 +796,7 @@ describe("git sync adapter", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Local event should survive push rebase.", format: "text" },
         state: "canonical",
         source: { client: "test", device_id: "device_b" }
@@ -814,8 +814,8 @@ describe("git sync adapter", () => {
     }
   });
 
-  it("pushes cleanly when non-Memora files leave the store worktree dirty", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-untracked-file-"));
+  it("pushes cleanly when non-Moryn files leave the store worktree dirty", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-untracked-file-"));
     const remote = join(root, "remote.git");
     const store = join(root, "store");
     try {
@@ -825,7 +825,7 @@ describe("git sync adapter", () => {
         id: () => "device_dirty_push"
       });
       await initializeGitSync(store, remote);
-      await writeFile(join(store, "scratch.txt"), "not managed by Memora\n", "utf8");
+      await writeFile(join(store, "scratch.txt"), "not managed by Moryn\n", "utf8");
 
       const push = await pushGitSync(store);
 
@@ -834,14 +834,14 @@ describe("git sync adapter", () => {
         committed: false,
         pushed: true
       }));
-      await expect(readFile(join(store, "scratch.txt"), "utf8")).resolves.toBe("not managed by Memora\n");
+      await expect(readFile(join(store, "scratch.txt"), "utf8")).resolves.toBe("not managed by Moryn\n");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
   it("preserves legacy sync status when rebuilding derived indexes", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-status-migration-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-status-migration-"));
     const store = join(root, "store");
     try {
       await initializeStore(store, {
@@ -870,7 +870,7 @@ describe("git sync adapter", () => {
   });
 
   it("does not overwrite current sync status with legacy index status during rebuild", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-status-current-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-status-current-"));
     const store = join(root, "store");
     try {
       await initializeStore(store, {
@@ -906,7 +906,7 @@ describe("git sync adapter", () => {
   });
 
   it("ignores corrupt legacy sync status when rebuilding derived indexes", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora-sync-status-corrupt-"));
+    const root = await mkdtemp(join(tmpdir(), "moryn-sync-status-corrupt-"));
     const store = join(root, "store");
     try {
       await initializeStore(store, {

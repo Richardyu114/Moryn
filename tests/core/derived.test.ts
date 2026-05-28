@@ -30,7 +30,7 @@ describe("derived views", () => {
         kind: "memory",
         type: "summary",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Older summary should be superseded.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -48,7 +48,7 @@ describe("derived views", () => {
         kind: "memory",
         type: "summary",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Candidate summary should not be snapshotted.", format: "text" },
         state: "candidate",
         source: { client: "test" }
@@ -65,7 +65,7 @@ describe("derived views", () => {
         kind: "memory",
         type: "summary",
         scope: "global",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Global summary with project metadata should not become project summary.", format: "text" },
         state: "canonical",
         source: { client: "test" }
@@ -83,8 +83,8 @@ describe("derived views", () => {
         kind: "memory",
         type: "summary",
         scope: "project",
-        project_id: "memora",
-        content: { format: "json", summary: "Memora is a local-first agent memory layer." },
+        project_id: "moryn",
+        content: { format: "json", summary: "Moryn is a local-first agent memory layer." },
         state: "canonical",
         source: { client: "test" }
       });
@@ -92,7 +92,7 @@ describe("derived views", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         tags: ["sync"],
         content: { text: "Use Git sync.", format: "text" },
         state: "canonical",
@@ -102,7 +102,7 @@ describe("derived views", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: {
           format: "json",
           summary: "Structured derived index content.",
@@ -125,14 +125,14 @@ describe("derived views", () => {
       const result = await rebuildDerivedViews(storePath);
 
       expect(result.records).toBe(11);
-      expect(result.projects).toEqual(["memora", "other"]);
+      expect(result.projects).toEqual(["moryn", "other"]);
       expect(result.skills).toBe(1);
 
       const user = JSON.parse(await readFile(join(storePath, "snapshots", "user.json"), "utf8")) as { soul: unknown[] };
       expect(user.soul).toHaveLength(1);
 
-      const project = JSON.parse(await readFile(join(storePath, "snapshots", "projects", "memora.json"), "utf8")) as { summary: string; decisions: Array<{ content: { text: string } }> };
-      expect(project.summary).toBe("Memora is a local-first agent memory layer.");
+      const project = JSON.parse(await readFile(join(storePath, "snapshots", "projects", "moryn.json"), "utf8")) as { summary: string; decisions: Array<{ content: { text: string } }> };
+      expect(project.summary).toBe("Moryn is a local-first agent memory layer.");
       expect(project.decisions[0]?.content.text).toBe("Use Git sync.");
 
       const skills = JSON.parse(await readFile(join(storePath, "snapshots", "skills", "index.json"), "utf8")) as { skills: Array<{ tags: string[] }> };
@@ -176,7 +176,7 @@ describe("derived views", () => {
       const projectDecisionTexts = async () => {
         let raw: string;
         try {
-          raw = await readFile(join(storePath, "snapshots", "projects", "memora.json"), "utf8");
+          raw = await readFile(join(storePath, "snapshots", "projects", "moryn.json"), "utf8");
         } catch (error) {
           if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
           throw error;
@@ -189,7 +189,7 @@ describe("derived views", () => {
         kind: "memory",
         type: "decision",
         scope: "project",
-        project_id: "memora",
+        project_id: "moryn",
         content: { text: "Generated recall indexes update after writes.", format: "text" },
         state: "canonical",
         source: { client: "test" }

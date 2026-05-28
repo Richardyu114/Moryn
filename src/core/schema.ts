@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { MemoraEvent } from "./types.js";
+import type { MorynEvent } from "./types.js";
 
 export const recordKindSchema = z.enum(["memory", "skill", "soul", "session_summary", "agent_note"]);
 export const recordStateSchema = z.enum(["raw", "candidate", "canonical", "archived", "quarantined"]);
@@ -147,10 +147,10 @@ export function parseRecord(input: unknown): ParsedRecord {
   return result.data;
 }
 
-export function parseEvent(input: unknown): MemoraEvent {
+export function parseEvent(input: unknown): MorynEvent {
   const result = eventSchema.safeParse(input);
   if (!result.success) {
     throw new Error(`Invalid event: ${z.prettifyError(result.error)}`);
   }
-  return result.data as MemoraEvent;
+  return result.data as MorynEvent;
 }

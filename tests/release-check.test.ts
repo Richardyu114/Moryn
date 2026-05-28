@@ -9,16 +9,16 @@ import { assertPackageFilesComplete, assertSafePackageFiles } from "../scripts/r
 const exec = promisify(execFile);
 
 describe("release check", () => {
-  it("rejects private Memora store files from package contents", () => {
+  it("rejects private Moryn store files from package contents", () => {
     expect(() => assertSafePackageFiles([
       "package/README.md",
-      "package/.memora/config.json"
-    ])).toThrow(/private Memora store data/);
+      "package/.moryn/config.json"
+    ])).toThrow(/private Moryn store data/);
 
     expect(() => assertSafePackageFiles([
       "package/dist/cli.js",
-      "package/docs/memora-design.md",
-      "package/assets/memora-hero.png"
+      "package/docs/moryn-design.md",
+      "package/assets/moryn-hero.png"
     ])).not.toThrow();
   });
 
@@ -45,8 +45,8 @@ describe("release check", () => {
     const result = await exec("node", ["--import", "tsx", "scripts/release-check.ts"], {
       env: {
         ...process.env,
-        MEMORA_SKIP_SLOW_CHECKS: "1",
-        MEMORA_PRIVATE_GIT_REMOTE: ""
+        MORYN_SKIP_SLOW_CHECKS: "1",
+        MORYN_PRIVATE_GIT_REMOTE: ""
       }
     });
 
@@ -55,15 +55,15 @@ describe("release check", () => {
   });
 
   it("runs from a checkout path containing spaces", async () => {
-    const root = await mkdtemp(join(tmpdir(), "memora release check "));
+    const root = await mkdtemp(join(tmpdir(), "moryn release check "));
     const script = join(root, "release check with spaces.ts");
     try {
       await copyFile(join(process.cwd(), "scripts", "release-check.ts"), script);
       const result = await exec("node", ["--import", "tsx", script], {
         env: {
           ...process.env,
-          MEMORA_SKIP_SLOW_CHECKS: "1",
-          MEMORA_PRIVATE_GIT_REMOTE: ""
+          MORYN_SKIP_SLOW_CHECKS: "1",
+          MORYN_PRIVATE_GIT_REMOTE: ""
         }
       });
 

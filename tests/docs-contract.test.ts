@@ -4,7 +4,7 @@ import { errorCode, recommendedAction } from "../src/core/errors.js";
 
 describe("documentation contracts", () => {
   it("keeps the design spec error contract aligned with runtime envelopes", async () => {
-    const design = await readFile("docs/memora-design.md", "utf8");
+    const design = await readFile("docs/moryn-design.md", "utf8");
     const implementedCodes = [
       "STORE_NOT_INITIALIZED",
       "CONFIRMATION_REQUIRED",
