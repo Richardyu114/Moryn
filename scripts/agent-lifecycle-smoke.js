@@ -1,5 +1,6 @@
+#!/usr/bin/env node
 import { execFile } from "node:child_process";
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -231,7 +232,11 @@ async function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+const invokedPath = process.argv[1]
+  ? await realpath(process.argv[1]).catch(() => resolve(process.argv[1]))
+  : undefined;
+
+if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
   main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);

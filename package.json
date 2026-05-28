@@ -4,7 +4,8 @@
   "description": "A personal memory, skill, and soul layer for AI agents.",
   "type": "module",
   "bin": {
-    "moryn": "./dist/cli.js"
+    "moryn": "./dist/cli.js",
+    "moryn-agent-smoke": "./scripts/agent-lifecycle-smoke.js"
   },
   "files": [
     "dist",

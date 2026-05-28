@@ -77,8 +77,8 @@ describe("published package smoke", () => {
         await exec("npm", ["init", "-y"], { cwd: dir });
         await exec("npm", ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
 
-        const script = join(dir, "node_modules", "@richardyu114", "moryn", "scripts", "agent-lifecycle-smoke.js");
-        const result = await exec("node", [script], { cwd: dir });
+        const smoke = join(dir, "node_modules", ".bin", "moryn-agent-smoke");
+        const result = await exec(smoke, [], { cwd: dir });
 
         expect(result.stdout).toContain("agent lifecycle smoke passed");
         expect(result.stdout).toContain("Codex smoke status reached Gemini");

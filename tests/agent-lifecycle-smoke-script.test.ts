@@ -7,8 +7,9 @@ const exec = promisify(execFile);
 
 describe("agent lifecycle smoke script", () => {
   it("is exposed as an npm script and validates two agent stores over Git sync", async () => {
-    const pkg = JSON.parse(await readFile("package.json", "utf8")) as { scripts?: Record<string, string> };
+    const pkg = JSON.parse(await readFile("package.json", "utf8")) as { bin?: Record<string, string>; scripts?: Record<string, string> };
 
+    expect(pkg.bin?.["moryn-agent-smoke"]).toBe("./scripts/agent-lifecycle-smoke.js");
     expect(pkg.scripts?.["smoke:agent-lifecycle"]).toBe("node scripts/agent-lifecycle-smoke.js");
 
     const result = await exec("node", ["scripts/agent-lifecycle-smoke.js"], { cwd: process.cwd() });

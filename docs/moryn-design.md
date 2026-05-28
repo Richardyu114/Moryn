@@ -841,7 +841,8 @@ handoff. By default it creates a temporary local bare Git repo. With
 that agents will share. In a source checkout it runs `src/cli.ts` by default
 for fresh clones; in an installed package it automatically uses `dist/cli.js`.
 After `npm run build`, pass `--dist` to force built-CLI validation. The smoke
-runner itself is plain Node.js so installed packages do not need `tsx`.
+runner itself is plain Node.js so installed packages do not need `tsx`, and
+published packages expose it as the direct `moryn-agent-smoke` bin.
 
 ## Boot, Recall, and Sync Return Strategy
 
