@@ -37,7 +37,7 @@ The first version is local-first and syncs through a user-owned GitHub private r
 
 The project name is Moryn.
 
-Moryn is a coined product name that keeps the soft, memorable feel of the original name while avoiding the crowded "memora/memoria" naming space. It is broad enough to cover memory, skill, soul, and personal context instead of being limited to agent-specific memory.
+Moryn is a coined product name that keeps a soft, easy-to-remember feel while avoiding the crowded memory-product naming space. It is broad enough to cover memory, skill, soul, and personal context instead of being limited to agent-specific memory.
 
 Recommended CLI command:
 
