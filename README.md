@@ -315,7 +315,9 @@ moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store
 same setup diagnosis as `agent doctor`. If the project is known, it runs
 `agent start` and returns boot, refresh, and handoff context. If the project is
 unclear but the store has known projects, it returns `project_list` results
-with complete `agent_start` commands for each project.
+with complete `agent_start` commands for each project. When the local store is
+empty and `--sync-remote` is provided, it initializes sync and pulls the shared
+store before deciding whether project discovery is needed.
 
 `agent doctor` is a read-only setup check for agents running on an unfamiliar
 machine or project. It reports whether the local store exists, whether project
@@ -384,8 +386,9 @@ agent_enter(sync_remote, current_task, agent)
 
 This call chooses the safe path. If the project is known, it starts the session
 and returns boot, refresh, and handoff context. If the project is unclear, it
-returns known projects sorted by recent activity; each project includes a
-prefilled `agent_start` command and argument template carrying `current_task`,
+initializes/pulls the shared store when `sync_remote` is provided, then returns
+known projects sorted by recent activity; each project includes a prefilled
+`agent_start` command and argument template carrying `current_task`,
 `sync_remote`, and `agent`.
 
 When setup is uncertain:

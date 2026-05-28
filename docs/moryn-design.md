@@ -649,7 +649,9 @@ project. It runs `agent_doctor` first. If the project is known and safe to
 start, it runs `agent_start` and returns boot, refresh, and handoff context. If
 the project is unclear but the store has known project records, it returns
 `project_list` results with complete `agent_start` command and MCP argument
-templates for each project.
+templates for each project. If the local store is empty and `sync_remote` is
+provided, it initializes Git sync and pulls the shared store before choosing
+between project discovery and startup.
 
 CLI:
 

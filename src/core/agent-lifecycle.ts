@@ -50,6 +50,8 @@ interface BootstrapResult {
   initialized_store: boolean;
   sync_init?: GitSyncResult;
   sync_init_error?: string;
+  sync_pull?: GitSyncResult;
+  sync_pull_error?: string;
 }
 
 interface AgentHandoffEntry {
@@ -485,6 +487,26 @@ async function ensureLifecycleBootstrap(input: AgentLifecycleInput): Promise<Boo
   return result;
 }
 
+async function pullLifecycleSync(storePath: string, result: BootstrapResult): Promise<void> {
+  const pulled = await trySync(() => pullGitSync(storePath));
+  if (pulled.ok) {
+    result.sync_pull = pulled.result;
+  } else {
+    result.sync_pull_error = pulled.error;
+  }
+}
+
+async function enterDiscoveryBootstrap(input: AgentEnterInput): Promise<BootstrapResult | undefined> {
+  if (!input.syncRemote || input.projectPath || input.projectId) return undefined;
+  const store = await trySync(() => readStoreConfig(input.storePath));
+  if (store.ok && await hasKnownProjects(input, true)) return undefined;
+  const bootstrap = await ensureLifecycleBootstrap(input);
+  if (!bootstrap.sync_init_error) {
+    await pullLifecycleSync(input.storePath, bootstrap);
+  }
+  return bootstrap;
+}
+
 export async function agentDoctor(input: AgentDoctorInput) {
   const checks: Array<{ name: string; ok: boolean; severity: DoctorSeverity; message: string }> = [];
   let storeInitialized = false;
@@ -587,6 +609,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
 }
 
 export async function agentEnter(input: AgentEnterInput) {
+  const bootstrap = await enterDiscoveryBootstrap(input);
   const doctor = await agentDoctor(input);
   if (doctor.next.tool === "project_list") {
     const engine = createEngine({ storePath: input.storePath });
@@ -600,6 +623,7 @@ export async function agentEnter(input: AgentEnterInput) {
       ok: true,
       mode: "discover_projects",
       agent: sourceFromAgent(input.agent),
+      bootstrap,
       doctor,
       projects,
       next: {
@@ -624,6 +648,7 @@ export async function agentEnter(input: AgentEnterInput) {
       ok: true,
       mode: "start_session",
       agent: sourceFromAgent(input.agent),
+      bootstrap,
       doctor,
       project: start.project,
       start,
@@ -640,6 +665,7 @@ export async function agentEnter(input: AgentEnterInput) {
     ok: true,
     mode: "needs_setup",
     agent: sourceFromAgent(input.agent),
+    bootstrap,
     doctor,
     next: doctor.next
   };

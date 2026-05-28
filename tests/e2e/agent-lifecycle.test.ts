@@ -544,6 +544,71 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("enters project discovery after syncing a fresh store from a shared remote", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-enter-sync-project-list-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    const project = join(root, "project");
+    const unknownCwd = join(root, "unknown-device");
+    const previousCwd = process.cwd();
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(storeA);
+      await initializeGitSync(storeA, remote);
+      await agentFinish({
+        storePath: storeA,
+        projectPath: project,
+        agent: { client: "codex", session_id: "codex-enter-sync" },
+        summary: "Codex left a synced project handoff.",
+        push: true
+      });
+
+      await mkdir(unknownCwd, { recursive: true });
+      process.chdir(unknownCwd);
+      const entered = await agentEnter({
+        storePath: storeB,
+        syncRemote: remote,
+        agent: { client: "gemini", session_id: "gemini-enter-sync" },
+        currentTask: "find synced project"
+      });
+
+      expect(entered).toMatchObject({
+        ok: true,
+        mode: "discover_projects",
+        bootstrap: {
+          initialized_store: true,
+          sync_init: { ok: true },
+          sync_pull: { ok: true, pulled: true }
+        },
+        next: {
+          recommended_action: "choose_project_and_call_agent_start",
+          tool: "agent_start"
+        }
+      });
+      expect(entered.doctor.next).toMatchObject({ tool: "project_list" });
+      expect(entered.projects.projects[0]).toMatchObject({
+        project_id: "moryn",
+        latest_activity: {
+          text: "Codex left a synced project handoff."
+        },
+        next: {
+          command: expect.stringContaining("moryn agent start --project-id moryn"),
+          arguments: {
+            project_id: "moryn",
+            sync_remote: remote,
+            current_task: "find synced project",
+            agent: { client: "gemini", session_id: "gemini-enter-sync" }
+          }
+        }
+      });
+    } finally {
+      process.chdir(previousCwd);
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
+
   it("enters a known project by running agent_start when doctor can start safely", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-enter-start-"));
     const store = join(root, "store");
