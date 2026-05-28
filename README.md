@@ -344,6 +344,10 @@ known project instead of writing handoffs under a typo. When `--project` points
 at a `.moryn.json` with a different project id than `--project-id`, lifecycle
 commands reject the conflict instead of letting one identity silently override
 the other; the setup suggestion keeps the path and drops the conflicting id.
+When sync status reports unresolved Git conflicts, `agent doctor` and
+`agent enter` stop before lifecycle writes and return `sync_status` as the next
+read-only action. Direct `agent start` also rejects with a structured
+`SYNC_CONFLICT` error instead of reading conflict-marked event files.
 Direct lifecycle
 commands (`agent start`, `agent status`, and `agent finish`) also reject missing
 project context in a populated store unless the current directory resolves via a
@@ -522,6 +526,10 @@ includes machine-readable templates for the next safe lifecycle calls,
 including the exact CLI command template, MCP tool name, required fields, and
 prefilled arguments for `agent_status`, `agent_finish`, and `refresh_context`
 (`agent_start` with the returned refresh cursor).
+If the local Git sync state is already conflicted, `agent_start` fails before
+boot/refresh with `SYNC_CONFLICT` and a `sync_status` recovery action, so agents
+do not parse half-merged event files or write new lifecycle records into an
+unresolved sync state.
 
 When more context is needed:
 

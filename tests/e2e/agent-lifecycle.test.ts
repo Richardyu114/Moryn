@@ -12,6 +12,26 @@ import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.
 
 const exec = promisify(execFile);
 
+async function createSyncConflict(input: {
+  remote: string;
+  storeA: string;
+  storeB: string;
+  conflictFile: string;
+}): Promise<void> {
+  await initializeGitSync(input.storeA, input.remote);
+  await initializeGitSync(input.storeB, input.remote);
+  await mkdir(join(input.storeA, "events", "shared-device", "2026-05"), { recursive: true });
+  await mkdir(join(input.storeB, "events", "shared-device", "2026-05"), { recursive: true });
+  await writeFile(join(input.storeA, input.conflictFile), "{\"from\":\"a\"}\n", "utf8");
+  await writeFile(join(input.storeB, input.conflictFile), "{\"from\":\"b\"}\n", "utf8");
+  await exec("git", ["add", input.conflictFile], { cwd: input.storeA });
+  await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: input.storeA });
+  await exec("git", ["push", "-u", "origin", "main"], { cwd: input.storeA });
+  await exec("git", ["add", input.conflictFile], { cwd: input.storeB });
+  await exec("git", ["commit", "-m", "device b conflicting event"], { cwd: input.storeB });
+  await expect(pullGitSync(input.storeB)).rejects.toThrow(/conflict/i);
+}
+
 describe("agent lifecycle", () => {
   it("pulls, boots, refreshes, writes a handoff, and pushes across two device stores", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-"));
@@ -450,6 +470,87 @@ describe("agent lifecycle", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("does not recommend lifecycle writes while sync has unresolved conflicts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-sync-conflict-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    const project = join(root, "project");
+    const conflictFile = join("events", "shared-device", "2026-05", "evt_conflict.json");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(storeA, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_a"
+      });
+      await initializeStore(storeB, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_b"
+      });
+      await createSyncConflict({ remote, storeA, storeB, conflictFile });
+
+      const doctor = await agentDoctor({
+        storePath: storeB,
+        projectPath: project,
+        syncRemote: remote,
+        currentTask: "avoid sync conflict hallucination",
+        agent: { client: "codex", session_id: "codex-conflict" }
+      });
+
+      expect(doctor.sync).toMatchObject({
+        configured: true,
+        sync_state: "conflict",
+        conflict: {
+          operation: "rebase",
+          files: [conflictFile],
+          safe_to_retry_sync: false
+        }
+      });
+      expect(doctor.checks).toContainEqual(expect.objectContaining({
+        name: "sync",
+        ok: false,
+        severity: "warning",
+        message: expect.stringContaining("conflict")
+      }));
+      expect(doctor.next).toMatchObject({
+        recommended_action: "resolve_sync_conflict_before_lifecycle",
+        tool: "sync_status",
+        safe_to_run: true,
+        command: "moryn sync --status",
+        arguments: {}
+      });
+
+      const entered = await agentEnter({
+        storePath: storeB,
+        projectPath: project,
+        syncRemote: remote,
+        currentTask: "avoid sync conflict hallucination",
+        agent: { client: "codex", session_id: "codex-conflict" }
+      });
+
+      expect(entered).toMatchObject({
+        ok: true,
+        mode: "needs_setup",
+        next: {
+          recommended_action: "resolve_sync_conflict_before_lifecycle",
+          tool: "sync_status",
+          safe_to_run: true
+        }
+      });
+
+      await expect(agentStart({
+        storePath: storeB,
+        projectPath: project,
+        syncRemote: remote,
+        currentTask: "avoid sync conflict hallucination",
+        agent: { client: "codex", session_id: "codex-conflict" }
+      })).rejects.toThrow("Sync conflict: resolve Git conflicts before lifecycle writes");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
 
   it("recommends project discovery when doctor has a store but no project input", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-project-list-"));

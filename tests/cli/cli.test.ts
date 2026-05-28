@@ -20,6 +20,34 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   }
 }
 
+async function createCliSyncConflict(input: {
+  remote: string;
+  storeA: string;
+  storeB: string;
+  conflictFile: string;
+}): Promise<void> {
+  await exec("node", ["--import", tsxLoader, cliPath, "--store", input.storeA, "init"]);
+  await exec("node", ["--import", tsxLoader, cliPath, "--store", input.storeB, "init"]);
+  await exec("node", ["--import", tsxLoader, cliPath, "--store", input.storeA, "sync", "init", input.remote]);
+  await exec("node", ["--import", tsxLoader, cliPath, "--store", input.storeB, "sync", "init", input.remote]);
+  await mkdir(join(input.storeA, "events", "shared-device", "2026-05"), { recursive: true });
+  await mkdir(join(input.storeB, "events", "shared-device", "2026-05"), { recursive: true });
+  await writeFile(join(input.storeA, input.conflictFile), "{\"from\":\"a\"}\n", "utf8");
+  await writeFile(join(input.storeB, input.conflictFile), "{\"from\":\"b\"}\n", "utf8");
+  await exec("git", ["add", input.conflictFile], { cwd: input.storeA });
+  await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: input.storeA });
+  await exec("git", ["push", "-u", "origin", "main"], { cwd: input.storeA });
+  await exec("git", ["add", input.conflictFile], { cwd: input.storeB });
+  await exec("git", ["commit", "-m", "device b conflicting event"], { cwd: input.storeB });
+  try {
+    await exec("node", ["--import", tsxLoader, cliPath, "--store", input.storeB, "sync", "--pull"]);
+    throw new Error("Expected CLI sync pull to fail with a conflict");
+  } catch (error) {
+    const stderr = (error as { stderr: string }).stderr;
+    expect(JSON.parse(stderr).error.code).toBe("SYNC_CONFLICT");
+  }
+}
+
 describe("moryn CLI", () => {
   it("returns machine-readable agent guide from the CLI", async () => {
     await withTempDir(async (dir) => {
@@ -1693,6 +1721,102 @@ describe("moryn CLI", () => {
       await expect(readFile(join(store, "config.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     });
   });
+
+  it("returns sync conflict guidance from CLI doctor and enter before lifecycle writes", async () => {
+    await withTempDir(async (dir) => {
+      const remote = join(dir, "remote.git");
+      const storeA = join(dir, "store-a");
+      const storeB = join(dir, "store-b");
+      const project = join(dir, "project");
+      const conflictFile = join("events", "shared-device", "2026-05", "evt_conflict.json");
+      await exec("git", ["init", "--bare", remote]);
+      await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+      await createCliSyncConflict({ remote, storeA, storeB, conflictFile });
+
+      const doctor = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", storeB,
+        "agent", "doctor",
+        "--project", project,
+        "--sync-remote", remote,
+        "--agent", "codex",
+        "--current-task", "avoid sync conflict hallucination"
+      ]);
+      const parsedDoctor = JSON.parse(doctor.stdout) as {
+        sync: { sync_state?: string; conflict?: { files?: string[]; safe_to_retry_sync?: boolean } };
+        next: { recommended_action: string; tool: string; safe_to_run: boolean; command: string; arguments: Record<string, unknown> };
+      };
+      expect(parsedDoctor.sync).toMatchObject({
+        sync_state: "conflict",
+        conflict: {
+          files: [conflictFile],
+          safe_to_retry_sync: false
+        }
+      });
+      expect(parsedDoctor.next).toEqual({
+        recommended_action: "resolve_sync_conflict_before_lifecycle",
+        tool: "sync_status",
+        safe_to_run: true,
+        command: "moryn sync --status",
+        arguments: {}
+      });
+
+      const entered = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", storeB,
+        "agent", "enter",
+        "--project", project,
+        "--sync-remote", remote,
+        "--agent", "codex",
+        "--current-task", "avoid sync conflict hallucination"
+      ]);
+      const parsedEnter = JSON.parse(entered.stdout) as {
+        mode: string;
+        next: { recommended_action: string; tool: string; safe_to_run: boolean };
+      };
+      expect(parsedEnter).toMatchObject({
+        mode: "needs_setup",
+        next: {
+          recommended_action: "resolve_sync_conflict_before_lifecycle",
+          tool: "sync_status",
+          safe_to_run: true
+        }
+      });
+
+      try {
+        await exec("node", [
+          "--import", tsxLoader, cliPath, "--store", storeB,
+          "agent", "start",
+          "--project", project,
+          "--sync-remote", remote,
+          "--agent", "codex",
+          "--current-task", "avoid sync conflict hallucination"
+        ]);
+        throw new Error("Expected CLI agent_start to reject unresolved sync conflicts");
+      } catch (error) {
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          error: {
+            code: string;
+            message: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
+        expect(parsed.error.code).toBe("SYNC_CONFLICT");
+        expect(parsed.error.message).toBe("Sync conflict: resolve Git conflicts before lifecycle writes");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "inspect_sync_conflict_before_retrying",
+          tool: "sync_status",
+          command: "moryn sync --status",
+          arguments: {},
+          safe_to_run: true
+        });
+      }
+    });
+  }, 30000);
 
   it("recommends project list from CLI doctor when project input is missing", async () => {
     await withTempDir(async (dir) => {

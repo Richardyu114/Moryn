@@ -30,6 +30,36 @@ async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promi
   }
 }
 
+async function createMcpSyncConflict(input: {
+  remote: string;
+  storeA: string;
+  storeB: string;
+  conflictFile: string;
+}): Promise<void> {
+  await withMcpClient(input.storeA, async (agentA) => {
+    await withMcpClient(input.storeB, async (agentB) => {
+      expect((parseTextContent(await agentA.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+      expect((parseTextContent(await agentB.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+      expect((parseTextContent(await agentA.callTool({ name: "sync_init", arguments: { remote: input.remote } })) as { ok: boolean }).ok).toBe(true);
+      expect((parseTextContent(await agentB.callTool({ name: "sync_init", arguments: { remote: input.remote } })) as { ok: boolean }).ok).toBe(true);
+    });
+  });
+  await mkdir(join(input.storeA, "events", "shared-device", "2026-05"), { recursive: true });
+  await mkdir(join(input.storeB, "events", "shared-device", "2026-05"), { recursive: true });
+  await writeFile(join(input.storeA, input.conflictFile), "{\"from\":\"a\"}\n", "utf8");
+  await writeFile(join(input.storeB, input.conflictFile), "{\"from\":\"b\"}\n", "utf8");
+  await exec("git", ["add", input.conflictFile], { cwd: input.storeA });
+  await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: input.storeA });
+  await exec("git", ["push", "-u", "origin", "main"], { cwd: input.storeA });
+  await exec("git", ["add", input.conflictFile], { cwd: input.storeB });
+  await exec("git", ["commit", "-m", "device b conflicting event"], { cwd: input.storeB });
+  await withMcpClient(input.storeB, async (agentB) => {
+    const response = await agentB.callTool({ name: "sync_pull", arguments: {} });
+    expect("isError" in response ? response.isError : false).toBe(true);
+    expect((parseTextContent(response) as { error: { code: string } }).error.code).toBe("SYNC_CONFLICT");
+  });
+}
+
 function parseTextContent(result: Awaited<ReturnType<Client["callTool"]>>): unknown {
   const first = "content" in result ? result.content[0] : undefined;
   if (!first || first.type !== "text") {
@@ -902,6 +932,105 @@ describe("MCP stdio server", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("returns sync conflict guidance from MCP doctor and enter before lifecycle writes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-sync-conflict-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    const project = join(root, "project");
+    const conflictFile = join("events", "shared-device", "2026-05", "evt_conflict.json");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await createMcpSyncConflict({ remote, storeA, storeB, conflictFile });
+
+      await withMcpClient(storeB, async (client) => {
+        const doctor = parseTextContent(await client.callTool({
+          name: "agent_doctor",
+          arguments: {
+            project_path: project,
+            sync_remote: remote,
+            current_task: "avoid sync conflict hallucination",
+            agent: { client: "gemini", session_id: "gemini-conflict" }
+          }
+        })) as {
+          sync: { sync_state?: string; conflict?: { files?: string[]; safe_to_retry_sync?: boolean } };
+          next: { recommended_action: string; tool: string; safe_to_run: boolean; command: string; arguments: Record<string, unknown> };
+        };
+        expect(doctor.sync).toMatchObject({
+          sync_state: "conflict",
+          conflict: {
+            files: [conflictFile],
+            safe_to_retry_sync: false
+          }
+        });
+        expect(doctor.next).toEqual({
+          recommended_action: "resolve_sync_conflict_before_lifecycle",
+          tool: "sync_status",
+          safe_to_run: true,
+          command: "moryn sync --status",
+          arguments: {}
+        });
+
+        const entered = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            project_path: project,
+            sync_remote: remote,
+            current_task: "avoid sync conflict hallucination",
+            agent: { client: "gemini", session_id: "gemini-conflict" }
+          }
+        })) as {
+          mode: string;
+          next: { recommended_action: string; tool: string; safe_to_run: boolean };
+        };
+        expect(entered).toMatchObject({
+          mode: "needs_setup",
+          next: {
+            recommended_action: "resolve_sync_conflict_before_lifecycle",
+            tool: "sync_status",
+            safe_to_run: true
+          }
+        });
+
+        const startResponse = await client.callTool({
+          name: "agent_start",
+          arguments: {
+            project_path: project,
+            sync_remote: remote,
+            current_task: "avoid sync conflict hallucination",
+            agent: { client: "gemini", session_id: "gemini-conflict" }
+          }
+        });
+        expect("isError" in startResponse ? startResponse.isError : false).toBe(true);
+        const parsedStart = parseTextContent(startResponse) as {
+          error: {
+            code: string;
+            message: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
+        expect(parsedStart.error.code).toBe("SYNC_CONFLICT");
+        expect(parsedStart.error.message).toBe("Sync conflict: resolve Git conflicts before lifecycle writes");
+        expect(parsedStart.error.next_action).toEqual({
+          recommended_action: "inspect_sync_conflict_before_retrying",
+          tool: "sync_status",
+          command: "moryn sync --status",
+          arguments: {},
+          safe_to_run: true
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
 
   it("recommends project discovery through MCP doctor when project input is missing", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-doctor-project-list-"));

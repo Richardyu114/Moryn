@@ -398,6 +398,28 @@ function nextActions(input: AgentLifecycleInput, cursor?: string) {
   return actions;
 }
 
+function syncConflictNextActions() {
+  return [
+    {
+      action: "inspect_sync_conflict",
+      tool: "sync_status",
+      command: "moryn sync --status",
+      required_fields: [],
+      arguments: {}
+    }
+  ];
+}
+
+function syncConflictNextAction() {
+  return {
+    recommended_action: "resolve_sync_conflict_before_lifecycle",
+    tool: "sync_status",
+    safe_to_run: true,
+    command: "moryn sync --status",
+    arguments: {}
+  };
+}
+
 function finishNextActions(input: AgentLifecycleInput) {
   const requiredFields = input.currentTask ? [] : ["current_task"];
   return [
@@ -718,11 +740,14 @@ export async function agentDoctor(input: AgentDoctorInput) {
     : { configured: false, error: "Store not initialized" };
   const syncConfigured = Boolean(syncStatus.configured && syncStatus.remote);
   const remoteMatches = input.syncRemote === undefined || syncStatus.remote === input.syncRemote;
+  const syncConflict = syncStatus.sync_state === "conflict";
   checks.push({
     name: "sync",
-    ok: syncConfigured && remoteMatches,
-    severity: syncConfigured && remoteMatches ? "ok" : "notice",
-    message: syncConfigured && remoteMatches
+    ok: syncConfigured && remoteMatches && !syncConflict,
+    severity: syncConflict ? "warning" : syncConfigured && remoteMatches ? "ok" : "notice",
+    message: syncConflict
+      ? "Sync has unresolved Git conflicts; inspect sync_status and resolve conflicts before lifecycle writes."
+      : syncConfigured && remoteMatches
       ? "Sync is configured."
       : input.syncRemote
         ? "Sync is not connected to the expected remote; agent_start can initialize or update it."
@@ -731,7 +756,9 @@ export async function agentDoctor(input: AgentDoctorInput) {
 
   const discoverProjects = shouldDiscoverProjects(input, await hasKnownProjects(input, storeInitialized), project);
   const setupInput = projectInitInput(input, project.ok ? undefined : project.error);
-  const next = discoverProjects
+  const next = syncConflict
+    ? syncConflictNextAction()
+    : discoverProjects
     ? {
         recommended_action: "list_projects",
         tool: "project_list",
@@ -890,6 +917,9 @@ export async function agentStart(input: AgentStartInput) {
   } = {};
 
   sync.before = await getGitSyncStatus(input.storePath);
+  if (sync.before.sync_state === "conflict") {
+    throw new Error("Sync conflict: resolve Git conflicts before lifecycle writes");
+  }
   if (shouldPull) {
     const pulled = await trySync(() => pullGitSync(input.storePath));
     if (pulled.ok) {
@@ -899,6 +929,9 @@ export async function agentStart(input: AgentStartInput) {
     }
   }
   sync.after = await getGitSyncStatus(input.storePath);
+  if (sync.after.sync_state === "conflict") {
+    throw new Error("Sync conflict: resolve Git conflicts before lifecycle writes");
+  }
 
   const engine = createEngine({
     storePath: input.storePath,

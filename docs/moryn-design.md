@@ -728,7 +728,9 @@ If an explicit `project_id` is not present in a populated store, they return
 writing lifecycle records. If `project_path` resolves `.moryn.json` with a
 different project id than explicit `project_id`, they return a project id
 conflict instead of choosing one silently; the setup action keeps `project_path`
-and omits the conflicting `project_id`. Direct `agent_start`, `agent_status`, and
+and omits the conflicting `project_id`. If sync status reports unresolved Git
+conflicts, `agent_enter` returns `needs_setup` with `sync_status` as the next
+read-only action instead of starting a lifecycle session. Direct `agent_start`, `agent_status`, and
 `agent_finish` calls reject missing project context in populated stores unless
 the current directory resolves through `.moryn.json`; agents should use
 `agent_enter` for discovery before writing lifecycle records. Direct lifecycle
@@ -818,6 +820,11 @@ MCP tool: `agent_start`.
 Agents should prefer this over separately calling `sync_pull`, `boot`, and
 `refresh`. If sync is not configured or the remote is unavailable, the command
 still returns local boot/refresh context and includes a structured sync error.
+If the local sync state is already conflicted, or a pull leaves Git in a
+conflicted state, `agent_start` fails before boot/refresh with `SYNC_CONFLICT`
+and a `sync_status` recovery action. This prevents agents from parsing
+conflict-marked event files or writing new lifecycle records into an unresolved
+sync state.
 When `--sync-remote` or MCP `sync_remote` is provided, `agent_start` creates the
 local store if needed and initializes Git sync before pulling. The response also
 includes `handoff.inbox` for recent final `session_summary` records from other

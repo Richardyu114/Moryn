@@ -103,6 +103,8 @@ Deliverables:
   behind, and last sync.
 - Done: `moryn sync --status` reports structured conflict diagnostics after a
   failed pull or push so agents do not infer recovery from a dirty worktree.
+- Done: Agent lifecycle entrypoints stop before lifecycle writes when sync is
+  conflicted and return a structured `sync_status` recovery action.
 - Done: Generated snapshots/indexes are excluded from sync by default.
 - Done: Local `config.json` is excluded from sync to avoid device identity conflicts.
 - Done: Post-pull snapshot/index rebuild runs after successful pull.
