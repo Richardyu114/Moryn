@@ -928,6 +928,80 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("surfaces structured JSON content without text through MCP boot refresh and recall", async () => {
+    const store = await mkdtemp(join(tmpdir(), "memora-mcp-structured-content-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const summary = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "summary",
+            scope: "project",
+            project_id: "memora",
+            state: "canonical",
+            content: {
+              format: "json",
+              summary: "MCP structured boot summary."
+            }
+          }
+        })) as { record: { id: string } };
+        const warning = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "warning",
+            scope: "project",
+            project_id: "memora",
+            state: "canonical",
+            content: {
+              format: "json",
+              summary: "MCP structured warning.",
+              files: ["src/mcp/server.ts"],
+              evidence: ["mcp-structured"]
+            }
+          }
+        })) as { record: { id: string } };
+
+        const boot = parseTextContent(await client.callTool({
+          name: "boot",
+          arguments: { project_id: "memora" }
+        })) as { project: { summary: string; warnings: Array<{ id: string }> } };
+        const refresh = parseTextContent(await client.callTool({
+          name: "refresh",
+          arguments: {
+            project_id: "memora",
+            cursor: "2000-01-01T00:00:00.000Z"
+          }
+        })) as { changes: Array<{ record_id: string; summary: string }> };
+        const recall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            query: "mcp-structured",
+            project_id: "memora"
+          }
+        })) as { results: Array<{ record: { id: string }; reason: string[] }> };
+
+        expect(boot.project.summary).toBe("MCP structured boot summary.");
+        expect(boot.project.warnings.map((record) => record.id)).toContain(warning.record.id);
+        expect(refresh.changes).toContainEqual(expect.objectContaining({
+          record_id: summary.record.id,
+          summary: "MCP structured boot summary."
+        }));
+        expect(refresh.changes).toContainEqual(expect.objectContaining({
+          record_id: warning.record.id,
+          summary: "MCP structured warning. src/mcp/server.ts mcp-structured"
+        }));
+        expect(recall.results[0]?.record.id).toBe(warning.record.id);
+        expect(recall.results[0]?.reason).toContain("text_match:mcp-structured");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("writes project session summaries with handoff defaults over MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "memora-mcp-session-summary-"));
     try {

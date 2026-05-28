@@ -393,6 +393,73 @@ describe("mem CLI", () => {
     });
   });
 
+  it("surfaces structured JSON content without text through CLI boot refresh and recall", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const summary = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "summary",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--state", "canonical",
+        "--content-json", JSON.stringify({
+          format: "json",
+          summary: "CLI structured boot summary."
+        })
+      ]);
+      const warning = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project-id", "memora",
+        "--state", "canonical",
+        "--content-json", JSON.stringify({
+          format: "json",
+          summary: "CLI structured warning.",
+          files: ["src/cli.ts"],
+          evidence: ["cli-structured"]
+        })
+      ]);
+      const summaryId = (JSON.parse(summary.stdout) as { record: { id: string } }).record.id;
+      const warningId = (JSON.parse(warning.stdout) as { record: { id: string } }).record.id;
+
+      const boot = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "boot",
+        "--project-id", "memora"
+      ])).stdout) as { project: { summary: string; warnings: Array<{ id: string }> } };
+      const refresh = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "refresh",
+        "--project-id", "memora",
+        "--cursor", "2000-01-01T00:00:00.000Z"
+      ])).stdout) as { changes: Array<{ record_id: string; summary: string }> };
+      const recall = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "recall",
+        "cli-structured",
+        "--project-id", "memora"
+      ])).stdout) as { results: Array<{ record: { id: string }; reason: string[] }> };
+
+      expect(boot.project.summary).toBe("CLI structured boot summary.");
+      expect(boot.project.warnings.map((record) => record.id)).toContain(warningId);
+      expect(refresh.changes).toContainEqual(expect.objectContaining({
+        record_id: summaryId,
+        summary: "CLI structured boot summary."
+      }));
+      expect(refresh.changes).toContainEqual(expect.objectContaining({
+        record_id: warningId,
+        summary: "CLI structured warning. src/cli.ts cli-structured"
+      }));
+      expect(recall.results[0]?.record.id).toBe(warningId);
+      expect(recall.results[0]?.reason).toContain("text_match:cli-structured");
+    });
+  });
+
   it("rejects invalid CLI structured content options", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
