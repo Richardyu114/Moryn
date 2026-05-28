@@ -376,6 +376,55 @@ function agentEnterActionTemplate(command: string, args: ReturnType<typeof lifec
   };
 }
 
+function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplate>) {
+  const callAgentEnter = {
+    recommended_action: "call_agent_enter",
+    ...startup
+  };
+  return [
+    {
+      id: "prefer_agent_enter_for_startup",
+      when: START_OR_RESUME_WHEN,
+      risk: "Manual startup sequences can skip sync, project discovery, boot, or refresh steps.",
+      avoid: ["manual_sync_pull_boot_refresh", "manual_lower_level_startup_sequence"],
+      required_behavior: "Call the returned agent_enter startup action instead of composing lower-level startup tools.",
+      use_instead: callAgentEnter
+    },
+    {
+      id: "discover_project_before_lifecycle_writes",
+      when: "When project context is unclear or no project_path/project_id was provided.",
+      risk: "Guessing project ids can write status or handoff records into the wrong project.",
+      avoid: ["guess_project_id", "write_project_scoped_lifecycle_without_project_id"],
+      required_behavior: "When project context is unclear, call agent_enter discovery and choose a returned project before lifecycle writes.",
+      use_instead: callAgentEnter
+    },
+    {
+      id: "use_returned_actions_verbatim",
+      when: "Before executing lifecycle follow-up actions.",
+      risk: "Reconstructing commands can rename fields, omit placeholders, or bypass required_fields checks.",
+      avoid: ["reconstruct_command_from_memory", "rename_argument_fields", "drop_required_fields"],
+      required_behavior: "Use returned command strings or arguments exactly; fill only placeholders named in required_fields.",
+      allowed_action_sources: ["startup", "next", "lifecycle", "response.next.actions"]
+    },
+    {
+      id: "publish_status_and_finish_handoff",
+      when: `${PUBLISH_STATUS_WHEN} ${FINISH_HANDOFF_WHEN}`,
+      risk: "Silent sessions leave other agents without coordination or handoff context.",
+      avoid: ["stop_without_status_or_summary", "leave_active_work_unpublished"],
+      required_behavior: "Publish agent_status before long interruptions and call agent_finish with a concise final summary when meaningful work ends.",
+      allowed_action_sources: ["lifecycle", "response.next.actions"]
+    },
+    {
+      id: "pass_sync_remote_for_cross_device_handoff",
+      when: "When cross-device handoff or shared memory sync matters.",
+      risk: "Without sync_remote, status and summaries may stay local to this machine.",
+      avoid: ["omit_sync_remote_for_shared_handoff", "assume_local_store_is_shared"],
+      required_behavior: "Pass sync_remote whenever cross-device handoff matters so lifecycle writes reach the shared store.",
+      allowed_action_sources: ["startup", "next", "lifecycle", "response.next.actions"]
+    }
+  ];
+}
+
 function refreshActionArguments(input: AgentLifecycleInput, cursor: string): {
   project_path?: string;
   project_id?: string;
@@ -1020,6 +1069,7 @@ export function agentGuide(input: AgentGuideInput) {
       "Publish agent_status before long interruptions, and call agent_finish with a concise final summary when meaningful work ends.",
       "Pass sync_remote whenever cross-device handoff matters so status and summaries reach the shared store."
     ],
+    guardrails: agentGuideGuardrails(startup),
     next: {
       recommended_action: "call_agent_enter",
       ...startup

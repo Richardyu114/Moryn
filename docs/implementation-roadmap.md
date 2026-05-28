@@ -158,6 +158,9 @@ Deliverables:
 - Done: `agent_guide.startup` and top-level `next` now expose the same action
   metadata (`safe_to_run`, `required_when`, `required_fields`, arguments) so
   agents can call the recommended entrypoint without recombining fields.
+- Done: `agent_guide.guardrails[]` now exposes stable machine-readable
+  anti-hallucination constraints, including forbidden behaviors, required
+  behavior, and replacement actions for startup and project-discovery mistakes.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

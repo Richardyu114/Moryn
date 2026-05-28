@@ -117,6 +117,23 @@ describe("MCP stdio server", () => {
             required_fields: string[];
             arguments: Record<string, unknown>;
           }>;
+          guardrails: Array<{
+            id: string;
+            when: string;
+            risk: string;
+            avoid: string[];
+            required_behavior: string;
+            use_instead?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              safe_to_run: boolean;
+              required_when: string;
+              required_fields: string[];
+              arguments: Record<string, unknown>;
+            };
+            allowed_action_sources?: string[];
+          }>;
           next: {
             recommended_action: string;
             tool: string;
@@ -170,6 +187,28 @@ describe("MCP stdio server", () => {
           command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-guide --refresh-since <refresh_since>",
           required_fields: ["refresh_since"]
         }));
+        expect(guide.guardrails.map((guardrail) => guardrail.id)).toEqual([
+          "prefer_agent_enter_for_startup",
+          "discover_project_before_lifecycle_writes",
+          "use_returned_actions_verbatim",
+          "publish_status_and_finish_handoff",
+          "pass_sync_remote_for_cross_device_handoff"
+        ]);
+        expect(guide.guardrails).toContainEqual(expect.objectContaining({
+          id: "prefer_agent_enter_for_startup",
+          when: guide.startup.required_when,
+          avoid: ["manual_sync_pull_boot_refresh", "manual_lower_level_startup_sequence"],
+          required_behavior: "Call the returned agent_enter startup action instead of composing lower-level startup tools.",
+          use_instead: {
+            recommended_action: "call_agent_enter",
+            ...guide.startup
+          }
+        }));
+        expect(guide.guardrails).toContainEqual(expect.objectContaining({
+          id: "use_returned_actions_verbatim",
+          avoid: ["reconstruct_command_from_memory", "rename_argument_fields", "drop_required_fields"],
+          allowed_action_sources: ["startup", "next", "lifecycle", "response.next.actions"]
+        }));
         expect(guide.next).toMatchObject({
           recommended_action: "call_agent_enter",
           tool: "agent_enter",
@@ -198,6 +237,11 @@ describe("MCP stdio server", () => {
           }
         })) as {
           startup: { command: string; safe_to_run: boolean; required_when: string; required_fields: string[]; arguments: { project_id?: string } };
+          guardrails: Array<{
+            id: string;
+            required_behavior: string;
+            use_instead?: { command: string; arguments: { project_id?: string } };
+          }>;
           lifecycle: Array<{
             step: string;
             tool: string;
@@ -212,6 +256,14 @@ describe("MCP stdio server", () => {
         expect(guide.startup.required_when).toBe("At the start of an agent turn, or whenever store/project/sync context is uncertain.");
         expect(guide.startup.required_fields).toEqual([]);
         expect(guide.startup.arguments.project_id).toBeUndefined();
+        expect(guide.guardrails).toContainEqual(expect.objectContaining({
+          id: "discover_project_before_lifecycle_writes",
+          required_behavior: "When project context is unclear, call agent_enter discovery and choose a returned project before lifecycle writes.",
+          use_instead: expect.objectContaining({
+            command: guide.startup.command,
+            arguments: guide.startup.arguments
+          })
+        }));
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
           step: "publish_status",
           tool: "agent_status",

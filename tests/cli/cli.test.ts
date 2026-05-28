@@ -86,6 +86,23 @@ describe("moryn CLI", () => {
           arguments: Record<string, unknown>;
         }>;
         rules: string[];
+        guardrails: Array<{
+          id: string;
+          when: string;
+          risk: string;
+          avoid: string[];
+          required_behavior: string;
+          use_instead?: {
+            recommended_action: string;
+            tool: string;
+            command: string;
+            safe_to_run: boolean;
+            required_when: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+          };
+          allowed_action_sources?: string[];
+        }>;
         next: {
           recommended_action: string;
           tool: string;
@@ -141,6 +158,28 @@ describe("moryn CLI", () => {
       }));
       expect(parsed.rules).toContain("Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.");
       expect(parsed.rules).toContain("When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.");
+      expect(parsed.guardrails.map((guardrail) => guardrail.id)).toEqual([
+        "prefer_agent_enter_for_startup",
+        "discover_project_before_lifecycle_writes",
+        "use_returned_actions_verbatim",
+        "publish_status_and_finish_handoff",
+        "pass_sync_remote_for_cross_device_handoff"
+      ]);
+      expect(parsed.guardrails).toContainEqual(expect.objectContaining({
+        id: "prefer_agent_enter_for_startup",
+        when: parsed.startup.required_when,
+        avoid: ["manual_sync_pull_boot_refresh", "manual_lower_level_startup_sequence"],
+        required_behavior: "Call the returned agent_enter startup action instead of composing lower-level startup tools.",
+        use_instead: {
+          recommended_action: "call_agent_enter",
+          ...parsed.startup
+        }
+      }));
+      expect(parsed.guardrails).toContainEqual(expect.objectContaining({
+        id: "use_returned_actions_verbatim",
+        avoid: ["reconstruct_command_from_memory", "rename_argument_fields", "drop_required_fields"],
+        allowed_action_sources: ["startup", "next", "lifecycle", "response.next.actions"]
+      }));
       expect(parsed.next).toMatchObject({
         recommended_action: "call_agent_enter",
         tool: "agent_enter",
@@ -165,6 +204,11 @@ describe("moryn CLI", () => {
       ]);
       const parsed = JSON.parse(guide.stdout) as {
         startup: { command: string; safe_to_run: boolean; required_when: string; required_fields: string[]; arguments: { project_id?: string } };
+        guardrails: Array<{
+          id: string;
+          required_behavior: string;
+          use_instead?: { command: string; arguments: { project_id?: string } };
+        }>;
         lifecycle: Array<{
           step: string;
           tool: string;
@@ -179,6 +223,14 @@ describe("moryn CLI", () => {
       expect(parsed.startup.required_when).toBe("At the start of an agent turn, or whenever store/project/sync context is uncertain.");
       expect(parsed.startup.required_fields).toEqual([]);
       expect(parsed.startup.arguments.project_id).toBeUndefined();
+      expect(parsed.guardrails).toContainEqual(expect.objectContaining({
+        id: "discover_project_before_lifecycle_writes",
+        required_behavior: "When project context is unclear, call agent_enter discovery and choose a returned project before lifecycle writes.",
+        use_instead: expect.objectContaining({
+          command: parsed.startup.command,
+          arguments: parsed.startup.arguments
+        })
+      }));
       expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
         step: "publish_status",
         tool: "agent_status",
