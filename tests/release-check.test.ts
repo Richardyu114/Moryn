@@ -29,7 +29,8 @@ describe("release check", () => {
       "package/README.md",
       "package/dist/cli.js",
       "package/dist/index.js",
-      "package/dist/mcp/server.js"
+      "package/dist/mcp/server.js",
+      "package/scripts/agent-lifecycle-smoke.ts"
     ])).not.toThrow();
 
     expect(() => assertPackageFilesComplete([
@@ -39,6 +40,15 @@ describe("release check", () => {
       "package/dist/index.js",
       "package/dist/mcp/server.js"
     ])).toThrow(/missing required package files: dist\/cli\.js/);
+
+    expect(() => assertPackageFilesComplete([
+      "package/package.json",
+      "package/LICENSE",
+      "package/README.md",
+      "package/dist/cli.js",
+      "package/dist/index.js",
+      "package/dist/mcp/server.js"
+    ])).toThrow(/missing required package files: scripts\/agent-lifecycle-smoke\.ts/);
   });
 
   it("runs the local release gate and skips external Git validation without a remote", async () => {

@@ -50,7 +50,8 @@ export function assertPackageFilesComplete(files: string[]): void {
     "README.md",
     "dist/cli.js",
     "dist/index.js",
-    "dist/mcp/server.js"
+    "dist/mcp/server.js",
+    "scripts/agent-lifecycle-smoke.ts"
   ];
   const missing = required.filter((file) => !normalized.has(file));
 

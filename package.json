@@ -10,7 +10,8 @@
     "dist",
     "README.md",
     "docs",
-    "assets"
+    "assets",
+    "scripts/agent-lifecycle-smoke.ts"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
