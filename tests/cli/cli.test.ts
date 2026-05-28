@@ -1167,7 +1167,7 @@ describe("moryn CLI", () => {
       const parsedStart = JSON.parse(start.stdout) as {
         project: { project_id: string };
         sync: { pull?: { pulled?: boolean } };
-        refresh: { changes: Array<{ summary: string; importance: string }> };
+        refresh: { cursor: string; changes: Array<{ summary: string; importance: string }> };
         next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
       };
       expect(parsedStart.project.project_id).toBe("moryn");
@@ -1183,6 +1183,17 @@ describe("moryn CLI", () => {
         required_fields: ["status"],
         arguments: expect.objectContaining({
           project_path: project,
+          current_task: "continue lifecycle protocol"
+        })
+      }));
+      expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
+        action: "refresh_context",
+        tool: "agent_start",
+        command: expect.stringContaining("--refresh-since"),
+        required_fields: [],
+        arguments: expect.objectContaining({
+          project_path: project,
+          refresh_since: parsedStart.refresh.cursor,
           current_task: "continue lifecycle protocol"
         })
       }));

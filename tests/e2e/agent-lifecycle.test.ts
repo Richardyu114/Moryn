@@ -90,6 +90,18 @@ describe("agent lifecycle", () => {
           agent: { client: "gemini", device_id: "device_gemini", session_id: "gemini-1" }
         })
       }));
+      expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
+        action: "refresh_context",
+        tool: "agent_start",
+        command: expect.stringContaining("--refresh-since"),
+        required_fields: [],
+        arguments: expect.objectContaining({
+          project_path: project,
+          refresh_since: geminiStart.refresh.cursor,
+          current_task: "continue lifecycle wiring",
+          agent: { client: "gemini", device_id: "device_gemini", session_id: "gemini-1" }
+        })
+      }));
 
       const geminiFinish = await agentFinish({
         storePath: storeB,

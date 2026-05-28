@@ -108,6 +108,20 @@ function buildAgentStartCommand(input: AgentLifecycleInput): string {
   return parts.join(" ");
 }
 
+function buildAgentRefreshCommand(input: AgentLifecycleInput, cursor: string): string {
+  const parts = ["moryn", "agent", "start"];
+  appendOption(parts, "--project", input.projectPath);
+  appendOption(parts, "--project-id", input.projectId);
+  appendOption(parts, "--sync-remote", input.syncRemote);
+  appendOption(parts, "--current-task", input.currentTask);
+  appendOption(parts, "--agent", input.agent?.client);
+  appendOption(parts, "--session-id", input.agent?.session_id);
+  appendOption(parts, "--model", input.agent?.model);
+  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--refresh-since", cursor);
+  return parts.join(" ");
+}
+
 function buildAgentStatusCommand(input: AgentLifecycleInput): string {
   const parts = ["moryn", "agent", "status"];
   appendOption(parts, "--project", input.projectPath);
@@ -159,9 +173,23 @@ function lifecycleActionArguments(input: AgentLifecycleInput): {
   };
 }
 
-function nextActions(input: AgentLifecycleInput) {
+function refreshActionArguments(input: AgentLifecycleInput, cursor: string): {
+  project_path?: string;
+  project_id?: string;
+  sync_remote?: string;
+  current_task?: string;
+  refresh_since: string;
+  agent?: AgentIdentity;
+} {
+  return {
+    ...lifecycleActionArguments(input),
+    refresh_since: cursor
+  };
+}
+
+function nextActions(input: AgentLifecycleInput, cursor?: string) {
   const args = lifecycleActionArguments(input);
-  return [
+  const actions = [
     {
       action: "publish_status",
       tool: "agent_status",
@@ -177,6 +205,16 @@ function nextActions(input: AgentLifecycleInput) {
       arguments: args
     }
   ];
+  if (cursor) {
+    actions.push({
+      action: "refresh_context",
+      tool: "agent_start",
+      command: buildAgentRefreshCommand(input, cursor),
+      required_fields: [],
+      arguments: refreshActionArguments(input, cursor)
+    });
+  }
+  return actions;
 }
 
 async function initializeLifecycleSync(storePath: string, syncRemote: string | undefined, result: BootstrapResult): Promise<void> {
@@ -346,7 +384,7 @@ export async function agentStart(input: AgentStartInput) {
     next: {
       required_end_action: "call agent_finish with a session_summary",
       recommended_refresh_action: "call agent_start again with the previous refresh cursor, or call refresh directly",
-      actions: nextActions(input)
+      actions: nextActions(input, refresh.cursor)
     }
   };
 }

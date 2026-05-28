@@ -377,7 +377,8 @@ interrupts. Agents should prefer `agent_start` over manually composing
 `sync_pull`, `boot`, and `refresh`. `agent_start.next.actions` includes
 machine-readable templates for the next safe lifecycle calls, including the
 exact CLI command template, MCP tool name, required fields, and prefilled
-arguments for `agent_status` and `agent_finish`.
+arguments for `agent_status`, `agent_finish`, and `refresh_context`
+(`agent_start` with the returned refresh cursor).
 
 When more context is needed:
 

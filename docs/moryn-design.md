@@ -685,7 +685,9 @@ When `--sync-remote` or MCP `sync_remote` is provided, `agent_start` creates the
 local store if needed and initializes Git sync before pulling. The
 `next.actions` field returns machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP
-tool name, CLI command template, required fields, and prefilled arguments.
+tool name, CLI command template, required fields, and prefilled arguments. The
+templates include status checkpoints, finish handoff, and refresh context
+(`agent_start` with `refresh_since` set to the returned cursor).
 
 ### `agent_finish`
 
@@ -809,7 +811,7 @@ Agents should follow this contract:
 3. Call `agent_start` at task start.
 4. Call `recall` when context is missing or uncertain.
 5. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread.
-6. Call `agent_start` again with a previous cursor, or call `refresh`, when the user asks to refresh memory.
+6. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
 7. Call `agent_finish` at the end of meaningful work.
 8. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
 9. Write raw notes as `agent_note`, not canonical memory.

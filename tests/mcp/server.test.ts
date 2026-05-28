@@ -378,7 +378,7 @@ describe("MCP stdio server", () => {
           })) as {
             project: { project_id: string };
             sync: { pull?: { pulled?: boolean } };
-            refresh: { changes: Array<{ summary: string; importance: string }> };
+            refresh: { cursor: string; changes: Array<{ summary: string; importance: string }> };
             next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
           };
           expect(start.project.project_id).toBe("moryn");
@@ -394,6 +394,17 @@ describe("MCP stdio server", () => {
             required_fields: ["status"],
             arguments: expect.objectContaining({
               project_path: project,
+              current_task: "continue lifecycle handoff"
+            })
+          }));
+          expect(start.next.actions).toContainEqual(expect.objectContaining({
+            action: "refresh_context",
+            tool: "agent_start",
+            command: expect.stringContaining("--refresh-since"),
+            required_fields: [],
+            arguments: expect.objectContaining({
+              project_path: project,
+              refresh_since: start.refresh.cursor,
               current_task: "continue lifecycle handoff"
             })
           }));
