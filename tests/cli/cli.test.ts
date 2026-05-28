@@ -1800,13 +1800,26 @@ describe("moryn CLI", () => {
         if (!("stderr" in (error as object))) throw error;
         const parsed = JSON.parse((error as { stderr: string }).stderr) as {
           ok: boolean;
-          error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action: { recommended_action: string; tool: string; command: string; arguments: Record<string, unknown>; safe_to_run: boolean };
+          };
         };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("PROJECT_PATH_NOT_FOUND");
         expect(parsed.error.message).toContain("Project path does not exist");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("run moryn project init --path <path> for a new project or retry with the correct --project/--project-id");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "initialize_project_or_retry_corrected_context",
+          tool: "project_init",
+          command: "moryn project init --path <path>",
+          arguments: { path: "<path>" },
+          safe_to_run: false
+        });
       }
     });
   });
@@ -1877,13 +1890,26 @@ describe("moryn CLI", () => {
         if (!("stderr" in (error as object))) throw error;
         const parsed = JSON.parse((error as { stderr: string }).stderr) as {
           ok: boolean;
-          error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action: { recommended_action: string; tool: string; command: string; arguments: Record<string, unknown>; safe_to_run: boolean };
+          };
         };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("PROJECT_ID_NOT_FOUND");
         expect(parsed.error.message).toContain("Project id is not known in this store");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with a known --project-id");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "list_projects_and_retry_with_known_project_id",
+          tool: "project_list",
+          command: "moryn project list",
+          arguments: {},
+          safe_to_run: true
+        });
       }
     });
   });
@@ -1969,12 +1995,25 @@ describe("moryn CLI", () => {
           if (!("stderr" in (error as object))) throw error;
           const parsed = JSON.parse((error as { stderr: string }).stderr) as {
             ok: boolean;
-            error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+            error: {
+              code: string;
+              message: string;
+              recoverable: boolean;
+              recommended_action: string;
+              next_action: { recommended_action: string; tool: string; command: string; arguments: Record<string, unknown>; safe_to_run: boolean };
+            };
           };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("PROJECT_CONTEXT_REQUIRED");
           expect(parsed.error.message).toContain("Project context required");
           expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with --project-id or --project");
+          expect(parsed.error.next_action).toEqual({
+            recommended_action: "discover_projects_before_lifecycle_write",
+            tool: "project_list",
+            command: "moryn project list",
+            arguments: {},
+            safe_to_run: true
+          });
         }
       }
     });

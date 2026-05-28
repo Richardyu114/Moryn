@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { errorCode, recommendedAction } from "../src/core/errors.js";
+import { errorCode, nextAction, recommendedAction } from "../src/core/errors.js";
 
 describe("documentation contracts", () => {
   it("keeps the design spec error contract aligned with runtime envelopes", async () => {
@@ -9,6 +9,10 @@ describe("documentation contracts", () => {
       "STORE_NOT_INITIALIZED",
       "CONFIRMATION_REQUIRED",
       "INVALID_PROJECT_CONFIG",
+      "PROJECT_CONTEXT_REQUIRED",
+      "PROJECT_PATH_NOT_FOUND",
+      "PROJECT_ID_NOT_FOUND",
+      "PROJECT_ID_CONFLICT",
       "INVALID_STORE_CONFIG",
       "INVALID_ARGUMENT",
       "INVALID_RECORD",
@@ -24,6 +28,8 @@ describe("documentation contracts", () => {
 
     expect(errorCode("Remote sync is unavailable; local store is still usable.")).toBe("SYNC_REMOTE_UNAVAILABLE");
     expect(design).toContain(`"recommended_action": "${recommendedAction("SYNC_REMOTE_UNAVAILABLE")}"`);
+    expect(design).toContain(`"recommended_action": "${nextAction("PROJECT_CONTEXT_REQUIRED")?.recommended_action}"`);
+    expect(design).toContain(`"tool": "${nextAction("PROJECT_CONTEXT_REQUIRED")?.tool}"`);
     for (const code of implementedCodes) {
       expect(design).toContain(`- \`${code}\``);
     }

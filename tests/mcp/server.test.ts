@@ -984,13 +984,26 @@ describe("MCP stdio server", () => {
         expect("isError" in start ? start.isError : false).toBe(true);
         const parsedStart = parseTextContent(start) as {
           ok: boolean;
-          error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action: { recommended_action: string; tool: string; command: string; arguments: Record<string, unknown>; safe_to_run: boolean };
+          };
         };
         expect(parsedStart.ok).toBe(false);
         expect(parsedStart.error.code).toBe("PROJECT_PATH_NOT_FOUND");
         expect(parsedStart.error.message).toContain("Project path does not exist");
         expect(parsedStart.error.recoverable).toBe(true);
         expect(parsedStart.error.recommended_action).toBe("run moryn project init --path <path> for a new project or retry with the correct --project/--project-id");
+        expect(parsedStart.error.next_action).toEqual({
+          recommended_action: "initialize_project_or_retry_corrected_context",
+          tool: "project_init",
+          command: "moryn project init --path <path>",
+          arguments: { path: "<path>" },
+          safe_to_run: false
+        });
       });
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -1066,13 +1079,26 @@ describe("MCP stdio server", () => {
         expect("isError" in start ? start.isError : false).toBe(true);
         const parsedStart = parseTextContent(start) as {
           ok: boolean;
-          error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action: { recommended_action: string; tool: string; command: string; arguments: Record<string, unknown>; safe_to_run: boolean };
+          };
         };
         expect(parsedStart.ok).toBe(false);
         expect(parsedStart.error.code).toBe("PROJECT_ID_NOT_FOUND");
         expect(parsedStart.error.message).toContain("Project id is not known in this store");
         expect(parsedStart.error.recoverable).toBe(true);
         expect(parsedStart.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with a known --project-id");
+        expect(parsedStart.error.next_action).toEqual({
+          recommended_action: "list_projects_and_retry_with_known_project_id",
+          tool: "project_list",
+          command: "moryn project list",
+          arguments: {},
+          safe_to_run: true
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });
@@ -1183,12 +1209,24 @@ describe("MCP stdio server", () => {
           expect("isError" in result ? result.isError : false).toBe(true);
           const parsed = parseTextContent(result) as {
             ok: boolean;
-            error: { code: string; message: string; recommended_action: string };
+            error: {
+              code: string;
+              message: string;
+              recommended_action: string;
+              next_action: { recommended_action: string; tool: string; command: string; arguments: Record<string, unknown>; safe_to_run: boolean };
+            };
           };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("PROJECT_CONTEXT_REQUIRED");
           expect(parsed.error.message).toContain("Project context required");
           expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with --project-id or --project");
+          expect(parsed.error.next_action).toEqual({
+            recommended_action: "discover_projects_before_lifecycle_write",
+            tool: "project_list",
+            command: "moryn project list",
+            arguments: {},
+            safe_to_run: true
+          });
         }
       }, unknownCwd);
     } finally {

@@ -5,7 +5,16 @@ export interface MorynErrorEnvelope {
     message: string;
     recoverable: boolean;
     recommended_action: string;
+    next_action?: MorynErrorNextAction;
   };
+}
+
+export interface MorynErrorNextAction {
+  recommended_action: string;
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  safe_to_run: boolean;
 }
 
 export function errorCode(message: string): string {
@@ -74,16 +83,49 @@ export function recommendedAction(code: string): string {
   }
 }
 
+export function nextAction(code: string): MorynErrorNextAction | undefined {
+  switch (code) {
+    case "PROJECT_CONTEXT_REQUIRED":
+      return {
+        recommended_action: "discover_projects_before_lifecycle_write",
+        tool: "project_list",
+        command: "moryn project list",
+        arguments: {},
+        safe_to_run: true
+      };
+    case "PROJECT_PATH_NOT_FOUND":
+      return {
+        recommended_action: "initialize_project_or_retry_corrected_context",
+        tool: "project_init",
+        command: "moryn project init --path <path>",
+        arguments: { path: "<path>" },
+        safe_to_run: false
+      };
+    case "PROJECT_ID_NOT_FOUND":
+      return {
+        recommended_action: "list_projects_and_retry_with_known_project_id",
+        tool: "project_list",
+        command: "moryn project list",
+        arguments: {},
+        safe_to_run: true
+      };
+    default:
+      return undefined;
+  }
+}
+
 export function toErrorEnvelope(error: unknown): MorynErrorEnvelope {
   const message = error instanceof Error ? error.message : String(error);
   const code = errorCode(message);
+  const action = nextAction(code);
   return {
     ok: false,
     error: {
       code,
       message,
       recoverable: isRecoverable(code),
-      recommended_action: recommendedAction(code)
+      recommended_action: recommendedAction(code),
+      ...(action ? { next_action: action } : {})
     }
   };
 }

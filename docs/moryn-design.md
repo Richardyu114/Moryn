@@ -702,9 +702,12 @@ calls also classify explicit project mistakes as recoverable structured errors:
 `PROJECT_PATH_NOT_FOUND` for a missing `project_path` and
 `PROJECT_ID_NOT_FOUND` for a `project_id` that is not known in the populated
 store. Their `recommended_action` values point agents to project initialization,
-project listing, or corrected retry arguments. When a lifecycle command resolves
-project context from `.moryn.json`, its returned `next.actions` are prefilled
-with the resolved `project_id` so they can be reused outside the original cwd.
+project listing, or corrected retry arguments. These error envelopes also carry
+`error.next_action` with `tool`, `command`, `arguments`, and `safe_to_run`, so
+agents can recover from the envelope without parsing prose. When a lifecycle
+command resolves project context from `.moryn.json`, its returned `next.actions`
+are prefilled with the resolved `project_id` so they can be reused outside the
+original cwd.
 
 ### `agent_doctor`
 
@@ -1215,11 +1218,37 @@ Example:
 }
 ```
 
+Recoverable project-context errors may include a machine-readable `next_action`
+for agents that should not infer the recovery command from prose:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "PROJECT_CONTEXT_REQUIRED",
+    "message": "Project context required: this store already has known projects.",
+    "recoverable": true,
+    "recommended_action": "run moryn project list or moryn agent enter, then retry with --project-id or --project",
+    "next_action": {
+      "recommended_action": "discover_projects_before_lifecycle_write",
+      "tool": "project_list",
+      "command": "moryn project list",
+      "arguments": {},
+      "safe_to_run": true
+    }
+  }
+}
+```
+
 First-version error codes:
 
 - `STORE_NOT_INITIALIZED`
 - `CONFIRMATION_REQUIRED`
 - `INVALID_PROJECT_CONFIG`
+- `PROJECT_CONTEXT_REQUIRED`
+- `PROJECT_PATH_NOT_FOUND`
+- `PROJECT_ID_NOT_FOUND`
+- `PROJECT_ID_CONFLICT`
 - `INVALID_STORE_CONFIG`
 - `INVALID_ARGUMENT`
 - `INVALID_RECORD`
