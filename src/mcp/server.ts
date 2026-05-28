@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { agentFinish, agentStart } from "../core/agent-lifecycle.js";
+import { agentDoctor, agentFinish, agentStart } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
@@ -338,6 +338,29 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit
       });
     })
+  );
+
+  server.registerTool(
+    "agent_doctor",
+    {
+      title: "Diagnose Moryn Agent Setup",
+      description: "Read-only setup check that tells an agent whether store, project, and sync are ready and what to call next.",
+      inputSchema: {
+        project_id: nonEmptyStringSchema.optional(),
+        project_path: nonEmptyStringSchema.optional(),
+        sync_remote: nonEmptyStringSchema.optional(),
+        current_task: nonEmptyStringSchema.optional(),
+        agent: sourceSchema.optional()
+      }
+    },
+    async ({ project_id, project_path, sync_remote, current_task, agent }) => toolResult(async () => agentDoctor({
+      storePath: options.storePath,
+      projectId: project_id,
+      projectPath: project_path,
+      syncRemote: sync_remote,
+      currentTask: current_task,
+      agent
+    }))
   );
 
   server.registerTool(

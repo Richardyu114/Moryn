@@ -1223,6 +1223,44 @@ describe("moryn CLI", () => {
     });
   }, 30000);
 
+  it("returns read-only agent doctor guidance for a fresh CLI device", async () => {
+    await withTempDir(async (dir) => {
+      const remote = join(dir, "remote.git");
+      const store = join(dir, "fresh-store");
+      const project = join(dir, "project");
+      await exec("git", ["init", "--bare", remote]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
+
+      const doctor = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "doctor",
+        "--project", project,
+        "--sync-remote", remote,
+        "--agent", "codex",
+        "--session-id", "codex-doctor",
+        "--current-task", "start safely"
+      ]);
+      const parsed = JSON.parse(doctor.stdout) as {
+        store: { initialized: boolean };
+        project: { ok: boolean; project_id?: string };
+        sync: { configured: boolean; expected_remote?: string };
+        next: { command: string; tool: string; arguments: { project_path?: string; sync_remote?: string; agent?: { client?: string } } };
+      };
+      expect(parsed.store.initialized).toBe(false);
+      expect(parsed.project).toMatchObject({ ok: true, project_id: "moryn" });
+      expect(parsed.sync).toMatchObject({ configured: false, expected_remote: remote });
+      expect(parsed.next.tool).toBe("agent_start");
+      expect(parsed.next.command).toContain("moryn agent start");
+      expect(parsed.next.command).toContain("--sync-remote");
+      expect(parsed.next.arguments).toMatchObject({
+        project_path: project,
+        sync_remote: remote,
+        agent: { client: "codex" }
+      });
+      await expect(readFile(join(store, "config.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    });
+  });
+
   it("returns structured JSON errors from runtime failures", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");

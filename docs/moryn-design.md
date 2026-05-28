@@ -642,6 +642,26 @@ moryn sync --push --message "sync after session"
 MCP exposes the same sync semantics as separate tools: `sync_init`,
 `sync_status`, `sync_pull`, and `sync_push`.
 
+### `agent_doctor`
+
+Used as a read-only setup check for agents on a new machine or unfamiliar
+project. It reports local store readiness, project resolution, sync
+configuration, and the exact `agent_start` command plus MCP arguments to use
+next.
+
+CLI:
+
+```bash
+moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
+```
+
+MCP tool: `agent_doctor`.
+
+Agents should call this when they are unsure whether Moryn has been initialized
+or connected to the shared sync repo. The command must not initialize stores,
+write memory, pull, or push; it is safe to run before asking for approval to
+mutate local or remote state.
+
 ### `agent_start`
 
 Used as the default agent startup entrypoint. It resolves project identity,
@@ -762,15 +782,16 @@ moryn list-recent --limit 20
 
 Agents should follow this contract:
 
-1. On a new machine or fresh store, pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
-2. Call `agent_start` at task start.
-3. Call `recall` when context is missing or uncertain.
-4. Call `agent_start` again with a previous cursor, or call `refresh`, when the user asks to refresh memory.
-5. Call `agent_finish` at the end of meaningful work.
-6. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
-7. Write raw notes as `agent_note`, not canonical memory.
-8. Do not promote long-term preferences, soul records, or global skills without user confirmation.
-9. Treat sync `interrupt` results as a reason to pause and inspect related records.
+1. On a new machine, fresh store, or uncertain setup, call `agent_doctor` first.
+2. Pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
+3. Call `agent_start` at task start.
+4. Call `recall` when context is missing or uncertain.
+5. Call `agent_start` again with a previous cursor, or call `refresh`, when the user asks to refresh memory.
+6. Call `agent_finish` at the end of meaningful work.
+7. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
+8. Write raw notes as `agent_note`, not canonical memory.
+9. Do not promote long-term preferences, soul records, or global skills without user confirmation.
+10. Treat sync `interrupt` results as a reason to pause and inspect related records.
 
 Cross-agent handoff depends on the lifecycle commands, not agent awareness of
 each other. Codex, Gemini, and other agents can run on separate machines if they

@@ -31,6 +31,10 @@ export interface AgentFinishInput extends AgentLifecycleInput {
   push?: boolean;
 }
 
+type DoctorSeverity = "ok" | "notice" | "warning";
+
+export interface AgentDoctorInput extends AgentLifecycleInput {}
+
 interface BootstrapResult {
   initialized_store: boolean;
   sync_init?: GitSyncResult;
@@ -76,6 +80,36 @@ function isMissingStore(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function appendOption(parts: string[], name: string, value: string | undefined): void {
+  if (value === undefined) return;
+  parts.push(name, shellQuote(value));
+}
+
+function buildAgentStartCommand(input: AgentLifecycleInput): string {
+  const parts = ["moryn", "agent", "start"];
+  appendOption(parts, "--project", input.projectPath);
+  appendOption(parts, "--project-id", input.projectId);
+  appendOption(parts, "--sync-remote", input.syncRemote);
+  appendOption(parts, "--current-task", input.currentTask);
+  appendOption(parts, "--agent", input.agent?.client);
+  appendOption(parts, "--session-id", input.agent?.session_id);
+  appendOption(parts, "--model", input.agent?.model);
+  appendOption(parts, "--device-id", input.agent?.device_id);
+  return parts.join(" ");
+}
+
+function buildProjectInitCommand(input: AgentLifecycleInput): string {
+  const parts = ["moryn", "project", "init"];
+  appendOption(parts, "--path", input.projectPath);
+  appendOption(parts, "--project-id", input.projectId);
+  return parts.join(" ");
+}
+
 async function initializeLifecycleSync(storePath: string, syncRemote: string | undefined, result: BootstrapResult): Promise<void> {
   if (!syncRemote) return;
   const initialized = await trySync(() => initializeGitSync(storePath, syncRemote));
@@ -101,6 +135,96 @@ async function ensureLifecycleBootstrap(input: AgentLifecycleInput): Promise<Boo
   const result: BootstrapResult = { initialized_store: false };
   await initializeLifecycleSync(input.storePath, input.syncRemote, result);
   return result;
+}
+
+export async function agentDoctor(input: AgentDoctorInput) {
+  const checks: Array<{ name: string; ok: boolean; severity: DoctorSeverity; message: string }> = [];
+  let storeInitialized = false;
+  let storeError: string | undefined;
+
+  try {
+    await readStoreConfig(input.storePath);
+    storeInitialized = true;
+    checks.push({ name: "store", ok: true, severity: "ok", message: "Store is initialized." });
+  } catch (error) {
+    storeError = error instanceof Error ? error.message : String(error);
+    checks.push({
+      name: "store",
+      ok: false,
+      severity: "notice",
+      message: input.syncRemote
+        ? "Store is not initialized; agent_start can create it and connect sync_remote."
+        : "Store is not initialized; pass sync_remote to agent_start or run moryn init."
+    });
+  }
+
+  const project = await trySync(() => resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId }));
+  const projectResult = project.ok
+    ? { ok: true, ...projectEnvelope(project.result) }
+    : { ok: false, error: project.error };
+  checks.push(project.ok
+    ? { name: "project", ok: true, severity: "ok", message: `Project resolves as ${project.result.project_id}.` }
+    : { name: "project", ok: false, severity: "warning", message: project.error });
+
+  const syncStatus = storeInitialized
+    ? await getGitSyncStatus(input.storePath)
+    : { configured: false, error: "Store not initialized" };
+  const syncConfigured = Boolean(syncStatus.configured && syncStatus.remote);
+  const remoteMatches = input.syncRemote === undefined || syncStatus.remote === input.syncRemote;
+  checks.push({
+    name: "sync",
+    ok: syncConfigured && remoteMatches,
+    severity: syncConfigured && remoteMatches ? "ok" : "notice",
+    message: syncConfigured && remoteMatches
+      ? "Sync is configured."
+      : input.syncRemote
+        ? "Sync is not connected to the expected remote; agent_start can initialize or update it."
+        : "Sync is not configured; pass sync_remote when cross-device handoff is needed."
+  });
+
+  const next = project.ok
+    ? {
+        recommended_action: "call_agent_start",
+        tool: "agent_start",
+        safe_to_run: true,
+        command: buildAgentStartCommand(input),
+        arguments: {
+          project_path: input.projectPath,
+          project_id: input.projectId,
+          sync_remote: input.syncRemote,
+          current_task: input.currentTask,
+          agent: input.agent
+        }
+      }
+    : {
+        recommended_action: "fix_project_config",
+        tool: "project_init",
+        safe_to_run: false,
+        command: buildProjectInitCommand(input),
+        arguments: {
+          path: input.projectPath,
+          project_id: input.projectId
+        }
+      };
+
+  return {
+    ok: true,
+    agent: sourceFromAgent(input.agent),
+    store: {
+      path: input.storePath,
+      initialized: storeInitialized,
+      error: storeInitialized ? undefined : storeError
+    },
+    project: projectResult,
+    sync: {
+      ...syncStatus,
+      configured: syncConfigured,
+      expected_remote: input.syncRemote,
+      remote_matches: remoteMatches
+    },
+    checks,
+    next
+  };
 }
 
 export async function agentStart(input: AgentStartInput) {

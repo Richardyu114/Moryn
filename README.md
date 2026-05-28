@@ -226,6 +226,7 @@ Then configure an agent host that supports MCP to run that command. The exact ho
 The current MCP server uses the official Model Context Protocol TypeScript SDK over stdio and exposes these tools:
 
 - `init`
+- `agent_doctor`
 - `agent_finish`
 - `agent_start`
 - `boot`
@@ -298,10 +299,16 @@ gemini --skip-trust --approval-mode yolo --allowed-mcp-server-names moryn \
 Shell-based agents can use the CLI directly:
 
 ```bash
+moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
 moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
 moryn recall "missing context" --project . --scope project --kind memory --kind skill
 moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store.git --agent codex --summary "Finished the task summary."
 ```
+
+`agent doctor` is a read-only setup check for agents running on an unfamiliar
+machine or project. It reports whether the local store exists, whether project
+identity resolves, whether sync is configured for the expected remote, and the
+exact `agent_start` command plus MCP arguments to use next.
 
 `agent start` is the low-friction startup command for agents. It resolves
 `.moryn.json`, creates the store if needed, initializes sync when
@@ -318,6 +325,7 @@ The current implementation includes these commands:
 
 ```bash
 moryn init
+moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store.git --agent codex --summary "Finished auth wiring and left handoff notes."
 moryn boot --project-id moryn --current-task "fix auth"
@@ -342,6 +350,15 @@ moryn mcp
 ## Agent Workflow
 
 Agents should use Moryn through a consistent protocol.
+
+When setup is uncertain:
+
+```text
+agent_doctor(project_path, sync_remote, current_task, agent)
+```
+
+This is read-only. It returns setup checks and the exact `agent_start` command
+and MCP arguments an agent should use next.
 
 At task start:
 

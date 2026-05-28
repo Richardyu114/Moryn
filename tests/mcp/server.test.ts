@@ -56,6 +56,7 @@ describe("MCP stdio server", () => {
       await withMcpClient(store, async (client) => {
         const tools = await client.listTools();
         expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
+          "agent_doctor",
           "agent_finish",
           "agent_start",
           "archive",
@@ -441,6 +442,57 @@ describe("MCP stdio server", () => {
       await rm(root, { recursive: true, force: true });
     }
   }, 30000);
+
+  it("returns read-only agent doctor guidance through MCP", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-doctor-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "fresh-store");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await withMcpClient(store, async (client) => {
+        const doctor = parseTextContent(await client.callTool({
+          name: "agent_doctor",
+          arguments: {
+            project_path: project,
+            sync_remote: remote,
+            current_task: "start safely from MCP",
+            agent: { client: "gemini", session_id: "gemini-doctor" }
+          }
+        })) as {
+          store: { initialized: boolean };
+          project: { ok: boolean; project_id?: string };
+          sync: { configured: boolean; expected_remote?: string };
+          next: {
+            tool: string;
+            command: string;
+            arguments: {
+              project_path?: string;
+              sync_remote?: string;
+              current_task?: string;
+              agent?: { client?: string; session_id?: string };
+            };
+          };
+        };
+
+        expect(doctor.store.initialized).toBe(false);
+        expect(doctor.project).toMatchObject({ ok: true, project_id: "moryn" });
+        expect(doctor.sync).toMatchObject({ configured: false, expected_remote: remote });
+        expect(doctor.next.tool).toBe("agent_start");
+        expect(doctor.next.command).toContain("moryn agent start");
+        expect(doctor.next.arguments).toMatchObject({
+          project_path: project,
+          sync_remote: remote,
+          current_task: "start safely from MCP",
+          agent: { client: "gemini", session_id: "gemini-doctor" }
+        });
+        await expect(readFile(join(store, "config.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 
   it("resolves project paths and project config through MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-"));

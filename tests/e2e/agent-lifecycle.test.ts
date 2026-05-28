@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { initializeStore } from "../../src/core/config.js";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
-import { agentFinish, agentStart } from "../../src/core/agent-lifecycle.js";
+import { agentDoctor, agentFinish, agentStart } from "../../src/core/agent-lifecycle.js";
 import { initializeGitSync, pullGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
@@ -173,4 +173,92 @@ describe("agent lifecycle", () => {
       await rm(root, { recursive: true, force: true });
     }
   }, 30000);
+
+  it("diagnoses a fresh agent device without mutating the store", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "fresh-store");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+
+      const doctor = await agentDoctor({
+        storePath: store,
+        projectPath: project,
+        syncRemote: remote,
+        currentTask: "continue safely on a new machine",
+        agent: { client: "gemini", session_id: "gemini-doctor" }
+      });
+
+      expect(doctor.ok).toBe(true);
+      expect(doctor.store).toMatchObject({ path: store, initialized: false });
+      expect(doctor.project).toMatchObject({ ok: true, project_id: "moryn", source: "config" });
+      expect(doctor.sync).toMatchObject({ configured: false, expected_remote: remote });
+      expect(doctor.checks).toContainEqual(expect.objectContaining({
+        name: "store",
+        ok: false,
+        severity: "notice"
+      }));
+      expect(doctor.checks).toContainEqual(expect.objectContaining({
+        name: "sync",
+        ok: false,
+        severity: "notice"
+      }));
+      expect(doctor.next).toMatchObject({
+        recommended_action: "call_agent_start",
+        tool: "agent_start",
+        safe_to_run: true
+      });
+      expect(doctor.next.command).toContain("moryn agent start");
+      expect(doctor.next.command).toContain("--sync-remote");
+      expect(doctor.next.arguments).toMatchObject({
+        project_path: project,
+        sync_remote: remote,
+        current_task: "continue safely on a new machine",
+        agent: { client: "gemini", session_id: "gemini-doctor" }
+      });
+      await expect(access(join(store, "config.json"))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not recommend agent_start when project config is invalid", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-invalid-project-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeStore(store);
+      await writeFile(join(project, ".moryn.json"), "{\"project_id\":\"\"}\n", "utf8").catch(async (error) => {
+        if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+          await mkdir(project, { recursive: true });
+          await writeFile(join(project, ".moryn.json"), "{\"project_id\":\"\"}\n", "utf8");
+          return;
+        }
+        throw error;
+      });
+
+      const doctor = await agentDoctor({
+        storePath: store,
+        projectPath: project,
+        agent: { client: "codex" }
+      });
+
+      expect(doctor.project).toMatchObject({ ok: false });
+      expect(doctor.checks).toContainEqual(expect.objectContaining({
+        name: "project",
+        ok: false,
+        severity: "warning"
+      }));
+      expect(doctor.next).toMatchObject({
+        recommended_action: "fix_project_config",
+        tool: "project_init",
+        safe_to_run: false
+      });
+      expect(doctor.next.command).toContain("moryn project init");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

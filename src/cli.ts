@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { Command, CommanderError } from "commander";
 import { version } from "./index.js";
-import { agentFinish, agentStart } from "./core/agent-lifecycle.js";
+import { agentDoctor, agentFinish, agentStart } from "./core/agent-lifecycle.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
@@ -364,6 +364,26 @@ program.command("mcp").action(async () => {
 });
 
 const agent = program.command("agent");
+
+agent.command("doctor")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--sync-remote <remote>", "Expected Git sync remote for cross-device handoff")
+  .option("--current-task <task>")
+  .option("--agent <client>", "Agent client name")
+  .option("--session-id <id>")
+  .option("--model <model>")
+  .option("--device-id <id>")
+  .action(async (options) => {
+    printJson(await agentDoctor({
+      storePath: storePath(),
+      projectPath: options.project,
+      projectId: options.projectId,
+      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+      agent: parseAgentOptions(options)
+    }));
+  });
 
 agent.command("start")
   .option("--project-id <id>")
