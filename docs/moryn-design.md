@@ -1301,6 +1301,35 @@ promotion or revision first:
 }
 ```
 
+High-risk canonical writes do not fail. Moryn records them as candidates and
+returns a warning with a promotion action for the created candidate, so agents do
+not repeat the original write or assume the record became canonical:
+
+```json
+{
+  "record": {
+    "id": "rec_123",
+    "state": "candidate"
+  },
+  "warning": {
+    "code": "CONFIRMATION_REQUIRED",
+    "reason": "canonical state requires explicit user confirmation",
+    "next_action": {
+      "recommended_action": "ask_user_then_promote_candidate",
+      "tool": "promote",
+      "command": "moryn promote rec_123 --state canonical --reason 'User confirmed' --confirm",
+      "arguments": {
+        "record_id": "rec_123",
+        "target_state": "canonical",
+        "reason": "User confirmed",
+        "confirmed": true
+      },
+      "safe_to_run": false
+    }
+  }
+}
+```
+
 Rebuildable index errors return a safe derived-view rebuild action:
 
 ```json

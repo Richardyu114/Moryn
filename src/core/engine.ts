@@ -4,6 +4,7 @@ import { applyRecordPatch, replayEvents } from "./replay.js";
 import { isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
+import { commandForPromoteContext, type MorynErrorNextAction } from "./errors.js";
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 
@@ -27,6 +28,12 @@ interface WriteInput {
   source: RecordSource;
   confirmed?: boolean;
   provenance?: RecordProvenance;
+}
+
+export interface EngineWarning {
+  code: string;
+  reason?: string;
+  next_action?: MorynErrorNextAction;
 }
 
 interface RecallInput {
@@ -629,6 +636,22 @@ function provenanceMethod(source: RecordSource, confirmed?: boolean): "agent-pro
   return "agent-proposed";
 }
 
+function promoteCandidateNextAction(recordId: string): MorynErrorNextAction {
+  const reason = "User confirmed";
+  return {
+    recommended_action: "ask_user_then_promote_candidate",
+    tool: "promote",
+    command: `${commandForPromoteContext({ record_id: recordId, target_state: "canonical", reason })} --confirm`,
+    arguments: {
+      record_id: recordId,
+      target_state: "canonical",
+      reason,
+      confirmed: true
+    },
+    safe_to_run: false
+  };
+}
+
 function requiresCanonicalConfirmation(input: { kind: RecordKind; type: string; scope: RecordScope }): boolean {
   if (input.kind === "soul") return true;
   if (input.kind === "skill" && input.scope === "global") return true;
@@ -759,18 +782,20 @@ export function createEngine(deps: EngineDeps) {
       };
       const event: MorynEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source: input.source };
       await appendEventAndRebuild(event);
+      const warning: EngineWarning | undefined = sensitive.sensitive
+        ? { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason }
+        : needsConfirmation
+          ? {
+              code: "CONFIRMATION_REQUIRED",
+              reason: needsConflictConfirmation
+                ? "conflicting canonical memory requires explicit user confirmation"
+                : "canonical state requires explicit user confirmation",
+              next_action: promoteCandidateNextAction(record.id)
+            }
+          : undefined;
       return {
         record,
-        warning: sensitive.sensitive
-          ? { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason }
-          : needsConfirmation
-            ? {
-                code: "CONFIRMATION_REQUIRED",
-                reason: needsConflictConfirmation
-                  ? "conflicting canonical memory requires explicit user confirmation"
-                  : "canonical state requires explicit user confirmation"
-              }
-            : undefined
+        warning
       };
     },
 

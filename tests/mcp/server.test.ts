@@ -1665,9 +1665,33 @@ describe("MCP stdio server", () => {
             state: "canonical",
             source: { client: "mcp-test" }
           }
-        })) as { record: { id: string; state: string }; warning?: { code: string } };
+        })) as {
+          record: { id: string; state: string };
+          warning?: {
+            code: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(write.record.state).toBe("candidate");
         expect(write.warning?.code).toBe("CONFIRMATION_REQUIRED");
+        expect(write.warning?.next_action).toEqual({
+          recommended_action: "ask_user_then_promote_candidate",
+          tool: "promote",
+          command: `moryn promote ${write.record.id} --state canonical --reason 'User confirmed' --confirm`,
+          arguments: {
+            record_id: write.record.id,
+            target_state: "canonical",
+            reason: "User confirmed",
+            confirmed: true
+          },
+          safe_to_run: false
+        });
 
         const memoryPreference = parseTextContent(await client.callTool({
           name: "write",
@@ -2201,11 +2225,31 @@ describe("MCP stdio server", () => {
           }
         })) as {
           record: { state: string; conflict?: { with: string[]; resolution: string } };
-          warning?: { code: string };
+          warning?: {
+            code: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
         };
 
         expect(conflicting.record.state).toBe("candidate");
         expect(conflicting.warning?.code).toBe("CONFIRMATION_REQUIRED");
+        expect(conflicting.warning?.next_action).toEqual({
+          recommended_action: "ask_user_then_promote_candidate",
+          tool: "promote",
+          command: expect.stringMatching(/^moryn promote rec_[a-f0-9]+ --state canonical --reason 'User confirmed' --confirm$/),
+          arguments: expect.objectContaining({
+            target_state: "canonical",
+            reason: "User confirmed",
+            confirmed: true
+          }),
+          safe_to_run: false
+        });
         expect(conflicting.record.conflict?.with).toEqual([existing.record.id]);
         expect(conflicting.record.conflict?.resolution).toBe("needs_review");
       });

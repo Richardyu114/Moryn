@@ -947,6 +947,18 @@ describe("core engine", () => {
 
       expect(soul.record.state).toBe("candidate");
       expect(soul.warning?.code).toBe("CONFIRMATION_REQUIRED");
+      expect(soul.warning?.next_action).toEqual({
+        recommended_action: "ask_user_then_promote_candidate",
+        tool: "promote",
+        command: `moryn promote ${soul.record.id} --state canonical --reason 'User confirmed' --confirm`,
+        arguments: {
+          record_id: soul.record.id,
+          target_state: "canonical",
+          reason: "User confirmed",
+          confirmed: true
+        },
+        safe_to_run: false
+      });
       expect(globalSkill.record.state).toBe("candidate");
       expect(globalSkill.warning?.code).toBe("CONFIRMATION_REQUIRED");
       expect(securityRule.record.state).toBe("candidate");
@@ -1008,6 +1020,18 @@ describe("core engine", () => {
 
       expect(conflicting.record.state).toBe("candidate");
       expect(conflicting.warning?.code).toBe("CONFIRMATION_REQUIRED");
+      expect(conflicting.warning?.next_action).toEqual({
+        recommended_action: "ask_user_then_promote_candidate",
+        tool: "promote",
+        command: `moryn promote ${conflicting.record.id} --state canonical --reason 'User confirmed' --confirm`,
+        arguments: {
+          record_id: conflicting.record.id,
+          target_state: "canonical",
+          reason: "User confirmed",
+          confirmed: true
+        },
+        safe_to_run: false
+      });
       expect(conflicting.record.conflict).toEqual({
         kind: "semantic",
         with: [existing.record.id],

@@ -2193,9 +2193,33 @@ describe("moryn CLI", () => {
         "--state", "canonical",
         "--text", "Prefer terse answers."
       ]);
-      const parsedWrite = JSON.parse(write.stdout) as { record: { id: string; state: string }; warning?: { code: string } };
+      const parsedWrite = JSON.parse(write.stdout) as {
+        record: { id: string; state: string };
+        warning?: {
+          code: string;
+          next_action?: {
+            recommended_action: string;
+            tool: string;
+            command: string;
+            arguments: Record<string, unknown>;
+            safe_to_run: boolean;
+          };
+        };
+      };
       expect(parsedWrite.record.state).toBe("candidate");
       expect(parsedWrite.warning?.code).toBe("CONFIRMATION_REQUIRED");
+      expect(parsedWrite.warning?.next_action).toEqual({
+        recommended_action: "ask_user_then_promote_candidate",
+        tool: "promote",
+        command: `moryn promote ${parsedWrite.record.id} --state canonical --reason 'User confirmed' --confirm`,
+        arguments: {
+          record_id: parsedWrite.record.id,
+          target_state: "canonical",
+          reason: "User confirmed",
+          confirmed: true
+        },
+        safe_to_run: false
+      });
 
       const memoryPreference = await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,
@@ -2321,11 +2345,31 @@ describe("moryn CLI", () => {
       ]);
       const parsed = JSON.parse(conflicting.stdout) as {
         record: { state: string; conflict?: { with: string[]; resolution: string } };
-        warning?: { code: string };
+        warning?: {
+          code: string;
+          next_action?: {
+            recommended_action: string;
+            tool: string;
+            command: string;
+            arguments: Record<string, unknown>;
+            safe_to_run: boolean;
+          };
+        };
       };
 
       expect(parsed.record.state).toBe("candidate");
       expect(parsed.warning?.code).toBe("CONFIRMATION_REQUIRED");
+      expect(parsed.warning?.next_action).toEqual({
+        recommended_action: "ask_user_then_promote_candidate",
+        tool: "promote",
+        command: expect.stringMatching(/^moryn promote rec_[a-f0-9]+ --state canonical --reason 'User confirmed' --confirm$/),
+        arguments: expect.objectContaining({
+          target_state: "canonical",
+          reason: "User confirmed",
+          confirmed: true
+        }),
+        safe_to_run: false
+      });
       expect(parsed.record.conflict?.with).toEqual([existingId]);
       expect(parsed.record.conflict?.resolution).toBe("needs_review");
     });
