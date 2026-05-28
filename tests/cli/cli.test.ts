@@ -931,6 +931,112 @@ describe("mem CLI", () => {
     });
   }, 30000);
 
+  it("runs the documented MVP success flow through the CLI", async () => {
+    await withTempDir(async (dir) => {
+      const remote = join(dir, "remote.git");
+      const project = join(dir, "project");
+      const storeA = join(dir, "store-a");
+      const storeB = join(dir, "store-b");
+      await mkdir(project, { recursive: true });
+      await exec("git", ["init", "--bare", remote]);
+
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "init"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "init"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "memora"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "init", remote]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote]);
+
+      const initialBoot = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", storeA,
+        "boot",
+        "--project", project,
+        "--current-task", "fix auth token refresh"
+      ])).stdout) as { project: { important_decisions: Array<{ id: string }> }; sync: { cursor: string } };
+      expect(initialBoot.project.important_decisions).toEqual([]);
+
+      const summary = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", storeA,
+        "write",
+        "--kind", "session_summary",
+        "--project", project,
+        "--text", "Agent A finished auth token refresh investigation."
+      ])).stdout) as { record: { id: string; state: string } };
+      const candidate = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", storeA,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project", project,
+        "--state", "candidate",
+        "--text", "Use rotating credentials for auth token refresh."
+      ])).stdout) as { record: { id: string; state: string } };
+      expect(summary.record.state).toBe("candidate");
+      expect(candidate.record.state).toBe("candidate");
+
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", storeA,
+        "promote",
+        candidate.record.id,
+        "--state", "canonical",
+        "--reason", "User confirmed the project decision"
+      ]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", storeA,
+        "write",
+        "--kind", "memory",
+        "--type", "blocker",
+        "--scope", "project",
+        "--project", project,
+        "--state", "canonical",
+        "--priority", "high",
+        "--text", "Auth token refresh is blocked by stale credentials."
+      ]);
+      const push = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", storeA,
+        "sync",
+        "--push",
+        "--message", "mvp success flow"
+      ])).stdout) as { pushed?: boolean };
+      expect(push.pushed).toBe(true);
+
+      const pull = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", storeB,
+        "sync",
+        "--pull"
+      ])).stdout) as { pulled?: boolean };
+      expect(pull.pulled).toBe(true);
+
+      const bootB = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", storeB,
+        "boot",
+        "--project", project
+      ])).stdout) as { project: { important_decisions: Array<{ id: string; content: { text: string } }> } };
+      expect(bootB.project.important_decisions).toContainEqual(expect.objectContaining({
+        id: candidate.record.id,
+        content: expect.objectContaining({ text: "Use rotating credentials for auth token refresh." })
+      }));
+
+      const refreshB = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", storeB,
+        "refresh",
+        "--project", project,
+        "--cursor", initialBoot.sync.cursor,
+        "--current-task", "fix auth token refresh"
+      ])).stdout) as { should_interrupt: boolean; changes: Array<{ importance: string; reason?: string; summary: string }> };
+      expect(refreshB.should_interrupt).toBe(true);
+      expect(refreshB.changes).toContainEqual(expect.objectContaining({
+        importance: "notice",
+        summary: "Agent A finished auth token refresh investigation."
+      }));
+      expect(refreshB.changes).toContainEqual(expect.objectContaining({
+        importance: "interrupt",
+        reason: "current_task_match",
+        summary: "Auth token refresh is blocked by stale credentials."
+      }));
+    });
+  }, 30000);
+
   it("rejects conflicting CLI sync operation flags", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
