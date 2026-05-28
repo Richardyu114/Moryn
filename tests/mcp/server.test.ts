@@ -895,6 +895,13 @@ describe("MCP stdio server", () => {
           store: { initialized: boolean };
           project: { ok: boolean; project_id?: string };
           sync: { configured: boolean; expected_remote?: string };
+          readiness?: {
+            safe_to_start: boolean;
+            blocking_checks: string[];
+            recommended_action: string;
+            next_tool: string;
+            next_command: string;
+          };
           next: {
             tool: string;
             command: string;
@@ -912,6 +919,13 @@ describe("MCP stdio server", () => {
         expect(doctor.project).toMatchObject({ ok: true, project_id: "moryn" });
         expect(doctor.sync).toMatchObject({ configured: false, expected_remote: remote });
         expect(doctor.next.tool).toBe("agent_start");
+        expect(doctor.readiness).toEqual({
+          safe_to_start: true,
+          blocking_checks: [],
+          recommended_action: "call_agent_start",
+          next_tool: "agent_start",
+          next_command: doctor.next.command
+        });
         expect(doctor.next.command).toContain("moryn agent start");
         expect(doctor.next.actions).toContainEqual(expect.objectContaining({
           action: "run_lifecycle_smoke",
@@ -956,6 +970,13 @@ describe("MCP stdio server", () => {
           }
         })) as {
           sync: { sync_state?: string; conflict?: { files?: string[]; safe_to_retry_sync?: boolean } };
+          readiness?: {
+            safe_to_start: boolean;
+            blocking_checks: string[];
+            recommended_action: string;
+            next_tool: string;
+            next_command: string;
+          };
           next: { recommended_action: string; tool: string; safe_to_run: boolean; command: string; arguments: Record<string, unknown> };
         };
         expect(doctor.sync).toMatchObject({
@@ -971,6 +992,13 @@ describe("MCP stdio server", () => {
           safe_to_run: true,
           command: "moryn sync --status",
           arguments: {}
+        });
+        expect(doctor.readiness).toEqual({
+          safe_to_start: false,
+          blocking_checks: ["sync"],
+          recommended_action: "resolve_sync_conflict_before_lifecycle",
+          next_tool: "sync_status",
+          next_command: "moryn sync --status"
         });
 
         const entered = parseTextContent(await client.callTool({

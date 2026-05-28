@@ -40,6 +40,7 @@ export interface AgentStatusInput extends AgentLifecycleInput {
 }
 
 type DoctorSeverity = "ok" | "notice" | "warning";
+type DoctorCheck = { name: string; ok: boolean; severity: DoctorSeverity; message: string };
 
 export interface AgentDoctorInput extends AgentLifecycleInput {}
 
@@ -492,6 +493,18 @@ function doctorNextActions(input: AgentLifecycleInput) {
   ];
 }
 
+function doctorReadiness(checks: DoctorCheck[], next: { recommended_action: string; tool: string; command: string }) {
+  return {
+    safe_to_start: next.tool === "agent_start",
+    blocking_checks: checks
+      .filter((check) => !check.ok && check.severity === "warning")
+      .map((check) => check.name),
+    recommended_action: next.recommended_action,
+    next_tool: next.tool,
+    next_command: next.command
+  };
+}
+
 function projectListNextActions() {
   return [
     {
@@ -716,7 +729,7 @@ async function enterDiscoveryBootstrap(input: AgentEnterInput): Promise<Bootstra
 }
 
 export async function agentDoctor(input: AgentDoctorInput) {
-  const checks: Array<{ name: string; ok: boolean; severity: DoctorSeverity; message: string }> = [];
+  const checks: DoctorCheck[] = [];
   let storeInitialized = false;
   let storeError: string | undefined;
 
@@ -815,6 +828,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
       remote_matches: remoteMatches
     },
     checks,
+    readiness: doctorReadiness(checks, next),
     next
   };
 }

@@ -455,6 +455,13 @@ describe("agent lifecycle", () => {
       expect(doctor.store).toMatchObject({ path: store, initialized: false });
       expect(doctor.project).toMatchObject({ ok: true, project_id: "moryn", source: "config" });
       expect(doctor.sync).toMatchObject({ configured: false, expected_remote: remote });
+      expect(doctor.readiness).toEqual({
+        safe_to_start: true,
+        blocking_checks: [],
+        recommended_action: "call_agent_start",
+        next_tool: "agent_start",
+        next_command: doctor.next.command
+      });
       expect(doctor.checks).toContainEqual(expect.objectContaining({
         name: "store",
         ok: false,
@@ -542,6 +549,13 @@ describe("agent lifecycle", () => {
         safe_to_run: true,
         command: "moryn sync --status",
         arguments: {}
+      });
+      expect(doctor.readiness).toEqual({
+        safe_to_start: false,
+        blocking_checks: ["sync"],
+        recommended_action: "resolve_sync_conflict_before_lifecycle",
+        next_tool: "sync_status",
+        next_command: "moryn sync --status"
       });
 
       const entered = await agentEnter({

@@ -774,7 +774,9 @@ write memory, pull, or push; it is safe to run before asking for approval to
 mutate local or remote state. Its `next.actions` includes `list_projects`,
 `start_session`, or `run_lifecycle_smoke` templates as appropriate, so agents
 can discover a shared project, start, or verify the shared Git path without
-inferring commands from prose.
+inferring commands from prose. It also returns a `readiness` summary:
+`safe_to_start` is true only when the selected next tool is `agent_start`, and
+`blocking_checks` lists warning-level checks that prevent lifecycle startup.
 
 ### `project_list`
 

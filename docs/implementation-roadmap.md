@@ -107,6 +107,8 @@ Deliverables:
   conflicted and return a structured `sync_status` recovery action.
 - Done: Agent lifecycle partial sync failures include structured
   `*_error_details` recovery contracts alongside legacy error strings.
+- Done: `agent_doctor` returns an explicit readiness summary so agents do not
+  infer startup safety from raw checks.
 - Done: Generated snapshots/indexes are excluded from sync by default.
 - Done: Local `config.json` is excluded from sync to avoid device identity conflicts.
 - Done: Post-pull snapshot/index rebuild runs after successful pull.
