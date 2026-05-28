@@ -526,6 +526,35 @@ describe("agent lifecycle", () => {
         }
       });
       expect(entered.doctor.next).toMatchObject({ tool: "project_list" });
+      expect(entered.next.actions[0]).toMatchObject({
+        action: "start_session",
+        project_id: "moryn",
+        lifecycle: [
+          expect.objectContaining({
+            step: "start_or_resume",
+            tool: "agent_start",
+            command: "moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list"
+          }),
+          expect.objectContaining({
+            step: "publish_status",
+            tool: "agent_status",
+            command: "moryn agent status --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --status <status>",
+            required_fields: ["status"]
+          }),
+          expect.objectContaining({
+            step: "finish_handoff",
+            tool: "agent_finish",
+            command: "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --summary <summary>",
+            required_fields: ["summary"]
+          }),
+          expect.objectContaining({
+            step: "refresh_context",
+            tool: "agent_start",
+            command: "moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --refresh-since <refresh_since>",
+            required_fields: ["refresh_since"]
+          })
+        ]
+      });
       expect(entered.projects.projects[0]).toMatchObject({
         project_id: "moryn",
         next: {

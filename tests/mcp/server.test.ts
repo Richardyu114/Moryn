@@ -859,7 +859,11 @@ describe("MCP stdio server", () => {
         })) as {
           mode: string;
           projects: { projects: Array<{ project_id: string; next: { command: string } }> };
-          next: { recommended_action: string; tool: string };
+          next: {
+            recommended_action: string;
+            tool: string;
+            actions: Array<{ project_id: string; lifecycle?: Array<{ step: string; tool: string; command: string; required_fields: string[] }> }>;
+          };
         };
 
         expect(entered.mode).toBe("discover_projects");
@@ -869,6 +873,12 @@ describe("MCP stdio server", () => {
         });
         expect(entered.projects.projects[0]?.project_id).toBe("moryn");
         expect(entered.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter");
+        expect(entered.next.actions[0]?.lifecycle).toContainEqual(expect.objectContaining({
+          step: "publish_status",
+          tool: "agent_status",
+          command: "moryn agent status --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter --status <status>",
+          required_fields: ["status"]
+        }));
       }, store);
     } finally {
       await rm(store, { recursive: true, force: true });

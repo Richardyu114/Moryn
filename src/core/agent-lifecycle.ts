@@ -415,6 +415,51 @@ function projectListNextActions() {
   ];
 }
 
+function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_enter") {
+  const lifecycleInput = ensureGuideProjectIdentity(input);
+  const lifecycleArguments = lifecycleActionArguments(lifecycleInput);
+  const startCommand = startTool === "agent_start"
+    ? buildAgentStartCommand(lifecycleInput)
+    : buildAgentEnterCommand(input);
+  const startArguments = startTool === "agent_start"
+    ? lifecycleArguments
+    : lifecycleActionArguments(input);
+  return [
+    {
+      step: "start_or_resume",
+      tool: startTool,
+      required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
+      command: startCommand,
+      required_fields: [],
+      arguments: startArguments
+    },
+    {
+      step: "publish_status",
+      tool: "agent_status",
+      required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+      command: buildAgentStatusTemplateCommand(lifecycleInput),
+      required_fields: guideRequiredFields(input, ["status"]),
+      arguments: { ...lifecycleArguments, status: undefined }
+    },
+    {
+      step: "finish_handoff",
+      tool: "agent_finish",
+      required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+      command: buildAgentFinishTemplateCommand(lifecycleInput),
+      required_fields: guideRequiredFields(input, ["summary"]),
+      arguments: { ...lifecycleArguments, summary: undefined }
+    },
+    {
+      step: "refresh_context",
+      tool: "agent_start",
+      required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+      command: buildAgentRefreshTemplateCommand(lifecycleInput),
+      required_fields: guideRequiredFields(input, ["refresh_since"]),
+      arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" }
+    }
+  ];
+}
+
 async function hasKnownProjects(input: AgentLifecycleInput, storeInitialized: boolean): Promise<boolean> {
   if (!storeInitialized) return false;
   const result = await trySync(() => createEngine({ storePath: input.storePath }).listProjects({ limit: 1 }));
@@ -707,7 +752,8 @@ export async function agentEnter(input: AgentEnterInput) {
           tool: project.next.tool,
           command: project.next.command,
           required_fields: [],
-          arguments: project.next.arguments
+          arguments: project.next.arguments,
+          lifecycle: agentGuideLifecycle({ ...input, projectId: project.project_id }, "agent_start")
         }))
       }
     };
@@ -745,8 +791,6 @@ export async function agentEnter(input: AgentEnterInput) {
 export function agentGuide(input: AgentGuideInput) {
   const command = buildAgentEnterCommand(input);
   const startupArguments = lifecycleActionArguments(input);
-  const lifecycleInput = ensureGuideProjectIdentity(input);
-  const lifecycleArguments = lifecycleActionArguments(lifecycleInput);
   return {
     ok: true,
     recommended_entrypoint: "agent_enter",
@@ -755,40 +799,7 @@ export function agentGuide(input: AgentGuideInput) {
       command,
       arguments: startupArguments
     },
-    lifecycle: [
-      {
-        step: "start_or_resume",
-        tool: "agent_enter",
-        required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
-        command,
-        required_fields: [],
-        arguments: startupArguments
-      },
-      {
-        step: "publish_status",
-        tool: "agent_status",
-        required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
-        command: buildAgentStatusTemplateCommand(lifecycleInput),
-        required_fields: guideRequiredFields(input, ["status"]),
-        arguments: { ...lifecycleArguments, status: undefined }
-      },
-      {
-        step: "finish_handoff",
-        tool: "agent_finish",
-        required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
-        command: buildAgentFinishTemplateCommand(lifecycleInput),
-        required_fields: guideRequiredFields(input, ["summary"]),
-        arguments: { ...lifecycleArguments, summary: undefined }
-      },
-      {
-        step: "refresh_context",
-        tool: "agent_start",
-        required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
-        command: buildAgentRefreshTemplateCommand(lifecycleInput),
-        required_fields: guideRequiredFields(input, ["refresh_since"]),
-        arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" }
-      }
-    ],
+    lifecycle: agentGuideLifecycle(input),
     rules: [
       "Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.",
       "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.",

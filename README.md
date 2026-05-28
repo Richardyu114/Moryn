@@ -412,7 +412,10 @@ and returns boot, refresh, and handoff context. If the project is unclear, it
 initializes/pulls the shared store when `sync_remote` is provided, then returns
 known projects sorted by recent activity; each project includes a prefilled
 `agent_start` command and argument template carrying `current_task`,
-`sync_remote`, and `agent`.
+`sync_remote`, and `agent`. The top-level `next.actions` for discovered
+projects also include lifecycle templates for status, finish, and refresh using
+the selected `project_id`, so agents do not need to reconstruct follow-up
+commands after choosing a project.
 
 When setup is uncertain:
 

@@ -670,7 +670,9 @@ the project is unclear but the store has known project records, it returns
 `project_list` results with complete `agent_start` command and MCP argument
 templates for each project. If the local store is empty and `sync_remote` is
 provided, it initializes Git sync and pulls the shared store before choosing
-between project discovery and startup.
+between project discovery and startup. In `discover_projects` mode, each
+top-level start action also includes lifecycle templates for status, finish,
+and refresh using the selected `project_id`.
 
 CLI:
 
@@ -732,6 +734,9 @@ Agents should call this before `agent_start` when the user references a shared
 store but does not provide a project path or project id. `project_list` accepts
 optional `current_task`, `sync_remote`, and `agent` fields so each returned
 project includes a complete `agent_start` command and MCP argument template.
+When surfaced through `agent_enter`, these project actions also carry
+post-selection lifecycle templates so agents can continue without reconstructing
+commands from prose.
 
 ### `agent_start`
 

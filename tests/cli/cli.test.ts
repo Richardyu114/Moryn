@@ -1665,7 +1665,11 @@ describe("moryn CLI", () => {
       const parsed = JSON.parse(entered.stdout) as {
         mode: string;
         projects: { projects: Array<{ project_id: string; next: { command: string } }> };
-        next: { recommended_action: string; tool: string };
+        next: {
+          recommended_action: string;
+          tool: string;
+          actions: Array<{ project_id: string; lifecycle?: Array<{ step: string; tool: string; command: string; required_fields: string[] }> }>;
+        };
       };
 
       expect(parsed.mode).toBe("discover_projects");
@@ -1675,6 +1679,12 @@ describe("moryn CLI", () => {
       });
       expect(parsed.projects.projects[0]?.project_id).toBe("moryn");
       expect(parsed.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter");
+      expect(parsed.next.actions[0]?.lifecycle).toContainEqual(expect.objectContaining({
+        step: "finish_handoff",
+        tool: "agent_finish",
+        command: "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter --summary <summary>",
+        required_fields: ["summary"]
+      }));
     });
   });
 
