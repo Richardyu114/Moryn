@@ -5,6 +5,7 @@ import { isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySc
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MemoraEvent, MemoraRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { createId } from "./id.js";
+import { searchableRecordText } from "./content-text.js";
 
 interface EngineDeps {
   storePath: string;
@@ -87,15 +88,8 @@ function textOf(record: MemoraRecord): string {
   return String(record.content.text ?? "");
 }
 
-function contentValueText(value: unknown): string {
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map(contentValueText).filter(Boolean).join(" ");
-  if (typeof value === "object" && value !== null) return Object.values(value).map(contentValueText).filter(Boolean).join(" ");
-  return "";
-}
-
 function searchableText(record: MemoraRecord): string {
-  return contentValueText(record.content);
+  return searchableRecordText(record);
 }
 
 function validateLimit(limit: number | undefined, fallback: number): number {

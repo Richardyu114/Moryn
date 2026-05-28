@@ -1100,6 +1100,34 @@ describe("core engine", () => {
     });
   });
 
+  it("does not recall records solely from structured content metadata values", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => `2026-05-27T00:00:0${nextId}.000Z`, id: (prefix) => `${prefix}_${++nextId}` });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: {
+          format: "json",
+          summary: "Structured metadata should not create a format-only match."
+        },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const recall = await engine.recall({
+        query: "json",
+        project_id: "memora",
+        limit: 5
+      });
+
+      expect(recall.results).toEqual([]);
+    });
+  });
+
   it("recalls with explicit scope filtering", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

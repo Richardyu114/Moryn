@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { replayEvents } from "./replay.js";
 import { readEvents } from "./store.js";
 import type { MemoraRecord } from "./types.js";
+import { searchableRecordText } from "./content-text.js";
 
 export interface RebuildResult {
   ok: true;
@@ -12,7 +13,7 @@ export interface RebuildResult {
 }
 
 function textOf(record: MemoraRecord): string {
-  return String(record.content.text ?? "");
+  return searchableRecordText(record);
 }
 
 function active(records: MemoraRecord[]): MemoraRecord[] {

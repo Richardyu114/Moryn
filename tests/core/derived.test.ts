@@ -99,6 +99,20 @@ describe("derived views", () => {
         source: { client: "test" }
       });
       await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: {
+          format: "json",
+          summary: "Structured derived index content.",
+          files: ["src/derived.ts"],
+          evidence: ["mcp-parity"]
+        },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
         kind: "skill",
         type: "procedure",
         scope: "global",
@@ -110,7 +124,7 @@ describe("derived views", () => {
 
       const result = await rebuildDerivedViews(storePath);
 
-      expect(result.records).toBe(10);
+      expect(result.records).toBe(11);
       expect(result.projects).toEqual(["memora", "other"]);
       expect(result.skills).toBe(1);
 
@@ -127,6 +141,7 @@ describe("derived views", () => {
       const firstRecallRaw = await readFile(join(storePath, "indexes", "recall.json"), "utf8");
       const recall = JSON.parse(firstRecallRaw) as { records: Array<{ id: string; text: string; tags: string[] }> };
       expect(recall.records.map((record) => record.text)).toContain("Use Git sync.");
+      expect(recall.records.map((record) => record.text)).toContain("Structured derived index content. src/derived.ts mcp-parity");
 
       await rm(join(storePath, "snapshots"), { recursive: true, force: true });
       await rm(join(storePath, "indexes"), { recursive: true, force: true });
@@ -134,8 +149,8 @@ describe("derived views", () => {
       const rebuiltRecallRaw = await readFile(join(storePath, "indexes", "recall.json"), "utf8");
       const rebuiltRecall = JSON.parse(rebuiltRecallRaw) as { records: Array<{ id: string }> };
 
-      expect(rebuilt.records).toBe(10);
-      expect(rebuiltRecall.records).toHaveLength(10);
+      expect(rebuilt.records).toBe(11);
+      expect(rebuiltRecall.records).toHaveLength(11);
       expect(rebuiltRecallRaw).toBe(firstRecallRaw);
     });
   });
