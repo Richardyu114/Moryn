@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { initializeStore } from "../../src/core/config.js";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
-import { agentDoctor, agentFinish, agentStart } from "../../src/core/agent-lifecycle.js";
+import { agentDoctor, agentFinish, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
 import { initializeGitSync, pullGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
@@ -168,6 +168,61 @@ describe("agent lifecycle", () => {
       expect(firstStart.refresh.changes).toContainEqual(expect.objectContaining({
         summary: "Fresh Codex device bootstrapped Moryn and pushed a handoff.",
         importance: "notice"
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
+
+  it("shares in-progress agent status across fresh device stores", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-status-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-codex");
+    const storeB = join(root, "store-gemini");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+
+      const status = await agentStatus({
+        storePath: storeA,
+        projectPath: project,
+        syncRemote: remote,
+        agent: { client: "codex", session_id: "codex-status" },
+        status: "Codex is refactoring lifecycle status propagation.",
+        currentTask: "lifecycle status propagation"
+      });
+
+      expect(status.bootstrap.initialized_store).toBe(true);
+      expect(status.record).toMatchObject({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: expect.objectContaining({
+          text: "Codex is refactoring lifecycle status propagation.",
+          current_task: "lifecycle status propagation"
+        })
+      });
+      expect(status.sync.push?.pushed).toBe(true);
+
+      const start = await agentStart({
+        storePath: storeB,
+        projectPath: project,
+        syncRemote: remote,
+        agent: { client: "gemini", session_id: "gemini-status" },
+        currentTask: "coordinate lifecycle status propagation",
+        refreshSince: "2000-01-01T00:00:00.000Z"
+      });
+
+      expect(start.refresh.changes).toContainEqual(expect.objectContaining({
+        importance: "notice",
+        summary: "Codex is refactoring lifecycle status propagation.",
+        recommended_action: "call recall with record_id"
+      }));
+      expect(start.boot.recent_changes).toContainEqual(expect.objectContaining({
+        type: "status",
+        content: expect.objectContaining({ text: "Codex is refactoring lifecycle status propagation." })
       }));
     } finally {
       await rm(root, { recursive: true, force: true });

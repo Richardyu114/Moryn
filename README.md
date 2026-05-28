@@ -229,6 +229,7 @@ The current MCP server uses the official Model Context Protocol TypeScript SDK o
 - `agent_doctor`
 - `agent_finish`
 - `agent_start`
+- `agent_status`
 - `boot`
 - `project_init`
 - `recall`
@@ -301,6 +302,7 @@ Shell-based agents can use the CLI directly:
 ```bash
 moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
 moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
+moryn agent status --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex --status "Currently investigating auth refresh failures."
 moryn recall "missing context" --project . --scope project --kind memory --kind skill
 moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store.git --agent codex --summary "Finished the task summary."
 ```
@@ -314,10 +316,12 @@ exact `agent_start` command plus MCP arguments to use next.
 `.moryn.json`, creates the store if needed, initializes sync when
 `--sync-remote` is provided, pulls remote events when sync is configured,
 returns boot context, and reports important changes since an optional cursor.
-`agent finish` writes a `session_summary` handoff and pushes it when sync is
-configured. These commands are intentionally safer for agents than asking them
-to remember a manual sequence of `init`, `sync init`, `sync --pull`, `boot`,
-`refresh`, `write`, and `sync --push`.
+`agent status` writes an in-progress project status checkpoint and pushes it
+when sync is configured, so another agent can see active work before the final
+handoff. `agent finish` writes a final `session_summary` handoff and pushes it
+when sync is configured. These commands are intentionally safer for agents than
+asking them to remember a manual sequence of `init`, `sync init`, `sync --pull`,
+`boot`, `refresh`, `write`, and `sync --push`.
 
 ## Current MVP Commands
 
@@ -327,6 +331,7 @@ The current implementation includes these commands:
 moryn init
 moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
+moryn agent status --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex --status "Currently tracing auth refresh failures."
 moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store.git --agent codex --summary "Finished auth wiring and left handoff notes."
 moryn boot --project-id moryn --current-task "fix auth"
 moryn write --kind memory --type decision --scope project --project-id moryn --tag sync --state canonical --text "Use append-only events"
@@ -386,6 +391,16 @@ refresh(cursor, current_task)
 ```
 
 This reports new changes as `silent`, `notice`, or `interrupt`.
+
+During meaningful long-running work:
+
+```text
+agent_status(project_path, status, current_task, agent)
+```
+
+This records an in-progress status checkpoint and pushes it when sync is
+configured. Other agents see it through `agent_start.refresh.changes` and
+`boot.recent_changes`.
 
 When existing memory or skill needs correction:
 

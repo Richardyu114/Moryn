@@ -31,6 +31,11 @@ export interface AgentFinishInput extends AgentLifecycleInput {
   push?: boolean;
 }
 
+export interface AgentStatusInput extends AgentLifecycleInput {
+  status: string;
+  push?: boolean;
+}
+
 type DoctorSeverity = "ok" | "notice" | "warning";
 
 export interface AgentDoctorInput extends AgentLifecycleInput {}
@@ -322,6 +327,56 @@ export async function agentFinish(input: AgentFinishInput) {
     sync,
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>"
+    }
+  };
+}
+
+export async function agentStatus(input: AgentStatusInput) {
+  const bootstrap = await ensureLifecycleBootstrap(input);
+  const project = await resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
+  const projectInfo = projectEnvelope(project);
+  const engine = createEngine({ storePath: input.storePath });
+  const record = await engine.write({
+    kind: "session_summary",
+    type: "status",
+    scope: "project",
+    project_id: project.project_id,
+    tags: projectInfo.tags,
+    content: {
+      text: input.status,
+      format: "json",
+      current_task: input.currentTask,
+      status: input.status
+    },
+    source: sourceFromAgent(input.agent)
+  });
+  const shouldPush = input.push ?? projectInfo.sync_mode !== "manual";
+  const sync: {
+    push?: GitSyncResult;
+    push_error?: string;
+    status?: GitSyncStatus;
+  } = {};
+
+  if (shouldPush) {
+    const pushed = await trySync(() => pushGitSync(input.storePath, { message: `agent status: ${project.project_id}` }));
+    if (pushed.ok) {
+      sync.push = pushed.result;
+    } else {
+      sync.push_error = pushed.error;
+    }
+  }
+  sync.status = await getGitSyncStatus(input.storePath);
+
+  return {
+    ok: true,
+    agent: sourceFromAgent(input.agent),
+    project: projectInfo,
+    bootstrap,
+    record: record.record,
+    warning: record.warning,
+    sync,
+    next: {
+      recommended_finish_action: "call agent_finish with the final session_summary when meaningful work ends"
     }
   };
 }

@@ -59,6 +59,7 @@ describe("MCP stdio server", () => {
           "agent_doctor",
           "agent_finish",
           "agent_start",
+          "agent_status",
           "archive",
           "boot",
           "init",
@@ -435,6 +436,61 @@ describe("MCP stdio server", () => {
           expect(start.sync.pull?.pulled).toBe(true);
           expect(start.refresh.changes).toContainEqual(expect.objectContaining({
             summary: "MCP fresh store wrote the first handoff."
+          }));
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
+
+  it("shares in-progress agent status through MCP", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-status-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "fresh-store-a");
+    const storeB = join(root, "fresh-store-b");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await withMcpClient(storeA, async (agentA) => {
+        await withMcpClient(storeB, async (agentB) => {
+          const status = parseTextContent(await agentA.callTool({
+            name: "agent_status",
+            arguments: {
+              project_path: project,
+              sync_remote: remote,
+              current_task: "coordinate MCP status",
+              status: "MCP Codex is currently wiring status propagation.",
+              agent: { client: "codex", session_id: "codex-mcp-status" }
+            }
+          })) as {
+            record: { kind: string; type: string; content: { text: string; current_task?: string } };
+            sync: { push?: { pushed?: boolean } };
+          };
+          expect(status.record).toMatchObject({
+            kind: "session_summary",
+            type: "status",
+            content: {
+              text: "MCP Codex is currently wiring status propagation.",
+              current_task: "coordinate MCP status"
+            }
+          });
+          expect(status.sync.push?.pushed).toBe(true);
+
+          const start = parseTextContent(await agentB.callTool({
+            name: "agent_start",
+            arguments: {
+              project_path: project,
+              sync_remote: remote,
+              current_task: "coordinate MCP status",
+              refresh_since: "2000-01-01T00:00:00.000Z",
+              agent: { client: "gemini", session_id: "gemini-mcp-status" }
+            }
+          })) as { refresh: { changes: Array<{ summary: string; importance: string }> } };
+          expect(start.refresh.changes).toContainEqual(expect.objectContaining({
+            summary: "MCP Codex is currently wiring status propagation.",
+            importance: "notice"
           }));
         });
       });

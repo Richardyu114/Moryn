@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { Command, CommanderError } from "commander";
 import { version } from "./index.js";
-import { agentDoctor, agentFinish, agentStart } from "./core/agent-lifecycle.js";
+import { agentDoctor, agentFinish, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
@@ -407,6 +407,30 @@ agent.command("start")
       refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
       limit: parseLimit(options.limit),
       pull: parseBooleanDefault(options.pull, true),
+      agent: parseAgentOptions(options)
+    }));
+  });
+
+agent.command("status")
+  .requiredOption("--status <text>")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--sync-remote <remote>", "Initialize or connect Git sync before publishing status")
+  .option("--current-task <task>")
+  .option("--no-push", "Do not push sync after writing the status")
+  .option("--agent <client>", "Agent client name")
+  .option("--session-id <id>")
+  .option("--model <model>")
+  .option("--device-id <id>")
+  .action(async (options) => {
+    printJson(await agentStatus({
+      storePath: storePath(),
+      projectPath: options.project,
+      projectId: options.projectId,
+      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+      status: parseNonEmptyString(options.status, "--status")!,
+      push: parseBooleanDefault(options.push, true),
       agent: parseAgentOptions(options)
     }));
   });

@@ -704,6 +704,25 @@ handoff summary is intentionally visible to the next agent through
 or MCP `sync_remote` is provided, `agent_finish` creates the local store if
 needed and initializes Git sync before writing and pushing the handoff.
 
+### `agent_status`
+
+Used as the default in-progress agent checkpoint. It writes a project-scoped
+`session_summary` with `type=status` and pushes remote event history when
+session sync is enabled.
+
+CLI:
+
+```bash
+moryn agent status --project . --sync-remote git@github.com:yourname/moryn-store.git --agent codex --current-task "fix auth" --status "Currently tracing auth refresh failures."
+```
+
+MCP tool: `agent_status`.
+
+Agents should prefer this over manually composing `write` and `sync_push` for
+in-progress coordination. Status records are intentionally visible to the next
+agent through `agent_start.refresh.changes` and `boot.recent_changes`, while
+remaining distinguishable from final handoffs by `type=status`.
+
 ### `rebuild`
 
 Used to regenerate snapshots and indexes from event history.
@@ -786,18 +805,20 @@ Agents should follow this contract:
 2. Pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
 3. Call `agent_start` at task start.
 4. Call `recall` when context is missing or uncertain.
-5. Call `agent_start` again with a previous cursor, or call `refresh`, when the user asks to refresh memory.
-6. Call `agent_finish` at the end of meaningful work.
-7. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
-8. Write raw notes as `agent_note`, not canonical memory.
-9. Do not promote long-term preferences, soul records, or global skills without user confirmation.
-10. Treat sync `interrupt` results as a reason to pause and inspect related records.
+5. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread.
+6. Call `agent_start` again with a previous cursor, or call `refresh`, when the user asks to refresh memory.
+7. Call `agent_finish` at the end of meaningful work.
+8. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
+9. Write raw notes as `agent_note`, not canonical memory.
+10. Do not promote long-term preferences, soul records, or global skills without user confirmation.
+11. Treat sync `interrupt` results as a reason to pause and inspect related records.
 
 Cross-agent handoff depends on the lifecycle commands, not agent awareness of
 each other. Codex, Gemini, and other agents can run on separate machines if they
-share the same Moryn sync repo: `agent_finish` writes and pushes session facts;
-the next `agent_start` initializes local state if needed, pulls remote events,
-and returns relevant handoffs through boot and refresh.
+share the same Moryn sync repo: `agent_status` writes in-progress checkpoints,
+`agent_finish` writes final session facts, and the next `agent_start`
+initializes local state if needed, pulls remote events, and returns relevant
+updates through boot and refresh.
 
 Moryn cannot force-push new content into a running agent context. Agents or host
 applications must call `agent_start`, `refresh`, or `recall`.

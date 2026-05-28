@@ -1223,6 +1223,56 @@ describe("moryn CLI", () => {
     });
   }, 30000);
 
+  it("shares in-progress agent status from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      const remote = join(dir, "remote.git");
+      const storeA = join(dir, "fresh-store-a");
+      const storeB = join(dir, "fresh-store-b");
+      const project = join(dir, "project");
+      await exec("git", ["init", "--bare", remote]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
+
+      const status = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", storeA,
+        "agent", "status",
+        "--project", project,
+        "--sync-remote", remote,
+        "--agent", "codex",
+        "--session-id", "codex-cli-status",
+        "--current-task", "coordinate status",
+        "--status", "CLI Codex is currently wiring status propagation."
+      ]);
+      const parsedStatus = JSON.parse(status.stdout) as {
+        record: { kind: string; type: string; content: { text: string; current_task?: string } };
+        sync: { push?: { pushed?: boolean } };
+      };
+      expect(parsedStatus.record).toMatchObject({
+        kind: "session_summary",
+        type: "status",
+        content: {
+          text: "CLI Codex is currently wiring status propagation.",
+          current_task: "coordinate status"
+        }
+      });
+      expect(parsedStatus.sync.push?.pushed).toBe(true);
+
+      const start = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", storeB,
+        "agent", "start",
+        "--project", project,
+        "--sync-remote", remote,
+        "--agent", "gemini",
+        "--current-task", "coordinate status",
+        "--refresh-since", "2000-01-01T00:00:00.000Z"
+      ]);
+      const parsedStart = JSON.parse(start.stdout) as { refresh: { changes: Array<{ summary: string; importance: string }> } };
+      expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
+        summary: "CLI Codex is currently wiring status propagation.",
+        importance: "notice"
+      }));
+    });
+  }, 30000);
+
   it("returns read-only agent doctor guidance for a fresh CLI device", async () => {
     await withTempDir(async (dir) => {
       const remote = join(dir, "remote.git");
