@@ -583,6 +583,7 @@ describe("MCP stdio server", () => {
           next: {
             tool: string;
             command: string;
+            actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
             arguments: {
               project_path?: string;
               sync_remote?: string;
@@ -597,6 +598,13 @@ describe("MCP stdio server", () => {
         expect(doctor.sync).toMatchObject({ configured: false, expected_remote: remote });
         expect(doctor.next.tool).toBe("agent_start");
         expect(doctor.next.command).toContain("moryn agent start");
+        expect(doctor.next.actions).toContainEqual(expect.objectContaining({
+          action: "run_lifecycle_smoke",
+          tool: "moryn-agent-smoke",
+          command: expect.stringContaining("moryn-agent-smoke"),
+          required_fields: [],
+          arguments: expect.objectContaining({ remote })
+        }));
         expect(doctor.next.arguments).toMatchObject({
           project_path: project,
           sync_remote: remote,

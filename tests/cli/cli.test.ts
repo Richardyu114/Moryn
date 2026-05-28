@@ -1354,7 +1354,12 @@ describe("moryn CLI", () => {
         store: { initialized: boolean };
         project: { ok: boolean; project_id?: string };
         sync: { configured: boolean; expected_remote?: string };
-        next: { command: string; tool: string; arguments: { project_path?: string; sync_remote?: string; agent?: { client?: string } } };
+        next: {
+          command: string;
+          tool: string;
+          arguments: { project_path?: string; sync_remote?: string; agent?: { client?: string } };
+          actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+        };
       };
       expect(parsed.store.initialized).toBe(false);
       expect(parsed.project).toMatchObject({ ok: true, project_id: "moryn" });
@@ -1362,6 +1367,13 @@ describe("moryn CLI", () => {
       expect(parsed.next.tool).toBe("agent_start");
       expect(parsed.next.command).toContain("moryn agent start");
       expect(parsed.next.command).toContain("--sync-remote");
+      expect(parsed.next.actions).toContainEqual(expect.objectContaining({
+        action: "run_lifecycle_smoke",
+        tool: "moryn-agent-smoke",
+        command: expect.stringContaining("moryn-agent-smoke"),
+        required_fields: [],
+        arguments: expect.objectContaining({ remote })
+      }));
       expect(parsed.next.arguments).toMatchObject({
         project_path: project,
         sync_remote: remote,

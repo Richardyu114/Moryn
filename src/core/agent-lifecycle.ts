@@ -276,6 +276,39 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
   ];
 }
 
+function buildLifecycleSmokeCommand(input: AgentLifecycleInput): string {
+  const parts = ["moryn-agent-smoke"];
+  appendOption(parts, "--remote", input.syncRemote);
+  return parts.join(" ");
+}
+
+function lifecycleSmokeActionArguments(input: AgentLifecycleInput): {
+  remote?: string;
+} {
+  return {
+    remote: input.syncRemote
+  };
+}
+
+function doctorNextActions(input: AgentLifecycleInput) {
+  return [
+    {
+      action: "start_session",
+      tool: "agent_start",
+      command: buildAgentStartCommand(input),
+      required_fields: [],
+      arguments: agentStartActionArguments(input)
+    },
+    {
+      action: "run_lifecycle_smoke",
+      tool: "moryn-agent-smoke",
+      command: buildLifecycleSmokeCommand(input),
+      required_fields: input.syncRemote ? [] : ["remote"],
+      arguments: lifecycleSmokeActionArguments(input)
+    }
+  ];
+}
+
 async function initializeLifecycleSync(storePath: string, syncRemote: string | undefined, result: BootstrapResult): Promise<void> {
   if (!syncRemote) return;
   const initialized = await trySync(() => initializeGitSync(storePath, syncRemote));
@@ -354,6 +387,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
         tool: "agent_start",
         safe_to_run: true,
         command: buildAgentStartCommand(input),
+        actions: doctorNextActions(input),
         arguments: {
           project_path: input.projectPath,
           project_id: input.projectId,

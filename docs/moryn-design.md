@@ -660,7 +660,9 @@ MCP tool: `agent_doctor`.
 Agents should call this when they are unsure whether Moryn has been initialized
 or connected to the shared sync repo. The command must not initialize stores,
 write memory, pull, or push; it is safe to run before asking for approval to
-mutate local or remote state.
+mutate local or remote state. Its `next.actions` includes `start_session` and
+`run_lifecycle_smoke` templates so agents can start or verify the shared Git
+path without inferring commands from prose.
 
 ### `agent_start`
 
@@ -810,7 +812,7 @@ moryn list-recent --limit 20
 
 Agents should follow this contract:
 
-1. On a new machine, fresh store, or uncertain setup, call `agent_doctor` first.
+1. On a new machine, fresh store, or uncertain setup, call `agent_doctor` first, then follow `agent_doctor.next.actions`.
 2. Pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
 3. Call `agent_start` at task start.
 4. Call `recall` when context is missing or uncertain.

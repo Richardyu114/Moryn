@@ -362,8 +362,9 @@ When setup is uncertain:
 agent_doctor(project_path, sync_remote, current_task, agent)
 ```
 
-This is read-only. It returns setup checks and the exact `agent_start` command
-and MCP arguments an agent should use next.
+This is read-only. It returns setup checks, the exact `agent_start` command and
+MCP arguments an agent should use next, plus machine-readable `next.actions`
+templates for starting safely and running `moryn-agent-smoke`.
 
 At task start:
 

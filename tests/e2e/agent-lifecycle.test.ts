@@ -342,6 +342,15 @@ describe("agent lifecycle", () => {
         tool: "agent_start",
         safe_to_run: true
       });
+      expect(doctor.next.actions).toContainEqual(expect.objectContaining({
+        action: "run_lifecycle_smoke",
+        tool: "moryn-agent-smoke",
+        command: expect.stringContaining("moryn-agent-smoke"),
+        required_fields: [],
+        arguments: expect.objectContaining({
+          remote
+        })
+      }));
       expect(doctor.next.command).toContain("moryn agent start");
       expect(doctor.next.command).toContain("--sync-remote");
       expect(doctor.next.arguments).toMatchObject({
