@@ -482,6 +482,9 @@ record id before retrying a mutation.
 Remote sync unavailable errors return a safe read-only `sync_status` next
 action, so agents inspect remote health before retrying pull/push while
 continuing to use the local store.
+Sync conflict errors also return a safe read-only `sync_status` next action, so
+agents inspect Git sync state before retrying pull/push or attempting manual
+conflict resolution.
 Project-scoped writes that omit project context return a safe `project_list`
 next action and keep `scope: project` in `next_action.rejected_arguments`, so
 agents discover the project instead of guessing `project_id`.

@@ -267,6 +267,14 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         arguments: {},
         safe_to_run: true
       };
+    case "SYNC_CONFLICT":
+      return {
+        recommended_action: "inspect_sync_conflict_before_retrying",
+        tool: "sync_status",
+        command: "moryn sync --status",
+        arguments: {},
+        safe_to_run: true
+      };
     case "RECORD_NOT_FOUND":
       {
         const recordId = missingRecordIdFromMessage(message);

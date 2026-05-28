@@ -491,6 +491,64 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns safe sync status recovery actions for sync conflicts over MCP", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-sync-conflict-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    const conflictFile = join("events", "shared-device", "2026-05", "evt_conflict.json");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await withMcpClient(storeA, async (agentA) => {
+        await withMcpClient(storeB, async (agentB) => {
+          expect((parseTextContent(await agentA.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+          expect((parseTextContent(await agentB.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+          expect((parseTextContent(await agentA.callTool({ name: "sync_init", arguments: { remote } })) as { ok: boolean }).ok).toBe(true);
+          expect((parseTextContent(await agentB.callTool({ name: "sync_init", arguments: { remote } })) as { ok: boolean }).ok).toBe(true);
+
+          await mkdir(join(storeA, "events", "shared-device", "2026-05"), { recursive: true });
+          await mkdir(join(storeB, "events", "shared-device", "2026-05"), { recursive: true });
+          await writeFile(join(storeA, conflictFile), "{\"from\":\"a\"}\n", "utf8");
+          await writeFile(join(storeB, conflictFile), "{\"from\":\"b\"}\n", "utf8");
+          await exec("git", ["add", conflictFile], { cwd: storeA });
+          await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: storeA });
+          await exec("git", ["push", "-u", "origin", "main"], { cwd: storeA });
+          await exec("git", ["add", conflictFile], { cwd: storeB });
+          await exec("git", ["commit", "-m", "device b conflicting event"], { cwd: storeB });
+
+          const response = await agentB.callTool({ name: "sync_pull", arguments: {} });
+          expect("isError" in response ? response.isError : false).toBe(true);
+          const result = parseTextContent(response) as {
+            ok: boolean;
+            error: {
+              code: string;
+              recommended_action: string;
+              next_action?: {
+                recommended_action: string;
+                tool: string;
+                command: string;
+                arguments: Record<string, unknown>;
+                safe_to_run: boolean;
+              };
+            };
+          };
+          expect(result.ok).toBe(false);
+          expect(result.error.code).toBe("SYNC_CONFLICT");
+          expect(result.error.recommended_action).toBe("inspect Git sync state before retrying");
+          expect(result.error.next_action).toEqual({
+            recommended_action: "inspect_sync_conflict_before_retrying",
+            tool: "sync_status",
+            command: "moryn sync --status",
+            arguments: {},
+            safe_to_run: true
+          });
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
+
   it("exposes low-friction agent lifecycle over MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-lifecycle-"));
     const remote = join(root, "remote.git");

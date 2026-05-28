@@ -73,6 +73,25 @@ describe("error envelopes", () => {
     });
   });
 
+  it("returns a safe status check action when sync has a git conflict", () => {
+    const envelope = toErrorEnvelope(new Error("CONFLICT (add/add): Merge conflict in events/device/2026-05/evt.json"));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "SYNC_CONFLICT",
+        recommended_action: "inspect Git sync state before retrying",
+        next_action: {
+          recommended_action: "inspect_sync_conflict_before_retrying",
+          tool: "sync_status",
+          command: "moryn sync --status",
+          arguments: {},
+          safe_to_run: true
+        }
+      }
+    });
+  });
+
   it("returns a machine-readable recovery action for uninitialized stores", () => {
     const envelope = toErrorEnvelope(new Error("Store not initialized"));
 

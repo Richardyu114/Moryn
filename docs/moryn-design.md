@@ -1465,6 +1465,29 @@ local boot, recall, and write workflows:
 }
 ```
 
+Sync conflict errors return a safe read-only status action. Agents should
+inspect Git sync state before retrying pull/push or attempting manual conflict
+resolution:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "SYNC_CONFLICT",
+    "message": "CONFLICT (add/add): Merge conflict in events/device/2026-05/evt.json",
+    "recoverable": true,
+    "recommended_action": "inspect Git sync state before retrying",
+    "next_action": {
+      "recommended_action": "inspect_sync_conflict_before_retrying",
+      "tool": "sync_status",
+      "command": "moryn sync --status",
+      "arguments": {},
+      "safe_to_run": true
+    }
+  }
+}
+```
+
 Missing record errors keep the rejected id in metadata and point agents at
 recent records before retrying a mutation:
 

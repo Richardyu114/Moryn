@@ -1260,6 +1260,64 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("returns safe sync status recovery actions for sync conflicts", async () => {
+    await withTempDir(async (dir) => {
+      const remote = join(dir, "remote.git");
+      const storeA = join(dir, "store-a");
+      const storeB = join(dir, "store-b");
+      const conflictFile = join("events", "shared-device", "2026-05", "evt_conflict.json");
+      await exec("git", ["init", "--bare", remote]);
+
+      for (const store of [storeA, storeB]) {
+        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "sync", "init", remote]);
+      }
+
+      await mkdir(join(storeA, "events", "shared-device", "2026-05"), { recursive: true });
+      await mkdir(join(storeB, "events", "shared-device", "2026-05"), { recursive: true });
+      await writeFile(join(storeA, conflictFile), "{\"from\":\"a\"}\n", "utf8");
+      await writeFile(join(storeB, conflictFile), "{\"from\":\"b\"}\n", "utf8");
+      await exec("git", ["add", conflictFile], { cwd: storeA });
+      await exec("git", ["commit", "-m", "device a conflicting event"], { cwd: storeA });
+      await exec("git", ["push", "-u", "origin", "main"], { cwd: storeA });
+      await exec("git", ["add", conflictFile], { cwd: storeB });
+      await exec("git", ["commit", "-m", "device b conflicting event"], { cwd: storeB });
+
+      try {
+        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--pull"]);
+        throw new Error("Expected sync pull to fail with a conflict");
+      } catch (error) {
+        const stderr = (error as { stderr: string }).stderr;
+        const parsed = JSON.parse(stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("SYNC_CONFLICT");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("inspect Git sync state before retrying");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "inspect_sync_conflict_before_retrying",
+          tool: "sync_status",
+          command: "moryn sync --status",
+          arguments: {},
+          safe_to_run: true
+        });
+      }
+    });
+  });
+
   it("rebuilds derived snapshots and indexes from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
