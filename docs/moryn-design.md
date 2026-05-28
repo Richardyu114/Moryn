@@ -686,7 +686,9 @@ MCP tool: `agent_enter`.
 Agents should prefer this when they are entering a project or shared store and
 do not know whether they need setup diagnosis, project discovery, or full
 startup context. It reduces multi-step orchestration errors by returning a
-single `mode`: `start_session`, `discover_projects`, or `needs_setup`.
+single `mode`: `start_session`, `discover_projects`, or `needs_setup`. If an
+explicit `project_path` does not exist, lifecycle commands return `needs_setup`
+with `project_init`; they do not silently derive a new project id from the typo.
 
 ### `agent_doctor`
 

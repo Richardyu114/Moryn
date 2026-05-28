@@ -885,6 +885,61 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("does not recommend agent_start through MCP when an explicit project path is missing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-missing-project-"));
+    const store = join(root, "store");
+    const missingProject = join(root, "missing-project");
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const doctor = parseTextContent(await client.callTool({
+          name: "agent_doctor",
+          arguments: {
+            project_path: missingProject,
+            current_task: "avoid typo path",
+            agent: { client: "codex" }
+          }
+        })) as {
+          project: { ok: boolean; error?: string };
+          next: { tool: string; safe_to_run: boolean; command: string; arguments: { path?: string } };
+        };
+
+        expect(doctor.project.ok).toBe(false);
+        expect(doctor.project.error).toContain("Project path does not exist");
+        expect(doctor.next).toMatchObject({
+          tool: "project_init",
+          safe_to_run: false,
+          command: `moryn project init --path ${missingProject}`,
+          arguments: { path: missingProject }
+        });
+
+        const entered = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            project_path: missingProject,
+            current_task: "avoid typo path",
+            agent: { client: "codex" }
+          }
+        })) as {
+          mode: string;
+          next: { tool: string; safe_to_run: boolean; arguments: { path?: string } };
+        };
+
+        expect(entered).toMatchObject({
+          mode: "needs_setup",
+          next: {
+            tool: "project_init",
+            safe_to_run: false,
+            arguments: { path: missingProject }
+          }
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("resolves project paths and project config through MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-"));
     const store = join(root, "store");

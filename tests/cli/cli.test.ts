@@ -1711,6 +1711,50 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("does not start from the CLI when an explicit project path is missing", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const missingProject = join(dir, "missing-project");
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+
+      const doctor = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "doctor",
+        "--project", missingProject,
+        "--agent", "codex",
+        "--current-task", "avoid typo path"
+      ]);
+      const parsedDoctor = JSON.parse(doctor.stdout) as {
+        project: { ok: boolean; error?: string };
+        next: { tool: string; safe_to_run: boolean; command: string; arguments: { path?: string } };
+      };
+      expect(parsedDoctor.project.ok).toBe(false);
+      expect(parsedDoctor.project.error).toContain("Project path does not exist");
+      expect(parsedDoctor.next).toMatchObject({
+        tool: "project_init",
+        safe_to_run: false,
+        command: `moryn project init --path ${missingProject}`,
+        arguments: { path: missingProject }
+      });
+
+      const entered = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "enter",
+        "--project", missingProject,
+        "--agent", "codex",
+        "--current-task", "avoid typo path"
+      ]);
+      const parsedEnter = JSON.parse(entered.stdout) as { mode: string; next: { tool: string; safe_to_run: boolean } };
+      expect(parsedEnter).toMatchObject({
+        mode: "needs_setup",
+        next: {
+          tool: "project_init",
+          safe_to_run: false
+        }
+      });
+    });
+  });
+
   it("rejects invalid numeric limit options", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

@@ -1,3 +1,4 @@
+import { access } from "node:fs/promises";
 import { createEngine } from "./engine.js";
 import { initializeStore, readStoreConfig } from "./config.js";
 import { resolveProjectContext, type ProjectContext, type SyncMode } from "./project.js";
@@ -104,6 +105,20 @@ async function trySync<T>(fn: () => Promise<T>): Promise<{ ok: true; result: T }
 
 function isMissingStore(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+async function resolveLifecycleProjectContext(input: AgentLifecycleInput): Promise<ProjectContext> {
+  if (input.projectPath) {
+    try {
+      await access(input.projectPath);
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+        throw new Error(`Project path does not exist: ${input.projectPath}. Run project_init for a new project, or pass the correct project_path/project_id.`);
+      }
+      throw error;
+    }
+  }
+  return resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
 }
 
 function shellQuote(value: string): string {
@@ -644,7 +659,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
     });
   }
 
-  const project = await trySync(() => resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId }));
+  const project = await trySync(() => resolveLifecycleProjectContext(input));
   const projectResult = project.ok
     ? { ok: true, ...projectEnvelope(project.result) }
     : { ok: false, error: project.error };
@@ -819,7 +834,7 @@ export function agentGuide(input: AgentGuideInput) {
 
 export async function agentStart(input: AgentStartInput) {
   const bootstrap = await ensureLifecycleBootstrap(input);
-  const project = await resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
+  const project = await resolveLifecycleProjectContext(input);
   const projectInfo = projectEnvelope(project);
   const shouldPull = input.pull ?? projectInfo.sync_mode !== "manual";
   const sync: {
@@ -876,7 +891,7 @@ export async function agentStart(input: AgentStartInput) {
 
 export async function agentFinish(input: AgentFinishInput) {
   const bootstrap = await ensureLifecycleBootstrap(input);
-  const project = await resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
+  const project = await resolveLifecycleProjectContext(input);
   const projectInfo = projectEnvelope(project);
   const engine = createEngine({ storePath: input.storePath });
   const record = await engine.write({
@@ -922,7 +937,7 @@ export async function agentFinish(input: AgentFinishInput) {
 
 export async function agentStatus(input: AgentStatusInput) {
   const bootstrap = await ensureLifecycleBootstrap(input);
-  const project = await resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
+  const project = await resolveLifecycleProjectContext(input);
   const projectInfo = projectEnvelope(project);
   const engine = createEngine({ storePath: input.storePath });
   const record = await engine.write({

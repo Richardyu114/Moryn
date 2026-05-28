@@ -755,4 +755,57 @@ describe("agent lifecycle", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("does not recommend agent_start when an explicit project path is missing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-missing-project-"));
+    const store = join(root, "store");
+    const missingProject = join(root, "missing-project");
+    try {
+      await initializeStore(store);
+
+      const doctor = await agentDoctor({
+        storePath: store,
+        projectPath: missingProject,
+        agent: { client: "codex" },
+        currentTask: "avoid typo path"
+      });
+
+      expect(doctor.project).toMatchObject({
+        ok: false,
+        error: expect.stringContaining("Project path does not exist")
+      });
+      expect(doctor.checks).toContainEqual(expect.objectContaining({
+        name: "project",
+        ok: false,
+        severity: "warning"
+      }));
+      expect(doctor.next).toMatchObject({
+        recommended_action: "fix_project_config",
+        tool: "project_init",
+        safe_to_run: false,
+        command: `moryn project init --path ${missingProject}`,
+        arguments: {
+          path: missingProject
+        }
+      });
+
+      const entered = await agentEnter({
+        storePath: store,
+        projectPath: missingProject,
+        agent: { client: "codex" },
+        currentTask: "avoid typo path"
+      });
+
+      expect(entered).toMatchObject({
+        ok: true,
+        mode: "needs_setup",
+        next: {
+          tool: "project_init",
+          safe_to_run: false
+        }
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
