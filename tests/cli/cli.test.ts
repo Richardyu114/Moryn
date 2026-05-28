@@ -1460,7 +1460,7 @@ describe("moryn CLI", () => {
       const parsedFinish = JSON.parse(finish.stdout) as {
         record: { content: { text: string } };
         sync: { push?: { pushed?: boolean } };
-        next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+        next: { actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }> };
       };
       expect(parsedFinish.record.content.text).toBe("CLI Codex finished the lifecycle protocol.");
       expect(parsedFinish.sync.push?.pushed).toBe(true);
@@ -1468,6 +1468,7 @@ describe("moryn CLI", () => {
         action: "start_next_session",
         tool: "agent_start",
         command: expect.stringContaining("moryn agent start"),
+        required_when: "When another agent or device should start the next session from this handoff.",
         required_fields: ["current_task"],
         arguments: expect.objectContaining({
           project_path: project,
@@ -1489,7 +1490,7 @@ describe("moryn CLI", () => {
         project: { project_id: string };
         sync: { pull?: { pulled?: boolean } };
         refresh: { cursor: string; changes: Array<{ summary: string; importance: string }> };
-        next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+        next: { actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }> };
       };
       expect(parsedStart.project.project_id).toBe("moryn");
       expect(parsedStart.sync.pull?.pulled).toBe(true);
@@ -1501,6 +1502,7 @@ describe("moryn CLI", () => {
         action: "publish_status",
         tool: "agent_status",
         command: expect.stringContaining("moryn agent status"),
+        required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
         required_fields: ["status"],
         arguments: expect.objectContaining({
           project_path: project,
@@ -1512,6 +1514,7 @@ describe("moryn CLI", () => {
         action: "refresh_context",
         tool: "agent_start",
         command: expect.stringContaining("--refresh-since"),
+        required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
         required_fields: [],
         arguments: expect.objectContaining({
           project_path: project,
@@ -1626,7 +1629,7 @@ describe("moryn CLI", () => {
       const parsedStatus = JSON.parse(status.stdout) as {
         record: { kind: string; type: string; updated_at: string; content: { text: string; current_task?: string } };
         sync: { push?: { pushed?: boolean } };
-        next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+        next: { actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }> };
       };
       expect(parsedStatus.record).toMatchObject({
         kind: "session_summary",
@@ -1642,6 +1645,7 @@ describe("moryn CLI", () => {
         tool: "agent_finish",
         safe_to_run: false,
         command: expect.stringContaining("moryn agent finish"),
+        required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
         required_fields: ["summary"],
         arguments: expect.objectContaining({
           project_path: project,
@@ -1655,6 +1659,7 @@ describe("moryn CLI", () => {
         tool: "agent_start",
         safe_to_run: true,
         command: expect.stringContaining("--refresh-since"),
+        required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
         required_fields: [],
         arguments: expect.objectContaining({
           project_path: project,
@@ -1954,7 +1959,7 @@ describe("moryn CLI", () => {
       ], { cwd: dir });
       const parsed = JSON.parse(doctor.stdout) as {
         project: { ok: boolean };
-        next: { recommended_action: string; tool: string; command: string; safe_to_run: boolean; actions: Array<{ action: string; tool: string; command: string; required_fields: string[] }> };
+        next: { recommended_action: string; tool: string; command: string; safe_to_run: boolean; actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[] }> };
       };
 
       expect(parsed.next).toMatchObject({
@@ -1967,6 +1972,7 @@ describe("moryn CLI", () => {
         action: "list_projects",
         tool: "project_list",
         command: "moryn project list",
+        required_when: "When the shared store has projects but this agent has no explicit project context.",
         required_fields: []
       }));
     });
@@ -2042,7 +2048,7 @@ describe("moryn CLI", () => {
         next: {
           recommended_action: string;
           tool: string;
-          actions: Array<{ project_id: string; lifecycle?: Array<{ step: string; tool: string; safe_to_run: boolean; command: string; required_fields: string[] }> }>;
+          actions: Array<{ project_id: string; required_when?: string; lifecycle?: Array<{ step: string; tool: string; safe_to_run: boolean; command: string; required_fields: string[] }> }>;
         };
       };
 
@@ -2053,6 +2059,7 @@ describe("moryn CLI", () => {
       });
       expect(parsed.projects.projects[0]?.project_id).toBe("moryn");
       expect(parsed.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter");
+      expect(parsed.next.actions[0]?.required_when).toBe("After choosing this project from discovery results.");
       expect(parsed.next.actions[0]?.lifecycle).toContainEqual(expect.objectContaining({
         step: "finish_handoff",
         tool: "agent_finish",

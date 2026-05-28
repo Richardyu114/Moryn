@@ -664,7 +664,7 @@ describe("MCP stdio server", () => {
           })) as {
             record: { content: { text: string } };
             sync: { push?: { pushed?: boolean } };
-            next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+            next: { actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }> };
           };
           expect(finish.record.content.text).toBe("MCP Codex left a lifecycle handoff.");
           expect(finish.sync.push?.pushed).toBe(true);
@@ -672,6 +672,7 @@ describe("MCP stdio server", () => {
             action: "start_next_session",
             tool: "agent_start",
             command: expect.stringContaining("moryn agent start"),
+            required_when: "When another agent or device should start the next session from this handoff.",
             required_fields: ["current_task"],
             arguments: expect.objectContaining({
               project_path: project,
@@ -696,7 +697,7 @@ describe("MCP stdio server", () => {
               inbox: Array<{ text: string; agent: { client?: string; session_id?: string; device_id?: string }; recommended_action: string }>;
               active_sessions: Array<{ text: string }>;
             };
-            next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+            next: { actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }> };
           };
           expect(start.project.project_id).toBe("moryn");
           expect(start.sync.pull?.pulled).toBe(true);
@@ -717,6 +718,7 @@ describe("MCP stdio server", () => {
             tool: "agent_status",
             safe_to_run: false,
             command: expect.stringContaining("moryn agent status"),
+            required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
             required_fields: ["status"],
             arguments: expect.objectContaining({
               project_path: project,
@@ -729,6 +731,7 @@ describe("MCP stdio server", () => {
             tool: "agent_start",
             safe_to_run: true,
             command: expect.stringContaining("--refresh-since"),
+            required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
             required_fields: [],
             arguments: expect.objectContaining({
               project_path: project,
@@ -858,7 +861,7 @@ describe("MCP stdio server", () => {
           })) as {
             record: { kind: string; type: string; updated_at: string; content: { text: string; current_task?: string } };
             sync: { push?: { pushed?: boolean } };
-            next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+            next: { actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }> };
           };
           expect(status.record).toMatchObject({
             kind: "session_summary",
@@ -873,6 +876,7 @@ describe("MCP stdio server", () => {
             action: "finish_session",
             tool: "agent_finish",
             command: expect.stringContaining("moryn agent finish"),
+            required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
             required_fields: ["summary"],
             arguments: expect.objectContaining({
               project_path: project,
@@ -884,6 +888,7 @@ describe("MCP stdio server", () => {
             action: "refresh_context",
             tool: "agent_start",
             command: expect.stringContaining("--refresh-since"),
+            required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
             required_fields: [],
             arguments: expect.objectContaining({
               project_path: project,
@@ -1186,7 +1191,7 @@ describe("MCP stdio server", () => {
           }
         })) as {
           project: { ok: boolean };
-          next: { recommended_action: string; tool: string; command: string; safe_to_run: boolean; actions: Array<{ action: string; tool: string; command: string; required_fields: string[] }> };
+          next: { recommended_action: string; tool: string; command: string; safe_to_run: boolean; actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[] }> };
         };
 
         expect(doctor.next).toMatchObject({
@@ -1199,6 +1204,7 @@ describe("MCP stdio server", () => {
           action: "list_projects",
           tool: "project_list",
           command: "moryn project list",
+          required_when: "When the shared store has projects but this agent has no explicit project context.",
           required_fields: []
         }));
       }, store);
@@ -1284,7 +1290,7 @@ describe("MCP stdio server", () => {
           next: {
             recommended_action: string;
             tool: string;
-            actions: Array<{ project_id: string; lifecycle?: Array<{ step: string; tool: string; command: string; required_fields: string[] }> }>;
+            actions: Array<{ project_id: string; required_when?: string; lifecycle?: Array<{ step: string; tool: string; command: string; required_fields: string[] }> }>;
           };
         };
 
@@ -1295,6 +1301,7 @@ describe("MCP stdio server", () => {
         });
         expect(entered.projects.projects[0]?.project_id).toBe("moryn");
         expect(entered.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter");
+        expect(entered.next.actions[0]?.required_when).toBe("After choosing this project from discovery results.");
         expect(entered.next.actions[0]?.lifecycle).toContainEqual(expect.objectContaining({
           step: "publish_status",
           tool: "agent_status",

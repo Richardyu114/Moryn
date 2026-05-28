@@ -152,6 +152,9 @@ Deliverables:
 - Done: Lifecycle actions and guide templates mirror required field placeholders
   in `arguments` (`<status>`, `<summary>`, `<current_task>`, `<remote>`) so MCP
   agents can replace JSON fields instead of parsing command strings.
+- Done: Lifecycle `next.actions` now include `required_when` usage conditions
+  so agents can choose follow-up actions without relying on array order or
+  action-name guessing.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

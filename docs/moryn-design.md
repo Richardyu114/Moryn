@@ -753,7 +753,10 @@ project context from `.moryn.json`, its returned `next.actions` are prefilled
 with the resolved `project_id` so they can be reused outside the original cwd.
 When an action lists `required_fields`, the same required field appears in
 `arguments` with a `<field>` placeholder; agents should replace those JSON
-argument values rather than parse the CLI command template.
+argument values rather than parse the CLI command template. Lifecycle action
+templates also include `required_when`, a short usage condition that tells an
+agent when to choose that action instead of inferring intent from array order or
+action names.
 
 ### `agent_doctor`
 
@@ -855,11 +858,14 @@ recommended action so agents do not have to infer coordination state from
 `next.actions` field returns machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP
 tool name, CLI command template, required fields, prefilled arguments, and
-`safe_to_run`. The templates include status checkpoints, finish handoff, and
-refresh context (`agent_start` with `refresh_since` set to the returned cursor).
-Actions that only start, discover, inspect, or refresh lifecycle context are
-`safe_to_run: true`; actions that write agent-authored status or summary content
-are `safe_to_run: false`. Required authored values are still present in
+`safe_to_run`. Each template also carries `required_when` so an agent can choose
+between status, finish, refresh, discovery, and smoke-test actions without using
+array order as policy. The templates include status checkpoints, finish handoff,
+and refresh context (`agent_start` with `refresh_since` set to the returned
+cursor). Actions that only start, discover, inspect, or refresh lifecycle
+context are `safe_to_run: true`; actions that write agent-authored status or
+summary content are `safe_to_run: false`. Required authored values are still
+present in
 `arguments` as `<status>` and `<summary>` placeholders so MCP clients can update
 only those fields before calling the next tool.
 
@@ -884,8 +890,9 @@ or MCP `sync_remote` is provided, `agent_finish` creates the local store if
 needed and initializes Git sync before writing and pushing the handoff. Its
 `next.actions` includes a `start_next_session` template so another agent can
 restart through `agent_start` without inferring arguments from prose. That
-restart template is marked `safe_to_run: true`; when the next task is unknown,
-`arguments.current_task` is set to `"<current_task>"`.
+restart template is marked `safe_to_run: true` and carries `required_when` for
+next-session startup; when the next task is unknown, `arguments.current_task` is
+set to `"<current_task>"`.
 
 ### `agent_status`
 
@@ -908,7 +915,8 @@ remaining distinguishable from final handoffs by `type=status`. Its
 `next.actions` includes templates for `finish_session` and `refresh_context`
 using the status record timestamp as the next refresh cursor; `finish_session`
 is `safe_to_run: false` and carries `arguments.summary: "<summary>"`, while
-`refresh_context` is `safe_to_run: true`.
+`refresh_context` is `safe_to_run: true`. Both actions include `required_when`
+so agents can distinguish a handoff write from an automatic context refresh.
 
 ### `rebuild`
 

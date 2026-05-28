@@ -364,7 +364,9 @@ commands from another cwd or MCP host without relying on ambient directory
 state. When an action lists `required_fields`, the same field appears in
 `arguments` with a `<field>` placeholder; agents should replace those argument
 values and call the listed tool instead of parsing placeholders out of the CLI
-command string.
+command string. Lifecycle action templates also include `required_when`, a
+short usage condition that tells an agent when to choose that action instead of
+inferring intent from array order or action names.
 
 `agent start` is the low-friction startup command for agents. It resolves
 `.moryn.json`, creates the store if needed, initializes sync when
@@ -541,9 +543,10 @@ interrupts. Agents should prefer `agent_start` over manually composing
 before starting overlapping work, and read `agent_start.handoff.inbox` before
 continuing from another agent's final handoff. `agent_start.next.actions`
 includes machine-readable templates for the next safe lifecycle calls,
-including the exact CLI command template, MCP tool name, required fields, and
-prefilled arguments for `agent_status`, `agent_finish`, and `refresh_context`
-(`agent_start` with the returned refresh cursor). Each action carries
+including the exact CLI command template, MCP tool name, `required_when`,
+required fields, and prefilled arguments for `agent_status`, `agent_finish`,
+and `refresh_context` (`agent_start` with the returned refresh cursor). Each
+action carries
 `safe_to_run`: refresh/start/discovery helpers are `true`, while status and
 finish templates are `false` because the agent must provide user-meaningful
 content before writing a checkpoint or handoff. For those authored fields,
@@ -580,8 +583,9 @@ This records an in-progress status checkpoint and pushes it when sync is
 configured. Other agents see it through `agent_start.refresh.changes` and
 `boot.recent_changes`. `agent_status.next.actions` includes machine-readable
 templates for finishing the session and refreshing context from the status
-record cursor, with `safe_to_run` marking finish as a user-content write and
-refresh as an automatic context update. The finish template includes
+record cursor, with `required_when` explaining when to finish versus refresh,
+and `safe_to_run` marking finish as a user-content write and refresh as an
+automatic context update. The finish template includes
 `arguments.summary: "<summary>"`.
 
 When existing memory or skill needs correction:
@@ -605,8 +609,9 @@ This records a `session_summary` handoff and pushes it when sync is configured.
 Agents should prefer `agent_finish` over manually composing `write` and
 `sync_push`. `agent_finish.next.actions` includes a machine-readable
 `start_next_session` template for the next agent or device, marked
-`safe_to_run: true`. If the next task is not already known, the template carries
-`arguments.current_task: "<current_task>"`.
+`safe_to_run: true` with `required_when` explaining that it is for the next
+session after the handoff. If the next task is not already known, the template
+carries `arguments.current_task: "<current_task>"`.
 
 When a candidate should become durable shared context:
 

@@ -46,6 +46,7 @@ type LifecycleActionTemplate = {
   tool: string;
   safe_to_run: boolean;
   command: string;
+  required_when: string;
   required_fields: string[];
   arguments: Record<string, unknown>;
 };
@@ -58,6 +59,15 @@ export interface AgentGuideInput extends AgentLifecycleInput {}
 
 const ACTIVE_SESSION_TTL_MINUTES = 120;
 const ACTIVE_SESSION_TTL_MS = ACTIVE_SESSION_TTL_MINUTES * 60 * 1000;
+const START_OR_RESUME_WHEN = "At the start of an agent turn, or whenever store/project/sync context is uncertain.";
+const PUBLISH_STATUS_WHEN = "During meaningful long-running work, before interruption, or when another agent may need coordination.";
+const FINISH_HANDOFF_WHEN = "At the end of meaningful work, before stopping, or before handing off to another agent.";
+const REFRESH_CONTEXT_WHEN = "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.";
+const START_NEXT_SESSION_WHEN = "When another agent or device should start the next session from this handoff.";
+const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
+const CHOOSE_DISCOVERED_PROJECT_WHEN = "After choosing this project from discovery results.";
+const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
+const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 
 interface BootstrapResult {
   initialized_store: boolean;
@@ -423,6 +433,7 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       tool: "agent_status",
       safe_to_run: false,
       command: buildAgentStatusCommand(input),
+      required_when: PUBLISH_STATUS_WHEN,
       required_fields: ["status"],
       arguments: statusActionArguments(input)
     },
@@ -431,6 +442,7 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       tool: "agent_finish",
       safe_to_run: false,
       command: buildAgentFinishCommand(input),
+      required_when: FINISH_HANDOFF_WHEN,
       required_fields: ["summary"],
       arguments: finishActionArguments(input)
     }
@@ -441,6 +453,7 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       tool: "agent_start",
       safe_to_run: true,
       command: buildAgentRefreshCommand(input, cursor),
+      required_when: REFRESH_CONTEXT_WHEN,
       required_fields: [],
       arguments: refreshActionArguments(input, cursor)
     });
@@ -455,6 +468,7 @@ function syncConflictNextActions() {
       tool: "sync_status",
       safe_to_run: true,
       command: "moryn sync --status",
+      required_when: INSPECT_SYNC_CONFLICT_WHEN,
       required_fields: [],
       arguments: {}
     }
@@ -487,6 +501,7 @@ function finishNextActions(input: AgentLifecycleInput) {
       tool: "agent_start",
       safe_to_run: true,
       command: buildAgentStartTemplateCommand(input, requiredFields),
+      required_when: START_NEXT_SESSION_WHEN,
       required_fields: requiredFields,
       arguments: agentStartActionArguments(input, requiredFields)
     }
@@ -500,6 +515,7 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
       tool: "agent_finish",
       safe_to_run: false,
       command: buildAgentFinishCommand(input),
+      required_when: FINISH_HANDOFF_WHEN,
       required_fields: ["summary"],
       arguments: finishActionArguments(input)
     },
@@ -508,6 +524,7 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
       tool: "agent_start",
       safe_to_run: true,
       command: buildAgentRefreshCommand(input, cursor),
+      required_when: REFRESH_CONTEXT_WHEN,
       required_fields: [],
       arguments: refreshActionArguments(input, cursor)
     }
@@ -535,6 +552,7 @@ function doctorNextActions(input: AgentLifecycleInput) {
       tool: "agent_start",
       safe_to_run: true,
       command: buildAgentStartCommand(input),
+      required_when: START_OR_RESUME_WHEN,
       required_fields: [],
       arguments: agentStartActionArguments(input)
     },
@@ -543,6 +561,7 @@ function doctorNextActions(input: AgentLifecycleInput) {
       tool: "moryn-agent-smoke",
       safe_to_run: true,
       command: buildLifecycleSmokeCommand(input),
+      required_when: LIFECYCLE_SMOKE_WHEN,
       required_fields: input.syncRemote ? [] : ["remote"],
       arguments: lifecycleSmokeActionArguments(input)
     }
@@ -581,6 +600,7 @@ function projectListNextActions() {
       tool: "project_list",
       safe_to_run: true,
       command: buildProjectListCommand(),
+      required_when: LIST_PROJECTS_WHEN,
       required_fields: [],
       arguments: {}
     }
@@ -601,7 +621,7 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       step: "start_or_resume",
       tool: startTool,
       safe_to_run: true,
-      required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
+      required_when: START_OR_RESUME_WHEN,
       command: startCommand,
       required_fields: [],
       arguments: startArguments
@@ -610,7 +630,7 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       step: "publish_status",
       tool: "agent_status",
       safe_to_run: false,
-      required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+      required_when: PUBLISH_STATUS_WHEN,
       command: buildAgentStatusTemplateCommand(lifecycleInput),
       required_fields: guideRequiredFields(input, ["status"]),
       arguments: { ...lifecycleArguments, status: "<status>" }
@@ -619,7 +639,7 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       step: "finish_handoff",
       tool: "agent_finish",
       safe_to_run: false,
-      required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+      required_when: FINISH_HANDOFF_WHEN,
       command: buildAgentFinishTemplateCommand(lifecycleInput),
       required_fields: guideRequiredFields(input, ["summary"]),
       arguments: { ...lifecycleArguments, summary: "<summary>" }
@@ -628,7 +648,7 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       step: "refresh_context",
       tool: "agent_start",
       safe_to_run: true,
-      required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+      required_when: REFRESH_CONTEXT_WHEN,
       command: buildAgentRefreshTemplateCommand(lifecycleInput),
       required_fields: guideRequiredFields(input, ["refresh_since"]),
       arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" }
@@ -935,6 +955,7 @@ export async function agentEnter(input: AgentEnterInput) {
           tool: project.next.tool,
           safe_to_run: true,
           command: project.next.command,
+          required_when: CHOOSE_DISCOVERED_PROJECT_WHEN,
           required_fields: [],
           arguments: project.next.arguments,
           lifecycle: agentGuideLifecycle({ ...input, projectId: project.project_id }, "agent_start")

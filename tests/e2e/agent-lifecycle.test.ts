@@ -89,6 +89,7 @@ describe("agent lifecycle", () => {
         tool: "agent_start",
         safe_to_run: true,
         command: expect.stringMatching(/moryn agent start.*--current-task <current_task>/),
+        required_when: "When another agent or device should start the next session from this handoff.",
         required_fields: ["current_task"],
         arguments: expect.objectContaining({
           project_path: project,
@@ -138,6 +139,7 @@ describe("agent lifecycle", () => {
         tool: "agent_status",
         safe_to_run: false,
         command: expect.stringContaining("moryn agent status"),
+        required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
         required_fields: ["status"],
         arguments: expect.objectContaining({
           project_path: project,
@@ -151,6 +153,7 @@ describe("agent lifecycle", () => {
         tool: "agent_finish",
         safe_to_run: false,
         command: expect.stringContaining("moryn agent finish"),
+        required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
         required_fields: ["summary"],
         arguments: expect.objectContaining({
           project_path: project,
@@ -164,6 +167,7 @@ describe("agent lifecycle", () => {
         tool: "agent_start",
         safe_to_run: true,
         command: expect.stringContaining("--refresh-since"),
+        required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
         required_fields: [],
         arguments: expect.objectContaining({
           project_path: project,
@@ -336,6 +340,7 @@ describe("agent lifecycle", () => {
         tool: "agent_finish",
         safe_to_run: false,
         command: expect.stringContaining("moryn agent finish"),
+        required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
         required_fields: ["summary"],
         arguments: expect.objectContaining({
           project_path: project,
@@ -348,6 +353,7 @@ describe("agent lifecycle", () => {
         tool: "agent_start",
         safe_to_run: true,
         command: expect.stringContaining("moryn agent start"),
+        required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
         required_fields: [],
         arguments: expect.objectContaining({
           project_path: project,
@@ -520,6 +526,7 @@ describe("agent lifecycle", () => {
         tool: "moryn-agent-smoke",
         safe_to_run: true,
         command: expect.stringContaining("moryn-agent-smoke"),
+        required_when: "Before trusting lifecycle sync on a new machine or remote.",
         required_fields: [],
         arguments: expect.objectContaining({
           remote
@@ -558,6 +565,7 @@ describe("agent lifecycle", () => {
         tool: "moryn-agent-smoke",
         safe_to_run: true,
         command: "moryn-agent-smoke --remote <remote>",
+        required_when: "Before trusting lifecycle sync on a new machine or remote.",
         required_fields: ["remote"],
         arguments: { remote: "<remote>" }
       }));
@@ -718,6 +726,7 @@ describe("agent lifecycle", () => {
         action: "list_projects",
         tool: "project_list",
         command: "moryn project list",
+        required_when: "When the shared store has projects but this agent has no explicit project context.",
         required_fields: [],
         arguments: {}
       }));
@@ -763,6 +772,7 @@ describe("agent lifecycle", () => {
       expect(entered.next.actions[0]).toMatchObject({
         action: "start_session",
         project_id: "moryn",
+        required_when: "After choosing this project from discovery results.",
         lifecycle: [
           expect.objectContaining({
             step: "start_or_resume",
