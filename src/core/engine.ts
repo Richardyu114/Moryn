@@ -5,7 +5,7 @@ import { isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySc
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MemoraEvent, MemoraRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { createId } from "./id.js";
-import { displayRecordText, searchableRecordText } from "./content-text.js";
+import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 
 interface EngineDeps {
   storePath: string;
@@ -578,7 +578,7 @@ function requiresCanonicalConfirmation(input: { kind: RecordKind; type: string; 
 }
 
 function textFromContent(content: Record<string, unknown> & { text?: string }): string {
-  return typeof content.text === "string" ? content.text.trim().toLowerCase() : JSON.stringify(content).toLowerCase();
+  return searchableContentText(content).trim().toLowerCase();
 }
 
 function tagOverlap(left: string[], right: string[]): boolean {

@@ -920,6 +920,43 @@ describe("core engine", () => {
     });
   });
 
+  it("does not mark unrelated structured canonical memories as conflicts from JSON metadata", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:00:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: {
+          format: "json",
+          summary: "Use append-only JSON events for sync storage."
+        },
+        state: "canonical",
+        source: { client: "user" }
+      });
+
+      const unrelated = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: {
+          format: "json",
+          summary: "Render dashboard charts with canvas for performance."
+        },
+        state: "canonical",
+        source: { client: "agent" }
+      });
+
+      expect(unrelated.record.state).toBe("canonical");
+      expect(unrelated.warning).toBeUndefined();
+      expect(unrelated.record.conflict).toBeUndefined();
+    });
+  });
+
   it("rejects conflicting canonical promotion without user confirmation", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

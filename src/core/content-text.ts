@@ -7,12 +7,16 @@ export function contentValueText(value: unknown): string {
   return "";
 }
 
-export function searchableRecordText(record: MemoraRecord): string {
-  return Object.entries(record.content)
+export function searchableContentText(content: Record<string, unknown>): string {
+  return Object.entries(content)
     .filter(([key]) => key !== "format")
     .map(([, value]) => contentValueText(value))
     .filter(Boolean)
     .join(" ");
+}
+
+export function searchableRecordText(record: MemoraRecord): string {
+  return searchableContentText(record.content);
 }
 
 export function displayRecordText(record: MemoraRecord): string {
