@@ -4,6 +4,8 @@
 
 Moryn is a personal memory, skill, and soul layer for AI agents.
 
+Moryn is a local-first personal context layer for AI agents: memory, skills, session handoffs, and long-term user preferences shared across tools.
+
 It is designed for people who use multiple AI agents across multiple projects and want those agents to share the same durable context without making memory belong to any single agent. Agents are readers and writers; the long-lived context belongs to the user, projects, topics, and artifacts.
 
 > Status: first-version MVP implementation. Core local memory operations, Git sync, and a real stdio MCP server are implemented from the first-version design in [docs/moryn-design.md](docs/moryn-design.md). The roadmap is tracked in [docs/implementation-roadmap.md](docs/implementation-roadmap.md).
@@ -252,6 +254,35 @@ Codex, Claude Desktop, Cursor, and other MCP-capable hosts should point to the s
     }
   }
 }
+```
+
+Codex CLI can register the server globally:
+
+```bash
+codex mcp add moryn -- moryn mcp
+```
+
+For non-interactive Codex runs, approve read-only Moryn tools explicitly so
+`boot` and `recall` can run without an interactive confirmation prompt:
+
+```bash
+codex exec \
+  -c 'mcp_servers.moryn.tools.boot.approval_mode="approve"' \
+  -c 'mcp_servers.moryn.tools.recall.approval_mode="approve"' \
+  'Use Moryn to boot this project context, then summarize the active goal.'
+```
+
+Gemini CLI can register the server in project settings:
+
+```bash
+gemini mcp add moryn moryn mcp --scope project
+```
+
+For headless Gemini checks, allow the project MCP server for the current run:
+
+```bash
+gemini --skip-trust --approval-mode yolo --allowed-mcp-server-names moryn \
+  -p 'Use Moryn to boot this project context, then summarize the active goal.'
 ```
 
 Shell-based agents can use the CLI directly:

@@ -1,0 +1,13 @@
+{
+  "project_id": "moryn",
+  "tags": [
+    "typescript",
+    "mcp"
+  ],
+  "default_skills": [
+    "release"
+  ],
+  "sync": {
+    "mode": "session"
+  }
+}

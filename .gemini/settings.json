@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "moryn": {
+      "command": "moryn",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}
