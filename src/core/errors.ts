@@ -125,6 +125,23 @@ function unknownProjectIdFromMessage(message: string): { rejectedProjectId?: str
   };
 }
 
+function conflictingProjectIdFromMessage(message: string): { resolvedProjectId?: string; rejectedProjectId?: string } {
+  const prefix = "Project id conflict: project_path resolves to ";
+  if (!message.startsWith(prefix)) return {};
+  const details = message.slice(prefix.length);
+  const splitMarker = ", but project_id was ";
+  const markerIndex = details.indexOf(splitMarker);
+  if (markerIndex === -1) return {};
+  const resolvedProjectId = details.slice(0, markerIndex).trim();
+  const rejectedText = details.slice(markerIndex + splitMarker.length);
+  const end = rejectedText.indexOf(". Use the .moryn.json project_id");
+  const rejectedProjectId = (end === -1 ? rejectedText : rejectedText.slice(0, end)).trim();
+  return {
+    ...(resolvedProjectId ? { resolvedProjectId } : {}),
+    ...(rejectedProjectId ? { rejectedProjectId } : {})
+  };
+}
+
 function knownProjectIdsFromContextMessage(message: string): string[] | undefined {
   const prefix = "Project context required: this store already has known projects (";
   if (!message.startsWith(prefix)) return undefined;
@@ -236,6 +253,20 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         };
       }
       return undefined;
+    case "PROJECT_ID_CONFLICT":
+      {
+        const { resolvedProjectId, rejectedProjectId } = conflictingProjectIdFromMessage(message);
+        const projectId = resolvedProjectId ?? "<project_id_from_config>";
+        return {
+          recommended_action: "retry_with_project_config_id_or_update_project_config",
+          tool: "agent_enter",
+          command: `moryn agent enter --project-id ${projectId}`,
+          arguments: { project_id: projectId },
+          ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
+          ...(resolvedProjectId ? { candidate_project_ids: [resolvedProjectId] } : {}),
+          safe_to_run: false
+        };
+      }
     case "PROJECT_CONTEXT_REQUIRED":
       {
         const candidateProjectIds = knownProjectIdsFromContextMessage(message);

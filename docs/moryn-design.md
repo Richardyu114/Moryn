@@ -1479,6 +1479,39 @@ rejected id plus known choices in metadata:
 }
 ```
 
+When a direct lifecycle call passes a project path whose `.moryn.json` project id
+conflicts with the explicit `project_id`, the recovery action preserves the
+rejected id and supplies the config id as the only retry candidate. The action is
+not marked safe to run automatically because `agent_enter` may start a session
+and write lifecycle records:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "PROJECT_ID_CONFLICT",
+    "message": "Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config.",
+    "recoverable": true,
+    "recommended_action": "pass the project id from .moryn.json or update the project config",
+    "next_action": {
+      "recommended_action": "retry_with_project_config_id_or_update_project_config",
+      "tool": "agent_enter",
+      "command": "moryn agent enter --project-id moryn",
+      "arguments": {
+        "project_id": "moryn"
+      },
+      "rejected_arguments": {
+        "project_id": "other"
+      },
+      "candidate_project_ids": [
+        "moryn"
+      ],
+      "safe_to_run": false
+    }
+  }
+}
+```
+
 First-version error codes:
 
 - `STORE_NOT_INITIALIZED`

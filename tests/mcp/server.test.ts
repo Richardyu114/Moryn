@@ -1160,12 +1160,34 @@ describe("MCP stdio server", () => {
         expect("isError" in start ? start.isError : false).toBe(true);
         const parsedStart = parseTextContent(start) as {
           ok: boolean;
-          error: { code: string; message: string; recommended_action: string };
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              rejected_arguments?: Record<string, unknown>;
+              candidate_project_ids?: string[];
+              safe_to_run: boolean;
+            };
+          };
         };
         expect(parsedStart.ok).toBe(false);
         expect(parsedStart.error.code).toBe("PROJECT_ID_CONFLICT");
         expect(parsedStart.error.message).toContain("Project id conflict");
         expect(parsedStart.error.recommended_action).toBe("pass the project id from .moryn.json or update the project config");
+        expect(parsedStart.error.next_action).toEqual({
+          recommended_action: "retry_with_project_config_id_or_update_project_config",
+          tool: "agent_enter",
+          command: "moryn agent enter --project-id moryn",
+          arguments: { project_id: "moryn" },
+          rejected_arguments: { project_id: "other" },
+          candidate_project_ids: ["moryn"],
+          safe_to_run: false
+        });
       });
     } finally {
       await rm(root, { recursive: true, force: true });

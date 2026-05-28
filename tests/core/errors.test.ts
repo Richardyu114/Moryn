@@ -180,6 +180,22 @@ describe("error envelopes", () => {
       }
     });
 
+    expect(toErrorEnvelope(new Error("Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config."))).toMatchObject({
+      ok: false,
+      error: {
+        code: "PROJECT_ID_CONFLICT",
+        next_action: {
+          recommended_action: "retry_with_project_config_id_or_update_project_config",
+          tool: "agent_enter",
+          command: "moryn agent enter --project-id moryn",
+          arguments: { project_id: "moryn" },
+          rejected_arguments: { project_id: "other" },
+          candidate_project_ids: ["moryn"],
+          safe_to_run: false
+        }
+      }
+    });
+
     expect(toErrorEnvelope(new Error("Project context required: this store already has known projects (moryn). Run project_list or agent_enter, then retry with project_path/project_id."))).toMatchObject({
       ok: false,
       error: {

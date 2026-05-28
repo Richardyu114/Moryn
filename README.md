@@ -479,6 +479,10 @@ carry `candidate_project_ids` when the populated store can name the known
 projects. Their returned `next.actions` are portable: if project context was
 resolved from `.moryn.json`, the actions are prefilled with the resolved
 `project_id`.
+Project id conflict errors preserve the rejected explicit id and return the
+`.moryn.json` project id as the only retry candidate. The retry action uses
+`agent_enter` and is not marked safe to run automatically, because entering a
+session may write lifecycle records.
 
 At task start:
 
