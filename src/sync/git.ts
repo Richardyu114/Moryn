@@ -236,9 +236,9 @@ export async function pushGitSync(storePath: string, options: { message?: string
   await ensureMainBranch(storePath);
   await git(storePath, ["add", "events", ".gitignore"]);
 
-  const porcelain = await git(storePath, ["status", "--porcelain"]);
+  const hasStagedChanges = !await gitOk(storePath, ["diff", "--cached", "--quiet"]);
   let committed = false;
-  if (porcelain.length > 0) {
+  if (hasStagedChanges) {
     await git(storePath, ["commit", "-m", options.message ?? "Sync Memora events"]);
     committed = true;
   }

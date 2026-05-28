@@ -501,6 +501,32 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("pushes cleanly when non-Memora files leave the store worktree dirty", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-untracked-file-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_dirty_push"
+      });
+      await initializeGitSync(store, remote);
+      await writeFile(join(store, "scratch.txt"), "not managed by Memora\n", "utf8");
+
+      const push = await pushGitSync(store);
+
+      expect(push).toEqual(expect.objectContaining({
+        ok: true,
+        committed: false,
+        pushed: true
+      }));
+      await expect(readFile(join(store, "scratch.txt"), "utf8")).resolves.toBe("not managed by Memora\n");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("preserves legacy sync status when rebuilding derived indexes", async () => {
     const root = await mkdtemp(join(tmpdir(), "memora-sync-status-migration-"));
     const store = join(root, "store");
