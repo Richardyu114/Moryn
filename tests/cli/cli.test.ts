@@ -2204,6 +2204,12 @@ describe("moryn CLI", () => {
         next: {
           recommended_action: string;
           tool: string;
+          workflow: {
+            version: number;
+            start: string;
+            continue_from: string[];
+            phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+          };
           actions: Array<{ project_id: string; required_when?: string; lifecycle?: Array<{ step: string; tool: string; safe_to_run: boolean; command: string; required_fields: string[] }> }>;
         };
       };
@@ -2212,6 +2218,35 @@ describe("moryn CLI", () => {
       expect(parsed.next).toMatchObject({
         recommended_action: "choose_project_and_call_agent_start",
         tool: "agent_start"
+      });
+      expect(parsed.next.workflow).toEqual({
+        version: 1,
+        start: "projects",
+        continue_from: ["next.actions", "next.actions[].lifecycle", "agent_start.next.actions"],
+        phases: [
+          {
+            phase: "choose_project",
+            order: 1,
+            action_source: "projects.projects",
+            required_when: "When agent_enter returns discover_projects mode, choose one returned project instead of guessing a project id.",
+            required_fields: []
+          },
+          {
+            phase: "start_session",
+            order: 2,
+            action_source: "next.actions.start_session",
+            tool: "agent_start",
+            required_when: "After choosing this project from discovery results.",
+            required_fields: []
+          },
+          {
+            phase: "continue_selected_project_lifecycle",
+            order: 3,
+            action_source: "next.actions[].lifecycle",
+            required_when: "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
+            required_fields: []
+          }
+        ]
       });
       expect(parsed.projects.projects[0]?.project_id).toBe("moryn");
       expect(parsed.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter");
@@ -2223,6 +2258,82 @@ describe("moryn CLI", () => {
         command: "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter --summary <summary>",
         required_fields: ["summary"]
       }));
+    });
+  });
+
+  it("returns runtime workflow from CLI agent enter after starting a known project", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+      await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "project", "init",
+        "--path", project,
+        "--project-id", "moryn"
+      ]);
+
+      const entered = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "enter",
+        "--project", project,
+        "--agent", "codex",
+        "--session-id", "codex-cli-enter-known",
+        "--current-task", "continue known project"
+      ]);
+      const parsed = JSON.parse(entered.stdout) as {
+        mode: string;
+        next: {
+          recommended_action: string;
+          workflow: {
+            version: number;
+            start: string;
+            continue_from: string[];
+            phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+          };
+        };
+      };
+
+      expect(parsed.mode).toBe("start_session");
+      expect(parsed.next.recommended_action).toBe("work_with_handoff_context");
+      expect(parsed.next.workflow).toEqual({
+        version: 1,
+        start: "start",
+        continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions"],
+        phases: [
+          {
+            phase: "work_with_handoff_context",
+            order: 1,
+            action_source: "start",
+            required_when: "Immediately after agent_enter returns start_session mode, review boot, refresh, and handoff context before taking user-task actions.",
+            required_fields: []
+          },
+          {
+            phase: "publish_status",
+            order: 2,
+            action_source: "next.actions.publish_status",
+            tool: "agent_status",
+            required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+            required_fields: ["status"]
+          },
+          {
+            phase: "finish_session",
+            order: 3,
+            action_source: "next.actions.finish_session",
+            tool: "agent_finish",
+            required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+            required_fields: ["summary"]
+          },
+          {
+            phase: "refresh_context",
+            order: 4,
+            action_source: "next.actions.refresh_context",
+            tool: "agent_start",
+            required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+            required_fields: []
+          }
+        ]
+      });
     });
   });
 

@@ -715,7 +715,10 @@ templates for each project. If the local store is empty and `sync_remote` is
 provided, it initializes Git sync and pulls the shared store before choosing
 between project discovery and startup. In `discover_projects` mode, each
 top-level start action also includes lifecycle templates for status, finish,
-and refresh using the selected `project_id`.
+and refresh using the selected `project_id`. In `start_session` and
+`discover_projects` modes, `next.workflow` exposes the ordered runtime action
+track and valid follow-up sources so hosts can continue from the live response
+without consulting static guide templates.
 
 CLI:
 

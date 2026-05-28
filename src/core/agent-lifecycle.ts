@@ -763,6 +763,76 @@ function agentGuideWorkflow(lifecycle: ReturnType<typeof agentGuideLifecycle>) {
   };
 }
 
+function runtimeActionPhase(
+  actions: LifecycleActionTemplate[],
+  actionName: string,
+  phase: string,
+  order: number
+) {
+  const action = actions.find((item) => item.action === actionName);
+  if (!action) throw new Error(`Missing runtime action: ${actionName}`);
+  return {
+    phase,
+    order,
+    action_source: `next.actions.${action.action}`,
+    tool: action.tool,
+    required_when: action.required_when,
+    required_fields: action.required_fields
+  };
+}
+
+function startSessionWorkflow(actions: LifecycleActionTemplate[]) {
+  return {
+    version: 1,
+    start: "start",
+    continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions"],
+    phases: [
+      {
+        phase: "work_with_handoff_context",
+        order: 1,
+        action_source: "start",
+        required_when: "Immediately after agent_enter returns start_session mode, review boot, refresh, and handoff context before taking user-task actions.",
+        required_fields: []
+      },
+      runtimeActionPhase(actions, "publish_status", "publish_status", 2),
+      runtimeActionPhase(actions, "finish_session", "finish_session", 3),
+      runtimeActionPhase(actions, "refresh_context", "refresh_context", 4)
+    ]
+  };
+}
+
+function discoverProjectsWorkflow() {
+  return {
+    version: 1,
+    start: "projects",
+    continue_from: ["next.actions", "next.actions[].lifecycle", "agent_start.next.actions"],
+    phases: [
+      {
+        phase: "choose_project",
+        order: 1,
+        action_source: "projects.projects",
+        required_when: "When agent_enter returns discover_projects mode, choose one returned project instead of guessing a project id.",
+        required_fields: []
+      },
+      {
+        phase: "start_session",
+        order: 2,
+        action_source: "next.actions.start_session",
+        tool: "agent_start",
+        required_when: CHOOSE_DISCOVERED_PROJECT_WHEN,
+        required_fields: []
+      },
+      {
+        phase: "continue_selected_project_lifecycle",
+        order: 3,
+        action_source: "next.actions[].lifecycle",
+        required_when: "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
+        required_fields: []
+      }
+    ]
+  };
+}
+
 async function hasKnownProjects(input: AgentLifecycleInput, storeInitialized: boolean): Promise<boolean> {
   if (!storeInitialized) return false;
   const result = await trySync(() => createEngine({ storePath: input.storePath }).listProjects({ limit: 1 }));
@@ -1056,6 +1126,7 @@ export async function agentEnter(input: AgentEnterInput) {
         recommended_action: "choose_project_and_call_agent_start",
         tool: "agent_start",
         safe_to_run: true,
+        workflow: discoverProjectsWorkflow(),
         actions: projects.projects.map((project) => ({
           action: "start_session",
           project_id: project.project_id,
@@ -1073,6 +1144,7 @@ export async function agentEnter(input: AgentEnterInput) {
 
   if (doctor.next.tool === "agent_start") {
     const start = await agentStart(input);
+    const actions = start.next.actions;
     return {
       ok: true,
       mode: "start_session",
@@ -1085,7 +1157,8 @@ export async function agentEnter(input: AgentEnterInput) {
         recommended_action: "work_with_handoff_context",
         tool: "agent_start",
         safe_to_run: true,
-        actions: start.next.actions
+        workflow: startSessionWorkflow(actions),
+        actions
       }
     };
   }

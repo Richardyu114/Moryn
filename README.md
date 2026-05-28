@@ -403,6 +403,13 @@ guessing project ids, or reconstructing lifecycle commands from memory. Use it
 when an agent host needs a compact, authoritative instruction packet instead of
 inferring commands from README prose.
 
+`agent enter` runtime responses also include `next.workflow` when they return
+`start_session` or `discover_projects`. Hosts should follow that runtime
+workflow first: in `start_session`, review returned boot, refresh, and handoff
+context before using `next.actions`; in `discover_projects`, choose one returned
+project and then run that action's `agent_start` template. This keeps the live
+response self-describing even when the host did not call `agent guide` first.
+
 ## Current MVP Commands
 
 The current implementation includes these commands:
@@ -476,7 +483,9 @@ known projects sorted by recent activity; each project includes a prefilled
 `sync_remote`, and `agent`. The top-level `next.actions` for discovered
 projects also include lifecycle templates for status, finish, and refresh using
 the selected `project_id`, so agents do not need to reconstruct follow-up
-commands after choosing a project.
+commands after choosing a project. In `start_session` and `discover_projects`
+modes, `next.workflow` gives the ordered runtime action track and names which
+response fields are valid follow-up sources.
 
 When setup is uncertain:
 

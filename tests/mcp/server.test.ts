@@ -1446,6 +1446,12 @@ describe("MCP stdio server", () => {
           next: {
             recommended_action: string;
             tool: string;
+            workflow: {
+              version: number;
+              start: string;
+              continue_from: string[];
+              phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+            };
             actions: Array<{ project_id: string; required_when?: string; lifecycle?: Array<{ step: string; tool: string; command: string; required_fields: string[] }> }>;
           };
         };
@@ -1454,6 +1460,35 @@ describe("MCP stdio server", () => {
         expect(entered.next).toMatchObject({
           recommended_action: "choose_project_and_call_agent_start",
           tool: "agent_start"
+        });
+        expect(entered.next.workflow).toEqual({
+          version: 1,
+          start: "projects",
+          continue_from: ["next.actions", "next.actions[].lifecycle", "agent_start.next.actions"],
+          phases: [
+            {
+              phase: "choose_project",
+              order: 1,
+              action_source: "projects.projects",
+              required_when: "When agent_enter returns discover_projects mode, choose one returned project instead of guessing a project id.",
+              required_fields: []
+            },
+            {
+              phase: "start_session",
+              order: 2,
+              action_source: "next.actions.start_session",
+              tool: "agent_start",
+              required_when: "After choosing this project from discovery results.",
+              required_fields: []
+            },
+            {
+              phase: "continue_selected_project_lifecycle",
+              order: 3,
+              action_source: "next.actions[].lifecycle",
+              required_when: "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
+              required_fields: []
+            }
+          ]
         });
         expect(entered.projects.projects[0]?.project_id).toBe("moryn");
         expect(entered.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter");
@@ -1468,6 +1503,79 @@ describe("MCP stdio server", () => {
       }, store);
     } finally {
       await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("returns runtime workflow from MCP agent_enter after starting a known project", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-enter-workflow-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await withMcpClient(store, async (client) => {
+        const entered = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            project_path: project,
+            current_task: "continue known MCP project",
+            agent: { client: "codex", session_id: "codex-mcp-enter-known" }
+          }
+        })) as {
+          mode: string;
+          next: {
+            recommended_action: string;
+            workflow: {
+              version: number;
+              start: string;
+              continue_from: string[];
+              phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+            };
+          };
+        };
+
+        expect(entered.mode).toBe("start_session");
+        expect(entered.next.recommended_action).toBe("work_with_handoff_context");
+        expect(entered.next.workflow).toEqual({
+          version: 1,
+          start: "start",
+          continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions"],
+          phases: [
+            {
+              phase: "work_with_handoff_context",
+              order: 1,
+              action_source: "start",
+              required_when: "Immediately after agent_enter returns start_session mode, review boot, refresh, and handoff context before taking user-task actions.",
+              required_fields: []
+            },
+            {
+              phase: "publish_status",
+              order: 2,
+              action_source: "next.actions.publish_status",
+              tool: "agent_status",
+              required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+              required_fields: ["status"]
+            },
+            {
+              phase: "finish_session",
+              order: 3,
+              action_source: "next.actions.finish_session",
+              tool: "agent_finish",
+              required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+              required_fields: ["summary"]
+            },
+            {
+              phase: "refresh_context",
+              order: 4,
+              action_source: "next.actions.refresh_context",
+              tool: "agent_start",
+              required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+              required_fields: []
+            }
+          ]
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 
