@@ -1636,6 +1636,65 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns guarded repair actions for malformed store config over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-invalid-store-config-"));
+    try {
+      await writeFile(join(store, "config.json"), "{\"store_version\":", "utf8");
+
+      await withMcpClient(store, async (client) => {
+        const response = await client.callTool({ name: "init", arguments: {} });
+        expect("isError" in response ? response.isError : false).toBe(true);
+        const result = parseTextContent(response) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
+
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe("INVALID_STORE_CONFIG");
+        expect(result.error.recommended_action).toBe("fix or repair config.json, then run moryn init");
+        expect(result.error.next_action).toEqual({
+          recommended_action: "repair_local_store_config",
+          tool: "init",
+          command: "moryn init --repair",
+          arguments: { repair: true },
+          safe_to_run: false
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("repairs malformed store config over MCP when explicitly requested", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-repair-store-config-"));
+    try {
+      await writeFile(join(store, "config.json"), "{\"store_version\":", "utf8");
+
+      await withMcpClient(store, async (client) => {
+        const repaired = parseTextContent(await client.callTool({ name: "init", arguments: { repair: true } })) as {
+          ok: boolean;
+          config: { store_version: number; device_id: string };
+        };
+
+        expect(repaired.ok).toBe(true);
+        expect(repaired.config.store_version).toBe(1);
+        expect(repaired.config.device_id).toMatch(/^device_/);
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("returns structured JSON errors for missing record mutations over MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-missing-record-"));
     try {

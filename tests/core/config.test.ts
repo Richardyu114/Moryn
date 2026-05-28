@@ -94,4 +94,25 @@ describe("store config", () => {
       await expect(initializeStore(storePath)).rejects.toThrow(/Invalid store config/);
     });
   });
+
+  it("repairs malformed existing config when explicitly requested", async () => {
+    await withTempStore(async (storePath) => {
+      await mkdir(storePath, { recursive: true });
+      await writeFile(join(storePath, "config.json"), "{\"store_version\":", "utf8");
+
+      const result = await initializeStore(storePath, {
+        now: () => "2026-05-29T00:00:00.000Z",
+        id: () => "device_repaired",
+        repair: true
+      });
+
+      expect(result.config).toEqual({
+        store_version: 1,
+        device_id: "device_repaired",
+        created_at: "2026-05-29T00:00:00.000Z",
+        updated_at: "2026-05-29T00:00:00.000Z"
+      });
+      await expect(readStoreConfig(storePath)).resolves.toEqual(result.config);
+    });
+  });
 });

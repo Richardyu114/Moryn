@@ -68,7 +68,7 @@ export function recommendedAction(code: string): string {
     case "PROJECT_ID_CONFLICT":
       return "pass the project id from .moryn.json or update the project config";
     case "INVALID_STORE_CONFIG":
-      return "fix or remove config.json, then run moryn init";
+      return "fix or repair config.json, then run moryn init";
     case "INVALID_ARGUMENT":
       return "fix the command arguments and retry";
     case "RECORD_NOT_FOUND":
@@ -223,6 +223,14 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
       };
     case "CONFIRMATION_REQUIRED":
       return confirmationNextAction(context);
+    case "INVALID_STORE_CONFIG":
+      return {
+        recommended_action: "repair_local_store_config",
+        tool: "init",
+        command: "moryn init --repair",
+        arguments: { repair: true },
+        safe_to_run: false
+      };
     case "INVALID_PROJECT_CONFIG":
       {
         const configPath = projectConfigPathFromMessage(message);

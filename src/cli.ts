@@ -167,9 +167,11 @@ program
   .exitOverride()
   .option("--store <path>", "Override Moryn store path");
 
-program.command("init").action(async () => {
-  printJson({ ok: true, ...await initializeStore(storePath()) });
-});
+program.command("init")
+  .option("--repair", "Replace an invalid local config.json after explicit confirmation")
+  .action(async (options) => {
+    printJson({ ok: true, ...await initializeStore(storePath(), { repair: options.repair }) });
+  });
 
 program.command("write")
   .requiredOption("--kind <kind>")

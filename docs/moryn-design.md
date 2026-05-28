@@ -405,9 +405,13 @@ CLI:
 
 ```bash
 moryn init
+moryn init --repair
 ```
 
 MCP tool: `init`.
+
+The `repair` option is explicit and guarded. It replaces an invalid local
+`config.json` while leaving event history untouched.
 
 ### `project_init`
 
@@ -1277,6 +1281,31 @@ local store files:
       "tool": "init",
       "command": "moryn init",
       "arguments": {},
+      "safe_to_run": false
+    }
+  }
+}
+```
+
+Invalid local store config errors carry a guarded repair action. The command is
+not marked safe to run automatically because it replaces the device-local
+`config.json`:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "INVALID_STORE_CONFIG",
+    "message": "Invalid store config: /home/user/.moryn/config.json: Unexpected end of JSON input",
+    "recoverable": true,
+    "recommended_action": "fix or repair config.json, then run moryn init",
+    "next_action": {
+      "recommended_action": "repair_local_store_config",
+      "tool": "init",
+      "command": "moryn init --repair",
+      "arguments": {
+        "repair": true
+      },
       "safe_to_run": false
     }
   }

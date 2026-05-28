@@ -113,6 +113,7 @@ moryn
 
 ```bash
 moryn init
+moryn init --repair
 ```
 
 This creates:
@@ -124,6 +125,9 @@ This creates:
   snapshots/
   indexes/
 ```
+
+The `--repair` flag explicitly replaces an invalid local `config.json` while
+leaving event history untouched.
 
 ### 3. Connect a Private Sync Repo
 
@@ -465,6 +469,9 @@ from `promote` and `revise` return a retry action with `confirmed: true` and
 High-risk canonical `write` calls are stored as candidates and return
 `warning.next_action` for promoting the candidate after user confirmation, so
 agents should not repeat the write or assume it is already canonical.
+Invalid local `config.json` errors return a guarded `init --repair` next action.
+The action is not safe to run automatically because it replaces the device-local
+store config.
 Invalid `.moryn.json` errors return a guarded `project_init --repair` next
 action with the failing project path prefilled. The action is not safe to run
 automatically because it replaces project config and should use a user-approved

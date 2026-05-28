@@ -92,6 +92,25 @@ describe("error envelopes", () => {
     });
   });
 
+  it("returns a guarded repair action for invalid store config", () => {
+    const envelope = toErrorEnvelope(new Error("Invalid store config: /home/user/.moryn/config.json: Unexpected end of JSON input"));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "INVALID_STORE_CONFIG",
+        recommended_action: "fix or repair config.json, then run moryn init",
+        next_action: {
+          recommended_action: "repair_local_store_config",
+          tool: "init",
+          command: "moryn init --repair",
+          arguments: { repair: true },
+          safe_to_run: false
+        }
+      }
+    });
+  });
+
   it("returns a guarded repair action for invalid project config", () => {
     const envelope = toErrorEnvelope(new Error("Invalid project config: /workspace/moryn/.moryn.json: project_id must be non-empty"));
 

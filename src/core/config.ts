@@ -15,6 +15,7 @@ export type StoreConfig = z.infer<typeof storeConfigSchema>;
 export interface InitializeStoreOptions {
   now?: () => string;
   id?: () => string;
+  repair?: boolean;
 }
 
 function isNotFoundError(error: unknown): boolean {
@@ -45,11 +46,11 @@ export async function readStoreConfig(storePath: string): Promise<StoreConfig> {
       throw error;
     }
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid store config: ${message}`);
+    throw new Error(`Invalid store config: ${join(storePath, "config.json")}: ${message}`);
   }
   const result = storeConfigSchema.safeParse(raw);
   if (!result.success) {
-    throw new Error(`Invalid store config: ${z.prettifyError(result.error)}`);
+    throw new Error(`Invalid store config: ${join(storePath, "config.json")}: ${z.prettifyError(result.error)}`);
   }
   return result.data;
 }
@@ -66,6 +67,8 @@ export async function initializeStore(storePath: string, options: InitializeStor
     existing = await readStoreConfig(storePath);
   } catch (error) {
     if (isNotFoundError(error)) {
+      existing = undefined;
+    } else if (options.repair && error instanceof Error && error.message.startsWith("Invalid store config:")) {
       existing = undefined;
     } else {
       throw error;

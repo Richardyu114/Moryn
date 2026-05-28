@@ -2240,12 +2240,48 @@ describe("moryn CLI", () => {
         throw new Error("Expected moryn init to fail for malformed store config");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
-        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+        const parsed = JSON.parse(stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("INVALID_STORE_CONFIG");
         expect(parsed.error.recoverable).toBe(true);
-        expect(parsed.error.recommended_action).toBe("fix or remove config.json, then run moryn init");
+        expect(parsed.error.recommended_action).toBe("fix or repair config.json, then run moryn init");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "repair_local_store_config",
+          tool: "init",
+          command: "moryn init --repair",
+          arguments: { repair: true },
+          safe_to_run: false
+        });
       }
+    });
+  });
+
+  it("repairs malformed store config from the CLI when explicitly requested", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await mkdir(store, { recursive: true });
+      await writeFile(join(store, "config.json"), "{\"store_version\":", "utf8");
+
+      const repaired = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init", "--repair"]);
+      const parsed = JSON.parse(repaired.stdout) as { ok: boolean; config: { store_version: number; device_id: string } };
+
+      expect(parsed.ok).toBe(true);
+      expect(parsed.config.store_version).toBe(1);
+      expect(parsed.config.device_id).toMatch(/^device_/);
     });
   });
 
