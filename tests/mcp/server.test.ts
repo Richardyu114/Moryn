@@ -1003,6 +1003,66 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("rejects direct lifecycle MCP tools without project input in a populated store", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-direct-ambiguous-project-"));
+    const store = join(root, "store");
+    const unknownCwd = join(root, "unknown-cwd");
+    try {
+      await mkdir(unknownCwd, { recursive: true });
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "session_summary",
+            project_id: "moryn",
+            text: "Known direct MCP project.",
+            source: { client: "codex", session_id: "codex-direct-project" }
+          }
+        });
+
+        for (const call of [
+          {
+            name: "agent_start",
+            arguments: {
+              current_task: "avoid ambient project",
+              agent: { client: "codex" }
+            }
+          },
+          {
+            name: "agent_status",
+            arguments: {
+              current_task: "avoid ambient project",
+              status: "Do not write inferred status.",
+              agent: { client: "codex" }
+            }
+          },
+          {
+            name: "agent_finish",
+            arguments: {
+              current_task: "avoid ambient project",
+              summary: "Do not write inferred summary.",
+              agent: { client: "codex" }
+            }
+          }
+        ]) {
+          const result = await client.callTool(call);
+          expect("isError" in result ? result.isError : false).toBe(true);
+          const parsed = parseTextContent(result) as {
+            ok: boolean;
+            error: { code: string; message: string; recommended_action: string };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("PROJECT_CONTEXT_REQUIRED");
+          expect(parsed.error.message).toContain("Project context required");
+          expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with --project-id or --project");
+        }
+      }, unknownCwd);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("resolves project paths and project config through MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-"));
     const store = join(root, "store");

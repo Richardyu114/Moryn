@@ -1810,6 +1810,43 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("rejects direct lifecycle CLI commands without project input in a populated store", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const unknownCwd = join(dir, "unknown-cwd");
+      await mkdir(unknownCwd, { recursive: true });
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "moryn",
+        "--text", "Known direct CLI project."
+      ]);
+
+      for (const args of [
+        ["agent", "start", "--agent", "codex", "--current-task", "avoid ambient project"],
+        ["agent", "status", "--agent", "codex", "--current-task", "avoid ambient project", "--status", "Do not write inferred status."],
+        ["agent", "finish", "--agent", "codex", "--current-task", "avoid ambient project", "--summary", "Do not write inferred summary."]
+      ]) {
+        try {
+          await exec("node", ["--import", tsxLoader, cliPath, "--store", store, ...args], { cwd: unknownCwd });
+          throw new Error(`Expected moryn ${args.join(" ")} to reject missing project context`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("PROJECT_CONTEXT_REQUIRED");
+          expect(parsed.error.message).toContain("Project context required");
+          expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with --project-id or --project");
+        }
+      }
+    });
+  });
+
   it("rejects invalid numeric limit options", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

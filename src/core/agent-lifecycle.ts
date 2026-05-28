@@ -107,7 +107,12 @@ function isMissingStore(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
-async function resolveLifecycleProjectContext(input: AgentLifecycleInput): Promise<ProjectContext> {
+async function knownProjectIds(input: AgentLifecycleInput): Promise<string[]> {
+  const knownProjects = await trySync(() => createEngine({ storePath: input.storePath }).listProjects({ limit: 100 }));
+  return knownProjects.ok ? knownProjects.result.projects.map((project) => project.project_id) : [];
+}
+
+async function resolveLifecycleProjectContext(input: AgentLifecycleInput, options: { requireExplicitProject?: boolean } = {}): Promise<ProjectContext> {
   if (input.projectPath) {
     try {
       await access(input.projectPath);
@@ -120,16 +125,20 @@ async function resolveLifecycleProjectContext(input: AgentLifecycleInput): Promi
   }
 
   if (input.projectId) {
-    const knownProjects = await trySync(() => createEngine({ storePath: input.storePath }).listProjects({ limit: 100 }));
-    if (knownProjects.ok && knownProjects.result.projects.length > 0) {
-      const projectIds = knownProjects.result.projects.map((project) => project.project_id);
-      if (!projectIds.includes(input.projectId)) {
-        throw new Error(`Project id is not known in this store: ${input.projectId}. Run project_list and choose one of: ${projectIds.join(", ")}.`);
-      }
+    const projectIds = await knownProjectIds(input);
+    if (projectIds.length > 0 && !projectIds.includes(input.projectId)) {
+      throw new Error(`Project id is not known in this store: ${input.projectId}. Run project_list and choose one of: ${projectIds.join(", ")}.`);
     }
   }
 
-  return resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
+  const project = await resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
+  if (options.requireExplicitProject && !input.projectPath && !input.projectId && project.source !== "config") {
+    const projectIds = await knownProjectIds(input);
+    if (projectIds.length > 0) {
+      throw new Error(`Project context required: this store already has known projects (${projectIds.join(", ")}). Run project_list or agent_enter, then retry with project_path/project_id.`);
+    }
+  }
+  return project;
 }
 
 function shellQuote(value: string): string {
@@ -846,7 +855,7 @@ export function agentGuide(input: AgentGuideInput) {
 
 export async function agentStart(input: AgentStartInput) {
   const bootstrap = await ensureLifecycleBootstrap(input);
-  const project = await resolveLifecycleProjectContext(input);
+  const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const projectInfo = projectEnvelope(project);
   const shouldPull = input.pull ?? projectInfo.sync_mode !== "manual";
   const sync: {
@@ -903,7 +912,7 @@ export async function agentStart(input: AgentStartInput) {
 
 export async function agentFinish(input: AgentFinishInput) {
   const bootstrap = await ensureLifecycleBootstrap(input);
-  const project = await resolveLifecycleProjectContext(input);
+  const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const projectInfo = projectEnvelope(project);
   const engine = createEngine({ storePath: input.storePath });
   const record = await engine.write({
@@ -949,7 +958,7 @@ export async function agentFinish(input: AgentFinishInput) {
 
 export async function agentStatus(input: AgentStatusInput) {
   const bootstrap = await ensureLifecycleBootstrap(input);
-  const project = await resolveLifecycleProjectContext(input);
+  const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const projectInfo = projectEnvelope(project);
   const engine = createEngine({ storePath: input.storePath });
   const record = await engine.write({

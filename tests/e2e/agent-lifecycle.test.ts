@@ -864,4 +864,49 @@ describe("agent lifecycle", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("rejects direct lifecycle commands without project input in a populated store", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-direct-ambiguous-project-"));
+    const store = join(root, "store");
+    const unknownCwd = join(root, "unknown-cwd");
+    const previousCwd = process.cwd();
+    try {
+      await mkdir(unknownCwd, { recursive: true });
+      await initializeStore(store);
+      const engine = createEngine({ storePath: store });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Known direct lifecycle project.", format: "text" },
+        source: { client: "codex", session_id: "codex-direct-project" }
+      });
+
+      process.chdir(unknownCwd);
+
+      await expect(agentStart({
+        storePath: store,
+        agent: { client: "codex" },
+        currentTask: "avoid ambient project"
+      })).rejects.toThrow("Project context required");
+
+      await expect(agentStatus({
+        storePath: store,
+        agent: { client: "codex" },
+        currentTask: "avoid ambient project",
+        status: "Do not write status to an inferred project."
+      })).rejects.toThrow("Project context required");
+
+      await expect(agentFinish({
+        storePath: store,
+        agent: { client: "codex" },
+        currentTask: "avoid ambient project",
+        summary: "Do not write summary to an inferred project."
+      })).rejects.toThrow("Project context required");
+    } finally {
+      process.chdir(previousCwd);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
