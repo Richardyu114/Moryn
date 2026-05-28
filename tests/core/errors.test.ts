@@ -23,7 +23,33 @@ describe("error envelopes", () => {
       error: {
         code: "INDEX_STALE",
         recoverable: true,
-        recommended_action: "run moryn rebuild"
+        recommended_action: "run moryn rebuild",
+        next_action: {
+          recommended_action: "rebuild_derived_views",
+          tool: "rebuild",
+          command: "moryn rebuild",
+          arguments: {},
+          safe_to_run: true
+        }
+      }
+    });
+  });
+
+  it("returns a machine-readable recovery action for missing sync configuration", () => {
+    const envelope = toErrorEnvelope(new Error("Sync not configured"));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "SYNC_NOT_CONFIGURED",
+        recommended_action: "run moryn sync init <remote>",
+        next_action: {
+          recommended_action: "configure_sync_remote",
+          tool: "sync_init",
+          command: "moryn sync init <remote>",
+          arguments: { remote: "<remote>" },
+          safe_to_run: false
+        }
       }
     });
   });

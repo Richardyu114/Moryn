@@ -189,6 +189,22 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
       };
     case "CONFIRMATION_REQUIRED":
       return confirmationNextAction(context);
+    case "INDEX_STALE":
+      return {
+        recommended_action: "rebuild_derived_views",
+        tool: "rebuild",
+        command: "moryn rebuild",
+        arguments: {},
+        safe_to_run: true
+      };
+    case "SYNC_NOT_CONFIGURED":
+      return {
+        recommended_action: "configure_sync_remote",
+        tool: "sync_init",
+        command: "moryn sync init <remote>",
+        arguments: { remote: "<remote>" },
+        safe_to_run: false
+      };
     case "PROJECT_CONTEXT_REQUIRED":
       {
         const candidateProjectIds = knownProjectIdsFromContextMessage(message);

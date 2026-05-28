@@ -1301,6 +1301,51 @@ promotion or revision first:
 }
 ```
 
+Rebuildable index errors return a safe derived-view rebuild action:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "INDEX_STALE",
+    "message": "Index stale: rebuild derived views before retrying",
+    "recoverable": true,
+    "recommended_action": "run moryn rebuild",
+    "next_action": {
+      "recommended_action": "rebuild_derived_views",
+      "tool": "rebuild",
+      "command": "moryn rebuild",
+      "arguments": {},
+      "safe_to_run": true
+    }
+  }
+}
+```
+
+Missing sync configuration returns a setup action with a remote placeholder.
+Agents must fill the user-owned remote before running it:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "SYNC_NOT_CONFIGURED",
+    "message": "Sync not configured",
+    "recoverable": true,
+    "recommended_action": "run moryn sync init <remote>",
+    "next_action": {
+      "recommended_action": "configure_sync_remote",
+      "tool": "sync_init",
+      "command": "moryn sync init <remote>",
+      "arguments": {
+        "remote": "<remote>"
+      },
+      "safe_to_run": false
+    }
+  }
+}
+```
+
 When a direct lifecycle call uses a missing explicit project path, the recovery
 action is parameterized from the error message:
 
