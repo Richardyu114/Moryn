@@ -57,6 +57,7 @@ describe("MCP stdio server", () => {
         const tools = await client.listTools();
         expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
           "agent_doctor",
+          "agent_enter",
           "agent_finish",
           "agent_start",
           "agent_status",
@@ -719,6 +720,47 @@ describe("MCP stdio server", () => {
           agent: { client: "gemini", session_id: "gemini-mcp-list-next" }
         });
       });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("enters project discovery through MCP when project input is missing", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-enter-project-list-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "session_summary",
+            project_id: "moryn",
+            text: "Moryn MCP enter handoff is available.",
+            source: { client: "codex", session_id: "codex-mcp-enter" }
+          }
+        });
+
+        const entered = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            current_task: "find MCP project",
+            sync_remote: "git@github.com:user/moryn-store.git",
+            agent: { client: "gemini", session_id: "gemini-mcp-enter" }
+          }
+        })) as {
+          mode: string;
+          projects: { projects: Array<{ project_id: string; next: { command: string } }> };
+          next: { recommended_action: string; tool: string };
+        };
+
+        expect(entered.mode).toBe("discover_projects");
+        expect(entered.next).toMatchObject({
+          recommended_action: "choose_project_and_call_agent_start",
+          tool: "agent_start"
+        });
+        expect(entered.projects.projects[0]?.project_id).toBe("moryn");
+        expect(entered.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter");
+      }, store);
     } finally {
       await rm(store, { recursive: true, force: true });
     }

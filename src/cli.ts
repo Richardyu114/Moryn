@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { Command, CommanderError } from "commander";
 import { version } from "./index.js";
-import { agentDoctor, agentFinish, agentStart, agentStatus } from "./core/agent-lifecycle.js";
+import { agentDoctor, agentEnter, agentFinish, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
@@ -364,6 +364,32 @@ program.command("mcp").action(async () => {
 });
 
 const agent = program.command("agent");
+
+agent.command("enter")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--sync-remote <remote>", "Initialize or connect Git sync before startup")
+  .option("--current-task <task>")
+  .option("--refresh-since <cursor>")
+  .option("--limit <n>", "Refresh change or project discovery limit", "20")
+  .option("--no-pull", "Do not pull sync before boot when starting a known project")
+  .option("--agent <client>", "Agent client name")
+  .option("--session-id <id>")
+  .option("--model <model>")
+  .option("--device-id <id>")
+  .action(async (options) => {
+    printJson(await agentEnter({
+      storePath: storePath(),
+      projectPath: options.project,
+      projectId: options.projectId,
+      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+      refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
+      limit: parseLimit(options.limit),
+      pull: parseBooleanDefault(options.pull, true),
+      agent: parseAgentOptions(options)
+    }));
+  });
 
 agent.command("doctor")
   .option("--project-id <id>")

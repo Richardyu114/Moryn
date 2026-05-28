@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { initializeStore } from "../../src/core/config.js";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
-import { agentDoctor, agentFinish, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
+import { agentDoctor, agentEnter, agentFinish, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
 import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
@@ -489,6 +489,98 @@ describe("agent lifecycle", () => {
       }));
     } finally {
       process.chdir(previousCwd);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("enters project discovery instead of guessing a project on an unknown device", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-enter-project-list-"));
+    const store = join(root, "store");
+    const previousCwd = process.cwd();
+    try {
+      process.chdir(root);
+      await initializeStore(store);
+      const engine = createEngine({ storePath: store });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Moryn project handoff is available.", format: "text" },
+        source: { client: "codex", session_id: "codex-enter-project-list" }
+      });
+
+      const entered = await agentEnter({
+        storePath: store,
+        agent: { client: "gemini", session_id: "gemini-enter-project-list" },
+        currentTask: "find project to continue",
+        syncRemote: "git@github.com:user/moryn-store.git"
+      });
+
+      expect(entered).toMatchObject({
+        ok: true,
+        mode: "discover_projects",
+        next: {
+          recommended_action: "choose_project_and_call_agent_start",
+          tool: "agent_start"
+        }
+      });
+      expect(entered.doctor.next).toMatchObject({ tool: "project_list" });
+      expect(entered.projects.projects[0]).toMatchObject({
+        project_id: "moryn",
+        next: {
+          command: "moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list",
+          arguments: {
+            project_id: "moryn",
+            sync_remote: "git@github.com:user/moryn-store.git",
+            current_task: "find project to continue",
+            agent: { client: "gemini", session_id: "gemini-enter-project-list" }
+          }
+        }
+      });
+    } finally {
+      process.chdir(previousCwd);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("enters a known project by running agent_start when doctor can start safely", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-enter-start-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, {
+        project_id: "moryn",
+        tags: ["typescript"],
+        default_skills: ["release"]
+      });
+
+      const entered = await agentEnter({
+        storePath: store,
+        projectPath: project,
+        agent: { client: "codex", session_id: "codex-enter-start" },
+        currentTask: "continue project"
+      });
+
+      expect(entered).toMatchObject({
+        ok: true,
+        mode: "start_session",
+        project: { project_id: "moryn" },
+        start: {
+          ok: true,
+          project: { project_id: "moryn" }
+        },
+        next: {
+          recommended_action: "work_with_handoff_context",
+          tool: "agent_start"
+        }
+      });
+      expect(entered.start.project.default_skills).toEqual(["release"]);
+      expect(entered.start.handoff).toMatchObject({
+        active_sessions: [],
+        inbox: []
+      });
+    } finally {
       await rm(root, { recursive: true, force: true });
     }
   });

@@ -1522,6 +1522,42 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("enters project discovery from CLI when project input is missing", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "moryn",
+        "--text", "Moryn project handoff is available."
+      ]);
+
+      const entered = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "enter",
+        "--agent", "gemini",
+        "--session-id", "gemini-cli-enter",
+        "--current-task", "find project",
+        "--sync-remote", "git@github.com:user/moryn-store.git"
+      ], { cwd: dir });
+      const parsed = JSON.parse(entered.stdout) as {
+        mode: string;
+        projects: { projects: Array<{ project_id: string; next: { command: string } }> };
+        next: { recommended_action: string; tool: string };
+      };
+
+      expect(parsed.mode).toBe("discover_projects");
+      expect(parsed.next).toMatchObject({
+        recommended_action: "choose_project_and_call_agent_start",
+        tool: "agent_start"
+      });
+      expect(parsed.projects.projects[0]?.project_id).toBe("moryn");
+      expect(parsed.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter");
+    });
+  });
+
   it("returns structured JSON errors from runtime failures", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");

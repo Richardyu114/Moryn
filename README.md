@@ -227,6 +227,7 @@ The current MCP server uses the official Model Context Protocol TypeScript SDK o
 
 - `init`
 - `agent_doctor`
+- `agent_enter`
 - `agent_finish`
 - `agent_start`
 - `agent_status`
@@ -301,6 +302,7 @@ gemini --skip-trust --approval-mode yolo --allowed-mcp-server-names moryn \
 Shell-based agents can use the CLI directly:
 
 ```bash
+moryn agent enter --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
 moryn project list
 moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
 moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
@@ -308,6 +310,12 @@ moryn agent status --project . --sync-remote git@github.com:yourname/moryn-store
 moryn recall "missing context" --project . --scope project --kind memory --kind skill
 moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store.git --agent codex --summary "Finished the task summary."
 ```
+
+`agent enter` is the lowest-friction startup entrypoint. It first runs the
+same setup diagnosis as `agent doctor`. If the project is known, it runs
+`agent start` and returns boot, refresh, and handoff context. If the project is
+unclear but the store has known projects, it returns `project_list` results
+with complete `agent_start` commands for each project.
 
 `agent doctor` is a read-only setup check for agents running on an unfamiliar
 machine or project. It reports whether the local store exists, whether project
@@ -339,6 +347,7 @@ The current implementation includes these commands:
 
 ```bash
 moryn init
+moryn agent enter --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn project list --current-task "fix auth" --sync-remote git@github.com:yourname/moryn-store.git --agent codex
 moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
@@ -370,18 +379,14 @@ Agents should use Moryn through a consistent protocol.
 When the target project is unknown:
 
 ```text
-agent_doctor(sync_remote, current_task, agent)
-project_list()
+agent_enter(sync_remote, current_task, agent)
 ```
 
-These calls are read-only. `agent_doctor` reports whether the local store and
-sync setup are ready; if the project is not explicit and the current directory
-does not resolve through `.moryn.json`, its `next.actions` points to
-`project_list`.
-`project_list` derives known project ids from the local store, sorted by recent
-activity. Each project includes its latest activity plus a prefilled
-`agent_start` command and argument template; pass `current_task`, `sync_remote`,
-and `agent` to have the next action carry the full startup context.
+This call chooses the safe path. If the project is known, it starts the session
+and returns boot, refresh, and handoff context. If the project is unclear, it
+returns known projects sorted by recent activity; each project includes a
+prefilled `agent_start` command and argument template carrying `current_task`,
+`sync_remote`, and `agent`.
 
 When setup is uncertain:
 

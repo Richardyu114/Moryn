@@ -642,6 +642,29 @@ moryn sync --push --message "sync after session"
 MCP exposes the same sync semantics as separate tools: `sync_init`,
 `sync_status`, `sync_pull`, and `sync_push`.
 
+### `agent_enter`
+
+Used as the one-call entrypoint for agents on a new machine or uncertain
+project. It runs `agent_doctor` first. If the project is known and safe to
+start, it runs `agent_start` and returns boot, refresh, and handoff context. If
+the project is unclear but the store has known project records, it returns
+`project_list` results with complete `agent_start` command and MCP argument
+templates for each project.
+
+CLI:
+
+```bash
+moryn agent enter --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
+moryn agent enter --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
+```
+
+MCP tool: `agent_enter`.
+
+Agents should prefer this when they are entering a project or shared store and
+do not know whether they need setup diagnosis, project discovery, or full
+startup context. It reduces multi-step orchestration errors by returning a
+single `mode`: `start_session`, `discover_projects`, or `needs_setup`.
+
 ### `agent_doctor`
 
 Used as a read-only setup check for agents on a new machine or unfamiliar
@@ -845,8 +868,8 @@ moryn list-recent --limit 20
 
 Agents should follow this contract:
 
-1. On a new machine, fresh store, or uncertain setup, call `agent_doctor` first, then follow `agent_doctor.next.actions`.
-2. If the target project is unclear, call `project_list` and use the returned `agent_start` arguments.
+1. On a new machine, fresh store, or uncertain setup, call `agent_enter` first, then follow its `mode` and `next.actions`.
+2. If using lower-level tools and the target project is unclear, call `project_list` and use the returned `agent_start` arguments.
 3. Pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
 4. Call `agent_start` at task start.
 5. Inspect `agent_start.handoff.active_sessions` before overlapping another agent's work.

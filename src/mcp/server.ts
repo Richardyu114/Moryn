@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { agentDoctor, agentFinish, agentStart, agentStatus } from "../core/agent-lifecycle.js";
+import { agentDoctor, agentEnter, agentFinish, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
@@ -379,6 +379,35 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       projectPath: project_path,
       syncRemote: sync_remote,
       currentTask: current_task,
+      agent
+    }))
+  );
+
+  server.registerTool(
+    "agent_enter",
+    {
+      title: "Enter Moryn Agent Session",
+      description: "One-call agent entrypoint: diagnose setup, discover projects when needed, or start a known project session.",
+      inputSchema: {
+        project_id: nonEmptyStringSchema.optional(),
+        project_path: nonEmptyStringSchema.optional(),
+        sync_remote: nonEmptyStringSchema.optional(),
+        current_task: nonEmptyStringSchema.optional(),
+        refresh_since: nonEmptyStringSchema.optional(),
+        limit: z.number().int().positive().max(100).optional(),
+        pull: z.boolean().optional(),
+        agent: sourceSchema.optional()
+      }
+    },
+    async ({ project_id, project_path, sync_remote, current_task, refresh_since, limit, pull, agent }) => toolResult(async () => agentEnter({
+      storePath: options.storePath,
+      projectId: project_id,
+      projectPath: project_path,
+      syncRemote: sync_remote,
+      currentTask: current_task,
+      refreshSince: refresh_since,
+      limit,
+      pull,
       agent
     }))
   );

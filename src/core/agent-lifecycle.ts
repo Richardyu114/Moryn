@@ -41,6 +41,8 @@ type DoctorSeverity = "ok" | "notice" | "warning";
 
 export interface AgentDoctorInput extends AgentLifecycleInput {}
 
+export interface AgentEnterInput extends AgentStartInput {}
+
 const ACTIVE_SESSION_TTL_MINUTES = 120;
 const ACTIVE_SESSION_TTL_MS = ACTIVE_SESSION_TTL_MINUTES * 60 * 1000;
 
@@ -581,6 +583,65 @@ export async function agentDoctor(input: AgentDoctorInput) {
     },
     checks,
     next
+  };
+}
+
+export async function agentEnter(input: AgentEnterInput) {
+  const doctor = await agentDoctor(input);
+  if (doctor.next.tool === "project_list") {
+    const engine = createEngine({ storePath: input.storePath });
+    const projects = await engine.listProjects({
+      limit: input.limit,
+      current_task: input.currentTask,
+      sync_remote: input.syncRemote,
+      agent: sourceFromAgent(input.agent)
+    });
+    return {
+      ok: true,
+      mode: "discover_projects",
+      agent: sourceFromAgent(input.agent),
+      doctor,
+      projects,
+      next: {
+        recommended_action: "choose_project_and_call_agent_start",
+        tool: "agent_start",
+        safe_to_run: true,
+        actions: projects.projects.map((project) => ({
+          action: "start_session",
+          project_id: project.project_id,
+          tool: project.next.tool,
+          command: project.next.command,
+          required_fields: [],
+          arguments: project.next.arguments
+        }))
+      }
+    };
+  }
+
+  if (doctor.next.tool === "agent_start") {
+    const start = await agentStart(input);
+    return {
+      ok: true,
+      mode: "start_session",
+      agent: sourceFromAgent(input.agent),
+      doctor,
+      project: start.project,
+      start,
+      next: {
+        recommended_action: "work_with_handoff_context",
+        tool: "agent_start",
+        safe_to_run: true,
+        actions: start.next.actions
+      }
+    };
+  }
+
+  return {
+    ok: true,
+    mode: "needs_setup",
+    agent: sourceFromAgent(input.agent),
+    doctor,
+    next: doctor.next
   };
 }
 
