@@ -49,8 +49,8 @@ describe("error envelopes", () => {
         next_action: {
           recommended_action: "initialize_project_or_retry_corrected_context",
           tool: "project_init",
-          command: "moryn project init --path <path>",
-          arguments: { path: "<path>" },
+          command: "moryn project init --path /tmp/missing",
+          arguments: { path: "/tmp/missing" },
           safe_to_run: false
         }
       }

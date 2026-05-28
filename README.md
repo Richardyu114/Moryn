@@ -457,9 +457,10 @@ explicit project mistakes: `PROJECT_PATH_NOT_FOUND` for missing paths and
 whether to initialize, list projects, or retry with corrected arguments. These
 error envelopes also include a machine-readable `error.next_action` with
 `tool`, `command`, `arguments`, and `safe_to_run`, so agents can recover without
-parsing prose. Their returned `next.actions` are portable: if project context
-was resolved from `.moryn.json`, the actions are prefilled with the resolved
-`project_id`.
+parsing prose. When the missing project path is known, `next_action.arguments`
+contains the exact path instead of a placeholder. Their returned `next.actions`
+are portable: if project context was resolved from `.moryn.json`, the actions
+are prefilled with the resolved `project_id`.
 
 At task start:
 

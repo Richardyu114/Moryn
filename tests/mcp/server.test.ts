@@ -1000,8 +1000,8 @@ describe("MCP stdio server", () => {
         expect(parsedStart.error.next_action).toEqual({
           recommended_action: "initialize_project_or_retry_corrected_context",
           tool: "project_init",
-          command: "moryn project init --path <path>",
-          arguments: { path: "<path>" },
+          command: `moryn project init --path ${missingProject}`,
+          arguments: { path: missingProject },
           safe_to_run: false
         });
       });

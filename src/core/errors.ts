@@ -83,7 +83,15 @@ export function recommendedAction(code: string): string {
   }
 }
 
-export function nextAction(code: string): MorynErrorNextAction | undefined {
+function projectPathFromMessage(message: string): string | undefined {
+  const prefix = "Project path does not exist: ";
+  if (!message.startsWith(prefix)) return undefined;
+  const details = message.slice(prefix.length);
+  const end = details.indexOf(". Run project_init");
+  return end === -1 ? details : details.slice(0, end);
+}
+
+export function nextAction(code: string, message = ""): MorynErrorNextAction | undefined {
   switch (code) {
     case "PROJECT_CONTEXT_REQUIRED":
       return {
@@ -94,13 +102,16 @@ export function nextAction(code: string): MorynErrorNextAction | undefined {
         safe_to_run: true
       };
     case "PROJECT_PATH_NOT_FOUND":
-      return {
-        recommended_action: "initialize_project_or_retry_corrected_context",
-        tool: "project_init",
-        command: "moryn project init --path <path>",
-        arguments: { path: "<path>" },
-        safe_to_run: false
-      };
+      {
+        const path = projectPathFromMessage(message) ?? "<path>";
+        return {
+          recommended_action: "initialize_project_or_retry_corrected_context",
+          tool: "project_init",
+          command: `moryn project init --path ${path}`,
+          arguments: { path },
+          safe_to_run: false
+        };
+      }
     case "PROJECT_ID_NOT_FOUND":
       return {
         recommended_action: "list_projects_and_retry_with_known_project_id",
@@ -117,7 +128,7 @@ export function nextAction(code: string): MorynErrorNextAction | undefined {
 export function toErrorEnvelope(error: unknown): MorynErrorEnvelope {
   const message = error instanceof Error ? error.message : String(error);
   const code = errorCode(message);
-  const action = nextAction(code);
+  const action = nextAction(code, message);
   return {
     ok: false,
     error: {

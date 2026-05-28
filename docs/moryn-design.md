@@ -704,9 +704,11 @@ calls also classify explicit project mistakes as recoverable structured errors:
 store. Their `recommended_action` values point agents to project initialization,
 project listing, or corrected retry arguments. These error envelopes also carry
 `error.next_action` with `tool`, `command`, `arguments`, and `safe_to_run`, so
-agents can recover from the envelope without parsing prose. When a lifecycle
-command resolves project context from `.moryn.json`, its returned `next.actions`
-are prefilled with the resolved `project_id` so they can be reused outside the
+agents can recover from the envelope without parsing prose. For
+`PROJECT_PATH_NOT_FOUND`, the `next_action.arguments.path` value is the exact
+missing path when it can be derived from the error. When a lifecycle command
+resolves project context from `.moryn.json`, its returned `next.actions` are
+prefilled with the resolved `project_id` so they can be reused outside the
 original cwd.
 
 ### `agent_doctor`
@@ -1235,6 +1237,30 @@ for agents that should not infer the recovery command from prose:
       "command": "moryn project list",
       "arguments": {},
       "safe_to_run": true
+    }
+  }
+}
+```
+
+When a direct lifecycle call uses a missing explicit project path, the recovery
+action is parameterized from the error message:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "PROJECT_PATH_NOT_FOUND",
+    "message": "Project path does not exist: /workspace/missing. Run project_init for a new project, or pass the correct project_path/project_id.",
+    "recoverable": true,
+    "recommended_action": "run moryn project init --path <path> for a new project or retry with the correct --project/--project-id",
+    "next_action": {
+      "recommended_action": "initialize_project_or_retry_corrected_context",
+      "tool": "project_init",
+      "command": "moryn project init --path /workspace/missing",
+      "arguments": {
+        "path": "/workspace/missing"
+      },
+      "safe_to_run": false
     }
   }
 }
