@@ -1178,6 +1178,51 @@ describe("moryn CLI", () => {
     });
   }, 30000);
 
+  it("bootstraps store and sync from agent lifecycle CLI commands", async () => {
+    await withTempDir(async (dir) => {
+      const remote = join(dir, "remote.git");
+      const storeA = join(dir, "fresh-store-a");
+      const storeB = join(dir, "fresh-store-b");
+      const project = join(dir, "project");
+      await exec("git", ["init", "--bare", remote]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
+
+      const finish = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", storeA,
+        "agent", "finish",
+        "--project", project,
+        "--sync-remote", remote,
+        "--agent", "codex",
+        "--summary", "CLI fresh store wrote the first handoff."
+      ]);
+      const parsedFinish = JSON.parse(finish.stdout) as { bootstrap: { initialized_store: boolean; sync_init?: { ok?: boolean } }; sync: { push?: { pushed?: boolean } } };
+      expect(parsedFinish.bootstrap.initialized_store).toBe(true);
+      expect(parsedFinish.bootstrap.sync_init?.ok).toBe(true);
+      expect(parsedFinish.sync.push?.pushed).toBe(true);
+
+      const start = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", storeB,
+        "agent", "start",
+        "--project", project,
+        "--sync-remote", remote,
+        "--agent", "gemini",
+        "--current-task", "read fresh handoff",
+        "--refresh-since", "2000-01-01T00:00:00.000Z"
+      ]);
+      const parsedStart = JSON.parse(start.stdout) as {
+        bootstrap: { initialized_store: boolean; sync_init?: { ok?: boolean } };
+        sync: { pull?: { pulled?: boolean } };
+        refresh: { changes: Array<{ summary: string }> };
+      };
+      expect(parsedStart.bootstrap.initialized_store).toBe(true);
+      expect(parsedStart.bootstrap.sync_init?.ok).toBe(true);
+      expect(parsedStart.sync.pull?.pulled).toBe(true);
+      expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
+        summary: "CLI fresh store wrote the first handoff."
+      }));
+    });
+  }, 30000);
+
   it("returns structured JSON errors from runtime failures", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");

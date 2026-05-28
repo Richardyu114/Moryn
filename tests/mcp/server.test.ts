@@ -391,6 +391,57 @@ describe("MCP stdio server", () => {
     }
   }, 30000);
 
+  it("bootstraps store and sync from agent lifecycle MCP tools", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-bootstrap-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "fresh-store-a");
+    const storeB = join(root, "fresh-store-b");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await withMcpClient(storeA, async (agentA) => {
+        await withMcpClient(storeB, async (agentB) => {
+          const finish = parseTextContent(await agentA.callTool({
+            name: "agent_finish",
+            arguments: {
+              project_path: project,
+              sync_remote: remote,
+              summary: "MCP fresh store wrote the first handoff.",
+              agent: { client: "codex", session_id: "codex-bootstrap" }
+            }
+          })) as { bootstrap: { initialized_store: boolean; sync_init?: { ok?: boolean } }; sync: { push?: { pushed?: boolean } } };
+          expect(finish.bootstrap.initialized_store).toBe(true);
+          expect(finish.bootstrap.sync_init?.ok).toBe(true);
+          expect(finish.sync.push?.pushed).toBe(true);
+
+          const start = parseTextContent(await agentB.callTool({
+            name: "agent_start",
+            arguments: {
+              project_path: project,
+              sync_remote: remote,
+              current_task: "read fresh handoff",
+              refresh_since: "2000-01-01T00:00:00.000Z",
+              agent: { client: "gemini", session_id: "gemini-bootstrap" }
+            }
+          })) as {
+            bootstrap: { initialized_store: boolean; sync_init?: { ok?: boolean } };
+            sync: { pull?: { pulled?: boolean } };
+            refresh: { changes: Array<{ summary: string }> };
+          };
+          expect(start.bootstrap.initialized_store).toBe(true);
+          expect(start.bootstrap.sync_init?.ok).toBe(true);
+          expect(start.sync.pull?.pulled).toBe(true);
+          expect(start.refresh.changes).toContainEqual(expect.objectContaining({
+            summary: "MCP fresh store wrote the first handoff."
+          }));
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
+
   it("resolves project paths and project config through MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-"));
     const store = join(root, "store");

@@ -652,6 +652,7 @@ CLI:
 
 ```bash
 moryn agent start --project . --current-task "fix auth" --agent codex
+moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn agent start --project . --current-task "fix auth" --refresh-since 2026-05-27T00:00:00.000Z --agent gemini
 ```
 
@@ -660,6 +661,8 @@ MCP tool: `agent_start`.
 Agents should prefer this over separately calling `sync_pull`, `boot`, and
 `refresh`. If sync is not configured or the remote is unavailable, the command
 still returns local boot/refresh context and includes a structured sync error.
+When `--sync-remote` or MCP `sync_remote` is provided, `agent_start` creates the
+local store if needed and initializes Git sync before pulling.
 
 ### `agent_finish`
 
@@ -670,13 +673,16 @@ CLI:
 
 ```bash
 moryn agent finish --project . --agent codex --summary "Finished auth wiring and left handoff notes."
+moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store.git --agent codex --summary "Finished auth wiring and left handoff notes."
 ```
 
 MCP tool: `agent_finish`.
 
 Agents should prefer this over separately calling `write` and `sync_push`. The
 handoff summary is intentionally visible to the next agent through
-`agent_start.refresh.changes` and `boot.recent_changes`.
+`agent_start.refresh.changes` and `boot.recent_changes`. When `--sync-remote`
+or MCP `sync_remote` is provided, `agent_finish` creates the local store if
+needed and initializes Git sync before writing and pushing the handoff.
 
 ### `rebuild`
 
@@ -756,14 +762,21 @@ moryn list-recent --limit 20
 
 Agents should follow this contract:
 
-1. Call `agent_start` at task start.
-2. Call `recall` when context is missing or uncertain.
-3. Call `agent_start` again with a previous cursor, or call `refresh`, when the user asks to refresh memory.
-4. Call `agent_finish` at the end of meaningful work.
-5. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
-6. Write raw notes as `agent_note`, not canonical memory.
-7. Do not promote long-term preferences, soul records, or global skills without user confirmation.
-8. Treat sync `interrupt` results as a reason to pause and inspect related records.
+1. On a new machine or fresh store, pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
+2. Call `agent_start` at task start.
+3. Call `recall` when context is missing or uncertain.
+4. Call `agent_start` again with a previous cursor, or call `refresh`, when the user asks to refresh memory.
+5. Call `agent_finish` at the end of meaningful work.
+6. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
+7. Write raw notes as `agent_note`, not canonical memory.
+8. Do not promote long-term preferences, soul records, or global skills without user confirmation.
+9. Treat sync `interrupt` results as a reason to pause and inspect related records.
+
+Cross-agent handoff depends on the lifecycle commands, not agent awareness of
+each other. Codex, Gemini, and other agents can run on separate machines if they
+share the same Moryn sync repo: `agent_finish` writes and pushes session facts;
+the next `agent_start` initializes local state if needed, pulls remote events,
+and returns relevant handoffs through boot and refresh.
 
 Moryn cannot force-push new content into a running agent context. Agents or host
 applications must call `agent_start`, `refresh`, or `recall`.
@@ -1094,11 +1107,11 @@ End-to-end scenarios:
 
 The MVP is successful when this flow works:
 
-1. Agent A calls `moryn agent start --project . --current-task "..."`.
-2. Agent A finishes work and calls `moryn agent finish --project . --summary "..."`.
+1. Agent A calls `moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "..."`.
+2. Agent A finishes work and calls `moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store.git --summary "..."`.
 3. The user promotes a project decision to canonical.
 4. `agent_finish` pushes events to a GitHub private repo.
-5. Agent B enters the same project on another device and calls `moryn agent start --project . --current-task "..."`.
+5. Agent B enters the same project on another device and calls `moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "..."`.
 6. `agent_start` pulls remote events and returns boot/refresh context.
 7. Agent B sees the canonical project decision.
 8. A related blocker or warning written by another agent appears as a sync interrupt.

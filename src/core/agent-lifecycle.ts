@@ -1,7 +1,8 @@
 import { createEngine } from "./engine.js";
+import { initializeStore, readStoreConfig } from "./config.js";
 import { resolveProjectContext, type ProjectContext, type SyncMode } from "./project.js";
 import type { RecordSource } from "./types.js";
-import { getGitSyncStatus, pullGitSync, pushGitSync, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
+import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 
 interface AgentIdentity {
   client: string;
@@ -16,6 +17,7 @@ interface AgentLifecycleInput {
   projectId?: string;
   currentTask?: string;
   agent?: AgentIdentity;
+  syncRemote?: string;
 }
 
 export interface AgentStartInput extends AgentLifecycleInput {
@@ -27,6 +29,12 @@ export interface AgentStartInput extends AgentLifecycleInput {
 export interface AgentFinishInput extends AgentLifecycleInput {
   summary: string;
   push?: boolean;
+}
+
+interface BootstrapResult {
+  initialized_store: boolean;
+  sync_init?: GitSyncResult;
+  sync_init_error?: string;
 }
 
 function sourceFromAgent(agent: AgentIdentity | undefined): RecordSource {
@@ -64,7 +72,39 @@ async function trySync<T>(fn: () => Promise<T>): Promise<{ ok: true; result: T }
   }
 }
 
+function isMissingStore(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+async function initializeLifecycleSync(storePath: string, syncRemote: string | undefined, result: BootstrapResult): Promise<void> {
+  if (!syncRemote) return;
+  const initialized = await trySync(() => initializeGitSync(storePath, syncRemote));
+  if (initialized.ok) {
+    result.sync_init = initialized.result;
+  } else {
+    result.sync_init_error = initialized.error;
+  }
+}
+
+async function ensureLifecycleBootstrap(input: AgentLifecycleInput): Promise<BootstrapResult> {
+  try {
+    await readStoreConfig(input.storePath);
+  } catch (error) {
+    if (!isMissingStore(error)) throw error;
+    await initializeStore(input.storePath);
+    const result: BootstrapResult = { initialized_store: true };
+    await initializeLifecycleSync(input.storePath, input.syncRemote, result);
+    return result;
+  }
+
+  await initializeStore(input.storePath);
+  const result: BootstrapResult = { initialized_store: false };
+  await initializeLifecycleSync(input.storePath, input.syncRemote, result);
+  return result;
+}
+
 export async function agentStart(input: AgentStartInput) {
+  const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
   const projectInfo = projectEnvelope(project);
   const shouldPull = input.pull ?? projectInfo.sync_mode !== "manual";
@@ -106,6 +146,7 @@ export async function agentStart(input: AgentStartInput) {
     ok: true,
     agent: sourceFromAgent(input.agent),
     project: projectInfo,
+    bootstrap,
     sync,
     boot,
     refresh,
@@ -117,6 +158,7 @@ export async function agentStart(input: AgentStartInput) {
 }
 
 export async function agentFinish(input: AgentFinishInput) {
+  const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
   const projectInfo = projectEnvelope(project);
   const engine = createEngine({ storePath: input.storePath });
@@ -150,6 +192,7 @@ export async function agentFinish(input: AgentFinishInput) {
     ok: true,
     agent: sourceFromAgent(input.agent),
     project: projectInfo,
+    bootstrap,
     record: record.record,
     warning: record.warning,
     sync,

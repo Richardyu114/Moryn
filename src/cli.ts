@@ -368,6 +368,7 @@ const agent = program.command("agent");
 agent.command("start")
   .option("--project-id <id>")
   .option("--project <path>")
+  .option("--sync-remote <remote>", "Initialize or connect Git sync before startup")
   .option("--current-task <task>")
   .option("--refresh-since <cursor>")
   .option("--limit <n>", "Refresh change limit", "20")
@@ -381,6 +382,7 @@ agent.command("start")
       storePath: storePath(),
       projectPath: options.project,
       projectId: options.projectId,
+      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
       currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
       refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
       limit: parseLimit(options.limit),
@@ -393,6 +395,7 @@ agent.command("finish")
   .requiredOption("--summary <text>")
   .option("--project-id <id>")
   .option("--project <path>")
+  .option("--sync-remote <remote>", "Initialize or connect Git sync before handoff")
   .option("--current-task <task>")
   .option("--no-push", "Do not push sync after writing the handoff")
   .option("--agent <client>", "Agent client name")
@@ -404,6 +407,7 @@ agent.command("finish")
       storePath: storePath(),
       projectPath: options.project,
       projectId: options.projectId,
+      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
       currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
       summary: parseNonEmptyString(options.summary, "--summary")!,
       push: parseBooleanDefault(options.push, true),

@@ -106,6 +106,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         project_id: nonEmptyStringSchema.optional(),
         project_path: nonEmptyStringSchema.optional(),
+        sync_remote: nonEmptyStringSchema.optional(),
         current_task: nonEmptyStringSchema.optional(),
         default_skills: z.array(nonEmptyStringSchema).optional()
       }
@@ -347,6 +348,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         project_id: nonEmptyStringSchema.optional(),
         project_path: nonEmptyStringSchema.optional(),
+        sync_remote: nonEmptyStringSchema.optional(),
         current_task: nonEmptyStringSchema.optional(),
         refresh_since: nonEmptyStringSchema.optional(),
         limit: z.number().int().positive().max(100).optional(),
@@ -354,10 +356,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: sourceSchema.optional()
       }
     },
-    async ({ project_id, project_path, current_task, refresh_since, limit, pull, agent }) => toolResult(async () => agentStart({
+    async ({ project_id, project_path, sync_remote, current_task, refresh_since, limit, pull, agent }) => toolResult(async () => agentStart({
       storePath: options.storePath,
       projectId: project_id,
       projectPath: project_path,
+      syncRemote: sync_remote,
       currentTask: current_task,
       refreshSince: refresh_since,
       limit,
@@ -375,15 +378,17 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         summary: nonEmptyStringSchema,
         project_id: nonEmptyStringSchema.optional(),
         project_path: nonEmptyStringSchema.optional(),
+        sync_remote: nonEmptyStringSchema.optional(),
         current_task: nonEmptyStringSchema.optional(),
         push: z.boolean().optional(),
         agent: sourceSchema.optional()
       }
     },
-    async ({ summary, project_id, project_path, current_task, push, agent }) => toolResult(async () => agentFinish({
+    async ({ summary, project_id, project_path, sync_remote, current_task, push, agent }) => toolResult(async () => agentFinish({
       storePath: options.storePath,
       projectId: project_id,
       projectPath: project_path,
+      syncRemote: sync_remote,
       currentTask: current_task,
       summary,
       push,

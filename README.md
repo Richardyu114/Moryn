@@ -143,6 +143,14 @@ moryn sync --pull
 
 The default Git sync commits event files and `.gitignore`. Local `config.json`, snapshots, and indexes remain device-local or rebuildable.
 
+For a new agent device, the lifecycle commands can bootstrap the local store and
+sync remote in one step:
+
+```bash
+moryn agent start --project /path/to/project --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent gemini
+moryn agent finish --project /path/to/project --sync-remote git@github.com:yourname/moryn-store.git --summary "Finished the task summary." --agent gemini
+```
+
 ### 4. Initialize a Project
 
 Inside a project repo:
@@ -290,17 +298,19 @@ gemini --skip-trust --approval-mode yolo --allowed-mcp-server-names moryn \
 Shell-based agents can use the CLI directly:
 
 ```bash
-moryn agent start --project . --current-task "current task" --agent codex
+moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
 moryn recall "missing context" --project . --scope project --kind memory --kind skill
-moryn agent finish --project . --agent codex --summary "Finished the task summary."
+moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store.git --agent codex --summary "Finished the task summary."
 ```
 
 `agent start` is the low-friction startup command for agents. It resolves
-`.moryn.json`, pulls remote events when sync is configured, returns boot
-context, and reports important changes since an optional cursor. `agent finish`
-writes a `session_summary` handoff and pushes it when sync is configured. These
-commands are intentionally safer for agents than asking them to remember a
-manual sequence of `sync --pull`, `boot`, `refresh`, `write`, and `sync --push`.
+`.moryn.json`, creates the store if needed, initializes sync when
+`--sync-remote` is provided, pulls remote events when sync is configured,
+returns boot context, and reports important changes since an optional cursor.
+`agent finish` writes a `session_summary` handoff and pushes it when sync is
+configured. These commands are intentionally safer for agents than asking them
+to remember a manual sequence of `init`, `sync init`, `sync --pull`, `boot`,
+`refresh`, `write`, and `sync --push`.
 
 ## Current MVP Commands
 
@@ -308,8 +318,8 @@ The current implementation includes these commands:
 
 ```bash
 moryn init
-moryn agent start --project . --current-task "fix auth" --agent codex
-moryn agent finish --project . --agent codex --summary "Finished auth wiring and left handoff notes."
+moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
+moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store.git --agent codex --summary "Finished auth wiring and left handoff notes."
 moryn boot --project-id moryn --current-task "fix auth"
 moryn write --kind memory --type decision --scope project --project-id moryn --tag sync --state canonical --text "Use append-only events"
 moryn recall "append-only events" --project-id moryn --kind memory --type decision --state canonical --tag sync

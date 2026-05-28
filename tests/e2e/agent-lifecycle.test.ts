@@ -130,4 +130,47 @@ describe("agent lifecycle", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("bootstraps a fresh device store and sync remote from agent lifecycle input", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-bootstrap-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+
+      const firstFinish = await agentFinish({
+        storePath: storeA,
+        projectPath: project,
+        syncRemote: remote,
+        agent: { client: "codex", device_id: "device_codex" },
+        summary: "Fresh Codex device bootstrapped Moryn and pushed a handoff."
+      });
+
+      expect(firstFinish.bootstrap.initialized_store).toBe(true);
+      expect(firstFinish.bootstrap.sync_init?.ok).toBe(true);
+      expect(firstFinish.sync.push?.pushed).toBe(true);
+
+      const firstStart = await agentStart({
+        storePath: storeB,
+        projectPath: project,
+        syncRemote: remote,
+        agent: { client: "gemini", device_id: "device_gemini" },
+        currentTask: "continue after fresh device bootstrap",
+        refreshSince: "2000-01-01T00:00:00.000Z"
+      });
+
+      expect(firstStart.bootstrap.initialized_store).toBe(true);
+      expect(firstStart.bootstrap.sync_init?.ok).toBe(true);
+      expect(firstStart.sync.pull?.pulled).toBe(true);
+      expect(firstStart.refresh.changes).toContainEqual(expect.objectContaining({
+        summary: "Fresh Codex device bootstrapped Moryn and pushed a handoff.",
+        importance: "notice"
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
 });
