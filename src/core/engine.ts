@@ -347,6 +347,7 @@ function boundedBootTexts(records: MorynRecord[], limit = 5): string[] {
 }
 
 function isImportantBootRecent(record: MorynRecord): boolean {
+  if (record.kind === "session_summary") return record.state !== "raw";
   return (record.kind === "memory" || record.kind === "skill")
     && (record.state === "canonical" || (record.state === "candidate" && record.confidence >= 0.75));
 }

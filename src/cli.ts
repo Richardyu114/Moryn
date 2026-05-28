@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { Command, CommanderError } from "commander";
 import { version } from "./index.js";
+import { agentFinish, agentStart } from "./core/agent-lifecycle.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
@@ -141,6 +142,19 @@ function validateSyncOperationOptions(options: { status?: boolean; push?: boolea
   if (options.message !== undefined && !options.push) {
     throw new Error("Invalid argument: --message requires --push");
   }
+}
+
+function parseBooleanDefault(value: unknown, fallback: boolean): boolean {
+  return value === undefined ? fallback : Boolean(value);
+}
+
+function parseAgentOptions(options: { agent?: string; sessionId?: string; model?: string; deviceId?: string }) {
+  return {
+    client: parseNonEmptyString(options.agent, "--agent") ?? "cli",
+    session_id: parseNonEmptyString(options.sessionId, "--session-id"),
+    model: parseNonEmptyString(options.model, "--model"),
+    device_id: parseNonEmptyString(options.deviceId, "--device-id")
+  };
 }
 
 program
@@ -348,6 +362,54 @@ program.command("mcp").action(async () => {
   });
   await runMcpServer(engine, { storePath: path });
 });
+
+const agent = program.command("agent");
+
+agent.command("start")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--current-task <task>")
+  .option("--refresh-since <cursor>")
+  .option("--limit <n>", "Refresh change limit", "20")
+  .option("--no-pull", "Do not pull sync before boot")
+  .option("--agent <client>", "Agent client name")
+  .option("--session-id <id>")
+  .option("--model <model>")
+  .option("--device-id <id>")
+  .action(async (options) => {
+    printJson(await agentStart({
+      storePath: storePath(),
+      projectPath: options.project,
+      projectId: options.projectId,
+      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+      refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
+      limit: parseLimit(options.limit),
+      pull: parseBooleanDefault(options.pull, true),
+      agent: parseAgentOptions(options)
+    }));
+  });
+
+agent.command("finish")
+  .requiredOption("--summary <text>")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--current-task <task>")
+  .option("--no-push", "Do not push sync after writing the handoff")
+  .option("--agent <client>", "Agent client name")
+  .option("--session-id <id>")
+  .option("--model <model>")
+  .option("--device-id <id>")
+  .action(async (options) => {
+    printJson(await agentFinish({
+      storePath: storePath(),
+      projectPath: options.project,
+      projectId: options.projectId,
+      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+      summary: parseNonEmptyString(options.summary, "--summary")!,
+      push: parseBooleanDefault(options.push, true),
+      agent: parseAgentOptions(options)
+    }));
+  });
 
 const project = program.command("project");
 

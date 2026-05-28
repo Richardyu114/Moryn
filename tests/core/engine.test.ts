@@ -1617,12 +1617,12 @@ describe("core engine", () => {
         confidence: 0.4,
         source: { client: "test" }
       });
-      await engine.write({
+      const summary = await engine.write({
         kind: "session_summary",
         type: "summary",
         scope: "project",
         project_id: "moryn",
-        content: { text: "Session summary should stay out of boot recents.", format: "text" },
+        content: { text: "Session summary should appear in boot recents.", format: "text" },
         state: "candidate",
         confidence: 0.9,
         source: { client: "test" }
@@ -1638,7 +1638,7 @@ describe("core engine", () => {
 
       const boot = await engine.boot({ project_id: "moryn" });
 
-      expect(boot.recent_changes.map((record) => record.id)).toEqual([highConfidence.record.id]);
+      expect(boot.recent_changes.map((record) => record.id)).toEqual([summary.record.id, highConfidence.record.id]);
     });
   });
 

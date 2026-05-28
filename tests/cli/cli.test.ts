@@ -1130,6 +1130,54 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("runs agent lifecycle start and finish from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      const remote = join(dir, "remote.git");
+      const storeA = join(dir, "store-a");
+      const storeB = join(dir, "store-b");
+      const project = join(dir, "project");
+      await exec("git", ["init", "--bare", remote]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "init"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "init"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn", "--tag", "typescript"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "init", remote]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote]);
+
+      const finish = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", storeA,
+        "agent", "finish",
+        "--project", project,
+        "--agent", "codex",
+        "--session-id", "codex-cli",
+        "--summary", "CLI Codex finished the lifecycle protocol."
+      ]);
+      const parsedFinish = JSON.parse(finish.stdout) as { record: { content: { text: string } }; sync: { push?: { pushed?: boolean } } };
+      expect(parsedFinish.record.content.text).toBe("CLI Codex finished the lifecycle protocol.");
+      expect(parsedFinish.sync.push?.pushed).toBe(true);
+
+      const start = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", storeB,
+        "agent", "start",
+        "--project", project,
+        "--agent", "gemini",
+        "--session-id", "gemini-cli",
+        "--current-task", "continue lifecycle protocol",
+        "--refresh-since", "2000-01-01T00:00:00.000Z"
+      ]);
+      const parsedStart = JSON.parse(start.stdout) as {
+        project: { project_id: string };
+        sync: { pull?: { pulled?: boolean } };
+        refresh: { changes: Array<{ summary: string; importance: string }> };
+      };
+      expect(parsedStart.project.project_id).toBe("moryn");
+      expect(parsedStart.sync.pull?.pulled).toBe(true);
+      expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
+        summary: "CLI Codex finished the lifecycle protocol.",
+        importance: "notice"
+      }));
+    });
+  }, 30000);
+
   it("returns structured JSON errors from runtime failures", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");

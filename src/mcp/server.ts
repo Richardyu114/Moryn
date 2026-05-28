@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { agentFinish, agentStart } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
@@ -336,6 +337,58 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit
       });
     })
+  );
+
+  server.registerTool(
+    "agent_start",
+    {
+      title: "Start Moryn Agent Session",
+      description: "Low-friction agent startup: pull sync, resolve project context, boot context, and refresh recent changes.",
+      inputSchema: {
+        project_id: nonEmptyStringSchema.optional(),
+        project_path: nonEmptyStringSchema.optional(),
+        current_task: nonEmptyStringSchema.optional(),
+        refresh_since: nonEmptyStringSchema.optional(),
+        limit: z.number().int().positive().max(100).optional(),
+        pull: z.boolean().optional(),
+        agent: sourceSchema.optional()
+      }
+    },
+    async ({ project_id, project_path, current_task, refresh_since, limit, pull, agent }) => toolResult(async () => agentStart({
+      storePath: options.storePath,
+      projectId: project_id,
+      projectPath: project_path,
+      currentTask: current_task,
+      refreshSince: refresh_since,
+      limit,
+      pull,
+      agent
+    }))
+  );
+
+  server.registerTool(
+    "agent_finish",
+    {
+      title: "Finish Moryn Agent Session",
+      description: "Low-friction agent handoff: write a session summary and push sync.",
+      inputSchema: {
+        summary: nonEmptyStringSchema,
+        project_id: nonEmptyStringSchema.optional(),
+        project_path: nonEmptyStringSchema.optional(),
+        current_task: nonEmptyStringSchema.optional(),
+        push: z.boolean().optional(),
+        agent: sourceSchema.optional()
+      }
+    },
+    async ({ summary, project_id, project_path, current_task, push, agent }) => toolResult(async () => agentFinish({
+      storePath: options.storePath,
+      projectId: project_id,
+      projectPath: project_path,
+      currentTask: current_task,
+      summary,
+      push,
+      agent
+    }))
   );
 
   server.registerTool(

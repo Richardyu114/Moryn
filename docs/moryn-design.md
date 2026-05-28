@@ -642,6 +642,42 @@ moryn sync --push --message "sync after session"
 MCP exposes the same sync semantics as separate tools: `sync_init`,
 `sync_status`, `sync_pull`, and `sync_push`.
 
+### `agent_start`
+
+Used as the default agent startup entrypoint. It resolves project identity,
+pulls remote event history when session sync is enabled, returns `boot` context,
+and returns `refresh` changes since an optional cursor.
+
+CLI:
+
+```bash
+moryn agent start --project . --current-task "fix auth" --agent codex
+moryn agent start --project . --current-task "fix auth" --refresh-since 2026-05-27T00:00:00.000Z --agent gemini
+```
+
+MCP tool: `agent_start`.
+
+Agents should prefer this over separately calling `sync_pull`, `boot`, and
+`refresh`. If sync is not configured or the remote is unavailable, the command
+still returns local boot/refresh context and includes a structured sync error.
+
+### `agent_finish`
+
+Used as the default agent handoff entrypoint. It writes a project-scoped
+`session_summary` and pushes remote event history when session sync is enabled.
+
+CLI:
+
+```bash
+moryn agent finish --project . --agent codex --summary "Finished auth wiring and left handoff notes."
+```
+
+MCP tool: `agent_finish`.
+
+Agents should prefer this over separately calling `write` and `sync_push`. The
+handoff summary is intentionally visible to the next agent through
+`agent_start.refresh.changes` and `boot.recent_changes`.
+
 ### `rebuild`
 
 Used to regenerate snapshots and indexes from event history.
@@ -720,16 +756,17 @@ moryn list-recent --limit 20
 
 Agents should follow this contract:
 
-1. Call `boot` at task start.
+1. Call `agent_start` at task start.
 2. Call `recall` when context is missing or uncertain.
-3. Call `sync` periodically or when the user asks to refresh memory.
-4. Write a `session_summary` at the end of meaningful work.
+3. Call `agent_start` again with a previous cursor, or call `refresh`, when the user asks to refresh memory.
+4. Call `agent_finish` at the end of meaningful work.
 5. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
 6. Write raw notes as `agent_note`, not canonical memory.
 7. Do not promote long-term preferences, soul records, or global skills without user confirmation.
 8. Treat sync `interrupt` results as a reason to pause and inspect related records.
 
-Moryn cannot force-push new content into a running agent context. Agents or host applications must call sync or recall.
+Moryn cannot force-push new content into a running agent context. Agents or host
+applications must call `agent_start`, `refresh`, or `recall`.
 
 ## Boot, Recall, and Sync Return Strategy
 
@@ -1051,17 +1088,18 @@ End-to-end scenarios:
 3. Agent A writes a raw note. It does not appear in boot.
 4. User promotes a candidate decision. It appears in boot and recall.
 5. Remote sync is unavailable. Local boot, recall, and write still work.
+6. Agent A calls `agent_finish`; Agent B on another device calls `agent_start` and sees the handoff.
 
 ## MVP Success Criteria
 
 The MVP is successful when this flow works:
 
-1. Agent A calls `moryn boot --project .`.
-2. Agent A finishes work and writes a session summary plus candidate memory.
+1. Agent A calls `moryn agent start --project . --current-task "..."`.
+2. Agent A finishes work and calls `moryn agent finish --project . --summary "..."`.
 3. The user promotes a project decision to canonical.
-4. `moryn sync --push` pushes events to a GitHub private repo.
-5. Another device runs `moryn sync --pull`.
-6. Agent B enters the same project and calls `boot`.
+4. `agent_finish` pushes events to a GitHub private repo.
+5. Agent B enters the same project on another device and calls `moryn agent start --project . --current-task "..."`.
+6. `agent_start` pulls remote events and returns boot/refresh context.
 7. Agent B sees the canonical project decision.
 8. A related blocker or warning written by another agent appears as a sync interrupt.
 

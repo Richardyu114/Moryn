@@ -56,6 +56,8 @@ describe("MCP stdio server", () => {
       await withMcpClient(store, async (client) => {
         const tools = await client.listTools();
         expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
+          "agent_finish",
+          "agent_start",
           "archive",
           "boot",
           "init",
@@ -325,6 +327,63 @@ describe("MCP stdio server", () => {
           })) as { configured: boolean; remote?: string };
           expect(status.configured).toBe(true);
           expect(status.remote).toBe(remote);
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
+
+  it("exposes low-friction agent lifecycle over MCP", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-lifecycle-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-a");
+    const storeB = join(root, "store-b");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, {
+        project_id: "moryn",
+        tags: ["typescript"],
+        default_skills: ["release"]
+      });
+      await withMcpClient(storeA, async (agentA) => {
+        await withMcpClient(storeB, async (agentB) => {
+          expect((parseTextContent(await agentA.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+          expect((parseTextContent(await agentB.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+          expect((parseTextContent(await agentA.callTool({ name: "sync_init", arguments: { remote } })) as { ok: boolean }).ok).toBe(true);
+          expect((parseTextContent(await agentB.callTool({ name: "sync_init", arguments: { remote } })) as { ok: boolean }).ok).toBe(true);
+
+          const finish = parseTextContent(await agentA.callTool({
+            name: "agent_finish",
+            arguments: {
+              project_path: project,
+              summary: "MCP Codex left a lifecycle handoff.",
+              agent: { client: "codex", session_id: "codex-mcp", device_id: "device_a" }
+            }
+          })) as { record: { content: { text: string } }; sync: { push?: { pushed?: boolean } } };
+          expect(finish.record.content.text).toBe("MCP Codex left a lifecycle handoff.");
+          expect(finish.sync.push?.pushed).toBe(true);
+
+          const start = parseTextContent(await agentB.callTool({
+            name: "agent_start",
+            arguments: {
+              project_path: project,
+              current_task: "continue lifecycle handoff",
+              refresh_since: "2000-01-01T00:00:00.000Z",
+              agent: { client: "gemini", session_id: "gemini-mcp", device_id: "device_b" }
+            }
+          })) as {
+            project: { project_id: string };
+            sync: { pull?: { pulled?: boolean } };
+            refresh: { changes: Array<{ summary: string; importance: string }> };
+          };
+          expect(start.project.project_id).toBe("moryn");
+          expect(start.sync.pull?.pulled).toBe(true);
+          expect(start.refresh.changes).toContainEqual(expect.objectContaining({
+            summary: "MCP Codex left a lifecycle handoff.",
+            importance: "notice"
+          }));
         });
       });
     } finally {

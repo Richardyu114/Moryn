@@ -218,6 +218,8 @@ Then configure an agent host that supports MCP to run that command. The exact ho
 The current MCP server uses the official Model Context Protocol TypeScript SDK over stdio and exposes these tools:
 
 - `init`
+- `agent_finish`
+- `agent_start`
 - `boot`
 - `project_init`
 - `recall`
@@ -288,11 +290,17 @@ gemini --skip-trust --approval-mode yolo --allowed-mcp-server-names moryn \
 Shell-based agents can use the CLI directly:
 
 ```bash
-moryn boot --project .
-moryn recall "current task" --project . --scope project --kind memory --kind skill
-moryn write --kind session_summary --type summary --scope project --project . --text "Finished the task summary."
-moryn refresh --project . --cursor <previous-cursor> --current-task "current task"
+moryn agent start --project . --current-task "current task" --agent codex
+moryn recall "missing context" --project . --scope project --kind memory --kind skill
+moryn agent finish --project . --agent codex --summary "Finished the task summary."
 ```
+
+`agent start` is the low-friction startup command for agents. It resolves
+`.moryn.json`, pulls remote events when sync is configured, returns boot
+context, and reports important changes since an optional cursor. `agent finish`
+writes a `session_summary` handoff and pushes it when sync is configured. These
+commands are intentionally safer for agents than asking them to remember a
+manual sequence of `sync --pull`, `boot`, `refresh`, `write`, and `sync --push`.
 
 ## Current MVP Commands
 
@@ -300,6 +308,8 @@ The current implementation includes these commands:
 
 ```bash
 moryn init
+moryn agent start --project . --current-task "fix auth" --agent codex
+moryn agent finish --project . --agent codex --summary "Finished auth wiring and left handoff notes."
 moryn boot --project-id moryn --current-task "fix auth"
 moryn write --kind memory --type decision --scope project --project-id moryn --tag sync --state canonical --text "Use append-only events"
 moryn recall "append-only events" --project-id moryn --kind memory --type decision --state canonical --tag sync
@@ -326,10 +336,13 @@ Agents should use Moryn through a consistent protocol.
 At task start:
 
 ```text
-boot(project_path, current_task)
+agent_start(project_path, current_task, agent)
 ```
 
-This returns a small context package: user preferences, project summary, important decisions, warnings, default skills, task-relevant trusted memories, recent important changes, and sync status.
+This pulls remote events when sync is configured, resolves the project identity,
+returns a small boot context package, and reports recent changes as notices or
+interrupts. Agents should prefer `agent_start` over manually composing
+`sync_pull`, `boot`, and `refresh`.
 
 When more context is needed:
 
@@ -361,10 +374,12 @@ memory, CLI callers must add `--confirm`; MCP callers must pass
 At the end of meaningful work:
 
 ```text
-write(kind="session_summary", ...)
+agent_finish(project_path, summary, agent)
 ```
 
-This records a handoff summary for future agents.
+This records a `session_summary` handoff and pushes it when sync is configured.
+Agents should prefer `agent_finish` over manually composing `write` and
+`sync_push`.
 
 When a candidate should become durable shared context:
 
@@ -413,8 +428,10 @@ Moryn is local-first:
 - GitHub private repos are the first sync backend.
 
 The default sync mode is `session`: agents should pull at task start and push
-at session end or explicit sync. CLI pushes can set a commit message with
-`moryn sync --push --message "session summary"`.
+at session end or explicit sync. `moryn agent start` and `moryn agent finish`
+perform those default session sync steps automatically. CLI pushes can still set
+a commit message with `moryn sync --push --message "session summary"` when a
+manual sync is needed.
 
 ## Design Spec
 
