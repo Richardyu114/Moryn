@@ -232,6 +232,7 @@ The current MCP server uses the official Model Context Protocol TypeScript SDK o
 - `agent_status`
 - `boot`
 - `project_init`
+- `project_list`
 - `recall`
 - `write`
 - `revise`
@@ -300,6 +301,7 @@ gemini --skip-trust --approval-mode yolo --allowed-mcp-server-names moryn \
 Shell-based agents can use the CLI directly:
 
 ```bash
+moryn project list
 moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
 moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
 moryn agent status --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex --status "Currently investigating auth refresh failures."
@@ -334,6 +336,7 @@ The current implementation includes these commands:
 
 ```bash
 moryn init
+moryn project list
 moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn agent status --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex --status "Currently tracing auth refresh failures."
@@ -360,6 +363,16 @@ moryn mcp
 ## Agent Workflow
 
 Agents should use Moryn through a consistent protocol.
+
+When the target project is unknown:
+
+```text
+project_list()
+```
+
+This is read-only. It derives known project ids from the local store, sorted by
+recent activity. Each project includes its latest activity and a prefilled
+`agent_start` argument template.
 
 When setup is uncertain:
 

@@ -1130,6 +1130,47 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("lists known projects from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "alpha",
+        "--tag", "typescript",
+        "--state", "canonical",
+        "--text", "Alpha uses TypeScript."
+      ]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "beta",
+        "--text", "Beta handoff is ready."
+      ]);
+
+      const listed = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "project", "list"]);
+      const parsed = JSON.parse(listed.stdout) as {
+        projects: Array<{ project_id: string; records: number; latest_activity: { text: string }; next: { tool: string; arguments: { project_id: string } } }>;
+      };
+
+      expect(parsed.projects.map((project) => project.project_id)).toEqual(["beta", "alpha"]);
+      expect(parsed.projects[0]).toMatchObject({
+        project_id: "beta",
+        records: 1,
+        latest_activity: { text: "Beta handoff is ready." },
+        next: {
+          tool: "agent_start",
+          arguments: { project_id: "beta" }
+        }
+      });
+    });
+  });
+
   it("runs agent lifecycle start and finish from the CLI", async () => {
     await withTempDir(async (dir) => {
       const remote = join(dir, "remote.git");

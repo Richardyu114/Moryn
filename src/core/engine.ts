@@ -55,6 +55,10 @@ interface BootInput {
   current_task?: string;
 }
 
+interface ListProjectsInput {
+  limit?: number;
+}
+
 interface StateChangeInput {
   record_id: string;
   reason?: string;
@@ -268,6 +272,10 @@ function validateRefreshInput(input: RefreshInput): void {
   validateOptionalString(input.current_task, "current_task");
 }
 
+function validateListProjectsInput(input: ListProjectsInput): void {
+  assertPlainObject(input, "list projects input");
+}
+
 function matchesAny(values: string[], filters: string[] | undefined): boolean {
   return !filters?.length || filters.some((filter) => values.includes(filter));
 }
@@ -449,6 +457,19 @@ function matchesQuery(result: { reason: string[] }, input: RecallInput): boolean
 
 function summarizeRecord(record: MorynRecord): string {
   return textOf(record) || `${record.kind}:${record.type}`;
+}
+
+function projectActivity(record: MorynRecord) {
+  const currentTask = typeof record.content.current_task === "string" ? record.content.current_task : undefined;
+  return {
+    record_id: record.id,
+    kind: record.kind,
+    type: record.type,
+    text: summarizeRecord(record),
+    current_task: currentTask,
+    updated_at: record.updated_at,
+    agent: record.source
+  };
 }
 
 function projectSummary(records: MorynRecord[]): string {
@@ -948,6 +969,41 @@ export function createEngine(deps: EngineDeps) {
 
     async listRecent(limit = 20) {
       return (await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20));
+    },
+
+    async listProjects(input: ListProjectsInput = {}) {
+      validateListProjectsInput(input);
+      const limit = validateLimit(input.limit, 20);
+      const byProject = new Map<string, MorynRecord[]>();
+
+      for (const record of (await currentRecords()).filter(isVisibleByDefault)) {
+        if (record.scope !== "project" || !record.project_id) continue;
+        byProject.set(record.project_id, [...(byProject.get(record.project_id) ?? []), record]);
+      }
+
+      const projects = [...byProject.entries()]
+        .map(([projectId, records]) => {
+          const sorted = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id));
+          const latest = sorted[0] as MorynRecord;
+          const tags = [...new Set(records.flatMap((record) => record.tags))].sort();
+          return {
+            project_id: projectId,
+            records: records.length,
+            tags,
+            latest_activity: projectActivity(latest),
+            next: {
+              recommended_action: "call_agent_start",
+              tool: "agent_start",
+              arguments: {
+                project_id: projectId
+              }
+            }
+          };
+        })
+        .sort((a, b) => b.latest_activity.updated_at.localeCompare(a.latest_activity.updated_at) || a.project_id.localeCompare(b.project_id))
+        .slice(0, limit);
+
+      return { projects };
     }
   };
 

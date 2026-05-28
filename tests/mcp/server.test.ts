@@ -66,6 +66,7 @@ describe("MCP stdio server", () => {
           "link",
           "list_recent",
           "project_init",
+          "project_list",
           "promote",
           "quarantine",
           "rebuild",
@@ -711,6 +712,58 @@ describe("MCP stdio server", () => {
       });
     } finally {
       await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("lists known projects through MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-project-list-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "alpha",
+            text: "Alpha project memory.",
+            state: "canonical",
+            source: { client: "mcp-test" }
+          }
+        });
+        await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "session_summary",
+            project_id: "beta",
+            text: "Beta final handoff.",
+            source: { client: "codex", session_id: "codex-beta" }
+          }
+        });
+
+        const listed = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: {}
+        })) as {
+          projects: Array<{ project_id: string; latest_activity: { text: string; agent: { client?: string; session_id?: string } }; next: { tool: string; arguments: { project_id: string } } }>;
+        };
+
+        expect(listed.projects.map((project) => project.project_id)).toEqual(["beta", "alpha"]);
+        expect(listed.projects[0]).toMatchObject({
+          project_id: "beta",
+          latest_activity: {
+            text: "Beta final handoff.",
+            agent: { client: "codex", session_id: "codex-beta" }
+          },
+          next: {
+            tool: "agent_start",
+            arguments: { project_id: "beta" }
+          }
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
     }
   });
 

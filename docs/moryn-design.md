@@ -664,6 +664,25 @@ mutate local or remote state. Its `next.actions` includes `start_session` and
 `run_lifecycle_smoke` templates so agents can start or verify the shared Git
 path without inferring commands from prose.
 
+### `project_list`
+
+Used as a read-only project discovery entrypoint for agents that have a Moryn
+store but do not know which project to start. It derives project ids from
+visible project-scoped records, sorted by recent activity, and returns each
+project's latest activity plus a prefilled `agent_start` argument template.
+
+CLI:
+
+```bash
+moryn project list
+moryn project list --limit 10
+```
+
+MCP tool: `project_list`.
+
+Agents should call this before `agent_start` when the user references a shared
+store but does not provide a project path or project id.
+
 ### `agent_start`
 
 Used as the default agent startup entrypoint. It resolves project identity,
@@ -821,19 +840,20 @@ moryn list-recent --limit 20
 Agents should follow this contract:
 
 1. On a new machine, fresh store, or uncertain setup, call `agent_doctor` first, then follow `agent_doctor.next.actions`.
-2. Pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
-3. Call `agent_start` at task start.
-4. Inspect `agent_start.handoff.active_sessions` before overlapping another agent's work.
-5. Inspect `agent_start.handoff.inbox` before continuing from another agent's final handoff.
-6. Call `recall` when context is missing or uncertain.
-7. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions` for finish or refresh.
-8. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
-9. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
-10. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
-11. Write raw notes as `agent_note`, not canonical memory.
-12. Do not promote long-term preferences, soul records, or global skills without user confirmation.
-13. Treat sync `interrupt` results as a reason to pause and inspect related records.
-14. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
+2. If the target project is unclear, call `project_list` and use the returned `agent_start` arguments.
+3. Pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
+4. Call `agent_start` at task start.
+5. Inspect `agent_start.handoff.active_sessions` before overlapping another agent's work.
+6. Inspect `agent_start.handoff.inbox` before continuing from another agent's final handoff.
+7. Call `recall` when context is missing or uncertain.
+8. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions` for finish or refresh.
+9. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
+10. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
+11. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
+12. Write raw notes as `agent_note`, not canonical memory.
+13. Do not promote long-term preferences, soul records, or global skills without user confirmation.
+14. Treat sync `interrupt` results as a reason to pause and inspect related records.
+15. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
 
 Cross-agent handoff depends on the lifecycle commands, not agent awareness of
 each other. Codex, Gemini, and other agents can run on separate machines if they

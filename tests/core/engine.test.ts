@@ -30,6 +30,97 @@ describe("core engine", () => {
     });
   });
 
+  it("lists project activity for agent project discovery", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const timestamps = [
+        "2026-05-27T00:00:00.000Z",
+        "2026-05-27T00:01:00.000Z",
+        "2026-05-27T00:02:00.000Z",
+        "2026-05-27T00:03:00.000Z"
+      ];
+      let nextId = 0;
+      let nextTime = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:04:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "alpha",
+        tags: ["typescript"],
+        content: { text: "Alpha uses TypeScript.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const betaStatus = await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "beta",
+        tags: ["python"],
+        content: {
+          text: "Codex is actively working on Beta.",
+          format: "json",
+          current_task: "beta migration"
+        },
+        source: { client: "codex", session_id: "codex-beta" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "alpha",
+        tags: ["typescript"],
+        content: { text: "Alpha handoff is ready.", format: "text" },
+        source: { client: "gemini", session_id: "gemini-alpha" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "gamma",
+        content: { text: "Gamma is archived.", format: "text" },
+        state: "archived",
+        source: { client: "test" }
+      });
+
+      const projects = await engine.listProjects();
+
+      expect(projects.projects.map((project) => project.project_id)).toEqual(["alpha", "beta"]);
+      expect(projects.projects[0]).toMatchObject({
+        project_id: "alpha",
+        records: 2,
+        tags: ["typescript"],
+        latest_activity: {
+          kind: "session_summary",
+          type: "summary",
+          text: "Alpha handoff is ready.",
+          agent: { client: "gemini", session_id: "gemini-alpha" }
+        },
+        next: {
+          recommended_action: "call_agent_start",
+          tool: "agent_start",
+          arguments: { project_id: "alpha" }
+        }
+      });
+      expect(projects.projects[1]).toMatchObject({
+        project_id: "beta",
+        records: 1,
+        latest_activity: {
+          record_id: betaStatus.record.id,
+          type: "status",
+          text: "Codex is actively working on Beta.",
+          current_task: "beta migration",
+          agent: { client: "codex", session_id: "codex-beta" }
+        }
+      });
+    });
+  });
+
   it("preserves provenance on writes and canonical promotion", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

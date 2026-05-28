@@ -481,6 +481,13 @@ project.command("init")
     });
   });
 
+project.command("list")
+  .option("--limit <n>", "Project limit", "20")
+  .action(async (options) => {
+    const engine = createCliEngine();
+    printJson(await engine.listProjects({ limit: parseLimit(options.limit) }));
+  });
+
 const sync = program.command("sync");
 
 sync.command("init")
