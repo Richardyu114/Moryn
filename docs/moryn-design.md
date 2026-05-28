@@ -694,7 +694,10 @@ If an explicit `project_id` is not present in a populated store, they return
 writing lifecycle records. Direct `agent_start`, `agent_status`, and
 `agent_finish` calls reject missing project context in populated stores unless
 the current directory resolves through `.moryn.json`; agents should use
-`agent_enter` for discovery before writing lifecycle records.
+`agent_enter` for discovery before writing lifecycle records. When a lifecycle
+command resolves project context from `.moryn.json`, its returned `next.actions`
+are prefilled with the resolved `project_id` so they can be reused outside the
+original cwd.
 
 ### `agent_doctor`
 

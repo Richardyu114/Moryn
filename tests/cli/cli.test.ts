@@ -1420,6 +1420,40 @@ describe("moryn CLI", () => {
     });
   }, 30000);
 
+  it("returns portable lifecycle action commands from CLI when project config resolves from cwd", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+
+      const start = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "start",
+        "--agent", "codex",
+        "--session-id", "codex-cli-portable",
+        "--current-task", "continue from portable actions"
+      ], { cwd: project });
+      const parsedStart = JSON.parse(start.stdout) as {
+        next: { actions: Array<{ action: string; command: string; arguments: Record<string, unknown> }> };
+      };
+      expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
+        action: "publish_status",
+        command: expect.stringContaining("--project-id moryn"),
+        arguments: expect.objectContaining({ project_id: "moryn" })
+      }));
+      expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
+        action: "finish_session",
+        command: expect.stringContaining("--project-id moryn"),
+        arguments: expect.objectContaining({ project_id: "moryn" })
+      }));
+      expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
+        action: "refresh_context",
+        command: expect.stringContaining("--project-id moryn"),
+        arguments: expect.objectContaining({ project_id: "moryn" })
+      }));
+    });
+  });
+
   it("shares in-progress agent status from the CLI", async () => {
     await withTempDir(async (dir) => {
       const remote = join(dir, "remote.git");

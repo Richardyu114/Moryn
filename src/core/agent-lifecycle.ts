@@ -343,6 +343,11 @@ function agentStartActionArguments(input: AgentLifecycleInput): {
   return lifecycleActionArguments(input);
 }
 
+function portableLifecycleInput(input: AgentLifecycleInput, project: ProjectContext): AgentLifecycleInput {
+  if (input.projectPath || input.projectId) return input;
+  return { ...input, projectId: project.project_id };
+}
+
 function nextActions(input: AgentLifecycleInput, cursor?: string) {
   const args = lifecycleActionArguments(input);
   const actions = [
@@ -856,6 +861,7 @@ export function agentGuide(input: AgentGuideInput) {
 export async function agentStart(input: AgentStartInput) {
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
+  const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
   const shouldPull = input.pull ?? projectInfo.sync_mode !== "manual";
   const sync: {
@@ -905,7 +911,7 @@ export async function agentStart(input: AgentStartInput) {
     next: {
       required_end_action: "call agent_finish with a session_summary",
       recommended_refresh_action: "call agent_start again with the previous refresh cursor, or call refresh directly",
-      actions: nextActions(input, refresh.cursor)
+      actions: nextActions(actionInput, refresh.cursor)
     }
   };
 }
@@ -913,6 +919,7 @@ export async function agentStart(input: AgentStartInput) {
 export async function agentFinish(input: AgentFinishInput) {
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
+  const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
   const engine = createEngine({ storePath: input.storePath });
   const record = await engine.write({
@@ -951,7 +958,7 @@ export async function agentFinish(input: AgentFinishInput) {
     sync,
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>",
-      actions: finishNextActions(input)
+      actions: finishNextActions(actionInput)
     }
   };
 }
@@ -959,6 +966,7 @@ export async function agentFinish(input: AgentFinishInput) {
 export async function agentStatus(input: AgentStatusInput) {
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
+  const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
   const engine = createEngine({ storePath: input.storePath });
   const record = await engine.write({
@@ -1002,7 +1010,7 @@ export async function agentStatus(input: AgentStatusInput) {
     sync,
     next: {
       recommended_finish_action: "call agent_finish with the final session_summary when meaningful work ends",
-      actions: statusNextActions(input, record.record.updated_at)
+      actions: statusNextActions(actionInput, record.record.updated_at)
     }
   };
 }

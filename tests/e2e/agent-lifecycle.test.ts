@@ -679,6 +679,66 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("returns portable lifecycle actions after resolving project config from cwd", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-portable-actions-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    const previousCwd = process.cwd();
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      process.chdir(project);
+
+      const started = await agentStart({
+        storePath: store,
+        agent: { client: "codex", session_id: "codex-portable-actions" },
+        currentTask: "continue from portable actions"
+      });
+
+      expect(started.next.actions).toContainEqual(expect.objectContaining({
+        action: "publish_status",
+        command: expect.stringContaining("--project-id moryn"),
+        arguments: expect.objectContaining({ project_id: "moryn" })
+      }));
+      expect(started.next.actions).toContainEqual(expect.objectContaining({
+        action: "finish_session",
+        command: expect.stringContaining("--project-id moryn"),
+        arguments: expect.objectContaining({ project_id: "moryn" })
+      }));
+      expect(started.next.actions).toContainEqual(expect.objectContaining({
+        action: "refresh_context",
+        command: expect.stringContaining("--project-id moryn"),
+        arguments: expect.objectContaining({ project_id: "moryn" })
+      }));
+
+      const status = await agentStatus({
+        storePath: store,
+        agent: { client: "codex", session_id: "codex-portable-actions" },
+        currentTask: "continue from portable actions",
+        status: "Publishing portable action templates."
+      });
+      expect(status.next.actions).toContainEqual(expect.objectContaining({
+        action: "finish_session",
+        command: expect.stringContaining("--project-id moryn"),
+        arguments: expect.objectContaining({ project_id: "moryn" })
+      }));
+
+      const finish = await agentFinish({
+        storePath: store,
+        agent: { client: "codex", session_id: "codex-portable-actions" },
+        currentTask: "continue from portable actions",
+        summary: "Finished portable action template checks."
+      });
+      expect(finish.next.actions).toContainEqual(expect.objectContaining({
+        action: "start_next_session",
+        command: expect.stringContaining("--project-id moryn"),
+        arguments: expect.objectContaining({ project_id: "moryn" })
+      }));
+    } finally {
+      process.chdir(previousCwd);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("recommends project discovery from an unconfigured git checkout with known projects", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-git-project-list-"));
     const store = join(root, "store");

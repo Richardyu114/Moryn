@@ -335,6 +335,10 @@ known project instead of writing handoffs under a typo. Direct lifecycle
 commands (`agent start`, `agent status`, and `agent finish`) also reject missing
 project context in a populated store unless the current directory resolves via a
 `.moryn.json` config; agents should call `agent enter` or `project list` first.
+After a lifecycle command resolves a project from `.moryn.json`, returned
+`next.actions` include the resolved `project_id`, so agents can reuse those
+commands from another cwd or MCP host without relying on ambient directory
+state.
 
 `agent start` is the low-friction startup command for agents. It resolves
 `.moryn.json`, creates the store if needed, initializes sync when
@@ -440,7 +444,9 @@ machine has no explicit project context. It also returns machine-readable
 is explicit but unknown in a populated store, it returns `project_list` instead
 of starting a new typo project. Direct `agent_start`, `agent_status`, and
 `agent_finish` calls require `project_path`, `project_id`, or a `.moryn.json`
-config when the store already has known projects.
+config when the store already has known projects. Their returned `next.actions`
+are portable: if project context was resolved from `.moryn.json`, the actions
+are prefilled with the resolved `project_id`.
 
 At task start:
 

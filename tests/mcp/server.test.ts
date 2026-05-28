@@ -552,6 +552,44 @@ describe("MCP stdio server", () => {
     }
   }, 30000);
 
+  it("returns portable lifecycle action arguments over MCP when project config resolves from cwd", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-portable-actions-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await withMcpClient(store, async (client) => {
+        const start = parseTextContent(await client.callTool({
+          name: "agent_start",
+          arguments: {
+            current_task: "continue from portable actions",
+            agent: { client: "codex", session_id: "codex-mcp-portable" }
+          }
+        })) as {
+          next: { actions: Array<{ action: string; command: string; arguments: Record<string, unknown> }> };
+        };
+
+        expect(start.next.actions).toContainEqual(expect.objectContaining({
+          action: "publish_status",
+          command: expect.stringContaining("--project-id moryn"),
+          arguments: expect.objectContaining({ project_id: "moryn" })
+        }));
+        expect(start.next.actions).toContainEqual(expect.objectContaining({
+          action: "finish_session",
+          command: expect.stringContaining("--project-id moryn"),
+          arguments: expect.objectContaining({ project_id: "moryn" })
+        }));
+        expect(start.next.actions).toContainEqual(expect.objectContaining({
+          action: "refresh_context",
+          command: expect.stringContaining("--project-id moryn"),
+          arguments: expect.objectContaining({ project_id: "moryn" })
+        }));
+      }, project);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("bootstraps store and sync from agent lifecycle MCP tools", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-bootstrap-"));
     const remote = join(root, "remote.git");
