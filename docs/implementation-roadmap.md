@@ -129,6 +129,8 @@ Deliverables:
   practical.
 - Done: Packed-package smoke test installs the generated tarball and runs the
   `moryn` binary from `node_modules/.bin`.
+- Done: `npm run smoke:agent-lifecycle` validates two independent agent stores
+  exchanging status, finish, start, refresh, and `next.actions` over Git sync.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

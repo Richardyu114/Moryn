@@ -821,6 +821,7 @@ Agents should follow this contract:
 9. Write raw notes as `agent_note`, not canonical memory.
 10. Do not promote long-term preferences, soul records, or global skills without user confirmation.
 11. Treat sync `interrupt` results as a reason to pause and inspect related records.
+12. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
 
 Cross-agent handoff depends on the lifecycle commands, not agent awareness of
 each other. Codex, Gemini, and other agents can run on separate machines if they
@@ -831,6 +832,14 @@ updates through boot and refresh.
 
 Moryn cannot force-push new content into a running agent context. Agents or host
 applications must call `agent_start`, `refresh`, or `recall`.
+
+The lifecycle smoke script runs the same cross-device protocol through the CLI:
+Codex writes a status to one store, Gemini starts from another store and sees
+it, Gemini finishes with a handoff, then Codex starts again and sees the
+handoff. By default it creates a temporary local bare Git repo. With
+`MORYN_AGENT_LIFECYCLE_REMOTE` or `--remote`, it validates the actual Git remote
+that agents will share. It runs from TypeScript source by default for fresh
+clones; after `npm run build`, pass `--dist` to validate the built CLI.
 
 ## Boot, Recall, and Sync Return Strategy
 

@@ -438,6 +438,22 @@ promote(record_id, target_state="canonical")
 
 This moves the record into the default recall layer.
 
+To verify the lifecycle path before trusting a new machine or private repo,
+agents can run the smoke script:
+
+```bash
+npm run smoke:agent-lifecycle
+npm run smoke:agent-lifecycle -- --dist
+MORYN_AGENT_LIFECYCLE_REMOTE=git@github.com:yourname/moryn-store-smoke.git npm run smoke:agent-lifecycle
+```
+
+Without a remote, the script creates a temporary bare Git repo and verifies two
+independent stores. By default it runs from TypeScript source so a fresh clone
+can use it before build; pass `--dist` after `npm run build` to validate the
+built CLI. With `MORYN_AGENT_LIFECYCLE_REMOTE`, it uses that Git remote and
+writes smoke status/handoff records, so use a dedicated test repo rather than a
+production Moryn data repo.
+
 When a record should be hidden or related to another record:
 
 ```text
@@ -498,6 +514,7 @@ MIT
 - Run `npm run release:check`.
 - Automated smoke tests cover `moryn mcp` through the MCP SDK from both source and built `dist/cli.js`.
 - Automated package smoke test installs the packed tarball and runs the installed `moryn` binary.
+- `npm run smoke:agent-lifecycle` validates the agent lifecycle over two stores and a Git remote.
 - Test Git sync with a dedicated private user-owned test repository by setting `MORYN_PRIVATE_GIT_REMOTE` before running the release check. The script writes a release-check event, so do not point this at a production Moryn data repo.
 
 ```bash
