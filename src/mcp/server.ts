@@ -104,10 +104,18 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "List Moryn Projects",
       description: "Discover known project ids and recent project activity from the Moryn store.",
       inputSchema: {
-        limit: z.number().int().positive().max(100).optional()
+        limit: z.number().int().positive().max(100).optional(),
+        current_task: nonEmptyStringSchema.optional(),
+        sync_remote: nonEmptyStringSchema.optional(),
+        agent: sourceSchema.optional()
       }
     },
-    async ({ limit }) => toolResult(async () => engine.listProjects({ limit }))
+    async ({ limit, current_task, sync_remote, agent }) => toolResult(async () => engine.listProjects({
+      limit,
+      current_task,
+      sync_remote,
+      agent
+    }))
   );
 
   server.registerTool(

@@ -675,6 +675,55 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("prefills project list startup commands through MCP arguments", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-project-list-next-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "session_summary",
+            project_id: "moryn",
+            text: "Moryn MCP project handoff is available.",
+            source: { client: "codex", session_id: "codex-mcp-list-next" }
+          }
+        });
+
+        const listed = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: {
+            current_task: "continue MCP handoff",
+            sync_remote: "git@github.com:user/moryn-store.git",
+            agent: { client: "gemini", session_id: "gemini-mcp-list-next" }
+          }
+        })) as {
+          projects: Array<{
+            next: {
+              command: string;
+              arguments: {
+                project_id: string;
+                sync_remote?: string;
+                current_task?: string;
+                agent?: { client: string; session_id?: string };
+              };
+            };
+          }>;
+        };
+
+        expect(listed.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-list-next");
+        expect(listed.projects[0]?.next.arguments).toMatchObject({
+          project_id: "moryn",
+          sync_remote: "git@github.com:user/moryn-store.git",
+          current_task: "continue MCP handoff",
+          agent: { client: "gemini", session_id: "gemini-mcp-list-next" }
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("resolves project paths and project config through MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-"));
     const store = join(root, "store");

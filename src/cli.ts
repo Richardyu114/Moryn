@@ -483,9 +483,22 @@ project.command("init")
 
 project.command("list")
   .option("--limit <n>", "Project limit", "20")
+  .option("--current-task <task>", "Current task to prefill in each agent_start next action")
+  .option("--sync-remote <remote>", "Shared Git remote to prefill in each agent_start next action")
+  .option("--agent <client>", "Agent client name to prefill in each agent_start next action")
+  .option("--session-id <id>", "Agent session id to prefill in each agent_start next action")
+  .option("--model <model>", "Agent model to prefill in each agent_start next action")
+  .option("--device-id <id>", "Agent device id to prefill in each agent_start next action")
   .action(async (options) => {
     const engine = createCliEngine();
-    printJson(await engine.listProjects({ limit: parseLimit(options.limit) }));
+    printJson(await engine.listProjects({
+      limit: parseLimit(options.limit),
+      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
+      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+      agent: options.agent || options.sessionId || options.model || options.deviceId
+        ? parseAgentOptions(options)
+        : undefined
+    }));
   });
 
 const sync = program.command("sync");

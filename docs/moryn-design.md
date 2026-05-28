@@ -679,12 +679,15 @@ CLI:
 ```bash
 moryn project list
 moryn project list --limit 10
+moryn project list --current-task "fix auth" --sync-remote git@github.com:yourname/moryn-store.git --agent codex
 ```
 
 MCP tool: `project_list`.
 
 Agents should call this before `agent_start` when the user references a shared
-store but does not provide a project path or project id.
+store but does not provide a project path or project id. `project_list` accepts
+optional `current_task`, `sync_remote`, and `agent` fields so each returned
+project includes a complete `agent_start` command and MCP argument template.
 
 ### `agent_start`
 

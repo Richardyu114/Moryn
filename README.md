@@ -339,7 +339,7 @@ The current implementation includes these commands:
 
 ```bash
 moryn init
-moryn project list
+moryn project list --current-task "fix auth" --sync-remote git@github.com:yourname/moryn-store.git --agent codex
 moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn agent start --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn agent status --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex --status "Currently tracing auth refresh failures."
@@ -379,8 +379,9 @@ sync setup are ready; if the project is not explicit and the current directory
 does not resolve through `.moryn.json`, its `next.actions` points to
 `project_list`.
 `project_list` derives known project ids from the local store, sorted by recent
-activity. Each project includes its latest activity and a prefilled
-`agent_start` argument template.
+activity. Each project includes its latest activity plus a prefilled
+`agent_start` command and argument template; pass `current_task`, `sync_remote`,
+and `agent` to have the next action carry the full startup context.
 
 When setup is uncertain:
 

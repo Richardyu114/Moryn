@@ -104,6 +104,7 @@ describe("core engine", () => {
         next: {
           recommended_action: "call_agent_start",
           tool: "agent_start",
+          command: "moryn agent start --project-id alpha",
           arguments: { project_id: "alpha" }
         }
       });
@@ -116,6 +117,53 @@ describe("core engine", () => {
           text: "Codex is actively working on Beta.",
           current_task: "beta migration",
           agent: { client: "codex", session_id: "codex-beta" }
+        }
+      });
+    });
+  });
+
+  it("prefills project discovery next actions with agent startup context", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_1`
+      });
+
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "alpha",
+        content: { text: "Alpha handoff is ready.", format: "text" },
+        source: { client: "codex", session_id: "codex-alpha" }
+      });
+
+      const projects = await engine.listProjects({
+        current_task: "continue alpha handoff",
+        sync_remote: "git@github.com:user/moryn-store.git",
+        agent: {
+          client: "gemini",
+          session_id: "gemini-alpha",
+          model: "gemini-pro",
+          device_id: "laptop"
+        }
+      });
+
+      expect(projects.projects[0]?.next).toMatchObject({
+        recommended_action: "call_agent_start",
+        tool: "agent_start",
+        command: "moryn agent start --project-id alpha --sync-remote git@github.com:user/moryn-store.git --current-task 'continue alpha handoff' --agent gemini --session-id gemini-alpha --model gemini-pro --device-id laptop",
+        arguments: {
+          project_id: "alpha",
+          sync_remote: "git@github.com:user/moryn-store.git",
+          current_task: "continue alpha handoff",
+          agent: {
+            client: "gemini",
+            session_id: "gemini-alpha",
+            model: "gemini-pro",
+            device_id: "laptop"
+          }
         }
       });
     });

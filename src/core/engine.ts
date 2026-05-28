@@ -57,6 +57,9 @@ interface BootInput {
 
 interface ListProjectsInput {
   limit?: number;
+  current_task?: string;
+  sync_remote?: string;
+  agent?: RecordSource;
 }
 
 interface StateChangeInput {
@@ -274,6 +277,45 @@ function validateRefreshInput(input: RefreshInput): void {
 
 function validateListProjectsInput(input: ListProjectsInput): void {
   assertPlainObject(input, "list projects input");
+  validateOptionalString(input.current_task, "current_task");
+  validateOptionalString(input.sync_remote, "sync_remote");
+  validateOptionalSource(input.agent);
+}
+
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function appendCommandOption(parts: string[], name: string, value: string | undefined): void {
+  if (value === undefined) return;
+  parts.push(name, shellQuote(value));
+}
+
+function projectStartArguments(projectId: string, input: ListProjectsInput): {
+  project_id: string;
+  sync_remote?: string;
+  current_task?: string;
+  agent?: RecordSource;
+} {
+  return {
+    project_id: projectId,
+    sync_remote: input.sync_remote,
+    current_task: input.current_task,
+    agent: input.agent
+  };
+}
+
+function projectStartCommand(projectId: string, input: ListProjectsInput): string {
+  const parts = ["moryn", "agent", "start"];
+  appendCommandOption(parts, "--project-id", projectId);
+  appendCommandOption(parts, "--sync-remote", input.sync_remote);
+  appendCommandOption(parts, "--current-task", input.current_task);
+  appendCommandOption(parts, "--agent", input.agent?.client);
+  appendCommandOption(parts, "--session-id", input.agent?.session_id);
+  appendCommandOption(parts, "--model", input.agent?.model);
+  appendCommandOption(parts, "--device-id", input.agent?.device_id);
+  return parts.join(" ");
 }
 
 function matchesAny(values: string[], filters: string[] | undefined): boolean {
@@ -994,9 +1036,8 @@ export function createEngine(deps: EngineDeps) {
             next: {
               recommended_action: "call_agent_start",
               tool: "agent_start",
-              arguments: {
-                project_id: projectId
-              }
+              command: projectStartCommand(projectId, input),
+              arguments: projectStartArguments(projectId, input)
             }
           };
         })
