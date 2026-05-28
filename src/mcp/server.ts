@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { agentDoctor, agentEnter, agentFinish, agentStart, agentStatus } from "../core/agent-lifecycle.js";
+import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
@@ -408,6 +408,29 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       refreshSince: refresh_since,
       limit,
       pull,
+      agent
+    }))
+  );
+
+  server.registerTool(
+    "agent_guide",
+    {
+      title: "Guide Moryn Agent Workflow",
+      description: "Return machine-readable lifecycle guidance and exact next tool arguments for agents.",
+      inputSchema: {
+        project_id: nonEmptyStringSchema.optional(),
+        project_path: nonEmptyStringSchema.optional(),
+        sync_remote: nonEmptyStringSchema.optional(),
+        current_task: nonEmptyStringSchema.optional(),
+        agent: sourceSchema.optional()
+      }
+    },
+    async ({ project_id, project_path, sync_remote, current_task, agent }) => toolResult(async () => agentGuide({
+      storePath: options.storePath,
+      projectId: project_id,
+      projectPath: project_path,
+      syncRemote: sync_remote,
+      currentTask: current_task,
       agent
     }))
   );

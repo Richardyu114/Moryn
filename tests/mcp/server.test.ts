@@ -50,6 +50,70 @@ async function expectInvalidMcpArguments(action: () => Promise<Awaited<ReturnTyp
 }
 
 describe("MCP stdio server", () => {
+  it("returns machine-readable agent guide through MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-guide-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const guide = parseTextContent(await client.callTool({
+          name: "agent_guide",
+          arguments: {
+            project_path: "/workspace/moryn",
+            sync_remote: "git@github.com:user/moryn-store.git",
+            current_task: "continue MCP handoff",
+            agent: { client: "gemini", session_id: "gemini-mcp-guide" }
+          }
+        })) as {
+          ok: boolean;
+          recommended_entrypoint: string;
+          startup: {
+            tool: string;
+            command: string;
+            arguments: {
+              project_path?: string;
+              sync_remote?: string;
+              current_task?: string;
+              agent?: { client: string; session_id?: string };
+            };
+          };
+          lifecycle: Array<{ step: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
+          next: { tool: string; command: string; arguments: Record<string, unknown> };
+        };
+
+        expect(guide.ok).toBe(true);
+        expect(guide.recommended_entrypoint).toBe("agent_enter");
+        expect(guide.startup).toMatchObject({
+          tool: "agent_enter",
+          command: "moryn agent enter --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-guide",
+          arguments: {
+            project_path: "/workspace/moryn",
+            sync_remote: "git@github.com:user/moryn-store.git",
+            current_task: "continue MCP handoff",
+            agent: { client: "gemini", session_id: "gemini-mcp-guide" }
+          }
+        });
+        expect(guide.lifecycle.map((step) => step.tool)).toEqual([
+          "agent_enter",
+          "agent_status",
+          "agent_finish",
+          "agent_start"
+        ]);
+        expect(guide.lifecycle).toContainEqual(expect.objectContaining({
+          step: "refresh_context",
+          tool: "agent_start",
+          command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-guide --refresh-since <refresh_since>",
+          required_fields: ["refresh_since"]
+        }));
+        expect(guide.next).toMatchObject({
+          tool: "agent_enter",
+          command: guide.startup.command,
+          arguments: guide.startup.arguments
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("exposes Moryn tools over the official MCP protocol", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-"));
     try {
@@ -59,6 +123,7 @@ describe("MCP stdio server", () => {
           "agent_doctor",
           "agent_enter",
           "agent_finish",
+          "agent_guide",
           "agent_start",
           "agent_status",
           "archive",

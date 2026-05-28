@@ -21,6 +21,79 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
 }
 
 describe("moryn CLI", () => {
+  it("returns machine-readable agent guide from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      const guide = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", join(dir, "store"),
+        "agent", "guide",
+        "--project", "/workspace/moryn",
+        "--sync-remote", "git@github.com:user/moryn-store.git",
+        "--current-task", "continue handoff",
+        "--agent", "gemini",
+        "--session-id", "gemini-guide"
+      ]);
+      const parsed = JSON.parse(guide.stdout) as {
+        ok: boolean;
+        recommended_entrypoint: string;
+        startup: {
+          tool: string;
+          command: string;
+          arguments: {
+            project_path?: string;
+            sync_remote?: string;
+            current_task?: string;
+            agent?: { client: string; session_id?: string };
+          };
+        };
+        lifecycle: Array<{ step: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
+        rules: string[];
+        next: { tool: string; command: string; safe_to_run: boolean };
+      };
+
+      expect(parsed.ok).toBe(true);
+      expect(parsed.recommended_entrypoint).toBe("agent_enter");
+      expect(parsed.startup).toMatchObject({
+        tool: "agent_enter",
+        command: "moryn agent enter --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide",
+        arguments: {
+          project_path: "/workspace/moryn",
+          sync_remote: "git@github.com:user/moryn-store.git",
+          current_task: "continue handoff",
+          agent: { client: "gemini", session_id: "gemini-guide" }
+        }
+      });
+      expect(parsed.lifecycle.map((step) => step.tool)).toEqual([
+        "agent_enter",
+        "agent_status",
+        "agent_finish",
+        "agent_start"
+      ]);
+      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
+        step: "publish_status",
+        tool: "agent_status",
+        required_fields: ["status"]
+      }));
+      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
+        step: "finish_handoff",
+        tool: "agent_finish",
+        required_fields: ["summary"]
+      }));
+      expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
+        step: "refresh_context",
+        tool: "agent_start",
+        command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide --refresh-since <refresh_since>",
+        required_fields: ["refresh_since"]
+      }));
+      expect(parsed.rules).toContain("Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.");
+      expect(parsed.rules).toContain("When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.");
+      expect(parsed.next).toMatchObject({
+        tool: "agent_enter",
+        command: parsed.startup.command,
+        safe_to_run: true
+      });
+    });
+  });
+
   it("initializes a store and writes a record", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

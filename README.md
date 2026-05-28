@@ -229,6 +229,7 @@ The current MCP server uses the official Model Context Protocol TypeScript SDK o
 - `agent_doctor`
 - `agent_enter`
 - `agent_finish`
+- `agent_guide`
 - `agent_start`
 - `agent_status`
 - `boot`
@@ -302,6 +303,7 @@ gemini --skip-trust --approval-mode yolo --allowed-mcp-server-names moryn \
 Shell-based agents can use the CLI directly:
 
 ```bash
+moryn agent guide --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
 moryn agent enter --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
 moryn project list
 moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "current task" --agent codex
@@ -343,12 +345,19 @@ when sync is configured. These commands are intentionally safer for agents than
 asking them to remember a manual sequence of `init`, `sync init`, `sync --pull`,
 `boot`, `refresh`, `write`, and `sync --push`.
 
+`agent guide` returns a machine-readable workflow contract for agents. It does
+not touch the store or sync remote; it returns the preferred startup tool,
+complete CLI command, MCP arguments, lifecycle steps, and anti-hallucination
+rules. Use it when an agent host needs a compact, authoritative instruction
+packet instead of inferring commands from README prose.
+
 ## Current MVP Commands
 
 The current implementation includes these commands:
 
 ```bash
 moryn init
+moryn agent guide --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn agent enter --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
 moryn project list --current-task "fix auth" --sync-remote git@github.com:yourname/moryn-store.git --agent codex
 moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git --current-task "fix auth" --agent codex
@@ -377,6 +386,17 @@ moryn mcp
 ## Agent Workflow
 
 Agents should use Moryn through a consistent protocol.
+
+When the agent needs a machine-readable workflow reminder:
+
+```text
+agent_guide(project_path, sync_remote, current_task, agent)
+```
+
+This call is read-only. It returns the preferred startup entrypoint
+(`agent_enter`), a complete CLI command, MCP arguments, lifecycle steps for
+status, finish, and refresh, plus rules that tell the agent not to guess
+project ids or manually compose lower-level sync/boot/refresh calls.
 
 When the target project is unknown:
 

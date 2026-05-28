@@ -43,6 +43,8 @@ export interface AgentDoctorInput extends AgentLifecycleInput {}
 
 export interface AgentEnterInput extends AgentStartInput {}
 
+export interface AgentGuideInput extends AgentLifecycleInput {}
+
 const ACTIVE_SESSION_TTL_MINUTES = 120;
 const ACTIVE_SESSION_TTL_MS = ACTIVE_SESSION_TTL_MINUTES * 60 * 1000;
 
@@ -127,6 +129,19 @@ function buildAgentStartCommand(input: AgentLifecycleInput): string {
   return parts.join(" ");
 }
 
+function buildAgentEnterCommand(input: AgentLifecycleInput): string {
+  const parts = ["moryn", "agent", "enter"];
+  appendOption(parts, "--project", input.projectPath);
+  appendOption(parts, "--project-id", input.projectId);
+  appendOption(parts, "--sync-remote", input.syncRemote);
+  appendOption(parts, "--current-task", input.currentTask);
+  appendOption(parts, "--agent", input.agent?.client);
+  appendOption(parts, "--session-id", input.agent?.session_id);
+  appendOption(parts, "--model", input.agent?.model);
+  appendOption(parts, "--device-id", input.agent?.device_id);
+  return parts.join(" ");
+}
+
 function buildAgentStartTemplateCommand(input: AgentLifecycleInput, requiredFields: string[]): string {
   const parts = ["moryn", "agent", "start"];
   appendOption(parts, "--project", input.projectPath);
@@ -155,6 +170,20 @@ function buildAgentRefreshCommand(input: AgentLifecycleInput, cursor: string): s
   appendOption(parts, "--model", input.agent?.model);
   appendOption(parts, "--device-id", input.agent?.device_id);
   appendOption(parts, "--refresh-since", cursor);
+  return parts.join(" ");
+}
+
+function buildAgentRefreshTemplateCommand(input: AgentLifecycleInput): string {
+  const parts = ["moryn", "agent", "start"];
+  appendOption(parts, "--project", input.projectPath);
+  appendOption(parts, "--project-id", input.projectId);
+  appendOption(parts, "--sync-remote", input.syncRemote);
+  appendOption(parts, "--current-task", input.currentTask);
+  appendOption(parts, "--agent", input.agent?.client);
+  appendOption(parts, "--session-id", input.agent?.session_id);
+  appendOption(parts, "--model", input.agent?.model);
+  appendOption(parts, "--device-id", input.agent?.device_id);
+  parts.push("--refresh-since", "<refresh_since>");
   return parts.join(" ");
 }
 
@@ -668,6 +697,68 @@ export async function agentEnter(input: AgentEnterInput) {
     bootstrap,
     doctor,
     next: doctor.next
+  };
+}
+
+export function agentGuide(input: AgentGuideInput) {
+  const command = buildAgentEnterCommand(input);
+  const startupArguments = lifecycleActionArguments(input);
+  return {
+    ok: true,
+    recommended_entrypoint: "agent_enter",
+    startup: {
+      tool: "agent_enter",
+      command,
+      arguments: startupArguments
+    },
+    lifecycle: [
+      {
+        step: "start_or_resume",
+        tool: "agent_enter",
+        required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
+        command,
+        required_fields: [],
+        arguments: startupArguments
+      },
+      {
+        step: "publish_status",
+        tool: "agent_status",
+        required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+        command: buildAgentStatusCommand(input),
+        required_fields: ["status"],
+        arguments: { ...startupArguments, status: undefined }
+      },
+      {
+        step: "finish_handoff",
+        tool: "agent_finish",
+        required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+        command: buildAgentFinishCommand(input),
+        required_fields: ["summary"],
+        arguments: { ...startupArguments, summary: undefined }
+      },
+      {
+        step: "refresh_context",
+        tool: "agent_start",
+        required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+        command: buildAgentRefreshTemplateCommand(input),
+        required_fields: ["refresh_since"],
+        arguments: { ...startupArguments, refresh_since: "<refresh_since>" }
+      }
+    ],
+    rules: [
+      "Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.",
+      "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.",
+      "Use returned next.actions commands or arguments verbatim when continuing the lifecycle.",
+      "Publish agent_status before long interruptions, and call agent_finish with a concise final summary when meaningful work ends.",
+      "Pass sync_remote whenever cross-device handoff matters so status and summaries reach the shared store."
+    ],
+    next: {
+      recommended_action: "call_agent_enter",
+      tool: "agent_enter",
+      safe_to_run: true,
+      command,
+      arguments: startupArguments
+    }
   };
 }
 
