@@ -13,6 +13,8 @@ export function errorCode(message: string): string {
   if (message.startsWith("Confirmation required:")) return "CONFIRMATION_REQUIRED";
   if (message.startsWith("Invalid project config:")) return "INVALID_PROJECT_CONFIG";
   if (message.startsWith("Project context required:")) return "PROJECT_CONTEXT_REQUIRED";
+  if (message.startsWith("Project path does not exist:")) return "PROJECT_PATH_NOT_FOUND";
+  if (message.startsWith("Project id is not known in this store:")) return "PROJECT_ID_NOT_FOUND";
   if (message.startsWith("Project id conflict:")) return "PROJECT_ID_CONFLICT";
   if (message.startsWith("Invalid store config:")) return "INVALID_STORE_CONFIG";
   if (message.startsWith("Invalid argument:")) return "INVALID_ARGUMENT";
@@ -37,6 +39,10 @@ export function recommendedAction(code: string): string {
       return "fix .moryn.json or pass an explicit project id";
     case "PROJECT_CONTEXT_REQUIRED":
       return "run moryn project list or moryn agent enter, then retry with --project-id or --project";
+    case "PROJECT_PATH_NOT_FOUND":
+      return "run moryn project init --path <path> for a new project or retry with the correct --project/--project-id";
+    case "PROJECT_ID_NOT_FOUND":
+      return "run moryn project list or moryn agent enter, then retry with a known --project-id";
     case "PROJECT_ID_CONFLICT":
       return "pass the project id from .moryn.json or update the project config";
     case "INVALID_STORE_CONFIG":

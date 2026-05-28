@@ -1786,6 +1786,28 @@ describe("moryn CLI", () => {
           safe_to_run: false
         }
       });
+
+      try {
+        await exec("node", [
+          "--import", tsxLoader, cliPath, "--store", store,
+          "agent", "start",
+          "--project", missingProject,
+          "--agent", "codex",
+          "--current-task", "avoid typo path"
+        ]);
+        throw new Error("Expected direct lifecycle project path typo to reject");
+      } catch (error) {
+        if (!("stderr" in (error as object))) throw error;
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+        };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("PROJECT_PATH_NOT_FOUND");
+        expect(parsed.error.message).toContain("Project path does not exist");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("run moryn project init --path <path> for a new project or retry with the correct --project/--project-id");
+      }
     });
   });
 
@@ -1841,6 +1863,28 @@ describe("moryn CLI", () => {
         }
       });
       expect(parsedEnter.projects.projects[0]?.project_id).toBe("moryn");
+
+      try {
+        await exec("node", [
+          "--import", tsxLoader, cliPath, "--store", store,
+          "agent", "start",
+          "--project-id", "morym",
+          "--agent", "codex",
+          "--current-task", "avoid typo id"
+        ]);
+        throw new Error("Expected direct lifecycle project id typo to reject");
+      } catch (error) {
+        if (!("stderr" in (error as object))) throw error;
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+        };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("PROJECT_ID_NOT_FOUND");
+        expect(parsed.error.message).toContain("Project id is not known in this store");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with a known --project-id");
+      }
     });
   });
 

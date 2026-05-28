@@ -448,11 +448,15 @@ machine has no explicit project context. It also returns machine-readable
 is explicit but unknown in a populated store, it returns `project_list` instead
 of starting a new typo project. If `project_path` config and explicit
 `project_id` disagree, it returns a project id conflict instead of starting.
-The returned setup action does not echo the conflicting `project_id`. Direct `agent_start`, `agent_status`, and
-`agent_finish` calls require `project_path`, `project_id`, or a `.moryn.json`
-config when the store already has known projects. Their returned `next.actions`
-are portable: if project context was resolved from `.moryn.json`, the actions
-are prefilled with the resolved `project_id`.
+The returned setup action does not echo the conflicting `project_id`. Direct
+`agent_start`, `agent_status`, and `agent_finish` calls require `project_path`,
+`project_id`, or a `.moryn.json` config when the store already has known
+projects. Direct lifecycle calls return recoverable structured errors for
+explicit project mistakes: `PROJECT_PATH_NOT_FOUND` for missing paths and
+`PROJECT_ID_NOT_FOUND` for unknown ids, with `recommended_action` telling agents
+whether to initialize, list projects, or retry with corrected arguments. Their
+returned `next.actions` are portable: if project context was resolved from
+`.moryn.json`, the actions are prefilled with the resolved `project_id`.
 
 At task start:
 

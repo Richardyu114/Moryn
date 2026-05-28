@@ -972,6 +972,25 @@ describe("MCP stdio server", () => {
             arguments: { path: missingProject }
           }
         });
+
+        const start = await client.callTool({
+          name: "agent_start",
+          arguments: {
+            project_path: missingProject,
+            current_task: "avoid typo path",
+            agent: { client: "codex" }
+          }
+        });
+        expect("isError" in start ? start.isError : false).toBe(true);
+        const parsedStart = parseTextContent(start) as {
+          ok: boolean;
+          error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+        };
+        expect(parsedStart.ok).toBe(false);
+        expect(parsedStart.error.code).toBe("PROJECT_PATH_NOT_FOUND");
+        expect(parsedStart.error.message).toContain("Project path does not exist");
+        expect(parsedStart.error.recoverable).toBe(true);
+        expect(parsedStart.error.recommended_action).toBe("run moryn project init --path <path> for a new project or retry with the correct --project/--project-id");
       });
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -1035,6 +1054,25 @@ describe("MCP stdio server", () => {
           }
         });
         expect(entered.projects.projects[0]?.project_id).toBe("moryn");
+
+        const start = await client.callTool({
+          name: "agent_start",
+          arguments: {
+            project_id: "morym",
+            current_task: "avoid typo id",
+            agent: { client: "codex" }
+          }
+        });
+        expect("isError" in start ? start.isError : false).toBe(true);
+        const parsedStart = parseTextContent(start) as {
+          ok: boolean;
+          error: { code: string; message: string; recoverable: boolean; recommended_action: string };
+        };
+        expect(parsedStart.ok).toBe(false);
+        expect(parsedStart.error.code).toBe("PROJECT_ID_NOT_FOUND");
+        expect(parsedStart.error.message).toContain("Project id is not known in this store");
+        expect(parsedStart.error.recoverable).toBe(true);
+        expect(parsedStart.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with a known --project-id");
       });
     } finally {
       await rm(store, { recursive: true, force: true });

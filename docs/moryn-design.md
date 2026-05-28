@@ -697,10 +697,14 @@ conflict instead of choosing one silently; the setup action keeps `project_path`
 and omits the conflicting `project_id`. Direct `agent_start`, `agent_status`, and
 `agent_finish` calls reject missing project context in populated stores unless
 the current directory resolves through `.moryn.json`; agents should use
-`agent_enter` for discovery before writing lifecycle records. When a lifecycle
-command resolves project context from `.moryn.json`, its returned `next.actions`
-are prefilled with the resolved `project_id` so they can be reused outside the
-original cwd.
+`agent_enter` for discovery before writing lifecycle records. Direct lifecycle
+calls also classify explicit project mistakes as recoverable structured errors:
+`PROJECT_PATH_NOT_FOUND` for a missing `project_path` and
+`PROJECT_ID_NOT_FOUND` for a `project_id` that is not known in the populated
+store. Their `recommended_action` values point agents to project initialization,
+project listing, or corrected retry arguments. When a lifecycle command resolves
+project context from `.moryn.json`, its returned `next.actions` are prefilled
+with the resolved `project_id` so they can be reused outside the original cwd.
 
 ### `agent_doctor`
 
