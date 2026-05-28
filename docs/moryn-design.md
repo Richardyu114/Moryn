@@ -709,10 +709,11 @@ agents can recover from the envelope without parsing prose. For
 missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
 `next_action.rejected_arguments.project_id` preserves the rejected id and
 `next_action.candidate_project_ids` lists known choices while
-`next_action.arguments` remains valid for the target recovery tool. When a
-lifecycle command resolves project context from `.moryn.json`, its returned
-`next.actions` are prefilled with the resolved `project_id` so they can be
-reused outside the original cwd.
+`next_action.arguments` remains valid for the target recovery tool.
+`PROJECT_CONTEXT_REQUIRED` also includes `candidate_project_ids` when the
+populated store can name known projects. When a lifecycle command resolves
+project context from `.moryn.json`, its returned `next.actions` are prefilled
+with the resolved `project_id` so they can be reused outside the original cwd.
 
 ### `agent_doctor`
 
@@ -1231,7 +1232,7 @@ for agents that should not infer the recovery command from prose:
   "ok": false,
   "error": {
     "code": "PROJECT_CONTEXT_REQUIRED",
-    "message": "Project context required: this store already has known projects.",
+    "message": "Project context required: this store already has known projects (moryn). Run project_list or agent_enter, then retry with project_path/project_id.",
     "recoverable": true,
     "recommended_action": "run moryn project list or moryn agent enter, then retry with --project-id or --project",
     "next_action": {
@@ -1239,6 +1240,9 @@ for agents that should not infer the recovery command from prose:
       "tool": "project_list",
       "command": "moryn project list",
       "arguments": {},
+      "candidate_project_ids": [
+        "moryn"
+      ],
       "safe_to_run": true
     }
   }

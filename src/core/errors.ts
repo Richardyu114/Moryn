@@ -114,16 +114,33 @@ function unknownProjectIdFromMessage(message: string): { rejectedProjectId?: str
   };
 }
 
+function knownProjectIdsFromContextMessage(message: string): string[] | undefined {
+  const prefix = "Project context required: this store already has known projects (";
+  if (!message.startsWith(prefix)) return undefined;
+  const details = message.slice(prefix.length);
+  const end = details.indexOf("). Run project_list");
+  const projectText = end === -1 ? details : details.slice(0, end);
+  const projectIds = projectText
+    .split(",")
+    .map((projectId) => projectId.trim())
+    .filter(Boolean);
+  return projectIds.length > 0 ? projectIds : undefined;
+}
+
 export function nextAction(code: string, message = ""): MorynErrorNextAction | undefined {
   switch (code) {
     case "PROJECT_CONTEXT_REQUIRED":
-      return {
-        recommended_action: "discover_projects_before_lifecycle_write",
-        tool: "project_list",
-        command: "moryn project list",
-        arguments: {},
-        safe_to_run: true
-      };
+      {
+        const candidateProjectIds = knownProjectIdsFromContextMessage(message);
+        return {
+          recommended_action: "discover_projects_before_lifecycle_write",
+          tool: "project_list",
+          command: "moryn project list",
+          arguments: {},
+          ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
+          safe_to_run: true
+        };
+      }
     case "PROJECT_PATH_NOT_FOUND":
       {
         const path = projectPathFromMessage(message) ?? "<path>";

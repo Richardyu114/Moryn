@@ -461,9 +461,11 @@ parsing prose. When the missing project path is known, `next_action.arguments`
 contains the exact path instead of a placeholder. For unknown project ids,
 `next_action.rejected_arguments.project_id` records the rejected id and
 `next_action.candidate_project_ids` carries known choices while keeping
-`next_action.arguments` valid for `project_list`. Their returned `next.actions`
-are portable: if project context was resolved from `.moryn.json`, the actions
-are prefilled with the resolved `project_id`.
+`next_action.arguments` valid for `project_list`. Missing-context errors also
+carry `candidate_project_ids` when the populated store can name the known
+projects. Their returned `next.actions` are portable: if project context was
+resolved from `.moryn.json`, the actions are prefilled with the resolved
+`project_id`.
 
 At task start:
 
