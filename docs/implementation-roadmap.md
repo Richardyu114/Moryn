@@ -140,6 +140,9 @@ Deliverables:
   `moryn` binary from `node_modules/.bin`.
 - Done: `npm run smoke:agent-lifecycle` validates two independent agent stores
   exchanging status, finish, start, refresh, and `next.actions` over Git sync.
+- Done: Lifecycle `next.actions` and guide templates expose action-level
+  `safe_to_run` metadata so agents can distinguish automatic refresh/start
+  helpers from status/finish writes that need authored content.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

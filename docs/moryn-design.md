@@ -845,9 +845,12 @@ recommended action so agents do not have to infer coordination state from
 `recent_changes`. The
 `next.actions` field returns machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP
-tool name, CLI command template, required fields, and prefilled arguments. The
-templates include status checkpoints, finish handoff, and refresh context
-(`agent_start` with `refresh_since` set to the returned cursor).
+tool name, CLI command template, required fields, prefilled arguments, and
+`safe_to_run`. The templates include status checkpoints, finish handoff, and
+refresh context (`agent_start` with `refresh_since` set to the returned cursor).
+Actions that only start, discover, inspect, or refresh lifecycle context are
+`safe_to_run: true`; actions that write agent-authored status or summary content
+are `safe_to_run: false`.
 
 ### `agent_finish`
 
@@ -869,7 +872,8 @@ handoff summary is intentionally visible to the next agent through
 or MCP `sync_remote` is provided, `agent_finish` creates the local store if
 needed and initializes Git sync before writing and pushing the handoff. Its
 `next.actions` includes a `start_next_session` template so another agent can
-restart through `agent_start` without inferring arguments from prose.
+restart through `agent_start` without inferring arguments from prose. That
+restart template is marked `safe_to_run: true`.
 
 ### `agent_status`
 
@@ -890,7 +894,8 @@ in-progress coordination. Status records are intentionally visible to the next
 agent through `agent_start.refresh.changes` and `boot.recent_changes`, while
 remaining distinguishable from final handoffs by `type=status`. Its
 `next.actions` includes templates for `finish_session` and `refresh_context`
-using the status record timestamp as the next refresh cursor.
+using the status record timestamp as the next refresh cursor; `finish_session`
+is `safe_to_run: false`, while `refresh_context` is `safe_to_run: true`.
 
 ### `rebuild`
 

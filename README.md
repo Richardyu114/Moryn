@@ -532,7 +532,10 @@ continuing from another agent's final handoff. `agent_start.next.actions`
 includes machine-readable templates for the next safe lifecycle calls,
 including the exact CLI command template, MCP tool name, required fields, and
 prefilled arguments for `agent_status`, `agent_finish`, and `refresh_context`
-(`agent_start` with the returned refresh cursor).
+(`agent_start` with the returned refresh cursor). Each action carries
+`safe_to_run`: refresh/start/discovery helpers are `true`, while status and
+finish templates are `false` because the agent must provide user-meaningful
+content before writing a checkpoint or handoff.
 If the local Git sync state is already conflicted, `agent_start` fails before
 boot/refresh with `SYNC_CONFLICT` and a `sync_status` recovery action, so agents
 do not parse half-merged event files or write new lifecycle records into an
@@ -564,7 +567,8 @@ This records an in-progress status checkpoint and pushes it when sync is
 configured. Other agents see it through `agent_start.refresh.changes` and
 `boot.recent_changes`. `agent_status.next.actions` includes machine-readable
 templates for finishing the session and refreshing context from the status
-record cursor.
+record cursor, with `safe_to_run` marking finish as a user-content write and
+refresh as an automatic context update.
 
 When existing memory or skill needs correction:
 
@@ -586,7 +590,8 @@ agent_finish(project_path, summary, agent)
 This records a `session_summary` handoff and pushes it when sync is configured.
 Agents should prefer `agent_finish` over manually composing `write` and
 `sync_push`. `agent_finish.next.actions` includes a machine-readable
-`start_next_session` template for the next agent or device.
+`start_next_session` template for the next agent or device, marked
+`safe_to_run: true`.
 
 When a candidate should become durable shared context:
 

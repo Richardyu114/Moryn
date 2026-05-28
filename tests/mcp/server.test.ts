@@ -105,7 +105,7 @@ describe("MCP stdio server", () => {
               agent?: { client: string; session_id?: string };
             };
           };
-          lifecycle: Array<{ step: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
+          lifecycle: Array<{ step: string; tool: string; safe_to_run: boolean; command: string; required_when: string; required_fields: string[] }>;
           next: { tool: string; command: string; arguments: Record<string, unknown> };
         };
 
@@ -130,6 +130,7 @@ describe("MCP stdio server", () => {
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
           step: "refresh_context",
           tool: "agent_start",
+          safe_to_run: true,
           command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-guide --refresh-since <refresh_since>",
           required_fields: ["refresh_since"]
         }));
@@ -681,6 +682,7 @@ describe("MCP stdio server", () => {
           expect(start.next.actions).toContainEqual(expect.objectContaining({
             action: "publish_status",
             tool: "agent_status",
+            safe_to_run: false,
             command: expect.stringContaining("moryn agent status"),
             required_fields: ["status"],
             arguments: expect.objectContaining({
@@ -691,6 +693,7 @@ describe("MCP stdio server", () => {
           expect(start.next.actions).toContainEqual(expect.objectContaining({
             action: "refresh_context",
             tool: "agent_start",
+            safe_to_run: true,
             command: expect.stringContaining("--refresh-since"),
             required_fields: [],
             arguments: expect.objectContaining({
@@ -725,16 +728,19 @@ describe("MCP stdio server", () => {
 
         expect(start.next.actions).toContainEqual(expect.objectContaining({
           action: "publish_status",
+          safe_to_run: false,
           command: expect.stringContaining("--project-id moryn"),
           arguments: expect.objectContaining({ project_id: "moryn" })
         }));
         expect(start.next.actions).toContainEqual(expect.objectContaining({
           action: "finish_session",
+          safe_to_run: false,
           command: expect.stringContaining("--project-id moryn"),
           arguments: expect.objectContaining({ project_id: "moryn" })
         }));
         expect(start.next.actions).toContainEqual(expect.objectContaining({
           action: "refresh_context",
+          safe_to_run: true,
           command: expect.stringContaining("--project-id moryn"),
           arguments: expect.objectContaining({ project_id: "moryn" })
         }));
@@ -1242,6 +1248,7 @@ describe("MCP stdio server", () => {
         expect(entered.next.actions[0]?.lifecycle).toContainEqual(expect.objectContaining({
           step: "publish_status",
           tool: "agent_status",
+          safe_to_run: false,
           command: "moryn agent status --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter --status <status>",
           required_fields: ["status"]
         }));

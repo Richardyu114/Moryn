@@ -73,7 +73,7 @@ describe("moryn CLI", () => {
             agent?: { client: string; session_id?: string };
           };
         };
-        lifecycle: Array<{ step: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
+        lifecycle: Array<{ step: string; tool: string; safe_to_run: boolean; command: string; required_when: string; required_fields: string[] }>;
         rules: string[];
         next: { tool: string; command: string; safe_to_run: boolean };
       };
@@ -99,16 +99,19 @@ describe("moryn CLI", () => {
       expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
         step: "publish_status",
         tool: "agent_status",
+        safe_to_run: false,
         required_fields: ["status"]
       }));
       expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
         step: "finish_handoff",
         tool: "agent_finish",
+        safe_to_run: false,
         required_fields: ["summary"]
       }));
       expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
         step: "refresh_context",
         tool: "agent_start",
+        safe_to_run: true,
         command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide --refresh-since <refresh_since>",
         required_fields: ["refresh_since"]
       }));
@@ -1567,16 +1570,19 @@ describe("moryn CLI", () => {
       };
       expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
+        safe_to_run: false,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));
       expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
+        safe_to_run: false,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));
       expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
         action: "refresh_context",
+        safe_to_run: true,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));
@@ -1619,6 +1625,7 @@ describe("moryn CLI", () => {
       expect(parsedStatus.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
         tool: "agent_finish",
+        safe_to_run: false,
         command: expect.stringContaining("moryn agent finish"),
         required_fields: ["summary"],
         arguments: expect.objectContaining({
@@ -1630,6 +1637,7 @@ describe("moryn CLI", () => {
       expect(parsedStatus.next.actions).toContainEqual(expect.objectContaining({
         action: "refresh_context",
         tool: "agent_start",
+        safe_to_run: true,
         command: expect.stringContaining("--refresh-since"),
         required_fields: [],
         arguments: expect.objectContaining({
@@ -1723,6 +1731,7 @@ describe("moryn CLI", () => {
       expect(parsed.next.actions).toContainEqual(expect.objectContaining({
         action: "run_lifecycle_smoke",
         tool: "moryn-agent-smoke",
+        safe_to_run: true,
         command: expect.stringContaining("moryn-agent-smoke"),
         required_fields: [],
         arguments: expect.objectContaining({ remote })
@@ -2001,7 +2010,7 @@ describe("moryn CLI", () => {
         next: {
           recommended_action: string;
           tool: string;
-          actions: Array<{ project_id: string; lifecycle?: Array<{ step: string; tool: string; command: string; required_fields: string[] }> }>;
+          actions: Array<{ project_id: string; lifecycle?: Array<{ step: string; tool: string; safe_to_run: boolean; command: string; required_fields: string[] }> }>;
         };
       };
 
@@ -2015,6 +2024,7 @@ describe("moryn CLI", () => {
       expect(parsed.next.actions[0]?.lifecycle).toContainEqual(expect.objectContaining({
         step: "finish_handoff",
         tool: "agent_finish",
+        safe_to_run: false,
         command: "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter --summary <summary>",
         required_fields: ["summary"]
       }));

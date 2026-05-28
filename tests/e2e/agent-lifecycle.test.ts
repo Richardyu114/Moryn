@@ -87,6 +87,7 @@ describe("agent lifecycle", () => {
       expect(codexFinish.next.actions).toContainEqual(expect.objectContaining({
         action: "start_next_session",
         tool: "agent_start",
+        safe_to_run: true,
         command: expect.stringMatching(/moryn agent start.*--current-task <current_task>/),
         required_fields: ["current_task"],
         arguments: expect.objectContaining({
@@ -134,6 +135,7 @@ describe("agent lifecycle", () => {
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
         tool: "agent_status",
+        safe_to_run: false,
         command: expect.stringContaining("moryn agent status"),
         required_fields: ["status"],
         arguments: expect.objectContaining({
@@ -145,6 +147,7 @@ describe("agent lifecycle", () => {
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
         tool: "agent_finish",
+        safe_to_run: false,
         command: expect.stringContaining("moryn agent finish"),
         required_fields: ["summary"],
         arguments: expect.objectContaining({
@@ -156,6 +159,7 @@ describe("agent lifecycle", () => {
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
         action: "refresh_context",
         tool: "agent_start",
+        safe_to_run: true,
         command: expect.stringContaining("--refresh-since"),
         required_fields: [],
         arguments: expect.objectContaining({
@@ -327,6 +331,7 @@ describe("agent lifecycle", () => {
       expect(status.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
         tool: "agent_finish",
+        safe_to_run: false,
         command: expect.stringContaining("moryn agent finish"),
         required_fields: ["summary"],
         arguments: expect.objectContaining({
@@ -338,6 +343,7 @@ describe("agent lifecycle", () => {
       expect(status.next.actions).toContainEqual(expect.objectContaining({
         action: "refresh_context",
         tool: "agent_start",
+        safe_to_run: true,
         command: expect.stringContaining("moryn agent start"),
         required_fields: [],
         arguments: expect.objectContaining({
@@ -501,6 +507,7 @@ describe("agent lifecycle", () => {
       expect(doctor.next.actions).toContainEqual(expect.objectContaining({
         action: "run_lifecycle_smoke",
         tool: "moryn-agent-smoke",
+        safe_to_run: true,
         command: expect.stringContaining("moryn-agent-smoke"),
         required_fields: [],
         arguments: expect.objectContaining({
@@ -709,23 +716,27 @@ describe("agent lifecycle", () => {
           expect.objectContaining({
             step: "start_or_resume",
             tool: "agent_start",
+            safe_to_run: true,
             command: "moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list"
           }),
           expect.objectContaining({
             step: "publish_status",
             tool: "agent_status",
+            safe_to_run: false,
             command: "moryn agent status --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --status <status>",
             required_fields: ["status"]
           }),
           expect.objectContaining({
             step: "finish_handoff",
             tool: "agent_finish",
+            safe_to_run: false,
             command: "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --summary <summary>",
             required_fields: ["summary"]
           }),
           expect.objectContaining({
             step: "refresh_context",
             tool: "agent_start",
+            safe_to_run: true,
             command: "moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --refresh-since <refresh_since>",
             required_fields: ["refresh_since"]
           })
@@ -872,16 +883,19 @@ describe("agent lifecycle", () => {
 
       expect(started.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
+        safe_to_run: false,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));
       expect(started.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
+        safe_to_run: false,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));
       expect(started.next.actions).toContainEqual(expect.objectContaining({
         action: "refresh_context",
+        safe_to_run: true,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));
@@ -894,6 +908,7 @@ describe("agent lifecycle", () => {
       });
       expect(status.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
+        safe_to_run: false,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));
@@ -906,6 +921,7 @@ describe("agent lifecycle", () => {
       });
       expect(finish.next.actions).toContainEqual(expect.objectContaining({
         action: "start_next_session",
+        safe_to_run: true,
         command: expect.stringContaining("--project-id moryn"),
         arguments: expect.objectContaining({ project_id: "moryn" })
       }));
