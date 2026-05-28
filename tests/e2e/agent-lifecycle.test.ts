@@ -68,6 +68,28 @@ describe("agent lifecycle", () => {
       ]);
       expect(geminiStart.boot.recent_changes.map((record) => record.content.text)).toContain("Codex finished lifecycle wiring and left a Gemini handoff.");
       expect(geminiStart.next.required_end_action).toBe("call agent_finish with a session_summary");
+      expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
+        action: "publish_status",
+        tool: "agent_status",
+        command: expect.stringContaining("moryn agent status"),
+        required_fields: ["status"],
+        arguments: expect.objectContaining({
+          project_path: project,
+          current_task: "continue lifecycle wiring",
+          agent: { client: "gemini", device_id: "device_gemini", session_id: "gemini-1" }
+        })
+      }));
+      expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
+        action: "finish_session",
+        tool: "agent_finish",
+        command: expect.stringContaining("moryn agent finish"),
+        required_fields: ["summary"],
+        arguments: expect.objectContaining({
+          project_path: project,
+          current_task: "continue lifecycle wiring",
+          agent: { client: "gemini", device_id: "device_gemini", session_id: "gemini-1" }
+        })
+      }));
 
       const geminiFinish = await agentFinish({
         storePath: storeB,
@@ -223,6 +245,16 @@ describe("agent lifecycle", () => {
       expect(start.boot.recent_changes).toContainEqual(expect.objectContaining({
         type: "status",
         content: expect.objectContaining({ text: "Codex is refactoring lifecycle status propagation." })
+      }));
+      expect(start.next.actions).toContainEqual(expect.objectContaining({
+        action: "publish_status",
+        tool: "agent_status",
+        required_fields: ["status"],
+        arguments: expect.objectContaining({
+          project_path: project,
+          sync_remote: remote,
+          current_task: "coordinate lifecycle status propagation"
+        })
       }));
     } finally {
       await rm(root, { recursive: true, force: true });

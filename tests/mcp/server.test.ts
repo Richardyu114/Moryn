@@ -379,12 +379,23 @@ describe("MCP stdio server", () => {
             project: { project_id: string };
             sync: { pull?: { pulled?: boolean } };
             refresh: { changes: Array<{ summary: string; importance: string }> };
+            next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
           };
           expect(start.project.project_id).toBe("moryn");
           expect(start.sync.pull?.pulled).toBe(true);
           expect(start.refresh.changes).toContainEqual(expect.objectContaining({
             summary: "MCP Codex left a lifecycle handoff.",
             importance: "notice"
+          }));
+          expect(start.next.actions).toContainEqual(expect.objectContaining({
+            action: "publish_status",
+            tool: "agent_status",
+            command: expect.stringContaining("moryn agent status"),
+            required_fields: ["status"],
+            arguments: expect.objectContaining({
+              project_path: project,
+              current_task: "continue lifecycle handoff"
+            })
           }));
         });
       });

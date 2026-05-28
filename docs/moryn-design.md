@@ -682,7 +682,10 @@ Agents should prefer this over separately calling `sync_pull`, `boot`, and
 `refresh`. If sync is not configured or the remote is unavailable, the command
 still returns local boot/refresh context and includes a structured sync error.
 When `--sync-remote` or MCP `sync_remote` is provided, `agent_start` creates the
-local store if needed and initializes Git sync before pulling.
+local store if needed and initializes Git sync before pulling. The
+`next.actions` field returns machine-readable lifecycle templates so agents do
+not have to infer follow-up tool calls from prose: each action includes the MCP
+tool name, CLI command template, required fields, and prefilled arguments.
 
 ### `agent_finish`
 

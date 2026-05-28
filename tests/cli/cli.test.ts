@@ -1168,12 +1168,23 @@ describe("moryn CLI", () => {
         project: { project_id: string };
         sync: { pull?: { pulled?: boolean } };
         refresh: { changes: Array<{ summary: string; importance: string }> };
+        next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
       };
       expect(parsedStart.project.project_id).toBe("moryn");
       expect(parsedStart.sync.pull?.pulled).toBe(true);
       expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
         summary: "CLI Codex finished the lifecycle protocol.",
         importance: "notice"
+      }));
+      expect(parsedStart.next.actions).toContainEqual(expect.objectContaining({
+        action: "publish_status",
+        tool: "agent_status",
+        command: expect.stringContaining("moryn agent status"),
+        required_fields: ["status"],
+        arguments: expect.objectContaining({
+          project_path: project,
+          current_task: "continue lifecycle protocol"
+        })
       }));
     });
   }, 30000);

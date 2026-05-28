@@ -108,11 +108,75 @@ function buildAgentStartCommand(input: AgentLifecycleInput): string {
   return parts.join(" ");
 }
 
+function buildAgentStatusCommand(input: AgentLifecycleInput): string {
+  const parts = ["moryn", "agent", "status"];
+  appendOption(parts, "--project", input.projectPath);
+  appendOption(parts, "--project-id", input.projectId);
+  appendOption(parts, "--sync-remote", input.syncRemote);
+  appendOption(parts, "--current-task", input.currentTask);
+  appendOption(parts, "--agent", input.agent?.client);
+  appendOption(parts, "--session-id", input.agent?.session_id);
+  appendOption(parts, "--model", input.agent?.model);
+  appendOption(parts, "--device-id", input.agent?.device_id);
+  parts.push("--status", "<status>");
+  return parts.join(" ");
+}
+
+function buildAgentFinishCommand(input: AgentLifecycleInput): string {
+  const parts = ["moryn", "agent", "finish"];
+  appendOption(parts, "--project", input.projectPath);
+  appendOption(parts, "--project-id", input.projectId);
+  appendOption(parts, "--sync-remote", input.syncRemote);
+  appendOption(parts, "--current-task", input.currentTask);
+  appendOption(parts, "--agent", input.agent?.client);
+  appendOption(parts, "--session-id", input.agent?.session_id);
+  appendOption(parts, "--model", input.agent?.model);
+  appendOption(parts, "--device-id", input.agent?.device_id);
+  parts.push("--summary", "<summary>");
+  return parts.join(" ");
+}
+
 function buildProjectInitCommand(input: AgentLifecycleInput): string {
   const parts = ["moryn", "project", "init"];
   appendOption(parts, "--path", input.projectPath);
   appendOption(parts, "--project-id", input.projectId);
   return parts.join(" ");
+}
+
+function lifecycleActionArguments(input: AgentLifecycleInput): {
+  project_path?: string;
+  project_id?: string;
+  sync_remote?: string;
+  current_task?: string;
+  agent?: AgentIdentity;
+} {
+  return {
+    project_path: input.projectPath,
+    project_id: input.projectId,
+    sync_remote: input.syncRemote,
+    current_task: input.currentTask,
+    agent: input.agent
+  };
+}
+
+function nextActions(input: AgentLifecycleInput) {
+  const args = lifecycleActionArguments(input);
+  return [
+    {
+      action: "publish_status",
+      tool: "agent_status",
+      command: buildAgentStatusCommand(input),
+      required_fields: ["status"],
+      arguments: args
+    },
+    {
+      action: "finish_session",
+      tool: "agent_finish",
+      command: buildAgentFinishCommand(input),
+      required_fields: ["summary"],
+      arguments: args
+    }
+  ];
 }
 
 async function initializeLifecycleSync(storePath: string, syncRemote: string | undefined, result: BootstrapResult): Promise<void> {
@@ -281,7 +345,8 @@ export async function agentStart(input: AgentStartInput) {
     refresh,
     next: {
       required_end_action: "call agent_finish with a session_summary",
-      recommended_refresh_action: "call agent_start again with the previous refresh cursor, or call refresh directly"
+      recommended_refresh_action: "call agent_start again with the previous refresh cursor, or call refresh directly",
+      actions: nextActions(input)
     }
   };
 }

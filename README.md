@@ -374,7 +374,10 @@ agent_start(project_path, current_task, agent)
 This pulls remote events when sync is configured, resolves the project identity,
 returns a small boot context package, and reports recent changes as notices or
 interrupts. Agents should prefer `agent_start` over manually composing
-`sync_pull`, `boot`, and `refresh`.
+`sync_pull`, `boot`, and `refresh`. `agent_start.next.actions` includes
+machine-readable templates for the next safe lifecycle calls, including the
+exact CLI command template, MCP tool name, required fields, and prefilled
+arguments for `agent_status` and `agent_finish`.
 
 When more context is needed:
 
