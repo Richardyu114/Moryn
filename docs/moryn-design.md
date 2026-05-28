@@ -1400,6 +1400,32 @@ recent records before retrying a mutation:
 }
 ```
 
+Project-scoped writes that omit project context return a read-only discovery
+action. The recovery call has valid `project_list` arguments and preserves the
+rejected scope in metadata, so agents do not invent a `project_id`:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "INVALID_ARGUMENT",
+    "message": "Invalid argument: project_id is required for project scope",
+    "recoverable": true,
+    "recommended_action": "fix the command arguments and retry",
+    "next_action": {
+      "recommended_action": "discover_project_context_before_project_scoped_write",
+      "tool": "project_list",
+      "command": "moryn project list",
+      "arguments": {},
+      "rejected_arguments": {
+        "scope": "project"
+      },
+      "safe_to_run": true
+    }
+  }
+}
+```
+
 When a direct lifecycle call uses a missing explicit project path, the recovery
 action is parameterized from the error message:
 

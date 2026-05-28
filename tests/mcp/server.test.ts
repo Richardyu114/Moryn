@@ -1993,10 +1993,32 @@ describe("MCP stdio server", () => {
             text: "Project records need an explicit project context.",
             source: { client: "mcp-test" }
           }
-        })) as { ok: boolean; error: { code: string; message: string } };
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              rejected_arguments?: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(missingProject.ok).toBe(false);
         expect(missingProject.error.code).toBe("INVALID_ARGUMENT");
         expect(missingProject.error.message).toContain("project_id is required for project scope");
+        expect(missingProject.error.next_action).toEqual({
+          recommended_action: "discover_project_context_before_project_scoped_write",
+          tool: "project_list",
+          command: "moryn project list",
+          arguments: {},
+          rejected_arguments: { scope: "project" },
+          safe_to_run: true
+        });
         expect(await readEvents(store)).toHaveLength(0);
       });
     } finally {

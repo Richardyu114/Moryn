@@ -224,6 +224,18 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           safe_to_run: true
         };
       }
+    case "INVALID_ARGUMENT":
+      if (message === "Invalid argument: project_id is required for project scope") {
+        return {
+          recommended_action: "discover_project_context_before_project_scoped_write",
+          tool: "project_list",
+          command: "moryn project list",
+          arguments: {},
+          rejected_arguments: { scope: "project" },
+          safe_to_run: true
+        };
+      }
+      return undefined;
     case "PROJECT_CONTEXT_REQUIRED":
       {
         const candidateProjectIds = knownProjectIdsFromContextMessage(message);

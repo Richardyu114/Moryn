@@ -460,11 +460,34 @@ describe("moryn CLI", () => {
         throw new Error("Expected moryn write to reject a project-scoped record without project context");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
-        const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              rejected_arguments?: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("INVALID_ARGUMENT");
         expect(parsed.error.message).toContain("project_id is required for project scope");
         expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "discover_project_context_before_project_scoped_write",
+          tool: "project_list",
+          command: "moryn project list",
+          arguments: {},
+          rejected_arguments: { scope: "project" },
+          safe_to_run: true
+        });
       }
 
       expect(await readEvents(dir)).toHaveLength(0);

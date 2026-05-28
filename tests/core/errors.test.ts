@@ -129,6 +129,26 @@ describe("error envelopes", () => {
     });
   });
 
+  it("returns a discovery action when project-scoped writes omit project context", () => {
+    const envelope = toErrorEnvelope(new Error("Invalid argument: project_id is required for project scope"));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "INVALID_ARGUMENT",
+        recommended_action: "fix the command arguments and retry",
+        next_action: {
+          recommended_action: "discover_project_context_before_project_scoped_write",
+          tool: "project_list",
+          command: "moryn project list",
+          arguments: {},
+          rejected_arguments: { scope: "project" },
+          safe_to_run: true
+        }
+      }
+    });
+  });
+
   it("returns machine-readable recovery actions for project context failures", () => {
     expect(toErrorEnvelope(new Error("Project path does not exist: /tmp/missing. Run project_init for a new project, or pass the correct project_path/project_id."))).toMatchObject({
       ok: false,
