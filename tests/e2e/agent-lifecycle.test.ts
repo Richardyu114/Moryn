@@ -808,4 +808,60 @@ describe("agent lifecycle", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("does not recommend agent_start when an explicit project id is unknown in a populated store", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-unknown-project-id-"));
+    const store = join(root, "store");
+    try {
+      await initializeStore(store);
+      const engine = createEngine({ storePath: store });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Known project handoff.", format: "text" },
+        source: { client: "codex", session_id: "codex-known-project" }
+      });
+
+      const doctor = await agentDoctor({
+        storePath: store,
+        projectId: "morym",
+        agent: { client: "codex" },
+        currentTask: "avoid typo id"
+      });
+
+      expect(doctor.project).toMatchObject({
+        ok: false,
+        error: expect.stringContaining("Project id is not known in this store")
+      });
+      expect(doctor.next).toMatchObject({
+        recommended_action: "list_projects",
+        tool: "project_list",
+        safe_to_run: true,
+        command: "moryn project list"
+      });
+
+      const entered = await agentEnter({
+        storePath: store,
+        projectId: "morym",
+        agent: { client: "codex" },
+        currentTask: "avoid typo id"
+      });
+
+      expect(entered).toMatchObject({
+        ok: true,
+        mode: "discover_projects",
+        next: {
+          recommended_action: "choose_project_and_call_agent_start",
+          tool: "agent_start"
+        }
+      });
+      expect(entered.projects.projects[0]).toMatchObject({
+        project_id: "moryn"
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

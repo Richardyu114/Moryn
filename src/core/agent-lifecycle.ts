@@ -118,6 +118,17 @@ async function resolveLifecycleProjectContext(input: AgentLifecycleInput): Promi
       throw error;
     }
   }
+
+  if (input.projectId) {
+    const knownProjects = await trySync(() => createEngine({ storePath: input.storePath }).listProjects({ limit: 100 }));
+    if (knownProjects.ok && knownProjects.result.projects.length > 0) {
+      const projectIds = knownProjects.result.projects.map((project) => project.project_id);
+      if (!projectIds.includes(input.projectId)) {
+        throw new Error(`Project id is not known in this store: ${input.projectId}. Run project_list and choose one of: ${projectIds.join(", ")}.`);
+      }
+    }
+  }
+
   return resolveProjectContext({ projectPath: input.projectPath, projectId: input.projectId });
 }
 
@@ -487,7 +498,8 @@ function shouldDiscoverProjects(
   project: Awaited<ReturnType<typeof trySync<ProjectContext>>>
 ): boolean {
   if (!storeHasProjects) return false;
-  if (input.projectPath || input.projectId) return false;
+  if (input.projectPath) return false;
+  if (input.projectId && project.ok) return false;
   return !project.ok || project.result.source !== "config";
 }
 

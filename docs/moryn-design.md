@@ -689,6 +689,9 @@ startup context. It reduces multi-step orchestration errors by returning a
 single `mode`: `start_session`, `discover_projects`, or `needs_setup`. If an
 explicit `project_path` does not exist, lifecycle commands return `needs_setup`
 with `project_init`; they do not silently derive a new project id from the typo.
+If an explicit `project_id` is not present in a populated store, they return
+`discover_projects`/`project_list` so the agent selects a known project before
+writing lifecycle records.
 
 ### `agent_doctor`
 

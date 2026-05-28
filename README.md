@@ -329,7 +329,9 @@ and the local store already contains known project records, `agent doctor`
 recommends `project_list` unless the current directory resolves through a
 `.moryn.json` project config. When an explicit `--project` path does not exist,
 agent lifecycle commands do not guess a new project id; they return
-`project_init` as the safe setup action.
+`project_init` as the safe setup action. When an explicit `--project-id` is not
+present in a populated store, they return `project_list` so the agent chooses a
+known project instead of writing handoffs under a typo.
 
 `agent start` is the low-friction startup command for agents. It resolves
 `.moryn.json`, creates the store if needed, initializes sync when
@@ -431,7 +433,9 @@ MCP arguments an agent should use next when the project is known, or a
 machine has no explicit project context. It also returns machine-readable
 `next.actions` templates for starting safely, discovering projects, or running
 `moryn-agent-smoke`. If `project_path` is explicit and missing, it returns
-`project_init` instead of treating the typo as a new project.
+`project_init` instead of treating the typo as a new project. If `project_id`
+is explicit but unknown in a populated store, it returns `project_list` instead
+of starting a new typo project.
 
 At task start:
 

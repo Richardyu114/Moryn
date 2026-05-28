@@ -1755,6 +1755,61 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("does not start from the CLI when an explicit project id is unknown in a populated store", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "moryn",
+        "--text", "Known project handoff."
+      ]);
+
+      const doctor = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "doctor",
+        "--project-id", "morym",
+        "--agent", "codex",
+        "--current-task", "avoid typo id"
+      ]);
+      const parsedDoctor = JSON.parse(doctor.stdout) as {
+        project: { ok: boolean; error?: string };
+        next: { recommended_action: string; tool: string; safe_to_run: boolean; command: string };
+      };
+      expect(parsedDoctor.project.ok).toBe(false);
+      expect(parsedDoctor.project.error).toContain("Project id is not known in this store");
+      expect(parsedDoctor.next).toMatchObject({
+        recommended_action: "list_projects",
+        tool: "project_list",
+        safe_to_run: true,
+        command: "moryn project list"
+      });
+
+      const entered = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "enter",
+        "--project-id", "morym",
+        "--agent", "codex",
+        "--current-task", "avoid typo id"
+      ]);
+      const parsedEnter = JSON.parse(entered.stdout) as {
+        mode: string;
+        projects: { projects: Array<{ project_id: string }> };
+        next: { recommended_action: string; tool: string };
+      };
+      expect(parsedEnter).toMatchObject({
+        mode: "discover_projects",
+        next: {
+          recommended_action: "choose_project_and_call_agent_start",
+          tool: "agent_start"
+        }
+      });
+      expect(parsedEnter.projects.projects[0]?.project_id).toBe("moryn");
+    });
+  });
+
   it("rejects invalid numeric limit options", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

@@ -940,6 +940,69 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("does not recommend agent_start through MCP when an explicit project id is unknown in a populated store", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-unknown-project-id-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "session_summary",
+            project_id: "moryn",
+            text: "Known MCP project handoff.",
+            source: { client: "codex", session_id: "codex-known-project" }
+          }
+        });
+
+        const doctor = parseTextContent(await client.callTool({
+          name: "agent_doctor",
+          arguments: {
+            project_id: "morym",
+            current_task: "avoid typo id",
+            agent: { client: "codex" }
+          }
+        })) as {
+          project: { ok: boolean; error?: string };
+          next: { recommended_action: string; tool: string; safe_to_run: boolean; command: string };
+        };
+
+        expect(doctor.project.ok).toBe(false);
+        expect(doctor.project.error).toContain("Project id is not known in this store");
+        expect(doctor.next).toMatchObject({
+          recommended_action: "list_projects",
+          tool: "project_list",
+          safe_to_run: true,
+          command: "moryn project list"
+        });
+
+        const entered = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            project_id: "morym",
+            current_task: "avoid typo id",
+            agent: { client: "codex" }
+          }
+        })) as {
+          mode: string;
+          projects: { projects: Array<{ project_id: string }> };
+          next: { recommended_action: string; tool: string };
+        };
+
+        expect(entered).toMatchObject({
+          mode: "discover_projects",
+          next: {
+            recommended_action: "choose_project_and_call_agent_start",
+            tool: "agent_start"
+          }
+        });
+        expect(entered.projects.projects[0]?.project_id).toBe("moryn");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("resolves project paths and project config through MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-"));
     const store = join(root, "store");
