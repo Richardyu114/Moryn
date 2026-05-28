@@ -92,6 +92,25 @@ describe("error envelopes", () => {
     });
   });
 
+  it("returns a guarded repair action for invalid project config", () => {
+    const envelope = toErrorEnvelope(new Error("Invalid project config: /workspace/moryn/.moryn.json: project_id must be non-empty"));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "INVALID_PROJECT_CONFIG",
+        recommended_action: "fix .moryn.json or pass an explicit project id",
+        next_action: {
+          recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
+          tool: "project_init",
+          command: "moryn project init --path /workspace/moryn --repair",
+          arguments: { path: "/workspace/moryn", repair: true },
+          safe_to_run: false
+        }
+      }
+    });
+  });
+
   it("returns a confirmation recovery action when retry context is provided", () => {
     const envelope = toErrorEnvelope(new Error("Confirmation required: canonical state requires explicit user confirmation"), {
       tool: "promote",

@@ -417,9 +417,13 @@ CLI:
 
 ```bash
 moryn project init --path /path/to/project --project-id moryn --default-skill release
+moryn project init --path /path/to/project --project-id moryn --repair
 ```
 
 MCP tool: `project_init`.
+
+The `repair` option is explicit and guarded. It replaces an invalid existing
+`.moryn.json` only after the caller supplies the intended project fields.
 
 ### `boot`
 
@@ -1273,6 +1277,33 @@ local store files:
       "tool": "init",
       "command": "moryn init",
       "arguments": {},
+      "safe_to_run": false
+    }
+  }
+}
+```
+
+Invalid project config errors carry a guarded repair action. The command is
+parameterized with the failing project path when Moryn can derive it from the
+`.moryn.json` path, but remains `safe_to_run: false` because it replaces project
+configuration and needs a user-approved project id:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "INVALID_PROJECT_CONFIG",
+    "message": "Invalid project config: /workspace/moryn/.moryn.json: project_id must be non-empty",
+    "recoverable": true,
+    "recommended_action": "fix .moryn.json or pass an explicit project id",
+    "next_action": {
+      "recommended_action": "repair_project_config_or_retry_with_explicit_project_id",
+      "tool": "project_init",
+      "command": "moryn project init --path /workspace/moryn --repair",
+      "arguments": {
+        "path": "/workspace/moryn",
+        "repair": true
+      },
       "safe_to_run": false
     }
   }

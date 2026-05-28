@@ -84,16 +84,18 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: nonEmptyStringSchema.optional(),
         tags: z.array(nonEmptyStringSchema).optional(),
         default_skills: z.array(nonEmptyStringSchema).optional(),
-        sync_mode: z.enum(["manual", "session", "interval"]).optional()
+        sync_mode: z.enum(["manual", "session", "interval"]).optional(),
+        repair: z.boolean().optional()
       }
     },
-    async ({ path, project_id, tags, default_skills, sync_mode }) => toolResult(async () => ({
+    async ({ path, project_id, tags, default_skills, sync_mode, repair }) => toolResult(async () => ({
       ok: true,
       ...await initializeProjectConfig(path, {
         project_id,
         tags,
         default_skills,
-        sync: sync_mode === undefined ? undefined : { mode: sync_mode }
+        sync: sync_mode === undefined ? undefined : { mode: sync_mode },
+        repair
       })
     }))
   );

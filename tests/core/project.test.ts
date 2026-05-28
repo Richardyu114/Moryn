@@ -95,6 +95,27 @@ describe("project config", () => {
     });
   });
 
+  it("repairs malformed project config when explicitly requested", async () => {
+    await withTempStore(async (projectPath) => {
+      await writeFile(join(projectPath, ".moryn.json"), "{\"project_id\":", "utf8");
+
+      const result = await initializeProjectConfig(projectPath, {
+        project_id: "moryn",
+        tags: ["typescript"],
+        sync: { mode: "manual" },
+        repair: true
+      });
+
+      expect(result.config).toEqual({
+        project_id: "moryn",
+        tags: ["typescript"],
+        default_skills: [],
+        sync: { mode: "manual" }
+      });
+      await expect(readProjectConfig(projectPath)).resolves.toEqual(result.config);
+    });
+  });
+
   it("rejects invalid project path arguments before writing config", async () => {
     await withTempStore(async (projectPath) => {
       await withCwd(projectPath, async () => {

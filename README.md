@@ -182,6 +182,7 @@ You can also initialize a specific path with tags and default skill selectors:
 
 ```bash
 moryn project init --path /path/to/project --project-id my-project --tag typescript --tag mcp --default-skill release
+moryn project init --path /path/to/project --project-id my-project --repair
 ```
 
 Supported sync modes are `manual`, `session`, and `interval`. The default is
@@ -464,6 +465,10 @@ from `promote` and `revise` return a retry action with `confirmed: true` and
 High-risk canonical `write` calls are stored as candidates and return
 `warning.next_action` for promoting the candidate after user confirmation, so
 agents should not repeat the write or assume it is already canonical.
+Invalid `.moryn.json` errors return a guarded `project_init --repair` next
+action with the failing project path prefilled. The action is not safe to run
+automatically because it replaces project config and should use a user-approved
+project id.
 Missing record errors return a safe `list_recent` next action and keep the bad
 id in `next_action.rejected_arguments.record_id`, so agents discover a real
 record id before retrying a mutation.

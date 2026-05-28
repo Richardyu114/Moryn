@@ -37,6 +37,7 @@ export interface InitializeProjectConfigInput {
   tags?: string[];
   default_skills?: string[];
   sync?: { mode?: SyncMode };
+  repair?: boolean;
 }
 
 interface ProjectConfigFile {
@@ -70,11 +71,19 @@ function validateOptionalStringArray(value: unknown, name: string): void {
   }
 }
 
+function validateOptionalBoolean(value: unknown, name: string): void {
+  if (value === undefined) return;
+  if (typeof value !== "boolean") {
+    throw new Error(`Invalid argument: Invalid ${name}`);
+  }
+}
+
 function validateInitializeProjectConfigInput(input: unknown): asserts input is InitializeProjectConfigInput {
   assertPlainObject(input, "project config input");
   validateOptionalString(input.project_id, "project_id");
   validateOptionalStringArray(input.tags, "tags");
   validateOptionalStringArray(input.default_skills, "default_skills");
+  validateOptionalBoolean(input.repair, "repair");
 
   if (input.sync !== undefined) {
     assertPlainObject(input.sync, "sync");
@@ -142,18 +151,19 @@ async function git(args: string[], cwd: string): Promise<string | undefined> {
 }
 
 async function readProjectConfigAt(projectPath: string): Promise<ProjectConfig | undefined> {
+  const configPath = resolve(projectPath, ".moryn.json");
   try {
-    const rawText = await readFile(resolve(projectPath, ".moryn.json"), "utf8");
+    const rawText = await readFile(configPath, "utf8");
     let raw: unknown;
     try {
       raw = JSON.parse(rawText) as unknown;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Invalid project config: ${message}`);
+      throw new Error(`Invalid project config: ${configPath}: ${message}`);
     }
     const result = projectConfigSchema.safeParse(raw);
     if (!result.success) {
-      throw new Error(`Invalid project config: ${z.prettifyError(result.error)}`);
+      throw new Error(`Invalid project config: ${configPath}: ${z.prettifyError(result.error)}`);
     }
     return result.data;
   } catch (error) {
@@ -189,7 +199,15 @@ export async function initializeProjectConfig(projectPath: string, input: Initia
   validateInitializeProjectConfigInput(input);
   const resolved = resolve(projectPath);
   await mkdir(resolved, { recursive: true });
-  const existing = await readProjectConfigAt(resolved);
+  let existing: ProjectConfig | undefined;
+  try {
+    existing = await readProjectConfigAt(resolved);
+  } catch (error) {
+    if (!input.repair || !(error instanceof Error && error.message.startsWith("Invalid project config:"))) {
+      throw error;
+    }
+    existing = undefined;
+  }
   const parsed = projectConfigSchema.parse({
     project_id: input.project_id ?? existing?.project_id ?? projectIdFromPath(resolved),
     tags: input.tags ?? existing?.tags ?? [],

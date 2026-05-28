@@ -104,6 +104,16 @@ function projectPathFromMessage(message: string): string | undefined {
   return end === -1 ? details : details.slice(0, end);
 }
 
+function projectConfigPathFromMessage(message: string): string | undefined {
+  const prefix = "Invalid project config: ";
+  if (!message.startsWith(prefix)) return undefined;
+  const details = message.slice(prefix.length);
+  const configMarker = ".moryn.json";
+  const markerIndex = details.indexOf(configMarker);
+  if (markerIndex === -1) return undefined;
+  return details.slice(0, markerIndex + configMarker.length);
+}
+
 function unknownProjectIdFromMessage(message: string): { rejectedProjectId?: string; candidateProjectIds?: string[] } {
   const prefix = "Project id is not known in this store: ";
   if (!message.startsWith(prefix)) return {};
@@ -213,6 +223,18 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
       };
     case "CONFIRMATION_REQUIRED":
       return confirmationNextAction(context);
+    case "INVALID_PROJECT_CONFIG":
+      {
+        const configPath = projectConfigPathFromMessage(message);
+        const path = configPath?.replace(/\/\.moryn\.json$/, "") ?? "<path>";
+        return {
+          recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
+          tool: "project_init",
+          command: `moryn project init --path ${path} --repair`,
+          arguments: { path, repair: true },
+          safe_to_run: false
+        };
+      }
     case "INDEX_STALE":
       return {
         recommended_action: "rebuild_derived_views",

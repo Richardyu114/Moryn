@@ -545,6 +545,7 @@ project.command("init")
   .option("--tag <tag>", "Project tag", collectNonEmptyOption("--tag"), [])
   .option("--default-skill <selector>", "Default skill selector", collectNonEmptyOption("--default-skill"), [])
   .option("--sync-mode <mode>", "Sync mode")
+  .option("--repair", "Replace an invalid existing .moryn.json after explicit confirmation")
   .action(async (options) => {
     printJson({
       ok: true,
@@ -554,7 +555,8 @@ project.command("init")
         default_skills: options.defaultSkill,
         sync: options.syncMode === undefined
           ? undefined
-          : { mode: parseEnum(options.syncMode, syncModes, "--sync-mode") }
+          : { mode: parseEnum(options.syncMode, syncModes, "--sync-mode") },
+        repair: options.repair
       })
     });
   });

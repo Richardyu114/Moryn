@@ -1760,11 +1760,60 @@ describe("moryn CLI", () => {
         await exec("node", ["--import", "tsx", "src/cli.ts", "--store", join(dir, "store"), "boot", "--project", project]);
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
-        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; message: string; recoverable: boolean } };
+        const parsed = JSON.parse(stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("INVALID_PROJECT_CONFIG");
         expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("fix .moryn.json or pass an explicit project id");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
+          tool: "project_init",
+          command: `moryn project init --path ${project} --repair`,
+          arguments: { path: project, repair: true },
+          safe_to_run: false
+        });
       }
+    });
+  });
+
+  it("repairs malformed project config from the CLI when explicitly requested", async () => {
+    await withTempDir(async (dir) => {
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+      await writeFile(join(project, ".moryn.json"), "{\"project_id\":", "utf8");
+
+      const repaired = await exec("node", [
+        "--import", "tsx", "src/cli.ts",
+        "project", "init",
+        "--path", project,
+        "--project-id", "moryn",
+        "--tag", "typescript",
+        "--sync-mode", "manual",
+        "--repair"
+      ]);
+      const parsed = JSON.parse(repaired.stdout) as { ok: boolean; config: { project_id: string; tags: string[]; sync: { mode: string } } };
+
+      expect(parsed.ok).toBe(true);
+      expect(parsed.config).toMatchObject({
+        project_id: "moryn",
+        tags: ["typescript"],
+        sync: { mode: "manual" }
+      });
     });
   });
 

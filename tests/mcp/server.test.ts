@@ -1508,6 +1508,38 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("repairs malformed project config over MCP when explicitly requested", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-init-repair-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await mkdir(project, { recursive: true });
+      await writeFile(join(project, ".moryn.json"), "{\"project_id\":", "utf8");
+
+      await withMcpClient(store, async (client) => {
+        const repaired = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: project,
+            project_id: "moryn",
+            tags: ["typescript"],
+            sync_mode: "manual",
+            repair: true
+          }
+        })) as { ok: boolean; config: { project_id: string; tags: string[]; sync: { mode: string } } };
+
+        expect(repaired.ok).toBe(true);
+        expect(repaired.config).toMatchObject({
+          project_id: "moryn",
+          tags: ["typescript"],
+          sync: { mode: "manual" }
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("does not apply ambient project config when only project_id is provided over MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-explicit-project-"));
     const store = join(root, "store");
