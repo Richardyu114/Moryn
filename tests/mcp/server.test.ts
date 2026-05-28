@@ -1550,12 +1550,35 @@ describe("MCP stdio server", () => {
             record_id: "rec_missing",
             reason: "Should fail"
           }
-        })) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              rejected_arguments?: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
 
         expect(result.ok).toBe(false);
         expect(result.error.code).toBe("RECORD_NOT_FOUND");
         expect(result.error.recoverable).toBe(true);
         expect(result.error.recommended_action).toBe("check the record id or call recall/list-recent to find it");
+        expect(result.error.next_action).toEqual({
+          recommended_action: "list_recent_records_and_retry_with_known_record_id",
+          tool: "list_recent",
+          command: "moryn list-recent",
+          arguments: {},
+          rejected_arguments: { record_id: "rec_missing" },
+          safe_to_run: true
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });

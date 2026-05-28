@@ -138,6 +138,13 @@ function knownProjectIdsFromContextMessage(message: string): string[] | undefine
   return projectIds.length > 0 ? projectIds : undefined;
 }
 
+function missingRecordIdFromMessage(message: string): string | undefined {
+  const prefix = "Record not found: ";
+  if (!message.startsWith(prefix)) return undefined;
+  const recordId = message.slice(prefix.length).trim();
+  return recordId.length > 0 ? recordId : undefined;
+}
+
 function appendConfirmFlag(command: string): string {
   if (/(^|\s)--confirm(\s|$)/.test(command)) return command;
   return `${command} --confirm`;
@@ -205,6 +212,18 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         arguments: { remote: "<remote>" },
         safe_to_run: false
       };
+    case "RECORD_NOT_FOUND":
+      {
+        const recordId = missingRecordIdFromMessage(message);
+        return {
+          recommended_action: "list_recent_records_and_retry_with_known_record_id",
+          tool: "list_recent",
+          command: "moryn list-recent",
+          arguments: {},
+          ...(recordId ? { rejected_arguments: { record_id: recordId } } : {}),
+          safe_to_run: true
+        };
+      }
     case "PROJECT_CONTEXT_REQUIRED":
       {
         const candidateProjectIds = knownProjectIdsFromContextMessage(message);

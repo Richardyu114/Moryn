@@ -464,6 +464,9 @@ from `promote` and `revise` return a retry action with `confirmed: true` and
 High-risk canonical `write` calls are stored as candidates and return
 `warning.next_action` for promoting the candidate after user confirmation, so
 agents should not repeat the write or assume it is already canonical.
+Missing record errors return a safe `list_recent` next action and keep the bad
+id in `next_action.rejected_arguments.record_id`, so agents discover a real
+record id before retrying a mutation.
 When the missing project path is known, `next_action.arguments` contains the
 exact path instead of a placeholder. For unknown project ids,
 `next_action.rejected_arguments.project_id` records the rejected id and

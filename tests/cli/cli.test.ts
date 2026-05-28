@@ -2170,11 +2170,34 @@ describe("moryn CLI", () => {
         throw new Error("Expected moryn promote to fail for a missing record");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
-        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+        const parsed = JSON.parse(stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              rejected_arguments?: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("RECORD_NOT_FOUND");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("check the record id or call recall/list-recent to find it");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "list_recent_records_and_retry_with_known_record_id",
+          tool: "list_recent",
+          command: "moryn list-recent",
+          arguments: {},
+          rejected_arguments: { record_id: "rec_missing" },
+          safe_to_run: true
+        });
       }
     });
   });

@@ -1375,6 +1375,31 @@ Agents must fill the user-owned remote before running it:
 }
 ```
 
+Missing record errors keep the rejected id in metadata and point agents at
+recent records before retrying a mutation:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "RECORD_NOT_FOUND",
+    "message": "Record not found: rec_missing",
+    "recoverable": true,
+    "recommended_action": "check the record id or call recall/list-recent to find it",
+    "next_action": {
+      "recommended_action": "list_recent_records_and_retry_with_known_record_id",
+      "tool": "list_recent",
+      "command": "moryn list-recent",
+      "arguments": {},
+      "rejected_arguments": {
+        "record_id": "rec_missing"
+      },
+      "safe_to_run": true
+    }
+  }
+}
+```
+
 When a direct lifecycle call uses a missing explicit project path, the recovery
 action is parameterized from the error message:
 

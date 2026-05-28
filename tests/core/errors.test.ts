@@ -109,6 +109,26 @@ describe("error envelopes", () => {
     });
   });
 
+  it("returns a machine-readable recovery action for missing records", () => {
+    const envelope = toErrorEnvelope(new Error("Record not found: rec_missing"));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "RECORD_NOT_FOUND",
+        recommended_action: "check the record id or call recall/list-recent to find it",
+        next_action: {
+          recommended_action: "list_recent_records_and_retry_with_known_record_id",
+          tool: "list_recent",
+          command: "moryn list-recent",
+          arguments: {},
+          rejected_arguments: { record_id: "rec_missing" },
+          safe_to_run: true
+        }
+      }
+    });
+  });
+
   it("returns machine-readable recovery actions for project context failures", () => {
     expect(toErrorEnvelope(new Error("Project path does not exist: /tmp/missing. Run project_init for a new project, or pass the correct project_path/project_id."))).toMatchObject({
       ok: false,
