@@ -30,6 +30,13 @@ describe("documentation contracts", () => {
     expect(design).toContain(`"recommended_action": "${recommendedAction("SYNC_REMOTE_UNAVAILABLE")}"`);
     expect(design).toContain(`"recommended_action": "${nextAction("STORE_NOT_INITIALIZED")?.recommended_action}"`);
     expect(design).toContain(`"tool": "${nextAction("STORE_NOT_INITIALIZED")?.tool}"`);
+    const confirmationAction = nextAction("CONFIRMATION_REQUIRED", "Confirmation required: canonical state requires explicit user confirmation", {
+      tool: "promote",
+      command: "moryn promote rec_123 --state canonical",
+      arguments: { record_id: "rec_123", target_state: "canonical" }
+    });
+    expect(design).toContain(`"recommended_action": "${confirmationAction?.recommended_action}"`);
+    expect(design).toContain(`"tool": "${confirmationAction?.tool}"`);
     expect(design).toContain(`"recommended_action": "${nextAction("PROJECT_CONTEXT_REQUIRED")?.recommended_action}"`);
     expect(design).toContain(`"tool": "${nextAction("PROJECT_CONTEXT_REQUIRED")?.tool}"`);
     for (const code of implementedCodes) {

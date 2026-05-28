@@ -1691,10 +1691,36 @@ describe("MCP stdio server", () => {
             reason: "Agent inferred this preference",
             source: { client: "mcp-test" }
           }
-        })) as { ok: boolean; error: { code: string; recommended_action: string } };
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(rejected.ok).toBe(false);
         expect(rejected.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(rejected.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+        expect(rejected.error.next_action).toEqual({
+          recommended_action: "ask_user_then_retry_with_confirmation",
+          tool: "promote",
+          command: `moryn promote ${write.record.id} --state canonical --reason 'Agent inferred this preference' --confirm`,
+          arguments: {
+            record_id: write.record.id,
+            target_state: "canonical",
+            reason: "Agent inferred this preference",
+            source: { client: "mcp-test" },
+            confirmed: true
+          },
+          safe_to_run: false
+        });
 
         parseTextContent(await client.callTool({
           name: "promote",
@@ -2230,10 +2256,36 @@ describe("MCP stdio server", () => {
             reason: "Agent inferred this replacement",
             source: { client: "mcp-test" }
           }
-        })) as { ok: boolean; error: { code: string; recommended_action: string } };
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(rejected.ok).toBe(false);
         expect(rejected.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(rejected.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+        expect(rejected.error.next_action).toEqual({
+          recommended_action: "ask_user_then_retry_with_confirmation",
+          tool: "promote",
+          command: `moryn promote ${candidate.record.id} --state canonical --reason 'Agent inferred this replacement' --confirm`,
+          arguments: {
+            record_id: candidate.record.id,
+            target_state: "canonical",
+            reason: "Agent inferred this replacement",
+            source: { client: "mcp-test" },
+            confirmed: true
+          },
+          safe_to_run: false
+        });
 
         parseTextContent(await client.callTool({
           name: "promote",
@@ -2301,10 +2353,36 @@ describe("MCP stdio server", () => {
             reason: "Agent inferred this replacement",
             source: { client: "mcp-test" }
           }
-        })) as { ok: boolean; error: { code: string; recommended_action: string } };
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(rejected.ok).toBe(false);
         expect(rejected.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(rejected.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+        expect(rejected.error.next_action).toEqual({
+          recommended_action: "ask_user_then_retry_with_confirmation",
+          tool: "revise",
+          command: `moryn revise ${target.record.id} --set type=decision --set 'content.text=Use SQLite as the source of truth.' --reason 'Agent inferred this replacement' --confirm`,
+          arguments: {
+            record_id: target.record.id,
+            patch: { type: "decision", "content.text": "Use SQLite as the source of truth." },
+            reason: "Agent inferred this replacement",
+            source: { client: "mcp-test" },
+            confirmed: true
+          },
+          safe_to_run: false
+        });
 
         parseTextContent(await client.callTool({
           name: "revise",

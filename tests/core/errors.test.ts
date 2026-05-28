@@ -47,6 +47,29 @@ describe("error envelopes", () => {
     });
   });
 
+  it("returns a confirmation recovery action when retry context is provided", () => {
+    const envelope = toErrorEnvelope(new Error("Confirmation required: canonical state requires explicit user confirmation"), {
+      tool: "promote",
+      command: "moryn promote rec_123 --state canonical",
+      arguments: { record_id: "rec_123", target_state: "canonical" }
+    });
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "CONFIRMATION_REQUIRED",
+        recommended_action: "ask the user to confirm before retrying with confirmed=true or --confirm",
+        next_action: {
+          recommended_action: "ask_user_then_retry_with_confirmation",
+          tool: "promote",
+          command: "moryn promote rec_123 --state canonical --confirm",
+          arguments: { record_id: "rec_123", target_state: "canonical", confirmed: true },
+          safe_to_run: false
+        }
+      }
+    });
+  });
+
   it("classifies invalid replay failures as invalid record history", () => {
     const envelope = toErrorEnvelope(new Error("Invalid replay target for event evt_missing_revision: Record not found: rec_missing"));
 

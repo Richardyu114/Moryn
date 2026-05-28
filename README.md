@@ -458,9 +458,11 @@ whether to initialize, list projects, or retry with corrected arguments. These
 error envelopes also include a machine-readable `error.next_action` with
 `tool`, `command`, `arguments`, and `safe_to_run`, so agents can recover without
 parsing prose. Uninitialized store errors return an `init` next action with
-`safe_to_run: false`, because it creates local store files. When the missing
-project path is known, `next_action.arguments` contains the exact path instead
-of a placeholder. For unknown project ids,
+`safe_to_run: false`, because it creates local store files. Confirmation errors
+from `promote` and `revise` return a retry action with `confirmed: true` and
+`--confirm`, but also keep `safe_to_run: false` so the agent asks the user first.
+When the missing project path is known, `next_action.arguments` contains the
+exact path instead of a placeholder. For unknown project ids,
 `next_action.rejected_arguments.project_id` records the rejected id and
 `next_action.candidate_project_ids` carries known choices while keeping
 `next_action.arguments` valid for `project_list`. Missing-context errors also

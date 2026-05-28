@@ -8,7 +8,7 @@ import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStat
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
-import { toErrorEnvelope } from "./core/errors.js";
+import { commandForPromoteContext, commandForReviseContext, type MorynErrorContext, toErrorEnvelope } from "./core/errors.js";
 import { initializeProjectConfig, resolveProjectContext } from "./core/project.js";
 import { isValidPatchPath } from "./core/schema.js";
 import { runMcpServer } from "./mcp/server.js";
@@ -29,8 +29,8 @@ function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
-function printError(error: unknown): void {
-  process.stderr.write(`${JSON.stringify(toErrorEnvelope(error), null, 2)}\n`);
+function printError(error: unknown, context?: MorynErrorContext): void {
+  process.stderr.write(`${JSON.stringify(toErrorEnvelope(error, context), null, 2)}\n`);
 }
 
 function createCliEngine() {
@@ -272,13 +272,29 @@ program.command("revise")
   .option("--confirm", "Confirm a high-risk or conflicting canonical revision")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    printJson(await engine.revise({
-      record_id: recordId,
-      patch: parseAssignments(options.set),
-      reason: parseNonEmptyString(options.reason, "--reason"),
-      source: { client: "cli" },
-      confirmed: options.confirm
-    }));
+    const patch = parseAssignments(options.set);
+    const reason = parseNonEmptyString(options.reason, "--reason");
+    const context = {
+      tool: "revise",
+      command: commandForReviseContext({ record_id: recordId, patch, reason }),
+      arguments: {
+        record_id: recordId,
+        patch,
+        ...(reason !== undefined ? { reason } : {})
+      }
+    };
+    try {
+      printJson(await engine.revise({
+        record_id: recordId,
+        patch,
+        reason,
+        source: { client: "cli" },
+        confirmed: options.confirm
+      }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 program.command("promote")
@@ -288,13 +304,29 @@ program.command("promote")
   .option("--confirm", "Confirm a high-risk canonical promotion")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    printJson(await engine.promote({
-      record_id: recordId,
-      target_state: parseEnum(options.state, recordStates, "--state")!,
-      reason: parseNonEmptyString(options.reason, "--reason"),
-      source: { client: "cli" },
-      confirmed: options.confirm
-    }));
+    const targetState = parseEnum(options.state, recordStates, "--state")!;
+    const reason = parseNonEmptyString(options.reason, "--reason");
+    const context = {
+      tool: "promote",
+      command: commandForPromoteContext({ record_id: recordId, target_state: targetState, reason }),
+      arguments: {
+        record_id: recordId,
+        target_state: targetState,
+        ...(reason !== undefined ? { reason } : {})
+      }
+    };
+    try {
+      printJson(await engine.promote({
+        record_id: recordId,
+        target_state: targetState,
+        reason,
+        source: { client: "cli" },
+        confirmed: options.confirm
+      }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 program.command("archive")

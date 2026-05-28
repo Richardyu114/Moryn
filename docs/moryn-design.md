@@ -1272,6 +1272,35 @@ local store files:
 }
 ```
 
+Confirmation-required errors carry a retry template only when the failing CLI or
+MCP wrapper can pass the original tool context into the error envelope. The
+retry action includes `confirmed: true` in arguments and `--confirm` in the CLI
+command, but remains `safe_to_run: false` because a user must approve the
+promotion or revision first:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "CONFIRMATION_REQUIRED",
+    "message": "Confirmation required: canonical state requires explicit user confirmation",
+    "recoverable": true,
+    "recommended_action": "ask the user to confirm before retrying with confirmed=true or --confirm",
+    "next_action": {
+      "recommended_action": "ask_user_then_retry_with_confirmation",
+      "tool": "promote",
+      "command": "moryn promote rec_123 --state canonical --confirm",
+      "arguments": {
+        "record_id": "rec_123",
+        "target_state": "canonical",
+        "confirmed": true
+      },
+      "safe_to_run": false
+    }
+  }
+}
+```
+
 When a direct lifecycle call uses a missing explicit project path, the recovery
 action is parameterized from the error message:
 

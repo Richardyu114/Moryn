@@ -2223,11 +2223,37 @@ describe("moryn CLI", () => {
         throw new Error("Expected moryn promote to require confirmation");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
-        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+        const parsed = JSON.parse(stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "ask_user_then_retry_with_confirmation",
+          tool: "promote",
+          command: `moryn promote ${parsedWrite.record.id} --state canonical --reason 'User confirmed' --confirm`,
+          arguments: {
+            record_id: parsedWrite.record.id,
+            target_state: "canonical",
+            reason: "User confirmed",
+            confirmed: true
+          },
+          safe_to_run: false
+        });
       }
 
       await exec("node", [
@@ -2348,10 +2374,35 @@ describe("moryn CLI", () => {
         throw new Error("Expected moryn promote to require conflict confirmation");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
-        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recommended_action: string } };
+        const parsed = JSON.parse(stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "ask_user_then_retry_with_confirmation",
+          tool: "promote",
+          command: `moryn promote ${candidateId} --state canonical --reason 'Agent inferred this replacement' --confirm`,
+          arguments: {
+            record_id: candidateId,
+            target_state: "canonical",
+            reason: "Agent inferred this replacement",
+            confirmed: true
+          },
+          safe_to_run: false
+        });
       }
 
       await exec("node", [
@@ -2419,10 +2470,35 @@ describe("moryn CLI", () => {
         throw new Error("Expected moryn revise to require conflict confirmation");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
-        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recommended_action: string } };
+        const parsed = JSON.parse(stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "ask_user_then_retry_with_confirmation",
+          tool: "revise",
+          command: `moryn revise ${targetId} --set type=decision --set 'content.text=Use SQLite as the source of truth.' --reason 'Agent inferred this replacement' --confirm`,
+          arguments: {
+            record_id: targetId,
+            patch: { type: "decision", "content.text": "Use SQLite as the source of truth." },
+            reason: "Agent inferred this replacement",
+            confirmed: true
+          },
+          safe_to_run: false
+        });
       }
 
       await exec("node", [

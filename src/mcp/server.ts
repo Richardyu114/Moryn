@@ -5,7 +5,7 @@ import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStat
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
-import { toErrorEnvelope } from "../core/errors.js";
+import { commandForPromoteContext, commandForReviseContext, type MorynErrorContext, toErrorEnvelope } from "../core/errors.js";
 import { initializeProjectConfig, resolveProjectContext } from "../core/project.js";
 import type { RecordKind, RecordScope, RecordSource, RecordState } from "../core/types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
@@ -47,12 +47,12 @@ function jsonResult(value: unknown) {
   };
 }
 
-async function toolResult(fn: () => Promise<unknown>) {
+async function toolResult(fn: () => Promise<unknown>, context?: MorynErrorContext) {
   try {
     return jsonResult(await fn());
   } catch (error) {
     return {
-      ...jsonResult(toErrorEnvelope(error)),
+      ...jsonResult(toErrorEnvelope(error, context)),
       isError: true
     };
   }
@@ -255,7 +255,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         reason,
         confirmed,
         source: (source ?? { client: "mcp" }) as RecordSource
-      }))
+      }), {
+        tool: "revise",
+        command: commandForReviseContext({ record_id, patch, reason }),
+        arguments: {
+          record_id,
+          patch,
+          ...(reason !== undefined ? { reason } : {}),
+          ...(source !== undefined ? { source } : {})
+        }
+      })
   );
 
   server.registerTool(
@@ -277,7 +286,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       reason,
       source: (source ?? { client: "mcp" }) as RecordSource,
       confirmed
-    }))
+    }), {
+      tool: "promote",
+      command: commandForPromoteContext({ record_id, target_state, reason }),
+      arguments: {
+        record_id,
+        target_state,
+        ...(reason !== undefined ? { reason } : {}),
+        ...(source !== undefined ? { source } : {})
+      }
+    })
   );
 
   server.registerTool(

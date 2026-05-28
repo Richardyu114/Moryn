@@ -19,6 +19,17 @@ export interface MorynErrorNextAction {
   safe_to_run: boolean;
 }
 
+export interface MorynErrorContext {
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+}
+
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 export function errorCode(message: string): string {
   if (message.startsWith("Store not initialized") || message.includes("ENOENT")) return "STORE_NOT_INITIALIZED";
   if (message.startsWith("Confirmation required:")) return "CONFIRMATION_REQUIRED";
@@ -127,7 +138,46 @@ function knownProjectIdsFromContextMessage(message: string): string[] | undefine
   return projectIds.length > 0 ? projectIds : undefined;
 }
 
-export function nextAction(code: string, message = ""): MorynErrorNextAction | undefined {
+function appendConfirmFlag(command: string): string {
+  if (/(^|\s)--confirm(\s|$)/.test(command)) return command;
+  return `${command} --confirm`;
+}
+
+function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextAction | undefined {
+  if (!context) return undefined;
+  return {
+    recommended_action: "ask_user_then_retry_with_confirmation",
+    tool: context.tool,
+    command: appendConfirmFlag(context.command),
+    arguments: {
+      ...context.arguments,
+      confirmed: true
+    },
+    safe_to_run: false
+  };
+}
+
+export function commandForPromoteContext(input: { record_id: string; target_state: string; reason?: string }): string {
+  const parts = ["moryn", "promote", shellQuote(input.record_id), "--state", shellQuote(input.target_state)];
+  if (input.reason !== undefined) {
+    parts.push("--reason", shellQuote(input.reason));
+  }
+  return parts.join(" ");
+}
+
+export function commandForReviseContext(input: { record_id: string; patch: Record<string, unknown>; reason?: string }): string {
+  const parts = ["moryn", "revise", shellQuote(input.record_id)];
+  for (const [path, value] of Object.entries(input.patch)) {
+    const assignmentValue = typeof value === "string" ? value : JSON.stringify(value);
+    parts.push("--set", shellQuote(`${path}=${assignmentValue}`));
+  }
+  if (input.reason !== undefined) {
+    parts.push("--reason", shellQuote(input.reason));
+  }
+  return parts.join(" ");
+}
+
+export function nextAction(code: string, message = "", context?: MorynErrorContext): MorynErrorNextAction | undefined {
   switch (code) {
     case "STORE_NOT_INITIALIZED":
       return {
@@ -137,6 +187,8 @@ export function nextAction(code: string, message = ""): MorynErrorNextAction | u
         arguments: {},
         safe_to_run: false
       };
+    case "CONFIRMATION_REQUIRED":
+      return confirmationNextAction(context);
     case "PROJECT_CONTEXT_REQUIRED":
       {
         const candidateProjectIds = knownProjectIdsFromContextMessage(message);
@@ -178,10 +230,10 @@ export function nextAction(code: string, message = ""): MorynErrorNextAction | u
   }
 }
 
-export function toErrorEnvelope(error: unknown): MorynErrorEnvelope {
+export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): MorynErrorEnvelope {
   const message = error instanceof Error ? error.message : String(error);
   const code = errorCode(message);
-  const action = nextAction(code, message);
+  const action = nextAction(code, message, context);
   return {
     ok: false,
     error: {
