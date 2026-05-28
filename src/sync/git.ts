@@ -251,6 +251,7 @@ export async function pushGitSync(storePath: string, options: { message?: string
   await ensureGitIgnore(storePath);
   await ensureGitIdentity(storePath);
   await ensureMainBranch(storePath);
+  await untrackLocalOnlyPaths(storePath);
   await git(storePath, ["add", "events", ".gitignore"]);
 
   let committed = false;

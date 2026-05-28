@@ -426,6 +426,44 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("untracks legacy synced config and generated views during push from configured stores", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-push-untrack-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_push_untrack"
+      });
+      await initializeGitSync(store, remote);
+      await mkdir(join(store, "snapshots"), { recursive: true });
+      await mkdir(join(store, "indexes"), { recursive: true });
+      await writeFile(join(store, "snapshots", "user.json"), "{\"legacy\":true}\n", "utf8");
+      await writeFile(join(store, "indexes", "recall.json"), "{\"legacy\":true}\n", "utf8");
+      await exec("git", ["add", "-f", "config.json", "snapshots", "indexes"], { cwd: store });
+      await exec("git", ["commit", "-m", "Simulate legacy tracked local files"], { cwd: store });
+
+      const push = await pushGitSync(store, { message: "drop legacy tracked local files" });
+
+      expect(push).toEqual(expect.objectContaining({
+        ok: true,
+        committed: true,
+        pushed: true
+      }));
+      const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
+      expect(tracked).toContain(".gitignore");
+      expect(tracked).not.toContain("config.json");
+      expect(tracked).not.toContain("snapshots/user.json");
+      expect(tracked).not.toContain("indexes/recall.json");
+      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
+        dirty: false
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rebases local event commits when pulling remote device history", async () => {
     const root = await mkdtemp(join(tmpdir(), "memora-sync-rebase-"));
     const remote = join(root, "remote.git");
