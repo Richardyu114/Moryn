@@ -318,7 +318,9 @@ exact `agent_start` command plus MCP arguments to use next.
 returns boot context, reports important changes since an optional cursor, and
 adds a structured `handoff` block. `handoff.inbox` contains recent final
 handoff summaries from other sessions; `handoff.active_sessions` contains
-recent in-progress status checkpoints from other sessions.
+recent in-progress status checkpoints from other sessions. Active sessions are
+time-bounded and include `active_until`, so stale status records do not look
+like live work forever.
 `agent status` writes an in-progress project status checkpoint and pushes it
 when sync is configured, so another agent can see active work before the final
 handoff. `agent finish` writes a final `session_summary` handoff and pushes it

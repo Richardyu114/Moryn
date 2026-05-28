@@ -8,7 +8,7 @@ import { initializeStore } from "../../src/core/config.js";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { agentDoctor, agentFinish, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
-import { initializeGitSync, pullGitSync } from "../../src/sync/git.js";
+import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
 
@@ -323,6 +323,69 @@ describe("agent lifecycle", () => {
           sync_remote: remote,
           current_task: "coordinate lifecycle status propagation"
         })
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30000);
+
+  it("does not treat expired status checkpoints as active sessions", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-status-expiry-"));
+    const remote = join(root, "remote.git");
+    const storeA = join(root, "store-codex");
+    const storeB = join(root, "store-gemini");
+    const project = join(root, "project");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(storeA, { now: () => "2026-05-27T00:00:00.000Z", id: () => "device_codex" });
+      await initializeGitSync(storeA, remote);
+
+      const engine = createEngine({
+        storePath: storeA,
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: (prefix) => `${prefix}_old_status`
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["typescript"],
+        content: {
+          text: "Codex left an old status that should not look active forever.",
+          format: "json",
+          current_task: "old lifecycle work",
+          status: "Codex left an old status that should not look active forever."
+        },
+        source: { client: "codex", session_id: "codex-old-status", device_id: "device_codex" }
+      });
+      await pushGitSync(storeA, { message: "old status checkpoint" });
+
+      const pushed = await agentStatus({
+        storePath: storeA,
+        projectPath: project,
+        syncRemote: remote,
+        agent: { client: "codex", session_id: "codex-current-status" },
+        status: "Codex is actively coordinating current lifecycle work.",
+        currentTask: "current lifecycle work"
+      });
+      expect(pushed.sync.push?.pushed).toBe(true);
+
+      const start = await agentStart({
+        storePath: storeB,
+        projectPath: project,
+        syncRemote: remote,
+        agent: { client: "gemini", session_id: "gemini-status-expiry" },
+        currentTask: "coordinate lifecycle work",
+        refreshSince: "2000-01-01T00:00:00.000Z"
+      });
+
+      expect(start.handoff.active_sessions.map((entry) => entry.text)).toEqual([
+        "Codex is actively coordinating current lifecycle work."
+      ]);
+      expect(start.handoff.active_sessions).not.toContainEqual(expect.objectContaining({
+        text: "Codex left an old status that should not look active forever."
       }));
     } finally {
       await rm(root, { recursive: true, force: true });

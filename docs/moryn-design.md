@@ -687,10 +687,12 @@ When `--sync-remote` or MCP `sync_remote` is provided, `agent_start` creates the
 local store if needed and initializes Git sync before pulling. The response also
 includes `handoff.inbox` for recent final `session_summary` records from other
 sessions and `handoff.active_sessions` for recent `type=status` checkpoints
-that have not been superseded by a final summary from the same session. Each
-handoff entry includes the record id, text, originating agent identity,
-timestamp, and a recommended action so agents do not have to infer coordination
-state from `recent_changes`. The
+that have not expired or been superseded by a final summary from the same
+agent. Active sessions use a 120-minute window and include `active_until` so
+stale status records do not look like live work forever. Each handoff entry
+includes the record id, text, originating agent identity, timestamp, and a
+recommended action so agents do not have to infer coordination state from
+`recent_changes`. The
 `next.actions` field returns machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP
 tool name, CLI command template, required fields, and prefilled arguments. The

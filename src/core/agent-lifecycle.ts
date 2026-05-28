@@ -41,6 +41,9 @@ type DoctorSeverity = "ok" | "notice" | "warning";
 
 export interface AgentDoctorInput extends AgentLifecycleInput {}
 
+const ACTIVE_SESSION_TTL_MINUTES = 120;
+const ACTIVE_SESSION_TTL_MS = ACTIVE_SESSION_TTL_MINUTES * 60 * 1000;
+
 interface BootstrapResult {
   initialized_store: boolean;
   sync_init?: GitSyncResult;
@@ -54,6 +57,7 @@ interface AgentHandoffEntry {
   current_task?: string;
   agent: RecordSource;
   updated_at: string;
+  active_until?: string;
   recommended_action: "review_handoff_summary" | "coordinate_with_active_session";
 }
 
@@ -328,6 +332,10 @@ function sourceSessionKey(source: RecordSource): string {
   ].join("\0");
 }
 
+function sourceActorKey(source: RecordSource): string {
+  return source.client;
+}
+
 function isSameAgentSession(source: RecordSource, agent: AgentIdentity | undefined): boolean {
   return Boolean(agent?.session_id)
     && source.client === agent?.client
@@ -336,6 +344,10 @@ function isSameAgentSession(source: RecordSource, agent: AgentIdentity | undefin
 
 function handoffEntry(record: MorynRecord, recommendedAction: AgentHandoffEntry["recommended_action"]): AgentHandoffEntry {
   const currentTask = typeof record.content.current_task === "string" ? record.content.current_task : undefined;
+  const updatedAt = Date.parse(record.updated_at);
+  const activeUntil = recommendedAction === "coordinate_with_active_session" && Number.isFinite(updatedAt)
+    ? new Date(updatedAt + ACTIVE_SESSION_TTL_MS).toISOString()
+    : undefined;
   return {
     record_id: record.id,
     type: record.type,
@@ -343,28 +355,44 @@ function handoffEntry(record: MorynRecord, recommendedAction: AgentHandoffEntry[
     current_task: currentTask,
     agent: record.source,
     updated_at: record.updated_at,
+    active_until: activeUntil,
     recommended_action: recommendedAction
   };
 }
 
-function buildHandoff(records: MorynRecord[], input: AgentLifecycleInput): {
+function isFreshActiveStatus(record: MorynRecord, now: Date): boolean {
+  const updatedAt = Date.parse(record.updated_at);
+  return Number.isFinite(updatedAt) && updatedAt + ACTIVE_SESSION_TTL_MS > now.getTime();
+}
+
+function buildHandoff(records: MorynRecord[], input: AgentLifecycleInput, now = new Date()): {
   inbox: AgentHandoffEntry[];
   active_sessions: AgentHandoffEntry[];
+  active_session_ttl_minutes: number;
   recommended_action: "continue_current_task" | "review_handoff_inbox" | "coordinate_with_active_sessions";
 } {
   const sorted = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id));
   const finalSummaries = sorted.filter((record) => record.type !== "status");
   const finalSummaryBySession = new Map(finalSummaries.map((record) => [sourceSessionKey(record.source), record]));
-  const seenActiveSessions = new Set<string>();
+  const finalSummaryByActor = new Map<string, MorynRecord>();
+  for (const record of finalSummaries) {
+    const key = sourceActorKey(record.source);
+    if (!finalSummaryByActor.has(key)) finalSummaryByActor.set(key, record);
+  }
+  const seenActiveActors = new Set<string>();
   const activeSessions: AgentHandoffEntry[] = [];
 
   for (const record of sorted.filter((record) => record.type === "status")) {
     if (isSameAgentSession(record.source, input.agent)) continue;
+    if (!isFreshActiveStatus(record, now)) continue;
     const key = sourceSessionKey(record.source);
     const finalSummary = finalSummaryBySession.get(key);
     if (finalSummary && finalSummary.updated_at >= record.updated_at) continue;
-    if (seenActiveSessions.has(key)) continue;
-    seenActiveSessions.add(key);
+    const actorKey = sourceActorKey(record.source);
+    const actorFinalSummary = finalSummaryByActor.get(actorKey);
+    if (actorFinalSummary && actorFinalSummary.updated_at >= record.updated_at) continue;
+    if (seenActiveActors.has(actorKey)) continue;
+    seenActiveActors.add(actorKey);
     activeSessions.push(handoffEntry(record, "coordinate_with_active_session"));
     if (activeSessions.length >= 5) break;
   }
@@ -377,6 +405,7 @@ function buildHandoff(records: MorynRecord[], input: AgentLifecycleInput): {
   return {
     inbox,
     active_sessions: activeSessions,
+    active_session_ttl_minutes: ACTIVE_SESSION_TTL_MINUTES,
     recommended_action: activeSessions.length
       ? "coordinate_with_active_sessions"
       : inbox.length
