@@ -365,6 +365,17 @@ function lifecycleActionArguments(input: AgentLifecycleInput): {
   };
 }
 
+function agentEnterActionTemplate(command: string, args: ReturnType<typeof lifecycleActionArguments>) {
+  return {
+    tool: "agent_enter",
+    command,
+    safe_to_run: true,
+    required_when: START_OR_RESUME_WHEN,
+    required_fields: [],
+    arguments: args
+  };
+}
+
 function refreshActionArguments(input: AgentLifecycleInput, cursor: string): {
   project_path?: string;
   project_id?: string;
@@ -996,14 +1007,11 @@ export async function agentEnter(input: AgentEnterInput) {
 export function agentGuide(input: AgentGuideInput) {
   const command = buildAgentEnterCommand(input);
   const startupArguments = lifecycleActionArguments(input);
+  const startup = agentEnterActionTemplate(command, startupArguments);
   return {
     ok: true,
     recommended_entrypoint: "agent_enter",
-    startup: {
-      tool: "agent_enter",
-      command,
-      arguments: startupArguments
-    },
+    startup,
     lifecycle: agentGuideLifecycle(input),
     rules: [
       "Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.",
@@ -1014,10 +1022,7 @@ export function agentGuide(input: AgentGuideInput) {
     ],
     next: {
       recommended_action: "call_agent_enter",
-      tool: "agent_enter",
-      safe_to_run: true,
-      command,
-      arguments: startupArguments
+      ...startup
     }
   };
 }

@@ -98,6 +98,9 @@ describe("MCP stdio server", () => {
           startup: {
             tool: string;
             command: string;
+            safe_to_run: boolean;
+            required_when: string;
+            required_fields: string[];
             arguments: {
               project_path?: string;
               sync_remote?: string;
@@ -114,7 +117,15 @@ describe("MCP stdio server", () => {
             required_fields: string[];
             arguments: Record<string, unknown>;
           }>;
-          next: { tool: string; command: string; arguments: Record<string, unknown> };
+          next: {
+            recommended_action: string;
+            tool: string;
+            command: string;
+            safe_to_run: boolean;
+            required_when: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+          };
         };
 
         expect(guide.ok).toBe(true);
@@ -122,6 +133,9 @@ describe("MCP stdio server", () => {
         expect(guide.startup).toMatchObject({
           tool: "agent_enter",
           command: "moryn agent enter --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-guide",
+          safe_to_run: true,
+          required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
+          required_fields: [],
           arguments: {
             project_path: "/workspace/moryn",
             sync_remote: "git@github.com:user/moryn-store.git",
@@ -157,8 +171,12 @@ describe("MCP stdio server", () => {
           required_fields: ["refresh_since"]
         }));
         expect(guide.next).toMatchObject({
+          recommended_action: "call_agent_enter",
           tool: "agent_enter",
           command: guide.startup.command,
+          safe_to_run: true,
+          required_when: guide.startup.required_when,
+          required_fields: [],
           arguments: guide.startup.arguments
         });
       });
@@ -179,7 +197,7 @@ describe("MCP stdio server", () => {
             agent: { client: "gemini", session_id: "gemini-mcp-guide-discovery" }
           }
         })) as {
-          startup: { command: string; arguments: { project_id?: string } };
+          startup: { command: string; safe_to_run: boolean; required_when: string; required_fields: string[]; arguments: { project_id?: string } };
           lifecycle: Array<{
             step: string;
             tool: string;
@@ -190,6 +208,9 @@ describe("MCP stdio server", () => {
         };
 
         expect(guide.startup.command).toBe("moryn agent enter --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-guide-discovery");
+        expect(guide.startup.safe_to_run).toBe(true);
+        expect(guide.startup.required_when).toBe("At the start of an agent turn, or whenever store/project/sync context is uncertain.");
+        expect(guide.startup.required_fields).toEqual([]);
         expect(guide.startup.arguments.project_id).toBeUndefined();
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
           step: "publish_status",

@@ -155,6 +155,9 @@ Deliverables:
 - Done: Lifecycle `next.actions` now include `required_when` usage conditions
   so agents can choose follow-up actions without relying on array order or
   action-name guessing.
+- Done: `agent_guide.startup` and top-level `next` now expose the same action
+  metadata (`safe_to_run`, `required_when`, `required_fields`, arguments) so
+  agents can call the recommended entrypoint without recombining fields.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

@@ -66,6 +66,9 @@ describe("moryn CLI", () => {
         startup: {
           tool: string;
           command: string;
+          safe_to_run: boolean;
+          required_when: string;
+          required_fields: string[];
           arguments: {
             project_path?: string;
             sync_remote?: string;
@@ -83,7 +86,15 @@ describe("moryn CLI", () => {
           arguments: Record<string, unknown>;
         }>;
         rules: string[];
-        next: { tool: string; command: string; safe_to_run: boolean };
+        next: {
+          recommended_action: string;
+          tool: string;
+          command: string;
+          safe_to_run: boolean;
+          required_when: string;
+          required_fields: string[];
+          arguments: Record<string, unknown>;
+        };
       };
 
       expect(parsed.ok).toBe(true);
@@ -91,6 +102,9 @@ describe("moryn CLI", () => {
       expect(parsed.startup).toMatchObject({
         tool: "agent_enter",
         command: "moryn agent enter --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide",
+        safe_to_run: true,
+        required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
+        required_fields: [],
         arguments: {
           project_path: "/workspace/moryn",
           sync_remote: "git@github.com:user/moryn-store.git",
@@ -128,9 +142,13 @@ describe("moryn CLI", () => {
       expect(parsed.rules).toContain("Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.");
       expect(parsed.rules).toContain("When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.");
       expect(parsed.next).toMatchObject({
+        recommended_action: "call_agent_enter",
         tool: "agent_enter",
         command: parsed.startup.command,
-        safe_to_run: true
+        safe_to_run: true,
+        required_when: parsed.startup.required_when,
+        required_fields: [],
+        arguments: parsed.startup.arguments
       });
     });
   });
@@ -146,7 +164,7 @@ describe("moryn CLI", () => {
         "--session-id", "gemini-guide-discovery"
       ]);
       const parsed = JSON.parse(guide.stdout) as {
-        startup: { command: string; arguments: { project_id?: string } };
+        startup: { command: string; safe_to_run: boolean; required_when: string; required_fields: string[]; arguments: { project_id?: string } };
         lifecycle: Array<{
           step: string;
           tool: string;
@@ -157,6 +175,9 @@ describe("moryn CLI", () => {
       };
 
       expect(parsed.startup.command).toBe("moryn agent enter --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-guide-discovery");
+      expect(parsed.startup.safe_to_run).toBe(true);
+      expect(parsed.startup.required_when).toBe("At the start of an agent turn, or whenever store/project/sync context is uncertain.");
+      expect(parsed.startup.required_fields).toEqual([]);
       expect(parsed.startup.arguments.project_id).toBeUndefined();
       expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
         step: "publish_status",

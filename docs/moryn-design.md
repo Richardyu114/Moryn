@@ -682,10 +682,13 @@ Used as a read-only workflow contract for agent hosts that need exact lifecycle
 instructions before acting. It returns the preferred startup entrypoint
 (`agent_enter`), a complete CLI command, MCP arguments, lifecycle steps, and
 rules that prevent common hallucinated flows such as guessing project ids or
-manually composing `sync_pull`, `boot`, and `refresh`. When no project is
-provided, non-startup lifecycle templates require `project_id` and include
-`--project-id <project_id>` so agents must use the discovery result before
-writing status, finishing, or refreshing.
+manually composing `sync_pull`, `boot`, and `refresh`. The `startup` object and
+top-level `next` action are complete `agent_enter` templates with `safe_to_run`,
+`required_when`, `required_fields`, and arguments, so hosts can execute the
+recommended entrypoint without merging data from lifecycle steps. When no
+project is provided, non-startup lifecycle templates require `project_id` and
+include `--project-id <project_id>` so agents must use the discovery result
+before writing status, finishing, or refreshing.
 
 CLI:
 

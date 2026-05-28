@@ -390,8 +390,11 @@ asking them to remember a manual sequence of `init`, `sync init`, `sync --pull`,
 `agent guide` returns a machine-readable workflow contract for agents. It does
 not touch the store or sync remote; it returns the preferred startup tool,
 complete CLI command, MCP arguments, lifecycle steps, and anti-hallucination
-rules. Use it when an agent host needs a compact, authoritative instruction
-packet instead of inferring commands from README prose.
+rules. Its `startup` object and top-level `next` action include `safe_to_run`,
+`required_when`, `required_fields`, and arguments, so an agent can call the
+recommended `agent_enter` entrypoint directly without recombining fields from
+the lifecycle list. Use it when an agent host needs a compact, authoritative
+instruction packet instead of inferring commands from README prose.
 
 ## Current MVP Commands
 
@@ -438,12 +441,14 @@ agent_guide(project_path, sync_remote, current_task, agent)
 This call is read-only. It returns the preferred startup entrypoint
 (`agent_enter`), a complete CLI command, MCP arguments, lifecycle steps for
 status, finish, and refresh, plus rules that tell the agent not to guess
-project ids or manually compose lower-level sync/boot/refresh calls. If no
-project is provided, the startup command stays as `agent_enter`, while later
-status, finish, and refresh templates explicitly require `project_id` from the
-discovery result. Required template values such as `<status>`, `<summary>`, and
-`<refresh_since>` are also present in `arguments`, so MCP agents can fill the
-JSON fields directly.
+project ids or manually compose lower-level sync/boot/refresh calls. The
+returned `startup` and `next` objects are complete action templates for
+`agent_enter`, including safety, usage timing, required fields, and arguments.
+If no project is provided, the startup command stays as `agent_enter`, while
+later status, finish, and refresh templates explicitly require `project_id`
+from the discovery result. Required template values such as `<status>`,
+`<summary>`, and `<refresh_since>` are also present in `arguments`, so MCP
+agents can fill the JSON fields directly.
 
 When the target project is unknown:
 
