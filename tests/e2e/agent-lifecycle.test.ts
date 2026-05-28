@@ -76,6 +76,18 @@ describe("agent lifecycle", () => {
           recommended_action: "call recall with record_id"
         })
       ]);
+      expect(geminiStart.handoff).toMatchObject({
+        inbox: [
+          {
+            record_id: codexFinish.record.id,
+            type: "summary",
+            text: "Codex finished lifecycle wiring and left a Gemini handoff.",
+            agent: { client: "codex", device_id: "device_codex", session_id: "codex-1" },
+            recommended_action: "review_handoff_summary"
+          }
+        ],
+        active_sessions: []
+      });
       expect(geminiStart.boot.recent_changes.map((record) => record.content.text)).toContain("Codex finished lifecycle wiring and left a Gemini handoff.");
       expect(geminiStart.next.required_end_action).toBe("call agent_finish with a session_summary");
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
@@ -291,6 +303,17 @@ describe("agent lifecycle", () => {
         type: "status",
         content: expect.objectContaining({ text: "Codex is refactoring lifecycle status propagation." })
       }));
+      expect(start.handoff.active_sessions).toEqual([
+        expect.objectContaining({
+          record_id: status.record.id,
+          type: "status",
+          text: "Codex is refactoring lifecycle status propagation.",
+          current_task: "lifecycle status propagation",
+          agent: expect.objectContaining({ client: "codex", session_id: "codex-status" }),
+          recommended_action: "coordinate_with_active_session"
+        })
+      ]);
+      expect(start.handoff.inbox).toEqual([]);
       expect(start.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
         tool: "agent_status",

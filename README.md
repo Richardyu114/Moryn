@@ -315,7 +315,10 @@ exact `agent_start` command plus MCP arguments to use next.
 `agent start` is the low-friction startup command for agents. It resolves
 `.moryn.json`, creates the store if needed, initializes sync when
 `--sync-remote` is provided, pulls remote events when sync is configured,
-returns boot context, and reports important changes since an optional cursor.
+returns boot context, reports important changes since an optional cursor, and
+adds a structured `handoff` block. `handoff.inbox` contains recent final
+handoff summaries from other sessions; `handoff.active_sessions` contains
+recent in-progress status checkpoints from other sessions.
 `agent status` writes an in-progress project status checkpoint and pushes it
 when sync is configured, so another agent can see active work before the final
 handoff. `agent finish` writes a final `session_summary` handoff and pushes it
@@ -375,10 +378,12 @@ agent_start(project_path, current_task, agent)
 This pulls remote events when sync is configured, resolves the project identity,
 returns a small boot context package, and reports recent changes as notices or
 interrupts. Agents should prefer `agent_start` over manually composing
-`sync_pull`, `boot`, and `refresh`. `agent_start.next.actions` includes
-machine-readable templates for the next safe lifecycle calls, including the
-exact CLI command template, MCP tool name, required fields, and prefilled
-arguments for `agent_status`, `agent_finish`, and `refresh_context`
+`sync_pull`, `boot`, and `refresh`. Read `agent_start.handoff.active_sessions`
+before starting overlapping work, and read `agent_start.handoff.inbox` before
+continuing from another agent's final handoff. `agent_start.next.actions`
+includes machine-readable templates for the next safe lifecycle calls,
+including the exact CLI command template, MCP tool name, required fields, and
+prefilled arguments for `agent_status`, `agent_finish`, and `refresh_context`
 (`agent_start` with the returned refresh cursor).
 
 When more context is needed:

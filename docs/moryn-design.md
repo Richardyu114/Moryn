@@ -684,7 +684,13 @@ Agents should prefer this over separately calling `sync_pull`, `boot`, and
 `refresh`. If sync is not configured or the remote is unavailable, the command
 still returns local boot/refresh context and includes a structured sync error.
 When `--sync-remote` or MCP `sync_remote` is provided, `agent_start` creates the
-local store if needed and initializes Git sync before pulling. The
+local store if needed and initializes Git sync before pulling. The response also
+includes `handoff.inbox` for recent final `session_summary` records from other
+sessions and `handoff.active_sessions` for recent `type=status` checkpoints
+that have not been superseded by a final summary from the same session. Each
+handoff entry includes the record id, text, originating agent identity,
+timestamp, and a recommended action so agents do not have to infer coordination
+state from `recent_changes`. The
 `next.actions` field returns machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP
 tool name, CLI command template, required fields, and prefilled arguments. The
@@ -815,22 +821,24 @@ Agents should follow this contract:
 1. On a new machine, fresh store, or uncertain setup, call `agent_doctor` first, then follow `agent_doctor.next.actions`.
 2. Pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
 3. Call `agent_start` at task start.
-4. Call `recall` when context is missing or uncertain.
-5. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions` for finish or refresh.
-6. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
-7. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
-8. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
-9. Write raw notes as `agent_note`, not canonical memory.
-10. Do not promote long-term preferences, soul records, or global skills without user confirmation.
-11. Treat sync `interrupt` results as a reason to pause and inspect related records.
-12. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
+4. Inspect `agent_start.handoff.active_sessions` before overlapping another agent's work.
+5. Inspect `agent_start.handoff.inbox` before continuing from another agent's final handoff.
+6. Call `recall` when context is missing or uncertain.
+7. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions` for finish or refresh.
+8. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
+9. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
+10. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
+11. Write raw notes as `agent_note`, not canonical memory.
+12. Do not promote long-term preferences, soul records, or global skills without user confirmation.
+13. Treat sync `interrupt` results as a reason to pause and inspect related records.
+14. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
 
 Cross-agent handoff depends on the lifecycle commands, not agent awareness of
 each other. Codex, Gemini, and other agents can run on separate machines if they
 share the same Moryn sync repo: `agent_status` writes in-progress checkpoints,
 `agent_finish` writes final session facts, and the next `agent_start`
 initializes local state if needed, pulls remote events, and returns relevant
-updates through boot and refresh.
+updates through boot, refresh, and the structured handoff inbox.
 
 Moryn cannot force-push new content into a running agent context. Agents or host
 applications must call `agent_start`, `refresh`, or `recall`.

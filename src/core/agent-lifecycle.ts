@@ -1,7 +1,8 @@
 import { createEngine } from "./engine.js";
 import { initializeStore, readStoreConfig } from "./config.js";
 import { resolveProjectContext, type ProjectContext, type SyncMode } from "./project.js";
-import type { RecordSource } from "./types.js";
+import { displayRecordText } from "./content-text.js";
+import type { MorynRecord, RecordSource } from "./types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 
 interface AgentIdentity {
@@ -44,6 +45,16 @@ interface BootstrapResult {
   initialized_store: boolean;
   sync_init?: GitSyncResult;
   sync_init_error?: string;
+}
+
+interface AgentHandoffEntry {
+  record_id: string;
+  type: string;
+  text: string;
+  current_task?: string;
+  agent: RecordSource;
+  updated_at: string;
+  recommended_action: "review_handoff_summary" | "coordinate_with_active_session";
 }
 
 function sourceFromAgent(agent: AgentIdentity | undefined): RecordSource {
@@ -309,6 +320,81 @@ function doctorNextActions(input: AgentLifecycleInput) {
   ];
 }
 
+function sourceSessionKey(source: RecordSource): string {
+  return [
+    source.client,
+    source.session_id ?? "",
+    source.device_id ?? ""
+  ].join("\0");
+}
+
+function isSameAgentSession(source: RecordSource, agent: AgentIdentity | undefined): boolean {
+  return Boolean(agent?.session_id)
+    && source.client === agent?.client
+    && source.session_id === agent.session_id;
+}
+
+function handoffEntry(record: MorynRecord, recommendedAction: AgentHandoffEntry["recommended_action"]): AgentHandoffEntry {
+  const currentTask = typeof record.content.current_task === "string" ? record.content.current_task : undefined;
+  return {
+    record_id: record.id,
+    type: record.type,
+    text: displayRecordText(record),
+    current_task: currentTask,
+    agent: record.source,
+    updated_at: record.updated_at,
+    recommended_action: recommendedAction
+  };
+}
+
+function buildHandoff(records: MorynRecord[], input: AgentLifecycleInput): {
+  inbox: AgentHandoffEntry[];
+  active_sessions: AgentHandoffEntry[];
+  recommended_action: "continue_current_task" | "review_handoff_inbox" | "coordinate_with_active_sessions";
+} {
+  const sorted = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id));
+  const finalSummaries = sorted.filter((record) => record.type !== "status");
+  const finalSummaryBySession = new Map(finalSummaries.map((record) => [sourceSessionKey(record.source), record]));
+  const seenActiveSessions = new Set<string>();
+  const activeSessions: AgentHandoffEntry[] = [];
+
+  for (const record of sorted.filter((record) => record.type === "status")) {
+    if (isSameAgentSession(record.source, input.agent)) continue;
+    const key = sourceSessionKey(record.source);
+    const finalSummary = finalSummaryBySession.get(key);
+    if (finalSummary && finalSummary.updated_at >= record.updated_at) continue;
+    if (seenActiveSessions.has(key)) continue;
+    seenActiveSessions.add(key);
+    activeSessions.push(handoffEntry(record, "coordinate_with_active_session"));
+    if (activeSessions.length >= 5) break;
+  }
+
+  const inbox = finalSummaries
+    .filter((record) => !isSameAgentSession(record.source, input.agent))
+    .slice(0, 5)
+    .map((record) => handoffEntry(record, "review_handoff_summary"));
+
+  return {
+    inbox,
+    active_sessions: activeSessions,
+    recommended_action: activeSessions.length
+      ? "coordinate_with_active_sessions"
+      : inbox.length
+        ? "review_handoff_inbox"
+        : "continue_current_task"
+  };
+}
+
+async function agentHandoff(engine: ReturnType<typeof createEngine>, projectId: string, input: AgentLifecycleInput) {
+  const summaries = await engine.recall({
+    project_id: projectId,
+    kinds: ["session_summary"],
+    scopes: ["project"],
+    limit: 100
+  });
+  return buildHandoff(summaries.results.map((result) => result.record), input);
+}
+
 async function initializeLifecycleSync(storePath: string, syncRemote: string | undefined, result: BootstrapResult): Promise<void> {
   if (!syncRemote) return;
   const initialized = await trySync(() => initializeGitSync(storePath, syncRemote));
@@ -465,6 +551,7 @@ export async function agentStart(input: AgentStartInput) {
     current_task: input.currentTask,
     limit: input.limit
   });
+  const handoff = await agentHandoff(engine, project.project_id, input);
 
   return {
     ok: true,
@@ -474,6 +561,7 @@ export async function agentStart(input: AgentStartInput) {
     sync,
     boot,
     refresh,
+    handoff,
     next: {
       required_end_action: "call agent_finish with a session_summary",
       recommended_refresh_action: "call agent_start again with the previous refresh cursor, or call refresh directly",

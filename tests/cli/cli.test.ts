@@ -1325,11 +1325,26 @@ describe("moryn CLI", () => {
         "--current-task", "coordinate status",
         "--refresh-since", "2000-01-01T00:00:00.000Z"
       ]);
-      const parsedStart = JSON.parse(start.stdout) as { refresh: { changes: Array<{ summary: string; importance: string }> } };
+      const parsedStart = JSON.parse(start.stdout) as {
+        refresh: { changes: Array<{ summary: string; importance: string }> };
+        handoff: {
+          active_sessions: Array<{ text: string; current_task?: string; agent: { client?: string; session_id?: string }; recommended_action: string }>;
+          inbox: Array<{ text: string }>;
+        };
+      };
       expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
         summary: "CLI Codex is currently wiring status propagation.",
         importance: "notice"
       }));
+      expect(parsedStart.handoff.active_sessions).toEqual([
+        expect.objectContaining({
+          text: "CLI Codex is currently wiring status propagation.",
+          current_task: "coordinate status",
+          agent: expect.objectContaining({ client: "codex", session_id: "codex-cli-status" }),
+          recommended_action: "coordinate_with_active_session"
+        })
+      ]);
+      expect(parsedStart.handoff.inbox).toEqual([]);
     });
   }, 30000);
 

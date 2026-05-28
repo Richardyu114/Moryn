@@ -393,6 +393,10 @@ describe("MCP stdio server", () => {
             project: { project_id: string };
             sync: { pull?: { pulled?: boolean } };
             refresh: { cursor: string; changes: Array<{ summary: string; importance: string }> };
+            handoff: {
+              inbox: Array<{ text: string; agent: { client?: string; session_id?: string; device_id?: string }; recommended_action: string }>;
+              active_sessions: Array<{ text: string }>;
+            };
             next: { actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }> };
           };
           expect(start.project.project_id).toBe("moryn");
@@ -401,6 +405,14 @@ describe("MCP stdio server", () => {
             summary: "MCP Codex left a lifecycle handoff.",
             importance: "notice"
           }));
+          expect(start.handoff.inbox).toEqual([
+            expect.objectContaining({
+              text: "MCP Codex left a lifecycle handoff.",
+              agent: { client: "codex", session_id: "codex-mcp", device_id: "device_a" },
+              recommended_action: "review_handoff_summary"
+            })
+          ]);
+          expect(start.handoff.active_sessions).toEqual([]);
           expect(start.next.actions).toContainEqual(expect.objectContaining({
             action: "publish_status",
             tool: "agent_status",
