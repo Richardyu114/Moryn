@@ -448,11 +448,13 @@ MORYN_AGENT_LIFECYCLE_REMOTE=git@github.com:yourname/moryn-store-smoke.git npm r
 ```
 
 Without a remote, the script creates a temporary bare Git repo and verifies two
-independent stores. By default it runs from TypeScript source so a fresh clone
-can use it before build; pass `--dist` after `npm run build` to validate the
-built CLI. With `MORYN_AGENT_LIFECYCLE_REMOTE`, it uses that Git remote and
-writes smoke status/handoff records, so use a dedicated test repo rather than a
-production Moryn data repo.
+independent stores. In a source checkout it uses `src/cli.ts` by default so a
+fresh clone can test before build; in an installed package it automatically uses
+`dist/cli.js`. Pass `--dist` after `npm run build` to force built-CLI
+validation. The smoke runner itself is plain Node.js and does not require `tsx`
+in installed packages. With `MORYN_AGENT_LIFECYCLE_REMOTE`, it uses that Git
+remote and writes smoke status/handoff records, so use a dedicated test repo
+rather than a production Moryn data repo.
 
 When a record should be hidden or related to another record:
 

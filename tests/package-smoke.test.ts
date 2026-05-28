@@ -67,4 +67,27 @@ describe("published package smoke", () => {
       }
     });
   }, 120000);
+
+  it("installs the packed package and runs the lifecycle smoke without dev dependencies", async () => {
+    await withTempDir(async (dir) => {
+      const pack = await exec("npm", ["pack", "--silent"], { cwd: process.cwd() });
+      const tarball = join(process.cwd(), pack.stdout.trim().split(/\s+/).at(-1) ?? "");
+
+      try {
+        await exec("npm", ["init", "-y"], { cwd: dir });
+        await exec("npm", ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
+
+        const script = join(dir, "node_modules", "@richardyu114", "moryn", "scripts", "agent-lifecycle-smoke.js");
+        const result = await exec("node", [script], { cwd: dir });
+
+        expect(result.stdout).toContain("agent lifecycle smoke passed");
+        expect(result.stdout).toContain("Codex smoke status reached Gemini");
+        expect(result.stdout).toContain("Gemini smoke finish reached Codex");
+      } finally {
+        if (tarball) {
+          await rm(tarball, { force: true });
+        }
+      }
+    });
+  }, 120000);
 });

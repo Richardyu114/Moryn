@@ -30,7 +30,7 @@ describe("release check", () => {
       "package/dist/cli.js",
       "package/dist/index.js",
       "package/dist/mcp/server.js",
-      "package/scripts/agent-lifecycle-smoke.ts"
+      "package/scripts/agent-lifecycle-smoke.js"
     ])).not.toThrow();
 
     expect(() => assertPackageFilesComplete([
@@ -48,7 +48,7 @@ describe("release check", () => {
       "package/dist/cli.js",
       "package/dist/index.js",
       "package/dist/mcp/server.js"
-    ])).toThrow(/missing required package files: scripts\/agent-lifecycle-smoke\.ts/);
+    ])).toThrow(/missing required package files: scripts\/agent-lifecycle-smoke\.js/);
   });
 
   it("runs the local release gate and skips external Git validation without a remote", async () => {

@@ -838,8 +838,10 @@ Codex writes a status to one store, Gemini starts from another store and sees
 it, Gemini finishes with a handoff, then Codex starts again and sees the
 handoff. By default it creates a temporary local bare Git repo. With
 `MORYN_AGENT_LIFECYCLE_REMOTE` or `--remote`, it validates the actual Git remote
-that agents will share. It runs from TypeScript source by default for fresh
-clones; after `npm run build`, pass `--dist` to validate the built CLI.
+that agents will share. In a source checkout it runs `src/cli.ts` by default
+for fresh clones; in an installed package it automatically uses `dist/cli.js`.
+After `npm run build`, pass `--dist` to force built-CLI validation. The smoke
+runner itself is plain Node.js so installed packages do not need `tsx`.
 
 ## Boot, Recall, and Sync Return Strategy
 

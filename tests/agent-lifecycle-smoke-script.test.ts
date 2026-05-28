@@ -9,9 +9,9 @@ describe("agent lifecycle smoke script", () => {
   it("is exposed as an npm script and validates two agent stores over Git sync", async () => {
     const pkg = JSON.parse(await readFile("package.json", "utf8")) as { scripts?: Record<string, string> };
 
-    expect(pkg.scripts?.["smoke:agent-lifecycle"]).toBe("tsx scripts/agent-lifecycle-smoke.ts");
+    expect(pkg.scripts?.["smoke:agent-lifecycle"]).toBe("node scripts/agent-lifecycle-smoke.js");
 
-    const result = await exec("npx", ["tsx", "scripts/agent-lifecycle-smoke.ts"], { cwd: process.cwd() });
+    const result = await exec("node", ["scripts/agent-lifecycle-smoke.js"], { cwd: process.cwd() });
 
     expect(result.stdout).toContain("agent lifecycle smoke passed");
     expect(result.stdout).toContain("Codex smoke status reached Gemini");

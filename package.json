@@ -11,13 +11,13 @@
     "README.md",
     "docs",
     "assets",
-    "scripts/agent-lifecycle-smoke.ts"
+    "scripts/agent-lifecycle-smoke.js"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli.ts",
     "release:check": "tsx scripts/release-check.ts",
-    "smoke:agent-lifecycle": "tsx scripts/agent-lifecycle-smoke.ts",
+    "smoke:agent-lifecycle": "node scripts/agent-lifecycle-smoke.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

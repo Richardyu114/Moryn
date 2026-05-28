@@ -1,74 +1,21 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const packageRoot = resolve(scriptDir, "..");
 
-interface CliOptions {
-  remote?: string;
-  keepTemp?: boolean;
-  useSource?: boolean;
-}
-
-interface JsonAction {
-  action: string;
-  tool: string;
-  command: string;
-  required_fields: string[];
-  arguments: Record<string, unknown>;
-}
-
-interface AgentStatusOutput {
-  record: {
-    updated_at: string;
-  };
-  sync: {
-    push?: { pushed?: boolean };
-  };
-  next: {
-    actions: JsonAction[];
-  };
-}
-
-interface AgentStartOutput {
-  refresh: {
-    cursor: string;
-    changes: Array<{ summary: string; importance: string }>;
-  };
-  boot: {
-    recent_changes: Array<{ content?: { text?: string } }>;
-  };
-  sync: {
-    pull?: { pulled?: boolean };
-  };
-  next: {
-    actions: JsonAction[];
-  };
-}
-
-interface AgentFinishOutput {
-  sync: {
-    push?: { pushed?: boolean };
-  };
-  next: {
-    actions: JsonAction[];
-  };
-}
-
-interface RunOptions {
-  cwd?: string;
-  env?: NodeJS.ProcessEnv;
-}
-
-function log(message: string): void {
+function log(message) {
   process.stdout.write(`${message}\n`);
 }
 
-function parseArgs(argv: string[]): CliOptions {
-  const options: CliOptions = {
+function parseArgs(argv) {
+  const options = {
     remote: process.env.MORYN_AGENT_LIFECYCLE_REMOTE?.trim() || process.env.MORYN_PRIVATE_GIT_REMOTE?.trim() || undefined,
     keepTemp: process.env.MORYN_SMOKE_KEEP_TEMP === "1",
     useSource: process.env.MORYN_SMOKE_USE_DIST === "1" ? false : true
@@ -88,7 +35,7 @@ function parseArgs(argv: string[]): CliOptions {
     } else if (arg === "--dist") {
       options.useSource = false;
     } else if (arg === "--help" || arg === "-h") {
-      process.stdout.write(`Usage: npm run smoke:agent-lifecycle -- [--remote <git-remote>] [--source|--dist] [--keep-temp]\n`);
+      process.stdout.write("Usage: npm run smoke:agent-lifecycle -- [--remote <git-remote>] [--source|--dist] [--keep-temp]\n");
       process.exit(0);
     } else {
       throw new Error(`Unknown argument: ${arg}`);
@@ -98,7 +45,7 @@ function parseArgs(argv: string[]): CliOptions {
   return options;
 }
 
-async function run(command: string, args: string[], options: RunOptions = {}): Promise<string> {
+async function run(command, args, options = {}) {
   const { stdout } = await exec(command, args, {
     cwd: options.cwd ?? process.cwd(),
     env: options.env ?? process.env
@@ -106,38 +53,51 @@ async function run(command: string, args: string[], options: RunOptions = {}): P
   return stdout;
 }
 
-async function runJson<T>(command: string, args: string[], options: RunOptions = {}): Promise<T> {
-  return JSON.parse(await run(command, args, options)) as T;
+async function runJson(command, args, options = {}) {
+  return JSON.parse(await run(command, args, options));
 }
 
-function requireAction(actions: JsonAction[], action: string, tool: string): JsonAction {
+function requireAction(actions, action, tool) {
   const found = actions.find((candidate) => candidate.action === action && candidate.tool === tool);
   if (!found) throw new Error(`Missing next action ${action} for ${tool}`);
   return found;
 }
 
-function requireChange(output: AgentStartOutput, summary: string): void {
+function requireChange(output, summary) {
   if (!output.refresh.changes.some((change) => change.summary.includes(summary))) {
     throw new Error(`Expected refresh changes to include: ${summary}`);
   }
 }
 
-function requireRecentChange(output: AgentStartOutput, summary: string): void {
+function requireRecentChange(output, summary) {
   if (!output.boot.recent_changes.some((record) => record.content?.text?.includes(summary))) {
     throw new Error(`Expected boot recent_changes to include: ${summary}`);
   }
 }
 
-async function resolveMorynCommand(useSource: boolean): Promise<{ command: string; argsPrefix: string[] }> {
+async function resolveMorynCommand(useSource) {
   if (useSource) {
-    return { command: "node", argsPrefix: ["--import", "tsx", "src/cli.ts"] };
+    const sourceCli = join(packageRoot, "src", "cli.ts");
+    try {
+      await access(sourceCli);
+    } catch {
+      return resolveMorynCommand(false);
+    }
+
+    const localTsx = join(packageRoot, "node_modules", "tsx", "dist", "cli.mjs");
+    try {
+      await access(localTsx);
+      return { command: "node", argsPrefix: [localTsx, sourceCli] };
+    } catch {
+      return { command: "node", argsPrefix: ["--import", "tsx", sourceCli] };
+    }
   }
 
-  const distCli = join(process.cwd(), "dist", "cli.js");
+  const distCli = join(packageRoot, "dist", "cli.js");
   return { command: "node", argsPrefix: [distCli] };
 }
 
-async function main(): Promise<void> {
+async function main() {
   const options = parseArgs(process.argv.slice(2));
   const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-smoke-"));
   const storeCodex = join(root, "store-codex");
@@ -154,7 +114,7 @@ async function main(): Promise<void> {
     await run(command, [...argsPrefix, "project", "init", "--path", project, "--project-id", "moryn-smoke", "--tag", "typescript"]);
 
     const statusSummary = "Codex smoke status reached Gemini";
-    const status = await runJson<AgentStatusOutput>(command, [
+    const status = await runJson(command, [
       ...argsPrefix,
       "--store",
       storeCodex,
@@ -184,7 +144,7 @@ async function main(): Promise<void> {
       throw new Error("Status finish_session action must require summary");
     }
 
-    const geminiStart = await runJson<AgentStartOutput>(command, [
+    const geminiStart = await runJson(command, [
       ...argsPrefix,
       "--store",
       storeGemini,
@@ -212,7 +172,7 @@ async function main(): Promise<void> {
     requireAction(geminiStart.next.actions, "refresh_context", "agent_start");
 
     const finishSummary = "Gemini smoke finish reached Codex";
-    const finish = await runJson<AgentFinishOutput>(command, [
+    const finish = await runJson(command, [
       ...argsPrefix,
       "--store",
       storeGemini,
@@ -236,7 +196,7 @@ async function main(): Promise<void> {
       throw new Error("Finish start_next_session action must include a current_task placeholder");
     }
 
-    const codexStart = await runJson<AgentStartOutput>(command, [
+    const codexStart = await runJson(command, [
       ...argsPrefix,
       "--store",
       storeCodex,
@@ -272,7 +232,7 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main().catch((error: unknown) => {
+  main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);
     process.exitCode = 1;
