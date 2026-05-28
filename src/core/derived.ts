@@ -1,5 +1,6 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { replayEvents } from "./replay.js";
 import { readEvents } from "./store.js";
 import type { MorynRecord } from "./types.js";
@@ -10,6 +11,95 @@ export interface RebuildResult {
   records: number;
   projects: string[];
   skills: number;
+}
+
+const REBUILD_LOCK_TIMEOUT_MS = 60_000;
+const REBUILD_LOCK_STALE_MS = 120_000;
+const REBUILD_LOCK_POLL_MS = 25;
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return error instanceof Error && "code" in error && (error as { code?: unknown }).code === code;
+}
+
+function lockOwner(token: string): string {
+  return `${JSON.stringify({
+    token,
+    pid: process.pid,
+    updated_at: new Date().toISOString()
+  }, null, 2)}\n`;
+}
+
+async function readLockToken(ownerPath: string): Promise<string | undefined> {
+  try {
+    const raw = JSON.parse(await readFile(ownerPath, "utf8")) as { token?: unknown };
+    return typeof raw.token === "string" ? raw.token : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function lockUpdatedAt(lockPath: string, ownerPath: string): Promise<number | undefined> {
+  try {
+    return (await stat(ownerPath)).mtimeMs;
+  } catch (error) {
+    if (!hasErrorCode(error, "ENOENT")) throw error;
+  }
+  try {
+    return (await stat(lockPath)).mtimeMs;
+  } catch (error) {
+    if (hasErrorCode(error, "ENOENT")) return undefined;
+    throw error;
+  }
+}
+
+async function withRebuildLock<T>(storePath: string, fn: () => Promise<T>): Promise<T> {
+  const statePath = join(storePath, "state");
+  const lockPath = join(statePath, "rebuild.lock");
+  const ownerPath = join(lockPath, "owner.json");
+  const token = `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const startedAt = Date.now();
+
+  await mkdir(statePath, { recursive: true });
+
+  while (true) {
+    try {
+      await mkdir(lockPath);
+      break;
+    } catch (error) {
+      if (!hasErrorCode(error, "EEXIST")) throw error;
+
+      const updatedAt = await lockUpdatedAt(lockPath, ownerPath);
+      if (updatedAt === undefined) continue;
+      if (Date.now() - updatedAt > REBUILD_LOCK_STALE_MS) {
+        await rm(lockPath, { recursive: true, force: true });
+        continue;
+      }
+      if (Date.now() - startedAt > REBUILD_LOCK_TIMEOUT_MS) {
+        throw new Error("Derived view rebuild lock timed out");
+      }
+      await delay(REBUILD_LOCK_POLL_MS);
+    }
+  }
+
+  try {
+    await writeFile(ownerPath, lockOwner(token), "utf8");
+  } catch (error) {
+    await rm(lockPath, { recursive: true, force: true });
+    throw error;
+  }
+  const heartbeat = setInterval(() => {
+    void writeFile(ownerPath, lockOwner(token), "utf8").catch(() => undefined);
+  }, REBUILD_LOCK_STALE_MS / 4);
+  heartbeat.unref();
+
+  try {
+    return await fn();
+  } finally {
+    clearInterval(heartbeat);
+    if (await readLockToken(ownerPath) === token) {
+      await rm(lockPath, { recursive: true, force: true });
+    }
+  }
 }
 
 function textOf(record: MorynRecord): string {
@@ -56,6 +146,10 @@ async function readLegacyJsonIfExists(path: string): Promise<unknown | undefined
 }
 
 export async function rebuildDerivedViews(storePath: string): Promise<RebuildResult> {
+  return withRebuildLock(storePath, () => rebuildDerivedViewsUnlocked(storePath));
+}
+
+async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildResult> {
   const records = [...replayEvents(await readEvents(storePath)).values()];
   const trusted = canonical(records);
   const activeRecords = active(records);

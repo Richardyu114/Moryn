@@ -213,4 +213,34 @@ describe("derived views", () => {
       await expect(projectDecisionTexts()).resolves.not.toContain("Generated recall indexes update after revisions.");
     });
   });
+
+  it("keeps generated views complete after concurrent engine writes", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => new Date(Date.UTC(2026, 4, 27, 0, 0, nextTime++)).toISOString(),
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      await Promise.all(Array.from({ length: 24 }, async (_, index) => {
+        await engine.write({
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          tags: ["stress"],
+          content: { text: `Concurrent engine write ${index}`, format: "text" },
+          state: "canonical",
+          source: { client: `agent-${index % 2}` }
+        });
+      }));
+
+      const recall = JSON.parse(await readFile(join(storePath, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      const texts = recall.records.map((record) => record.text);
+
+      expect(texts.filter((text) => text.startsWith("Concurrent engine write "))).toHaveLength(24);
+    });
+  });
 });

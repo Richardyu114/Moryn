@@ -1,4 +1,4 @@
-import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { MorynEvent } from "./types.js";
 import { parseEvent } from "./schema.js";
@@ -65,8 +65,17 @@ export async function appendEvent(storePath: string, event: MorynEvent): Promise
   const parsed = parseEvent(withDefaultDeviceId(event, config.device_id));
   assertNoUnredactedSensitiveContent(parsed);
   const path = eventPath(storePath, parsed);
+  const tempDir = join(storePath, "state", "event-writes");
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+  await mkdir(tempDir, { recursive: true });
+  const tempPath = join(tempDir, `${parsed.event_id}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  try {
+    await writeFile(tempPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+    await rename(tempPath, path);
+  } catch (error) {
+    await rm(tempPath, { force: true });
+    throw error;
+  }
   return path;
 }
 

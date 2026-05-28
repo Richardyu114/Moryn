@@ -35,6 +35,45 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("handles concurrent CLI rebuilds without derived-view races", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+
+      const texts = Array.from({ length: 8 }, (_, index) => `Concurrent rebuild seed ${index}`);
+      for (const text of texts) {
+        await exec("node", [
+          "--import", tsxLoader, cliPath, "--store", store,
+          "write",
+          "--kind", "memory",
+          "--type", "decision",
+          "--scope", "project",
+          "--project-id", "moryn",
+          "--tag", "stress",
+          "--state", "canonical",
+          "--text", text
+        ]);
+      }
+
+      const rebuilds = await Promise.allSettled(Array.from({ length: 12 }, () => exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "rebuild"
+      ])));
+
+      const failures = rebuilds
+        .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+        .map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason));
+      expect(failures).toEqual([]);
+
+      const recall = JSON.parse(await readFile(join(store, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      const indexedTexts = new Set(recall.records.map((record) => record.text));
+
+      for (const text of texts) {
+        expect(indexedTexts).toContain(text);
+      }
+    });
+  }, 30000);
+
   it("initializes project config and resolves --project for writes", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");
