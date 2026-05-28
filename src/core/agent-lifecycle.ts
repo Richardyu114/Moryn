@@ -716,6 +716,53 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
   ];
 }
 
+function lifecyclePhase(
+  lifecycle: ReturnType<typeof agentGuideLifecycle>,
+  step: string,
+  order: number
+) {
+  const action = lifecycle.find((item) => item.step === step);
+  if (!action) throw new Error(`Missing guide lifecycle step: ${step}`);
+  return {
+    phase: action.step,
+    order,
+    action_source: `lifecycle.${action.step}`,
+    tool: action.tool,
+    required_when: action.required_when,
+    required_fields: action.required_fields
+  };
+}
+
+function agentGuideWorkflow(lifecycle: ReturnType<typeof agentGuideLifecycle>) {
+  const start = lifecycle.find((item) => item.step === "start_or_resume");
+  if (!start) throw new Error("Missing guide lifecycle step: start_or_resume");
+  return {
+    version: 1,
+    start: "startup",
+    continue_from: ["agent_enter.next.actions", "lifecycle"],
+    phases: [
+      {
+        phase: "start_or_resume",
+        order: 1,
+        action_source: "startup",
+        tool: start.tool,
+        required_when: start.required_when,
+        required_fields: start.required_fields
+      },
+      {
+        phase: "follow_returned_next_actions",
+        order: 2,
+        action_source: "agent_enter.next.actions",
+        required_when: "After agent_enter returns, prefer its response.next.actions over static guide templates.",
+        required_fields: []
+      },
+      lifecyclePhase(lifecycle, "publish_status", 3),
+      lifecyclePhase(lifecycle, "finish_handoff", 4),
+      lifecyclePhase(lifecycle, "refresh_context", 5)
+    ]
+  };
+}
+
 async function hasKnownProjects(input: AgentLifecycleInput, storeInitialized: boolean): Promise<boolean> {
   if (!storeInitialized) return false;
   const result = await trySync(() => createEngine({ storePath: input.storePath }).listProjects({ limit: 1 }));
@@ -1057,11 +1104,12 @@ export function agentGuide(input: AgentGuideInput) {
   const command = buildAgentEnterCommand(input);
   const startupArguments = lifecycleActionArguments(input);
   const startup = agentEnterActionTemplate(command, startupArguments);
+  const lifecycle = agentGuideLifecycle(input);
   return {
     ok: true,
     recommended_entrypoint: "agent_enter",
     startup,
-    lifecycle: agentGuideLifecycle(input),
+    lifecycle,
     rules: [
       "Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.",
       "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.",
@@ -1070,6 +1118,7 @@ export function agentGuide(input: AgentGuideInput) {
       "Pass sync_remote whenever cross-device handoff matters so status and summaries reach the shared store."
     ],
     guardrails: agentGuideGuardrails(startup),
+    workflow: agentGuideWorkflow(lifecycle),
     next: {
       recommended_action: "call_agent_enter",
       ...startup

@@ -161,6 +161,10 @@ Deliverables:
 - Done: `agent_guide.guardrails[]` now exposes stable machine-readable
   anti-hallucination constraints, including forbidden behaviors, required
   behavior, and replacement actions for startup and project-discovery mistakes.
+- Done: `agent_guide.workflow` now exposes the ordered startup and lifecycle
+  decision track so agents know to call `startup`, prefer returned
+  `agent_enter.next.actions`, and use static templates only for status,
+  finish, or refresh phases.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

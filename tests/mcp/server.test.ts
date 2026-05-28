@@ -134,6 +134,19 @@ describe("MCP stdio server", () => {
             };
             allowed_action_sources?: string[];
           }>;
+          workflow: {
+            version: number;
+            start: string;
+            continue_from: string[];
+            phases: Array<{
+              phase: string;
+              order: number;
+              action_source: string;
+              tool?: string;
+              required_when: string;
+              required_fields: string[];
+            }>;
+          };
           next: {
             recommended_action: string;
             tool: string;
@@ -209,6 +222,52 @@ describe("MCP stdio server", () => {
           avoid: ["reconstruct_command_from_memory", "rename_argument_fields", "drop_required_fields"],
           allowed_action_sources: ["startup", "next", "lifecycle", "response.next.actions"]
         }));
+        expect(guide.workflow).toMatchObject({
+          version: 1,
+          start: "startup",
+          continue_from: ["agent_enter.next.actions", "lifecycle"]
+        });
+        expect(guide.workflow.phases).toEqual([
+          {
+            phase: "start_or_resume",
+            order: 1,
+            action_source: "startup",
+            tool: "agent_enter",
+            required_when: guide.startup.required_when,
+            required_fields: []
+          },
+          {
+            phase: "follow_returned_next_actions",
+            order: 2,
+            action_source: "agent_enter.next.actions",
+            required_when: "After agent_enter returns, prefer its response.next.actions over static guide templates.",
+            required_fields: []
+          },
+          {
+            phase: "publish_status",
+            order: 3,
+            action_source: "lifecycle.publish_status",
+            tool: "agent_status",
+            required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+            required_fields: ["status"]
+          },
+          {
+            phase: "finish_handoff",
+            order: 4,
+            action_source: "lifecycle.finish_handoff",
+            tool: "agent_finish",
+            required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+            required_fields: ["summary"]
+          },
+          {
+            phase: "refresh_context",
+            order: 5,
+            action_source: "lifecycle.refresh_context",
+            tool: "agent_start",
+            required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+            required_fields: ["refresh_since"]
+          }
+        ]);
         expect(guide.next).toMatchObject({
           recommended_action: "call_agent_enter",
           tool: "agent_enter",
@@ -242,6 +301,14 @@ describe("MCP stdio server", () => {
             required_behavior: string;
             use_instead?: { command: string; arguments: { project_id?: string } };
           }>;
+          workflow: {
+            start: string;
+            phases: Array<{
+              phase: string;
+              action_source: string;
+              required_fields: string[];
+            }>;
+          };
           lifecycle: Array<{
             step: string;
             tool: string;
@@ -263,6 +330,22 @@ describe("MCP stdio server", () => {
             command: guide.startup.command,
             arguments: guide.startup.arguments
           })
+        }));
+        expect(guide.workflow.start).toBe("startup");
+        expect(guide.workflow.phases).toContainEqual(expect.objectContaining({
+          phase: "publish_status",
+          action_source: "lifecycle.publish_status",
+          required_fields: ["project_id", "status"]
+        }));
+        expect(guide.workflow.phases).toContainEqual(expect.objectContaining({
+          phase: "finish_handoff",
+          action_source: "lifecycle.finish_handoff",
+          required_fields: ["project_id", "summary"]
+        }));
+        expect(guide.workflow.phases).toContainEqual(expect.objectContaining({
+          phase: "refresh_context",
+          action_source: "lifecycle.refresh_context",
+          required_fields: ["project_id", "refresh_since"]
         }));
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
           step: "publish_status",
