@@ -447,6 +447,50 @@ describe("MCP stdio server", () => {
     }
   }, 30000);
 
+  it("returns safe sync status recovery actions when remote sync is unavailable over MCP", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-missing-sync-remote-"));
+    const store = join(root, "store");
+    const missingRemote = join(root, "missing-remote.git");
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const response = await client.callTool({
+          name: "sync_init",
+          arguments: { remote: missingRemote }
+        });
+
+        expect("isError" in response ? response.isError : false).toBe(true);
+        const result = parseTextContent(response) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe("SYNC_REMOTE_UNAVAILABLE");
+        expect(result.error.recommended_action).toBe("continue locally and retry sync later");
+        expect(result.error.next_action).toEqual({
+          recommended_action: "check_sync_status_before_retrying_remote_operation",
+          tool: "sync_status",
+          command: "moryn sync --status",
+          arguments: {},
+          safe_to_run: true
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("exposes low-friction agent lifecycle over MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-lifecycle-"));
     const remote = join(root, "remote.git");

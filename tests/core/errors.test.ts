@@ -54,6 +54,25 @@ describe("error envelopes", () => {
     });
   });
 
+  it("returns a safe status check action when remote sync is unavailable", () => {
+    const envelope = toErrorEnvelope(new Error("fatal: 'origin' does not appear to be a git repository"));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "SYNC_REMOTE_UNAVAILABLE",
+        recommended_action: "continue locally and retry sync later",
+        next_action: {
+          recommended_action: "check_sync_status_before_retrying_remote_operation",
+          tool: "sync_status",
+          command: "moryn sync --status",
+          arguments: {},
+          safe_to_run: true
+        }
+      }
+    });
+  });
+
   it("returns a machine-readable recovery action for uninitialized stores", () => {
     const envelope = toErrorEnvelope(new Error("Store not initialized"));
 

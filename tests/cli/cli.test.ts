@@ -2708,11 +2708,32 @@ describe("moryn CLI", () => {
         throw new Error("Expected moryn sync init to fail for an unavailable remote");
       } catch (error) {
         const stderr = (error as { stderr: string }).stderr;
-        const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+        const parsed = JSON.parse(stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recoverable: boolean;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("SYNC_REMOTE_UNAVAILABLE");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("continue locally and retry sync later");
+        expect(parsed.error.next_action).toEqual({
+          recommended_action: "check_sync_status_before_retrying_remote_operation",
+          tool: "sync_status",
+          command: "moryn sync --status",
+          arguments: {},
+          safe_to_run: true
+        });
       }
 
       await exec("node", [

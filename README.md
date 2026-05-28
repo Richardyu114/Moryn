@@ -467,6 +467,9 @@ agents should not repeat the write or assume it is already canonical.
 Missing record errors return a safe `list_recent` next action and keep the bad
 id in `next_action.rejected_arguments.record_id`, so agents discover a real
 record id before retrying a mutation.
+Remote sync unavailable errors return a safe read-only `sync_status` next
+action, so agents inspect remote health before retrying pull/push while
+continuing to use the local store.
 Project-scoped writes that omit project context return a safe `project_list`
 next action and keep `scope: project` in `next_action.rejected_arguments`, so
 agents discover the project instead of guessing `project_id`.

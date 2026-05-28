@@ -1219,7 +1219,14 @@ Example:
     "code": "SYNC_REMOTE_UNAVAILABLE",
     "message": "Remote sync is unavailable; local store is still usable.",
     "recoverable": true,
-    "recommended_action": "continue locally and retry sync later"
+    "recommended_action": "continue locally and retry sync later",
+    "next_action": {
+      "recommended_action": "check_sync_status_before_retrying_remote_operation",
+      "tool": "sync_status",
+      "command": "moryn sync --status",
+      "arguments": {},
+      "safe_to_run": true
+    }
   }
 }
 ```
@@ -1370,6 +1377,29 @@ Agents must fill the user-owned remote before running it:
         "remote": "<remote>"
       },
       "safe_to_run": false
+    }
+  }
+}
+```
+
+Remote sync unavailable errors return a safe read-only status action. Agents
+should inspect sync health before retrying remote operations, while continuing
+local boot, recall, and write workflows:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "SYNC_REMOTE_UNAVAILABLE",
+    "message": "fatal: 'origin' does not appear to be a git repository",
+    "recoverable": true,
+    "recommended_action": "continue locally and retry sync later",
+    "next_action": {
+      "recommended_action": "check_sync_status_before_retrying_remote_operation",
+      "tool": "sync_status",
+      "command": "moryn sync --status",
+      "arguments": {},
+      "safe_to_run": true
     }
   }
 }

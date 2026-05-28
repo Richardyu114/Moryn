@@ -229,6 +229,14 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         arguments: { remote: "<remote>" },
         safe_to_run: false
       };
+    case "SYNC_REMOTE_UNAVAILABLE":
+      return {
+        recommended_action: "check_sync_status_before_retrying_remote_operation",
+        tool: "sync_status",
+        command: "moryn sync --status",
+        arguments: {},
+        safe_to_run: true
+      };
     case "RECORD_NOT_FOUND":
       {
         const recordId = missingRecordIdFromMessage(message);
