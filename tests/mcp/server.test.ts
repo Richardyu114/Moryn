@@ -1058,15 +1058,21 @@ describe("MCP stdio server", () => {
           }
         })) as {
           project: { ok: boolean; error?: string };
-          next: { tool: string; safe_to_run: boolean };
+          next: { tool: string; safe_to_run: boolean; command: string; arguments: { path?: string; project_id?: string } };
         };
 
         expect(doctor.project.ok).toBe(false);
         expect(doctor.project.error).toContain("Project id conflict");
         expect(doctor.next).toMatchObject({
           tool: "project_init",
-          safe_to_run: false
+          safe_to_run: false,
+          command: `moryn project init --path ${project}`,
+          arguments: {
+            path: project
+          }
         });
+        expect(doctor.next.command).not.toContain("--project-id");
+        expect(doctor.next.arguments).not.toHaveProperty("project_id");
 
         const start = await client.callTool({
           name: "agent_start",

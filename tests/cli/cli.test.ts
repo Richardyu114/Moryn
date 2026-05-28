@@ -1860,14 +1860,20 @@ describe("moryn CLI", () => {
       ]);
       const parsedDoctor = JSON.parse(doctor.stdout) as {
         project: { ok: boolean; error?: string };
-        next: { tool: string; safe_to_run: boolean };
+        next: { tool: string; safe_to_run: boolean; command: string; arguments: { path?: string; project_id?: string } };
       };
       expect(parsedDoctor.project.ok).toBe(false);
       expect(parsedDoctor.project.error).toContain("Project id conflict");
       expect(parsedDoctor.next).toMatchObject({
         tool: "project_init",
-        safe_to_run: false
+        safe_to_run: false,
+        command: `moryn project init --path ${project}`,
+        arguments: {
+          path: project
+        }
       });
+      expect(parsedDoctor.next.command).not.toContain("--project-id");
+      expect(parsedDoctor.next.arguments).not.toHaveProperty("project_id");
 
       try {
         await exec("node", [

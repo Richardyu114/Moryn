@@ -302,6 +302,23 @@ function buildProjectInitCommand(input: AgentLifecycleInput): string {
   return parts.join(" ");
 }
 
+function projectInitInput(input: AgentLifecycleInput, projectError: string | undefined): AgentLifecycleInput {
+  if (projectError?.startsWith("Project id conflict:")) {
+    return { ...input, projectId: undefined };
+  }
+  return input;
+}
+
+function projectInitArguments(input: AgentLifecycleInput): {
+  path?: string;
+  project_id?: string;
+} {
+  return {
+    path: input.projectPath,
+    ...(input.projectId ? { project_id: input.projectId } : {})
+  };
+}
+
 function buildProjectListCommand(): string {
   return "moryn project list";
 }
@@ -713,6 +730,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
   });
 
   const discoverProjects = shouldDiscoverProjects(input, await hasKnownProjects(input, storeInitialized), project);
+  const setupInput = projectInitInput(input, project.ok ? undefined : project.error);
   const next = discoverProjects
     ? {
         recommended_action: "list_projects",
@@ -741,11 +759,8 @@ export async function agentDoctor(input: AgentDoctorInput) {
         recommended_action: "fix_project_config",
         tool: "project_init",
         safe_to_run: false,
-        command: buildProjectInitCommand(input),
-        arguments: {
-          path: input.projectPath,
-          project_id: input.projectId
-        }
+        command: buildProjectInitCommand(setupInput),
+        arguments: projectInitArguments(setupInput)
       };
 
   return {

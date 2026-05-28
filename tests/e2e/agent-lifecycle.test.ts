@@ -808,8 +808,14 @@ describe("agent lifecycle", () => {
       expect(doctor.next).toMatchObject({
         recommended_action: "fix_project_config",
         tool: "project_init",
-        safe_to_run: false
+        safe_to_run: false,
+        command: `moryn project init --path ${project}`,
+        arguments: {
+          path: project
+        }
       });
+      expect(doctor.next.command).not.toContain("--project-id");
+      expect(doctor.next.arguments).not.toHaveProperty("project_id");
       expect(doctor.next.command).toContain("moryn project init");
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -947,8 +953,14 @@ describe("agent lifecycle", () => {
       expect(doctor.next).toMatchObject({
         recommended_action: "fix_project_config",
         tool: "project_init",
-        safe_to_run: false
+        safe_to_run: false,
+        command: `moryn project init --path ${project}`,
+        arguments: {
+          path: project
+        }
       });
+      expect(doctor.next.command).not.toContain("--project-id");
+      expect(doctor.next.arguments).not.toHaveProperty("project_id");
 
       const entered = await agentEnter({
         storePath: store,
@@ -963,9 +975,15 @@ describe("agent lifecycle", () => {
         mode: "needs_setup",
         next: {
           tool: "project_init",
-          safe_to_run: false
+          safe_to_run: false,
+          command: `moryn project init --path ${project}`,
+          arguments: {
+            path: project
+          }
         }
       });
+      expect(entered.next.command).not.toContain("--project-id");
+      expect(entered.next.arguments).not.toHaveProperty("project_id");
 
       await expect(agentStart({
         storePath: store,
