@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -11,6 +11,27 @@ import { agentDoctor, agentEnter, agentFinish, agentStart, agentStatus } from ".
 import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
+
+async function eventFiles(storePath: string): Promise<string[]> {
+  async function walk(dir: string, prefix = ""): Promise<string[]> {
+    const entries = await readdir(dir, { withFileTypes: true }).catch((error) => {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+      throw error;
+    });
+    const files: string[] = [];
+    for (const entry of entries) {
+      const relative = prefix ? join(prefix, entry.name) : entry.name;
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...await walk(fullPath, relative));
+      } else {
+        files.push(relative);
+      }
+    }
+    return files;
+  }
+  return (await walk(join(storePath, "events"))).sort();
+}
 
 async function createSyncConflict(input: {
   remote: string;
@@ -583,6 +604,24 @@ describe("agent lifecycle", () => {
         currentTask: "avoid sync conflict hallucination",
         agent: { client: "codex", session_id: "codex-conflict" }
       })).rejects.toThrow("Sync conflict: resolve Git conflicts before lifecycle writes");
+
+      const filesBeforeWrites = await eventFiles(storeB);
+      await expect(agentStatus({
+        storePath: storeB,
+        projectPath: project,
+        syncRemote: remote,
+        currentTask: "avoid sync conflict hallucination",
+        status: "Do not write status while sync is conflicted.",
+        agent: { client: "codex", session_id: "codex-conflict" }
+      })).rejects.toThrow("Sync conflict: resolve Git conflicts before lifecycle writes");
+      await expect(agentFinish({
+        storePath: storeB,
+        projectPath: project,
+        syncRemote: remote,
+        summary: "Do not write finish handoff while sync is conflicted.",
+        agent: { client: "codex", session_id: "codex-conflict" }
+      })).rejects.toThrow("Sync conflict: resolve Git conflicts before lifecycle writes");
+      await expect(eventFiles(storeB)).resolves.toEqual(filesBeforeWrites);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

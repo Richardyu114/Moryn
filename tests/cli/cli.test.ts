@@ -1843,6 +1843,52 @@ describe("moryn CLI", () => {
           safe_to_run: true
         });
       }
+
+      for (const command of [
+        [
+          "agent", "status",
+          "--project", project,
+          "--sync-remote", remote,
+          "--agent", "codex",
+          "--current-task", "avoid sync conflict hallucination",
+          "--status", "Do not write status while sync is conflicted."
+        ],
+        [
+          "agent", "finish",
+          "--project", project,
+          "--sync-remote", remote,
+          "--agent", "codex",
+          "--summary", "Do not write finish handoff while sync is conflicted."
+        ]
+      ]) {
+        try {
+          await exec("node", ["--import", tsxLoader, cliPath, "--store", storeB, ...command]);
+          throw new Error(`Expected CLI ${command.slice(0, 2).join(" ")} to reject unresolved sync conflicts`);
+        } catch (error) {
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            error: {
+              code: string;
+              message: string;
+              next_action?: {
+                recommended_action: string;
+                tool: string;
+                command: string;
+                arguments: Record<string, unknown>;
+                safe_to_run: boolean;
+              };
+            };
+          };
+          expect(parsed.error.code).toBe("SYNC_CONFLICT");
+          expect(parsed.error.message).toBe("Sync conflict: resolve Git conflicts before lifecycle writes");
+          expect(parsed.error.next_action).toEqual({
+            recommended_action: "inspect_sync_conflict_before_retrying",
+            tool: "sync_status",
+            command: "moryn sync --status",
+            arguments: {},
+            safe_to_run: true
+          });
+        }
+      }
     });
   }, 30000);
 

@@ -428,6 +428,14 @@ function syncConflictNextAction() {
   };
 }
 
+async function assertSyncNotConflicted(storePath: string): Promise<GitSyncStatus> {
+  const status = await getGitSyncStatus(storePath);
+  if (status.sync_state === "conflict") {
+    throw new Error("Sync conflict: resolve Git conflicts before lifecycle writes");
+  }
+  return status;
+}
+
 function finishNextActions(input: AgentLifecycleInput) {
   const requiredFields = input.currentTask ? [] : ["current_task"];
   return [
@@ -940,10 +948,7 @@ export async function agentStart(input: AgentStartInput) {
     after?: GitSyncStatus;
   } = {};
 
-  sync.before = await getGitSyncStatus(input.storePath);
-  if (sync.before.sync_state === "conflict") {
-    throw new Error("Sync conflict: resolve Git conflicts before lifecycle writes");
-  }
+  sync.before = await assertSyncNotConflicted(input.storePath);
   if (shouldPull) {
     const pulled = await trySync(() => pullGitSync(input.storePath));
     if (pulled.ok) {
@@ -953,10 +958,7 @@ export async function agentStart(input: AgentStartInput) {
       sync.pull_error_details = syncErrorDetails(pulled.cause);
     }
   }
-  sync.after = await getGitSyncStatus(input.storePath);
-  if (sync.after.sync_state === "conflict") {
-    throw new Error("Sync conflict: resolve Git conflicts before lifecycle writes");
-  }
+  sync.after = await assertSyncNotConflicted(input.storePath);
 
   const engine = createEngine({
     storePath: input.storePath,
@@ -997,6 +999,7 @@ export async function agentFinish(input: AgentFinishInput) {
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
+  await assertSyncNotConflicted(input.storePath);
   const engine = createEngine({ storePath: input.storePath });
   const record = await engine.write({
     kind: "session_summary",
@@ -1046,6 +1049,7 @@ export async function agentStatus(input: AgentStatusInput) {
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
   const projectInfo = projectEnvelope(project);
+  await assertSyncNotConflicted(input.storePath);
   const engine = createEngine({ storePath: input.storePath });
   const record = await engine.write({
     kind: "session_summary",

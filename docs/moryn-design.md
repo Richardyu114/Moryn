@@ -829,9 +829,10 @@ by CLI and MCP failures: `code`, `message`, `recoverable`,
 `recommended_action`, and optional `next_action`.
 If the local sync state is already conflicted, or a pull leaves Git in a
 conflicted state, `agent_start` fails before boot/refresh with `SYNC_CONFLICT`
-and a `sync_status` recovery action. This prevents agents from parsing
-conflict-marked event files or writing new lifecycle records into an unresolved
-sync state.
+and a `sync_status` recovery action. `agent_status` and `agent_finish` perform
+the same conflict guard before appending lifecycle records. This prevents agents
+from parsing conflict-marked event files or writing new lifecycle records into
+an unresolved sync state.
 When `--sync-remote` or MCP `sync_remote` is provided, `agent_start` creates the
 local store if needed and initializes Git sync before pulling. The response also
 includes `handoff.inbox` for recent final `session_summary` records from other

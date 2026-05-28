@@ -346,8 +346,9 @@ commands reject the conflict instead of letting one identity silently override
 the other; the setup suggestion keeps the path and drops the conflicting id.
 When sync status reports unresolved Git conflicts, `agent doctor` and
 `agent enter` stop before lifecycle writes and return `sync_status` as the next
-read-only action. Direct `agent start` also rejects with a structured
-`SYNC_CONFLICT` error instead of reading conflict-marked event files.
+read-only action. Direct `agent start`, `agent status`, and `agent finish` also
+reject with a structured `SYNC_CONFLICT` error instead of reading
+conflict-marked event files or writing new lifecycle records.
 Direct lifecycle
 commands (`agent start`, `agent status`, and `agent finish`) also reject missing
 project context in a populated store unless the current directory resolves via a

@@ -103,8 +103,9 @@ Deliverables:
   behind, and last sync.
 - Done: `moryn sync --status` reports structured conflict diagnostics after a
   failed pull or push so agents do not infer recovery from a dirty worktree.
-- Done: Agent lifecycle entrypoints stop before lifecycle writes when sync is
-  conflicted and return a structured `sync_status` recovery action.
+- Done: Agent lifecycle entrypoints, status checkpoints, and finish handoffs
+  stop before lifecycle writes when sync is conflicted and return a structured
+  `sync_status` recovery action.
 - Done: Agent lifecycle partial sync failures include structured
   `*_error_details` recovery contracts alongside legacy error strings.
 - Done: `agent_doctor` returns an explicit readiness summary so agents do not

@@ -1054,6 +1054,53 @@ describe("MCP stdio server", () => {
           arguments: {},
           safe_to_run: true
         });
+
+        for (const call of [
+          {
+            name: "agent_status",
+            arguments: {
+              project_path: project,
+              sync_remote: remote,
+              current_task: "avoid sync conflict hallucination",
+              status: "Do not write status while sync is conflicted.",
+              agent: { client: "gemini", session_id: "gemini-conflict" }
+            }
+          },
+          {
+            name: "agent_finish",
+            arguments: {
+              project_path: project,
+              sync_remote: remote,
+              summary: "Do not write finish handoff while sync is conflicted.",
+              agent: { client: "gemini", session_id: "gemini-conflict" }
+            }
+          }
+        ]) {
+          const response = await client.callTool(call);
+          expect("isError" in response ? response.isError : false).toBe(true);
+          const parsed = parseTextContent(response) as {
+            error: {
+              code: string;
+              message: string;
+              next_action?: {
+                recommended_action: string;
+                tool: string;
+                command: string;
+                arguments: Record<string, unknown>;
+                safe_to_run: boolean;
+              };
+            };
+          };
+          expect(parsed.error.code).toBe("SYNC_CONFLICT");
+          expect(parsed.error.message).toBe("Sync conflict: resolve Git conflicts before lifecycle writes");
+          expect(parsed.error.next_action).toEqual({
+            recommended_action: "inspect_sync_conflict_before_retrying",
+            tool: "sync_status",
+            command: "moryn sync --status",
+            arguments: {},
+            safe_to_run: true
+          });
+        }
       });
     } finally {
       await rm(root, { recursive: true, force: true });
