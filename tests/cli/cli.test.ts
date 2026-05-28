@@ -1439,6 +1439,45 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("recommends project list from CLI doctor when project input is missing", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "moryn",
+        "--text", "Moryn project handoff is available."
+      ]);
+
+      const doctor = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "doctor",
+        "--agent", "codex",
+        "--session-id", "codex-project-list",
+        "--current-task", "find project"
+      ], { cwd: dir });
+      const parsed = JSON.parse(doctor.stdout) as {
+        project: { ok: boolean };
+        next: { recommended_action: string; tool: string; command: string; safe_to_run: boolean; actions: Array<{ action: string; tool: string; command: string; required_fields: string[] }> };
+      };
+
+      expect(parsed.next).toMatchObject({
+        recommended_action: "list_projects",
+        tool: "project_list",
+        safe_to_run: true,
+        command: "moryn project list"
+      });
+      expect(parsed.next.actions).toContainEqual(expect.objectContaining({
+        action: "list_projects",
+        tool: "project_list",
+        command: "moryn project list",
+        required_fields: []
+      }));
+    });
+  });
+
   it("returns structured JSON errors from runtime failures", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");

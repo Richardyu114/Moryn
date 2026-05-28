@@ -189,6 +189,10 @@ function buildProjectInitCommand(input: AgentLifecycleInput): string {
   return parts.join(" ");
 }
 
+function buildProjectListCommand(): string {
+  return "moryn project list";
+}
+
 function lifecycleActionArguments(input: AgentLifecycleInput): {
   project_path?: string;
   project_id?: string;
@@ -322,6 +326,34 @@ function doctorNextActions(input: AgentLifecycleInput) {
       arguments: lifecycleSmokeActionArguments(input)
     }
   ];
+}
+
+function projectListNextActions() {
+  return [
+    {
+      action: "list_projects",
+      tool: "project_list",
+      command: buildProjectListCommand(),
+      required_fields: [],
+      arguments: {}
+    }
+  ];
+}
+
+async function hasKnownProjects(input: AgentLifecycleInput, storeInitialized: boolean): Promise<boolean> {
+  if (!storeInitialized) return false;
+  const result = await trySync(() => createEngine({ storePath: input.storePath }).listProjects({ limit: 1 }));
+  return result.ok && result.result.projects.length > 0;
+}
+
+function shouldDiscoverProjects(
+  input: AgentLifecycleInput,
+  storeHasProjects: boolean,
+  project: Awaited<ReturnType<typeof trySync<ProjectContext>>>
+): boolean {
+  if (!storeHasProjects) return false;
+  if (input.projectPath || input.projectId) return false;
+  return !project.ok || project.result.source !== "config";
 }
 
 function sourceSessionKey(source: RecordSource): string {
@@ -496,7 +528,17 @@ export async function agentDoctor(input: AgentDoctorInput) {
         : "Sync is not configured; pass sync_remote when cross-device handoff is needed."
   });
 
-  const next = project.ok
+  const discoverProjects = shouldDiscoverProjects(input, await hasKnownProjects(input, storeInitialized), project);
+  const next = discoverProjects
+    ? {
+        recommended_action: "list_projects",
+        tool: "project_list",
+        safe_to_run: true,
+        command: buildProjectListCommand(),
+        actions: projectListNextActions(),
+        arguments: {}
+      }
+    : project.ok
     ? {
         recommended_action: "call_agent_start",
         tool: "agent_start",

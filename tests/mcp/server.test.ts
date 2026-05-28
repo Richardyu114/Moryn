@@ -631,6 +631,50 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("recommends project discovery through MCP doctor when project input is missing", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-doctor-project-list-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "session_summary",
+            project_id: "moryn",
+            text: "Moryn MCP project handoff is available.",
+            source: { client: "codex", session_id: "codex-mcp-project-list" }
+          }
+        });
+
+        const doctor = parseTextContent(await client.callTool({
+          name: "agent_doctor",
+          arguments: {
+            current_task: "find project from MCP",
+            agent: { client: "gemini", session_id: "gemini-mcp-project-list" }
+          }
+        })) as {
+          project: { ok: boolean };
+          next: { recommended_action: string; tool: string; command: string; safe_to_run: boolean; actions: Array<{ action: string; tool: string; command: string; required_fields: string[] }> };
+        };
+
+        expect(doctor.next).toMatchObject({
+          recommended_action: "list_projects",
+          tool: "project_list",
+          safe_to_run: true,
+          command: "moryn project list"
+        });
+        expect(doctor.next.actions).toContainEqual(expect.objectContaining({
+          action: "list_projects",
+          tool: "project_list",
+          command: "moryn project list",
+          required_fields: []
+        }));
+      }, store);
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("resolves project paths and project config through MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-"));
     const store = join(root, "store");

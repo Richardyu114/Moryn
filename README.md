@@ -312,7 +312,10 @@ moryn agent finish --project . --sync-remote git@github.com:yourname/moryn-store
 `agent doctor` is a read-only setup check for agents running on an unfamiliar
 machine or project. It reports whether the local store exists, whether project
 identity resolves, whether sync is configured for the expected remote, and the
-exact `agent_start` command plus MCP arguments to use next.
+exact next action to use. When no `project_path` or `project_id` is provided
+and the local store already contains known project records, `agent doctor`
+recommends `project_list` unless the current directory resolves through a
+`.moryn.json` project config.
 
 `agent start` is the low-friction startup command for agents. It resolves
 `.moryn.json`, creates the store if needed, initializes sync when
@@ -367,11 +370,16 @@ Agents should use Moryn through a consistent protocol.
 When the target project is unknown:
 
 ```text
+agent_doctor(sync_remote, current_task, agent)
 project_list()
 ```
 
-This is read-only. It derives known project ids from the local store, sorted by
-recent activity. Each project includes its latest activity and a prefilled
+These calls are read-only. `agent_doctor` reports whether the local store and
+sync setup are ready; if the project is not explicit and the current directory
+does not resolve through `.moryn.json`, its `next.actions` points to
+`project_list`.
+`project_list` derives known project ids from the local store, sorted by recent
+activity. Each project includes its latest activity and a prefilled
 `agent_start` argument template.
 
 When setup is uncertain:
@@ -381,8 +389,11 @@ agent_doctor(project_path, sync_remote, current_task, agent)
 ```
 
 This is read-only. It returns setup checks, the exact `agent_start` command and
-MCP arguments an agent should use next, plus machine-readable `next.actions`
-templates for starting safely and running `moryn-agent-smoke`.
+MCP arguments an agent should use next when the project is known, or a
+`project_list` action when a shared store contains projects but the current
+machine has no explicit project context. It also returns machine-readable
+`next.actions` templates for starting safely, discovering projects, or running
+`moryn-agent-smoke`.
 
 At task start:
 

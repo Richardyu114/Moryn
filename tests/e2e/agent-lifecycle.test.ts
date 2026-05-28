@@ -451,6 +451,87 @@ describe("agent lifecycle", () => {
     }
   });
 
+  it("recommends project discovery when doctor has a store but no project input", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-project-list-"));
+    const store = join(root, "store");
+    const previousCwd = process.cwd();
+    try {
+      process.chdir(root);
+      await initializeStore(store);
+      const engine = createEngine({ storePath: store });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Moryn project handoff is available.", format: "text" },
+        source: { client: "codex", session_id: "codex-project-list" }
+      });
+
+      const doctor = await agentDoctor({
+        storePath: store,
+        agent: { client: "gemini", session_id: "gemini-project-list" },
+        currentTask: "find project to continue"
+      });
+
+      expect(doctor.next).toMatchObject({
+        recommended_action: "list_projects",
+        tool: "project_list",
+        safe_to_run: true,
+        command: "moryn project list"
+      });
+      expect(doctor.next.actions).toContainEqual(expect.objectContaining({
+        action: "list_projects",
+        tool: "project_list",
+        command: "moryn project list",
+        required_fields: [],
+        arguments: {}
+      }));
+    } finally {
+      process.chdir(previousCwd);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("recommends project discovery from an unconfigured git checkout with known projects", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-git-project-list-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    const previousCwd = process.cwd();
+    try {
+      await mkdir(project, { recursive: true });
+      await exec("git", ["init"], { cwd: project });
+      await initializeStore(store);
+      const engine = createEngine({ storePath: store });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Moryn git checkout handoff is available.", format: "text" },
+        source: { client: "codex", session_id: "codex-git-project-list" }
+      });
+
+      process.chdir(project);
+      const doctor = await agentDoctor({
+        storePath: store,
+        agent: { client: "gemini", session_id: "gemini-git-project-list" },
+        currentTask: "find git checkout project"
+      });
+
+      expect(doctor.project).toMatchObject({ ok: true, source: "git_root" });
+      expect(doctor.next).toMatchObject({
+        recommended_action: "list_projects",
+        tool: "project_list",
+        safe_to_run: true,
+        command: "moryn project list"
+      });
+    } finally {
+      process.chdir(previousCwd);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("does not recommend agent_start when project config is invalid", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-invalid-project-"));
     const store = join(root, "store");

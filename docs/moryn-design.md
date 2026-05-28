@@ -646,8 +646,10 @@ MCP exposes the same sync semantics as separate tools: `sync_init`,
 
 Used as a read-only setup check for agents on a new machine or unfamiliar
 project. It reports local store readiness, project resolution, sync
-configuration, and the exact `agent_start` command plus MCP arguments to use
-next.
+configuration, and the exact next action to use. If no `project_path` or
+`project_id` is provided, the store already has project-scoped records, and
+project resolution did not come from `.moryn.json`, it recommends
+`project_list` instead of `agent_start`.
 
 CLI:
 
@@ -660,9 +662,10 @@ MCP tool: `agent_doctor`.
 Agents should call this when they are unsure whether Moryn has been initialized
 or connected to the shared sync repo. The command must not initialize stores,
 write memory, pull, or push; it is safe to run before asking for approval to
-mutate local or remote state. Its `next.actions` includes `start_session` and
-`run_lifecycle_smoke` templates so agents can start or verify the shared Git
-path without inferring commands from prose.
+mutate local or remote state. Its `next.actions` includes `list_projects`,
+`start_session`, or `run_lifecycle_smoke` templates as appropriate, so agents
+can discover a shared project, start, or verify the shared Git path without
+inferring commands from prose.
 
 ### `project_list`
 
