@@ -28,6 +28,25 @@ describe("error envelopes", () => {
     });
   });
 
+  it("returns a machine-readable recovery action for uninitialized stores", () => {
+    const envelope = toErrorEnvelope(new Error("Store not initialized"));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "STORE_NOT_INITIALIZED",
+        recommended_action: "run moryn init",
+        next_action: {
+          recommended_action: "initialize_store",
+          tool: "init",
+          command: "moryn init",
+          arguments: {},
+          safe_to_run: false
+        }
+      }
+    });
+  });
+
   it("classifies invalid replay failures as invalid record history", () => {
     const envelope = toErrorEnvelope(new Error("Invalid replay target for event evt_missing_revision: Record not found: rec_missing"));
 

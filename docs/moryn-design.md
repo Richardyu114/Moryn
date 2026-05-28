@@ -1249,6 +1249,29 @@ for agents that should not infer the recovery command from prose:
 }
 ```
 
+Uninitialized store errors also carry a recovery action. The action is
+machine-readable but not marked safe to run automatically because `init` writes
+local store files:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "STORE_NOT_INITIALIZED",
+    "message": "Store not initialized",
+    "recoverable": true,
+    "recommended_action": "run moryn init",
+    "next_action": {
+      "recommended_action": "initialize_store",
+      "tool": "init",
+      "command": "moryn init",
+      "arguments": {},
+      "safe_to_run": false
+    }
+  }
+}
+```
+
 When a direct lifecycle call uses a missing explicit project path, the recovery
 action is parameterized from the error message:
 

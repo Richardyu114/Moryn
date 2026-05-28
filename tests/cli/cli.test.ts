@@ -2457,11 +2457,32 @@ describe("moryn CLI", () => {
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const stderr = (error as { stderr: string }).stderr;
-          const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; recoverable: boolean; recommended_action: string } };
+          const parsed = JSON.parse(stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              recoverable: boolean;
+              recommended_action: string;
+              next_action?: {
+                recommended_action: string;
+                tool: string;
+                command: string;
+                arguments: Record<string, unknown>;
+                safe_to_run: boolean;
+              };
+            };
+          };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("STORE_NOT_INITIALIZED");
           expect(parsed.error.recoverable).toBe(true);
           expect(parsed.error.recommended_action).toBe("run moryn init");
+          expect(parsed.error.next_action).toEqual({
+            recommended_action: "initialize_store",
+            tool: "init",
+            command: "moryn init",
+            arguments: {},
+            safe_to_run: false
+          });
         }
       }
 

@@ -129,6 +129,14 @@ function knownProjectIdsFromContextMessage(message: string): string[] | undefine
 
 export function nextAction(code: string, message = ""): MorynErrorNextAction | undefined {
   switch (code) {
+    case "STORE_NOT_INITIALIZED":
+      return {
+        recommended_action: "initialize_store",
+        tool: "init",
+        command: "moryn init",
+        arguments: {},
+        safe_to_run: false
+      };
     case "PROJECT_CONTEXT_REQUIRED":
       {
         const candidateProjectIds = knownProjectIdsFromContextMessage(message);
