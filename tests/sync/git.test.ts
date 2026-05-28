@@ -464,6 +464,158 @@ describe("git sync adapter", () => {
     }
   });
 
+  it("preserves local config and untracks legacy synced local-only files during pull", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-pull-untrack-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    const legacy = join(root, "legacy");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_pull_untrack"
+      });
+      await initializeGitSync(store, remote);
+
+      await exec("git", ["clone", remote, legacy]);
+      await exec("git", ["checkout", "-B", "main", "origin/main"], { cwd: legacy });
+      await exec("git", ["config", "user.name", "Legacy"], { cwd: legacy });
+      await exec("git", ["config", "user.email", "legacy@example.local"], { cwd: legacy });
+      await mkdir(join(legacy, "snapshots"), { recursive: true });
+      await mkdir(join(legacy, "indexes"), { recursive: true });
+      await mkdir(join(legacy, "state"), { recursive: true });
+      await writeFile(join(legacy, "config.json"), `${JSON.stringify({
+        store_version: 1,
+        device_id: "device_legacy",
+        created_at: "2026-05-27T00:00:00.000Z"
+      }, null, 2)}\n`, "utf8");
+      await writeFile(join(legacy, "snapshots", "user.json"), "{\"legacy\":true}\n", "utf8");
+      await writeFile(join(legacy, "indexes", "recall.json"), "{\"legacy\":true}\n", "utf8");
+      await writeFile(join(legacy, "state", "sync-status.json"), "{\"legacy\":true}\n", "utf8");
+      await exec("git", ["add", "-f", "config.json", "snapshots", "indexes", "state"], { cwd: legacy });
+      await exec("git", ["commit", "-m", "Legacy tracks local-only files"], { cwd: legacy });
+      await exec("git", ["push", "origin", "main"], { cwd: legacy });
+
+      const pull = await pullGitSync(store);
+
+      expect(pull).toEqual(expect.objectContaining({
+        ok: true,
+        pulled: true
+      }));
+      const localConfig = JSON.parse(await readFile(join(store, "config.json"), "utf8")) as { device_id: string };
+      expect(localConfig.device_id).toBe("device_pull_untrack");
+      const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
+      expect(tracked).toContain(".gitignore");
+      expect(tracked).not.toContain("config.json");
+      expect(tracked).not.toContain("snapshots/user.json");
+      expect(tracked).not.toContain("indexes/recall.json");
+      expect(tracked).not.toContain("state/sync-status.json");
+      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
+        dirty: false
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves local config and untracks legacy synced local-only files during push rebase", async () => {
+    const root = await mkdtemp(join(tmpdir(), "memora-sync-push-rebase-untrack-"));
+    const remote = join(root, "remote.git");
+    const store = join(root, "store");
+    const legacy = join(root, "legacy");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(store, {
+        now: () => "2026-05-27T00:00:00.000Z",
+        id: () => "device_push_rebase_untrack"
+      });
+      await initializeGitSync(store, remote);
+
+      await exec("git", ["clone", remote, legacy]);
+      await exec("git", ["checkout", "-B", "main", "origin/main"], { cwd: legacy });
+      await exec("git", ["config", "user.name", "Legacy"], { cwd: legacy });
+      await exec("git", ["config", "user.email", "legacy@example.local"], { cwd: legacy });
+      await mkdir(join(legacy, "events", "device_legacy", "2026-05"), { recursive: true });
+      await mkdir(join(legacy, "snapshots"), { recursive: true });
+      await mkdir(join(legacy, "indexes"), { recursive: true });
+      await writeFile(join(legacy, "config.json"), `${JSON.stringify({
+        store_version: 1,
+        device_id: "device_legacy",
+        created_at: "2026-05-27T00:00:00.000Z"
+      }, null, 2)}\n`, "utf8");
+      await writeFile(join(legacy, "events", "device_legacy", "2026-05", "evt_legacy.json"), `${JSON.stringify({
+        event_id: "evt_legacy",
+        op: "upsert_record",
+        record: {
+          id: "rec_legacy",
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "memora",
+          tags: [],
+          content: { text: "Legacy remote event survives push rebase.", format: "text" },
+          state: "canonical",
+          confidence: 0.5,
+          priority: "normal",
+          visibility: "active",
+          created_at: "2026-05-27T00:01:00.000Z",
+          updated_at: "2026-05-27T00:01:00.000Z",
+          source: { client: "legacy", device_id: "device_legacy" }
+        },
+        created_at: "2026-05-27T00:01:00.000Z",
+        source: { client: "legacy", device_id: "device_legacy" }
+      }, null, 2)}\n`, "utf8");
+      await writeFile(join(legacy, "snapshots", "user.json"), "{\"legacy\":true}\n", "utf8");
+      await writeFile(join(legacy, "indexes", "recall.json"), "{\"legacy\":true}\n", "utf8");
+      await exec("git", ["add", "-f", "config.json", "events", "snapshots", "indexes"], { cwd: legacy });
+      await exec("git", ["commit", "-m", "Legacy remote tracks local-only files"], { cwd: legacy });
+      await exec("git", ["push", "origin", "main"], { cwd: legacy });
+
+      const engine = createEngine({
+        storePath: store,
+        now: () => "2026-05-27T00:02:00.000Z",
+        id: (prefix) => `${prefix}_local`
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "memora",
+        content: { text: "Local event survives legacy push rebase.", format: "text" },
+        state: "canonical",
+        source: { client: "test", device_id: "device_push_rebase_untrack" }
+      });
+
+      const push = await pushGitSync(store, { message: "push after legacy remote" });
+
+      expect(push).toEqual(expect.objectContaining({
+        ok: true,
+        committed: true,
+        pushed: true
+      }));
+      const localConfig = JSON.parse(await readFile(join(store, "config.json"), "utf8")) as { device_id: string };
+      expect(localConfig.device_id).toBe("device_push_rebase_untrack");
+      const tracked = (await exec("git", ["ls-files"], { cwd: store })).stdout.trim().split(/\r?\n/).filter(Boolean);
+      expect(tracked).toContain(".gitignore");
+      expect(tracked).toContain("events/device_legacy/2026-05/evt_legacy.json");
+      expect(tracked).not.toContain("config.json");
+      expect(tracked).not.toContain("snapshots/user.json");
+      expect(tracked).not.toContain("indexes/recall.json");
+      const recallIndex = JSON.parse(await readFile(join(store, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
+      expect(recallIndex.records.map((record) => record.text)).toEqual(expect.arrayContaining([
+        "Legacy remote event survives push rebase.",
+        "Local event survives legacy push rebase."
+      ]));
+      await expect(getGitSyncStatus(store)).resolves.toEqual(expect.objectContaining({
+        dirty: false,
+        ahead: 0,
+        behind: 0
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rebases local event commits when pulling remote device history", async () => {
     const root = await mkdtemp(join(tmpdir(), "memora-sync-rebase-"));
     const remote = join(root, "remote.git");

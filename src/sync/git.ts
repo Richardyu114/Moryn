@@ -133,6 +133,18 @@ async function hasStagedChanges(storePath: string): Promise<boolean> {
   return !await gitOk(storePath, ["diff", "--cached", "--quiet"]);
 }
 
+async function restoreLocalOnlyStateAfterGitUpdate(storePath: string, localConfig: StoreConfig): Promise<void> {
+  await writeStoreConfig(storePath, localConfig);
+  await rebuildDerivedViews(storePath);
+  await ensureGitIgnore(storePath);
+  await untrackLocalOnlyPaths(storePath);
+  await git(storePath, ["add", ".gitignore"]);
+  await ensureGitIdentity(storePath);
+  if (await hasStagedChanges(storePath)) {
+    await git(storePath, ["commit", "-m", "Migrate Memora local-only files"]);
+  }
+}
+
 async function ensureGitSyncConfigured(storePath: string): Promise<void> {
   if (!await gitOk(storePath, ["rev-parse", "--git-dir"])) {
     throw new Error("Sync not configured: run mem sync init <remote>");
@@ -227,6 +239,7 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
 export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   validateRequiredString(storePath, "storePath");
   await ensureGitSyncConfigured(storePath);
+  const localConfig = await readStoreConfig(storePath);
   if (!await hasRemoteHead(storePath)) {
     return { ok: true, pulled: false, message: "Remote branch main does not exist yet" };
   }
@@ -234,12 +247,12 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   const hasLocal = await hasCommits(storePath);
   if (!hasLocal) {
     await git(storePath, ["checkout", "-B", "main", "origin/main"]);
-    await rebuildDerivedViews(storePath);
+    await restoreLocalOnlyStateAfterGitUpdate(storePath, localConfig);
     await writeLastSync(storePath, "pull");
     return { ok: true, pulled: true };
   }
   await git(storePath, ["pull", "--rebase", "origin", "main"]);
-  await rebuildDerivedViews(storePath);
+  await restoreLocalOnlyStateAfterGitUpdate(storePath, localConfig);
   await writeLastSync(storePath, "pull");
   return { ok: true, pulled: true };
 }
@@ -248,6 +261,7 @@ export async function pushGitSync(storePath: string, options: { message?: string
   validateRequiredString(storePath, "storePath");
   validateSyncOptions(options);
   await ensureGitSyncConfigured(storePath);
+  const localConfig = await readStoreConfig(storePath);
   await ensureGitIgnore(storePath);
   await ensureGitIdentity(storePath);
   await ensureMainBranch(storePath);
@@ -262,7 +276,7 @@ export async function pushGitSync(storePath: string, options: { message?: string
 
   if (await hasRemoteHead(storePath)) {
     await git(storePath, ["pull", "--rebase", "origin", "main"]);
-    await rebuildDerivedViews(storePath);
+    await restoreLocalOnlyStateAfterGitUpdate(storePath, localConfig);
   }
   await git(storePath, ["push", "-u", "origin", "main"]);
   await writeLastSync(storePath, "push");
