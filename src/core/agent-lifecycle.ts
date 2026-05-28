@@ -5,6 +5,7 @@ import { resolveProjectContext, type ProjectContext, type SyncMode } from "./pro
 import { displayRecordText } from "./content-text.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
+import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
 
 interface AgentIdentity {
   client: string;
@@ -53,8 +54,10 @@ interface BootstrapResult {
   initialized_store: boolean;
   sync_init?: GitSyncResult;
   sync_init_error?: string;
+  sync_init_error_details?: MorynErrorEnvelope["error"];
   sync_pull?: GitSyncResult;
   sync_pull_error?: string;
+  sync_pull_error_details?: MorynErrorEnvelope["error"];
 }
 
 interface AgentHandoffEntry {
@@ -95,12 +98,16 @@ function projectEnvelope(project: ProjectContext): {
   };
 }
 
-async function trySync<T>(fn: () => Promise<T>): Promise<{ ok: true; result: T } | { ok: false; error: string }> {
+async function trySync<T>(fn: () => Promise<T>): Promise<{ ok: true; result: T } | { ok: false; error: string; cause: unknown }> {
   try {
     return { ok: true, result: await fn() };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    return { ok: false, error: error instanceof Error ? error.message : String(error), cause: error };
   }
+}
+
+function syncErrorDetails(error: unknown): MorynErrorEnvelope["error"] {
+  return toErrorEnvelope(error).error;
 }
 
 function isMissingStore(error: unknown): boolean {
@@ -666,6 +673,7 @@ async function initializeLifecycleSync(storePath: string, syncRemote: string | u
     result.sync_init = initialized.result;
   } else {
     result.sync_init_error = initialized.error;
+    result.sync_init_error_details = syncErrorDetails(initialized.cause);
   }
 }
 
@@ -692,6 +700,7 @@ async function pullLifecycleSync(storePath: string, result: BootstrapResult): Pr
     result.sync_pull = pulled.result;
   } else {
     result.sync_pull_error = pulled.error;
+    result.sync_pull_error_details = syncErrorDetails(pulled.cause);
   }
 }
 
@@ -913,6 +922,7 @@ export async function agentStart(input: AgentStartInput) {
     before?: GitSyncStatus;
     pull?: GitSyncResult;
     pull_error?: string;
+    pull_error_details?: MorynErrorEnvelope["error"];
     after?: GitSyncStatus;
   } = {};
 
@@ -926,6 +936,7 @@ export async function agentStart(input: AgentStartInput) {
       sync.pull = pulled.result;
     } else {
       sync.pull_error = pulled.error;
+      sync.pull_error_details = syncErrorDetails(pulled.cause);
     }
   }
   sync.after = await getGitSyncStatus(input.storePath);
@@ -986,6 +997,7 @@ export async function agentFinish(input: AgentFinishInput) {
   const sync: {
     push?: GitSyncResult;
     push_error?: string;
+    push_error_details?: MorynErrorEnvelope["error"];
     status?: GitSyncStatus;
   } = {};
 
@@ -995,6 +1007,7 @@ export async function agentFinish(input: AgentFinishInput) {
       sync.push = pushed.result;
     } else {
       sync.push_error = pushed.error;
+      sync.push_error_details = syncErrorDetails(pushed.cause);
     }
   }
   sync.status = await getGitSyncStatus(input.storePath);
@@ -1038,6 +1051,7 @@ export async function agentStatus(input: AgentStatusInput) {
   const sync: {
     push?: GitSyncResult;
     push_error?: string;
+    push_error_details?: MorynErrorEnvelope["error"];
     status?: GitSyncStatus;
   } = {};
 
@@ -1047,6 +1061,7 @@ export async function agentStatus(input: AgentStatusInput) {
       sync.push = pushed.result;
     } else {
       sync.push_error = pushed.error;
+      sync.push_error_details = syncErrorDetails(pushed.cause);
     }
   }
   sync.status = await getGitSyncStatus(input.storePath);

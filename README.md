@@ -365,7 +365,10 @@ adds a structured `handoff` block. `handoff.inbox` contains recent final
 handoff summaries from other sessions; `handoff.active_sessions` contains
 recent in-progress status checkpoints from other sessions. Active sessions are
 time-bounded and include `active_until`, so stale status records do not look
-like live work forever.
+like live work forever. If startup, status, or finish can continue locally while
+sync is unavailable, their `sync.*_error` strings are paired with
+`sync.*_error_details` objects containing `code`, `recommended_action`, and
+`next_action`, so agents do not have to parse prose to recover.
 `agent status` writes an in-progress project status checkpoint and pushes it
 when sync is configured, so another agent can see active work before the final
 handoff. `agent finish` writes a final `session_summary` handoff and pushes it

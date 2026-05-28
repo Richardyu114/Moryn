@@ -184,6 +184,17 @@ describe("agent lifecycle", () => {
       expect(start.ok).toBe(true);
       expect(start.sync.before?.configured).toBe(false);
       expect(start.sync.pull_error).toContain("Sync not configured");
+      expect(start.sync.pull_error_details).toMatchObject({
+        code: "SYNC_NOT_CONFIGURED",
+        recommended_action: "run moryn sync init <remote>",
+        next_action: {
+          recommended_action: "configure_sync_remote",
+          tool: "sync_init",
+          command: "moryn sync init <remote>",
+          arguments: { remote: "<remote>" },
+          safe_to_run: false
+        }
+      });
       expect(start.boot.project.important_decisions).toEqual([]);
 
       const finish = await agentFinish({
@@ -194,6 +205,17 @@ describe("agent lifecycle", () => {
       });
       expect(finish.ok).toBe(true);
       expect(finish.sync.push_error).toContain("Sync not configured");
+      expect(finish.sync.push_error_details).toMatchObject({
+        code: "SYNC_NOT_CONFIGURED",
+        recommended_action: "run moryn sync init <remote>",
+        next_action: {
+          recommended_action: "configure_sync_remote",
+          tool: "sync_init",
+          command: "moryn sync init <remote>",
+          arguments: { remote: "<remote>" },
+          safe_to_run: false
+        }
+      });
 
       const engine = createEngine({ storePath: store });
       const recall = await engine.recall({

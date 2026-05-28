@@ -3038,4 +3038,84 @@ describe("moryn CLI", () => {
       expect(boot.stdout).toContain("Local memory survives remote sync failure.");
     });
   });
+
+  it("returns structured local lifecycle sync recovery details from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await exec("node", ["--import", tsxLoader, cliPath, "project", "init", "--path", project, "--project-id", "moryn"]);
+
+      const start = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "start",
+        "--project", project,
+        "--agent", "codex",
+        "--current-task", "work locally with recovery details"
+      ]);
+      const parsedStart = JSON.parse(start.stdout) as {
+        sync: {
+          pull_error?: string;
+          pull_error_details?: {
+            code: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
+      };
+      expect(parsedStart.sync.pull_error).toContain("Sync not configured");
+      expect(parsedStart.sync.pull_error_details).toMatchObject({
+        code: "SYNC_NOT_CONFIGURED",
+        recommended_action: "run moryn sync init <remote>",
+        next_action: {
+          recommended_action: "configure_sync_remote",
+          tool: "sync_init",
+          command: "moryn sync init <remote>",
+          arguments: { remote: "<remote>" },
+          safe_to_run: false
+        }
+      });
+
+      const finish = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "agent", "finish",
+        "--project", project,
+        "--agent", "codex",
+        "--summary", "Local handoff with sync recovery details."
+      ]);
+      const parsedFinish = JSON.parse(finish.stdout) as {
+        sync: {
+          push_error?: string;
+          push_error_details?: {
+            code: string;
+            recommended_action: string;
+            next_action?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+            };
+          };
+        };
+      };
+      expect(parsedFinish.sync.push_error).toContain("Sync not configured");
+      expect(parsedFinish.sync.push_error_details).toMatchObject({
+        code: "SYNC_NOT_CONFIGURED",
+        recommended_action: "run moryn sync init <remote>",
+        next_action: {
+          recommended_action: "configure_sync_remote",
+          tool: "sync_init",
+          command: "moryn sync init <remote>",
+          arguments: { remote: "<remote>" },
+          safe_to_run: false
+        }
+      });
+    });
+  });
 });

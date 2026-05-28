@@ -820,6 +820,11 @@ MCP tool: `agent_start`.
 Agents should prefer this over separately calling `sync_pull`, `boot`, and
 `refresh`. If sync is not configured or the remote is unavailable, the command
 still returns local boot/refresh context and includes a structured sync error.
+Partial lifecycle sync failures keep the legacy string field (`pull_error`,
+`push_error`, `sync_init_error`, or `sync_pull_error`) and also include a
+matching `*_error_details` object with the same structured error contract used
+by CLI and MCP failures: `code`, `message`, `recoverable`,
+`recommended_action`, and optional `next_action`.
 If the local sync state is already conflicted, or a pull leaves Git in a
 conflicted state, `agent_start` fails before boot/refresh with `SYNC_CONFLICT`
 and a `sync_status` recovery action. This prevents agents from parsing

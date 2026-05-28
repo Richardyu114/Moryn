@@ -1520,6 +1520,90 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns structured local lifecycle sync recovery details through MCP", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-local-sync-details-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await withMcpClient(store, async (client) => {
+        const start = parseTextContent(await client.callTool({
+          name: "agent_start",
+          arguments: {
+            project_path: project,
+            current_task: "work locally with recovery details",
+            agent: { client: "gemini", session_id: "gemini-local-sync-details" }
+          }
+        })) as {
+          sync: {
+            pull_error?: string;
+            pull_error_details?: {
+              code: string;
+              recommended_action: string;
+              next_action?: {
+                recommended_action: string;
+                tool: string;
+                command: string;
+                arguments: Record<string, unknown>;
+                safe_to_run: boolean;
+              };
+            };
+          };
+        };
+        expect(start.sync.pull_error).toContain("Sync not configured");
+        expect(start.sync.pull_error_details).toMatchObject({
+          code: "SYNC_NOT_CONFIGURED",
+          recommended_action: "run moryn sync init <remote>",
+          next_action: {
+            recommended_action: "configure_sync_remote",
+            tool: "sync_init",
+            command: "moryn sync init <remote>",
+            arguments: { remote: "<remote>" },
+            safe_to_run: false
+          }
+        });
+
+        const finish = parseTextContent(await client.callTool({
+          name: "agent_finish",
+          arguments: {
+            project_path: project,
+            summary: "Local MCP handoff with sync recovery details.",
+            agent: { client: "gemini", session_id: "gemini-local-sync-details" }
+          }
+        })) as {
+          sync: {
+            push_error?: string;
+            push_error_details?: {
+              code: string;
+              recommended_action: string;
+              next_action?: {
+                recommended_action: string;
+                tool: string;
+                command: string;
+                arguments: Record<string, unknown>;
+                safe_to_run: boolean;
+              };
+            };
+          };
+        };
+        expect(finish.sync.push_error).toContain("Sync not configured");
+        expect(finish.sync.push_error_details).toMatchObject({
+          code: "SYNC_NOT_CONFIGURED",
+          recommended_action: "run moryn sync init <remote>",
+          next_action: {
+            recommended_action: "configure_sync_remote",
+            tool: "sync_init",
+            command: "moryn sync init <remote>",
+            arguments: { remote: "<remote>" },
+            safe_to_run: false
+          }
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("resolves project paths and project config through MCP", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-project-"));
     const store = join(root, "store");
