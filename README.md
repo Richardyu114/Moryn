@@ -427,10 +427,12 @@ structured `guardrails`, and a top-level `workflow` decision track. Its
 `required_when`, `required_fields`, `safety`, arguments, and their own
 single-step `workflow`, so an agent can call the recommended `agent_enter`
 entrypoint directly without recombining fields from the lifecycle list. Each
-`lifecycle[]` template also includes a single-step `workflow`, so a host can
-execute an individual status, finish, or refresh template without consulting
-the top-level decision track. Top-level `workflow.phases[]` tells hosts the
-order and action source:
+`lifecycle[]` template is also mirrored in `lifecycle_by_step` by step name and
+includes a single-step `workflow`, so a host can execute
+`lifecycle_by_step.publish_status`, `lifecycle_by_step.finish_handoff`, or
+`lifecycle_by_step.refresh_context` without scanning arrays or consulting the
+top-level decision track. Top-level `workflow.phases[]` tells hosts the order
+and action source:
 call `startup`, then prefer `agent_enter.next.actions`, then use static
 lifecycle templates only for status, finish, or refresh. `guardrails[]` gives
 agent hosts stable ids, risks, forbidden behaviors, required behaviors, and
@@ -535,10 +537,10 @@ The top-level `next.actions` for discovered
 projects also include lifecycle templates for status, finish, and refresh using
 the selected `project_id`, so agents do not need to reconstruct follow-up
 commands after choosing a project. Those discovered lifecycle templates carry
-the same single-step `workflow` metadata as `agent_guide.lifecycle[]`. Because
-each discovered action is named `start_session`, `agent_enter` also returns
-`next.actions_by_project_id` so automation can select a project by id without
-guessing from array order. In
+the same `lifecycle_by_step` map and single-step `workflow` metadata as
+`agent_guide.lifecycle[]`. Because each discovered action is named
+`start_session`, `agent_enter` also returns `next.actions_by_project_id` so
+automation can select a project by id without guessing from array order. In
 direct `project_list`, the top-level `projects_by_id` map serves the same
 purpose: `projects[]` stays ordered for display, while
 `projects_by_id.<project_id>.next` is the stable action source for a known

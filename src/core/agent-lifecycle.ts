@@ -483,7 +483,7 @@ function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplat
       risk: "Reconstructing commands can rename fields, omit placeholders, or bypass required_fields checks.",
       avoid: ["reconstruct_command_from_memory", "rename_argument_fields", "drop_required_fields"],
       required_behavior: "Use returned command strings or arguments exactly; fill only placeholders named in required_fields.",
-      allowed_action_sources: ["startup", "next", "lifecycle", "response.next.actions"]
+      allowed_action_sources: ["startup", "next", "lifecycle_by_step", "lifecycle", "response.next.actions"]
     },
     {
       id: "publish_status_and_finish_handoff",
@@ -491,7 +491,7 @@ function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplat
       risk: "Silent sessions leave other agents without coordination or handoff context.",
       avoid: ["stop_without_status_or_summary", "leave_active_work_unpublished"],
       required_behavior: "Publish agent_status before long interruptions and call agent_finish with a concise final summary when meaningful work ends.",
-      allowed_action_sources: ["lifecycle", "response.next.actions"]
+      allowed_action_sources: ["lifecycle_by_step", "lifecycle", "response.next.actions"]
     },
     {
       id: "pass_sync_remote_for_cross_device_handoff",
@@ -499,7 +499,7 @@ function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplat
       risk: "Without sync_remote, status and summaries may stay local to this machine.",
       avoid: ["omit_sync_remote_for_shared_handoff", "assume_local_store_is_shared"],
       required_behavior: "Pass sync_remote whenever cross-device handoff matters so lifecycle writes reach the shared store.",
-      allowed_action_sources: ["startup", "next", "lifecycle", "response.next.actions"]
+      allowed_action_sources: ["startup", "next", "lifecycle_by_step", "lifecycle", "response.next.actions"]
     }
   ];
 }
@@ -787,13 +787,13 @@ function projectListNextActions() {
 function lifecycleStepWorkflow(step: string, tool: string, requiredWhen: string, requiredFields: string[]) {
   return {
     version: 1,
-    start: "lifecycle",
-    continue_from: ["lifecycle"],
+    start: "lifecycle_by_step",
+    continue_from: ["lifecycle_by_step", "lifecycle"],
     phases: [
       {
         phase: step,
         order: 1,
-        action_source: `lifecycle.${step}`,
+        action_source: `lifecycle_by_step.${step}`,
         tool,
         required_when: requiredWhen,
         required_fields: requiredFields
@@ -859,6 +859,10 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
   ];
 }
 
+function lifecycleByStep<T extends { step: string }>(lifecycle: T[]): Record<string, T> {
+  return Object.fromEntries(lifecycle.map((action) => [action.step, action]));
+}
+
 function lifecyclePhase(
   lifecycle: ReturnType<typeof agentGuideLifecycle>,
   step: string,
@@ -869,7 +873,7 @@ function lifecyclePhase(
   return {
     phase: action.step,
     order,
-    action_source: `lifecycle.${action.step}`,
+    action_source: `lifecycle_by_step.${action.step}`,
     tool: action.tool,
     required_when: action.required_when,
     required_fields: action.required_fields
@@ -882,7 +886,7 @@ function agentGuideWorkflow(lifecycle: ReturnType<typeof agentGuideLifecycle>) {
   return {
     version: 1,
     start: "startup",
-    continue_from: ["agent_enter.next.actions", "lifecycle"],
+    continue_from: ["agent_enter.next.actions", "lifecycle_by_step", "lifecycle"],
     phases: [
       {
         phase: "start_or_resume",
@@ -1018,6 +1022,7 @@ function discoverProjectsWorkflow() {
     continue_from: [
       "next.actions_by_project_id",
       "next.actions",
+      "next.actions_by_project_id.<project_id>.lifecycle_by_step",
       "next.actions_by_project_id.<project_id>.lifecycle",
       "agent_start.next.actions_by_id",
       "agent_start.next.actions"
@@ -1041,7 +1046,7 @@ function discoverProjectsWorkflow() {
       {
         phase: "continue_selected_project_lifecycle",
         order: 3,
-        action_source: "next.actions_by_project_id.<project_id>.lifecycle",
+        action_source: "next.actions_by_project_id.<project_id>.lifecycle_by_step",
         required_when: "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
         required_fields: []
       }
@@ -1396,18 +1401,22 @@ export async function agentEnter(input: AgentEnterInput) {
       sync_remote: input.syncRemote,
       agent: sourceFromAgent(input.agent)
     });
-    const actions = projects.projects.map((project) => ({
-      action: "start_session",
-      project_id: project.project_id,
-      tool: project.next.tool,
-      safe_to_run: true,
-      command: project.next.command,
-      required_when: CHOOSE_DISCOVERED_PROJECT_WHEN,
-      required_fields: [],
-      arguments: project.next.arguments,
-      interfaces: project.next.interfaces,
-      lifecycle: agentGuideLifecycle({ ...input, projectId: project.project_id }, "agent_start")
-    }));
+    const actions = projects.projects.map((project) => {
+      const lifecycle = agentGuideLifecycle({ ...input, projectId: project.project_id }, "agent_start");
+      return {
+        action: "start_session",
+        project_id: project.project_id,
+        tool: project.next.tool,
+        safe_to_run: true,
+        command: project.next.command,
+        required_when: CHOOSE_DISCOVERED_PROJECT_WHEN,
+        required_fields: [],
+        arguments: project.next.arguments,
+        interfaces: project.next.interfaces,
+        lifecycle,
+        lifecycle_by_step: lifecycleByStep(lifecycle)
+      };
+    });
     return {
       ok: true,
       mode: "discover_projects",
@@ -1468,6 +1477,7 @@ export function agentGuide(input: AgentGuideInput) {
     recommended_entrypoint: "agent_enter",
     startup,
     lifecycle,
+    lifecycle_by_step: lifecycleByStep(lifecycle),
     rules: [
       "Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.",
       "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.",

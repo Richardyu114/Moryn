@@ -240,6 +240,9 @@ Deliverables:
 - Done: `agent_guide.lifecycle[]` and discovered-project lifecycle templates
   now carry single-step `workflow` metadata, so hosts can execute an individual
   lifecycle template without guessing from `step` names or list order.
+- Done: `agent_guide.lifecycle_by_step` and discovered-project
+  `lifecycle_by_step` mirror lifecycle templates by step name, so hosts can
+  choose status, finish, or refresh without scanning `lifecycle[]`.
 - Done: `agent_enter.next.workflow` now exposes ordered runtime tracks for
   `start_session` and `discover_projects`, including valid follow-up response
   sources and required fields derived from returned actions.

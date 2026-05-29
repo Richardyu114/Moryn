@@ -74,13 +74,13 @@ function expectLifecycleWorkflow(action: {
 }) {
   expect(action.workflow).toEqual({
     version: 1,
-    start: "lifecycle",
-    continue_from: ["lifecycle"],
+    start: "lifecycle_by_step",
+    continue_from: ["lifecycle_by_step", "lifecycle"],
     phases: [
       {
         phase: action.step,
         order: 1,
-        action_source: `lifecycle.${action.step}`,
+        action_source: `lifecycle_by_step.${action.step}`,
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -1049,9 +1049,14 @@ describe("agent lifecycle", () => {
         ]
       });
       expect(entered.next.actions_by_project_id.moryn).toEqual(entered.next.actions[0]);
+      expect(entered.next.actions[0]?.lifecycle_by_step.start_or_resume).toEqual(discoveredLifecycle[0]);
+      expect(entered.next.actions[0]?.lifecycle_by_step.publish_status).toEqual(discoveredLifecycle.find((action) => action.step === "publish_status"));
+      expect(entered.next.actions[0]?.lifecycle_by_step.finish_handoff).toEqual(discoveredLifecycle.find((action) => action.step === "finish_handoff"));
+      expect(entered.next.actions[0]?.lifecycle_by_step.refresh_context).toEqual(discoveredLifecycle.find((action) => action.step === "refresh_context"));
       expect(entered.next.workflow.continue_from).toEqual([
         "next.actions_by_project_id",
         "next.actions",
+        "next.actions_by_project_id.<project_id>.lifecycle_by_step",
         "next.actions_by_project_id.<project_id>.lifecycle",
         "agent_start.next.actions_by_id",
         "agent_start.next.actions"
@@ -1059,7 +1064,7 @@ describe("agent lifecycle", () => {
       expect(entered.next.workflow.phases.map((phase) => phase.action_source)).toEqual([
         "projects.projects",
         "next.actions_by_project_id.<project_id>",
-        "next.actions_by_project_id.<project_id>.lifecycle"
+        "next.actions_by_project_id.<project_id>.lifecycle_by_step"
       ]);
       for (const action of discoveredLifecycle) {
         expectLifecycleWorkflow(action);

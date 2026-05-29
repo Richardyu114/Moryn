@@ -150,13 +150,13 @@ function expectLifecycleWorkflow(action: {
 }) {
   expect(action.workflow).toEqual({
     version: 1,
-    start: "lifecycle",
-    continue_from: ["lifecycle"],
+    start: "lifecycle_by_step",
+    continue_from: ["lifecycle_by_step", "lifecycle"],
     phases: [
       {
         phase: action.step,
         order: 1,
-        action_source: `lifecycle.${action.step}`,
+        action_source: `lifecycle_by_step.${action.step}`,
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -542,6 +542,15 @@ describe("MCP stdio server", () => {
               mcp?: { tool?: string; arguments?: Record<string, unknown> };
             };
           }>;
+          lifecycle_by_step: Record<string, {
+            step: string;
+            tool: string;
+            safe_to_run: boolean;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+          }>;
           guardrails: Array<{
             id: string;
             when: string;
@@ -615,6 +624,10 @@ describe("MCP stdio server", () => {
           "agent_finish",
           "agent_start"
         ]);
+        expect(guide.lifecycle_by_step.start_or_resume).toEqual(guide.lifecycle[0]);
+        expect(guide.lifecycle_by_step.publish_status).toEqual(guide.lifecycle.find((step) => step.step === "publish_status"));
+        expect(guide.lifecycle_by_step.finish_handoff).toEqual(guide.lifecycle.find((step) => step.step === "finish_handoff"));
+        expect(guide.lifecycle_by_step.refresh_context).toEqual(guide.lifecycle.find((step) => step.step === "refresh_context"));
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
           step: "publish_status",
           tool: "agent_status",
@@ -660,12 +673,12 @@ describe("MCP stdio server", () => {
         expect(guide.guardrails).toContainEqual(expect.objectContaining({
           id: "use_returned_actions_verbatim",
           avoid: ["reconstruct_command_from_memory", "rename_argument_fields", "drop_required_fields"],
-          allowed_action_sources: ["startup", "next", "lifecycle", "response.next.actions"]
+          allowed_action_sources: ["startup", "next", "lifecycle_by_step", "lifecycle", "response.next.actions"]
         }));
         expect(guide.workflow).toMatchObject({
           version: 1,
           start: "startup",
-          continue_from: ["agent_enter.next.actions", "lifecycle"]
+          continue_from: ["agent_enter.next.actions", "lifecycle_by_step", "lifecycle"]
         });
         expect(guide.workflow.phases).toEqual([
           {
@@ -686,7 +699,7 @@ describe("MCP stdio server", () => {
           {
             phase: "publish_status",
             order: 3,
-            action_source: "lifecycle.publish_status",
+            action_source: "lifecycle_by_step.publish_status",
             tool: "agent_status",
             required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
             required_fields: ["status"]
@@ -694,7 +707,7 @@ describe("MCP stdio server", () => {
           {
             phase: "finish_handoff",
             order: 4,
-            action_source: "lifecycle.finish_handoff",
+            action_source: "lifecycle_by_step.finish_handoff",
             tool: "agent_finish",
             required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
             required_fields: ["summary"]
@@ -702,7 +715,7 @@ describe("MCP stdio server", () => {
           {
             phase: "refresh_context",
             order: 5,
-            action_source: "lifecycle.refresh_context",
+            action_source: "lifecycle_by_step.refresh_context",
             tool: "agent_start",
             required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
             required_fields: ["refresh_since"]
@@ -758,6 +771,13 @@ describe("MCP stdio server", () => {
             required_fields: string[];
             arguments: { project_id?: string; status?: string; summary?: string; refresh_since?: string };
           }>;
+          lifecycle_by_step: Record<string, {
+            step: string;
+            tool: string;
+            command: string;
+            required_fields: string[];
+            arguments: { project_id?: string; status?: string; summary?: string; refresh_since?: string };
+          }>;
         };
 
         expect(guide.startup.command).toBe("moryn agent enter --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-guide-discovery");
@@ -776,17 +796,17 @@ describe("MCP stdio server", () => {
         expect(guide.workflow.start).toBe("startup");
         expect(guide.workflow.phases).toContainEqual(expect.objectContaining({
           phase: "publish_status",
-          action_source: "lifecycle.publish_status",
+          action_source: "lifecycle_by_step.publish_status",
           required_fields: ["project_id", "status"]
         }));
         expect(guide.workflow.phases).toContainEqual(expect.objectContaining({
           phase: "finish_handoff",
-          action_source: "lifecycle.finish_handoff",
+          action_source: "lifecycle_by_step.finish_handoff",
           required_fields: ["project_id", "summary"]
         }));
         expect(guide.workflow.phases).toContainEqual(expect.objectContaining({
           phase: "refresh_context",
-          action_source: "lifecycle.refresh_context",
+          action_source: "lifecycle_by_step.refresh_context",
           required_fields: ["project_id", "refresh_since"]
         }));
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
@@ -810,6 +830,9 @@ describe("MCP stdio server", () => {
           required_fields: ["project_id", "refresh_since"],
           arguments: expect.objectContaining({ project_id: "<project_id>", refresh_since: "<refresh_since>" })
         }));
+        expect(guide.lifecycle_by_step.publish_status).toEqual(guide.lifecycle.find((step) => step.step === "publish_status"));
+        expect(guide.lifecycle_by_step.finish_handoff).toEqual(guide.lifecycle.find((step) => step.step === "finish_handoff"));
+        expect(guide.lifecycle_by_step.refresh_context).toEqual(guide.lifecycle.find((step) => step.step === "refresh_context"));
         for (const action of guide.lifecycle) {
           expectLifecycleWorkflow(action);
         }
@@ -2260,12 +2283,21 @@ describe("MCP stdio server", () => {
                 required_fields: string[];
                 workflow?: Record<string, unknown>;
               }>;
+              lifecycle_by_step?: Record<string, {
+                step: string;
+                tool: string;
+                command: string;
+                required_when: string;
+                required_fields: string[];
+                workflow?: Record<string, unknown>;
+              }>;
             }>;
             actions_by_project_id: Record<string, {
               project_id: string;
               command: string;
               arguments: Record<string, unknown>;
               lifecycle?: Array<{ step: string; tool: string; command: string; required_when: string; required_fields: string[]; workflow?: Record<string, unknown> }>;
+              lifecycle_by_step?: Record<string, { step: string; tool: string; command: string; required_when: string; required_fields: string[]; workflow?: Record<string, unknown> }>;
             }>;
           };
         };
@@ -2281,6 +2313,7 @@ describe("MCP stdio server", () => {
           continue_from: [
             "next.actions_by_project_id",
             "next.actions",
+            "next.actions_by_project_id.<project_id>.lifecycle_by_step",
             "next.actions_by_project_id.<project_id>.lifecycle",
             "agent_start.next.actions_by_id",
             "agent_start.next.actions"
@@ -2304,7 +2337,7 @@ describe("MCP stdio server", () => {
             {
               phase: "continue_selected_project_lifecycle",
               order: 3,
-              action_source: "next.actions_by_project_id.<project_id>.lifecycle",
+              action_source: "next.actions_by_project_id.<project_id>.lifecycle_by_step",
               required_when: "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
               required_fields: []
             }
@@ -2315,6 +2348,8 @@ describe("MCP stdio server", () => {
         expect(entered.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter");
         expect(entered.next.actions[0]?.required_when).toBe("After choosing this project from discovery results.");
         const discoveredStatus = entered.next.actions[0]?.lifecycle?.find((action) => action.step === "publish_status");
+        expect(entered.next.actions[0]?.lifecycle_by_step?.publish_status).toEqual(discoveredStatus);
+        expect(entered.next.actions_by_project_id.moryn.lifecycle_by_step?.publish_status).toEqual(discoveredStatus);
         expect(discoveredStatus).toMatchObject({
           step: "publish_status",
           tool: "agent_status",

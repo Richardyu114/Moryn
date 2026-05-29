@@ -832,10 +832,14 @@ that name the action source, usage condition, and required fields. The
 `startup` object and top-level `next` action are complete `agent_enter`
 templates with `safe_to_run`, `required_when`, `required_fields`, arguments,
 and single-step `workflow`, so hosts can execute the recommended entrypoint
-without merging data from lifecycle steps. When no project is provided, non-startup lifecycle
-templates require `project_id` and include `--project-id <project_id>` so
-agents must use the discovery result before writing status, finishing, or
-refreshing.
+without merging data from lifecycle steps. `lifecycle_by_step` mirrors
+`lifecycle[]` by step name, and lifecycle workflows prefer
+`lifecycle_by_step.<step>` while keeping `lifecycle[]` as a compatibility
+source; hosts can fetch `publish_status`, `finish_handoff`, or
+`refresh_context` directly instead of scanning the ordered lifecycle list. When
+no project is provided, non-startup lifecycle templates require `project_id`
+and include `--project-id <project_id>` so agents must use the discovery result
+before writing status, finishing, or refreshing.
 Every action template also includes an `interfaces` object. `interfaces.cli`
 contains the exact command string for shell clients, while `interfaces.mcp`
 contains the tool name and JSON arguments for MCP hosts. These fields are
@@ -869,15 +873,16 @@ provided, it initializes Git sync and pulls the shared store before choosing
 between project discovery and startup. In `discover_projects` mode, each
 top-level start action also includes lifecycle templates for status, finish,
 and refresh using the selected `project_id`; each of those nested lifecycle
-templates carries its own single-step `workflow`. Because every discovered action
-is named `start_session`, the response also includes `next.actions_by_project_id`
-so hosts can choose a project by id instead of array position. In `start_session` and
-`discover_projects` modes, `next.workflow` exposes the ordered runtime action
-track and valid follow-up sources so hosts can continue from the live response
-without consulting static guide templates. Direct `agent_start`, `agent_status`,
-and `agent_finish` responses also include `next.workflow`, derived from their
-returned `next.actions`, so every lifecycle entrypoint carries its own follow-up
-contract.
+templates carries its own single-step `workflow` and is mirrored in
+`lifecycle_by_step` by step name. Because every discovered action is named
+`start_session`, the response also includes `next.actions_by_project_id` so
+hosts can choose a project by id instead of array position. In `start_session`
+and `discover_projects` modes, `next.workflow` exposes the ordered runtime
+action track and valid follow-up sources so hosts can continue from the live
+response without consulting static guide templates. Direct `agent_start`,
+`agent_status`, and `agent_finish` responses also include `next.workflow`,
+derived from their returned `next.actions`, so every lifecycle entrypoint
+carries its own follow-up contract.
 Setup and recovery branches use the same shape: `agent_doctor.next` and
 `agent_enter` `needs_setup` responses include top-level `required_when`,
 `required_fields`, `safety`, and a single-step `next.workflow` for
