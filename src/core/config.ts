@@ -12,6 +12,23 @@ const storeConfigSchema = z.object({
 
 export type StoreConfig = z.infer<typeof storeConfigSchema>;
 
+const STORE_INIT_SELECTION_SOURCES = {
+  store: "store",
+  config: "config",
+  config_file: "artifacts.config",
+  store_version: "config.store_version",
+  device_id: "config.device_id"
+} as const;
+
+export interface InitializeStoreResult {
+  config: StoreConfig;
+  store: string;
+  artifacts: {
+    config: string;
+  };
+  selection_sources: typeof STORE_INIT_SELECTION_SOURCES;
+}
+
 export interface InitializeStoreOptions {
   now?: () => string;
   id?: () => string;
@@ -55,7 +72,7 @@ export async function readStoreConfig(storePath: string): Promise<StoreConfig> {
   return result.data;
 }
 
-export async function initializeStore(storePath: string, options: InitializeStoreOptions = {}): Promise<{ config: StoreConfig; store: string }> {
+export async function initializeStore(storePath: string, options: InitializeStoreOptions = {}): Promise<InitializeStoreResult> {
   validateStorePath(storePath);
   const now = options.now ?? (() => new Date().toISOString());
   const id = options.id ?? (() => createId("device"));
@@ -88,5 +105,12 @@ export async function initializeStore(storePath: string, options: InitializeStor
   }
 
   await writeFile(join(storePath, "config.json"), `${JSON.stringify(result.data, null, 2)}\n`, "utf8");
-  return { config: result.data, store: storePath };
+  return {
+    config: result.data,
+    store: storePath,
+    artifacts: {
+      config: "config.json"
+    },
+    selection_sources: STORE_INIT_SELECTION_SOURCES
+  };
 }

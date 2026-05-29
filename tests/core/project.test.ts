@@ -8,6 +8,15 @@ import { initializeProjectConfig, readProjectConfig, resolveProjectContext } fro
 import { withTempStore } from "../helpers/temp-store.js";
 
 const exec = promisify(execFile);
+const PROJECT_INIT_SELECTION_SOURCES = {
+  path: "path",
+  config: "config",
+  config_file: "artifacts.config",
+  project_id: "config.project_id",
+  tags: "config.tags",
+  default_skills: "config.default_skills",
+  sync_mode: "config.sync.mode"
+};
 
 async function expectInvalidArgument(action: () => Promise<unknown>, expectedMessage: RegExp): Promise<void> {
   let caught: unknown;
@@ -51,6 +60,9 @@ describe("project config", () => {
         default_skills: [],
         sync: { mode: "session" }
       });
+      expect(result.path).toBe(join(projectPath, ".moryn.json"));
+      expect(result.artifacts.config).toBe(".moryn.json");
+      expect(result.selection_sources).toEqual(PROJECT_INIT_SELECTION_SOURCES);
     });
   });
 

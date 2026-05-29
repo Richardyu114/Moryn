@@ -126,6 +126,10 @@ This creates:
   indexes/
 ```
 
+Successful `moryn init` output includes `artifacts.config: "config.json"` and
+`selection_sources` for `store`, `config`, `config.store_version`, and
+`config.device_id`, so agents can verify setup without guessing the config path.
+
 The `--repair` flag explicitly replaces an invalid local `config.json` while
 leaving event history untouched.
 
@@ -199,6 +203,10 @@ moryn project init --path /path/to/project --project-id my-project --repair
 
 Supported sync modes are `manual`, `session`, and `interval`. The default is
 `session`.
+Successful `moryn project init` output includes
+`artifacts.config: ".moryn.json"` and `selection_sources` for `path`, `config`,
+`config.project_id`, `config.tags`, `config.default_skills`, and
+`config.sync.mode`.
 
 Project-aware commands accept either an explicit project id or a project path:
 

@@ -82,6 +82,22 @@ const SYNC_STATUS_SELECTION_SOURCES = {
   last_commit: "last_commit",
   error: "error"
 };
+const STORE_INIT_SELECTION_SOURCES = {
+  store: "store",
+  config: "config",
+  config_file: "artifacts.config",
+  store_version: "config.store_version",
+  device_id: "config.device_id"
+};
+const PROJECT_INIT_SELECTION_SOURCES = {
+  path: "path",
+  config: "config",
+  config_file: "artifacts.config",
+  project_id: "config.project_id",
+  tags: "config.tags",
+  default_skills: "config.default_skills",
+  sync_mode: "config.sync.mode"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -3668,7 +3684,12 @@ describe("MCP stdio server", () => {
             default_skills: ["release"],
             sync_mode: "interval"
           }
-        })) as { ok: boolean; config: { project_id: string; tags: string[]; default_skills: string[]; sync: { mode: string } } };
+        })) as {
+          ok: boolean;
+          config: { project_id: string; tags: string[]; default_skills: string[]; sync: { mode: string } };
+          artifacts: { config: string };
+          selection_sources: Record<string, string>;
+        };
 
         expect(init.ok).toBe(true);
         expect(init.config).toMatchObject({
@@ -3677,6 +3698,8 @@ describe("MCP stdio server", () => {
           default_skills: ["release"],
           sync: { mode: "interval" }
         });
+        expect(init.artifacts.config).toBe(".moryn.json");
+        expect(init.selection_sources).toEqual(PROJECT_INIT_SELECTION_SOURCES);
       });
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -3892,11 +3915,15 @@ describe("MCP stdio server", () => {
         const repaired = parseTextContent(await client.callTool({ name: "init", arguments: { repair: true } })) as {
           ok: boolean;
           config: { store_version: number; device_id: string };
+          artifacts: { config: string };
+          selection_sources: Record<string, string>;
         };
 
         expect(repaired.ok).toBe(true);
         expect(repaired.config.store_version).toBe(1);
         expect(repaired.config.device_id).toMatch(/^device_/);
+        expect(repaired.artifacts.config).toBe("config.json");
+        expect(repaired.selection_sources).toEqual(STORE_INIT_SELECTION_SOURCES);
       });
     } finally {
       await rm(store, { recursive: true, force: true });

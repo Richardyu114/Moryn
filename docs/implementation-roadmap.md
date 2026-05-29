@@ -64,6 +64,9 @@ Deliverables:
 
 - Done: `moryn init` writes `config.json` with device id and store version.
 - Done: `moryn project init` writes `.moryn.json`.
+- Done: Successful `init` and `project_init` responses expose config artifact
+  paths and `selection_sources`, so agents can verify setup without guessing
+  local config locations or key fields.
 - Done: CLI accepts `--project <path>` and resolves project identity consistently.
 - Done: Project config can add default tags and sync mode.
 - Done: Project config default skills are applied to boot context.

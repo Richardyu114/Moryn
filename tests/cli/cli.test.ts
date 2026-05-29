@@ -79,6 +79,22 @@ const SYNC_STATUS_SELECTION_SOURCES = {
   last_commit: "last_commit",
   error: "error"
 };
+const STORE_INIT_SELECTION_SOURCES = {
+  store: "store",
+  config: "config",
+  config_file: "artifacts.config",
+  store_version: "config.store_version",
+  device_id: "config.device_id"
+};
+const PROJECT_INIT_SELECTION_SOURCES = {
+  path: "path",
+  config: "config",
+  config_file: "artifacts.config",
+  project_id: "config.project_id",
+  tags: "config.tags",
+  default_skills: "config.default_skills",
+  sync_mode: "config.sync.mode"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -1093,7 +1109,13 @@ describe("moryn CLI", () => {
 
   it("initializes a store and writes a record", async () => {
     await withTempDir(async (dir) => {
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const init = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const parsedInit = JSON.parse(init.stdout) as {
+        artifacts: { config: string };
+        selection_sources: Record<string, string>;
+      };
+      expect(parsedInit.artifacts.config).toBe("config.json");
+      expect(parsedInit.selection_sources).toEqual(STORE_INIT_SELECTION_SOURCES);
       const config = JSON.parse(await readFile(join(dir, "config.json"), "utf8")) as { store_version: number; device_id: string };
       expect(config.store_version).toBe(1);
       expect(config.device_id).toMatch(/^device_/);
@@ -1149,7 +1171,13 @@ describe("moryn CLI", () => {
       const store = join(dir, "store");
       const project = join(dir, "project");
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn", "--tag", "typescript", "--tag", "mcp", "--sync-mode", "interval"]);
+      const initProject = await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn", "--tag", "typescript", "--tag", "mcp", "--sync-mode", "interval"]);
+      const parsedProject = JSON.parse(initProject.stdout) as {
+        artifacts: { config: string };
+        selection_sources: Record<string, string>;
+      };
+      expect(parsedProject.artifacts.config).toBe(".moryn.json");
+      expect(parsedProject.selection_sources).toEqual(PROJECT_INIT_SELECTION_SOURCES);
 
       const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as { project_id: string; tags: string[]; sync: { mode: string } };
       expect(projectConfig).toMatchObject({ project_id: "moryn", tags: ["typescript", "mcp"], sync: { mode: "interval" } });

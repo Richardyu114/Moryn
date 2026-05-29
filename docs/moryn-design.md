@@ -410,6 +410,32 @@ moryn init --repair
 
 MCP tool: `init`.
 
+Successful output includes the local config artifact path and stable field
+sources:
+
+```json
+{
+  "ok": true,
+  "store": "/home/user/.moryn",
+  "config": {
+    "store_version": 1,
+    "device_id": "device_...",
+    "created_at": "2026-05-27T00:00:00.000Z",
+    "updated_at": "2026-05-27T00:00:00.000Z"
+  },
+  "artifacts": {
+    "config": "config.json"
+  },
+  "selection_sources": {
+    "store": "store",
+    "config": "config",
+    "config_file": "artifacts.config",
+    "store_version": "config.store_version",
+    "device_id": "config.device_id"
+  }
+}
+```
+
 The `repair` option is explicit and guarded. It replaces an invalid local
 `config.json` while leaving event history untouched.
 
@@ -425,6 +451,36 @@ moryn project init --path /path/to/project --project-id moryn --repair
 ```
 
 MCP tool: `project_init`.
+
+Successful output includes the project config artifact path and stable field
+sources:
+
+```json
+{
+  "ok": true,
+  "path": "/workspace/moryn/.moryn.json",
+  "config": {
+    "project_id": "moryn",
+    "tags": ["typescript"],
+    "default_skills": ["release"],
+    "sync": {
+      "mode": "session"
+    }
+  },
+  "artifacts": {
+    "config": ".moryn.json"
+  },
+  "selection_sources": {
+    "path": "path",
+    "config": "config",
+    "config_file": "artifacts.config",
+    "project_id": "config.project_id",
+    "tags": "config.tags",
+    "default_skills": "config.default_skills",
+    "sync_mode": "config.sync.mode"
+  }
+}
+```
 
 The `repair` option is explicit and guarded. It replaces an invalid existing
 `.moryn.json` only after the caller supplies the intended project fields.

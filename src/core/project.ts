@@ -40,6 +40,25 @@ export interface InitializeProjectConfigInput {
   repair?: boolean;
 }
 
+const PROJECT_INIT_SELECTION_SOURCES = {
+  path: "path",
+  config: "config",
+  config_file: "artifacts.config",
+  project_id: "config.project_id",
+  tags: "config.tags",
+  default_skills: "config.default_skills",
+  sync_mode: "config.sync.mode"
+} as const;
+
+export interface InitializeProjectConfigResult {
+  config: ProjectConfig;
+  path: string;
+  artifacts: {
+    config: string;
+  };
+  selection_sources: typeof PROJECT_INIT_SELECTION_SOURCES;
+}
+
 interface ProjectConfigFile {
   config: ProjectConfig;
   directory: string;
@@ -194,7 +213,7 @@ export async function readProjectConfig(projectPath: string): Promise<ProjectCon
   return (await findProjectConfig(projectPath))?.config;
 }
 
-export async function initializeProjectConfig(projectPath: string, input: InitializeProjectConfigInput = {}): Promise<{ config: ProjectConfig; path: string }> {
+export async function initializeProjectConfig(projectPath: string, input: InitializeProjectConfigInput = {}): Promise<InitializeProjectConfigResult> {
   validateRequiredString(projectPath, "projectPath");
   validateInitializeProjectConfigInput(input);
   const resolved = resolve(projectPath);
@@ -218,7 +237,14 @@ export async function initializeProjectConfig(projectPath: string, input: Initia
   });
   const path = resolve(resolved, ".moryn.json");
   await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
-  return { config: parsed, path };
+  return {
+    config: parsed,
+    path,
+    artifacts: {
+      config: ".moryn.json"
+    },
+    selection_sources: PROJECT_INIT_SELECTION_SOURCES
+  };
 }
 
 export async function resolveProjectContext(input: { projectPath?: string; projectId?: string }): Promise<ProjectContext> {

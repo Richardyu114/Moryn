@@ -5,6 +5,14 @@ import { toErrorEnvelope } from "../../src/core/errors.js";
 import { initializeStore, readStoreConfig } from "../../src/core/config.js";
 import { withTempStore } from "../helpers/temp-store.js";
 
+const STORE_INIT_SELECTION_SOURCES = {
+  store: "store",
+  config: "config",
+  config_file: "artifacts.config",
+  store_version: "config.store_version",
+  device_id: "config.device_id"
+};
+
 describe("store config", () => {
   async function expectInvalidStorePath(action: () => Promise<unknown>): Promise<void> {
     let caught: unknown;
@@ -36,6 +44,8 @@ describe("store config", () => {
         created_at: "2026-05-27T00:00:00.000Z",
         updated_at: "2026-05-27T00:00:00.000Z"
       });
+      expect(result.artifacts.config).toBe("config.json");
+      expect(result.selection_sources).toEqual(STORE_INIT_SELECTION_SOURCES);
       await expect(readFile(join(storePath, "events", ".gitkeep"), "utf8")).resolves.toBe("");
       await expect(readFile(join(storePath, "snapshots", ".gitkeep"), "utf8")).resolves.toBe("");
       await expect(readFile(join(storePath, "indexes", ".gitkeep"), "utf8")).resolves.toBe("");
