@@ -1095,12 +1095,14 @@ agents can read `checks_by_name.sync` or
 `selection_sources` names the keyed check, keyed blocking check, and selected
 `next` action paths explicitly. When the selected `next` object carries
 alternate `actions_by_id`, its own `selection_sources` names the keyed action
-and action-id paths as well. The same
+and action-id paths as well; `readiness.next_selection_sources` mirrors those
+paths, or `{}` when the selected action has no keyed alternates. The same
 summary repeats the selected next tool, command, `safe_to_run`, `required_when`,
 required fields, `required_fields_by_name`, `safety`, transport `interfaces`,
-and `workflow` plus arguments and `argument_sources` so a lightweight agent can follow readiness
-without merging data from the full `next` object. If `run_lifecycle_smoke` requires a remote, the action
-and command both carry the `<remote>` placeholder and `arguments.remote` is
+and `workflow` plus arguments, `argument_sources`, and selection sources so a
+lightweight agent can follow readiness without merging data from the full
+`next` object. If `run_lifecycle_smoke` requires a remote, the action and
+command both carry the `<remote>` placeholder and `arguments.remote` is
 prefilled as `"<remote>"`.
 
 ### `project_list`

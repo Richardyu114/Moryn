@@ -814,6 +814,7 @@ describe("agent lifecycle", () => {
         },
         next_interfaces: doctor.next.interfaces,
         next_workflow: doctor.next.workflow,
+        next_selection_sources: doctor.next.selection_sources,
         next_arguments: {
           project_id: undefined,
           project_path: project,
@@ -972,6 +973,7 @@ describe("agent lifecycle", () => {
         next_safety: doctor.next.safety,
         next_interfaces: doctor.next.interfaces,
         next_workflow: doctor.next.workflow,
+        next_selection_sources: {},
         next_arguments: {}
       });
       expect(doctor.checks_by_name.sync).toEqual(expect.objectContaining({
@@ -1073,6 +1075,7 @@ describe("agent lifecycle", () => {
         next_safety: doctor.next.safety,
         next_interfaces: doctor.next.interfaces,
         next_workflow: doctor.next.workflow,
+        next_selection_sources: {},
         next_arguments: {}
       });
       expect(doctor.next.actions).toContainEqual(expect.objectContaining({
@@ -1581,6 +1584,7 @@ describe("agent lifecycle", () => {
         next_argument_sources: {
           path: "user_input.path"
         },
+        next_selection_sources: {},
         next_arguments: {
           path: "<path>"
         }

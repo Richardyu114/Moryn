@@ -174,8 +174,8 @@ Deliverables:
   helpers from status/finish writes that need authored content.
 - Done: `agent_doctor.readiness` mirrors the selected next action's safety,
   required usage condition, required fields, transport interfaces, and
-  `workflow` plus arguments so agents can start or recover without recombining
-  nested objects.
+  `workflow` plus arguments, argument sources, and selection sources so agents
+  can start or recover without recombining nested objects.
 - Done: `agent_doctor.readiness.blocking_checks_by_name` mirrors blocking
   warning checks by name, so recovery hosts can inspect the exact blocker behind
   `blocking_checks[]` without array matching.

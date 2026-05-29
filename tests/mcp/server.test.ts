@@ -2010,6 +2010,7 @@ describe("MCP stdio server", () => {
               value?: unknown;
             }>;
             next_argument_sources: Record<string, string>;
+            next_selection_sources: Record<string, string>;
             next_safety: {
               safe_to_auto_run: boolean;
               requires_user_confirmation: boolean;
@@ -2066,6 +2067,7 @@ describe("MCP stdio server", () => {
           next_required_fields: [],
           next_required_fields_by_name: {},
           next_argument_sources: {},
+          next_selection_sources: doctor.next.selection_sources,
           next_safety: {
             safe_to_auto_run: true,
             requires_user_confirmation: false,
@@ -2084,6 +2086,7 @@ describe("MCP stdio server", () => {
         });
         expect(doctor.readiness?.next_required_when).toEqual(doctor.next.required_when);
         expect(doctor.readiness?.next_required_fields_by_name).toEqual(doctor.next.required_fields_by_name);
+        expect(doctor.readiness?.next_selection_sources).toEqual(doctor.next.selection_sources);
         expect(doctor.selection_sources).toEqual({
           check: "checks_by_name.<check_name>",
           blocking_check: "readiness.blocking_checks_by_name.<check_name>",
@@ -2168,6 +2171,7 @@ describe("MCP stdio server", () => {
             next_interfaces: Record<string, unknown>;
             next_workflow: Record<string, unknown>;
             next_argument_sources: Record<string, string>;
+            next_selection_sources: Record<string, string>;
           };
           next: {
             recommended_action: string;
@@ -2248,6 +2252,7 @@ describe("MCP stdio server", () => {
           next_required_fields: [],
           next_required_fields_by_name: {},
           next_argument_sources: {},
+          next_selection_sources: {},
           next_safety: doctor.next.safety,
           next_interfaces: doctor.next.interfaces,
           next_workflow: doctor.next.workflow,

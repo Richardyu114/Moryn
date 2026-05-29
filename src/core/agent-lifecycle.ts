@@ -847,6 +847,7 @@ function doctorReadiness(
     required_fields?: string[];
     required_fields_by_name?: Record<string, RequiredFieldMetadata>;
     argument_sources?: Record<string, string>;
+    selection_sources?: Record<string, string>;
     safety?: ActionSafety;
     arguments?: Record<string, unknown>;
     interfaces?: ActionInterfaces<Record<string, unknown>>;
@@ -867,6 +868,7 @@ function doctorReadiness(
   const nextRequiredFields = next.required_fields ?? [];
   const nextRequiredFieldsByName = next.required_fields_by_name ?? requiredFieldsByName(nextRequiredFields, nextArguments);
   const nextArgumentSources = next.argument_sources ?? {};
+  const nextSelectionSources = next.selection_sources ?? {};
   const nextRequiredWhen = next.required_when ?? "When this action is the selected next action.";
   const nextWorkflow = next.workflow ?? singleNextWorkflow(
     next.recommended_action,
@@ -887,6 +889,7 @@ function doctorReadiness(
     next_required_fields: nextRequiredFields,
     next_required_fields_by_name: nextRequiredFieldsByName,
     next_argument_sources: nextArgumentSources,
+    next_selection_sources: nextSelectionSources,
     next_safety: next.safety,
     next_interfaces: nextInterfaces,
     next_workflow: nextWorkflow,

@@ -357,13 +357,15 @@ project context in a populated store unless the current directory resolves via a
 a `readiness` summary with `safe_to_start`, `blocking_checks`,
 `blocking_checks_by_name`, and the selected next tool/command, `safe_to_run`,
 `required_when`, required fields, `required_fields_by_name`, `safety`,
-transport `interfaces`, `workflow`, arguments, and `argument_sources`. Agents can inspect `checks_by_name.sync` or
+transport `interfaces`, `workflow`, arguments, `argument_sources`, and
+`next_selection_sources`. Agents can inspect `checks_by_name.sync` or
 `readiness.blocking_checks_by_name.sync` directly instead of scanning `checks[]`,
 and `agent_doctor.selection_sources` names those keyed check paths plus the
 selected `next` action path. When `doctor.next` includes alternate actions, its
 own `selection_sources` names the keyed `next.actions_by_id.<action>` lookup
-paths as well. Agents can then execute the selected CLI or MCP action without
-recombining fields from the full `next` object.
+paths as well, and readiness mirrors those paths or `{}` when the selected
+action has no keyed alternates. Agents can then execute the selected CLI or MCP
+action without recombining fields from the full `next` object.
 After a lifecycle command resolves a project from `.moryn.json`, returned
 `next.actions` include the resolved `project_id`, so agents can reuse those
 commands from another cwd or MCP host without relying on ambient directory

@@ -2960,6 +2960,7 @@ describe("moryn CLI", () => {
             value?: unknown;
           }>;
           next_argument_sources: Record<string, string>;
+          next_selection_sources: Record<string, string>;
           next_safety: {
             safe_to_auto_run: boolean;
             requires_user_confirmation: boolean;
@@ -3010,6 +3011,7 @@ describe("moryn CLI", () => {
         next_required_fields: [],
         next_required_fields_by_name: {},
         next_argument_sources: {},
+        next_selection_sources: parsed.next.selection_sources,
         next_safety: {
           safe_to_auto_run: true,
           requires_user_confirmation: false,
@@ -3028,6 +3030,7 @@ describe("moryn CLI", () => {
       });
       expect(parsed.readiness?.next_required_when).toEqual(parsed.next.required_when);
       expect(parsed.readiness?.next_required_fields_by_name).toEqual(parsed.next.required_fields_by_name);
+      expect(parsed.readiness?.next_selection_sources).toEqual(parsed.next.selection_sources);
       expect(parsed.selection_sources).toEqual({
         check: "checks_by_name.<check_name>",
         blocking_check: "readiness.blocking_checks_by_name.<check_name>",
@@ -3108,6 +3111,7 @@ describe("moryn CLI", () => {
           next_interfaces: Record<string, unknown>;
           next_workflow: Record<string, unknown>;
           next_argument_sources: Record<string, string>;
+          next_selection_sources: Record<string, string>;
         };
         next: {
           recommended_action: string;
@@ -3188,6 +3192,7 @@ describe("moryn CLI", () => {
         next_required_fields: [],
         next_required_fields_by_name: {},
         next_argument_sources: {},
+        next_selection_sources: {},
         next_safety: parsedDoctor.next.safety,
         next_interfaces: parsedDoctor.next.interfaces,
         next_workflow: parsedDoctor.next.workflow,
