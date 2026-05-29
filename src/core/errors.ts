@@ -1,3 +1,5 @@
+import { actionSafety, type ActionSafety } from "./action-safety.js";
+
 export interface MorynErrorEnvelope {
   ok: false;
   error: {
@@ -18,6 +20,7 @@ export interface MorynErrorNextAction {
   required_when: string;
   required_fields: string[];
   workflow: NextActionWorkflow;
+  safety: ActionSafety;
   rejected_arguments?: Record<string, unknown>;
   candidate_project_ids?: string[];
   safe_to_run: boolean;
@@ -83,9 +86,10 @@ export function withNextActionMetadata<T extends {
   arguments: Record<string, unknown>;
   required_when: string;
   required_fields: string[];
+  safe_to_run: boolean;
 }>(
   action: T
-): T & { interfaces: ActionInterfaces<T["arguments"]>; workflow: NextActionWorkflow } {
+): T & { interfaces: ActionInterfaces<T["arguments"]>; safety: ActionSafety; workflow: NextActionWorkflow } {
   return {
     ...action,
     interfaces: {
@@ -97,6 +101,7 @@ export function withNextActionMetadata<T extends {
         arguments: action.arguments
       }
     },
+    safety: actionSafety(action),
     workflow: {
       version: 1,
       start: "next_action",

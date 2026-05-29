@@ -58,6 +58,25 @@ function expectNextActionWorkflow(action: {
   });
 }
 
+function expectActionSafety(action: {
+  safe_to_run: boolean;
+  required_fields: string[];
+  safety?: {
+    safe_to_auto_run?: boolean;
+    requires_user_confirmation?: boolean;
+    requires_authored_input?: boolean;
+    writes_local_config?: boolean;
+    reasons?: string[];
+  };
+}) {
+  expect(action.safety).toMatchObject({
+    safe_to_auto_run: action.safe_to_run,
+    requires_authored_input: action.required_fields.length > 0
+  });
+  expect(action.safety?.reasons).toEqual(expect.any(Array));
+  expect(action.safety?.reasons?.length).toBeGreaterThan(0);
+}
+
 describe("core engine", () => {
   it("writes, recalls, revises, and promotes records", async () => {
     await withInitializedTempStore(async (storePath) => {
@@ -1030,6 +1049,14 @@ describe("core engine", () => {
       });
       expectNextActionInterfaces(soul.warning!.next_action!);
       expectNextActionWorkflow(soul.warning!.next_action!);
+      expectActionSafety(soul.warning!.next_action!);
+      expect(soul.warning!.next_action!.safety).toMatchObject({
+        safe_to_auto_run: false,
+        requires_user_confirmation: true,
+        requires_authored_input: false,
+        writes_local_config: false
+      });
+      expect(soul.warning!.next_action!.safety?.reasons).toContain("requires_user_confirmation");
       expect(globalSkill.record.state).toBe("candidate");
       expect(globalSkill.warning?.code).toBe("CONFIRMATION_REQUIRED");
       expect(securityRule.record.state).toBe("candidate");

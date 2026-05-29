@@ -366,7 +366,12 @@ state. When an action lists `required_fields`, the same field appears in
 values and call the listed tool instead of parsing placeholders out of the CLI
 command string. Lifecycle action templates also include `required_when`, a
 short usage condition that tells an agent when to choose that action instead of
-inferring intent from array order or action names.
+inferring intent from array order or action names. Action templates include a
+`safety` object that explains the `safe_to_run` boolean with
+`safe_to_auto_run`, `requires_user_confirmation`, `requires_authored_input`,
+`writes_local_config`, and stable `reasons`, so hosts can distinguish safe
+read-only actions from agent-authored writes, local setup changes, and actions
+that need explicit user approval.
 Action templates also expose `interfaces.cli.command` and
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, derived from the same
 top-level fields. Agent hosts should use the interface matching their runtime
@@ -396,9 +401,10 @@ not touch the store or sync remote; it returns the preferred startup tool,
 complete CLI command, MCP arguments, lifecycle steps, anti-hallucination rules,
 structured `guardrails`, and a top-level `workflow` decision track. Its
 `startup` object and top-level `next` action include `safe_to_run`,
-`required_when`, `required_fields`, and arguments, so an agent can call the
-recommended `agent_enter` entrypoint directly without recombining fields from
-the lifecycle list. `workflow.phases[]` tells hosts the order and action source:
+`required_when`, `required_fields`, `safety`, and arguments, so an agent can
+call the recommended `agent_enter` entrypoint directly without recombining
+fields from the lifecycle list. `workflow.phases[]` tells hosts the order and
+action source:
 call `startup`, then prefer `agent_enter.next.actions`, then use static
 lifecycle templates only for status, finish, or refresh. `guardrails[]` gives
 agent hosts stable ids, risks, forbidden behaviors, required behaviors, and
@@ -538,11 +544,13 @@ explicit project mistakes: `PROJECT_PATH_NOT_FOUND` for missing paths and
 whether to initialize, list projects, or retry with corrected arguments. These
 error envelopes also include a machine-readable `error.next_action` with
 `tool`, `command`, `arguments`, `interfaces`, `required_when`,
-`required_fields`, `workflow`, and `safe_to_run`, so agents can recover without
-parsing prose or guessing placeholder values. `error.next_action.interfaces`
-and `warning.next_action.interfaces` use the same CLI/MCP shape as lifecycle
-action templates, and their single-step `workflow` tells hosts when to run the
-recovery action. Uninitialized
+`required_fields`, `workflow`, `safety`, and `safe_to_run`, so agents can
+recover without parsing prose or guessing placeholder values.
+`error.next_action.interfaces` and `warning.next_action.interfaces` use the same
+CLI/MCP shape as lifecycle action templates, and their single-step `workflow`
+tells hosts when to run the recovery action. Their `safety` object explains
+whether the action can be auto-run, needs user confirmation, needs authored
+arguments, or writes local configuration. Uninitialized
 store errors return an `init` next action with
 `safe_to_run: false`, because it creates local store files. Confirmation errors
 from `promote` and `revise` return a retry action with `confirmed: true` and

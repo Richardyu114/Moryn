@@ -91,6 +91,25 @@ function expectRecoveryWorkflow(action: {
   });
 }
 
+function expectActionSafety(action: {
+  safe_to_run: boolean;
+  required_fields: string[];
+  safety?: {
+    safe_to_auto_run?: boolean;
+    requires_user_confirmation?: boolean;
+    requires_authored_input?: boolean;
+    writes_local_config?: boolean;
+    reasons?: string[];
+  };
+}) {
+  expect(action.safety).toMatchObject({
+    safe_to_auto_run: action.safe_to_run,
+    requires_authored_input: action.required_fields.length > 0
+  });
+  expect(action.safety?.reasons).toEqual(expect.any(Array));
+  expect(action.safety?.reasons?.length).toBeGreaterThan(0);
+}
+
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "moryn-cli-"));
   try {
@@ -168,6 +187,13 @@ describe("moryn CLI", () => {
           required_when: string;
           required_fields: string[];
           arguments: Record<string, unknown>;
+          safety?: {
+            safe_to_auto_run?: boolean;
+            requires_user_confirmation?: boolean;
+            requires_authored_input?: boolean;
+            writes_local_config?: boolean;
+            reasons?: string[];
+          };
           interfaces?: {
             cli?: { command?: string };
             mcp?: { tool?: string; arguments?: Record<string, unknown> };
@@ -250,6 +276,13 @@ describe("moryn CLI", () => {
         tool: "agent_status",
         safe_to_run: false,
         required_fields: ["status"],
+        safety: expect.objectContaining({
+          safe_to_auto_run: false,
+          requires_user_confirmation: false,
+          requires_authored_input: true,
+          writes_local_config: false,
+          reasons: ["required_fields"]
+        }),
         arguments: expect.objectContaining({ status: "<status>" })
       }));
       expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
@@ -257,6 +290,13 @@ describe("moryn CLI", () => {
         tool: "agent_finish",
         safe_to_run: false,
         required_fields: ["summary"],
+        safety: expect.objectContaining({
+          safe_to_auto_run: false,
+          requires_user_confirmation: false,
+          requires_authored_input: true,
+          writes_local_config: false,
+          reasons: ["required_fields"]
+        }),
         arguments: expect.objectContaining({ summary: "<summary>" })
       }));
       expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
@@ -264,10 +304,18 @@ describe("moryn CLI", () => {
         tool: "agent_start",
         safe_to_run: true,
         command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide --refresh-since <refresh_since>",
-        required_fields: ["refresh_since"]
+        required_fields: ["refresh_since"],
+        safety: expect.objectContaining({
+          safe_to_auto_run: true,
+          requires_user_confirmation: false,
+          requires_authored_input: true,
+          writes_local_config: false,
+          reasons: expect.arrayContaining(["required_fields"])
+        })
       }));
       for (const action of parsed.lifecycle) {
         expectActionInterfaces(action);
+        expectActionSafety(action);
       }
       expect(parsed.rules).toContain("Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.");
       expect(parsed.rules).toContain("When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.");
@@ -2211,6 +2259,13 @@ describe("moryn CLI", () => {
           required_fields: string[];
           workflow: Record<string, unknown>;
           arguments: Record<string, unknown>;
+          safety?: {
+            safe_to_auto_run?: boolean;
+            requires_user_confirmation?: boolean;
+            requires_authored_input?: boolean;
+            writes_local_config?: boolean;
+            reasons?: string[];
+          };
         };
       };
       expect(parsedDoctor.sync).toMatchObject({
@@ -2220,7 +2275,7 @@ describe("moryn CLI", () => {
           safe_to_retry_sync: false
         }
       });
-      expect(parsedDoctor.next).toEqual({
+      expect(parsedDoctor.next).toMatchObject({
         recommended_action: "resolve_sync_conflict_before_lifecycle",
         tool: "sync_status",
         safe_to_run: true,
@@ -2242,6 +2297,14 @@ describe("moryn CLI", () => {
           }
         },
         arguments: {}
+      });
+      expectActionSafety(parsedDoctor.next);
+      expect(parsedDoctor.next.safety).toMatchObject({
+        safe_to_auto_run: true,
+        requires_user_confirmation: false,
+        requires_authored_input: false,
+        writes_local_config: false,
+        reasons: ["safe_read_or_status_check"]
       });
       expect(parsedDoctor.readiness).toEqual({
         safe_to_start: false,

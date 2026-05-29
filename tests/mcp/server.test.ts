@@ -94,6 +94,25 @@ function expectRecoveryWorkflow(action: {
   });
 }
 
+function expectActionSafety(action: {
+  safe_to_run: boolean;
+  required_fields: string[];
+  safety?: {
+    safe_to_auto_run?: boolean;
+    requires_user_confirmation?: boolean;
+    requires_authored_input?: boolean;
+    writes_local_config?: boolean;
+    reasons?: string[];
+  };
+}) {
+  expect(action.safety).toMatchObject({
+    safe_to_auto_run: action.safe_to_run,
+    requires_authored_input: action.required_fields.length > 0
+  });
+  expect(action.safety?.reasons).toEqual(expect.any(Array));
+  expect(action.safety?.reasons?.length).toBeGreaterThan(0);
+}
+
 async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promise<T>, cwd = repoRoot): Promise<T> {
   const transport = new StdioClientTransport({
     command: "node",
@@ -1393,6 +1412,13 @@ describe("MCP stdio server", () => {
             required_fields: string[];
             workflow: Record<string, unknown>;
             arguments: Record<string, unknown>;
+            safety?: {
+              safe_to_auto_run?: boolean;
+              requires_user_confirmation?: boolean;
+              requires_authored_input?: boolean;
+              writes_local_config?: boolean;
+              reasons?: string[];
+            };
           };
         };
         expect(doctor.sync).toMatchObject({
@@ -1402,7 +1428,7 @@ describe("MCP stdio server", () => {
             safe_to_retry_sync: false
           }
         });
-        expect(doctor.next).toEqual({
+        expect(doctor.next).toMatchObject({
           recommended_action: "resolve_sync_conflict_before_lifecycle",
           tool: "sync_status",
           safe_to_run: true,
@@ -1424,6 +1450,14 @@ describe("MCP stdio server", () => {
             }
           },
           arguments: {}
+        });
+        expectActionSafety(doctor.next);
+        expect(doctor.next.safety).toMatchObject({
+          safe_to_auto_run: true,
+          requires_user_confirmation: false,
+          requires_authored_input: false,
+          writes_local_config: false,
+          reasons: ["safe_read_or_status_check"]
         });
         expect(doctor.readiness).toEqual({
           safe_to_start: false,
@@ -2738,6 +2772,13 @@ describe("MCP stdio server", () => {
               required_when?: string;
               required_fields: string[];
               workflow?: Record<string, unknown>;
+              safety?: {
+                safe_to_auto_run?: boolean;
+                requires_user_confirmation?: boolean;
+                requires_authored_input?: boolean;
+                writes_local_config?: boolean;
+                reasons?: string[];
+              };
               safe_to_run: boolean;
             };
           };
@@ -3481,6 +3522,14 @@ describe("MCP stdio server", () => {
           safe_to_run: false
         });
         expectRecoveryWorkflow(conflicting.warning!.next_action!);
+        expectActionSafety(conflicting.warning!.next_action!);
+        expect(conflicting.warning!.next_action!.safety).toMatchObject({
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          requires_authored_input: false,
+          writes_local_config: false,
+          reasons: expect.arrayContaining(["requires_user_confirmation"])
+        });
         expect(conflicting.record.conflict?.with).toEqual([existing.record.id]);
         expect(conflicting.record.conflict?.resolution).toBe("needs_review");
       });

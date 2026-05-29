@@ -6,6 +6,7 @@ import { displayRecordText } from "./content-text.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
+import { actionSafety, type ActionSafety } from "./action-safety.js";
 
 interface AgentIdentity {
   client: string;
@@ -50,6 +51,7 @@ type LifecycleActionTemplate = {
   required_fields: string[];
   arguments: Record<string, unknown>;
   interfaces: ActionInterfaces<Record<string, unknown>>;
+  safety: ActionSafety;
 };
 
 type ActionInterfaces<TArguments> = {
@@ -129,9 +131,9 @@ function projectEnvelope(project: ProjectContext): {
   };
 }
 
-function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(
+function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown; safe_to_run: boolean; required_fields: string[] }>(
   action: T
-): T & { interfaces: ActionInterfaces<T["arguments"]> } {
+): T & { interfaces: ActionInterfaces<T["arguments"]>; safety: ActionSafety } {
   return {
     ...action,
     interfaces: {
@@ -142,7 +144,8 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
         tool: action.tool,
         arguments: action.arguments
       }
-    }
+    },
+    safety: actionSafety(action)
   };
 }
 

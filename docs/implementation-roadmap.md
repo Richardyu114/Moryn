@@ -156,6 +156,11 @@ Deliverables:
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_when` and a single-step `workflow`, so recovery branches tell agents
   when to run the suggested action instead of relying on action-name guessing.
+- Done: Lifecycle, guide, setup, project-discovery, error-recovery, and
+  warning-recovery action templates expose `safety` metadata that explains
+  `safe_to_run` with user-confirmation, authored-input, and local-config-write
+  flags, so hosts can distinguish agent-authored writes from actions that need
+  explicit user approval.
 - Done: Lifecycle actions and guide templates mirror required field placeholders
   in `arguments` (`<status>`, `<summary>`, `<current_task>`, `<remote>`) so MCP
   agents can replace JSON fields instead of parsing command strings.

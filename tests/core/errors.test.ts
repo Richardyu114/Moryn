@@ -55,6 +55,30 @@ function expectNextActionWorkflow(action: {
   });
 }
 
+function expectNextActionSafety(action: {
+  safe_to_run: boolean;
+  required_fields: string[];
+  tool: string;
+  safety?: {
+    safe_to_auto_run?: boolean;
+    requires_user_confirmation?: boolean;
+    requires_authored_input?: boolean;
+    writes_local_config?: boolean;
+    reasons?: string[];
+  };
+}) {
+  expect(action.safety).toMatchObject({
+    safe_to_auto_run: action.safe_to_run,
+    requires_authored_input: action.required_fields.length > 0
+  });
+  expect(action.safety?.reasons).toEqual(expect.any(Array));
+  expect(action.safety?.reasons?.length).toBeGreaterThan(0);
+  if (["init", "project_init", "sync_init"].includes(action.tool)) {
+    expect(action.safety?.writes_local_config).toBe(true);
+    expect(action.safety?.requires_user_confirmation).toBe(true);
+  }
+}
+
 describe("error envelopes", () => {
   it("classifies sensitive content failures with the documented error code", () => {
     const envelope = toErrorEnvelope(new Error("Sensitive content detected: event must be redacted before append"));
@@ -110,6 +134,43 @@ describe("error envelopes", () => {
     });
     expectNextActionInterfaces(envelope.error.next_action!);
     expectNextActionWorkflow(envelope.error.next_action!);
+  });
+
+  it("explains recovery action safety beyond safe_to_run", () => {
+    const syncSetup = toErrorEnvelope(new Error("Sync not configured")).error.next_action!;
+    expectNextActionSafety(syncSetup);
+    expect(syncSetup.safety).toMatchObject({
+      safe_to_auto_run: false,
+      requires_user_confirmation: true,
+      requires_authored_input: true,
+      writes_local_config: true
+    });
+    expect(syncSetup.safety?.reasons).toContain("required_fields");
+    expect(syncSetup.safety?.reasons).toContain("writes_local_config");
+
+    const statusCheck = toErrorEnvelope(new Error("fatal: 'origin' does not appear to be a git repository")).error.next_action!;
+    expectNextActionSafety(statusCheck);
+    expect(statusCheck.safety).toMatchObject({
+      safe_to_auto_run: true,
+      requires_user_confirmation: false,
+      requires_authored_input: false,
+      writes_local_config: false
+    });
+    expect(statusCheck.safety?.reasons).toEqual(["safe_read_or_status_check"]);
+
+    const confirmation = toErrorEnvelope(new Error("Confirmation required: canonical state requires explicit user confirmation"), {
+      tool: "promote",
+      command: "moryn promote rec_123 --state canonical",
+      arguments: { record_id: "rec_123", target_state: "canonical" }
+    }).error.next_action!;
+    expectNextActionSafety(confirmation);
+    expect(confirmation.safety).toMatchObject({
+      safe_to_auto_run: false,
+      requires_user_confirmation: true,
+      requires_authored_input: false,
+      writes_local_config: false
+    });
+    expect(confirmation.safety?.reasons).toContain("requires_user_confirmation");
   });
 
   it("returns a safe status check action when remote sync is unavailable", () => {
