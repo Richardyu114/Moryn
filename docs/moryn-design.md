@@ -796,6 +796,14 @@ structured conflict diagnostics instead of only a dirty worktree flag:
     "files": [
       "events/shared-device/2026-05/evt_conflict.json"
     ],
+    "files_by_path": {
+      "events/shared-device/2026-05/evt_conflict.json": {
+        "path": "events/shared-device/2026-05/evt_conflict.json",
+        "status": "unmerged",
+        "safe_to_auto_resolve": false,
+        "recommended_action": "resolve Git conflicts before retrying sync"
+      }
+    },
     "safe_to_auto_resolve": false,
     "safe_to_retry_sync": false,
     "recommended_action": "resolve Git conflicts before retrying sync"
@@ -805,7 +813,9 @@ structured conflict diagnostics instead of only a dirty worktree flag:
 
 Agents must treat `sync_state: "conflict"` as a stop sign for automatic sync
 retry. The status response is safe to inspect, but conflict resolution itself
-requires explicit user or host policy.
+requires explicit user or host policy. `conflict.files[]` preserves the ordered
+display list, while `conflict.files_by_path.<path>` lets agents inspect a known
+conflicted event file without scanning the array.
 
 ### `agent_guide`
 

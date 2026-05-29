@@ -1227,6 +1227,12 @@ describe("MCP stdio server", () => {
             conflict?: {
               operation?: string;
               files?: string[];
+              files_by_path?: Record<string, {
+                path: string;
+                status: string;
+                safe_to_auto_resolve: boolean;
+                recommended_action: string;
+              }>;
               safe_to_auto_resolve?: boolean;
               safe_to_retry_sync?: boolean;
               recommended_action?: string;
@@ -1236,6 +1242,14 @@ describe("MCP stdio server", () => {
           expect(status.conflict).toEqual({
             operation: "rebase",
             files: [conflictFile],
+            files_by_path: {
+              [conflictFile]: {
+                path: conflictFile,
+                status: "unmerged",
+                safe_to_auto_resolve: false,
+                recommended_action: "resolve Git conflicts before retrying sync"
+              }
+            },
             safe_to_auto_resolve: false,
             safe_to_retry_sync: false,
             recommended_action: "resolve Git conflicts before retrying sync"
@@ -1809,7 +1823,19 @@ describe("MCP stdio server", () => {
             agent: { client: "gemini", session_id: "gemini-conflict" }
           }
         })) as {
-          sync: { sync_state?: string; conflict?: { files?: string[]; safe_to_retry_sync?: boolean } };
+          sync: {
+            sync_state?: string;
+            conflict?: {
+              files?: string[];
+              files_by_path?: Record<string, {
+                path: string;
+                status: string;
+                safe_to_auto_resolve: boolean;
+                recommended_action: string;
+              }>;
+              safe_to_retry_sync?: boolean;
+            };
+          };
           readiness?: {
             safe_to_start: boolean;
             blocking_checks: string[];
@@ -1844,6 +1870,14 @@ describe("MCP stdio server", () => {
           sync_state: "conflict",
           conflict: {
             files: [conflictFile],
+            files_by_path: {
+              [conflictFile]: {
+                path: conflictFile,
+                status: "unmerged",
+                safe_to_auto_resolve: false,
+                recommended_action: "resolve Git conflicts before retrying sync"
+              }
+            },
             safe_to_retry_sync: false
           }
         });

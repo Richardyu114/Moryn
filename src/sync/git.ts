@@ -25,8 +25,16 @@ export interface GitSyncStatus {
 export interface GitSyncConflictStatus {
   operation: "merge" | "rebase" | "cherry-pick" | "unknown";
   files: string[];
+  files_by_path: Record<string, GitSyncConflictFileStatus>;
   safe_to_auto_resolve: boolean;
   safe_to_retry_sync: boolean;
+  recommended_action: string;
+}
+
+export interface GitSyncConflictFileStatus {
+  path: string;
+  status: "unmerged";
+  safe_to_auto_resolve: boolean;
   recommended_action: string;
 }
 
@@ -200,12 +208,19 @@ async function gitConflictStatus(storePath: string): Promise<GitSyncConflictStat
     .map((file) => file.trim())
     .filter(Boolean);
   if (operation === "unknown" && files.length === 0) return undefined;
+  const recommendedAction = "resolve Git conflicts before retrying sync";
   return {
     operation,
     files,
+    files_by_path: Object.fromEntries(files.map((file) => [file, {
+      path: file,
+      status: "unmerged",
+      safe_to_auto_resolve: false,
+      recommended_action: recommendedAction
+    }])),
     safe_to_auto_resolve: false,
     safe_to_retry_sync: false,
-    recommended_action: "resolve Git conflicts before retrying sync"
+    recommended_action: recommendedAction
   };
 }
 

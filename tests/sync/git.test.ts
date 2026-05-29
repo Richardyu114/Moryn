@@ -298,6 +298,14 @@ describe("git sync adapter", () => {
         conflict: {
           operation: "rebase",
           files: [conflictFile],
+          files_by_path: {
+            [conflictFile]: {
+              path: conflictFile,
+              status: "unmerged",
+              safe_to_auto_resolve: false,
+              recommended_action: "resolve Git conflicts before retrying sync"
+            }
+          },
           safe_to_auto_resolve: false,
           safe_to_retry_sync: false,
           recommended_action: "resolve Git conflicts before retrying sync"

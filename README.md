@@ -147,9 +147,9 @@ moryn sync --pull
 
 The default Git sync commits event files and `.gitignore`. Local `config.json`, snapshots, and indexes remain device-local or rebuildable.
 When a pull or push leaves Git in a conflict state, `moryn sync --status`
-returns `sync_state: "conflict"` plus conflict files, the active Git operation,
-and flags that tell agents not to retry sync or auto-resolve without user-level
-conflict handling.
+returns `sync_state: "conflict"` plus ordered `conflict.files`, keyed
+`conflict.files_by_path`, the active Git operation, and flags that tell agents
+not to retry sync or auto-resolve without user-level conflict handling.
 
 For a new agent device, the lifecycle commands can bootstrap the local store and
 sync remote in one step:

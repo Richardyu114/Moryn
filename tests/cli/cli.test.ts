@@ -2009,18 +2009,32 @@ describe("moryn CLI", () => {
       const status = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--status"]);
       const parsedStatus = JSON.parse(status.stdout) as {
         sync_state?: string;
-        conflict?: {
-          operation?: string;
-          files?: string[];
-          safe_to_auto_resolve?: boolean;
-          safe_to_retry_sync?: boolean;
-          recommended_action?: string;
-        };
+          conflict?: {
+            operation?: string;
+            files?: string[];
+            files_by_path?: Record<string, {
+              path: string;
+              status: string;
+              safe_to_auto_resolve: boolean;
+              recommended_action: string;
+            }>;
+            safe_to_auto_resolve?: boolean;
+            safe_to_retry_sync?: boolean;
+            recommended_action?: string;
+          };
       };
       expect(parsedStatus.sync_state).toBe("conflict");
       expect(parsedStatus.conflict).toEqual({
         operation: "rebase",
         files: [conflictFile],
+        files_by_path: {
+          [conflictFile]: {
+            path: conflictFile,
+            status: "unmerged",
+            safe_to_auto_resolve: false,
+            recommended_action: "resolve Git conflicts before retrying sync"
+          }
+        },
         safe_to_auto_resolve: false,
         safe_to_retry_sync: false,
         recommended_action: "resolve Git conflicts before retrying sync"
@@ -2709,7 +2723,19 @@ describe("moryn CLI", () => {
         "--current-task", "avoid sync conflict hallucination"
       ]);
       const parsedDoctor = JSON.parse(doctor.stdout) as {
-        sync: { sync_state?: string; conflict?: { files?: string[]; safe_to_retry_sync?: boolean } };
+        sync: {
+          sync_state?: string;
+          conflict?: {
+            files?: string[];
+            files_by_path?: Record<string, {
+              path: string;
+              status: string;
+              safe_to_auto_resolve: boolean;
+              recommended_action: string;
+            }>;
+            safe_to_retry_sync?: boolean;
+          };
+        };
         readiness?: {
           safe_to_start: boolean;
           blocking_checks: string[];
@@ -2744,6 +2770,14 @@ describe("moryn CLI", () => {
         sync_state: "conflict",
         conflict: {
           files: [conflictFile],
+          files_by_path: {
+            [conflictFile]: {
+              path: conflictFile,
+              status: "unmerged",
+              safe_to_auto_resolve: false,
+              recommended_action: "resolve Git conflicts before retrying sync"
+            }
+          },
           safe_to_retry_sync: false
         }
       });

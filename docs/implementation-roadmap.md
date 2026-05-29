@@ -114,6 +114,8 @@ Deliverables:
   behind, and last sync.
 - Done: `moryn sync --status` reports structured conflict diagnostics after a
   failed pull or push so agents do not infer recovery from a dirty worktree.
+- Done: Sync conflict diagnostics expose `conflict.files_by_path`, so agents can
+  inspect a known conflicted event path without scanning `conflict.files[]`.
 - Done: Agent lifecycle entrypoints, status checkpoints, and finish handoffs
   stop before lifecycle writes when sync is conflicted and return a structured
   `sync_status` recovery action.
