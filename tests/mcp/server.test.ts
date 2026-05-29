@@ -2024,6 +2024,7 @@ describe("MCP stdio server", () => {
             }>;
             actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
             actions_by_id: Record<string, { action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+            selection_sources: Record<string, string>;
             arguments: {
               project_path?: string;
               sync_remote?: string;
@@ -2085,6 +2086,10 @@ describe("MCP stdio server", () => {
         }));
         expect(doctor.next.actions_by_id.start_session).toEqual(doctor.next.actions.find((action) => action.action === "start_session"));
         expect(doctor.next.actions_by_id.run_lifecycle_smoke).toEqual(doctor.next.actions.find((action) => action.action === "run_lifecycle_smoke"));
+        expect(doctor.next.selection_sources).toEqual({
+          action: "next.actions_by_id.<action>",
+          action_id: "next.actions_by_id.<action>.action"
+        });
         expect(doctor.next.arguments).toMatchObject({
           project_path: project,
           sync_remote: remote,

@@ -179,6 +179,9 @@ Deliverables:
 - Done: `agent_doctor.readiness.blocking_checks_by_name` mirrors blocking
   warning checks by name, so recovery hosts can inspect the exact blocker behind
   `blocking_checks[]` without array matching.
+- Done: `agent_doctor.next.selection_sources` names keyed alternate action
+  paths when `next.actions_by_id` is present, so hosts do not infer doctor
+  candidate-action paths from other lifecycle responses.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

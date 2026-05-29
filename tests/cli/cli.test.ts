@@ -2975,6 +2975,7 @@ describe("moryn CLI", () => {
           arguments: { project_path?: string; sync_remote?: string; agent?: { client?: string } };
           actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
           actions_by_id: Record<string, { action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+          selection_sources: Record<string, string>;
         };
       };
       expect(parsed.store.initialized).toBe(false);
@@ -3031,6 +3032,10 @@ describe("moryn CLI", () => {
       }));
       expect(parsed.next.actions_by_id.start_session).toEqual(parsed.next.actions.find((action) => action.action === "start_session"));
       expect(parsed.next.actions_by_id.run_lifecycle_smoke).toEqual(parsed.next.actions.find((action) => action.action === "run_lifecycle_smoke"));
+      expect(parsed.next.selection_sources).toEqual({
+        action: "next.actions_by_id.<action>",
+        action_id: "next.actions_by_id.<action>.action"
+      });
       expect(parsed.next.arguments).toMatchObject({
         project_path: project,
         sync_remote: remote,

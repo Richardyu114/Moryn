@@ -856,6 +856,10 @@ describe("agent lifecycle", () => {
           remote
         })
       }));
+      expect(doctor.next.selection_sources).toEqual({
+        action: "next.actions_by_id.<action>",
+        action_id: "next.actions_by_id.<action>.action"
+      });
       expect(doctor.next.command).toContain("moryn agent start");
       expect(doctor.next.command).toContain("--sync-remote");
       expect(doctor.next.arguments).toMatchObject({

@@ -951,7 +951,9 @@ Setup and recovery branches use the same shape: `agent_doctor.next` and
 `agent_enter` `needs_setup` responses include top-level `required_when`,
 `required_fields`, `safety`, and a single-step `next.workflow` for
 `project_init`, `project_list`, or `sync_status`, so hosts can recover from
-setup uncertainty without parsing prose or sibling action arrays.
+setup uncertainty without parsing prose or sibling action arrays. When
+`agent_doctor.next` includes alternate `actions_by_id`, `next.selection_sources`
+names the keyed action and action-id paths directly.
 
 CLI:
 
@@ -1084,7 +1086,9 @@ The top-level `checks_by_name` mirrors `checks[]` by check name, and
 agents can read `checks_by_name.sync` or
 `readiness.blocking_checks_by_name.sync` without scanning arrays.
 `selection_sources` names the keyed check, keyed blocking check, and selected
-`next` action paths explicitly. The same
+`next` action paths explicitly. When the selected `next` object carries
+alternate `actions_by_id`, its own `selection_sources` names the keyed action
+and action-id paths as well. The same
 summary repeats the selected next tool, command, `safe_to_run`, `required_when`,
 required fields, `required_fields_by_name`, `safety`, transport `interfaces`,
 and `workflow` plus arguments and `argument_sources` so a lightweight agent can follow readiness

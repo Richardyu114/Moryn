@@ -1523,6 +1523,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
         workflow: singleNextWorkflow("call_agent_start", "agent_start", START_OR_RESUME_WHEN, []),
         actions: doctorActions,
         actions_by_id: actionsById(doctorActions),
+        selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES,
         arguments: {
           project_path: input.projectPath,
           project_id: input.projectId,
