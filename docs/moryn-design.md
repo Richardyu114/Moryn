@@ -783,6 +783,8 @@ record content through the safe `recall` interface instead of composing CLI or
 MCP arguments from the prose `recommended_action`. The ordered `changes[]` list
 is mirrored by `changes_by_record_id`, keyed by `record_id`;
 `selection_sources` names the keyed change, record-id, and next-action paths;
+`next_action.selection_sources` repeats the fully qualified keyed and ordered
+next-action paths for agents that receive only the nested action;
 `next_action.argument_sources.record_ids` points at the keyed change record id
 so hosts can fill recall arguments without scanning workflow phases. Workflow
 phases prefer `refresh.changes_by_record_id.<record_id>.next_action` while

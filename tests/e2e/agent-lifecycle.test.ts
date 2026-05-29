@@ -101,6 +101,7 @@ function expectRefreshChangeNextAction(action: {
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
+  selection_sources?: Record<string, string>;
   safe_to_run: boolean;
   required_when: string;
   required_fields: string[];
@@ -128,6 +129,12 @@ function expectRefreshChangeNextAction(action: {
     arguments: {
       record_ids: [recordId],
       project_id: projectId
+    },
+    selection_sources: {
+      change: "refresh.changes_by_record_id.<record_id>",
+      record_id: "refresh.changes_by_record_id.<record_id>.record_id",
+      next_action: "refresh.changes_by_record_id.<record_id>.next_action",
+      ordered_next_action: "refresh.changes[].next_action"
     }
   });
   expect(action.workflow).toEqual(withPhasesByName({

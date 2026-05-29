@@ -786,12 +786,15 @@ refresh(cursor, current_task)
 This reports new changes as `silent`, `notice`, or `interrupt`.
 Reportable non-raw changes also include `next_action` metadata for the exact
 safe `recall` call, with CLI/MCP interfaces, `required_when`, `safety`,
-`argument_sources`, and a single-step workflow. `changes[]` remains the ordered
-display list, and `changes_by_record_id` mirrors the returned changes by record
-id. `selection_sources` names the keyed change, record-id, and next-action paths
-so agents can follow `refresh.changes_by_record_id.<record_id>.next_action` and
-fill `record_ids` from `next_action.argument_sources.record_ids` without
-scanning an array or synthesizing arguments from prose.
+`argument_sources`, action-local `selection_sources`, and a single-step
+workflow. `changes[]` remains the ordered display list, and
+`changes_by_record_id` mirrors the returned changes by record id.
+`selection_sources` names the keyed change, record-id, and next-action paths;
+`next_action.selection_sources` repeats the fully qualified keyed and ordered
+paths so agents that only receive the action can follow
+`refresh.changes_by_record_id.<record_id>.next_action` and fill `record_ids`
+from `next_action.argument_sources.record_ids` without scanning an array or
+synthesizing arguments from prose.
 
 During meaningful long-running work:
 

@@ -126,6 +126,7 @@ function expectRefreshChangeRecallAction(action: {
   command: string;
   arguments: Record<string, unknown>;
   argument_sources?: Record<string, string>;
+  selection_sources?: Record<string, string>;
   safe_to_run: boolean;
   required_when: string;
   required_fields: string[];
@@ -169,6 +170,12 @@ function expectRefreshChangeRecallAction(action: {
     },
     argument_sources: {
       record_ids: "refresh.changes_by_record_id.<record_id>.record_id"
+    },
+    selection_sources: {
+      change: "refresh.changes_by_record_id.<record_id>",
+      record_id: "refresh.changes_by_record_id.<record_id>.record_id",
+      next_action: "refresh.changes_by_record_id.<record_id>.next_action",
+      ordered_next_action: "refresh.changes[].next_action"
     }
   });
   expectNextActionInterfaces(action);

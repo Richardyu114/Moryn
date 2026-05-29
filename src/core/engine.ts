@@ -105,6 +105,13 @@ const REFRESH_SELECTION_SOURCES = {
   next_action: "changes_by_record_id.<record_id>.next_action"
 };
 
+const REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES = {
+  change: "refresh.changes_by_record_id.<record_id>",
+  record_id: "refresh.changes_by_record_id.<record_id>.record_id",
+  next_action: "refresh.changes_by_record_id.<record_id>.next_action",
+  ordered_next_action: "refresh.changes[].next_action"
+};
+
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
   return {
     ...("required_fields" in action && Array.isArray(action.required_fields)
@@ -172,6 +179,7 @@ function withRefreshChangeNextActionMetadata<T extends {
 ) {
   return {
     ...withActionInterfaces(action),
+    selection_sources: REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES,
     safety: actionSafety(action),
     workflow: withPhasesByName({
       version: 1,

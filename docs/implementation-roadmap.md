@@ -87,6 +87,10 @@ Deliverables:
   `interrupt`.
 - Done: Reportable non-raw refresh changes now include safe `recall`
   `next_action` metadata with CLI/MCP interfaces, safety, and workflow fields.
+- Done: Refresh change `next_action` templates expose action-local
+  `selection_sources`, so agents that receive only the nested action still see
+  the stable keyed change, record-id, keyed next-action, and ordered fallback
+  paths.
 - Done: Missing-record recovery now exposes a two-step workflow: run safe
   `list_recent`, then retry the original CLI/MCP tool with the selected returned
   record id from `records_by_id` instead of guessing a mutation shape.
