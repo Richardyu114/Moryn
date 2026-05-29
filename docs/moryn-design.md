@@ -1179,7 +1179,8 @@ needed and initializes Git sync before writing and pushing the handoff. Its
 `next.actions` includes a `start_next_session` template so another agent can
 restart through `agent_start` without inferring arguments from prose. That
 restart template is also available as `next.actions_by_id.start_next_session`,
-is marked `safe_to_run: true`, and carries `required_when` for next-session
+is marked `safe_to_run: true`, and is named by
+`next.recommended_start_action_id` for direct keyed lookup. It carries `required_when` for next-session
 startup; when the next task is unknown, `arguments.current_task` is set to
 `"<current_task>"` and `argument_sources.current_task` is set to
 `"user_input.current_task"`.
@@ -1206,7 +1207,8 @@ remaining distinguishable from final handoffs by `type=status`. Its
 using the status record timestamp as the next refresh cursor; `finish_session`
 is `safe_to_run: false` and carries `arguments.summary: "<summary>"`, while
 `refresh_context` is `safe_to_run: true`. Both actions are also available under
-`next.actions_by_id`, and include `required_when` so agents can distinguish a
+`next.actions_by_id`, are named by `next.recommended_finish_action_id` and
+`next.recommended_refresh_action_id`, and include `required_when` so agents can distinguish a
 handoff write from an automatic context refresh. Their `argument_sources` map
 `summary` to `user_input.summary` and `refresh_since` to `record.updated_at`.
 

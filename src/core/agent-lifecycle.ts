@@ -1686,7 +1686,9 @@ export async function agentStart(input: AgentStartInput) {
     handoff,
     next: {
       required_end_action: "call agent_finish with a session_summary",
+      required_end_action_id: "finish_session",
       recommended_refresh_action: "call agent_start again with the previous refresh cursor, or call refresh directly",
+      recommended_refresh_action_id: "refresh_context",
       workflow: directStartWorkflow(actions),
       actions,
       actions_by_id: actionsById(actions)
@@ -1740,6 +1742,7 @@ export async function agentFinish(input: AgentFinishInput) {
     sync,
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>",
+      recommended_start_action_id: "start_next_session",
       workflow: directFinishWorkflow(actions),
       actions,
       actions_by_id: actionsById(actions)
@@ -1798,6 +1801,8 @@ export async function agentStatus(input: AgentStatusInput) {
     sync,
     next: {
       recommended_finish_action: "call agent_finish with the final session_summary when meaningful work ends",
+      recommended_finish_action_id: "finish_session",
+      recommended_refresh_action_id: "refresh_context",
       workflow: directStatusWorkflow(actions),
       actions,
       actions_by_id: actionsById(actions)

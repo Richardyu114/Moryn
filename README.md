@@ -713,6 +713,10 @@ required fields, and prefilled arguments for `agent_status`, `agent_finish`,
 and `refresh_context` (`agent_start` with the returned refresh cursor). Each
 action is also available under `agent_start.next.actions_by_id.<action>`, so an
 agent can call `finish_session` or `refresh_context` without scanning the array.
+The top-level `required_end_action_id` and `recommended_refresh_action_id`
+point at those keyed entries directly, so hosts can execute
+`agent_start.next.actions_by_id[agent_start.next.required_end_action_id]`
+instead of translating prose hints into action ids.
 Each action carries
 `safe_to_run`: refresh/start/discovery helpers are `true`, while status and
 finish templates are `false` because the agent must provide user-meaningful
@@ -768,7 +772,9 @@ and `safe_to_run` marking finish as a user-content write and refresh as an
 automatic context update. The finish template includes
 `arguments.summary: "<summary>"` and `argument_sources.summary:
 "user_input.summary"`; the refresh template sets `argument_sources.refresh_since:
-"record.updated_at"`.
+"record.updated_at"`. The top-level `recommended_finish_action_id` and
+`recommended_refresh_action_id` point at the matching keyed templates in
+`agent_status.next.actions_by_id`.
 
 When existing memory or skill needs correction:
 
@@ -792,7 +798,9 @@ Agents should prefer `agent_finish` over manually composing `write` and
 `sync_push`. `agent_finish.next.actions` includes a machine-readable
 `start_next_session` template for the next agent or device, marked
 `safe_to_run: true` with `required_when` explaining that it is for the next
-session after the handoff. If the next task is not already known, the template
+session after the handoff. `agent_finish.next.recommended_start_action_id`
+points at the same keyed template in `next.actions_by_id`. If the next task is
+not already known, the template
 carries `arguments.current_task: "<current_task>"` and
 `argument_sources.current_task: "user_input.current_task"`.
 

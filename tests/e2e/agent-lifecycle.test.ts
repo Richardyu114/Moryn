@@ -272,6 +272,7 @@ describe("agent lifecycle", () => {
       expect(codexFinish.record.content.text).toBe("Codex finished lifecycle wiring and left a Gemini handoff.");
       expect(codexFinish.sync.push?.pushed).toBe(true);
       expect(codexFinish.next.recommended_start_command).toBe("moryn agent start --project <path> --current-task <task>");
+      expect(codexFinish.next.recommended_start_action_id).toBe("start_next_session");
       expect(codexFinish.next.actions).toContainEqual(expect.objectContaining({
         action: "start_next_session",
         tool: "agent_start",
@@ -290,6 +291,9 @@ describe("agent lifecycle", () => {
       }));
       expect(codexFinish.next.actions_by_id.start_next_session).toEqual(
         codexFinish.next.actions.find((action) => action.action === "start_next_session")
+      );
+      expect(codexFinish.next.actions_by_id[codexFinish.next.recommended_start_action_id]).toEqual(
+        codexFinish.next.actions_by_id.start_next_session
       );
 
       const geminiStart = await agentStart({
@@ -339,6 +343,8 @@ describe("agent lifecycle", () => {
       expectHandoffEntryNextAction(geminiStart.handoff.next_action!, codexFinish.record.id, "moryn");
       expect(geminiStart.boot.recent_changes.map((record) => record.content.text)).toContain("Codex finished lifecycle wiring and left a Gemini handoff.");
       expect(geminiStart.next.required_end_action).toBe("call agent_finish with a session_summary");
+      expect(geminiStart.next.required_end_action_id).toBe("finish_session");
+      expect(geminiStart.next.recommended_refresh_action_id).toBe("refresh_context");
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
         tool: "agent_status",
@@ -398,6 +404,12 @@ describe("agent lifecycle", () => {
       );
       expect(geminiStart.next.actions_by_id.refresh_context).toEqual(
         geminiStart.next.actions.find((action) => action.action === "refresh_context")
+      );
+      expect(geminiStart.next.actions_by_id[geminiStart.next.required_end_action_id]).toEqual(
+        geminiStart.next.actions_by_id.finish_session
+      );
+      expect(geminiStart.next.actions_by_id[geminiStart.next.recommended_refresh_action_id]).toEqual(
+        geminiStart.next.actions_by_id.refresh_context
       );
       expect(geminiStart.next.workflow.phases.map((phase) => phase.action_source)).toEqual([
         "boot+refresh+handoff",
@@ -564,6 +576,8 @@ describe("agent lifecycle", () => {
         })
       });
       expect(status.sync.push?.pushed).toBe(true);
+      expect(status.next.recommended_finish_action_id).toBe("finish_session");
+      expect(status.next.recommended_refresh_action_id).toBe("refresh_context");
       expect(status.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
         tool: "agent_finish",
@@ -597,6 +611,12 @@ describe("agent lifecycle", () => {
           current_task: "lifecycle status propagation"
         })
       }));
+      expect(status.next.actions_by_id[status.next.recommended_finish_action_id]).toEqual(
+        status.next.actions.find((action) => action.action === "finish_session")
+      );
+      expect(status.next.actions_by_id[status.next.recommended_refresh_action_id]).toEqual(
+        status.next.actions.find((action) => action.action === "refresh_context")
+      );
 
       const start = await agentStart({
         storePath: storeB,
