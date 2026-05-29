@@ -66,6 +66,10 @@ type ActionInterfaces<TArguments> = {
   };
 };
 
+type HandoffRecordIdArgumentSource =
+  "handoff.inbox_by_record_id.<record_id>.record_id"
+  | "handoff.active_sessions_by_record_id.<record_id>.record_id";
+
 type HandoffEntryNextAction = {
   recommended_action: "call_recall_with_record_id";
   tool: "recall";
@@ -77,6 +81,9 @@ type HandoffEntryNextAction = {
   arguments: {
     record_ids: string[];
     project_id: string;
+  };
+  argument_sources: {
+    record_ids: HandoffRecordIdArgumentSource;
   };
   interfaces: ActionInterfaces<{
     record_ids: string[];
@@ -1175,6 +1182,9 @@ function isSameAgentSession(source: RecordSource, agent: AgentIdentity | undefin
 }
 
 function handoffEntryNextAction(record: MorynRecord, projectId: string, source: "inbox" | "active_sessions"): HandoffEntryNextAction {
+  const recordIdSource: HandoffRecordIdArgumentSource = source === "inbox"
+    ? "handoff.inbox_by_record_id.<record_id>.record_id"
+    : "handoff.active_sessions_by_record_id.<record_id>.record_id";
   const action = withActionInterfaces({
     recommended_action: "call_recall_with_record_id" as const,
     tool: "recall" as const,
@@ -1185,6 +1195,9 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
     arguments: {
       record_ids: [record.id],
       project_id: projectId
+    },
+    argument_sources: {
+      record_ids: recordIdSource
     }
   });
   return {

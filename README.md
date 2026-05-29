@@ -400,10 +400,10 @@ recent in-progress status checkpoints from other sessions. Active sessions are
 time-bounded and include `active_until`, so stale status records do not look
 like live work forever. Each handoff entry includes a safe `next_action` for the
 exact `recall` call that retrieves the full handoff or status record, including
-CLI/MCP interfaces, `safety`, `required_when`, and workflow metadata. When a
-handoff exists, top-level `handoff.next_action` points to the highest-priority
-entry action, preferring active sessions before inbox summaries, so agents can
-act on `handoff.recommended_action` without choosing a record from prose.
+CLI/MCP interfaces, `safety`, `required_when`, `argument_sources`, and workflow
+metadata. When a handoff exists, top-level `handoff.next_action` points to the
+highest-priority entry action, preferring active sessions before inbox summaries,
+so agents can act on `handoff.recommended_action` without choosing a record from prose.
 `handoff.inbox_by_record_id` and `handoff.active_sessions_by_record_id` mirror
 the ordered handoff arrays for agents that already know a record id, and
 handoff entry workflows prefer those keyed paths while keeping the ordered
@@ -700,7 +700,8 @@ for the first prioritized recall action or a specific handoff entry's
 is known, prefer
 `agent_start.handoff.active_sessions_by_record_id.<record_id>.next_action` or
 `agent_start.handoff.inbox_by_record_id.<record_id>.next_action` instead of
-scanning the handoff arrays. `agent_start.next.actions`
+scanning the handoff arrays, and fill `record_ids` from the action's
+`argument_sources.record_ids`. `agent_start.next.actions`
 includes machine-readable templates for the next safe lifecycle calls,
 including the exact CLI command template, MCP tool name, `required_when`,
 required fields, and prefilled arguments for `agent_status`, `agent_finish`,

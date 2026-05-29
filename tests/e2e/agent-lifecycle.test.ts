@@ -152,6 +152,7 @@ function expectHandoffEntryNextAction(action: {
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
+  argument_sources?: Record<string, string>;
   safe_to_run: boolean;
   required_when: string;
   required_fields: string[];
@@ -183,6 +184,9 @@ function expectHandoffEntryNextAction(action: {
   const actionSource = source === "inbox"
     ? "handoff.inbox_by_record_id.<record_id>.next_action"
     : "handoff.active_sessions_by_record_id.<record_id>.next_action";
+  const recordIdSource = source === "inbox"
+    ? "handoff.inbox_by_record_id.<record_id>.record_id"
+    : "handoff.active_sessions_by_record_id.<record_id>.record_id";
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
     tool: "recall",
@@ -193,6 +197,9 @@ function expectHandoffEntryNextAction(action: {
     arguments: {
       record_ids: [recordId],
       project_id: projectId
+    },
+    argument_sources: {
+      record_ids: recordIdSource
     },
     interfaces: {
       cli: { command: `moryn recall --record-id ${recordId} --project-id ${projectId}` },
