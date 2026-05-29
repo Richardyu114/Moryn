@@ -2864,6 +2864,7 @@ describe("moryn CLI", () => {
             placeholder?: string;
             value?: unknown;
           }>;
+          next_argument_sources: Record<string, string>;
           next_safety: {
             safe_to_auto_run: boolean;
             requires_user_confirmation: boolean;
@@ -2912,6 +2913,7 @@ describe("moryn CLI", () => {
         next_required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
         next_required_fields: [],
         next_required_fields_by_name: {},
+        next_argument_sources: {},
         next_safety: {
           safe_to_auto_run: true,
           requires_user_confirmation: false,
@@ -3000,6 +3002,7 @@ describe("moryn CLI", () => {
           next_safety: Record<string, unknown>;
           next_interfaces: Record<string, unknown>;
           next_workflow: Record<string, unknown>;
+          next_argument_sources: Record<string, string>;
         };
         next: {
           recommended_action: string;
@@ -3079,6 +3082,7 @@ describe("moryn CLI", () => {
         next_required_when: INSPECT_SYNC_CONFLICT_WHEN,
         next_required_fields: [],
         next_required_fields_by_name: {},
+        next_argument_sources: {},
         next_safety: parsedDoctor.next.safety,
         next_interfaces: parsedDoctor.next.interfaces,
         next_workflow: parsedDoctor.next.workflow,

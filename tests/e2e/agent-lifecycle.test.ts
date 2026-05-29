@@ -744,6 +744,7 @@ describe("agent lifecycle", () => {
         next_required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
         next_required_fields: [],
         next_required_fields_by_name: {},
+        next_argument_sources: {},
         next_safety: {
           safe_to_auto_run: true,
           requires_user_confirmation: false,
@@ -898,6 +899,7 @@ describe("agent lifecycle", () => {
         next_required_when: "Before retrying lifecycle writes or sync operations after a Git conflict.",
         next_required_fields: [],
         next_required_fields_by_name: {},
+        next_argument_sources: {},
         next_safety: doctor.next.safety,
         next_interfaces: doctor.next.interfaces,
         next_workflow: doctor.next.workflow,
@@ -998,6 +1000,7 @@ describe("agent lifecycle", () => {
         next_required_when: "When the shared store has projects but this agent has no explicit project context.",
         next_required_fields: [],
         next_required_fields_by_name: {},
+        next_argument_sources: {},
         next_safety: doctor.next.safety,
         next_interfaces: doctor.next.interfaces,
         next_workflow: doctor.next.workflow,
@@ -1440,6 +1443,59 @@ describe("agent lifecycle", () => {
       expect(doctor.next.arguments).not.toHaveProperty("project_id");
       expect(doctor.next.command).toContain("moryn project init");
     } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("mirrors project setup argument sources in doctor readiness", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-doctor-setup-sources-"));
+    const store = join(root, "store");
+    const previousCwd = process.cwd();
+    try {
+      await initializeStore(store);
+      await mkdir(root, { recursive: true });
+      await writeFile(join(root, ".moryn.json"), "{\"project_id\":\"\"}\n", "utf8");
+      process.chdir(root);
+
+      const doctor = await agentDoctor({
+        storePath: store,
+        agent: { client: "codex" }
+      });
+
+      expect(doctor.next).toMatchObject({
+        recommended_action: "fix_project_config",
+        tool: "project_init",
+        safe_to_run: false,
+        command: "moryn project init --path <path>",
+        required_when: "Before starting lifecycle work when project context is invalid or missing.",
+        required_fields: ["path"],
+        required_fields_by_name: {
+          path: {
+            name: "path",
+            argument_path: "path",
+            placeholder: "<path>",
+            value: "<path>"
+          }
+        },
+        argument_sources: {
+          path: "user_input.path"
+        },
+        arguments: {
+          path: "<path>"
+        }
+      });
+      expect(doctor.readiness).toMatchObject({
+        next_required_fields: ["path"],
+        next_required_fields_by_name: doctor.next.required_fields_by_name,
+        next_argument_sources: {
+          path: "user_input.path"
+        },
+        next_arguments: {
+          path: "<path>"
+        }
+      });
+    } finally {
+      process.chdir(previousCwd);
       await rm(root, { recursive: true, force: true });
     }
   });

@@ -206,6 +206,7 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
 
 const USER_INPUT_ARGUMENT_SOURCES: Record<string, string> = {
   current_task: "user_input.current_task",
+  path: "user_input.path",
   project_id: "user_input.project_id",
   refresh_since: "user_input.refresh_since",
   remote: "user_input.remote",
@@ -446,9 +447,13 @@ function buildRecallRecordCommand(recordId: string, projectId: string): string {
   return parts.join(" ");
 }
 
-function buildProjectInitCommand(input: AgentLifecycleInput): string {
+function buildProjectInitCommand(input: AgentLifecycleInput, requiredFields: string[] = []): string {
   const parts = ["moryn", "project", "init"];
-  appendOption(parts, "--path", input.projectPath);
+  if (requiredFields.includes("path")) {
+    appendTemplateOption(parts, "--path", "<path>");
+  } else {
+    appendOption(parts, "--path", input.projectPath);
+  }
   appendOption(parts, "--project-id", input.projectId);
   return parts.join(" ");
 }
@@ -460,12 +465,12 @@ function projectInitInput(input: AgentLifecycleInput, projectError: string | und
   return input;
 }
 
-function projectInitArguments(input: AgentLifecycleInput): {
+function projectInitArguments(input: AgentLifecycleInput, requiredFields: string[] = []): {
   path?: string;
   project_id?: string;
 } {
   return {
-    path: input.projectPath,
+    path: requiredFields.includes("path") ? "<path>" : input.projectPath,
     ...(input.projectId ? { project_id: input.projectId } : {})
   };
 }
@@ -812,6 +817,7 @@ function doctorReadiness(
     required_when?: string;
     required_fields?: string[];
     required_fields_by_name?: Record<string, RequiredFieldMetadata>;
+    argument_sources?: Record<string, string>;
     safety?: ActionSafety;
     arguments?: Record<string, unknown>;
     interfaces?: ActionInterfaces<Record<string, unknown>>;
@@ -831,6 +837,7 @@ function doctorReadiness(
   };
   const nextRequiredFields = next.required_fields ?? [];
   const nextRequiredFieldsByName = next.required_fields_by_name ?? requiredFieldsByName(nextRequiredFields, nextArguments);
+  const nextArgumentSources = next.argument_sources ?? {};
   const nextRequiredWhen = next.required_when ?? "When this action is the selected next action.";
   const nextWorkflow = next.workflow ?? singleNextWorkflow(
     next.recommended_action,
@@ -850,6 +857,7 @@ function doctorReadiness(
     next_required_when: nextRequiredWhen,
     next_required_fields: nextRequiredFields,
     next_required_fields_by_name: nextRequiredFieldsByName,
+    next_argument_sources: nextArgumentSources,
     next_safety: next.safety,
     next_interfaces: nextInterfaces,
     next_workflow: nextWorkflow,
@@ -1495,11 +1503,12 @@ export async function agentDoctor(input: AgentDoctorInput) {
         recommended_action: "fix_project_config",
         tool: "project_init",
         safe_to_run: false,
-        command: buildProjectInitCommand(setupInput),
+        command: buildProjectInitCommand(setupInput, setupRequiredFields),
         required_when: FIX_PROJECT_CONFIG_WHEN,
         required_fields: setupRequiredFields,
         workflow: singleNextWorkflow("fix_project_config", "project_init", FIX_PROJECT_CONFIG_WHEN, setupRequiredFields),
-        arguments: projectInitArguments(setupInput)
+        arguments: projectInitArguments(setupInput, setupRequiredFields),
+        argument_sources: userInputArgumentSources(setupRequiredFields)
       });
 
   return {

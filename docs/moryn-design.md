@@ -1046,7 +1046,7 @@ agents can read `checks_by_name.sync` or
 `readiness.blocking_checks_by_name.sync` without scanning arrays. The same
 summary repeats the selected next tool, command, `safe_to_run`, `required_when`,
 required fields, `required_fields_by_name`, `safety`, transport `interfaces`,
-and `workflow` plus arguments so a lightweight agent can follow readiness
+and `workflow` plus arguments and `argument_sources` so a lightweight agent can follow readiness
 without merging data from the full `next` object. If `run_lifecycle_smoke` requires a remote, the action
 and command both carry the `<remote>` placeholder and `arguments.remote` is
 prefilled as `"<remote>"`.
@@ -1153,6 +1153,9 @@ present in
 `arguments` as `<status>` and `<summary>` placeholders so MCP clients can update
 only those fields before calling the next tool; `argument_sources` mirrors those
 replacement fields so clients do not have to infer them from placeholders.
+Project setup templates use the same shape when a project path is missing:
+`arguments.path` is `"<path>"` and `argument_sources.path` is
+`"user_input.path"`.
 
 ### `agent_finish`
 

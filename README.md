@@ -357,7 +357,7 @@ project context in a populated store unless the current directory resolves via a
 a `readiness` summary with `safe_to_start`, `blocking_checks`,
 `blocking_checks_by_name`, and the selected next tool/command, `safe_to_run`,
 `required_when`, required fields, `required_fields_by_name`, `safety`,
-transport `interfaces`, `workflow`, and arguments. Agents can inspect `checks_by_name.sync` or
+transport `interfaces`, `workflow`, arguments, and `argument_sources`. Agents can inspect `checks_by_name.sync` or
 `readiness.blocking_checks_by_name.sync` directly instead of scanning `checks[]`,
 then execute the selected CLI or MCP action without recombining fields from the
 full `next` object.
@@ -369,7 +369,8 @@ state. When an action lists `required_fields`, the same field appears in
 values and call the listed tool instead of parsing placeholders out of the CLI
 command string. Lifecycle action templates also expose `argument_sources` for
 replaceable fields: authored values use sources such as `user_input.status`,
-`user_input.summary`, `user_input.current_task`, or `user_input.remote`, while
+`user_input.summary`, `user_input.current_task`, `user_input.path`, or
+`user_input.remote`, while
 returned lifecycle cursors use `refresh.cursor` or `record.updated_at`.
 Lifecycle action templates also include `required_when`, a
 short usage condition that tells an agent when to choose that action instead of
