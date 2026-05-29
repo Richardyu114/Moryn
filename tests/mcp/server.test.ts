@@ -572,6 +572,23 @@ describe("MCP stdio server", () => {
             };
             allowed_action_sources?: string[];
           }>;
+          guardrails_by_id: Record<string, {
+            id: string;
+            when: string;
+            risk: string;
+            avoid: string[];
+            required_behavior: string;
+            use_instead?: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              safe_to_run: boolean;
+              required_when: string;
+              required_fields: string[];
+              arguments: Record<string, unknown>;
+            };
+            allowed_action_sources?: string[];
+          }>;
           workflow: {
             version: number;
             start: string;
@@ -660,6 +677,11 @@ describe("MCP stdio server", () => {
           "publish_status_and_finish_handoff",
           "pass_sync_remote_for_cross_device_handoff"
         ]);
+        expect(guide.guardrails_by_id.prefer_agent_enter_for_startup).toEqual(guide.guardrails[0]);
+        expect(guide.guardrails_by_id.discover_project_before_lifecycle_writes).toEqual(guide.guardrails.find((guardrail) => guardrail.id === "discover_project_before_lifecycle_writes"));
+        expect(guide.guardrails_by_id.use_returned_actions_verbatim).toEqual(guide.guardrails.find((guardrail) => guardrail.id === "use_returned_actions_verbatim"));
+        expect(guide.guardrails_by_id.publish_status_and_finish_handoff).toEqual(guide.guardrails.find((guardrail) => guardrail.id === "publish_status_and_finish_handoff"));
+        expect(guide.guardrails_by_id.pass_sync_remote_for_cross_device_handoff).toEqual(guide.guardrails.find((guardrail) => guardrail.id === "pass_sync_remote_for_cross_device_handoff"));
         expect(guide.guardrails).toContainEqual(expect.objectContaining({
           id: "prefer_agent_enter_for_startup",
           when: guide.startup.required_when,
@@ -756,6 +778,11 @@ describe("MCP stdio server", () => {
             required_behavior: string;
             use_instead?: { command: string; arguments: { project_id?: string } };
           }>;
+          guardrails_by_id: Record<string, {
+            id: string;
+            required_behavior: string;
+            use_instead?: { command: string; arguments: { project_id?: string } };
+          }>;
           workflow: {
             start: string;
             phases: Array<{
@@ -793,6 +820,7 @@ describe("MCP stdio server", () => {
             arguments: guide.startup.arguments
           })
         }));
+        expect(guide.guardrails_by_id.discover_project_before_lifecycle_writes).toEqual(guide.guardrails.find((guardrail) => guardrail.id === "discover_project_before_lifecycle_writes"));
         expect(guide.workflow.start).toBe("startup");
         expect(guide.workflow.phases).toContainEqual(expect.objectContaining({
           phase: "publish_status",

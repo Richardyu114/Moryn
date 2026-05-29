@@ -233,6 +233,8 @@ Deliverables:
 - Done: `agent_guide.guardrails[]` now exposes stable machine-readable
   anti-hallucination constraints, including forbidden behaviors, required
   behavior, and replacement actions for startup and project-discovery mistakes.
+- Done: `agent_guide.guardrails_by_id` mirrors guardrails by id, so hosts can
+  read a known anti-hallucination rule without scanning `guardrails[]`.
 - Done: `agent_guide.workflow` now exposes the ordered startup and lifecycle
   decision track so agents know to call `startup`, prefer returned
   `agent_enter.next.actions`, and use static templates only for status,

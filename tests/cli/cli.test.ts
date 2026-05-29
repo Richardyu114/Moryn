@@ -548,6 +548,23 @@ describe("moryn CLI", () => {
           };
           allowed_action_sources?: string[];
         }>;
+        guardrails_by_id: Record<string, {
+          id: string;
+          when: string;
+          risk: string;
+          avoid: string[];
+          required_behavior: string;
+          use_instead?: {
+            recommended_action: string;
+            tool: string;
+            command: string;
+            safe_to_run: boolean;
+            required_when: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+          };
+          allowed_action_sources?: string[];
+        }>;
         workflow: {
           version: number;
           start: string;
@@ -660,6 +677,11 @@ describe("moryn CLI", () => {
         "publish_status_and_finish_handoff",
         "pass_sync_remote_for_cross_device_handoff"
       ]);
+      expect(parsed.guardrails_by_id.prefer_agent_enter_for_startup).toEqual(parsed.guardrails[0]);
+      expect(parsed.guardrails_by_id.discover_project_before_lifecycle_writes).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "discover_project_before_lifecycle_writes"));
+      expect(parsed.guardrails_by_id.use_returned_actions_verbatim).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "use_returned_actions_verbatim"));
+      expect(parsed.guardrails_by_id.publish_status_and_finish_handoff).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "publish_status_and_finish_handoff"));
+      expect(parsed.guardrails_by_id.pass_sync_remote_for_cross_device_handoff).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "pass_sync_remote_for_cross_device_handoff"));
       expect(parsed.guardrails).toContainEqual(expect.objectContaining({
         id: "prefer_agent_enter_for_startup",
         when: parsed.startup.required_when,
@@ -752,6 +774,11 @@ describe("moryn CLI", () => {
           required_behavior: string;
           use_instead?: { command: string; arguments: { project_id?: string } };
         }>;
+        guardrails_by_id: Record<string, {
+          id: string;
+          required_behavior: string;
+          use_instead?: { command: string; arguments: { project_id?: string } };
+        }>;
         workflow: {
           start: string;
           phases: Array<{
@@ -789,6 +816,7 @@ describe("moryn CLI", () => {
           arguments: parsed.startup.arguments
         })
       }));
+      expect(parsed.guardrails_by_id.discover_project_before_lifecycle_writes).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "discover_project_before_lifecycle_writes"));
       expect(parsed.workflow.start).toBe("startup");
       expect(parsed.workflow.phases).toContainEqual(expect.objectContaining({
         phase: "publish_status",

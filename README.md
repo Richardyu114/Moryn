@@ -437,9 +437,13 @@ call `startup`, then prefer `agent_enter.next.actions`, then use static
 lifecycle templates only for status, finish, or refresh. `guardrails[]` gives
 agent hosts stable ids, risks, forbidden behaviors, required behaviors, and
 replacement actions for common mistakes such as manually composing startup,
-guessing project ids, or reconstructing lifecycle commands from memory. Use it
-when an agent host needs a compact, authoritative instruction packet instead of
-inferring commands from README prose.
+guessing project ids, or reconstructing lifecycle commands from memory; the
+same entries are mirrored in `guardrails_by_id`, so hosts can read
+`guardrails_by_id.use_returned_actions_verbatim` or
+`guardrails_by_id.discover_project_before_lifecycle_writes` directly instead of
+scanning the guardrail list. Use it when an agent host needs a compact,
+authoritative instruction packet instead of inferring commands from README
+prose.
 
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime
@@ -515,7 +519,9 @@ points at `startup`, `continue_from` names valid follow-up action sources, and
 `phases[]` gives order, action source, usage condition, and required fields.
 Guardrails are machine-readable: each entry names what to avoid, what behavior
 is required, and where applicable a `use_instead` action that can be executed
-directly. If no project is provided, the startup command stays as
+directly. `guardrails_by_id` mirrors the list by guardrail id, so agents can
+look up a known anti-hallucination rule without array matching. If no project
+is provided, the startup command stays as
 `agent_enter`, while later status, finish, and refresh templates explicitly
 require `project_id` from the discovery result. Required template values such
 as `<status>`, `<summary>`, and `<refresh_since>` are also present in

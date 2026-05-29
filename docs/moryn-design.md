@@ -826,10 +826,13 @@ rules that prevent common hallucinated flows such as guessing project ids or
 manually composing `sync_pull`, `boot`, and `refresh`. It also returns
 `guardrails[]`: stable, machine-readable constraints with ids, risks, forbidden
 behaviors, required behavior, and optional `use_instead` action templates for
-safe alternatives. It also returns `workflow`, a machine-readable ordering
-contract with `start`, valid `continue_from` sources, and ordered `phases[]`
-that name the action source, usage condition, and required fields. The
-`startup` object and top-level `next` action are complete `agent_enter`
+safe alternatives. `guardrails_by_id` mirrors those constraints by id so hosts
+can fetch known rules such as `use_returned_actions_verbatim` or
+`discover_project_before_lifecycle_writes` without scanning `guardrails[]`. It
+also returns `workflow`, a machine-readable ordering contract with `start`,
+valid `continue_from` sources, and ordered `phases[]` that name the action
+source, usage condition, and required fields. The `startup` object and
+top-level `next` action are complete `agent_enter`
 templates with `safe_to_run`, `required_when`, `required_fields`, arguments,
 and single-step `workflow`, so hosts can execute the recommended entrypoint
 without merging data from lifecycle steps. `lifecycle_by_step` mirrors

@@ -863,6 +863,10 @@ function lifecycleByStep<T extends { step: string }>(lifecycle: T[]): Record<str
   return Object.fromEntries(lifecycle.map((action) => [action.step, action]));
 }
 
+function guardrailsById<T extends { id: string }>(guardrails: T[]): Record<string, T> {
+  return Object.fromEntries(guardrails.map((guardrail) => [guardrail.id, guardrail]));
+}
+
 function lifecyclePhase(
   lifecycle: ReturnType<typeof agentGuideLifecycle>,
   step: string,
@@ -1472,6 +1476,7 @@ export function agentGuide(input: AgentGuideInput) {
   const startupArguments = lifecycleActionArguments(input);
   const startup = agentEnterActionTemplate(command, startupArguments);
   const lifecycle = agentGuideLifecycle(input);
+  const guardrails = agentGuideGuardrails(startup);
   return {
     ok: true,
     recommended_entrypoint: "agent_enter",
@@ -1485,7 +1490,8 @@ export function agentGuide(input: AgentGuideInput) {
       "Publish agent_status before long interruptions, and call agent_finish with a concise final summary when meaningful work ends.",
       "Pass sync_remote whenever cross-device handoff matters so status and summaries reach the shared store."
     ],
-    guardrails: agentGuideGuardrails(startup),
+    guardrails,
+    guardrails_by_id: guardrailsById(guardrails),
     workflow: agentGuideWorkflow(lifecycle),
     next: {
       recommended_action: "call_agent_enter",
