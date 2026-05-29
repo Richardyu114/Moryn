@@ -402,6 +402,39 @@ registry. The registry is organized by `setup`, `core`, `sync`, `lifecycle`,
 and `recovery`, and each entry references the same canonical map object exposed
 under its individual export name.
 
+Non-JS hosts can query the same registry at runtime:
+
+CLI:
+
+```bash
+moryn contracts selection-sources
+```
+
+MCP tool: `selection_source_contracts`.
+
+The response shape is:
+
+```json
+{
+  "contracts": {
+    "setup": {
+      "store_init": {
+        "config_file": "artifacts.config"
+      }
+    }
+  },
+  "selection_sources": {
+    "contracts": "contracts",
+    "group": "contracts.<group>",
+    "contract": "contracts.<group>.<contract>",
+    "field": "contracts.<group>.<contract>.<field>"
+  }
+}
+```
+
+Library hosts can also call `getSelectionSourceContracts()` or import
+`SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES` from the package entrypoint.
+
 ### `init`
 
 Used to initialize the local Moryn store.

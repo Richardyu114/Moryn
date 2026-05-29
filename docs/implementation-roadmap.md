@@ -221,6 +221,10 @@ Deliverables:
 - Done: The package entrypoint exports a grouped `SELECTION_SOURCE_CONTRACTS`
   registry, so hosts can enumerate setup, core, sync, lifecycle, and recovery
   field-path maps without knowing every individual constant name.
+- Done: The CLI command `moryn contracts selection-sources`, MCP tool
+  `selection_source_contracts`, and package helper `getSelectionSourceContracts`
+  expose the same self-describing registry response, so non-JS agents can
+  discover field-path contracts without copying docs or importing constants.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

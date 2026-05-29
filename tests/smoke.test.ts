@@ -23,10 +23,12 @@ import {
   REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES,
   SENSITIVE_REVISE_SELECTION_SOURCES,
   SELECTION_SOURCE_CONTRACTS,
+  SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES,
   STORE_INIT_SELECTION_SOURCES,
   SYNC_RESULT_SELECTION_SOURCES,
   SYNC_STATUS_SELECTION_SOURCES,
   WRITE_SELECTION_SOURCES,
+  getSelectionSourceContracts,
   version
 } from "../src/index.js";
 
@@ -78,5 +80,18 @@ describe("package smoke test", () => {
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.guide).toBe(GUIDE_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.handoff).toBe(HANDOFF_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.recovery.next_action).toBe(NEXT_ACTION_SELECTION_SOURCES);
+  });
+
+  it("exports a self-describing selection source contract response", () => {
+    const response = getSelectionSourceContracts();
+
+    expect(SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES).toEqual({
+      contracts: "contracts",
+      group: "contracts.<group>",
+      contract: "contracts.<group>.<contract>",
+      field: "contracts.<group>.<contract>.<field>"
+    });
+    expect(response.contracts).toBe(SELECTION_SOURCE_CONTRACTS);
+    expect(response.selection_sources).toBe(SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES);
   });
 });

@@ -56,15 +56,26 @@ describe("published package smoke", () => {
         const recordId = (JSON.parse(decision.stdout) as { record: { id: string } }).record.id;
         const boot = await exec(moryn, ["--store", store, "boot", "--project", project], { cwd: dir });
         const recall = await exec(moryn, ["--store", store, "recall", "--record-id", recordId, "--project", project], { cwd: dir });
+        const contracts = await exec(moryn, ["contracts", "selection-sources"], { cwd: dir });
         const importCheck = await exec("node", [
           "--input-type=module",
           "-e",
-          "import { BOOT_SELECTION_SOURCES, GUIDE_SELECTION_SOURCES, NEXT_ACTION_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, STORE_INIT_SELECTION_SOURCES, SYNC_RESULT_SELECTION_SOURCES } from '@richardyu114/moryn'; console.log(`${STORE_INIT_SELECTION_SOURCES.config_file}|${BOOT_SELECTION_SOURCES.skill}|${SYNC_RESULT_SELECTION_SOURCES.pushed}|${GUIDE_SELECTION_SOURCES.guardrail}|${NEXT_ACTION_SELECTION_SOURCES.error_next_action}|${SELECTION_SOURCE_CONTRACTS.lifecycle.guide.guardrail}|${SELECTION_SOURCE_CONTRACTS.sync.result.pushed}`);"
+          "import { BOOT_SELECTION_SOURCES, GUIDE_SELECTION_SOURCES, NEXT_ACTION_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES, getSelectionSourceContracts, STORE_INIT_SELECTION_SOURCES, SYNC_RESULT_SELECTION_SOURCES } from '@richardyu114/moryn'; const response = getSelectionSourceContracts(); console.log(`${STORE_INIT_SELECTION_SOURCES.config_file}|${BOOT_SELECTION_SOURCES.skill}|${SYNC_RESULT_SELECTION_SOURCES.pushed}|${GUIDE_SELECTION_SOURCES.guardrail}|${NEXT_ACTION_SELECTION_SOURCES.error_next_action}|${SELECTION_SOURCE_CONTRACTS.lifecycle.guide.guardrail}|${SELECTION_SOURCE_CONTRACTS.sync.result.pushed}|${SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES.contract}|${response.contracts.setup.store_init.config_file}|${response.selection_sources.field}`);"
         ], { cwd: dir });
+        const parsedContracts = JSON.parse(contracts.stdout) as {
+          contracts: {
+            setup: { store_init: { config_file: string } };
+            lifecycle: { guide: { guardrail: string } };
+          };
+          selection_sources: { contract: string };
+        };
 
         expect(boot.stdout).toContain("Release from packed CLI");
         expect(recall.stdout).toContain("Packed CLI can write memory");
-        expect(importCheck.stdout.trim()).toBe("artifacts.config|skills_by_id.<record_id>|pushed|guardrails_by_id.<guardrail_id>|error.next_action|guardrails_by_id.<guardrail_id>|pushed");
+        expect(parsedContracts.contracts.setup.store_init.config_file).toBe("artifacts.config");
+        expect(parsedContracts.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
+        expect(parsedContracts.selection_sources.contract).toBe("contracts.<group>.<contract>");
+        expect(importCheck.stdout.trim()).toBe("artifacts.config|skills_by_id.<record_id>|pushed|guardrails_by_id.<guardrail_id>|error.next_action|guardrails_by_id.<guardrail_id>|pushed|contracts.<group>.<contract>|artifacts.config|contracts.<group>.<contract>.<field>");
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });
       } finally {
         if (tarball) {

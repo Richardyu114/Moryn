@@ -102,6 +102,12 @@ const PROJECT_INIT_SELECTION_SOURCES = {
   default_skills: "config.default_skills",
   sync_mode: "config.sync.mode"
 };
+const SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES = {
+  contracts: "contracts",
+  group: "contracts.<group>",
+  contract: "contracts.<group>.<contract>",
+  field: "contracts.<group>.<contract>.<field>"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -614,6 +620,30 @@ async function createCliSyncConflict(input: {
 }
 
 describe("moryn CLI", () => {
+  it("returns selection source contracts from the CLI", async () => {
+    const result = await exec("node", [
+      "--import", tsxLoader, cliPath,
+      "contracts", "selection-sources"
+    ]);
+    const parsed = JSON.parse(result.stdout) as {
+      contracts: {
+        setup: { store_init: { config_file: string } };
+        core: { boot: { skill: string } };
+        sync: { result: { pushed: string } };
+        lifecycle: { guide: { guardrail: string } };
+        recovery: { next_action: { error_next_action: string } };
+      };
+      selection_sources: Record<string, string>;
+    };
+
+    expect(parsed.selection_sources).toEqual(SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES);
+    expect(parsed.contracts.setup.store_init.config_file).toBe("artifacts.config");
+    expect(parsed.contracts.core.boot.skill).toBe("skills_by_id.<record_id>");
+    expect(parsed.contracts.sync.result.pushed).toBe("pushed");
+    expect(parsed.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
+    expect(parsed.contracts.recovery.next_action.error_next_action).toBe("error.next_action");
+  });
+
   it("returns machine-readable agent guide from the CLI", async () => {
     await withTempDir(async (dir) => {
       const guide = await exec("node", [

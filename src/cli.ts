@@ -3,7 +3,7 @@
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { Command, CommanderError } from "commander";
-import { version } from "./index.js";
+import { getSelectionSourceContracts, version } from "./index.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
@@ -469,6 +469,14 @@ program.command("refresh")
 program.command("rebuild").action(async () => {
   printJson(await rebuildDerivedViews(storePath()));
 });
+
+const contracts = program.command("contracts");
+
+contracts.command("selection-sources")
+  .description("Print stable selection-source field-path contracts.")
+  .action(() => {
+    printJson(getSelectionSourceContracts());
+  });
 
 program.command("mcp").action(async () => {
   const path = storePath();

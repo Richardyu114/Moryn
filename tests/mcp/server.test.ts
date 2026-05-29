@@ -105,6 +105,12 @@ const PROJECT_INIT_SELECTION_SOURCES = {
   default_skills: "config.default_skills",
   sync_mode: "config.sync.mode"
 };
+const SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES = {
+  contracts: "contracts",
+  group: "contracts.<group>",
+  contract: "contracts.<group>.<contract>",
+  field: "contracts.<group>.<contract>.<field>"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -645,6 +651,36 @@ async function expectInvalidMcpArguments(action: () => Promise<Awaited<ReturnTyp
 }
 
 describe("MCP stdio server", () => {
+  it("returns selection source contracts through MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-contracts-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const parsed = parseTextContent(await client.callTool({
+          name: "selection_source_contracts",
+          arguments: {}
+        })) as {
+          contracts: {
+            setup: { store_init: { config_file: string } };
+            core: { boot: { skill: string } };
+            sync: { result: { pushed: string } };
+            lifecycle: { guide: { guardrail: string } };
+            recovery: { next_action: { error_next_action: string } };
+          };
+          selection_sources: Record<string, string>;
+        };
+
+        expect(parsed.selection_sources).toEqual(SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES);
+        expect(parsed.contracts.setup.store_init.config_file).toBe("artifacts.config");
+        expect(parsed.contracts.core.boot.skill).toBe("skills_by_id.<record_id>");
+        expect(parsed.contracts.sync.result.pushed).toBe("pushed");
+        expect(parsed.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
+        expect(parsed.contracts.recovery.next_action.error_next_action).toBe("error.next_action");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("returns machine-readable agent guide through MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-guide-"));
     try {
@@ -1143,6 +1179,7 @@ describe("MCP stdio server", () => {
           "recall",
           "refresh",
           "revise",
+          "selection_source_contracts",
           "sync_init",
           "sync_pull",
           "sync_push",

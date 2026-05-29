@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { getSelectionSourceContracts } from "../index.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
@@ -136,6 +137,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       sync_remote,
       agent
     }))
+  );
+
+  server.registerTool(
+    "selection_source_contracts",
+    {
+      title: "Get Moryn Selection Source Contracts",
+      description: "Return stable response field-path contracts for CLI, MCP, and library hosts.",
+      inputSchema: {}
+    },
+    async () => toolResult(async () => getSelectionSourceContracts())
   );
 
   server.registerTool(

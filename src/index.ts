@@ -100,3 +100,17 @@ export const SELECTION_SOURCE_CONTRACTS = {
     next_action: NEXT_ACTION_SELECTION_SOURCES
   }
 } as const;
+
+export const SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES = {
+  contracts: "contracts",
+  group: "contracts.<group>",
+  contract: "contracts.<group>.<contract>",
+  field: "contracts.<group>.<contract>.<field>"
+} as const;
+
+export function getSelectionSourceContracts() {
+  return {
+    contracts: SELECTION_SOURCE_CONTRACTS,
+    selection_sources: SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES
+  };
+}
