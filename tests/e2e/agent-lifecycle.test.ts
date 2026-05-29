@@ -704,6 +704,7 @@ describe("agent lifecycle", () => {
       expect(doctor.readiness).toEqual({
         safe_to_start: true,
         blocking_checks: [],
+        blocking_checks_by_name: {},
         recommended_action: "call_agent_start",
         next_tool: "agent_start",
         next_command: doctor.next.command,
@@ -736,6 +737,9 @@ describe("agent lifecycle", () => {
         ok: false,
         severity: "notice"
       }));
+      expect(doctor.checks_by_name.store).toEqual(doctor.checks.find((check) => check.name === "store"));
+      expect(doctor.checks_by_name.project).toEqual(doctor.checks.find((check) => check.name === "project"));
+      expect(doctor.checks_by_name.sync).toEqual(doctor.checks.find((check) => check.name === "sync"));
       expect(doctor.next).toMatchObject({
         recommended_action: "call_agent_start",
         tool: "agent_start",
@@ -847,6 +851,9 @@ describe("agent lifecycle", () => {
       expect(doctor.readiness).toEqual({
         safe_to_start: false,
         blocking_checks: ["sync"],
+        blocking_checks_by_name: {
+          sync: doctor.checks_by_name.sync
+        },
         recommended_action: "resolve_sync_conflict_before_lifecycle",
         next_tool: "sync_status",
         next_command: "moryn sync --status",
@@ -858,6 +865,12 @@ describe("agent lifecycle", () => {
         next_workflow: doctor.next.workflow,
         next_arguments: {}
       });
+      expect(doctor.checks_by_name.sync).toEqual(expect.objectContaining({
+        name: "sync",
+        ok: false,
+        severity: "warning",
+        message: "Sync has unresolved Git conflicts; inspect sync_status and resolve conflicts before lifecycle writes."
+      }));
 
       const entered = await agentEnter({
         storePath: storeB,
@@ -939,6 +952,7 @@ describe("agent lifecycle", () => {
       expect(doctor.readiness).toEqual({
         safe_to_start: false,
         blocking_checks: [],
+        blocking_checks_by_name: {},
         recommended_action: "list_projects",
         next_tool: "project_list",
         next_command: "moryn project list",

@@ -2652,9 +2652,12 @@ describe("moryn CLI", () => {
         store: { initialized: boolean };
         project: { ok: boolean; project_id?: string };
         sync: { configured: boolean; expected_remote?: string };
+        checks: Array<{ name: string; ok: boolean; severity: string; message: string }>;
+        checks_by_name: Record<string, { name: string; ok: boolean; severity: string; message: string }>;
         readiness?: {
           safe_to_start: boolean;
           blocking_checks: string[];
+          blocking_checks_by_name: Record<string, { name: string; ok: boolean; severity: string; message: string }>;
           recommended_action: string;
           next_tool: string;
           next_command: string;
@@ -2695,6 +2698,7 @@ describe("moryn CLI", () => {
       expect(parsed.readiness).toEqual({
         safe_to_start: true,
         blocking_checks: [],
+        blocking_checks_by_name: {},
         recommended_action: "call_agent_start",
         next_tool: "agent_start",
         next_command: parsed.next.command,
@@ -2717,6 +2721,9 @@ describe("moryn CLI", () => {
           agent: { client: "codex", session_id: "codex-doctor" }
         }
       });
+      expect(parsed.checks_by_name.store).toEqual(parsed.checks.find((check) => check.name === "store"));
+      expect(parsed.checks_by_name.project).toEqual(parsed.checks.find((check) => check.name === "project"));
+      expect(parsed.checks_by_name.sync).toEqual(parsed.checks.find((check) => check.name === "sync"));
       expect(parsed.next.command).toContain("moryn agent start");
       expect(parsed.next.command).toContain("--sync-remote");
       expect(parsed.next.actions).toContainEqual(expect.objectContaining({
@@ -2771,9 +2778,12 @@ describe("moryn CLI", () => {
             safe_to_retry_sync?: boolean;
           };
         };
+        checks: Array<{ name: string; ok: boolean; severity: string; message: string }>;
+        checks_by_name: Record<string, { name: string; ok: boolean; severity: string; message: string }>;
         readiness?: {
           safe_to_start: boolean;
           blocking_checks: string[];
+          blocking_checks_by_name: Record<string, { name: string; ok: boolean; severity: string; message: string }>;
           recommended_action: string;
           next_tool: string;
           next_command: string;
@@ -2850,6 +2860,9 @@ describe("moryn CLI", () => {
       expect(parsedDoctor.readiness).toEqual({
         safe_to_start: false,
         blocking_checks: ["sync"],
+        blocking_checks_by_name: {
+          sync: parsedDoctor.checks_by_name.sync
+        },
         recommended_action: "resolve_sync_conflict_before_lifecycle",
         next_tool: "sync_status",
         next_command: "moryn sync --status",
@@ -2861,6 +2874,12 @@ describe("moryn CLI", () => {
         next_workflow: parsedDoctor.next.workflow,
         next_arguments: {}
       });
+      expect(parsedDoctor.checks_by_name.sync).toEqual(expect.objectContaining({
+        name: "sync",
+        ok: false,
+        severity: "warning",
+        message: "Sync has unresolved Git conflicts; inspect sync_status and resolve conflicts before lifecycle writes."
+      }));
 
       const entered = await exec("node", [
         "--import", tsxLoader, cliPath, "--store", storeB,

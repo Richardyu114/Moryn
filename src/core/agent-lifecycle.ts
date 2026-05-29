@@ -733,6 +733,7 @@ function doctorReadiness(
     workflow?: ReturnType<typeof singleNextWorkflow>;
   }
 ) {
+  const blockingChecks = checks.filter((check) => !check.ok && check.severity === "warning");
   const nextArguments = next.arguments ?? {};
   const nextInterfaces = next.interfaces ?? {
     cli: {
@@ -754,9 +755,8 @@ function doctorReadiness(
 
   return {
     safe_to_start: next.tool === "agent_start",
-    blocking_checks: checks
-      .filter((check) => !check.ok && check.severity === "warning")
-      .map((check) => check.name),
+    blocking_checks: blockingChecks.map((check) => check.name),
+    blocking_checks_by_name: Object.fromEntries(blockingChecks.map((check) => [check.name, check])),
     recommended_action: next.recommended_action,
     next_tool: next.tool,
     next_command: next.command,
@@ -1379,6 +1379,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
       remote_matches: remoteMatches
     },
     checks,
+    checks_by_name: Object.fromEntries(checks.map((check) => [check.name, check])),
     readiness: doctorReadiness(checks, next),
     next
   };

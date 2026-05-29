@@ -1742,9 +1742,12 @@ describe("MCP stdio server", () => {
           store: { initialized: boolean };
           project: { ok: boolean; project_id?: string };
           sync: { configured: boolean; expected_remote?: string };
+          checks: Array<{ name: string; ok: boolean; severity: string; message: string }>;
+          checks_by_name: Record<string, { name: string; ok: boolean; severity: string; message: string }>;
           readiness?: {
             safe_to_start: boolean;
             blocking_checks: string[];
+            blocking_checks_by_name: Record<string, { name: string; ok: boolean; severity: string; message: string }>;
             recommended_action: string;
             next_tool: string;
             next_command: string;
@@ -1791,6 +1794,7 @@ describe("MCP stdio server", () => {
         expect(doctor.readiness).toEqual({
           safe_to_start: true,
           blocking_checks: [],
+          blocking_checks_by_name: {},
           recommended_action: "call_agent_start",
           next_tool: "agent_start",
           next_command: doctor.next.command,
@@ -1813,6 +1817,9 @@ describe("MCP stdio server", () => {
             agent: { client: "gemini", session_id: "gemini-doctor" }
           }
         });
+        expect(doctor.checks_by_name.store).toEqual(doctor.checks.find((check) => check.name === "store"));
+        expect(doctor.checks_by_name.project).toEqual(doctor.checks.find((check) => check.name === "project"));
+        expect(doctor.checks_by_name.sync).toEqual(doctor.checks.find((check) => check.name === "sync"));
         expect(doctor.next.command).toContain("moryn agent start");
         expect(doctor.next.actions).toContainEqual(expect.objectContaining({
           action: "run_lifecycle_smoke",
@@ -1871,9 +1878,12 @@ describe("MCP stdio server", () => {
               safe_to_retry_sync?: boolean;
             };
           };
+          checks: Array<{ name: string; ok: boolean; severity: string; message: string }>;
+          checks_by_name: Record<string, { name: string; ok: boolean; severity: string; message: string }>;
           readiness?: {
             safe_to_start: boolean;
             blocking_checks: string[];
+            blocking_checks_by_name: Record<string, { name: string; ok: boolean; severity: string; message: string }>;
             recommended_action: string;
             next_tool: string;
             next_command: string;
@@ -1950,6 +1960,9 @@ describe("MCP stdio server", () => {
         expect(doctor.readiness).toEqual({
           safe_to_start: false,
           blocking_checks: ["sync"],
+          blocking_checks_by_name: {
+            sync: doctor.checks_by_name.sync
+          },
           recommended_action: "resolve_sync_conflict_before_lifecycle",
           next_tool: "sync_status",
           next_command: "moryn sync --status",
@@ -1961,6 +1974,12 @@ describe("MCP stdio server", () => {
           next_workflow: doctor.next.workflow,
           next_arguments: {}
         });
+        expect(doctor.checks_by_name.sync).toEqual(expect.objectContaining({
+          name: "sync",
+          ok: false,
+          severity: "warning",
+          message: "Sync has unresolved Git conflicts; inspect sync_status and resolve conflicts before lifecycle writes."
+        }));
 
         const entered = parseTextContent(await client.callTool({
           name: "agent_enter",

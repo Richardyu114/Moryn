@@ -136,6 +136,9 @@ Deliverables:
   without scanning `changes[]`.
 - Done: `agent_doctor` returns an explicit readiness summary so agents do not
   infer startup safety from raw checks.
+- Done: `agent_doctor` exposes `checks_by_name` and
+  `readiness.blocking_checks_by_name`, so agents can inspect setup blockers by
+  check name without scanning `checks[]`.
 - Done: Generated snapshots/indexes are excluded from sync by default.
 - Done: Local `config.json` is excluded from sync to avoid device identity conflicts.
 - Done: Post-pull snapshot/index rebuild runs after successful pull.
@@ -173,6 +176,9 @@ Deliverables:
   required usage condition, required fields, transport interfaces, and
   `workflow` plus arguments so agents can start or recover without recombining
   nested objects.
+- Done: `agent_doctor.readiness.blocking_checks_by_name` mirrors blocking
+  warning checks by name, so recovery hosts can inspect the exact blocker behind
+  `blocking_checks[]` without array matching.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.
