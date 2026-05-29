@@ -2445,6 +2445,15 @@ describe("moryn CLI", () => {
       const parsedStart = JSON.parse(start.stdout) as {
         refresh: { changes: Array<{ summary: string; importance: string }> };
         handoff: {
+          next_action: {
+            recommended_action: string;
+            tool: string;
+            command: string;
+            arguments: Record<string, unknown>;
+            safe_to_run: boolean;
+            required_when: string;
+            required_fields: string[];
+          };
           active_sessions: Array<{
             record_id: string;
             text: string;
@@ -2478,6 +2487,8 @@ describe("moryn CLI", () => {
         })
       ]);
       expectHandoffEntryNextAction(parsedStart.handoff.active_sessions[0]!.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn");
+      expect(parsedStart.handoff.next_action).toEqual(parsedStart.handoff.active_sessions[0]!.next_action);
+      expectHandoffEntryNextAction(parsedStart.handoff.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn");
       expect(parsedStart.handoff.inbox).toEqual([]);
     });
   }, 30000);

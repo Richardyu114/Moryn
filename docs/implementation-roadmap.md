@@ -113,6 +113,9 @@ Deliverables:
 - Done: `agent_start.handoff.inbox[]` and `handoff.active_sessions[]` now expose
   safe `recall` `next_action` metadata, so agents can inspect full handoff or
   status records without guessing CLI/MCP arguments.
+- Done: `agent_start.handoff.next_action` now mirrors the prioritized active
+  session or inbox recall action, so top-level handoff recommendations are
+  directly executable.
 - Done: `agent_doctor` returns an explicit readiness summary so agents do not
   infer startup safety from raw checks.
 - Done: Generated snapshots/indexes are excluded from sync by default.

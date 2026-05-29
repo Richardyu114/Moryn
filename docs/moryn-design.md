@@ -952,7 +952,9 @@ recommended action so agents do not have to infer coordination state from
 `recall` call that fetches the full session summary or status record, with
 CLI/MCP interfaces, `safety`, `required_when`, and workflow metadata. Agents
 should follow that action instead of manually composing a recall call from the
-handoff prose. The
+handoff prose. When `handoff.recommended_action` is not `continue_current_task`,
+top-level `handoff.next_action` mirrors the first active-session action or, if no
+active sessions exist, the first inbox action. The
 `next.actions` field returns machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP
 tool name, CLI command template, required fields, prefilled arguments, and
@@ -1105,7 +1107,7 @@ Agents should follow this contract:
 9. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions` for finish or refresh.
 10. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
 11. For each reportable non-raw refresh change that needs full context, follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
-12. For each handoff entry that needs full context, follow `handoff.inbox[].next_action` or `handoff.active_sessions[].next_action` instead of manually composing a `recall` call.
+12. When `agent_start.handoff.next_action` exists, use it for the prioritized recall action; for a different handoff entry, follow `handoff.inbox[].next_action` or `handoff.active_sessions[].next_action` instead of manually composing a `recall` call.
 13. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
 14. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
 15. Write raw notes as `agent_note`, not canonical memory.

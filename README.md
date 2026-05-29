@@ -388,7 +388,10 @@ recent in-progress status checkpoints from other sessions. Active sessions are
 time-bounded and include `active_until`, so stale status records do not look
 like live work forever. Each handoff entry includes a safe `next_action` for the
 exact `recall` call that retrieves the full handoff or status record, including
-CLI/MCP interfaces, `safety`, `required_when`, and workflow metadata. If startup,
+CLI/MCP interfaces, `safety`, `required_when`, and workflow metadata. When a
+handoff exists, top-level `handoff.next_action` points to the highest-priority
+entry action, preferring active sessions before inbox summaries, so agents can
+act on `handoff.recommended_action` without choosing a record from prose. If startup,
 status, or finish can continue locally while
 sync is unavailable, their `sync.*_error` strings are paired with
 `sync.*_error_details` objects containing `code`, `recommended_action`, and
@@ -613,7 +616,8 @@ returns a small boot context package, and reports recent changes as notices or
 interrupts. Agents should prefer `agent_start` over manually composing
 `sync_pull`, `boot`, and `refresh`. Read `agent_start.handoff.active_sessions`
 before starting overlapping work, and read `agent_start.handoff.inbox` before
-continuing from another agent's final handoff; follow a handoff entry's
+continuing from another agent's final handoff; follow `agent_start.handoff.next_action`
+for the first prioritized recall action or a specific handoff entry's
 `next_action` when the full session record is needed. `agent_start.next.actions`
 includes machine-readable templates for the next safe lifecycle calls,
 including the exact CLI command template, MCP tool name, `required_when`,

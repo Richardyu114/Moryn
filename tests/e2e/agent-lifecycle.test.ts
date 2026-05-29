@@ -302,6 +302,8 @@ describe("agent lifecycle", () => {
         active_sessions: []
       });
       expectHandoffEntryNextAction(geminiStart.handoff.inbox[0]!.next_action, codexFinish.record.id, "moryn");
+      expect(geminiStart.handoff.next_action).toEqual(geminiStart.handoff.inbox[0]!.next_action);
+      expectHandoffEntryNextAction(geminiStart.handoff.next_action!, codexFinish.record.id, "moryn");
       expect(geminiStart.boot.recent_changes.map((record) => record.content.text)).toContain("Codex finished lifecycle wiring and left a Gemini handoff.");
       expect(geminiStart.next.required_end_action).toBe("call agent_finish with a session_summary");
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
@@ -563,6 +565,8 @@ describe("agent lifecycle", () => {
         })
       ]);
       expectHandoffEntryNextAction(start.handoff.active_sessions[0]!.next_action, status.record.id, "moryn");
+      expect(start.handoff.next_action).toEqual(start.handoff.active_sessions[0]!.next_action);
+      expectHandoffEntryNextAction(start.handoff.next_action!, status.record.id, "moryn");
       expect(start.handoff.inbox).toEqual([]);
       expect(start.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
@@ -1118,6 +1122,7 @@ describe("agent lifecycle", () => {
         active_sessions: [],
         inbox: []
       });
+      expect(entered.start.handoff.next_action).toBeUndefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }

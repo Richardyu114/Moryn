@@ -1292,6 +1292,15 @@ describe("MCP stdio server", () => {
             sync: { pull?: { pulled?: boolean } };
             refresh: { cursor: string; changes: Array<{ summary: string; importance: string }> };
             handoff: {
+              next_action: {
+                recommended_action: string;
+                tool: string;
+                command: string;
+                arguments: Record<string, unknown>;
+                safe_to_run: boolean;
+                required_when: string;
+                required_fields: string[];
+              };
               inbox: Array<{
                 record_id: string;
                 text: string;
@@ -1332,6 +1341,8 @@ describe("MCP stdio server", () => {
             })
           ]);
           expectHandoffEntryNextAction(start.handoff.inbox[0]!.next_action, start.handoff.inbox[0]!.record_id, "moryn");
+          expect(start.handoff.next_action).toEqual(start.handoff.inbox[0]!.next_action);
+          expectHandoffEntryNextAction(start.handoff.next_action, start.handoff.inbox[0]!.record_id, "moryn");
           expect(start.handoff.active_sessions).toEqual([]);
           expect(start.next.actions).toContainEqual(expect.objectContaining({
             action: "publish_status",

@@ -1127,6 +1127,7 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
   active_sessions: AgentHandoffEntry[];
   active_session_ttl_minutes: number;
   recommended_action: "continue_current_task" | "review_handoff_inbox" | "coordinate_with_active_sessions";
+  next_action?: HandoffEntryNextAction;
 } {
   const sorted = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id));
   const finalSummaries = sorted.filter((record) => record.type !== "status");
@@ -1158,6 +1159,7 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
     .filter((record) => !isSameAgentSession(record.source, input.agent))
     .slice(0, 5)
     .map((record) => handoffEntry(record, projectId, "review_handoff_summary"));
+  const nextAction = activeSessions[0]?.next_action ?? inbox[0]?.next_action;
 
   return {
     inbox,
@@ -1167,7 +1169,8 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
       ? "coordinate_with_active_sessions"
       : inbox.length
         ? "review_handoff_inbox"
-        : "continue_current_task"
+        : "continue_current_task",
+    ...(nextAction ? { next_action: nextAction } : {})
   };
 }
 
