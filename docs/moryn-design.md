@@ -988,11 +988,17 @@ store. Their `recommended_action` values point agents to project initialization,
 project listing, or corrected retry arguments. These error envelopes also carry
 `error.next_action` with `tool`, `command`, `arguments`, `interfaces`,
 `required_when`, `required_fields`, `required_fields_by_name`,
-`argument_sources`, `workflow`, `safety`, and `safe_to_run`, so agents can
-recover from the envelope without parsing prose or guessing placeholder values.
+`argument_sources`, `selection_sources`, `workflow`, `safety`, and
+`safe_to_run`, so agents can recover from the envelope without parsing prose or
+guessing placeholder values.
 When a recovery action still needs authored setup input, `argument_sources`
 maps placeholders such as `remote`, `path`, or `project_id` to
 `user_input.remote`, `user_input.path`, or `user_input.project_id`.
+`next_action.selection_sources` names both `error.next_action` and
+`warning.next_action` container paths plus keyed `required_fields_by_name`,
+`argument_sources`, and `workflow.phases_by_name` paths, so hosts can locate
+the recovery contract without inferring whether the action came from an error
+or a warning.
 Most recovery actions are single-step workflows;
 `RECORD_NOT_FOUND` uses a two-step workflow so agents first run the safe
 `list_recent` action and then retry the original tool with the selected returned
@@ -1003,8 +1009,9 @@ without scanning workflow phases. The ordered
 Normal `list_recent` responses also expose `selection_sources` for the keyed
 record and record-id paths.
 Warning recovery actions use the same `warning.next_action.interfaces`
-shape, `warning.next_action.safety`, and explicit
-`warning.next_action.workflow` metadata. Candidate-promotion warnings include
+shape, `warning.next_action.safety`, `warning.next_action.selection_sources`,
+and explicit `warning.next_action.workflow` metadata. Candidate-promotion
+warnings include
 `candidate_record_id` plus `argument_sources.record_id: "write.record.id"`;
 their workflow phase uses `write.record.id` as the `record_id` replacement
 source, so agents promote the candidate returned by the original write instead

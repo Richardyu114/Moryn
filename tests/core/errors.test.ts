@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
 
+const NEXT_ACTION_SELECTION_SOURCES = {
+  error_next_action: "error.next_action",
+  warning_next_action: "warning.next_action",
+  error_required_field: "error.next_action.required_fields_by_name.<field>",
+  warning_required_field: "warning.next_action.required_fields_by_name.<field>",
+  error_argument_source: "error.next_action.argument_sources.<field>",
+  warning_argument_source: "warning.next_action.argument_sources.<field>",
+  error_workflow_phase: "error.next_action.workflow.phases_by_name.<phase>",
+  warning_workflow_phase: "warning.next_action.workflow.phases_by_name.<phase>"
+};
+
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
     ...workflow,
@@ -22,6 +33,12 @@ function expectNextActionInterfaces(action: {
     tool: action.tool,
     arguments: action.arguments
   });
+}
+
+function expectNextActionSelectionSources(action: {
+  selection_sources?: Record<string, string>;
+}) {
+  expect(action.selection_sources).toEqual(NEXT_ACTION_SELECTION_SOURCES);
 }
 
 function expectNextActionWorkflow(action: {
@@ -142,6 +159,7 @@ describe("error envelopes", () => {
     });
     expectNextActionInterfaces(envelope.error.next_action!);
     expectNextActionWorkflow(envelope.error.next_action!);
+    expectNextActionSelectionSources(envelope.error.next_action!);
   });
 
   it("points authored recovery placeholders at user input sources", () => {
@@ -151,6 +169,7 @@ describe("error envelopes", () => {
       required_fields: ["remote"],
       argument_sources: { remote: "user_input.remote" }
     });
+    expectNextActionSelectionSources(syncSetup.error.next_action!);
 
     const invalidProjectConfig = toErrorEnvelope(new Error("Invalid project config: project_id must be non-empty"));
     expect(invalidProjectConfig.error.next_action).toMatchObject({

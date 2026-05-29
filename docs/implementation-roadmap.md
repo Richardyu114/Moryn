@@ -183,6 +183,10 @@ Deliverables:
   paths when `next.actions_by_id` is present, so hosts do not infer doctor
   candidate-action paths from other lifecycle responses.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
+  `selection_sources` for their error/warning containers, keyed required
+  fields, keyed argument sources, and keyed workflow phases, so recovery hosts
+  do not infer where failure-recovery metadata lives.
+- Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose

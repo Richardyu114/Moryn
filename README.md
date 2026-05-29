@@ -629,9 +629,9 @@ explicit project mistakes: `PROJECT_PATH_NOT_FOUND` for missing paths and
 whether to initialize, list projects, or retry with corrected arguments. These
 error envelopes also include a machine-readable `error.next_action` with
 `tool`, `command`, `arguments`, `interfaces`, `required_when`,
-`required_fields`, `required_fields_by_name`, `argument_sources`, `workflow`,
-`safety`, and `safe_to_run`, so agents can recover without parsing prose or
-guessing placeholder values.
+`required_fields`, `required_fields_by_name`, `argument_sources`,
+`selection_sources`, `workflow`, `safety`, and `safe_to_run`, so agents can
+recover without parsing prose or guessing placeholder values.
 When a recovery action still needs authored setup input, the same
 `argument_sources` map names that source, such as `user_input.remote`,
 `user_input.path`, or `user_input.project_id`.
@@ -639,6 +639,10 @@ When a recovery action still needs authored setup input, the same
 CLI/MCP shape as lifecycle action templates. Most recovery actions have a
 single-step `workflow`; missing-record recovery is two-step so hosts run
 `list_recent`, choose a returned id, and retry the original tool with that id.
+`next_action.selection_sources` names both `error.next_action` and
+`warning.next_action` container paths plus keyed `required_fields_by_name`,
+`argument_sources`, and `workflow.phases_by_name` paths, so recovery hosts do
+not infer where a returned action lives.
 The retry phase and top-level `argument_sources` point replacement fields at
 `list_recent.records_by_id.<record_id>.id`; `list_recent.records[].id` remains
 available as the ordered view. `list_recent.selection_sources` names the same

@@ -12,6 +12,17 @@ export interface MorynErrorEnvelope {
   };
 }
 
+interface NextActionSelectionSources {
+  error_next_action: "error.next_action";
+  warning_next_action: "warning.next_action";
+  error_required_field: "error.next_action.required_fields_by_name.<field>";
+  warning_required_field: "warning.next_action.required_fields_by_name.<field>";
+  error_argument_source: "error.next_action.argument_sources.<field>";
+  warning_argument_source: "warning.next_action.argument_sources.<field>";
+  error_workflow_phase: "error.next_action.workflow.phases_by_name.<phase>";
+  warning_workflow_phase: "warning.next_action.workflow.phases_by_name.<phase>";
+}
+
 export interface MorynErrorNextAction {
   recommended_action: string;
   tool: string;
@@ -23,6 +34,7 @@ export interface MorynErrorNextAction {
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
   workflow: NextActionWorkflow;
   safety: ActionSafety;
+  selection_sources: NextActionSelectionSources;
   rejected_arguments?: Record<string, unknown>;
   candidate_project_ids?: string[];
   candidate_record_id?: string;
@@ -87,6 +99,16 @@ const INIT_OR_CORRECT_PROJECT_WHEN = "After a project_path does not exist, befor
 const LIST_PROJECTS_FOR_ID_WHEN = "After a project_id is rejected, before retrying with a known project id.";
 const CONFIRM_RETRY_WHEN = "After the user explicitly confirms the high-risk change that was rejected.";
 export const PROMOTE_CANDIDATE_WHEN = "After the user explicitly confirms that the candidate should become canonical.";
+const NEXT_ACTION_SELECTION_SOURCES: NextActionSelectionSources = {
+  error_next_action: "error.next_action",
+  warning_next_action: "warning.next_action",
+  error_required_field: "error.next_action.required_fields_by_name.<field>",
+  warning_required_field: "warning.next_action.required_fields_by_name.<field>",
+  error_argument_source: "error.next_action.argument_sources.<field>",
+  warning_argument_source: "warning.next_action.argument_sources.<field>",
+  error_workflow_phase: "error.next_action.workflow.phases_by_name.<phase>",
+  warning_workflow_phase: "warning.next_action.workflow.phases_by_name.<phase>"
+};
 const USER_INPUT_ARGUMENT_SOURCES: Record<string, string> = {
   path: "user_input.path",
   project_id: "user_input.project_id",
@@ -128,7 +150,13 @@ export function withNextActionMetadata<T extends {
   safe_to_run: boolean;
 }>(
   action: T
-): T & { interfaces: ActionInterfaces<T["arguments"]>; required_fields_by_name: Record<string, RequiredFieldMetadata>; safety: ActionSafety; workflow: NextActionWorkflow } {
+): T & {
+  interfaces: ActionInterfaces<T["arguments"]>;
+  required_fields_by_name: Record<string, RequiredFieldMetadata>;
+  safety: ActionSafety;
+  selection_sources: NextActionSelectionSources;
+  workflow: NextActionWorkflow;
+} {
   const actionWithRequiredFields = withRequiredFieldsByName(action);
   return {
     ...actionWithRequiredFields,
@@ -142,6 +170,7 @@ export function withNextActionMetadata<T extends {
       }
     },
     safety: actionSafety(action),
+    selection_sources: NEXT_ACTION_SELECTION_SOURCES,
     workflow: withPhasesByName({
       version: 1,
       start: "next_action",

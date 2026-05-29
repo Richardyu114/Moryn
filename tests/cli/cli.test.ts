@@ -13,6 +13,16 @@ const cliPath = join(repoRoot, "src/cli.ts");
 const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
+const NEXT_ACTION_SELECTION_SOURCES = {
+  error_next_action: "error.next_action",
+  warning_next_action: "warning.next_action",
+  error_required_field: "error.next_action.required_fields_by_name.<field>",
+  warning_required_field: "warning.next_action.required_fields_by_name.<field>",
+  error_argument_source: "error.next_action.argument_sources.<field>",
+  warning_argument_source: "warning.next_action.argument_sources.<field>",
+  error_workflow_phase: "error.next_action.workflow.phases_by_name.<phase>",
+  warning_workflow_phase: "warning.next_action.workflow.phases_by_name.<phase>"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -58,6 +68,12 @@ function expectActionInterfaces(action: {
     tool: action.tool,
     arguments: action.arguments
   });
+}
+
+function expectNextActionSelectionSources(action: {
+  selection_sources?: Record<string, string>;
+}) {
+  expect(action.selection_sources).toEqual(NEXT_ACTION_SELECTION_SOURCES);
 }
 
 function expectRecoveryWorkflow(action: {
@@ -4463,6 +4479,7 @@ describe("moryn CLI", () => {
             arguments: Record<string, unknown>;
             argument_sources?: Record<string, string>;
             candidate_record_id?: string;
+            selection_sources?: Record<string, string>;
             required_when?: string;
             required_fields: string[];
             workflow?: Record<string, unknown>;
@@ -4490,6 +4507,7 @@ describe("moryn CLI", () => {
         safe_to_run: false
       });
       expectCandidatePromoteWorkflow(parsedWrite.warning!.next_action!);
+      expectNextActionSelectionSources(parsedWrite.warning!.next_action!);
 
       const memoryPreference = await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,
