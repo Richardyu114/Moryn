@@ -537,8 +537,11 @@ explicit project mistakes: `PROJECT_PATH_NOT_FOUND` for missing paths and
 `PROJECT_ID_NOT_FOUND` for unknown ids, with `recommended_action` telling agents
 whether to initialize, list projects, or retry with corrected arguments. These
 error envelopes also include a machine-readable `error.next_action` with
-`tool`, `command`, `arguments`, `required_fields`, and `safe_to_run`, so agents
-can recover without parsing prose or guessing placeholder values. Uninitialized
+`tool`, `command`, `arguments`, `interfaces`, `required_fields`, and
+`safe_to_run`, so agents can recover without parsing prose or guessing
+placeholder values. `error.next_action.interfaces` and
+`warning.next_action.interfaces` use the same CLI/MCP shape as lifecycle action
+templates. Uninitialized
 store errors return an `init` next action with
 `safe_to_run: false`, because it creates local store files. Confirmation errors
 from `promote` and `revise` return a retry action with `confirmed: true` and

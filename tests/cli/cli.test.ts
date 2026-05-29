@@ -740,7 +740,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("INVALID_ARGUMENT");
         expect(parsed.error.message).toContain("project_id is required for project scope");
         expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "discover_project_context_before_project_scoped_write",
           tool: "project_list",
           command: "moryn project list",
@@ -1569,7 +1569,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("SYNC_CONFLICT");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("inspect Git sync state before retrying");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "inspect_sync_conflict_before_retrying",
           tool: "sync_status",
           command: "moryn sync --status",
@@ -2273,7 +2273,7 @@ describe("moryn CLI", () => {
         };
         expect(parsed.error.code).toBe("SYNC_CONFLICT");
         expect(parsed.error.message).toBe("Sync conflict: resolve Git conflicts before lifecycle writes");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "inspect_sync_conflict_before_retrying",
           tool: "sync_status",
           command: "moryn sync --status",
@@ -2319,7 +2319,7 @@ describe("moryn CLI", () => {
           };
           expect(parsed.error.code).toBe("SYNC_CONFLICT");
           expect(parsed.error.message).toBe("Sync conflict: resolve Git conflicts before lifecycle writes");
-          expect(parsed.error.next_action).toEqual({
+          expect(parsed.error.next_action).toMatchObject({
             recommended_action: "inspect_sync_conflict_before_retrying",
             tool: "sync_status",
             command: "moryn sync --status",
@@ -2626,7 +2626,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("INVALID_PROJECT_CONFIG");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("fix .moryn.json or pass an explicit project id");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
           tool: "project_init",
           command: `moryn project init --path ${project} --repair`,
@@ -2775,7 +2775,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.message).toContain("Project path does not exist");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("run moryn project init --path <path> for a new project or retry with the correct --project/--project-id");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "initialize_project_or_retry_corrected_context",
           tool: "project_init",
           command: `moryn project init --path ${missingProject}`,
@@ -2881,7 +2881,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.message).toContain("Project id is not known in this store");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with a known --project-id");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "list_projects_and_retry_with_known_project_id",
           tool: "project_list",
           command: "moryn project list",
@@ -2960,7 +2960,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("PROJECT_ID_CONFLICT");
         expect(parsed.error.message).toContain("Project id conflict");
         expect(parsed.error.recommended_action).toBe("pass the project id from .moryn.json or update the project config");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "retry_with_project_config_id_or_update_project_config",
           tool: "agent_enter",
           command: "moryn agent enter --project-id moryn",
@@ -3012,7 +3012,7 @@ describe("moryn CLI", () => {
           expect(parsed.error.code).toBe("PROJECT_CONTEXT_REQUIRED");
           expect(parsed.error.message).toContain("Project context required");
           expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with --project-id or --project");
-          expect(parsed.error.next_action).toEqual({
+          expect(parsed.error.next_action).toMatchObject({
             recommended_action: "discover_projects_before_lifecycle_write",
             tool: "project_list",
             command: "moryn project list",
@@ -3160,7 +3160,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("INVALID_STORE_CONFIG");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("fix or repair config.json, then run moryn init");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "repair_local_store_config",
           tool: "init",
           command: "moryn init --repair",
@@ -3223,7 +3223,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("RECORD_NOT_FOUND");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("check the record id or call recall/list-recent to find it");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "list_recent_records_and_retry_with_known_record_id",
           tool: "list_recent",
           command: "moryn list-recent",
@@ -3265,7 +3265,7 @@ describe("moryn CLI", () => {
       };
       expect(parsedWrite.record.state).toBe("candidate");
       expect(parsedWrite.warning?.code).toBe("CONFIRMATION_REQUIRED");
-      expect(parsedWrite.warning?.next_action).toEqual({
+      expect(parsedWrite.warning?.next_action).toMatchObject({
         recommended_action: "ask_user_then_promote_candidate",
         tool: "promote",
         command: `moryn promote ${parsedWrite.record.id} --state canonical --reason 'User confirmed' --confirm`,
@@ -3324,7 +3324,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "ask_user_then_retry_with_confirmation",
           tool: "promote",
           command: `moryn promote ${parsedWrite.record.id} --state canonical --reason 'User confirmed' --confirm`,
@@ -3418,7 +3418,7 @@ describe("moryn CLI", () => {
 
       expect(parsed.record.state).toBe("candidate");
       expect(parsed.warning?.code).toBe("CONFIRMATION_REQUIRED");
-      expect(parsed.warning?.next_action).toEqual({
+      expect(parsed.warning?.next_action).toMatchObject({
         recommended_action: "ask_user_then_promote_candidate",
         tool: "promote",
         command: expect.stringMatching(/^moryn promote rec_[a-f0-9]+ --state canonical --reason 'User confirmed' --confirm$/),
@@ -3495,7 +3495,7 @@ describe("moryn CLI", () => {
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "ask_user_then_retry_with_confirmation",
           tool: "promote",
           command: `moryn promote ${candidateId} --state canonical --reason 'Agent inferred this replacement' --confirm`,
@@ -3592,7 +3592,7 @@ describe("moryn CLI", () => {
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(parsed.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "ask_user_then_retry_with_confirmation",
           tool: "revise",
           command: `moryn revise ${targetId} --set type=decision --set 'content.text=Use SQLite as the source of truth.' --reason 'Agent inferred this replacement' --confirm`,
@@ -3658,7 +3658,7 @@ describe("moryn CLI", () => {
           expect(parsed.error.code).toBe("STORE_NOT_INITIALIZED");
           expect(parsed.error.recoverable).toBe(true);
           expect(parsed.error.recommended_action).toBe("run moryn init");
-          expect(parsed.error.next_action).toEqual({
+          expect(parsed.error.next_action).toMatchObject({
             recommended_action: "initialize_store",
             tool: "init",
             command: "moryn init",
@@ -3721,7 +3721,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.code).toBe("SYNC_REMOTE_UNAVAILABLE");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("continue locally and retry sync later");
-        expect(parsed.error.next_action).toEqual({
+        expect(parsed.error.next_action).toMatchObject({
           recommended_action: "check_sync_status_before_retrying_remote_operation",
           tool: "sync_status",
           command: "moryn sync --status",

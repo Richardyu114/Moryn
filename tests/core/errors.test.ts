@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
 
+function expectNextActionInterfaces(action: {
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  interfaces?: {
+    cli?: { command?: string };
+    mcp?: { tool?: string; arguments?: Record<string, unknown> };
+  };
+}) {
+  expect(action.interfaces?.cli).toEqual({ command: action.command });
+  expect(action.interfaces?.mcp).toEqual({
+    tool: action.tool,
+    arguments: action.arguments
+  });
+}
+
 describe("error envelopes", () => {
   it("classifies sensitive content failures with the documented error code", () => {
     const envelope = toErrorEnvelope(new Error("Sensitive content detected: event must be redacted before append"));
@@ -54,6 +70,7 @@ describe("error envelopes", () => {
         }
       }
     });
+    expectNextActionInterfaces(envelope.error.next_action!);
   });
 
   it("returns a safe status check action when remote sync is unavailable", () => {
@@ -173,6 +190,7 @@ describe("error envelopes", () => {
         }
       }
     });
+    expectNextActionInterfaces(envelope.error.next_action!);
   });
 
   it("classifies invalid replay failures as invalid record history", () => {
@@ -229,7 +247,8 @@ describe("error envelopes", () => {
   });
 
   it("returns machine-readable recovery actions for project context failures", () => {
-    expect(toErrorEnvelope(new Error("Project path does not exist: /tmp/missing. Run project_init for a new project, or pass the correct project_path/project_id."))).toMatchObject({
+    const missingPath = toErrorEnvelope(new Error("Project path does not exist: /tmp/missing. Run project_init for a new project, or pass the correct project_path/project_id."));
+    expect(missingPath).toMatchObject({
       ok: false,
       error: {
         code: "PROJECT_PATH_NOT_FOUND",
@@ -243,8 +262,10 @@ describe("error envelopes", () => {
         }
       }
     });
+    expectNextActionInterfaces(missingPath.error.next_action!);
 
-    expect(toErrorEnvelope(new Error("Project id is not known in this store: morym. Run project_list and choose one of: moryn."))).toMatchObject({
+    const unknownProjectId = toErrorEnvelope(new Error("Project id is not known in this store: morym. Run project_list and choose one of: moryn."));
+    expect(unknownProjectId).toMatchObject({
       ok: false,
       error: {
         code: "PROJECT_ID_NOT_FOUND",
@@ -260,8 +281,10 @@ describe("error envelopes", () => {
         }
       }
     });
+    expectNextActionInterfaces(unknownProjectId.error.next_action!);
 
-    expect(toErrorEnvelope(new Error("Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config."))).toMatchObject({
+    const projectIdConflict = toErrorEnvelope(new Error("Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config."));
+    expect(projectIdConflict).toMatchObject({
       ok: false,
       error: {
         code: "PROJECT_ID_CONFLICT",
@@ -277,8 +300,10 @@ describe("error envelopes", () => {
         }
       }
     });
+    expectNextActionInterfaces(projectIdConflict.error.next_action!);
 
-    expect(toErrorEnvelope(new Error("Project context required: this store already has known projects (moryn). Run project_list or agent_enter, then retry with project_path/project_id."))).toMatchObject({
+    const missingContext = toErrorEnvelope(new Error("Project context required: this store already has known projects (moryn). Run project_list or agent_enter, then retry with project_path/project_id."));
+    expect(missingContext).toMatchObject({
       ok: false,
       error: {
         code: "PROJECT_CONTEXT_REQUIRED",
@@ -293,5 +318,6 @@ describe("error envelopes", () => {
         }
       }
     });
+    expectNextActionInterfaces(missingContext.error.next_action!);
   });
 });

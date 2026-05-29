@@ -757,7 +757,7 @@ describe("MCP stdio server", () => {
         expect(result.ok).toBe(false);
         expect(result.error.code).toBe("SYNC_REMOTE_UNAVAILABLE");
         expect(result.error.recommended_action).toBe("continue locally and retry sync later");
-        expect(result.error.next_action).toEqual({
+        expect(result.error.next_action).toMatchObject({
           recommended_action: "check_sync_status_before_retrying_remote_operation",
           tool: "sync_status",
           command: "moryn sync --status",
@@ -816,7 +816,7 @@ describe("MCP stdio server", () => {
           expect(result.ok).toBe(false);
           expect(result.error.code).toBe("SYNC_CONFLICT");
           expect(result.error.recommended_action).toBe("inspect Git sync state before retrying");
-          expect(result.error.next_action).toEqual({
+          expect(result.error.next_action).toMatchObject({
             recommended_action: "inspect_sync_conflict_before_retrying",
             tool: "sync_status",
             command: "moryn sync --status",
@@ -1458,7 +1458,7 @@ describe("MCP stdio server", () => {
         };
         expect(parsedStart.error.code).toBe("SYNC_CONFLICT");
         expect(parsedStart.error.message).toBe("Sync conflict: resolve Git conflicts before lifecycle writes");
-        expect(parsedStart.error.next_action).toEqual({
+        expect(parsedStart.error.next_action).toMatchObject({
           recommended_action: "inspect_sync_conflict_before_retrying",
           tool: "sync_status",
           command: "moryn sync --status",
@@ -1505,7 +1505,7 @@ describe("MCP stdio server", () => {
           };
           expect(parsed.error.code).toBe("SYNC_CONFLICT");
           expect(parsed.error.message).toBe("Sync conflict: resolve Git conflicts before lifecycle writes");
-          expect(parsed.error.next_action).toEqual({
+          expect(parsed.error.next_action).toMatchObject({
             recommended_action: "inspect_sync_conflict_before_retrying",
             tool: "sync_status",
             command: "moryn sync --status",
@@ -1906,7 +1906,7 @@ describe("MCP stdio server", () => {
         expect(parsedStart.error.message).toContain("Project path does not exist");
         expect(parsedStart.error.recoverable).toBe(true);
         expect(parsedStart.error.recommended_action).toBe("run moryn project init --path <path> for a new project or retry with the correct --project/--project-id");
-        expect(parsedStart.error.next_action).toEqual({
+        expect(parsedStart.error.next_action).toMatchObject({
           recommended_action: "initialize_project_or_retry_corrected_context",
           tool: "project_init",
           command: `moryn project init --path ${missingProject}`,
@@ -2017,7 +2017,7 @@ describe("MCP stdio server", () => {
         expect(parsedStart.error.message).toContain("Project id is not known in this store");
         expect(parsedStart.error.recoverable).toBe(true);
         expect(parsedStart.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with a known --project-id");
-        expect(parsedStart.error.next_action).toEqual({
+        expect(parsedStart.error.next_action).toMatchObject({
           recommended_action: "list_projects_and_retry_with_known_project_id",
           tool: "project_list",
           command: "moryn project list",
@@ -2097,7 +2097,7 @@ describe("MCP stdio server", () => {
         expect(parsedStart.error.code).toBe("PROJECT_ID_CONFLICT");
         expect(parsedStart.error.message).toContain("Project id conflict");
         expect(parsedStart.error.recommended_action).toBe("pass the project id from .moryn.json or update the project config");
-        expect(parsedStart.error.next_action).toEqual({
+        expect(parsedStart.error.next_action).toMatchObject({
           recommended_action: "retry_with_project_config_id_or_update_project_config",
           tool: "agent_enter",
           command: "moryn agent enter --project-id moryn",
@@ -2171,7 +2171,7 @@ describe("MCP stdio server", () => {
           expect(parsed.error.code).toBe("PROJECT_CONTEXT_REQUIRED");
           expect(parsed.error.message).toContain("Project context required");
           expect(parsed.error.recommended_action).toBe("run moryn project list or moryn agent enter, then retry with --project-id or --project");
-          expect(parsed.error.next_action).toEqual({
+          expect(parsed.error.next_action).toMatchObject({
             recommended_action: "discover_projects_before_lifecycle_write",
             tool: "project_list",
             command: "moryn project list",
@@ -2599,7 +2599,7 @@ describe("MCP stdio server", () => {
 
         expect(result.ok).toBe(false);
         expect(result.error.code).toBe("STORE_NOT_INITIALIZED");
-        expect(result.error.next_action).toEqual({
+        expect(result.error.next_action).toMatchObject({
           recommended_action: "initialize_store",
           tool: "init",
           command: "moryn init",
@@ -2639,7 +2639,7 @@ describe("MCP stdio server", () => {
         expect(result.ok).toBe(false);
         expect(result.error.code).toBe("INVALID_STORE_CONFIG");
         expect(result.error.recommended_action).toBe("fix or repair config.json, then run moryn init");
-        expect(result.error.next_action).toEqual({
+        expect(result.error.next_action).toMatchObject({
           recommended_action: "repair_local_store_config",
           tool: "init",
           command: "moryn init --repair",
@@ -2706,7 +2706,7 @@ describe("MCP stdio server", () => {
         expect(result.error.code).toBe("RECORD_NOT_FOUND");
         expect(result.error.recoverable).toBe(true);
         expect(result.error.recommended_action).toBe("check the record id or call recall/list-recent to find it");
-        expect(result.error.next_action).toEqual({
+        expect(result.error.next_action).toMatchObject({
           recommended_action: "list_recent_records_and_retry_with_known_record_id",
           tool: "list_recent",
           command: "moryn list-recent",
@@ -2839,7 +2839,7 @@ describe("MCP stdio server", () => {
         };
         expect(write.record.state).toBe("candidate");
         expect(write.warning?.code).toBe("CONFIRMATION_REQUIRED");
-        expect(write.warning?.next_action).toEqual({
+        expect(write.warning?.next_action).toMatchObject({
           recommended_action: "ask_user_then_promote_candidate",
           tool: "promote",
           command: `moryn promote ${write.record.id} --state canonical --reason 'User confirmed' --confirm`,
@@ -2892,7 +2892,7 @@ describe("MCP stdio server", () => {
         expect(rejected.ok).toBe(false);
         expect(rejected.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(rejected.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
-        expect(rejected.error.next_action).toEqual({
+        expect(rejected.error.next_action).toMatchObject({
           recommended_action: "ask_user_then_retry_with_confirmation",
           tool: "promote",
           command: `moryn promote ${write.record.id} --state canonical --reason 'Agent inferred this preference' --confirm`,
@@ -3149,7 +3149,7 @@ describe("MCP stdio server", () => {
         expect(missingProject.ok).toBe(false);
         expect(missingProject.error.code).toBe("INVALID_ARGUMENT");
         expect(missingProject.error.message).toContain("project_id is required for project scope");
-        expect(missingProject.error.next_action).toEqual({
+        expect(missingProject.error.next_action).toMatchObject({
           recommended_action: "discover_project_context_before_project_scoped_write",
           tool: "project_list",
           command: "moryn project list",
@@ -3423,7 +3423,7 @@ describe("MCP stdio server", () => {
 
         expect(conflicting.record.state).toBe("candidate");
         expect(conflicting.warning?.code).toBe("CONFIRMATION_REQUIRED");
-        expect(conflicting.warning?.next_action).toEqual({
+        expect(conflicting.warning?.next_action).toMatchObject({
           recommended_action: "ask_user_then_promote_candidate",
           tool: "promote",
           command: expect.stringMatching(/^moryn promote rec_[a-f0-9]+ --state canonical --reason 'User confirmed' --confirm$/),
@@ -3502,7 +3502,7 @@ describe("MCP stdio server", () => {
         expect(rejected.ok).toBe(false);
         expect(rejected.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(rejected.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
-        expect(rejected.error.next_action).toEqual({
+        expect(rejected.error.next_action).toMatchObject({
           recommended_action: "ask_user_then_retry_with_confirmation",
           tool: "promote",
           command: `moryn promote ${candidate.record.id} --state canonical --reason 'Agent inferred this replacement' --confirm`,
@@ -3600,7 +3600,7 @@ describe("MCP stdio server", () => {
         expect(rejected.ok).toBe(false);
         expect(rejected.error.code).toBe("CONFIRMATION_REQUIRED");
         expect(rejected.error.recommended_action).toBe("ask the user to confirm before retrying with confirmed=true or --confirm");
-        expect(rejected.error.next_action).toEqual({
+        expect(rejected.error.next_action).toMatchObject({
           recommended_action: "ask_user_then_retry_with_confirmation",
           tool: "revise",
           command: `moryn revise ${target.record.id} --set type=decision --set 'content.text=Use SQLite as the source of truth.' --reason 'Agent inferred this replacement' --confirm`,

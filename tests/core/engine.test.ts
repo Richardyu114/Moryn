@@ -4,6 +4,22 @@ import { toErrorEnvelope } from "../../src/core/errors.js";
 import { readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
+function expectNextActionInterfaces(action: {
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  interfaces?: {
+    cli?: { command?: string };
+    mcp?: { tool?: string; arguments?: Record<string, unknown> };
+  };
+}) {
+  expect(action.interfaces?.cli).toEqual({ command: action.command });
+  expect(action.interfaces?.mcp).toEqual({
+    tool: action.tool,
+    arguments: action.arguments
+  });
+}
+
 describe("core engine", () => {
   it("writes, recalls, revises, and promotes records", async () => {
     await withInitializedTempStore(async (storePath) => {
@@ -957,9 +973,24 @@ describe("core engine", () => {
           reason: "User confirmed",
           confirmed: true
         },
+        interfaces: {
+          cli: {
+            command: `moryn promote ${soul.record.id} --state canonical --reason 'User confirmed' --confirm`
+          },
+          mcp: {
+            tool: "promote",
+            arguments: {
+              record_id: soul.record.id,
+              target_state: "canonical",
+              reason: "User confirmed",
+              confirmed: true
+            }
+          }
+        },
         required_fields: [],
         safe_to_run: false
       });
+      expectNextActionInterfaces(soul.warning!.next_action!);
       expect(globalSkill.record.state).toBe("candidate");
       expect(globalSkill.warning?.code).toBe("CONFIRMATION_REQUIRED");
       expect(securityRule.record.state).toBe("candidate");
@@ -1031,9 +1062,24 @@ describe("core engine", () => {
           reason: "User confirmed",
           confirmed: true
         },
+        interfaces: {
+          cli: {
+            command: `moryn promote ${conflicting.record.id} --state canonical --reason 'User confirmed' --confirm`
+          },
+          mcp: {
+            tool: "promote",
+            arguments: {
+              record_id: conflicting.record.id,
+              target_state: "canonical",
+              reason: "User confirmed",
+              confirmed: true
+            }
+          }
+        },
         required_fields: [],
         safe_to_run: false
       });
+      expectNextActionInterfaces(conflicting.warning!.next_action!);
       expect(conflicting.record.conflict).toEqual({
         kind: "semantic",
         with: [existing.record.id],

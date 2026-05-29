@@ -14,10 +14,21 @@ export interface MorynErrorNextAction {
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
+  interfaces: ActionInterfaces<Record<string, unknown>>;
   required_fields: string[];
   rejected_arguments?: Record<string, unknown>;
   candidate_project_ids?: string[];
   safe_to_run: boolean;
+}
+
+interface ActionInterfaces<TArguments> {
+  cli: {
+    command: string;
+  };
+  mcp: {
+    tool: string;
+    arguments: TArguments;
+  };
 }
 
 export interface MorynErrorContext {
@@ -29,6 +40,23 @@ export interface MorynErrorContext {
 function shellQuote(value: string): string {
   if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+export function withNextActionInterfaces<T extends { tool: string; command: string; arguments: Record<string, unknown> }>(
+  action: T
+): T & { interfaces: ActionInterfaces<T["arguments"]> } {
+  return {
+    ...action,
+    interfaces: {
+      cli: {
+        command: action.command
+      },
+      mcp: {
+        tool: action.tool,
+        arguments: action.arguments
+      }
+    }
+  };
 }
 
 export function errorCode(message: string): string {
@@ -180,7 +208,7 @@ function appendConfirmFlag(command: string): string {
 
 function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextAction | undefined {
   if (!context) return undefined;
-  return {
+  return withNextActionInterfaces({
     recommended_action: "ask_user_then_retry_with_confirmation",
     tool: context.tool,
     command: appendConfirmFlag(context.command),
@@ -190,7 +218,7 @@ function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextActi
     },
     required_fields: [],
     safe_to_run: false
-  };
+  });
 }
 
 export function commandForPromoteContext(input: { record_id: string; target_state: string; reason?: string }): string {
@@ -216,78 +244,78 @@ export function commandForReviseContext(input: { record_id: string; patch: Recor
 export function nextAction(code: string, message = "", context?: MorynErrorContext): MorynErrorNextAction | undefined {
   switch (code) {
     case "STORE_NOT_INITIALIZED":
-      return {
+      return withNextActionInterfaces({
         recommended_action: "initialize_store",
         tool: "init",
         command: "moryn init",
         arguments: {},
         required_fields: [],
         safe_to_run: false
-      };
+      });
     case "CONFIRMATION_REQUIRED":
       return confirmationNextAction(context);
     case "INVALID_STORE_CONFIG":
-      return {
+      return withNextActionInterfaces({
         recommended_action: "repair_local_store_config",
         tool: "init",
         command: "moryn init --repair",
         arguments: { repair: true },
         required_fields: [],
         safe_to_run: false
-      };
+      });
     case "INVALID_PROJECT_CONFIG":
       {
         const configPath = projectConfigPathFromMessage(message);
         const path = configPath?.replace(/\/\.moryn\.json$/, "") ?? "<path>";
-        return {
+        return withNextActionInterfaces({
           recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
           tool: "project_init",
           command: `moryn project init --path ${path} --repair`,
           arguments: { path, repair: true },
           required_fields: path === "<path>" ? ["path"] : [],
           safe_to_run: false
-        };
+        });
       }
     case "INDEX_STALE":
-      return {
+      return withNextActionInterfaces({
         recommended_action: "rebuild_derived_views",
         tool: "rebuild",
         command: "moryn rebuild",
         arguments: {},
         required_fields: [],
         safe_to_run: true
-      };
+      });
     case "SYNC_NOT_CONFIGURED":
-      return {
+      return withNextActionInterfaces({
         recommended_action: "configure_sync_remote",
         tool: "sync_init",
         command: "moryn sync init <remote>",
         arguments: { remote: "<remote>" },
         required_fields: ["remote"],
         safe_to_run: false
-      };
+      });
     case "SYNC_REMOTE_UNAVAILABLE":
-      return {
+      return withNextActionInterfaces({
         recommended_action: "check_sync_status_before_retrying_remote_operation",
         tool: "sync_status",
         command: "moryn sync --status",
         arguments: {},
         required_fields: [],
         safe_to_run: true
-      };
+      });
     case "SYNC_CONFLICT":
-      return {
+      return withNextActionInterfaces({
         recommended_action: "inspect_sync_conflict_before_retrying",
         tool: "sync_status",
         command: "moryn sync --status",
         arguments: {},
         required_fields: [],
         safe_to_run: true
-      };
+      });
     case "RECORD_NOT_FOUND":
       {
         const recordId = missingRecordIdFromMessage(message);
-        return {
+        return withNextActionInterfaces({
           recommended_action: "list_recent_records_and_retry_with_known_record_id",
           tool: "list_recent",
           command: "moryn list-recent",
@@ -295,11 +323,11 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           required_fields: [],
           ...(recordId ? { rejected_arguments: { record_id: recordId } } : {}),
           safe_to_run: true
-        };
+        });
       }
     case "INVALID_ARGUMENT":
       if (message === "Invalid argument: project_id is required for project scope") {
-        return {
+        return withNextActionInterfaces({
           recommended_action: "discover_project_context_before_project_scoped_write",
           tool: "project_list",
           command: "moryn project list",
@@ -307,14 +335,14 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           required_fields: [],
           rejected_arguments: { scope: "project" },
           safe_to_run: true
-        };
+        });
       }
       return undefined;
     case "PROJECT_ID_CONFLICT":
       {
         const { resolvedProjectId, rejectedProjectId } = conflictingProjectIdFromMessage(message);
         const projectId = resolvedProjectId ?? "<project_id_from_config>";
-        return {
+        return withNextActionInterfaces({
           recommended_action: "retry_with_project_config_id_or_update_project_config",
           tool: "agent_enter",
           command: `moryn agent enter --project-id ${projectId}`,
@@ -323,12 +351,12 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
           ...(resolvedProjectId ? { candidate_project_ids: [resolvedProjectId] } : {}),
           safe_to_run: false
-        };
+        });
       }
     case "PROJECT_CONTEXT_REQUIRED":
       {
         const candidateProjectIds = knownProjectIdsFromContextMessage(message);
-        return {
+        return withNextActionInterfaces({
           recommended_action: "discover_projects_before_lifecycle_write",
           tool: "project_list",
           command: "moryn project list",
@@ -336,24 +364,24 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           required_fields: [],
           ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
           safe_to_run: true
-        };
+        });
       }
     case "PROJECT_PATH_NOT_FOUND":
       {
         const path = projectPathFromMessage(message) ?? "<path>";
-        return {
+        return withNextActionInterfaces({
           recommended_action: "initialize_project_or_retry_corrected_context",
           tool: "project_init",
           command: `moryn project init --path ${path}`,
           arguments: { path },
           required_fields: path === "<path>" ? ["path"] : [],
           safe_to_run: false
-        };
+        });
       }
     case "PROJECT_ID_NOT_FOUND":
       {
         const { rejectedProjectId, candidateProjectIds } = unknownProjectIdFromMessage(message);
-        return {
+        return withNextActionInterfaces({
           recommended_action: "list_projects_and_retry_with_known_project_id",
           tool: "project_list",
           command: "moryn project list",
@@ -362,7 +390,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
           ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
           safe_to_run: true
-        };
+        });
       }
     default:
       return undefined;

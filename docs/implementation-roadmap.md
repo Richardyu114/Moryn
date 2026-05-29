@@ -149,6 +149,10 @@ Deliverables:
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.
+- Done: Structured `error.next_action` and warning `next_action` payloads expose
+  `interfaces.cli.command` plus `interfaces.mcp.tool` and
+  `interfaces.mcp.arguments`, so failure recovery uses the same explicit
+  execution contract as normal action templates.
 - Done: Lifecycle actions and guide templates mirror required field placeholders
   in `arguments` (`<status>`, `<summary>`, `<current_task>`, `<remote>`) so MCP
   agents can replace JSON fields instead of parsing command strings.
