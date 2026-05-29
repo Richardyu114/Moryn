@@ -450,8 +450,11 @@ Output:
 {
   "profile": {
     "user_preferences": [],
+    "user_preferences_by_id": {},
     "soul": [],
-    "global_rules": []
+    "soul_by_id": {},
+    "global_rules": [],
+    "global_rules_by_id": {}
   },
   "project": {
     "summary": "",
@@ -463,13 +466,22 @@ Output:
     "warnings_by_id": {}
   },
   "skills": [],
+  "skills_by_id": {},
   "task_relevant": [],
+  "task_relevant_by_id": {},
   "recent_changes": [],
+  "recent_changes_by_id": {},
   "selection_sources": {
     "record": "records_by_id.<record_id>",
     "record_id": "records_by_id.<record_id>.id",
+    "user_preference": "profile.user_preferences_by_id.<record_id>",
+    "soul": "profile.soul_by_id.<record_id>",
+    "global_rule": "profile.global_rules_by_id.<record_id>",
     "important_decision": "project.important_decisions_by_id.<record_id>",
-    "warning": "project.warnings_by_id.<record_id>"
+    "warning": "project.warnings_by_id.<record_id>",
+    "skill": "skills_by_id.<record_id>",
+    "task_relevant": "task_relevant_by_id.<record_id>",
+    "recent_change": "recent_changes_by_id.<record_id>"
   },
   "records_by_id": {
     "rec_...": {}
@@ -484,12 +496,14 @@ Output:
 `records_by_id` mirrors only the record objects returned in this boot response
 across profile, project, skills, `task_relevant`, and `recent_changes`. It is a
 convenience map for dereferencing a known boot record id, not a full-store
-index. `selection_sources` names the keyed boot record, record-id, important
-decision, and warning paths explicitly. The `project` object also exposes
-`important_decisions_by_id` and
-`warnings_by_id`, keyed by record id, as local mirrors of the corresponding
-project arrays so agents can inspect a known project decision or blocker
-without scanning `project.important_decisions[]` or `project.warnings[]`.
+index. `selection_sources` names the aggregate keyed boot record and each
+section-specific by-id path explicitly. Profile arrays expose
+`user_preferences_by_id`, `soul_by_id`, and `global_rules_by_id`; project arrays
+expose `important_decisions_by_id` and `warnings_by_id`; top-level arrays
+expose `skills_by_id`, `task_relevant_by_id`, and `recent_changes_by_id`. These
+local mirrors let agents inspect a known boot preference, soul record, rule,
+decision, warning, skill, task-relevant record, or recent change without
+scanning the corresponding ordered arrays.
 
 CLI:
 

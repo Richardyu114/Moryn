@@ -1281,6 +1281,7 @@ describe("moryn CLI", () => {
       const parsedBoot = JSON.parse(boot.stdout) as {
         recent_changes: Array<{ id: string }>;
         records_by_id: Record<string, { id: string }>;
+        recent_changes_by_id: Record<string, { id: string }>;
         selection_sources: Record<string, string>;
       };
 
@@ -1288,10 +1289,19 @@ describe("moryn CLI", () => {
       expect(parsedBoot.selection_sources).toEqual({
         record: "records_by_id.<record_id>",
         record_id: "records_by_id.<record_id>.id",
+        user_preference: "profile.user_preferences_by_id.<record_id>",
+        soul: "profile.soul_by_id.<record_id>",
+        global_rule: "profile.global_rules_by_id.<record_id>",
         important_decision: "project.important_decisions_by_id.<record_id>",
-        warning: "project.warnings_by_id.<record_id>"
+        warning: "project.warnings_by_id.<record_id>",
+        skill: "skills_by_id.<record_id>",
+        task_relevant: "task_relevant_by_id.<record_id>",
+        recent_change: "recent_changes_by_id.<record_id>"
       });
       expect(parsedBoot.recent_changes.map((record) => record.id)).toContain(parsedWrite.record.id);
+      expect(parsedBoot.recent_changes_by_id[parsedWrite.record.id]).toEqual(
+        parsedBoot.recent_changes.find((record) => record.id === parsedWrite.record.id)
+      );
       expect(parsedBoot.records_by_id[parsedWrite.record.id]).toEqual(
         parsedBoot.recent_changes.find((record) => record.id === parsedWrite.record.id)
       );

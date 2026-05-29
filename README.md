@@ -484,6 +484,15 @@ those keyed structures without inferring them from prose. Use it when an agent
 host needs a compact, authoritative instruction packet instead of inferring
 commands from README prose.
 
+`boot` responses keep ordered arrays for display and also expose keyed mirrors
+for agent selection. In addition to the aggregate `records_by_id`, profile
+sections include `user_preferences_by_id`, `soul_by_id`, and
+`global_rules_by_id`; project sections include `important_decisions_by_id` and
+`warnings_by_id`; top-level arrays include `skills_by_id`,
+`task_relevant_by_id`, and `recent_changes_by_id`. `selection_sources` names
+each of those paths, so a host with a known boot record id can dereference the
+record in its section without scanning every boot array.
+
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime
 workflow first: in `start_session`, review returned boot, refresh, and handoff

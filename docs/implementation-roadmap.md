@@ -81,6 +81,11 @@ Deliverables:
   and sync status.
 - Done: Boot responses expose `records_by_id`, so agents can dereference
   returned boot records without scanning nested arrays.
+- Done: Boot sections expose section-local by-id mirrors
+  (`profile.*_by_id`, `project.*_by_id`, `skills_by_id`,
+  `task_relevant_by_id`, and `recent_changes_by_id`) plus named
+  `selection_sources`, so agents can dereference a known boot record in its
+  semantic section without scanning every boot array.
 - Done: `list_recent` responses expose ordered `records` plus `records_by_id`,
   so missing-record recovery can point agents at a keyed replacement id source.
 - Done: `moryn refresh` reports changes since a cursor as `silent`, `notice`, or

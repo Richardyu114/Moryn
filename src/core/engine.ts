@@ -102,8 +102,14 @@ const RECALL_SELECTION_SOURCES = {
 const BOOT_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
   record_id: "records_by_id.<record_id>.id",
+  user_preference: "profile.user_preferences_by_id.<record_id>",
+  soul: "profile.soul_by_id.<record_id>",
+  global_rule: "profile.global_rules_by_id.<record_id>",
   important_decision: "project.important_decisions_by_id.<record_id>",
-  warning: "project.warnings_by_id.<record_id>"
+  warning: "project.warnings_by_id.<record_id>",
+  skill: "skills_by_id.<record_id>",
+  task_relevant: "task_relevant_by_id.<record_id>",
+  recent_change: "recent_changes_by_id.<record_id>"
 };
 
 const REFRESH_SELECTION_SOURCES = {
@@ -1187,7 +1193,10 @@ export function createEngine(deps: EngineDeps) {
       return {
         profile: {
           user_preferences: userPreferences,
+          user_preferences_by_id: recordsById(userPreferences),
           soul,
+          soul_by_id: recordsById(soul),
+          global_rules_by_id: recordsById(globalRules),
           global_rules: globalRules
         },
         project: {
@@ -1200,8 +1209,11 @@ export function createEngine(deps: EngineDeps) {
           warnings_by_id: recordsById(warnings)
         },
         skills,
+        skills_by_id: recordsById(skills),
         task_relevant: taskRelevant,
+        task_relevant_by_id: recordsById(taskRelevant),
         recent_changes: recentChanges,
+        recent_changes_by_id: recordsById(recentChanges),
         selection_sources: BOOT_SELECTION_SOURCES,
         records_by_id: recordsById([
           ...userPreferences,

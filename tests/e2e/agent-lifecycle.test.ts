@@ -21,6 +21,18 @@ const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
   step: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.step",
   ordered_lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle[]"
 };
+const BOOT_SELECTION_SOURCES = {
+  record: "records_by_id.<record_id>",
+  record_id: "records_by_id.<record_id>.id",
+  user_preference: "profile.user_preferences_by_id.<record_id>",
+  soul: "profile.soul_by_id.<record_id>",
+  global_rule: "profile.global_rules_by_id.<record_id>",
+  important_decision: "project.important_decisions_by_id.<record_id>",
+  warning: "project.warnings_by_id.<record_id>",
+  skill: "skills_by_id.<record_id>",
+  task_relevant: "task_relevant_by_id.<record_id>",
+  recent_change: "recent_changes_by_id.<record_id>"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -360,12 +372,10 @@ describe("agent lifecycle", () => {
         sync_mode: "session"
       });
       expect(geminiStart.sync.pull?.pulled).toBe(true);
-      expect(geminiStart.boot.selection_sources).toEqual({
-        record: "records_by_id.<record_id>",
-        record_id: "records_by_id.<record_id>.id",
-        important_decision: "project.important_decisions_by_id.<record_id>",
-        warning: "project.warnings_by_id.<record_id>"
-      });
+      expect(geminiStart.boot.selection_sources).toEqual(BOOT_SELECTION_SOURCES);
+      expect(geminiStart.boot.recent_changes_by_id[codexFinish.record.id]).toEqual(
+        geminiStart.boot.recent_changes.find((record) => record.id === codexFinish.record.id)
+      );
       expect(geminiStart.refresh.changes).toEqual([
         expect.objectContaining({
           importance: "notice",
