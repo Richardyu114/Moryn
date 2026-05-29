@@ -726,7 +726,8 @@ templates for each project. If the local store is empty and `sync_remote` is
 provided, it initializes Git sync and pulls the shared store before choosing
 between project discovery and startup. In `discover_projects` mode, each
 top-level start action also includes lifecycle templates for status, finish,
-and refresh using the selected `project_id`. In `start_session` and
+and refresh using the selected `project_id`; each of those nested lifecycle
+templates carries its own single-step `workflow`. In `start_session` and
 `discover_projects` modes, `next.workflow` exposes the ordered runtime action
 track and valid follow-up sources so hosts can continue from the live response
 without consulting static guide templates. Direct `agent_start`, `agent_status`,
@@ -794,8 +795,8 @@ action names.
 Lifecycle, guide, setup, project-discovery, error-recovery, and warning-recovery
 action templates also expose `interfaces.cli.command`,
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, `safety`, and single-step
-recovery `workflow` metadata, so CLI and MCP hosts can execute the same
-recommendation without translating field names by memory.
+`workflow` metadata, so CLI and MCP hosts can execute the same recommendation
+without translating field names by memory.
 
 ### `agent_doctor`
 

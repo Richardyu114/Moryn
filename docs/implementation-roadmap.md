@@ -182,6 +182,9 @@ Deliverables:
   decision track so agents know to call `startup`, prefer returned
   `agent_enter.next.actions`, and use static templates only for status,
   finish, or refresh phases.
+- Done: `agent_guide.lifecycle[]` and discovered-project lifecycle templates
+  now carry single-step `workflow` metadata, so hosts can execute an individual
+  lifecycle template without guessing from `step` names or list order.
 - Done: `agent_enter.next.workflow` now exposes ordered runtime tracks for
   `start_session` and `discover_projects`, including valid follow-up response
   sources and required fields derived from returned actions.

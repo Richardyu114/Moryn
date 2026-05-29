@@ -94,6 +94,42 @@ function expectRecoveryWorkflow(action: {
   });
 }
 
+function expectLifecycleWorkflow(action: {
+  step: string;
+  tool: string;
+  required_when: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "lifecycle",
+    continue_from: ["lifecycle"],
+    phases: [
+      {
+        phase: action.step,
+        order: 1,
+        action_source: `lifecycle.${action.step}`,
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 function expectActionSafety(action: {
   safe_to_run: boolean;
   required_fields: string[];
@@ -318,6 +354,7 @@ describe("MCP stdio server", () => {
         }));
         for (const action of guide.lifecycle) {
           expectActionInterfaces(action);
+          expectLifecycleWorkflow(action);
         }
         expect(guide.guardrails.map((guardrail) => guardrail.id)).toEqual([
           "prefer_agent_enter_for_startup",
@@ -488,6 +525,9 @@ describe("MCP stdio server", () => {
           required_fields: ["project_id", "refresh_since"],
           arguments: expect.objectContaining({ project_id: "<project_id>", refresh_since: "<refresh_since>" })
         }));
+        for (const action of guide.lifecycle) {
+          expectLifecycleWorkflow(action);
+        }
       });
     } finally {
       await rm(store, { recursive: true, force: true });
@@ -1773,7 +1813,18 @@ describe("MCP stdio server", () => {
               continue_from: string[];
               phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
             };
-            actions: Array<{ project_id: string; required_when?: string; lifecycle?: Array<{ step: string; tool: string; command: string; required_fields: string[] }> }>;
+            actions: Array<{
+              project_id: string;
+              required_when?: string;
+              lifecycle?: Array<{
+                step: string;
+                tool: string;
+                command: string;
+                required_when: string;
+                required_fields: string[];
+                workflow?: Record<string, unknown>;
+              }>;
+            }>;
           };
         };
 
@@ -1814,13 +1865,15 @@ describe("MCP stdio server", () => {
         expect(entered.projects.projects[0]?.project_id).toBe("moryn");
         expect(entered.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter");
         expect(entered.next.actions[0]?.required_when).toBe("After choosing this project from discovery results.");
-        expect(entered.next.actions[0]?.lifecycle).toContainEqual(expect.objectContaining({
+        const discoveredStatus = entered.next.actions[0]?.lifecycle?.find((action) => action.step === "publish_status");
+        expect(discoveredStatus).toMatchObject({
           step: "publish_status",
           tool: "agent_status",
           safe_to_run: false,
           command: "moryn agent status --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter --status <status>",
           required_fields: ["status"]
-        }));
+        });
+        expectLifecycleWorkflow(discoveredStatus!);
       }, store);
     } finally {
       await rm(store, { recursive: true, force: true });

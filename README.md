@@ -404,8 +404,10 @@ structured `guardrails`, and a top-level `workflow` decision track. Its
 `startup` object and top-level `next` action include `safe_to_run`,
 `required_when`, `required_fields`, `safety`, and arguments, so an agent can
 call the recommended `agent_enter` entrypoint directly without recombining
-fields from the lifecycle list. `workflow.phases[]` tells hosts the order and
-action source:
+fields from the lifecycle list. Each `lifecycle[]` template also includes a
+single-step `workflow`, so a host can execute an individual status, finish, or
+refresh template without consulting the top-level decision track. Top-level
+`workflow.phases[]` tells hosts the order and action source:
 call `startup`, then prefer `agent_enter.next.actions`, then use static
 lifecycle templates only for status, finish, or refresh. `guardrails[]` gives
 agent hosts stable ids, risks, forbidden behaviors, required behaviors, and
@@ -503,9 +505,11 @@ known projects sorted by recent activity; each project includes a prefilled
 `sync_remote`, and `agent`. The top-level `next.actions` for discovered
 projects also include lifecycle templates for status, finish, and refresh using
 the selected `project_id`, so agents do not need to reconstruct follow-up
-commands after choosing a project. In `start_session` and `discover_projects`
-modes, `next.workflow` gives the ordered runtime action track and names which
-response fields are valid follow-up sources. Direct `agent_start`,
+commands after choosing a project. Those discovered lifecycle templates carry
+the same single-step `workflow` metadata as `agent_guide.lifecycle[]`. In
+`start_session` and `discover_projects` modes, `next.workflow` gives the
+ordered runtime action track and names which response fields are valid follow-up
+sources. Direct `agent_start`,
 `agent_status`, and `agent_finish` responses also include `next.workflow`, so a
 host can continue from direct lifecycle calls without falling back to prose.
 If `agent_enter` returns `needs_setup`, its top-level `next` is the same

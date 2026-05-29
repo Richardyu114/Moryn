@@ -53,6 +53,42 @@ async function createSyncConflict(input: {
   await expect(pullGitSync(input.storeB)).rejects.toThrow(/conflict/i);
 }
 
+function expectLifecycleWorkflow(action: {
+  step: string;
+  tool: string;
+  required_when: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "lifecycle",
+    continue_from: ["lifecycle"],
+    phases: [
+      {
+        phase: action.step,
+        order: 1,
+        action_source: `lifecycle.${action.step}`,
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 describe("agent lifecycle", () => {
   it("pulls, boots, refreshes, writes a handoff, and pushes across two device stores", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-"));
@@ -787,6 +823,7 @@ describe("agent lifecycle", () => {
         }
       });
       expect(entered.doctor.next).toMatchObject({ tool: "project_list" });
+      const discoveredLifecycle = entered.next.actions[0]?.lifecycle ?? [];
       expect(entered.next.actions[0]).toMatchObject({
         action: "start_session",
         project_id: "moryn",
@@ -823,6 +860,9 @@ describe("agent lifecycle", () => {
           })
         ]
       });
+      for (const action of discoveredLifecycle) {
+        expectLifecycleWorkflow(action);
+      }
       expect(entered.projects.projects[0]).toMatchObject({
         project_id: "moryn",
         next: {

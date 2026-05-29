@@ -729,6 +729,24 @@ function projectListNextActions() {
   ];
 }
 
+function lifecycleStepWorkflow(step: string, tool: string, requiredWhen: string, requiredFields: string[]) {
+  return {
+    version: 1,
+    start: "lifecycle",
+    continue_from: ["lifecycle"],
+    phases: [
+      {
+        phase: step,
+        order: 1,
+        action_source: `lifecycle.${step}`,
+        tool,
+        required_when: requiredWhen,
+        required_fields: requiredFields
+      }
+    ]
+  };
+}
+
 function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_enter") {
   const lifecycleInput = ensureGuideProjectIdentity(input);
   const lifecycleArguments = lifecycleActionArguments(lifecycleInput);
@@ -738,6 +756,10 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
   const startArguments = startTool === "agent_start"
     ? lifecycleArguments
     : lifecycleActionArguments(input);
+  const startRequiredFields: string[] = [];
+  const statusRequiredFields = guideRequiredFields(input, ["status"]);
+  const finishRequiredFields = guideRequiredFields(input, ["summary"]);
+  const refreshRequiredFields = guideRequiredFields(input, ["refresh_since"]);
   return [
     withActionInterfaces({
       step: "start_or_resume",
@@ -745,7 +767,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       safe_to_run: true,
       required_when: START_OR_RESUME_WHEN,
       command: startCommand,
-      required_fields: [],
+      required_fields: startRequiredFields,
+      workflow: lifecycleStepWorkflow("start_or_resume", startTool, START_OR_RESUME_WHEN, startRequiredFields),
       arguments: startArguments
     }),
     withActionInterfaces({
@@ -754,7 +777,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       safe_to_run: false,
       required_when: PUBLISH_STATUS_WHEN,
       command: buildAgentStatusTemplateCommand(lifecycleInput),
-      required_fields: guideRequiredFields(input, ["status"]),
+      required_fields: statusRequiredFields,
+      workflow: lifecycleStepWorkflow("publish_status", "agent_status", PUBLISH_STATUS_WHEN, statusRequiredFields),
       arguments: { ...lifecycleArguments, status: "<status>" }
     }),
     withActionInterfaces({
@@ -763,7 +787,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       safe_to_run: false,
       required_when: FINISH_HANDOFF_WHEN,
       command: buildAgentFinishTemplateCommand(lifecycleInput),
-      required_fields: guideRequiredFields(input, ["summary"]),
+      required_fields: finishRequiredFields,
+      workflow: lifecycleStepWorkflow("finish_handoff", "agent_finish", FINISH_HANDOFF_WHEN, finishRequiredFields),
       arguments: { ...lifecycleArguments, summary: "<summary>" }
     }),
     withActionInterfaces({
@@ -772,7 +797,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       safe_to_run: true,
       required_when: REFRESH_CONTEXT_WHEN,
       command: buildAgentRefreshTemplateCommand(lifecycleInput),
-      required_fields: guideRequiredFields(input, ["refresh_since"]),
+      required_fields: refreshRequiredFields,
+      workflow: lifecycleStepWorkflow("refresh_context", "agent_start", REFRESH_CONTEXT_WHEN, refreshRequiredFields),
       arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" }
     })
   ];

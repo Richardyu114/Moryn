@@ -91,6 +91,42 @@ function expectRecoveryWorkflow(action: {
   });
 }
 
+function expectLifecycleWorkflow(action: {
+  step: string;
+  tool: string;
+  required_when: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "lifecycle",
+    continue_from: ["lifecycle"],
+    phases: [
+      {
+        phase: action.step,
+        order: 1,
+        action_source: `lifecycle.${action.step}`,
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 function expectActionSafety(action: {
   safe_to_run: boolean;
   required_fields: string[];
@@ -316,6 +352,7 @@ describe("moryn CLI", () => {
       for (const action of parsed.lifecycle) {
         expectActionInterfaces(action);
         expectActionSafety(action);
+        expectLifecycleWorkflow(action);
       }
       expect(parsed.rules).toContain("Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.");
       expect(parsed.rules).toContain("When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.");
@@ -484,6 +521,9 @@ describe("moryn CLI", () => {
         required_fields: ["project_id", "refresh_since"],
         arguments: expect.objectContaining({ project_id: "<project_id>", refresh_since: "<refresh_since>" })
       }));
+      for (const action of parsed.lifecycle) {
+        expectLifecycleWorkflow(action);
+      }
     });
   });
 
@@ -2606,7 +2646,19 @@ describe("moryn CLI", () => {
             continue_from: string[];
             phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
           };
-          actions: Array<{ project_id: string; required_when?: string; lifecycle?: Array<{ step: string; tool: string; safe_to_run: boolean; command: string; required_fields: string[] }> }>;
+          actions: Array<{
+            project_id: string;
+            required_when?: string;
+            lifecycle?: Array<{
+              step: string;
+              tool: string;
+              safe_to_run: boolean;
+              command: string;
+              required_when: string;
+              required_fields: string[];
+              workflow?: Record<string, unknown>;
+            }>;
+          }>;
         };
       };
 
@@ -2647,13 +2699,15 @@ describe("moryn CLI", () => {
       expect(parsed.projects.projects[0]?.project_id).toBe("moryn");
       expect(parsed.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter");
       expect(parsed.next.actions[0]?.required_when).toBe("After choosing this project from discovery results.");
-      expect(parsed.next.actions[0]?.lifecycle).toContainEqual(expect.objectContaining({
+      const discoveredFinish = parsed.next.actions[0]?.lifecycle?.find((action) => action.step === "finish_handoff");
+      expect(discoveredFinish).toMatchObject({
         step: "finish_handoff",
         tool: "agent_finish",
         safe_to_run: false,
         command: "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter --summary <summary>",
         required_fields: ["summary"]
-      }));
+      });
+      expectLifecycleWorkflow(discoveredFinish!);
     });
   });
 
