@@ -2431,12 +2431,17 @@ describe("moryn CLI", () => {
               mcp?: { tool?: string; arguments?: Record<string, unknown> };
             };
           }>;
+          selection_sources: Record<string, string>;
         };
       };
       expect(parsedFinish.record.content.text).toBe("CLI Codex finished the lifecycle protocol.");
       expect(parsedFinish.sync.push?.pushed).toBe(true);
       expect(parsedFinish.next.recommended_start_action_id).toBe("start_next_session");
       expect(parsedFinish.next.recommended_start_action_source).toBe("next.actions_by_id.start_next_session");
+      expect(parsedFinish.next.selection_sources).toEqual({
+        action: "next.actions_by_id.<action>",
+        action_id: "next.actions_by_id.<action>.action"
+      });
       expect(parsedFinish.next.actions).toContainEqual(expect.objectContaining({
         action: "start_next_session",
         tool: "agent_start",
@@ -2523,6 +2528,7 @@ describe("moryn CLI", () => {
               mcp?: { tool?: string; arguments?: Record<string, unknown> };
             };
           }>;
+          selection_sources: Record<string, string>;
         };
       };
       expect(parsedStart.project.project_id).toBe("moryn");
@@ -2568,6 +2574,10 @@ describe("moryn CLI", () => {
       expect(parsedStart.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
       expect(parsedStart.next.recommended_refresh_action_id).toBe("refresh_context");
       expect(parsedStart.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
+      expect(parsedStart.next.selection_sources).toEqual({
+        action: "next.actions_by_id.<action>",
+        action_id: "next.actions_by_id.<action>.action"
+      });
       expect(parsedStart.next.actions_by_id.publish_status).toEqual(parsedStart.next.actions.find((action) => action.action === "publish_status"));
       expect(parsedStart.next.actions_by_id.finish_session).toEqual(parsedStart.next.actions.find((action) => action.action === "finish_session"));
       expect(parsedStart.next.actions_by_id.refresh_context).toEqual(parsedStart.next.actions.find((action) => action.action === "refresh_context"));
@@ -2725,6 +2735,7 @@ describe("moryn CLI", () => {
           };
           actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
           actions_by_id: Record<string, { action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+          selection_sources: Record<string, string>;
         };
       };
       expect(parsedStatus.record).toMatchObject({
@@ -2776,6 +2787,10 @@ describe("moryn CLI", () => {
       expect(parsedStatus.next.recommended_finish_action_source).toBe("next.actions_by_id.finish_session");
       expect(parsedStatus.next.recommended_refresh_action_id).toBe("refresh_context");
       expect(parsedStatus.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
+      expect(parsedStatus.next.selection_sources).toEqual({
+        action: "next.actions_by_id.<action>",
+        action_id: "next.actions_by_id.<action>.action"
+      });
       expect(parsedStatus.next.actions_by_id[parsedStatus.next.recommended_finish_action_id]).toEqual(parsedStatus.next.actions_by_id.finish_session);
       expect(parsedStatus.next.actions_by_id[parsedStatus.next.recommended_refresh_action_id]).toEqual(parsedStatus.next.actions_by_id.refresh_context);
       expect(parsedStatus.next.workflow).toEqual(withPhasesByName({

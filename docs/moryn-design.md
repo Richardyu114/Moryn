@@ -935,6 +935,9 @@ track and valid follow-up sources so hosts can continue from the live response
 without consulting static guide templates. In `start_session`,
 `required_end_action_source` and `recommended_refresh_action_source` point
 directly at the keyed finish and refresh templates in `next.actions_by_id`.
+`next.selection_sources` names the generic keyed action and action-id paths so
+hosts can follow returned lifecycle actions without inferring paths from
+workflow phases.
 Direct `agent_start`,
 `agent_status`, and `agent_finish` responses also include `next.workflow`,
 derived from their returned `next.actions`, so every lifecycle entrypoint
@@ -1217,7 +1220,8 @@ restart through `agent_start` without inferring arguments from prose. That
 restart template is also available as `next.actions_by_id.start_next_session`,
 is marked `safe_to_run: true`, and is named by
 `next.recommended_start_action_id` for direct keyed lookup, with
-`next.recommended_start_action_source` exposing the exact JSON path. It carries `required_when` for next-session
+`next.recommended_start_action_source` exposing the exact JSON path.
+`next.selection_sources` names the generic keyed action and action-id paths. It carries `required_when` for next-session
 startup; when the next task is unknown, `arguments.current_task` is set to
 `"<current_task>"` and `argument_sources.current_task` is set to
 `"user_input.current_task"`.
@@ -1247,7 +1251,8 @@ is `safe_to_run: false` and carries `arguments.summary: "<summary>"`, while
 `next.actions_by_id`, are named by `next.recommended_finish_action_id` and
 `next.recommended_refresh_action_id`, expose exact JSON paths through
 `next.recommended_finish_action_source` and
-`next.recommended_refresh_action_source`, and include `required_when` so agents can distinguish a
+`next.recommended_refresh_action_source`, include `next.selection_sources` for
+the generic keyed action and action-id paths, and include `required_when` so agents can distinguish a
 handoff write from an automatic context refresh. Their `argument_sources` map
 `summary` to `user_input.summary` and `refresh_since` to `record.updated_at`.
 

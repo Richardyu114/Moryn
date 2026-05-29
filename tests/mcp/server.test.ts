@@ -1509,12 +1509,17 @@ describe("MCP stdio server", () => {
               };
               actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
               actions_by_id: Record<string, { action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+              selection_sources: Record<string, string>;
             };
           };
           expect(finish.record.content.text).toBe("MCP Codex left a lifecycle handoff.");
           expect(finish.sync.push?.pushed).toBe(true);
           expect(finish.next.recommended_start_action_id).toBe("start_next_session");
           expect(finish.next.recommended_start_action_source).toBe("next.actions_by_id.start_next_session");
+          expect(finish.next.selection_sources).toEqual({
+            action: "next.actions_by_id.<action>",
+            action_id: "next.actions_by_id.<action>.action"
+          });
           expect(finish.next.actions).toContainEqual(expect.objectContaining({
             action: "start_next_session",
             tool: "agent_start",
@@ -1602,6 +1607,8 @@ describe("MCP stdio server", () => {
                 phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
               };
               actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+              actions_by_id: Record<string, { action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+              selection_sources: Record<string, string>;
             };
           };
           expect(start.project.project_id).toBe("moryn");
@@ -1640,6 +1647,10 @@ describe("MCP stdio server", () => {
           expect(start.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
           expect(start.next.recommended_refresh_action_id).toBe("refresh_context");
           expect(start.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
+          expect(start.next.selection_sources).toEqual({
+            action: "next.actions_by_id.<action>",
+            action_id: "next.actions_by_id.<action>.action"
+          });
           expect(start.next.actions_by_id[start.next.required_end_action_id]).toEqual(start.next.actions_by_id.finish_session);
           expect(start.next.actions_by_id[start.next.recommended_refresh_action_id]).toEqual(start.next.actions_by_id.refresh_context);
           expect(start.next.actions).toContainEqual(expect.objectContaining({

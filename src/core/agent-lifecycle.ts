@@ -142,6 +142,10 @@ const HANDOFF_SELECTION_SOURCES = {
   active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
   active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action"
 };
+const LIFECYCLE_NEXT_SELECTION_SOURCES = {
+  action: "next.actions_by_id.<action>",
+  action_id: "next.actions_by_id.<action>.action"
+};
 const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
@@ -1611,7 +1615,8 @@ export async function agentEnter(input: AgentEnterInput) {
         recommended_refresh_action_source: "next.actions_by_id.refresh_context",
         workflow: startSessionWorkflow(actions),
         actions,
-        actions_by_id: actionsById(actions)
+        actions_by_id: actionsById(actions),
+        selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES
       }
     };
   }
@@ -1714,7 +1719,8 @@ export async function agentStart(input: AgentStartInput) {
       recommended_refresh_action_source: "next.actions_by_id.refresh_context",
       workflow: directStartWorkflow(actions),
       actions,
-      actions_by_id: actionsById(actions)
+      actions_by_id: actionsById(actions),
+      selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES
     }
   };
 }
@@ -1769,7 +1775,8 @@ export async function agentFinish(input: AgentFinishInput) {
       recommended_start_action_source: "next.actions_by_id.start_next_session",
       workflow: directFinishWorkflow(actions),
       actions,
-      actions_by_id: actionsById(actions)
+      actions_by_id: actionsById(actions),
+      selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES
     }
   };
 }
@@ -1831,7 +1838,8 @@ export async function agentStatus(input: AgentStatusInput) {
       recommended_refresh_action_source: "next.actions_by_id.refresh_context",
       workflow: directStatusWorkflow(actions),
       actions,
-      actions_by_id: actionsById(actions)
+      actions_by_id: actionsById(actions),
+      selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES
     }
   };
 }

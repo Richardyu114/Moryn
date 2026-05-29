@@ -736,7 +736,9 @@ The top-level `required_end_action_id` and `recommended_refresh_action_id`
 point at those keyed entries directly; `required_end_action_source` and
 `recommended_refresh_action_source` also expose the exact JSON paths, so hosts can execute
 `agent_start.next.actions_by_id[agent_start.next.required_end_action_id]`
-instead of translating prose hints into action ids.
+instead of translating prose hints into action ids. `agent_start.next.selection_sources`
+names the generic keyed action and action-id paths for hosts that should not
+infer them from workflow phases.
 Each action carries
 `safe_to_run`: refresh/start/discovery helpers are `true`, while status and
 finish templates are `false` because the agent must provide user-meaningful
@@ -798,7 +800,8 @@ automatic context update. The finish template includes
 `recommended_refresh_action_id` point at the matching keyed templates in
 `agent_status.next.actions_by_id`; the matching
 `recommended_finish_action_source` and `recommended_refresh_action_source`
-fields expose the exact JSON paths.
+fields expose the exact JSON paths. `agent_status.next.selection_sources` names
+the generic keyed action and action-id paths.
 
 When existing memory or skill needs correction:
 
@@ -825,7 +828,8 @@ Agents should prefer `agent_finish` over manually composing `write` and
 session after the handoff. `agent_finish.next.recommended_start_action_id`
 points at the same keyed template in `next.actions_by_id`, and
 `agent_finish.next.recommended_start_action_source` exposes the exact JSON
-path. If the next task is
+path. `agent_finish.next.selection_sources` names the generic keyed action and
+action-id paths. If the next task is
 not already known, the template
 carries `arguments.current_task: "<current_task>"` and
 `argument_sources.current_task: "user_input.current_task"`.

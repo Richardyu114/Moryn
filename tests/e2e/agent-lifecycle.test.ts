@@ -274,6 +274,10 @@ describe("agent lifecycle", () => {
       expect(codexFinish.next.recommended_start_command).toBe("moryn agent start --project <path> --current-task <task>");
       expect(codexFinish.next.recommended_start_action_id).toBe("start_next_session");
       expect(codexFinish.next.recommended_start_action_source).toBe("next.actions_by_id.start_next_session");
+      expect(codexFinish.next.selection_sources).toEqual({
+        action: "next.actions_by_id.<action>",
+        action_id: "next.actions_by_id.<action>.action"
+      });
       expect(codexFinish.next.actions).toContainEqual(expect.objectContaining({
         action: "start_next_session",
         tool: "agent_start",
@@ -367,6 +371,10 @@ describe("agent lifecycle", () => {
       expect(geminiStart.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
       expect(geminiStart.next.recommended_refresh_action_id).toBe("refresh_context");
       expect(geminiStart.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
+      expect(geminiStart.next.selection_sources).toEqual({
+        action: "next.actions_by_id.<action>",
+        action_id: "next.actions_by_id.<action>.action"
+      });
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
         tool: "agent_status",
@@ -1357,6 +1365,10 @@ describe("agent lifecycle", () => {
       expect(entered.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
       expect(entered.next.recommended_refresh_action_id).toBe("refresh_context");
       expect(entered.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
+      expect(entered.next.selection_sources).toEqual({
+        action: "next.actions_by_id.<action>",
+        action_id: "next.actions_by_id.<action>.action"
+      });
       expect(entered.next.workflow.phases.map((phase) => phase.action_source)).toContain("next.actions_by_id.publish_status");
       expect(entered.start.project.default_skills).toEqual(["release"]);
       expect(entered.start.handoff).toMatchObject({
