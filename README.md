@@ -459,9 +459,11 @@ same stable ids, and the structured entries are mirrored in `guardrails_by_id`,
 so hosts can read `rules_by_id.use_returned_actions_verbatim`,
 `guardrails_by_id.use_returned_actions_verbatim` or
 `guardrails_by_id.discover_project_before_lifecycle_writes` directly instead of
-scanning the rule or guardrail lists. Use it when an agent host needs a compact,
-authoritative instruction packet instead of inferring commands from README
-prose.
+scanning the rule or guardrail lists. `selection_sources` names the stable
+startup, lifecycle action, rule, and guardrail lookup paths so hosts can bind to
+those keyed structures without inferring them from prose. Use it when an agent
+host needs a compact, authoritative instruction packet instead of inferring
+commands from README prose.
 
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime

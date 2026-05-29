@@ -529,6 +529,7 @@ describe("MCP stdio server", () => {
         })) as {
           ok: boolean;
           recommended_entrypoint: string;
+          selection_sources: Record<string, string>;
           startup: {
             tool: string;
             command: string;
@@ -663,6 +664,12 @@ describe("MCP stdio server", () => {
 
         expect(guide.ok).toBe(true);
         expect(guide.recommended_entrypoint).toBe("agent_enter");
+        expect(guide.selection_sources).toEqual({
+          startup: "startup",
+          lifecycle_action: "lifecycle_by_step.<step>",
+          rule: "rules_by_id.<rule_id>",
+          guardrail: "guardrails_by_id.<guardrail_id>"
+        });
         expect(guide.startup).toMatchObject({
           tool: "agent_enter",
           command: "moryn agent enter --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-guide",

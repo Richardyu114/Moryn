@@ -883,7 +883,10 @@ actions point `refresh_since` at `refresh.cursor` or `record.updated_at`.
 `lifecycle[]` by step name, and lifecycle workflows prefer
 `lifecycle_by_step.<step>` while keeping `lifecycle[]` as a compatibility
 source; hosts can fetch `publish_status`, `finish_handoff`, or
-`refresh_context` directly instead of scanning the ordered lifecycle list. When
+`refresh_context` directly instead of scanning the ordered lifecycle list.
+Top-level `selection_sources` names the stable startup, keyed lifecycle action,
+keyed rule, and keyed guardrail lookup paths for hosts that should not derive
+those paths from prose. When
 no project is provided, non-startup lifecycle templates require `project_id`
 and include `--project-id <project_id>` so agents must use the discovery result
 before writing status, finishing, or refreshing.

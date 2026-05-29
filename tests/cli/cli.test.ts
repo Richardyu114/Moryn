@@ -497,6 +497,7 @@ describe("moryn CLI", () => {
       const parsed = JSON.parse(guide.stdout) as {
         ok: boolean;
         recommended_entrypoint: string;
+        selection_sources: Record<string, string>;
         startup: {
           tool: string;
           command: string;
@@ -644,6 +645,12 @@ describe("moryn CLI", () => {
 
       expect(parsed.ok).toBe(true);
       expect(parsed.recommended_entrypoint).toBe("agent_enter");
+      expect(parsed.selection_sources).toEqual({
+        startup: "startup",
+        lifecycle_action: "lifecycle_by_step.<step>",
+        rule: "rules_by_id.<rule_id>",
+        guardrail: "guardrails_by_id.<guardrail_id>"
+      });
       expect(parsed.startup).toMatchObject({
         tool: "agent_enter",
         command: "moryn agent enter --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide",

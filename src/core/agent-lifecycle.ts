@@ -151,6 +151,12 @@ const DOCTOR_SELECTION_SOURCES = {
   blocking_check: "readiness.blocking_checks_by_name.<check_name>",
   next_action: "next"
 };
+const GUIDE_SELECTION_SOURCES = {
+  startup: "startup",
+  lifecycle_action: "lifecycle_by_step.<step>",
+  rule: "rules_by_id.<rule_id>",
+  guardrail: "guardrails_by_id.<guardrail_id>"
+};
 const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
@@ -1647,6 +1653,7 @@ export function agentGuide(input: AgentGuideInput) {
   return {
     ok: true,
     recommended_entrypoint: "agent_enter",
+    selection_sources: GUIDE_SELECTION_SOURCES,
     startup,
     lifecycle,
     lifecycle_by_step: lifecycleByStep(lifecycle),

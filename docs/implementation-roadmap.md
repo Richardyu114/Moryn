@@ -245,6 +245,9 @@ Deliverables:
 - Done: `agent_guide.lifecycle_by_step` and discovered-project
   `lifecycle_by_step` mirror lifecycle templates by step name, so hosts can
   choose status, finish, or refresh without scanning `lifecycle[]`.
+- Done: `agent_guide.selection_sources` names the stable startup, lifecycle
+  action, rule, and guardrail lookup paths so hosts do not infer guide paths
+  from prose.
 - Done: `agent_enter.next.workflow` now exposes ordered runtime tracks for
   `start_session` and `discover_projects`, including valid follow-up response
   sources and required fields derived from returned actions.
