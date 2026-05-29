@@ -325,6 +325,67 @@ describe("error envelopes", () => {
         }
       }
     });
+    expectNextActionInterfaces(envelope.error.next_action!);
+    expect(envelope.error.next_action?.workflow).toEqual({
+      version: 1,
+      start: "next_action",
+      continue_from: ["error.next_action", "warning.next_action", "list_recent", "list_recent[].id"],
+      phases: [
+        {
+          phase: "list_recent_records_and_retry_with_known_record_id",
+          order: 1,
+          action_source: "next_action",
+          tool: "list_recent",
+          required_when: "After a record id is rejected, before retrying with a replacement record id.",
+          required_fields: []
+        },
+        {
+          phase: "retry_original_tool_with_selected_record_id",
+          order: 2,
+          action_source: "list_recent[].id",
+          tool: "original_tool",
+          replace_arguments: { record_id: "list_recent[].id" },
+          required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+          required_fields: ["record_id"]
+        }
+      ]
+    });
+  });
+
+  it("uses error context to make missing-record retry workflows executable", () => {
+    const envelope = toErrorEnvelope(new Error("Record not found: rec_missing"), {
+      tool: "promote",
+      command: "moryn promote rec_missing --state canonical",
+      arguments: { record_id: "rec_missing", target_state: "canonical" }
+    });
+
+    expect(envelope.error.next_action?.workflow.phases[1]).toEqual({
+      phase: "retry_original_tool_with_selected_record_id",
+      order: 2,
+      action_source: "list_recent[].id",
+      tool: "promote",
+      command: "moryn promote <record_id_from_list_recent> --state canonical",
+      arguments: { record_id: "<record_id_from_list_recent>", target_state: "canonical" },
+      replace_arguments: { record_id: "list_recent[].id" },
+      required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+      required_fields: ["record_id"]
+    });
+  });
+
+  it("replaces explicit recall record ids without changing the search query", () => {
+    const envelope = toErrorEnvelope(new Error("Record not found: rec_missing"), {
+      tool: "recall",
+      command: "moryn recall rec_missing --record-id rec_missing",
+      arguments: { query: "rec_missing", record_ids: ["rec_missing"] }
+    });
+
+    expect(envelope.error.next_action?.workflow.phases[1]).toMatchObject({
+      tool: "recall",
+      command: "moryn recall rec_missing --record-id <record_id_from_list_recent>",
+      arguments: { query: "rec_missing", record_ids: ["<record_id_from_list_recent>"] },
+      replace_arguments: { record_ids: "list_recent[].id" },
+      required_fields: ["record_ids"]
+    });
   });
 
   it("returns a discovery action when project-scoped writes omit project context", () => {

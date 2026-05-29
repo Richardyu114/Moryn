@@ -587,10 +587,11 @@ error envelopes also include a machine-readable `error.next_action` with
 `required_fields`, `workflow`, `safety`, and `safe_to_run`, so agents can
 recover without parsing prose or guessing placeholder values.
 `error.next_action.interfaces` and `warning.next_action.interfaces` use the same
-CLI/MCP shape as lifecycle action templates, and their single-step `workflow`
-tells hosts when to run the recovery action. Their `safety` object explains
-whether the action can be auto-run, needs user confirmation, needs authored
-arguments, or writes local configuration. Uninitialized
+CLI/MCP shape as lifecycle action templates. Most recovery actions have a
+single-step `workflow`; missing-record recovery is two-step so hosts run
+`list_recent`, choose a returned id, and retry the original tool with that id.
+Their `safety` object explains whether the action can be auto-run, needs user
+confirmation, needs authored arguments, or writes local configuration. Uninitialized
 store errors return an `init` next action with
 `safe_to_run: false`, because it creates local store files. Confirmation errors
 from `promote` and `revise` return a retry action with `confirmed: true` and
@@ -606,8 +607,10 @@ action with the failing project path prefilled. The action is not safe to run
 automatically because it replaces project config and should use a user-approved
 project id.
 Missing record errors return a safe `list_recent` next action and keep the bad
-id in `next_action.rejected_arguments.record_id`, so agents discover a real
-record id before retrying a mutation.
+id in `next_action.rejected_arguments.record_id`. Their workflow then adds a
+`retry_original_tool_with_selected_record_id` phase with the original tool,
+command, and JSON arguments when the failing entrypoint supplied context, so
+agents discover a real id and retry without inventing the mutation shape.
 Remote sync unavailable errors return a safe read-only `sync_status` next
 action, so agents inspect remote health before retrying pull/push while
 continuing to use the local store.

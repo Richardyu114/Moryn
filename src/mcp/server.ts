@@ -5,7 +5,16 @@ import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStat
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
-import { commandForPromoteContext, commandForReviseContext, type MorynErrorContext, toErrorEnvelope } from "../core/errors.js";
+import {
+  commandForArchiveContext,
+  commandForLinkContext,
+  commandForPromoteContext,
+  commandForRecallContext,
+  commandForQuarantineContext,
+  commandForReviseContext,
+  type MorynErrorContext,
+  toErrorEnvelope
+} from "../core/errors.js";
 import { initializeProjectConfig, resolveProjectContext } from "../core/project.js";
 import type { RecordKind, RecordScope, RecordSource, RecordState } from "../core/types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
@@ -178,6 +187,34 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         files,
         limit
       });
+    }, {
+      tool: "recall",
+      command: commandForRecallContext({
+        record_ids,
+        query,
+        project_id,
+        project_path,
+        kinds,
+        scopes,
+        types,
+        states,
+        tags,
+        files,
+        limit
+      }),
+      arguments: {
+        ...(record_ids !== undefined ? { record_ids } : {}),
+        ...(query !== undefined ? { query } : {}),
+        ...(project_id !== undefined ? { project_id } : {}),
+        ...(project_path !== undefined ? { project_path } : {}),
+        ...(kinds !== undefined ? { kinds } : {}),
+        ...(scopes !== undefined ? { scopes } : {}),
+        ...(types !== undefined ? { types } : {}),
+        ...(states !== undefined ? { states } : {}),
+        ...(tags !== undefined ? { tags } : {}),
+        ...(files !== undefined ? { files } : {}),
+        ...(limit !== undefined ? { limit } : {})
+      }
     })
   );
 
@@ -317,7 +354,15 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       record_id,
       reason,
       source: (source ?? { client: "mcp" }) as RecordSource
-    }))
+    }), {
+      tool: "archive",
+      command: commandForArchiveContext({ record_id, reason }),
+      arguments: {
+        record_id,
+        ...(reason !== undefined ? { reason } : {}),
+        ...(source !== undefined ? { source } : {})
+      }
+    })
   );
 
   server.registerTool(
@@ -335,7 +380,15 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       record_id,
       reason,
       source: (source ?? { client: "mcp" }) as RecordSource
-    }))
+    }), {
+      tool: "quarantine",
+      command: commandForQuarantineContext({ record_id, reason }),
+      arguments: {
+        record_id,
+        ...(reason !== undefined ? { reason } : {}),
+        ...(source !== undefined ? { source } : {})
+      }
+    })
   );
 
   server.registerTool(
@@ -355,7 +408,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       linked_record_id,
       link_type,
       source: (source ?? { client: "mcp" }) as RecordSource
-    }))
+    }), {
+      tool: "link",
+      command: commandForLinkContext({ record_id, linked_record_id, link_type }),
+      arguments: {
+        record_id,
+        linked_record_id,
+        link_type,
+        ...(source !== undefined ? { source } : {})
+      }
+    })
   );
 
   server.registerTool(

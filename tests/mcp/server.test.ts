@@ -3278,6 +3278,59 @@ describe("MCP stdio server", () => {
           required_fields: [],
           safe_to_run: true
         });
+        expect(result.error.next_action?.workflow?.phases?.[1]).toEqual({
+          phase: "retry_original_tool_with_selected_record_id",
+          order: 2,
+          action_source: "list_recent[].id",
+          tool: "archive",
+          command: "moryn archive <record_id_from_list_recent> --reason 'Should fail'",
+          arguments: { record_id: "<record_id_from_list_recent>", reason: "Should fail" },
+          replace_arguments: { record_id: "list_recent[].id" },
+          required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+          required_fields: ["record_id"]
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("returns retry workflow context for missing recall record ids over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-missing-recall-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const result = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            record_ids: ["rec_missing"]
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            next_action?: {
+              workflow?: {
+                phases?: Array<Record<string, unknown>>;
+              };
+            };
+          };
+        };
+
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe("RECORD_NOT_FOUND");
+        expect(result.error.next_action?.workflow?.phases?.[1]).toEqual({
+          phase: "retry_original_tool_with_selected_record_id",
+          order: 2,
+          action_source: "list_recent[].id",
+          tool: "recall",
+          command: "moryn recall --record-id <record_id_from_list_recent>",
+          arguments: { record_ids: ["<record_id_from_list_recent>"] },
+          replace_arguments: { record_ids: "list_recent[].id" },
+          required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+          required_fields: ["record_ids"]
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });

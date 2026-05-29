@@ -2873,6 +2873,9 @@ describe("core engine", () => {
         link_type: "supersedes",
         source: { client: "test" }
       })).rejects.toThrow("Record not found: rec_missing");
+      await expect(engine.recall({
+        record_ids: ["rec_missing"]
+      })).rejects.toThrow("Record not found: rec_missing");
 
       const recall = await engine.recall({ record_ids: [existing.record.id] });
       expect(recall.results[0]?.record.links).toBeUndefined();

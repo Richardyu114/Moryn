@@ -8,7 +8,16 @@ import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStat
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
-import { commandForPromoteContext, commandForReviseContext, type MorynErrorContext, toErrorEnvelope } from "./core/errors.js";
+import {
+  commandForArchiveContext,
+  commandForLinkContext,
+  commandForPromoteContext,
+  commandForRecallContext,
+  commandForQuarantineContext,
+  commandForReviseContext,
+  type MorynErrorContext,
+  toErrorEnvelope
+} from "./core/errors.js";
 import { initializeProjectConfig, resolveProjectContext } from "./core/project.js";
 import { isValidPatchPath } from "./core/schema.js";
 import { runMcpServer } from "./mcp/server.js";
@@ -239,7 +248,8 @@ program.command("recall")
   .action(async (query, options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options);
-    printJson(await engine.recall({
+    const limit = parseLimit(options.limit);
+    const recallInput = {
       record_ids: options.recordId,
       query: parseNonEmptyString(query, "query"),
       project_id: projectId,
@@ -249,8 +259,31 @@ program.command("recall")
       states: parseEnumList(options.state, recordStates, "--state"),
       tags: options.tag,
       files: options.file,
-      limit: parseLimit(options.limit)
-    }));
+      limit
+    };
+    const contextArguments = {
+      ...(options.recordId.length ? { record_ids: options.recordId } : {}),
+      ...(recallInput.query !== undefined ? { query: recallInput.query } : {}),
+      ...(projectId !== undefined ? { project_id: projectId } : {}),
+      ...(recallInput.kinds.length ? { kinds: recallInput.kinds } : {}),
+      ...(recallInput.scopes.length ? { scopes: recallInput.scopes } : {}),
+      ...(options.type.length ? { types: options.type } : {}),
+      ...(recallInput.states.length ? { states: recallInput.states } : {}),
+      ...(options.tag.length ? { tags: options.tag } : {}),
+      ...(options.file.length ? { files: options.file } : {}),
+      ...(options.limit !== "10" ? { limit } : {})
+    };
+    const context = {
+      tool: "recall",
+      command: commandForRecallContext(contextArguments),
+      arguments: contextArguments
+    };
+    try {
+      printJson(await engine.recall(recallInput));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 program.command("boot")
@@ -336,7 +369,21 @@ program.command("archive")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    printJson(await engine.archive({ record_id: recordId, reason: parseNonEmptyString(options.reason, "--reason"), source: { client: "cli" } }));
+    const reason = parseNonEmptyString(options.reason, "--reason");
+    const context = {
+      tool: "archive",
+      command: commandForArchiveContext({ record_id: recordId, reason }),
+      arguments: {
+        record_id: recordId,
+        ...(reason !== undefined ? { reason } : {})
+      }
+    };
+    try {
+      printJson(await engine.archive({ record_id: recordId, reason, source: { client: "cli" } }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 program.command("quarantine")
@@ -344,7 +391,21 @@ program.command("quarantine")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    printJson(await engine.quarantine({ record_id: recordId, reason: parseNonEmptyString(options.reason, "--reason"), source: { client: "cli" } }));
+    const reason = parseNonEmptyString(options.reason, "--reason");
+    const context = {
+      tool: "quarantine",
+      command: commandForQuarantineContext({ record_id: recordId, reason }),
+      arguments: {
+        record_id: recordId,
+        ...(reason !== undefined ? { reason } : {})
+      }
+    };
+    try {
+      printJson(await engine.quarantine({ record_id: recordId, reason, source: { client: "cli" } }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 program.command("link")
@@ -353,12 +414,26 @@ program.command("link")
   .requiredOption("--type <type>")
   .action(async (recordId, linkedRecordId, options) => {
     const engine = createCliEngine();
-    printJson(await engine.link({
-      record_id: recordId,
-      linked_record_id: linkedRecordId,
-      link_type: options.type,
-      source: { client: "cli" }
-    }));
+    const context = {
+      tool: "link",
+      command: commandForLinkContext({ record_id: recordId, linked_record_id: linkedRecordId, link_type: options.type }),
+      arguments: {
+        record_id: recordId,
+        linked_record_id: linkedRecordId,
+        link_type: options.type
+      }
+    };
+    try {
+      printJson(await engine.link({
+        record_id: recordId,
+        linked_record_id: linkedRecordId,
+        link_type: options.type,
+        source: { client: "cli" }
+      }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 program.command("list-recent")

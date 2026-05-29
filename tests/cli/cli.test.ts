@@ -3822,6 +3822,9 @@ describe("moryn CLI", () => {
               command: string;
               arguments: Record<string, unknown>;
               rejected_arguments?: Record<string, unknown>;
+              workflow?: {
+                phases?: Array<Record<string, unknown>>;
+              };
               safe_to_run: boolean;
             };
           };
@@ -3838,6 +3841,59 @@ describe("moryn CLI", () => {
           rejected_arguments: { record_id: "rec_missing" },
           required_fields: [],
           safe_to_run: true
+        });
+        expect(parsed.error.next_action?.workflow?.phases?.[1]).toEqual({
+          phase: "retry_original_tool_with_selected_record_id",
+          order: 2,
+          action_source: "list_recent[].id",
+          tool: "promote",
+          command: "moryn promote <record_id_from_list_recent> --state canonical",
+          arguments: { record_id: "<record_id_from_list_recent>", target_state: "canonical" },
+          replace_arguments: { record_id: "list_recent[].id" },
+          required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+          required_fields: ["record_id"]
+        });
+      }
+    });
+  });
+
+  it("returns retry workflow context for missing recall record ids", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+
+      try {
+        await exec("node", [
+          "--import", "tsx", "src/cli.ts", "--store", store,
+          "recall",
+          "--record-id",
+          "rec_missing"
+        ]);
+        throw new Error("Expected moryn recall to fail for a missing record");
+      } catch (error) {
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            next_action?: {
+              workflow?: {
+                phases?: Array<Record<string, unknown>>;
+              };
+            };
+          };
+        };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("RECORD_NOT_FOUND");
+        expect(parsed.error.next_action?.workflow?.phases?.[1]).toEqual({
+          phase: "retry_original_tool_with_selected_record_id",
+          order: 2,
+          action_source: "list_recent[].id",
+          tool: "recall",
+          command: "moryn recall --record-id <record_id_from_list_recent>",
+          arguments: { record_ids: ["<record_id_from_list_recent>"] },
+          replace_arguments: { record_ids: "list_recent[].id" },
+          required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+          required_fields: ["record_ids"]
         });
       }
     });

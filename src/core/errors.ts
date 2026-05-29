@@ -39,17 +39,20 @@ interface ActionInterfaces<TArguments> {
 interface NextActionWorkflow {
   version: 1;
   start: "next_action";
-  continue_from: ["error.next_action", "warning.next_action"];
-  phases: [
-    {
-      phase: string;
-      order: 1;
-      action_source: "next_action";
-      tool: string;
-      required_when: string;
-      required_fields: string[];
-    }
-  ];
+  continue_from: string[];
+  phases: NextActionWorkflowPhase[];
+}
+
+interface NextActionWorkflowPhase {
+  phase: string;
+  order: number;
+  action_source: string;
+  tool: string;
+  required_when: string;
+  required_fields: string[];
+  command?: string;
+  arguments?: Record<string, unknown>;
+  replace_arguments?: Record<string, string>;
 }
 
 export interface MorynErrorContext {
@@ -66,6 +69,7 @@ const CONFIGURE_SYNC_WHEN = "Before using sync operations when no remote has bee
 const CHECK_REMOTE_SYNC_WHEN = "After a remote sync failure, before retrying remote operations.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 const LIST_RECORDS_WHEN = "After a record id is rejected, before retrying with a replacement record id.";
+const RETRY_WITH_SELECTED_RECORD_WHEN = "After choosing the correct record id from list_recent results, retry the original tool with that selected id.";
 const DISCOVER_PROJECT_FOR_WRITE_WHEN = "Before retrying a project-scoped write when project_id was omitted.";
 const RETRY_PROJECT_CONFIG_ID_WHEN = "After project_path and project_id disagree, before starting lifecycle work with corrected project identity.";
 const DISCOVER_PROJECT_CONTEXT_WHEN = "When a populated store requires explicit project context and none was provided.";
@@ -77,6 +81,17 @@ export const PROMOTE_CANDIDATE_WHEN = "After the user explicitly confirms that t
 function shellQuote(value: string): string {
   if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function appendCommandOption(parts: string[], option: string, value: string | number | undefined): void {
+  if (value === undefined) return;
+  parts.push(option, shellQuote(String(value)));
+}
+
+function appendRepeatedCommandOption(parts: string[], option: string, values: string[] | undefined): void {
+  for (const value of values ?? []) {
+    appendCommandOption(parts, option, value);
+  }
 }
 
 export function withNextActionMetadata<T extends {
@@ -267,6 +282,68 @@ function appendConfirmFlag(command: string): string {
   return `${command} --confirm`;
 }
 
+function replaceCommandRecordId(command: string, rejectedRecordId: string | undefined, placeholder: string): string {
+  if (!rejectedRecordId) return command;
+  const quotedRecordId = shellQuote(rejectedRecordId);
+  if (command.includes(quotedRecordId)) return command.replace(quotedRecordId, placeholder);
+  if (command.includes(rejectedRecordId)) return command.replace(rejectedRecordId, placeholder);
+  return command;
+}
+
+function missingRecordArgumentKey(context: MorynErrorContext | undefined, rejectedRecordId: string | undefined): string {
+  if (!context || !rejectedRecordId) return "record_id";
+  const preferredKeys = ["record_id", "record_ids", "linked_record_id"];
+  const preferredEntry = preferredKeys.find((key) => {
+    const value = context.arguments[key];
+    return value === rejectedRecordId || (Array.isArray(value) && value.includes(rejectedRecordId));
+  });
+  if (preferredEntry) return preferredEntry;
+  const matchingEntry = Object.entries(context.arguments).find(([, value]) => {
+    if (value === rejectedRecordId) return true;
+    return Array.isArray(value) && value.includes(rejectedRecordId);
+  });
+  return matchingEntry?.[0] ?? "record_id";
+}
+
+function replaceArgumentValue(value: unknown, rejectedRecordId: string | undefined, placeholder: string): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => entry === rejectedRecordId ? placeholder : entry);
+  }
+  return placeholder;
+}
+
+function replaceCommandArgument(command: string, argumentKey: string, rejectedRecordId: string | undefined, placeholder: string): string {
+  if (!rejectedRecordId) return command;
+  const quotedRecordId = shellQuote(rejectedRecordId);
+  const flag = argumentKey === "record_ids" ? "--record-id" : `--${argumentKey.replace(/_/g, "-")}`;
+  const flaggedQuotedPattern = `${flag} ${quotedRecordId}`;
+  if (command.includes(flaggedQuotedPattern)) return command.replace(flaggedQuotedPattern, `${flag} ${placeholder}`);
+  const flaggedPattern = `${flag} ${rejectedRecordId}`;
+  if (command.includes(flaggedPattern)) return command.replace(flaggedPattern, `${flag} ${placeholder}`);
+  return replaceCommandRecordId(command, rejectedRecordId, placeholder);
+}
+
+function missingRecordRetryPhase(context: MorynErrorContext | undefined, rejectedRecordId: string | undefined): NextActionWorkflowPhase {
+  const placeholder = "<record_id_from_list_recent>";
+  const argumentKey = missingRecordArgumentKey(context, rejectedRecordId);
+  return {
+    phase: "retry_original_tool_with_selected_record_id",
+    order: 2,
+    action_source: "list_recent[].id",
+    tool: context?.tool ?? "original_tool",
+    ...(context ? {
+      command: replaceCommandArgument(context.command, argumentKey, rejectedRecordId, placeholder),
+      arguments: {
+        ...context.arguments,
+        [argumentKey]: replaceArgumentValue(context.arguments[argumentKey], rejectedRecordId, placeholder)
+      }
+    } : {}),
+    replace_arguments: { [argumentKey]: "list_recent[].id" },
+    required_when: RETRY_WITH_SELECTED_RECORD_WHEN,
+    required_fields: [argumentKey]
+  };
+}
+
 function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextAction | undefined {
   if (!context) return undefined;
   return withNextActionMetadata({
@@ -301,6 +378,63 @@ export function commandForReviseContext(input: { record_id: string; patch: Recor
     parts.push("--reason", shellQuote(input.reason));
   }
   return parts.join(" ");
+}
+
+export function commandForRecallContext(input: {
+  record_ids?: string[];
+  query?: string;
+  project_id?: string;
+  project_path?: string;
+  kinds?: string[];
+  scopes?: string[];
+  types?: string[];
+  states?: string[];
+  tags?: string[];
+  files?: string[];
+  limit?: number;
+}): string {
+  const parts = ["moryn", "recall"];
+  if (input.query !== undefined) {
+    parts.push(shellQuote(input.query));
+  }
+  appendRepeatedCommandOption(parts, "--record-id", input.record_ids);
+  appendCommandOption(parts, "--project-id", input.project_id);
+  appendCommandOption(parts, "--project", input.project_path);
+  appendRepeatedCommandOption(parts, "--kind", input.kinds);
+  appendRepeatedCommandOption(parts, "--scope", input.scopes);
+  appendRepeatedCommandOption(parts, "--type", input.types);
+  appendRepeatedCommandOption(parts, "--state", input.states);
+  appendRepeatedCommandOption(parts, "--tag", input.tags);
+  appendRepeatedCommandOption(parts, "--file", input.files);
+  appendCommandOption(parts, "--limit", input.limit);
+  return parts.join(" ");
+}
+
+export function commandForArchiveContext(input: { record_id: string; reason?: string }): string {
+  const parts = ["moryn", "archive", shellQuote(input.record_id)];
+  if (input.reason !== undefined) {
+    parts.push("--reason", shellQuote(input.reason));
+  }
+  return parts.join(" ");
+}
+
+export function commandForQuarantineContext(input: { record_id: string; reason?: string }): string {
+  const parts = ["moryn", "quarantine", shellQuote(input.record_id)];
+  if (input.reason !== undefined) {
+    parts.push("--reason", shellQuote(input.reason));
+  }
+  return parts.join(" ");
+}
+
+export function commandForLinkContext(input: { record_id: string; linked_record_id: string; link_type: string }): string {
+  return [
+    "moryn",
+    "link",
+    shellQuote(input.record_id),
+    shellQuote(input.linked_record_id),
+    "--type",
+    shellQuote(input.link_type)
+  ].join(" ");
 }
 
 export function nextAction(code: string, message = "", context?: MorynErrorContext): MorynErrorNextAction | undefined {
@@ -384,7 +518,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
     case "RECORD_NOT_FOUND":
       {
         const recordId = missingRecordIdFromMessage(message);
-        return withNextActionMetadata({
+        const action = withNextActionMetadata({
           recommended_action: "list_recent_records_and_retry_with_known_record_id",
           tool: "list_recent",
           command: "moryn list-recent",
@@ -394,6 +528,18 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           ...(recordId ? { rejected_arguments: { record_id: recordId } } : {}),
           safe_to_run: true
         });
+        return {
+          ...action,
+          workflow: {
+            version: 1,
+            start: "next_action",
+            continue_from: ["error.next_action", "warning.next_action", "list_recent", "list_recent[].id"],
+            phases: [
+              action.workflow.phases[0]!,
+              missingRecordRetryPhase(context, recordId)
+            ]
+          }
+        };
       }
     case "INVALID_ARGUMENT":
       if (message === "Invalid argument: project_id is required for project scope") {

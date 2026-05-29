@@ -85,6 +85,9 @@ Deliverables:
   `interrupt`.
 - Done: Reportable non-raw refresh changes now include safe `recall`
   `next_action` metadata with CLI/MCP interfaces, safety, and workflow fields.
+- Done: Missing-record recovery now exposes a two-step workflow: run safe
+  `list_recent`, then retry the original CLI/MCP tool with the selected returned
+  record id instead of guessing a mutation shape.
 - Done: `current_task` narrows refresh interrupts to related blockers, warnings,
   conflicts, and high-priority changes.
 - Done: Agents can request explicit refresh through CLI or MCP.

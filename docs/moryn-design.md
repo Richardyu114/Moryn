@@ -908,9 +908,12 @@ project listing, or corrected retry arguments. These error envelopes also carry
 `error.next_action` with `tool`, `command`, `arguments`, `interfaces`,
 `required_when`, `required_fields`, `workflow`, `safety`, and `safe_to_run`, so
 agents can recover from the envelope without parsing prose or guessing
-placeholder values. Warning recovery actions use the same
-`warning.next_action.interfaces` shape, `warning.next_action.safety`, and
-single-step `warning.next_action.workflow`. For
+placeholder values. Most recovery actions are single-step workflows;
+`RECORD_NOT_FOUND` uses a two-step workflow so agents first run the safe
+`list_recent` action and then retry the original tool with the selected returned
+id. Warning recovery actions use the same `warning.next_action.interfaces`
+shape, `warning.next_action.safety`, and single-step
+`warning.next_action.workflow`. For
 `PROJECT_PATH_NOT_FOUND`, the `next_action.arguments.path` value is the exact
 missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
 `next_action.rejected_arguments.project_id` preserves the rejected id and
@@ -1767,7 +1770,10 @@ resolution:
 ```
 
 Missing record errors keep the rejected id in metadata and point agents at
-recent records before retrying a mutation:
+recent records before retrying a mutation. When the failed CLI/MCP entrypoint
+provided context, the second workflow phase names the original tool, command,
+and arguments with only the rejected record id replaced by
+`<record_id_from_list_recent>`:
 
 ```json
 {
@@ -1784,6 +1790,42 @@ recent records before retrying a mutation:
       "arguments": {},
       "rejected_arguments": {
         "record_id": "rec_missing"
+      },
+      "workflow": {
+        "version": 1,
+        "start": "next_action",
+        "continue_from": [
+          "error.next_action",
+          "warning.next_action",
+          "list_recent",
+          "list_recent[].id"
+        ],
+        "phases": [
+          {
+            "phase": "list_recent_records_and_retry_with_known_record_id",
+            "order": 1,
+            "action_source": "next_action",
+            "tool": "list_recent",
+            "required_when": "After a record id is rejected, before retrying with a replacement record id.",
+            "required_fields": []
+          },
+          {
+            "phase": "retry_original_tool_with_selected_record_id",
+            "order": 2,
+            "action_source": "list_recent[].id",
+            "tool": "promote",
+            "command": "moryn promote <record_id_from_list_recent> --state canonical",
+            "arguments": {
+              "record_id": "<record_id_from_list_recent>",
+              "target_state": "canonical"
+            },
+            "replace_arguments": {
+              "record_id": "list_recent[].id"
+            },
+            "required_when": "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+            "required_fields": ["record_id"]
+          }
+        ]
       },
       "safe_to_run": true
     }

@@ -1054,6 +1054,9 @@ export function createEngine(deps: EngineDeps) {
 
     async recall(input: RecallInput) {
       validateRecallInput(input);
+      for (const recordId of input.record_ids ?? []) {
+        await requireRecord(recordId);
+      }
       const limit = validateLimit(input.limit, 10);
       const records = (await currentRecords())
         .filter((record) => includesHiddenState(input) || includesRawState(input) || isVisibleInDefaultRecall(record))
