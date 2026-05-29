@@ -92,6 +92,12 @@ const RECALL_SELECTION_SOURCES = {
   record_id: "results_by_id.<record_id>.record.id"
 };
 
+const REFRESH_SELECTION_SOURCES = {
+  change: "changes_by_record_id.<record_id>",
+  record_id: "changes_by_record_id.<record_id>.record_id",
+  next_action: "changes_by_record_id.<record_id>.next_action"
+};
+
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
   return {
     ...("required_fields" in action && Array.isArray(action.required_fields)
@@ -1217,6 +1223,7 @@ export function createEngine(deps: EngineDeps) {
       return {
         cursor: latest,
         changes: changes.map((change) => change.change),
+        selection_sources: REFRESH_SELECTION_SOURCES,
         changes_by_record_id: Object.fromEntries(changes.map((change) => [change.change.record_id, change.change])),
         should_interrupt: changes.some((change) => change.change.importance === "interrupt")
       };

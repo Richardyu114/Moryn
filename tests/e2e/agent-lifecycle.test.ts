@@ -321,6 +321,11 @@ describe("agent lifecycle", () => {
         })
       ]);
       expect(geminiStart.refresh.changes_by_record_id[codexFinish.record.id]).toEqual(geminiStart.refresh.changes[0]);
+      expect(geminiStart.refresh.selection_sources).toEqual({
+        change: "changes_by_record_id.<record_id>",
+        record_id: "changes_by_record_id.<record_id>.record_id",
+        next_action: "changes_by_record_id.<record_id>.next_action"
+      });
       expectRefreshChangeNextAction(geminiStart.refresh.changes[0]!.next_action, codexFinish.record.id, "moryn");
       expect(geminiStart.refresh.changes_by_record_id[codexFinish.record.id]!.next_action).toEqual(geminiStart.refresh.changes[0]!.next_action);
       expect(geminiStart.handoff).toMatchObject({

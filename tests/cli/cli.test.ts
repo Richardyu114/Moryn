@@ -1146,7 +1146,13 @@ describe("moryn CLI", () => {
             workflow?: Record<string, unknown>;
           };
         }>;
+        selection_sources: Record<string, string>;
       };
+      expect(parsedRefresh.selection_sources).toEqual({
+        change: "changes_by_record_id.<record_id>",
+        record_id: "changes_by_record_id.<record_id>.record_id",
+        next_action: "changes_by_record_id.<record_id>.next_action"
+      });
       expect(parsedRefresh.changes).toContainEqual(expect.objectContaining({
         record_id: recordId,
         importance: "interrupt",

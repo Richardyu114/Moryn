@@ -1112,8 +1112,14 @@ describe("MCP stdio server", () => {
               workflow?: Record<string, unknown>;
             };
           }>;
+          selection_sources: Record<string, string>;
         };
 
+        expect(refreshResult.selection_sources).toEqual({
+          change: "changes_by_record_id.<record_id>",
+          record_id: "changes_by_record_id.<record_id>.record_id",
+          next_action: "changes_by_record_id.<record_id>.next_action"
+        });
         expect(refreshResult.changes).toEqual([
           expect.objectContaining({
             record_id: writeResult.record.id,

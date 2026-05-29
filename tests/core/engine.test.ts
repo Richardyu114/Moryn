@@ -2527,6 +2527,11 @@ describe("core engine", () => {
 
       expect(refresh.cursor).toBe("2026-05-27T00:06:00.000Z");
       expect(refresh.should_interrupt).toBe(true);
+      expect(refresh.selection_sources).toEqual({
+        change: "changes_by_record_id.<record_id>",
+        record_id: "changes_by_record_id.<record_id>.record_id",
+        next_action: "changes_by_record_id.<record_id>.next_action"
+      });
       expect(refresh.changes).toEqual([
         expect.objectContaining({
           record_id: decision.record.id,

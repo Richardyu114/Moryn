@@ -761,6 +761,11 @@ Output:
       }
     }
   },
+  "selection_sources": {
+    "change": "changes_by_record_id.<record_id>",
+    "record_id": "changes_by_record_id.<record_id>.record_id",
+    "next_action": "changes_by_record_id.<record_id>.next_action"
+  },
   "should_interrupt": false
 }
 ```
@@ -769,6 +774,7 @@ Reportable non-raw changes include `next_action` so agents can retrieve full
 record content through the safe `recall` interface instead of composing CLI or
 MCP arguments from the prose `recommended_action`. The ordered `changes[]` list
 is mirrored by `changes_by_record_id`, keyed by `record_id`;
+`selection_sources` names the keyed change, record-id, and next-action paths;
 `next_action.argument_sources.record_ids` points at the keyed change record id
 so hosts can fill recall arguments without scanning workflow phases. Workflow
 phases prefer `refresh.changes_by_record_id.<record_id>.next_action` while
