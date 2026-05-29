@@ -925,10 +925,13 @@ missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
 populated store can name known projects. Both project-selection recovery
 workflows include a second `retry_original_tool_with_selected_project_id`
 phase sourced from `project_list.projects_by_id.<project_id>.project_id`;
-`project_list.projects[].project_id` remains an ordered fallback source. When a
-lifecycle command resolves project context from `.moryn.json`, its returned
-`next.actions` are prefilled with the resolved `project_id` so they can be
-reused outside the original cwd.
+`project_list.projects[].project_id` remains an ordered fallback source. Direct
+`agent_start`, `agent_status`, and `agent_finish` CLI/MCP wrappers pass their
+original tool, command, and JSON arguments into that retry phase so agents can
+add the selected `project_id` without reconstructing write commands from
+prose. When a lifecycle command resolves project context from `.moryn.json`,
+its returned `next.actions` are prefilled with the resolved `project_id` so
+they can be reused outside the original cwd.
 When an action lists `required_fields`, the same required field appears in
 `arguments` with a `<field>` placeholder; agents should replace those JSON
 argument values rather than parse the CLI command template. Lifecycle action

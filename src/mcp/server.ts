@@ -6,7 +6,9 @@ import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
 import {
+  commandForAgentFinishContext,
   commandForAgentStartContext,
+  commandForAgentStatusContext,
   commandForArchiveContext,
   commandForLinkContext,
   commandForPromoteContext,
@@ -584,16 +586,32 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: sourceSchema.optional()
       }
     },
-    async ({ summary, project_id, project_path, sync_remote, current_task, push, agent }) => toolResult(async () => agentFinish({
-      storePath: options.storePath,
-      projectId: project_id,
-      projectPath: project_path,
-      syncRemote: sync_remote,
-      currentTask: current_task,
-      summary,
-      push,
-      agent
-    }))
+    async ({ summary, project_id, project_path, sync_remote, current_task, push, agent }) => {
+      const contextInput = {
+        summary,
+        project_id,
+        project_path,
+        sync_remote,
+        current_task,
+        push,
+        agent
+      };
+      const contextArguments = compactUndefined(contextInput);
+      return toolResult(async () => agentFinish({
+        storePath: options.storePath,
+        projectId: project_id,
+        projectPath: project_path,
+        syncRemote: sync_remote,
+        currentTask: current_task,
+        summary,
+        push,
+        agent
+      }), {
+        tool: "agent_finish",
+        command: commandForAgentFinishContext(contextInput),
+        arguments: contextArguments
+      });
+    }
   );
 
   server.registerTool(
@@ -611,16 +629,32 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: sourceSchema.optional()
       }
     },
-    async ({ status, project_id, project_path, sync_remote, current_task, push, agent }) => toolResult(async () => agentStatus({
-      storePath: options.storePath,
-      projectId: project_id,
-      projectPath: project_path,
-      syncRemote: sync_remote,
-      currentTask: current_task,
-      status,
-      push,
-      agent
-    }))
+    async ({ status, project_id, project_path, sync_remote, current_task, push, agent }) => {
+      const contextInput = {
+        status,
+        project_id,
+        project_path,
+        sync_remote,
+        current_task,
+        push,
+        agent
+      };
+      const contextArguments = compactUndefined(contextInput);
+      return toolResult(async () => agentStatus({
+        storePath: options.storePath,
+        projectId: project_id,
+        projectPath: project_path,
+        syncRemote: sync_remote,
+        currentTask: current_task,
+        status,
+        push,
+        agent
+      }), {
+        tool: "agent_status",
+        command: commandForAgentStatusContext(contextInput),
+        arguments: contextArguments
+      });
+    }
   );
 
   server.registerTool(

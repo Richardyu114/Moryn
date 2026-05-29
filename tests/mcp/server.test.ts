@@ -2679,28 +2679,59 @@ describe("MCP stdio server", () => {
           }
         });
 
-        for (const call of [
+        for (const { call, retry } of [
           {
-            name: "agent_start",
-            arguments: {
-              current_task: "avoid ambient project",
-              agent: { client: "codex" }
+            call: {
+              name: "agent_start",
+              arguments: {
+                current_task: "avoid ambient project",
+                agent: { client: "codex" }
+              }
+            },
+            retry: {
+              tool: "agent_start",
+              command: "moryn agent start --current-task 'avoid ambient project' --agent codex --project-id <project_id_from_project_list>",
+              arguments: { current_task: "avoid ambient project", agent: { client: "codex" }, project_id: "<project_id_from_project_list>" }
             }
           },
           {
-            name: "agent_status",
-            arguments: {
-              current_task: "avoid ambient project",
-              status: "Do not write inferred status.",
-              agent: { client: "codex" }
+            call: {
+              name: "agent_status",
+              arguments: {
+                current_task: "avoid ambient project",
+                status: "Do not write inferred status.",
+                agent: { client: "codex" }
+              }
+            },
+            retry: {
+              tool: "agent_status",
+              command: "moryn agent status --current-task 'avoid ambient project' --agent codex --status 'Do not write inferred status.' --project-id <project_id_from_project_list>",
+              arguments: {
+                current_task: "avoid ambient project",
+                status: "Do not write inferred status.",
+                agent: { client: "codex" },
+                project_id: "<project_id_from_project_list>"
+              }
             }
           },
           {
-            name: "agent_finish",
-            arguments: {
-              current_task: "avoid ambient project",
-              summary: "Do not write inferred summary.",
-              agent: { client: "codex" }
+            call: {
+              name: "agent_finish",
+              arguments: {
+                current_task: "avoid ambient project",
+                summary: "Do not write inferred summary.",
+                agent: { client: "codex" }
+              }
+            },
+            retry: {
+              tool: "agent_finish",
+              command: "moryn agent finish --current-task 'avoid ambient project' --agent codex --summary 'Do not write inferred summary.' --project-id <project_id_from_project_list>",
+              arguments: {
+                current_task: "avoid ambient project",
+                summary: "Do not write inferred summary.",
+                agent: { client: "codex" },
+                project_id: "<project_id_from_project_list>"
+              }
             }
           }
         ]) {
@@ -2712,7 +2743,16 @@ describe("MCP stdio server", () => {
               code: string;
               message: string;
               recommended_action: string;
-              next_action: { recommended_action: string; tool: string; command: string; arguments: Record<string, unknown>; safe_to_run: boolean };
+              next_action: {
+                recommended_action: string;
+                tool: string;
+                command: string;
+                arguments: Record<string, unknown>;
+                safe_to_run: boolean;
+                workflow?: {
+                  phases?: Array<Record<string, unknown>>;
+                };
+              };
             };
           };
           expect(parsed.ok).toBe(false);
@@ -2727,6 +2767,17 @@ describe("MCP stdio server", () => {
             candidate_project_ids: ["moryn"],
             required_fields: [],
             safe_to_run: true
+          });
+          expect(parsed.error.next_action.workflow?.phases?.[1]).toEqual({
+            phase: "retry_original_tool_with_selected_project_id",
+            order: 2,
+            action_source: "project_list.projects_by_id.<project_id>.project_id",
+            tool: retry.tool,
+            command: retry.command,
+            arguments: retry.arguments,
+            replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
+            required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+            required_fields: ["project_id"]
           });
         }
       }, unknownCwd);

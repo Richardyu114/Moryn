@@ -526,6 +526,46 @@ export function commandForAgentStartContext(input: {
   return parts.join(" ");
 }
 
+interface AgentLifecycleCommandContextInput {
+  project_id?: string;
+  project_path?: string;
+  sync_remote?: string;
+  current_task?: string;
+  push?: boolean;
+  agent?: {
+    client?: string;
+    session_id?: string;
+    model?: string;
+    device_id?: string;
+  };
+}
+
+function appendAgentLifecycleCommandOptions(parts: string[], input: AgentLifecycleCommandContextInput): void {
+  appendCommandOption(parts, "--project", input.project_path);
+  appendCommandOption(parts, "--project-id", input.project_id);
+  appendCommandOption(parts, "--sync-remote", input.sync_remote);
+  appendCommandOption(parts, "--current-task", input.current_task);
+  appendCommandOption(parts, "--agent", input.agent?.client);
+  appendCommandOption(parts, "--session-id", input.agent?.session_id);
+  appendCommandOption(parts, "--model", input.agent?.model);
+  appendCommandOption(parts, "--device-id", input.agent?.device_id);
+  if (input.push === false) parts.push("--no-push");
+}
+
+export function commandForAgentStatusContext(input: AgentLifecycleCommandContextInput & { status: string }): string {
+  const parts = ["moryn", "agent", "status"];
+  appendAgentLifecycleCommandOptions(parts, input);
+  appendCommandOption(parts, "--status", input.status);
+  return parts.join(" ");
+}
+
+export function commandForAgentFinishContext(input: AgentLifecycleCommandContextInput & { summary: string }): string {
+  const parts = ["moryn", "agent", "finish"];
+  appendAgentLifecycleCommandOptions(parts, input);
+  appendCommandOption(parts, "--summary", input.summary);
+  return parts.join(" ");
+}
+
 export function nextAction(code: string, message = "", context?: MorynErrorContext): MorynErrorNextAction | undefined {
   switch (code) {
     case "STORE_NOT_INITIALIZED":

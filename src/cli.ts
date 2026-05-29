@@ -9,7 +9,9 @@ import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
 import {
+  commandForAgentFinishContext,
   commandForAgentStartContext,
+  commandForAgentStatusContext,
   commandForArchiveContext,
   commandForLinkContext,
   commandForPromoteContext,
@@ -605,16 +607,39 @@ agent.command("status")
   .option("--model <model>")
   .option("--device-id <id>")
   .action(async (options) => {
-    printJson(await agentStatus({
-      storePath: storePath(),
-      projectPath: options.project,
-      projectId: options.projectId,
-      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
-      status: parseNonEmptyString(options.status, "--status")!,
-      push: parseBooleanDefault(options.push, true),
-      agent: parseAgentOptions(options)
-    }));
+    const push = parseBooleanDefault(options.push, true);
+    const agentOptions = parseAgentOptions(options);
+    const status = parseNonEmptyString(options.status, "--status")!;
+    const contextInput = {
+      project_id: parseNonEmptyString(options.projectId, "--project-id"),
+      project_path: parseNonEmptyString(options.project, "--project"),
+      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
+      status,
+      ...(push === false ? { push } : {}),
+      agent: agentOptions
+    };
+    const contextArguments = compactUndefined(contextInput);
+    const context = {
+      tool: "agent_status",
+      command: commandForAgentStatusContext(contextInput),
+      arguments: contextArguments
+    };
+    try {
+      printJson(await agentStatus({
+        storePath: storePath(),
+        projectPath: options.project,
+        projectId: options.projectId,
+        syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+        currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+        status,
+        push,
+        agent: agentOptions
+      }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 agent.command("finish")
@@ -629,16 +654,39 @@ agent.command("finish")
   .option("--model <model>")
   .option("--device-id <id>")
   .action(async (options) => {
-    printJson(await agentFinish({
-      storePath: storePath(),
-      projectPath: options.project,
-      projectId: options.projectId,
-      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
-      summary: parseNonEmptyString(options.summary, "--summary")!,
-      push: parseBooleanDefault(options.push, true),
-      agent: parseAgentOptions(options)
-    }));
+    const push = parseBooleanDefault(options.push, true);
+    const agentOptions = parseAgentOptions(options);
+    const summary = parseNonEmptyString(options.summary, "--summary")!;
+    const contextInput = {
+      project_id: parseNonEmptyString(options.projectId, "--project-id"),
+      project_path: parseNonEmptyString(options.project, "--project"),
+      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
+      summary,
+      ...(push === false ? { push } : {}),
+      agent: agentOptions
+    };
+    const contextArguments = compactUndefined(contextInput);
+    const context = {
+      tool: "agent_finish",
+      command: commandForAgentFinishContext(contextInput),
+      arguments: contextArguments
+    };
+    try {
+      printJson(await agentFinish({
+        storePath: storePath(),
+        projectPath: options.project,
+        projectId: options.projectId,
+        syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+        currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+        summary,
+        push,
+        agent: agentOptions
+      }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 const project = program.command("project");
