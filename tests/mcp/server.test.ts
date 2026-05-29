@@ -200,6 +200,42 @@ function expectGuideNextWorkflow(action: {
   });
 }
 
+function expectProjectListNextWorkflow(action: {
+  recommended_action: string;
+  tool: string;
+  required_when: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next",
+    continue_from: ["project_list.projects[].next"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "project_list.projects[].next",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 function expectActionSafety(action: {
   safe_to_run: boolean;
   required_fields: string[];
@@ -2629,13 +2665,25 @@ describe("MCP stdio server", () => {
             project_id: string;
             latest_activity: { text: string; agent: { client?: string; session_id?: string } };
             next: {
+              recommended_action: string;
               tool: string;
+              safe_to_run: boolean;
               command: string;
+              required_when: string;
+              required_fields: string[];
               arguments: { project_id: string };
               interfaces?: {
                 cli?: { command?: string };
                 mcp?: { tool?: string; arguments?: Record<string, unknown> };
               };
+              safety?: {
+                safe_to_auto_run?: boolean;
+                requires_user_confirmation?: boolean;
+                requires_authored_input?: boolean;
+                writes_local_config?: boolean;
+                reasons?: string[];
+              };
+              workflow?: Record<string, unknown>;
             };
           }>;
         };
@@ -2648,11 +2696,17 @@ describe("MCP stdio server", () => {
             agent: { client: "codex", session_id: "codex-beta" }
           },
           next: {
+            recommended_action: "call_agent_start",
             tool: "agent_start",
+            safe_to_run: true,
+            required_when: "After choosing this project from project_list results.",
+            required_fields: [],
             arguments: { project_id: "beta" }
           }
         });
         expectActionInterfaces(listed.projects[0]!.next);
+        expectActionSafety(listed.projects[0]!.next);
+        expectProjectListNextWorkflow(listed.projects[0]!.next);
       });
     } finally {
       await rm(store, { recursive: true, force: true });

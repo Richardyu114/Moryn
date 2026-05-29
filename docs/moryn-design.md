@@ -721,8 +721,9 @@ Used as the one-call entrypoint for agents on a new machine or uncertain
 project. It runs `agent_doctor` first. If the project is known and safe to
 start, it runs `agent_start` and returns boot, refresh, and handoff context. If
 the project is unclear but the store has known project records, it returns
-`project_list` results with complete `agent_start` command and MCP argument
-templates for each project. If the local store is empty and `sync_remote` is
+`project_list` results with complete `agent_start` action templates for each
+project, including command, MCP arguments, safety, usage timing, and workflow.
+If the local store is empty and `sync_remote` is
 provided, it initializes Git sync and pulls the shared store before choosing
 between project discovery and startup. In `discover_projects` mode, each
 top-level start action also includes lifecycle templates for status, finish,
@@ -851,7 +852,9 @@ MCP tool: `project_list`.
 Agents should call this before `agent_start` when the user references a shared
 store but does not provide a project path or project id. `project_list` accepts
 optional `current_task`, `sync_remote`, and `agent` fields so each returned
-project includes a complete `agent_start` command and MCP argument template.
+project includes a complete `agent_start` action template with command, MCP
+arguments, `interfaces`, `safety`, `required_when`, required fields, and a
+single-step `workflow`.
 When surfaced through `agent_enter`, these project actions also carry
 post-selection lifecycle templates so agents can continue without reconstructing
 commands from prose.

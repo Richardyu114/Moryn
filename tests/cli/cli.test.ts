@@ -197,6 +197,42 @@ function expectGuideNextWorkflow(action: {
   });
 }
 
+function expectProjectListNextWorkflow(action: {
+  recommended_action: string;
+  tool: string;
+  required_when: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next",
+    continue_from: ["project_list.projects[].next"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "project_list.projects[].next",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 function expectActionSafety(action: {
   safe_to_run: boolean;
   required_fields: string[];
@@ -1848,13 +1884,25 @@ describe("moryn CLI", () => {
           records: number;
           latest_activity: { text: string };
           next: {
+            recommended_action: string;
             tool: string;
+            safe_to_run: boolean;
             command: string;
+            required_when: string;
+            required_fields: string[];
             arguments: { project_id: string };
             interfaces?: {
               cli?: { command?: string };
               mcp?: { tool?: string; arguments?: Record<string, unknown> };
             };
+            safety?: {
+              safe_to_auto_run?: boolean;
+              requires_user_confirmation?: boolean;
+              requires_authored_input?: boolean;
+              writes_local_config?: boolean;
+              reasons?: string[];
+            };
+            workflow?: Record<string, unknown>;
           };
         }>;
       };
@@ -1865,11 +1913,17 @@ describe("moryn CLI", () => {
         records: 1,
         latest_activity: { text: "Beta handoff is ready." },
         next: {
+          recommended_action: "call_agent_start",
           tool: "agent_start",
+          safe_to_run: true,
+          required_when: "After choosing this project from project_list results.",
+          required_fields: [],
           arguments: { project_id: "beta" }
         }
       });
       expectActionInterfaces(parsed.projects[0]!.next);
+      expectActionSafety(parsed.projects[0]!.next);
+      expectProjectListNextWorkflow(parsed.projects[0]!.next);
     });
   });
 

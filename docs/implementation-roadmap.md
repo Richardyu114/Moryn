@@ -169,6 +169,10 @@ Deliverables:
   `interfaces.cli.command` plus `interfaces.mcp.tool` and
   `interfaces.mcp.arguments`, making the intended execution transport explicit
   for CLI and MCP hosts.
+- Done: `project_list.projects[].next` now exposes complete `agent_start`
+  action metadata, including `safe_to_run`, `required_when`, `required_fields`,
+  `safety`, and single-step `workflow`, so agents can start a selected project
+  without inferring safety or timing from the command string.
 - Done: Lifecycle `next.actions` now include `required_when` usage conditions
   so agents can choose follow-up actions without relying on array order or
   action-name guessing.

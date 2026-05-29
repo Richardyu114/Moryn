@@ -7,6 +7,7 @@ import type { MorynEvent, MorynRecord, RecordKind, RecordProvenance, RecordScope
 import { commandForPromoteContext, PROMOTE_CANDIDATE_WHEN, withNextActionMetadata, type MorynErrorNextAction } from "./errors.js";
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
+import { actionSafety } from "./action-safety.js";
 
 interface EngineDeps {
   storePath: string;
@@ -69,6 +70,8 @@ interface ListProjectsInput {
   agent?: RecordSource;
 }
 
+const START_LISTED_PROJECT_WHEN = "After choosing this project from project_list results.";
+
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
   return {
     ...action,
@@ -80,6 +83,38 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
         tool: action.tool,
         arguments: action.arguments
       }
+    }
+  };
+}
+
+function withProjectListNextMetadata<T extends {
+  recommended_action: string;
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  safe_to_run: boolean;
+  required_when: string;
+  required_fields: string[];
+}>(
+  action: T
+) {
+  return {
+    ...withActionInterfaces(action),
+    safety: actionSafety(action),
+    workflow: {
+      version: 1,
+      start: "next",
+      continue_from: ["project_list.projects[].next"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "project_list.projects[].next",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
     }
   };
 }
@@ -1075,9 +1110,12 @@ export function createEngine(deps: EngineDeps) {
             records: records.length,
             tags,
             latest_activity: projectActivity(latest),
-            next: withActionInterfaces({
+            next: withProjectListNextMetadata({
               recommended_action: "call_agent_start",
               tool: "agent_start",
+              safe_to_run: true,
+              required_when: START_LISTED_PROJECT_WHEN,
+              required_fields: [],
               command: projectStartCommand(projectId, input),
               arguments: projectStartArguments(projectId, input)
             })

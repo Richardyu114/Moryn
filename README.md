@@ -503,8 +503,9 @@ This call chooses the safe path. If the project is known, it starts the session
 and returns boot, refresh, and handoff context. If the project is unclear, it
 initializes/pulls the shared store when `sync_remote` is provided, then returns
 known projects sorted by recent activity; each project includes a prefilled
-`agent_start` command and argument template carrying `current_task`,
-`sync_remote`, and `agent`. The top-level `next.actions` for discovered
+`agent_start` action template carrying `current_task`, `sync_remote`, `agent`,
+transport `interfaces`, `safety`, `required_when`, and single-step `workflow`.
+The top-level `next.actions` for discovered
 projects also include lifecycle templates for status, finish, and refresh using
 the selected `project_id`, so agents do not need to reconstruct follow-up
 commands after choosing a project. Those discovered lifecycle templates carry
