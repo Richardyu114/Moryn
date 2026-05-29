@@ -718,6 +718,7 @@ describe("agent lifecycle", () => {
         next_safe_to_run: true,
         next_required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
         next_required_fields: [],
+        next_required_fields_by_name: {},
         next_safety: {
           safe_to_auto_run: true,
           requires_user_confirmation: false,
@@ -728,6 +729,7 @@ describe("agent lifecycle", () => {
         next_interfaces: doctor.next.interfaces,
         next_workflow: doctor.next.workflow,
         next_arguments: {
+          project_id: undefined,
           project_path: project,
           sync_remote: remote,
           current_task: "continue safely on a new machine",
@@ -867,6 +869,7 @@ describe("agent lifecycle", () => {
         next_safe_to_run: true,
         next_required_when: "Before retrying lifecycle writes or sync operations after a Git conflict.",
         next_required_fields: [],
+        next_required_fields_by_name: {},
         next_safety: doctor.next.safety,
         next_interfaces: doctor.next.interfaces,
         next_workflow: doctor.next.workflow,
@@ -966,6 +969,7 @@ describe("agent lifecycle", () => {
         next_safe_to_run: true,
         next_required_when: "When the shared store has projects but this agent has no explicit project context.",
         next_required_fields: [],
+        next_required_fields_by_name: {},
         next_safety: doctor.next.safety,
         next_interfaces: doctor.next.interfaces,
         next_workflow: doctor.next.workflow,

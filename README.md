@@ -356,8 +356,8 @@ project context in a populated store unless the current directory resolves via a
 `agent doctor` also returns top-level `checks_by_name`, keyed by check name, and
 a `readiness` summary with `safe_to_start`, `blocking_checks`,
 `blocking_checks_by_name`, and the selected next tool/command, `safe_to_run`,
-`required_when`, required fields, `safety`, transport `interfaces`, `workflow`,
-and arguments. Agents can inspect `checks_by_name.sync` or
+`required_when`, required fields, `required_fields_by_name`, `safety`,
+transport `interfaces`, `workflow`, and arguments. Agents can inspect `checks_by_name.sync` or
 `readiness.blocking_checks_by_name.sync` directly instead of scanning `checks[]`,
 then execute the selected CLI or MCP action without recombining fields from the
 full `next` object.

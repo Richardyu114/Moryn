@@ -2822,6 +2822,12 @@ describe("moryn CLI", () => {
           next_safe_to_run: boolean;
           next_required_when: string;
           next_required_fields: string[];
+          next_required_fields_by_name: Record<string, {
+            name: string;
+            argument_path: string;
+            placeholder?: string;
+            value?: unknown;
+          }>;
           next_safety: {
             safe_to_auto_run: boolean;
             requires_user_confirmation: boolean;
@@ -2844,6 +2850,12 @@ describe("moryn CLI", () => {
             mcp: { tool: string; arguments: Record<string, unknown> };
           };
           workflow: Record<string, unknown>;
+          required_fields_by_name: Record<string, {
+            name: string;
+            argument_path: string;
+            placeholder?: string;
+            value?: unknown;
+          }>;
           arguments: { project_path?: string; sync_remote?: string; agent?: { client?: string } };
           actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
           actions_by_id: Record<string, { action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
@@ -2863,6 +2875,7 @@ describe("moryn CLI", () => {
         next_safe_to_run: true,
         next_required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
         next_required_fields: [],
+        next_required_fields_by_name: {},
         next_safety: {
           safe_to_auto_run: true,
           requires_user_confirmation: false,
@@ -2879,6 +2892,8 @@ describe("moryn CLI", () => {
           agent: { client: "codex", session_id: "codex-doctor" }
         }
       });
+      expect(parsed.readiness?.next_required_when).toEqual(parsed.next.required_when);
+      expect(parsed.readiness?.next_required_fields_by_name).toEqual(parsed.next.required_fields_by_name);
       expect(parsed.checks_by_name.store).toEqual(parsed.checks.find((check) => check.name === "store"));
       expect(parsed.checks_by_name.project).toEqual(parsed.checks.find((check) => check.name === "project"));
       expect(parsed.checks_by_name.sync).toEqual(parsed.checks.find((check) => check.name === "sync"));
@@ -3027,6 +3042,7 @@ describe("moryn CLI", () => {
         next_safe_to_run: true,
         next_required_when: INSPECT_SYNC_CONFLICT_WHEN,
         next_required_fields: [],
+        next_required_fields_by_name: {},
         next_safety: parsedDoctor.next.safety,
         next_interfaces: parsedDoctor.next.interfaces,
         next_workflow: parsedDoctor.next.workflow,

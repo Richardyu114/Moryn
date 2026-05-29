@@ -1885,6 +1885,12 @@ describe("MCP stdio server", () => {
             next_safe_to_run: boolean;
             next_required_when: string;
             next_required_fields: string[];
+            next_required_fields_by_name: Record<string, {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }>;
             next_safety: {
               safe_to_auto_run: boolean;
               requires_user_confirmation: boolean;
@@ -1907,6 +1913,12 @@ describe("MCP stdio server", () => {
               mcp: { tool: string; arguments: Record<string, unknown> };
             };
             workflow: Record<string, unknown>;
+            required_fields_by_name: Record<string, {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }>;
             actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
             actions_by_id: Record<string, { action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
             arguments: {
@@ -1932,6 +1944,7 @@ describe("MCP stdio server", () => {
           next_safe_to_run: true,
           next_required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
           next_required_fields: [],
+          next_required_fields_by_name: {},
           next_safety: {
             safe_to_auto_run: true,
             requires_user_confirmation: false,
@@ -1948,6 +1961,8 @@ describe("MCP stdio server", () => {
             agent: { client: "gemini", session_id: "gemini-doctor" }
           }
         });
+        expect(doctor.readiness?.next_required_when).toEqual(doctor.next.required_when);
+        expect(doctor.readiness?.next_required_fields_by_name).toEqual(doctor.next.required_fields_by_name);
         expect(doctor.checks_by_name.store).toEqual(doctor.checks.find((check) => check.name === "store"));
         expect(doctor.checks_by_name.project).toEqual(doctor.checks.find((check) => check.name === "project"));
         expect(doctor.checks_by_name.sync).toEqual(doctor.checks.find((check) => check.name === "sync"));
@@ -2100,6 +2115,7 @@ describe("MCP stdio server", () => {
           next_safe_to_run: true,
           next_required_when: INSPECT_SYNC_CONFLICT_WHEN,
           next_required_fields: [],
+          next_required_fields_by_name: {},
           next_safety: doctor.next.safety,
           next_interfaces: doctor.next.interfaces,
           next_workflow: doctor.next.workflow,

@@ -1020,9 +1020,9 @@ The top-level `checks_by_name` mirrors `checks[]` by check name, and
 agents can read `checks_by_name.sync` or
 `readiness.blocking_checks_by_name.sync` without scanning arrays. The same
 summary repeats the selected next tool, command, `safe_to_run`, `required_when`,
-required fields, `safety`, transport `interfaces`, and `workflow` plus
-arguments so a lightweight agent can follow readiness without merging data from
-the full `next` object. If `run_lifecycle_smoke` requires a remote, the action
+required fields, `required_fields_by_name`, `safety`, transport `interfaces`,
+and `workflow` plus arguments so a lightweight agent can follow readiness
+without merging data from the full `next` object. If `run_lifecycle_smoke` requires a remote, the action
 and command both carry the `<remote>` placeholder and `arguments.remote` is
 prefilled as `"<remote>"`.
 

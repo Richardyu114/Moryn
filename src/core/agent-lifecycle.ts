@@ -7,7 +7,7 @@ import type { MorynRecord, RecordSource } from "./types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
 import { actionSafety, type ActionSafety } from "./action-safety.js";
-import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
+import { requiredFieldsByName, withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 
 interface AgentIdentity {
   client: string;
@@ -760,6 +760,7 @@ function doctorReadiness(
     command: string;
     required_when?: string;
     required_fields?: string[];
+    required_fields_by_name?: Record<string, RequiredFieldMetadata>;
     safety?: ActionSafety;
     arguments?: Record<string, unknown>;
     interfaces?: ActionInterfaces<Record<string, unknown>>;
@@ -778,6 +779,7 @@ function doctorReadiness(
     }
   };
   const nextRequiredFields = next.required_fields ?? [];
+  const nextRequiredFieldsByName = next.required_fields_by_name ?? requiredFieldsByName(nextRequiredFields, nextArguments);
   const nextRequiredWhen = next.required_when ?? "When this action is the selected next action.";
   const nextWorkflow = next.workflow ?? singleNextWorkflow(
     next.recommended_action,
@@ -794,8 +796,9 @@ function doctorReadiness(
     next_tool: next.tool,
     next_command: next.command,
     next_safe_to_run: next.safe_to_run,
-    next_required_when: next.required_when,
+    next_required_when: nextRequiredWhen,
     next_required_fields: nextRequiredFields,
+    next_required_fields_by_name: nextRequiredFieldsByName,
     next_safety: next.safety,
     next_interfaces: nextInterfaces,
     next_workflow: nextWorkflow,
