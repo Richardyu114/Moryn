@@ -504,6 +504,31 @@ function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplat
   ];
 }
 
+function agentGuideRules() {
+  return [
+    {
+      id: "prefer_agent_enter_for_startup",
+      text: "Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh."
+    },
+    {
+      id: "discover_project_before_lifecycle_writes",
+      text: "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id."
+    },
+    {
+      id: "use_returned_actions_verbatim",
+      text: "Use returned next.actions commands or arguments verbatim when continuing the lifecycle."
+    },
+    {
+      id: "publish_status_and_finish_handoff",
+      text: "Publish agent_status before long interruptions, and call agent_finish with a concise final summary when meaningful work ends."
+    },
+    {
+      id: "pass_sync_remote_for_cross_device_handoff",
+      text: "Pass sync_remote whenever cross-device handoff matters so status and summaries reach the shared store."
+    }
+  ];
+}
+
 function refreshActionArguments(input: AgentLifecycleInput, cursor: string): {
   project_path?: string;
   project_id?: string;
@@ -865,6 +890,10 @@ function lifecycleByStep<T extends { step: string }>(lifecycle: T[]): Record<str
 
 function guardrailsById<T extends { id: string }>(guardrails: T[]): Record<string, T> {
   return Object.fromEntries(guardrails.map((guardrail) => [guardrail.id, guardrail]));
+}
+
+function rulesById<T extends { id: string; text: string }>(rules: T[]): Record<string, T> {
+  return Object.fromEntries(rules.map((rule) => [rule.id, rule]));
 }
 
 function lifecyclePhase(
@@ -1477,19 +1506,15 @@ export function agentGuide(input: AgentGuideInput) {
   const startup = agentEnterActionTemplate(command, startupArguments);
   const lifecycle = agentGuideLifecycle(input);
   const guardrails = agentGuideGuardrails(startup);
+  const rules = agentGuideRules();
   return {
     ok: true,
     recommended_entrypoint: "agent_enter",
     startup,
     lifecycle,
     lifecycle_by_step: lifecycleByStep(lifecycle),
-    rules: [
-      "Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.",
-      "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.",
-      "Use returned next.actions commands or arguments verbatim when continuing the lifecycle.",
-      "Publish agent_status before long interruptions, and call agent_finish with a concise final summary when meaningful work ends.",
-      "Pass sync_remote whenever cross-device handoff matters so status and summaries reach the shared store."
-    ],
+    rules: rules.map((rule) => rule.text),
+    rules_by_id: rulesById(rules),
     guardrails,
     guardrails_by_id: guardrailsById(guardrails),
     workflow: agentGuideWorkflow(lifecycle),

@@ -824,11 +824,14 @@ instructions before acting. It returns the preferred startup entrypoint
 (`agent_enter`), a complete CLI command, MCP arguments, lifecycle steps, and
 rules that prevent common hallucinated flows such as guessing project ids or
 manually composing `sync_pull`, `boot`, and `refresh`. It also returns
-`guardrails[]`: stable, machine-readable constraints with ids, risks, forbidden
-behaviors, required behavior, and optional `use_instead` action templates for
-safe alternatives. `guardrails_by_id` mirrors those constraints by id so hosts
-can fetch known rules such as `use_returned_actions_verbatim` or
-`discover_project_before_lifecycle_writes` without scanning `guardrails[]`. It
+`rules_by_id`, which mirrors those anti-hallucination rule texts by stable id,
+and `guardrails[]`: stable, machine-readable constraints with ids, risks,
+forbidden behaviors, required behavior, and optional `use_instead` action
+templates for safe alternatives. `guardrails_by_id` mirrors those constraints
+by id so hosts can fetch known rules such as
+`use_returned_actions_verbatim` or
+`discover_project_before_lifecycle_writes` without scanning `rules[]` or
+`guardrails[]`. It
 also returns `workflow`, a machine-readable ordering contract with `start`,
 valid `continue_from` sources, and ordered `phases[]` that name the action
 source, usage condition, and required fields. The `startup` object and

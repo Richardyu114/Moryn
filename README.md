@@ -438,10 +438,12 @@ lifecycle templates only for status, finish, or refresh. `guardrails[]` gives
 agent hosts stable ids, risks, forbidden behaviors, required behaviors, and
 replacement actions for common mistakes such as manually composing startup,
 guessing project ids, or reconstructing lifecycle commands from memory; the
-same entries are mirrored in `guardrails_by_id`, so hosts can read
+same anti-hallucination rule texts are mirrored in `rules_by_id` using the
+same stable ids, and the structured entries are mirrored in `guardrails_by_id`,
+so hosts can read `rules_by_id.use_returned_actions_verbatim`,
 `guardrails_by_id.use_returned_actions_verbatim` or
 `guardrails_by_id.discover_project_before_lifecycle_writes` directly instead of
-scanning the guardrail list. Use it when an agent host needs a compact,
+scanning the rule or guardrail lists. Use it when an agent host needs a compact,
 authoritative instruction packet instead of inferring commands from README
 prose.
 

@@ -551,6 +551,11 @@ describe("MCP stdio server", () => {
             required_fields: string[];
             arguments: Record<string, unknown>;
           }>;
+          rules: string[];
+          rules_by_id: Record<string, {
+            id: string;
+            text: string;
+          }>;
           guardrails: Array<{
             id: string;
             when: string;
@@ -670,6 +675,25 @@ describe("MCP stdio server", () => {
           expectActionInterfaces(action);
           expectLifecycleWorkflow(action);
         }
+        expect(guide.rules).toContain("Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.");
+        expect(guide.rules).toContain("When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.");
+        expect(Object.keys(guide.rules_by_id)).toEqual([
+          "prefer_agent_enter_for_startup",
+          "discover_project_before_lifecycle_writes",
+          "use_returned_actions_verbatim",
+          "publish_status_and_finish_handoff",
+          "pass_sync_remote_for_cross_device_handoff"
+        ]);
+        expect(guide.rules_by_id.prefer_agent_enter_for_startup).toEqual({
+          id: "prefer_agent_enter_for_startup",
+          text: "Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh."
+        });
+        expect(guide.rules_by_id.discover_project_before_lifecycle_writes).toEqual({
+          id: "discover_project_before_lifecycle_writes",
+          text: "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id."
+        });
+        expect(guide.rules_by_id.use_returned_actions_verbatim.text).toBe("Use returned next.actions commands or arguments verbatim when continuing the lifecycle.");
+        expect(guide.rules).toEqual(Object.values(guide.rules_by_id).map((rule) => rule.text));
         expect(guide.guardrails.map((guardrail) => guardrail.id)).toEqual([
           "prefer_agent_enter_for_startup",
           "discover_project_before_lifecycle_writes",
@@ -783,6 +807,10 @@ describe("MCP stdio server", () => {
             required_behavior: string;
             use_instead?: { command: string; arguments: { project_id?: string } };
           }>;
+          rules_by_id: Record<string, {
+            id: string;
+            text: string;
+          }>;
           workflow: {
             start: string;
             phases: Array<{
@@ -821,6 +849,10 @@ describe("MCP stdio server", () => {
           })
         }));
         expect(guide.guardrails_by_id.discover_project_before_lifecycle_writes).toEqual(guide.guardrails.find((guardrail) => guardrail.id === "discover_project_before_lifecycle_writes"));
+        expect(guide.rules_by_id.discover_project_before_lifecycle_writes).toEqual({
+          id: "discover_project_before_lifecycle_writes",
+          text: "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id."
+        });
         expect(guide.workflow.start).toBe("startup");
         expect(guide.workflow.phases).toContainEqual(expect.objectContaining({
           phase: "publish_status",

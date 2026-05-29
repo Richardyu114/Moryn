@@ -527,6 +527,10 @@ describe("moryn CLI", () => {
           arguments: Record<string, unknown>;
         }>;
         rules: string[];
+        rules_by_id: Record<string, {
+          id: string;
+          text: string;
+        }>;
         guardrails: Array<{
           id: string;
           when: string;
@@ -670,6 +674,23 @@ describe("moryn CLI", () => {
       }
       expect(parsed.rules).toContain("Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.");
       expect(parsed.rules).toContain("When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.");
+      expect(Object.keys(parsed.rules_by_id)).toEqual([
+        "prefer_agent_enter_for_startup",
+        "discover_project_before_lifecycle_writes",
+        "use_returned_actions_verbatim",
+        "publish_status_and_finish_handoff",
+        "pass_sync_remote_for_cross_device_handoff"
+      ]);
+      expect(parsed.rules_by_id.prefer_agent_enter_for_startup).toEqual({
+        id: "prefer_agent_enter_for_startup",
+        text: "Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh."
+      });
+      expect(parsed.rules_by_id.discover_project_before_lifecycle_writes).toEqual({
+        id: "discover_project_before_lifecycle_writes",
+        text: "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id."
+      });
+      expect(parsed.rules_by_id.use_returned_actions_verbatim.text).toBe("Use returned next.actions commands or arguments verbatim when continuing the lifecycle.");
+      expect(parsed.rules).toEqual(Object.values(parsed.rules_by_id).map((rule) => rule.text));
       expect(parsed.guardrails.map((guardrail) => guardrail.id)).toEqual([
         "prefer_agent_enter_for_startup",
         "discover_project_before_lifecycle_writes",
@@ -779,6 +800,10 @@ describe("moryn CLI", () => {
           required_behavior: string;
           use_instead?: { command: string; arguments: { project_id?: string } };
         }>;
+        rules_by_id: Record<string, {
+          id: string;
+          text: string;
+        }>;
         workflow: {
           start: string;
           phases: Array<{
@@ -817,6 +842,10 @@ describe("moryn CLI", () => {
         })
       }));
       expect(parsed.guardrails_by_id.discover_project_before_lifecycle_writes).toEqual(parsed.guardrails.find((guardrail) => guardrail.id === "discover_project_before_lifecycle_writes"));
+      expect(parsed.rules_by_id.discover_project_before_lifecycle_writes).toEqual({
+        id: "discover_project_before_lifecycle_writes",
+        text: "When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id."
+      });
       expect(parsed.workflow.start).toBe("startup");
       expect(parsed.workflow.phases).toContainEqual(expect.objectContaining({
         phase: "publish_status",
