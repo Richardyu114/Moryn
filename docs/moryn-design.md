@@ -854,7 +854,12 @@ templates with `safe_to_run`, `required_when`, `required_fields`, arguments,
 recommended entrypoint without merging data from lifecycle steps.
 `required_fields_by_name` maps each required field to the matching argument
 path, template value, and placeholder such as `<summary>`, so hosts can prompt
-for authored input without reverse-engineering `arguments`. `lifecycle_by_step` mirrors
+for authored input without reverse-engineering `arguments`. Lifecycle action
+templates also expose `argument_sources`: authored values use sources such as
+`user_input.status`, `user_input.summary`, `user_input.current_task`,
+`user_input.remote`, and `user_input.refresh_since`, while runtime refresh
+actions point `refresh_since` at `refresh.cursor` or `record.updated_at`.
+`lifecycle_by_step` mirrors
 `lifecycle[]` by step name, and lifecycle workflows prefer
 `lifecycle_by_step.<step>` while keeping `lifecycle[]` as a compatibility
 source; hosts can fetch `publish_status`, `finish_handoff`, or
@@ -1146,7 +1151,8 @@ context are `safe_to_run: true`; actions that write agent-authored status or
 summary content are `safe_to_run: false`. Required authored values are still
 present in
 `arguments` as `<status>` and `<summary>` placeholders so MCP clients can update
-only those fields before calling the next tool.
+only those fields before calling the next tool; `argument_sources` mirrors those
+replacement fields so clients do not have to infer them from placeholders.
 
 ### `agent_finish`
 
@@ -1172,7 +1178,8 @@ restart through `agent_start` without inferring arguments from prose. That
 restart template is also available as `next.actions_by_id.start_next_session`,
 is marked `safe_to_run: true`, and carries `required_when` for next-session
 startup; when the next task is unknown, `arguments.current_task` is set to
-`"<current_task>"`.
+`"<current_task>"` and `argument_sources.current_task` is set to
+`"user_input.current_task"`.
 
 ### `agent_status`
 
@@ -1197,7 +1204,8 @@ using the status record timestamp as the next refresh cursor; `finish_session`
 is `safe_to_run: false` and carries `arguments.summary: "<summary>"`, while
 `refresh_context` is `safe_to_run: true`. Both actions are also available under
 `next.actions_by_id`, and include `required_when` so agents can distinguish a
-handoff write from an automatic context refresh.
+handoff write from an automatic context refresh. Their `argument_sources` map
+`summary` to `user_input.summary` and `refresh_since` to `record.updated_at`.
 
 ### `rebuild`
 
@@ -1310,13 +1318,14 @@ Agents should follow this contract:
 10. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
 11. For each reportable non-raw refresh change that needs full context, prefer `refresh.changes_by_record_id.<record_id>.next_action` or follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
 12. When `agent_start.handoff.next_action` exists, use it for the prioritized recall action; for a different handoff entry, prefer `handoff.inbox_by_record_id.<record_id>.next_action` or `handoff.active_sessions_by_record_id.<record_id>.next_action`, and fill `record_ids` from `next_action.argument_sources.record_ids`, instead of manually composing a `recall` call.
-13. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions_by_id.start_next_session` to the next agent or device.
-14. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
-15. When a canonical write returns `warning.next_action.recommended_action: "ask_user_then_promote_candidate"`, take the candidate id from `write.record.id` or `warning.next_action.candidate_record_id`, ask the user, then run the returned promote action with confirmation instead of repeating the write.
-16. Write raw notes as `agent_note`, not canonical memory.
-17. Do not promote long-term preferences, soul records, or global skills without user confirmation.
-18. Treat sync `interrupt` results as a reason to pause and inspect related records.
-19. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
+13. For lifecycle follow-up actions, prefer `next.actions_by_id.<action>` and fill replaceable arguments from `action.argument_sources` instead of parsing command strings or placeholders.
+14. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions_by_id.start_next_session` to the next agent or device.
+15. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
+16. When a canonical write returns `warning.next_action.recommended_action: "ask_user_then_promote_candidate"`, take the candidate id from `write.record.id` or `warning.next_action.candidate_record_id`, ask the user, then run the returned promote action with confirmation instead of repeating the write.
+17. Write raw notes as `agent_note`, not canonical memory.
+18. Do not promote long-term preferences, soul records, or global skills without user confirmation.
+19. Treat sync `interrupt` results as a reason to pause and inspect related records.
+20. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
 
 Cross-agent handoff depends on the lifecycle commands, not agent awareness of
 each other. Codex, Gemini, and other agents can run on separate machines if they

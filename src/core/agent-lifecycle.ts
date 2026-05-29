@@ -52,6 +52,7 @@ type LifecycleActionTemplate = {
   required_fields: string[];
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
   arguments: Record<string, unknown>;
+  argument_sources?: Record<string, string>;
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ActionSafety;
 };
@@ -201,6 +202,24 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
     },
     safety: actionSafety(action)
   };
+}
+
+const USER_INPUT_ARGUMENT_SOURCES: Record<string, string> = {
+  current_task: "user_input.current_task",
+  project_id: "user_input.project_id",
+  refresh_since: "user_input.refresh_since",
+  remote: "user_input.remote",
+  status: "user_input.status",
+  summary: "user_input.summary"
+};
+
+function userInputArgumentSources(requiredFields: string[]): Record<string, string> | undefined {
+  const sources = Object.fromEntries(
+    requiredFields
+      .map((field) => [field, USER_INPUT_ARGUMENT_SOURCES[field]])
+      .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
+  return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
 async function trySync<T>(fn: () => Promise<T>): Promise<{ ok: true; result: T } | { ok: false; error: string; cause: unknown }> {
@@ -628,7 +647,8 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       command: buildAgentStatusCommand(input),
       required_when: PUBLISH_STATUS_WHEN,
       required_fields: ["status"],
-      arguments: statusActionArguments(input)
+      arguments: statusActionArguments(input),
+      argument_sources: userInputArgumentSources(["status"])
     }),
     withActionInterfaces({
       action: "finish_session",
@@ -637,7 +657,8 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       command: buildAgentFinishCommand(input),
       required_when: FINISH_HANDOFF_WHEN,
       required_fields: ["summary"],
-      arguments: finishActionArguments(input)
+      arguments: finishActionArguments(input),
+      argument_sources: userInputArgumentSources(["summary"])
     })
   ];
   if (cursor) {
@@ -648,7 +669,10 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       command: buildAgentRefreshCommand(input, cursor),
       required_when: REFRESH_CONTEXT_WHEN,
       required_fields: [],
-      arguments: refreshActionArguments(input, cursor)
+      arguments: refreshActionArguments(input, cursor),
+      argument_sources: {
+        refresh_since: "refresh.cursor"
+      }
     }));
   }
   return actions;
@@ -707,7 +731,8 @@ function finishNextActions(input: AgentLifecycleInput) {
       command: buildAgentStartTemplateCommand(input, requiredFields),
       required_when: START_NEXT_SESSION_WHEN,
       required_fields: requiredFields,
-      arguments: agentStartActionArguments(input, requiredFields)
+      arguments: agentStartActionArguments(input, requiredFields),
+      argument_sources: userInputArgumentSources(requiredFields)
     })
   ];
 }
@@ -721,7 +746,8 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
       command: buildAgentFinishCommand(input),
       required_when: FINISH_HANDOFF_WHEN,
       required_fields: ["summary"],
-      arguments: finishActionArguments(input)
+      arguments: finishActionArguments(input),
+      argument_sources: userInputArgumentSources(["summary"])
     }),
     withActionInterfaces({
       action: "refresh_context",
@@ -730,7 +756,10 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
       command: buildAgentRefreshCommand(input, cursor),
       required_when: REFRESH_CONTEXT_WHEN,
       required_fields: [],
-      arguments: refreshActionArguments(input, cursor)
+      arguments: refreshActionArguments(input, cursor),
+      argument_sources: {
+        refresh_since: "record.updated_at"
+      }
     })
   ];
 }
@@ -767,7 +796,8 @@ function doctorNextActions(input: AgentLifecycleInput) {
       command: buildLifecycleSmokeCommand(input),
       required_when: LIFECYCLE_SMOKE_WHEN,
       required_fields: input.syncRemote ? [] : ["remote"],
-      arguments: lifecycleSmokeActionArguments(input)
+      arguments: lifecycleSmokeActionArguments(input),
+      argument_sources: userInputArgumentSources(input.syncRemote ? [] : ["remote"])
     })
   ];
 }
@@ -891,7 +921,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       command: buildAgentStatusTemplateCommand(lifecycleInput),
       required_fields: statusRequiredFields,
       workflow: lifecycleStepWorkflow("publish_status", "agent_status", PUBLISH_STATUS_WHEN, statusRequiredFields),
-      arguments: { ...lifecycleArguments, status: "<status>" }
+      arguments: { ...lifecycleArguments, status: "<status>" },
+      argument_sources: userInputArgumentSources(statusRequiredFields)
     }),
     withActionInterfaces({
       step: "finish_handoff",
@@ -901,7 +932,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       command: buildAgentFinishTemplateCommand(lifecycleInput),
       required_fields: finishRequiredFields,
       workflow: lifecycleStepWorkflow("finish_handoff", "agent_finish", FINISH_HANDOFF_WHEN, finishRequiredFields),
-      arguments: { ...lifecycleArguments, summary: "<summary>" }
+      arguments: { ...lifecycleArguments, summary: "<summary>" },
+      argument_sources: userInputArgumentSources(finishRequiredFields)
     }),
     withActionInterfaces({
       step: "refresh_context",
@@ -911,7 +943,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       command: buildAgentRefreshTemplateCommand(lifecycleInput),
       required_fields: refreshRequiredFields,
       workflow: lifecycleStepWorkflow("refresh_context", "agent_start", REFRESH_CONTEXT_WHEN, refreshRequiredFields),
-      arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" }
+      arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" },
+      argument_sources: userInputArgumentSources(refreshRequiredFields)
     })
   ];
 }
@@ -1142,6 +1175,9 @@ function discoverProjectsNextAction(input: AgentLifecycleInput, actions: Array<{
     actions_by_project_id: actionsByProjectId(actions),
     arguments: {
       project_id: "<project_id>"
+    },
+    argument_sources: {
+      project_id: "next.actions_by_project_id.<project_id>.project_id"
     }
   });
 }

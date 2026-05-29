@@ -279,6 +279,9 @@ describe("agent lifecycle", () => {
         command: expect.stringMatching(/moryn agent start.*--current-task <current_task>/),
         required_when: "When another agent or device should start the next session from this handoff.",
         required_fields: ["current_task"],
+        argument_sources: {
+          current_task: "user_input.current_task"
+        },
         arguments: expect.objectContaining({
           project_path: project,
           current_task: "<current_task>",
@@ -343,6 +346,9 @@ describe("agent lifecycle", () => {
         command: expect.stringContaining("moryn agent status"),
         required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
         required_fields: ["status"],
+        argument_sources: {
+          status: "user_input.status"
+        },
         arguments: expect.objectContaining({
           project_path: project,
           status: "<status>",
@@ -357,6 +363,9 @@ describe("agent lifecycle", () => {
         command: expect.stringContaining("moryn agent finish"),
         required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
         required_fields: ["summary"],
+        argument_sources: {
+          summary: "user_input.summary"
+        },
         arguments: expect.objectContaining({
           project_path: project,
           summary: "<summary>",
@@ -371,6 +380,9 @@ describe("agent lifecycle", () => {
         command: expect.stringContaining("--refresh-since"),
         required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
         required_fields: [],
+        argument_sources: {
+          refresh_since: "refresh.cursor"
+        },
         arguments: expect.objectContaining({
           project_path: project,
           refresh_since: geminiStart.refresh.cursor,
@@ -559,6 +571,9 @@ describe("agent lifecycle", () => {
         command: expect.stringContaining("moryn agent finish"),
         required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
         required_fields: ["summary"],
+        argument_sources: {
+          summary: "user_input.summary"
+        },
         arguments: expect.objectContaining({
           project_path: project,
           sync_remote: remote,
@@ -572,6 +587,9 @@ describe("agent lifecycle", () => {
         command: expect.stringContaining("moryn agent start"),
         required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
         required_fields: [],
+        argument_sources: {
+          refresh_since: "record.updated_at"
+        },
         arguments: expect.objectContaining({
           project_path: project,
           sync_remote: remote,
@@ -807,6 +825,9 @@ describe("agent lifecycle", () => {
         command: "moryn-agent-smoke --remote <remote>",
         required_when: "Before trusting lifecycle sync on a new machine or remote.",
         required_fields: ["remote"],
+        argument_sources: {
+          remote: "user_input.remote"
+        },
         arguments: { remote: "<remote>" }
       }));
     } finally {
@@ -1037,6 +1058,9 @@ describe("agent lifecycle", () => {
               placeholder: "<project_id>"
             }
           },
+          argument_sources: {
+            project_id: "next.actions_by_project_id.<project_id>.project_id"
+          },
           arguments: { project_id: "<project_id>" },
           safety: {
             safe_to_auto_run: true,
@@ -1074,6 +1098,9 @@ describe("agent lifecycle", () => {
             safe_to_run: false,
             command: "moryn agent status --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --status <status>",
             required_fields: ["status"],
+            argument_sources: {
+              status: "user_input.status"
+            },
             arguments: expect.objectContaining({ project_id: "moryn", status: "<status>" })
           }),
           expect.objectContaining({
@@ -1082,6 +1109,9 @@ describe("agent lifecycle", () => {
             safe_to_run: false,
             command: "moryn agent finish --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --summary <summary>",
             required_fields: ["summary"],
+            argument_sources: {
+              summary: "user_input.summary"
+            },
             arguments: expect.objectContaining({ project_id: "moryn", summary: "<summary>" })
           }),
           expect.objectContaining({
@@ -1089,7 +1119,10 @@ describe("agent lifecycle", () => {
             tool: "agent_start",
             safe_to_run: true,
             command: "moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list --refresh-since <refresh_since>",
-            required_fields: ["refresh_since"]
+            required_fields: ["refresh_since"],
+            argument_sources: {
+              refresh_since: "user_input.refresh_since"
+            }
           })
         ]
       });

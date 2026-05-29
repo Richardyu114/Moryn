@@ -367,7 +367,11 @@ commands from another cwd or MCP host without relying on ambient directory
 state. When an action lists `required_fields`, the same field appears in
 `arguments` with a `<field>` placeholder; agents should replace those argument
 values and call the listed tool instead of parsing placeholders out of the CLI
-command string. Lifecycle action templates also include `required_when`, a
+command string. Lifecycle action templates also expose `argument_sources` for
+replaceable fields: authored values use sources such as `user_input.status`,
+`user_input.summary`, `user_input.current_task`, or `user_input.remote`, while
+returned lifecycle cursors use `refresh.cursor` or `record.updated_at`.
+Lifecycle action templates also include `required_when`, a
 short usage condition that tells an agent when to choose that action instead of
 inferring intent from array order or action names. Action templates include a
 `safety` object that explains the `safe_to_run` boolean with
@@ -713,7 +717,10 @@ Each action carries
 finish templates are `false` because the agent must provide user-meaningful
 content before writing a checkpoint or handoff. For those authored fields,
 `arguments.status` and `arguments.summary` are prefilled as `<status>` and
-`<summary>` placeholders.
+`<summary>` placeholders, with matching `argument_sources` values of
+`user_input.status` and `user_input.summary`. Refresh templates fill
+`refresh_since` from `refresh.cursor` in `agent_start.next.actions`, or from
+`record.updated_at` after `agent_status`.
 If the local Git sync state is already conflicted, `agent_start` fails before
 boot/refresh with `SYNC_CONFLICT` and a `sync_status` recovery action, so agents
 do not parse half-merged event files or write new lifecycle records into an
@@ -758,7 +765,9 @@ templates for finishing the session and refreshing context from the status
 record cursor, with `required_when` explaining when to finish versus refresh,
 and `safe_to_run` marking finish as a user-content write and refresh as an
 automatic context update. The finish template includes
-`arguments.summary: "<summary>"`.
+`arguments.summary: "<summary>"` and `argument_sources.summary:
+"user_input.summary"`; the refresh template sets `argument_sources.refresh_since:
+"record.updated_at"`.
 
 When existing memory or skill needs correction:
 
@@ -783,7 +792,8 @@ Agents should prefer `agent_finish` over manually composing `write` and
 `start_next_session` template for the next agent or device, marked
 `safe_to_run: true` with `required_when` explaining that it is for the next
 session after the handoff. If the next task is not already known, the template
-carries `arguments.current_task: "<current_task>"`.
+carries `arguments.current_task: "<current_task>"` and
+`argument_sources.current_task: "user_input.current_task"`.
 
 When a candidate should become durable shared context:
 

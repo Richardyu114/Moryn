@@ -712,6 +712,9 @@ describe("MCP stdio server", () => {
           tool: "agent_status",
           safe_to_run: false,
           required_fields: ["status"],
+          argument_sources: {
+            status: "user_input.status"
+          },
           arguments: expect.objectContaining({ status: "<status>" })
         }));
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
@@ -719,6 +722,9 @@ describe("MCP stdio server", () => {
           tool: "agent_finish",
           safe_to_run: false,
           required_fields: ["summary"],
+          argument_sources: {
+            summary: "user_input.summary"
+          },
           arguments: expect.objectContaining({ summary: "<summary>" })
         }));
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
@@ -726,7 +732,10 @@ describe("MCP stdio server", () => {
           tool: "agent_start",
           safe_to_run: true,
           command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-guide --refresh-since <refresh_since>",
-          required_fields: ["refresh_since"]
+          required_fields: ["refresh_since"],
+          argument_sources: {
+            refresh_since: "user_input.refresh_since"
+          }
         }));
         for (const action of guide.lifecycle) {
           expectActionInterfaces(action);
@@ -1486,6 +1495,9 @@ describe("MCP stdio server", () => {
             command: expect.stringContaining("moryn agent start"),
             required_when: "When another agent or device should start the next session from this handoff.",
             required_fields: ["current_task"],
+            argument_sources: {
+              current_task: "user_input.current_task"
+            },
             arguments: expect.objectContaining({
               project_path: project,
               current_task: "<current_task>",
@@ -1595,6 +1607,9 @@ describe("MCP stdio server", () => {
             command: expect.stringContaining("moryn agent status"),
             required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
             required_fields: ["status"],
+            argument_sources: {
+              status: "user_input.status"
+            },
             arguments: expect.objectContaining({
               project_path: project,
               status: "<status>",
@@ -1608,6 +1623,9 @@ describe("MCP stdio server", () => {
             command: expect.stringContaining("--refresh-since"),
             required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
             required_fields: [],
+            argument_sources: {
+              refresh_since: "refresh.cursor"
+            },
             arguments: expect.objectContaining({
               project_path: project,
               refresh_since: start.refresh.cursor,
@@ -1797,6 +1815,9 @@ describe("MCP stdio server", () => {
             command: expect.stringContaining("moryn agent finish"),
             required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
             required_fields: ["summary"],
+            argument_sources: {
+              summary: "user_input.summary"
+            },
             arguments: expect.objectContaining({
               project_path: project,
               sync_remote: remote,
@@ -1809,6 +1830,9 @@ describe("MCP stdio server", () => {
             command: expect.stringContaining("--refresh-since"),
             required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
             required_fields: [],
+            argument_sources: {
+              refresh_since: "record.updated_at"
+            },
             arguments: expect.objectContaining({
               project_path: project,
               sync_remote: remote,
@@ -2469,6 +2493,9 @@ describe("MCP stdio server", () => {
               placeholder: "<project_id>"
             }
           },
+          argument_sources: {
+            project_id: "next.actions_by_project_id.<project_id>.project_id"
+          },
           arguments: { project_id: "<project_id>" },
           safety: {
             safe_to_auto_run: true,
@@ -2528,7 +2555,10 @@ describe("MCP stdio server", () => {
           tool: "agent_status",
           safe_to_run: false,
           command: "moryn agent status --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter --status <status>",
-          required_fields: ["status"]
+          required_fields: ["status"],
+          argument_sources: {
+            status: "user_input.status"
+          }
         });
         expectLifecycleWorkflow(discoveredStatus!);
       }, store);
