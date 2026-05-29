@@ -435,6 +435,9 @@ function refreshChangeNextAction(record: MorynRecord, input: RefreshInput) {
     arguments: {
       record_ids: [record.id],
       ...(input.project_id ? { project_id: input.project_id } : {})
+    },
+    argument_sources: {
+      record_ids: "refresh.changes_by_record_id.<record_id>.record_id"
     }
   });
 }

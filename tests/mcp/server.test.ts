@@ -302,6 +302,7 @@ function expectRefreshChangeNextAction(action: {
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
+  argument_sources?: Record<string, string>;
   safe_to_run: boolean;
   required_when: string;
   required_fields: string[];
@@ -342,6 +343,9 @@ function expectRefreshChangeNextAction(action: {
     arguments: {
       record_ids: [recordId],
       ...(projectId ? { project_id: projectId } : {})
+    },
+    argument_sources: {
+      record_ids: "refresh.changes_by_record_id.<record_id>.record_id"
     }
   });
   expectActionInterfaces(action);
