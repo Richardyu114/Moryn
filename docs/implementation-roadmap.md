@@ -145,7 +145,8 @@ Deliverables:
   helpers from status/finish writes that need authored content.
 - Done: `agent_doctor.readiness` mirrors the selected next action's safety,
   required usage condition, required fields, transport interfaces, and
-  arguments so agents can start or recover without recombining nested objects.
+  `workflow` plus arguments so agents can start or recover without recombining
+  nested objects.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

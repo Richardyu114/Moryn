@@ -2187,6 +2187,7 @@ describe("moryn CLI", () => {
             cli: { command: string };
             mcp: { tool: string; arguments: Record<string, unknown> };
           };
+          next_workflow: Record<string, unknown>;
           next_arguments: Record<string, unknown>;
         };
         next: {
@@ -2196,6 +2197,7 @@ describe("moryn CLI", () => {
             cli: { command: string };
             mcp: { tool: string; arguments: Record<string, unknown> };
           };
+          workflow: Record<string, unknown>;
           arguments: { project_path?: string; sync_remote?: string; agent?: { client?: string } };
           actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
         };
@@ -2221,6 +2223,7 @@ describe("moryn CLI", () => {
           reasons: ["safe_read_or_status_check"]
         },
         next_interfaces: parsed.next.interfaces,
+        next_workflow: parsed.next.workflow,
         next_arguments: {
           project_path: project,
           sync_remote: remote,
@@ -2277,6 +2280,7 @@ describe("moryn CLI", () => {
           next_required_when: string;
           next_safety: Record<string, unknown>;
           next_interfaces: Record<string, unknown>;
+          next_workflow: Record<string, unknown>;
         };
         next: {
           recommended_action: string;
@@ -2346,6 +2350,7 @@ describe("moryn CLI", () => {
         next_required_fields: [],
         next_safety: parsedDoctor.next.safety,
         next_interfaces: parsedDoctor.next.interfaces,
+        next_workflow: parsedDoctor.next.workflow,
         next_arguments: {}
       });
 

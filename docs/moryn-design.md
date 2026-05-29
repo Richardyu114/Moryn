@@ -825,10 +825,10 @@ inferring commands from prose. It also returns a `readiness` summary:
 `blocking_checks` lists warning-level checks that prevent lifecycle startup.
 The same summary repeats the selected next tool, command, `safe_to_run`,
 `required_when`, required fields, `safety`, transport `interfaces`, and
-arguments so a lightweight agent can follow readiness without merging data from
-the full `next` object. If `run_lifecycle_smoke` requires a remote, the action
-and command both carry the `<remote>` placeholder and `arguments.remote` is
-prefilled as `"<remote>"`.
+`workflow` plus arguments so a lightweight agent can follow readiness without
+merging data from the full `next` object. If `run_lifecycle_smoke` requires a
+remote, the action and command both carry the `<remote>` placeholder and
+`arguments.remote` is prefilled as `"<remote>"`.
 
 ### `project_list`
 

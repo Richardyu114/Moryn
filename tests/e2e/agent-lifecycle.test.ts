@@ -508,6 +508,7 @@ describe("agent lifecycle", () => {
           reasons: ["safe_read_or_status_check"]
         },
         next_interfaces: doctor.next.interfaces,
+        next_workflow: doctor.next.workflow,
         next_arguments: {
           project_path: project,
           sync_remote: remote,
@@ -644,6 +645,7 @@ describe("agent lifecycle", () => {
         next_required_fields: [],
         next_safety: doctor.next.safety,
         next_interfaces: doctor.next.interfaces,
+        next_workflow: doctor.next.workflow,
         next_arguments: {}
       });
 
@@ -735,6 +737,7 @@ describe("agent lifecycle", () => {
         next_required_fields: [],
         next_safety: doctor.next.safety,
         next_interfaces: doctor.next.interfaces,
+        next_workflow: doctor.next.workflow,
         next_arguments: {}
       });
       expect(doctor.next.actions).toContainEqual(expect.objectContaining({

@@ -1330,6 +1330,7 @@ describe("MCP stdio server", () => {
               cli: { command: string };
               mcp: { tool: string; arguments: Record<string, unknown> };
             };
+            next_workflow: Record<string, unknown>;
             next_arguments: Record<string, unknown>;
           };
           next: {
@@ -1339,6 +1340,7 @@ describe("MCP stdio server", () => {
               cli: { command: string };
               mcp: { tool: string; arguments: Record<string, unknown> };
             };
+            workflow: Record<string, unknown>;
             actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
             arguments: {
               project_path?: string;
@@ -1370,6 +1372,7 @@ describe("MCP stdio server", () => {
             reasons: ["safe_read_or_status_check"]
           },
           next_interfaces: doctor.next.interfaces,
+          next_workflow: doctor.next.workflow,
           next_arguments: {
             project_path: project,
             sync_remote: remote,
@@ -1430,6 +1433,7 @@ describe("MCP stdio server", () => {
             next_required_when: string;
             next_safety: Record<string, unknown>;
             next_interfaces: Record<string, unknown>;
+            next_workflow: Record<string, unknown>;
           };
           next: {
             recommended_action: string;
@@ -1499,6 +1503,7 @@ describe("MCP stdio server", () => {
           next_required_fields: [],
           next_safety: doctor.next.safety,
           next_interfaces: doctor.next.interfaces,
+          next_workflow: doctor.next.workflow,
           next_arguments: {}
         });
 
