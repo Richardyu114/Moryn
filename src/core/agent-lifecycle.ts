@@ -43,6 +43,11 @@ export interface AgentStatusInput extends AgentLifecycleInput {
 
 type DoctorSeverity = "ok" | "notice" | "warning";
 type DoctorCheck = { name: string; ok: boolean; severity: DoctorSeverity; message: string };
+type LifecycleActionSelectionSources = {
+  action: "next.actions_by_id.<action>";
+  action_id: "next.actions_by_id.<action>.action";
+  ordered_action: "next.actions[]";
+};
 type LifecycleActionTemplate = {
   action: string;
   tool: string;
@@ -53,6 +58,7 @@ type LifecycleActionTemplate = {
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
   arguments: Record<string, unknown>;
   argument_sources?: Record<string, string>;
+  selection_sources?: LifecycleActionSelectionSources;
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ActionSafety;
 };
@@ -154,6 +160,11 @@ const LIFECYCLE_NEXT_SELECTION_SOURCES = {
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action"
 };
+const LIFECYCLE_ACTION_SELECTION_SOURCES: LifecycleActionSelectionSources = {
+  action: "next.actions_by_id.<action>",
+  action_id: "next.actions_by_id.<action>.action",
+  ordered_action: "next.actions[]"
+};
 const DOCTOR_SELECTION_SOURCES = {
   check: "checks_by_name.<check_name>",
   blocking_check: "readiness.blocking_checks_by_name.<check_name>",
@@ -238,6 +249,15 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
       }
     },
     safety: actionSafety(action)
+  };
+}
+
+function withLifecycleActionSelectionSources<T extends LifecycleActionTemplate>(
+  action: T
+): T & { selection_sources: LifecycleActionSelectionSources } {
+  return {
+    ...action,
+    selection_sources: LIFECYCLE_ACTION_SELECTION_SOURCES
   };
 }
 
@@ -682,7 +702,7 @@ function portableLifecycleInput(input: AgentLifecycleInput, project: ProjectCont
 
 function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActionTemplate[] {
   const actions: LifecycleActionTemplate[] = [
-    withActionInterfaces({
+    withLifecycleActionSelectionSources(withActionInterfaces({
       action: "publish_status",
       tool: "agent_status",
       safe_to_run: false,
@@ -691,8 +711,8 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       required_fields: ["status"],
       arguments: statusActionArguments(input),
       argument_sources: userInputArgumentSources(["status"])
-    }),
-    withActionInterfaces({
+    })),
+    withLifecycleActionSelectionSources(withActionInterfaces({
       action: "finish_session",
       tool: "agent_finish",
       safe_to_run: false,
@@ -701,10 +721,10 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       required_fields: ["summary"],
       arguments: finishActionArguments(input),
       argument_sources: userInputArgumentSources(["summary"])
-    })
+    }))
   ];
   if (cursor) {
-    actions.push(withActionInterfaces({
+    actions.push(withLifecycleActionSelectionSources(withActionInterfaces({
       action: "refresh_context",
       tool: "agent_start",
       safe_to_run: true,
@@ -715,12 +735,12 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       argument_sources: {
         refresh_since: "refresh.cursor"
       }
-    }));
+    })));
   }
   return actions;
 }
 
-function actionsById(actions: LifecycleActionTemplate[]): Record<string, LifecycleActionTemplate> {
+function lifecycleActionsById<T extends LifecycleActionTemplate>(actions: T[]): Record<string, T> {
   return Object.fromEntries(actions.map((action) => [action.action, action]));
 }
 
@@ -730,7 +750,7 @@ function actionsByProjectId<T extends { project_id: string }>(actions: T[]): Rec
 
 function syncConflictNextActions() {
   return [
-    withActionInterfaces({
+    withLifecycleActionSelectionSources(withActionInterfaces({
       action: "inspect_sync_conflict",
       tool: "sync_status",
       safe_to_run: true,
@@ -738,7 +758,7 @@ function syncConflictNextActions() {
       required_when: INSPECT_SYNC_CONFLICT_WHEN,
       required_fields: [],
       arguments: {}
-    })
+    }))
   ];
 }
 
@@ -766,7 +786,7 @@ async function assertSyncNotConflicted(storePath: string): Promise<GitSyncStatus
 function finishNextActions(input: AgentLifecycleInput) {
   const requiredFields = input.currentTask ? [] : ["current_task"];
   return [
-    withActionInterfaces({
+    withLifecycleActionSelectionSources(withActionInterfaces({
       action: "start_next_session",
       tool: "agent_start",
       safe_to_run: true,
@@ -775,13 +795,13 @@ function finishNextActions(input: AgentLifecycleInput) {
       required_fields: requiredFields,
       arguments: agentStartActionArguments(input, requiredFields),
       argument_sources: userInputArgumentSources(requiredFields)
-    })
+    }))
   ];
 }
 
 function statusNextActions(input: AgentLifecycleInput, cursor: string) {
   return [
-    withActionInterfaces({
+    withLifecycleActionSelectionSources(withActionInterfaces({
       action: "finish_session",
       tool: "agent_finish",
       safe_to_run: false,
@@ -790,8 +810,8 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
       required_fields: ["summary"],
       arguments: finishActionArguments(input),
       argument_sources: userInputArgumentSources(["summary"])
-    }),
-    withActionInterfaces({
+    })),
+    withLifecycleActionSelectionSources(withActionInterfaces({
       action: "refresh_context",
       tool: "agent_start",
       safe_to_run: true,
@@ -802,7 +822,7 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
       argument_sources: {
         refresh_since: "record.updated_at"
       }
-    })
+    }))
   ];
 }
 
@@ -822,7 +842,7 @@ function lifecycleSmokeActionArguments(input: AgentLifecycleInput): {
 
 function doctorNextActions(input: AgentLifecycleInput) {
   return [
-    withActionInterfaces({
+    withLifecycleActionSelectionSources(withActionInterfaces({
       action: "start_session",
       tool: "agent_start",
       safe_to_run: true,
@@ -830,8 +850,8 @@ function doctorNextActions(input: AgentLifecycleInput) {
       required_when: START_OR_RESUME_WHEN,
       required_fields: [],
       arguments: agentStartActionArguments(input)
-    }),
-    withActionInterfaces({
+    })),
+    withLifecycleActionSelectionSources(withActionInterfaces({
       action: "run_lifecycle_smoke",
       tool: "moryn-agent-smoke",
       safe_to_run: true,
@@ -840,7 +860,7 @@ function doctorNextActions(input: AgentLifecycleInput) {
       required_fields: input.syncRemote ? [] : ["remote"],
       arguments: lifecycleSmokeActionArguments(input),
       argument_sources: userInputArgumentSources(input.syncRemote ? [] : ["remote"])
-    })
+    }))
   ];
 }
 
@@ -907,7 +927,7 @@ function doctorReadiness(
 
 function projectListNextActions() {
   return [
-    withActionInterfaces({
+    withLifecycleActionSelectionSources(withActionInterfaces({
       action: "list_projects",
       tool: "project_list",
       safe_to_run: true,
@@ -915,7 +935,7 @@ function projectListNextActions() {
       required_when: LIST_PROJECTS_WHEN,
       required_fields: [],
       arguments: {}
-    })
+    }))
   ];
 }
 
@@ -1523,6 +1543,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
   const setupInput = projectInitInput(input, project.ok ? undefined : project.error);
   const setupRequiredFields = setupInput.projectPath ? [] : ["path"];
   const doctorActions = doctorNextActions(input);
+  const listProjectActions = projectListNextActions();
   const next = syncConflict
     ? syncConflictNextAction()
     : discoverProjects
@@ -1534,7 +1555,9 @@ export async function agentDoctor(input: AgentDoctorInput) {
         required_when: LIST_PROJECTS_WHEN,
         required_fields: [],
         workflow: singleNextWorkflow("list_projects", "project_list", LIST_PROJECTS_WHEN, []),
-        actions: projectListNextActions(),
+        actions: listProjectActions,
+        actions_by_id: lifecycleActionsById(listProjectActions),
+        selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES,
         arguments: {}
       })
     : project.ok
@@ -1547,7 +1570,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
         required_fields: [],
         workflow: singleNextWorkflow("call_agent_start", "agent_start", START_OR_RESUME_WHEN, []),
         actions: doctorActions,
-        actions_by_id: actionsById(doctorActions),
+        actions_by_id: lifecycleActionsById(doctorActions),
         selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES,
         arguments: {
           project_path: input.projectPath,
@@ -1653,7 +1676,7 @@ export async function agentEnter(input: AgentEnterInput) {
         recommended_refresh_action_source: "next.actions_by_id.refresh_context",
         workflow: startSessionWorkflow(actions),
         actions,
-        actions_by_id: actionsById(actions),
+        actions_by_id: lifecycleActionsById(actions),
         selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES
       }
     };
@@ -1758,7 +1781,7 @@ export async function agentStart(input: AgentStartInput) {
       recommended_refresh_action_source: "next.actions_by_id.refresh_context",
       workflow: directStartWorkflow(actions),
       actions,
-      actions_by_id: actionsById(actions),
+      actions_by_id: lifecycleActionsById(actions),
       selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES
     }
   };
@@ -1814,7 +1837,7 @@ export async function agentFinish(input: AgentFinishInput) {
       recommended_start_action_source: "next.actions_by_id.start_next_session",
       workflow: directFinishWorkflow(actions),
       actions,
-      actions_by_id: actionsById(actions),
+      actions_by_id: lifecycleActionsById(actions),
       selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES
     }
   };
@@ -1877,7 +1900,7 @@ export async function agentStatus(input: AgentStatusInput) {
       recommended_refresh_action_source: "next.actions_by_id.refresh_context",
       workflow: directStatusWorkflow(actions),
       actions,
-      actions_by_id: actionsById(actions),
+      actions_by_id: lifecycleActionsById(actions),
       selection_sources: LIFECYCLE_NEXT_SELECTION_SOURCES
     }
   };

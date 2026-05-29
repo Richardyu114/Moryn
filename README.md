@@ -391,6 +391,10 @@ ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `start_next_session`. Automation should prefer the keyed map when it already
 knows which lifecycle action it needs, and use
 `next.workflow.phases[].action_source` to find the exact keyed path.
+Each lifecycle action also carries action-local `selection_sources` naming its
+keyed `next.actions_by_id.<action>` source, action-id field, and ordered
+`next.actions[]` fallback, so an agent can still recover the stable path if a
+host passes around only the selected action object.
 Direct `project_list` responses use the same pattern with top-level
 `projects_by_id`, keyed by `project_id`; each keyed record mirrors the ordered
 `projects[]` entry, and project-list workflow phases prefer
@@ -493,7 +497,9 @@ Direct `agent start`, `agent status`, and `agent finish` responses also include
 the same ordered action contract from any lifecycle entrypoint. Workflow phases
 prefer `next.actions_by_id.<action>` as the stable source and retain
 `next.actions` as an ordered compatibility list; `next.workflow.phases_by_name`
-mirrors those phases by name for direct lookup.
+mirrors those phases by name for direct lookup. Each lifecycle action repeats
+the keyed and ordered paths in action-local `selection_sources`, so selected
+actions remain self-describing after they are copied out of the response.
 Setup and diagnosis `next` actions from `agent doctor` and `agent enter`
 include the same top-level `required_when`, `required_fields`, and
 single-step `next.workflow` metadata, so hosts can distinguish safe read-only
@@ -763,7 +769,9 @@ point at those keyed entries directly; `required_end_action_source` and
 instead of translating prose hints into action ids. `agent_start.next.selection_sources`
 names the generic keyed action and action-id paths for hosts that should not
 infer them from workflow phases.
-Each action carries
+Each action also carries action-local `selection_sources`, so a selected
+template still points back to `next.actions_by_id.<action>` even when handled
+outside the full `agent_start` response. Each action carries
 `safe_to_run`: refresh/start/discovery helpers are `true`, while status and
 finish templates are `false` because the agent must provide user-meaningful
 content before writing a checkpoint or handoff. For those authored fields,

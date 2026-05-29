@@ -242,6 +242,10 @@ Deliverables:
 - Done: Runtime lifecycle responses now expose `next.actions_by_id` and keyed
   workflow sources, so agents can call known follow-up actions without scanning
   arrays.
+- Done: Runtime lifecycle follow-up actions now include action-local
+  `selection_sources` for the keyed `next.actions_by_id.<action>` template,
+  action id field, and ordered `next.actions[]` fallback, so selected actions
+  remain self-describing when passed around independently.
 - Done: `agent_enter` project discovery now exposes `next.actions_by_project_id`
   and keyed workflow sources, so agents can choose a known project without
   relying on array order.

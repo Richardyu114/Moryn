@@ -1052,6 +1052,10 @@ Workflow phases prefer
 keyed `next.actions_by_id.<action>` or
 `next.actions_by_project_id.<project_id>` sources so hosts can execute a known
 action without scanning the array or reconstructing action names.
+Runtime lifecycle actions additionally carry action-local `selection_sources`
+for the keyed `next.actions_by_id.<action>` entry, the action-id field, and the
+ordered `next.actions[]` fallback. This lets a host pass a single action object
+between planning and execution without losing the stable source path.
 Direct `project_list` responses also expose top-level `projects_by_id`, keyed
 by `project_id`, where each keyed project mirrors its ordered `projects[]`
 entry. `selection_sources` names the selected project, project id, and next

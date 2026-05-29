@@ -23,6 +23,11 @@ const NEXT_ACTION_SELECTION_SOURCES = {
   error_workflow_phase: "error.next_action.workflow.phases_by_name.<phase>",
   warning_workflow_phase: "warning.next_action.workflow.phases_by_name.<phase>"
 };
+const LIFECYCLE_ACTION_SELECTION_SOURCES = {
+  action: "next.actions_by_id.<action>",
+  action_id: "next.actions_by_id.<action>.action",
+  ordered_action: "next.actions[]"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -74,6 +79,12 @@ function expectNextActionSelectionSources(action: {
   selection_sources?: Record<string, string>;
 }) {
   expect(action.selection_sources).toEqual(NEXT_ACTION_SELECTION_SOURCES);
+}
+
+function expectLifecycleActionSelectionSources(action: {
+  selection_sources?: Record<string, string>;
+}) {
+  expect(action.selection_sources).toEqual(LIFECYCLE_ACTION_SELECTION_SOURCES);
 }
 
 function expectRecoveryWorkflow(action: {
@@ -2506,8 +2517,10 @@ describe("moryn CLI", () => {
       }));
       for (const action of parsedFinish.next.actions) {
         expectActionInterfaces(action);
+        expectLifecycleActionSelectionSources(action);
       }
       expect(parsedFinish.next.actions_by_id.start_next_session).toEqual(parsedFinish.next.actions.find((action) => action.action === "start_next_session"));
+      expectLifecycleActionSelectionSources(parsedFinish.next.actions_by_id.start_next_session);
       expect(parsedFinish.next.actions_by_id.start_next_session.required_fields_by_name?.current_task).toEqual({
         name: "current_task",
         argument_path: "current_task",
@@ -2616,6 +2629,7 @@ describe("moryn CLI", () => {
       }));
       for (const action of parsedStart.next.actions) {
         expectActionInterfaces(action);
+        expectLifecycleActionSelectionSources(action);
       }
       expect(parsedStart.next.required_end_action_id).toBe("finish_session");
       expect(parsedStart.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
@@ -2628,6 +2642,9 @@ describe("moryn CLI", () => {
       expect(parsedStart.next.actions_by_id.publish_status).toEqual(parsedStart.next.actions.find((action) => action.action === "publish_status"));
       expect(parsedStart.next.actions_by_id.finish_session).toEqual(parsedStart.next.actions.find((action) => action.action === "finish_session"));
       expect(parsedStart.next.actions_by_id.refresh_context).toEqual(parsedStart.next.actions.find((action) => action.action === "refresh_context"));
+      expectLifecycleActionSelectionSources(parsedStart.next.actions_by_id.publish_status);
+      expectLifecycleActionSelectionSources(parsedStart.next.actions_by_id.finish_session);
+      expectLifecycleActionSelectionSources(parsedStart.next.actions_by_id.refresh_context);
       expect(parsedStart.next.actions_by_id[parsedStart.next.required_end_action_id]).toEqual(parsedStart.next.actions_by_id.finish_session);
       expect(parsedStart.next.actions_by_id[parsedStart.next.recommended_refresh_action_id]).toEqual(parsedStart.next.actions_by_id.refresh_context);
       expect(parsedStart.next.workflow).toEqual(withPhasesByName({
@@ -3075,6 +3092,8 @@ describe("moryn CLI", () => {
       }));
       expect(parsed.next.actions_by_id.start_session).toEqual(parsed.next.actions.find((action) => action.action === "start_session"));
       expect(parsed.next.actions_by_id.run_lifecycle_smoke).toEqual(parsed.next.actions.find((action) => action.action === "run_lifecycle_smoke"));
+      expectLifecycleActionSelectionSources(parsed.next.actions_by_id.start_session);
+      expectLifecycleActionSelectionSources(parsed.next.actions_by_id.run_lifecycle_smoke);
       expect(parsed.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action"
@@ -3379,6 +3398,8 @@ describe("moryn CLI", () => {
           required_fields: string[];
           workflow: Record<string, unknown>;
           actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
+          actions_by_id: Record<string, { action: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
+          selection_sources: Record<string, string>;
         };
       };
 
@@ -3402,6 +3423,12 @@ describe("moryn CLI", () => {
         required_when: LIST_PROJECTS_WHEN,
         required_fields: []
       }));
+      expect(parsed.next.actions_by_id.list_projects).toEqual(parsed.next.actions[0]);
+      expectLifecycleActionSelectionSources(parsed.next.actions_by_id.list_projects);
+      expect(parsed.next.selection_sources).toEqual({
+        action: "next.actions_by_id.<action>",
+        action_id: "next.actions_by_id.<action>.action"
+      });
     });
   });
 

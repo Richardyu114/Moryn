@@ -26,6 +26,11 @@ const NEXT_ACTION_SELECTION_SOURCES = {
   error_workflow_phase: "error.next_action.workflow.phases_by_name.<phase>",
   warning_workflow_phase: "warning.next_action.workflow.phases_by_name.<phase>"
 };
+const LIFECYCLE_ACTION_SELECTION_SOURCES = {
+  action: "next.actions_by_id.<action>",
+  action_id: "next.actions_by_id.<action>.action",
+  ordered_action: "next.actions[]"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -77,6 +82,12 @@ function expectNextActionSelectionSources(action: {
   selection_sources?: Record<string, string>;
 }) {
   expect(action.selection_sources).toEqual(NEXT_ACTION_SELECTION_SOURCES);
+}
+
+function expectLifecycleActionSelectionSources(action: {
+  selection_sources?: Record<string, string>;
+}) {
+  expect(action.selection_sources).toEqual(LIFECYCLE_ACTION_SELECTION_SOURCES);
 }
 
 function expectRecoveryWorkflow(action: {
@@ -1576,7 +1587,11 @@ describe("MCP stdio server", () => {
               agent: { client: "codex", session_id: "codex-mcp", device_id: "device_a" }
             })
           }));
+          for (const action of finish.next.actions) {
+            expectLifecycleActionSelectionSources(action);
+          }
           expect(finish.next.actions_by_id.start_next_session).toEqual(finish.next.actions.find((action) => action.action === "start_next_session"));
+          expectLifecycleActionSelectionSources(finish.next.actions_by_id.start_next_session);
           expect(finish.next.actions_by_id[finish.next.recommended_start_action_id]).toEqual(finish.next.actions_by_id.start_next_session);
           expect(finish.next.workflow).toEqual(withPhasesByName({
             version: 1,
@@ -1684,6 +1699,9 @@ describe("MCP stdio server", () => {
           expect(start.next.actions_by_id.publish_status).toEqual(start.next.actions.find((action) => action.action === "publish_status"));
           expect(start.next.actions_by_id.finish_session).toEqual(start.next.actions.find((action) => action.action === "finish_session"));
           expect(start.next.actions_by_id.refresh_context).toEqual(start.next.actions.find((action) => action.action === "refresh_context"));
+          expectLifecycleActionSelectionSources(start.next.actions_by_id.publish_status);
+          expectLifecycleActionSelectionSources(start.next.actions_by_id.finish_session);
+          expectLifecycleActionSelectionSources(start.next.actions_by_id.refresh_context);
           expect(start.next.required_end_action_id).toBe("finish_session");
           expect(start.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
           expect(start.next.recommended_refresh_action_id).toBe("refresh_context");
@@ -1726,6 +1744,9 @@ describe("MCP stdio server", () => {
               current_task: "continue lifecycle handoff"
             })
           }));
+          for (const action of start.next.actions) {
+            expectLifecycleActionSelectionSources(action);
+          }
           expect(start.next.workflow).toEqual(withPhasesByName({
             version: 1,
             start: "context",
@@ -2123,6 +2144,8 @@ describe("MCP stdio server", () => {
         }));
         expect(doctor.next.actions_by_id.start_session).toEqual(doctor.next.actions.find((action) => action.action === "start_session"));
         expect(doctor.next.actions_by_id.run_lifecycle_smoke).toEqual(doctor.next.actions.find((action) => action.action === "run_lifecycle_smoke"));
+        expectLifecycleActionSelectionSources(doctor.next.actions_by_id.start_session);
+        expectLifecycleActionSelectionSources(doctor.next.actions_by_id.run_lifecycle_smoke);
         expect(doctor.next.selection_sources).toEqual({
           action: "next.actions_by_id.<action>",
           action_id: "next.actions_by_id.<action>.action"
@@ -2437,6 +2460,8 @@ describe("MCP stdio server", () => {
             required_fields: string[];
             workflow: Record<string, unknown>;
             actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
+            actions_by_id: Record<string, { action: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
+            selection_sources: Record<string, string>;
           };
         };
 
@@ -2460,6 +2485,12 @@ describe("MCP stdio server", () => {
           required_when: LIST_PROJECTS_WHEN,
           required_fields: []
         }));
+        expect(doctor.next.actions_by_id.list_projects).toEqual(doctor.next.actions[0]);
+        expectLifecycleActionSelectionSources(doctor.next.actions_by_id.list_projects);
+        expect(doctor.next.selection_sources).toEqual({
+          action: "next.actions_by_id.<action>",
+          action_id: "next.actions_by_id.<action>.action"
+        });
       }, store);
     } finally {
       await rm(store, { recursive: true, force: true });

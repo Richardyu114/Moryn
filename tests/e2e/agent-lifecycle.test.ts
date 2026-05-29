@@ -11,6 +11,11 @@ import { agentDoctor, agentEnter, agentFinish, agentStart, agentStatus } from ".
 import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
+const LIFECYCLE_ACTION_SELECTION_SOURCES = {
+  action: "next.actions_by_id.<action>",
+  action_id: "next.actions_by_id.<action>.action",
+  ordered_action: "next.actions[]"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -259,6 +264,12 @@ function expectHandoffEntryNextAction(action: {
   }));
 }
 
+function expectLifecycleActionSelectionSources(action: {
+  selection_sources?: Record<string, string>;
+}) {
+  expect(action.selection_sources).toEqual(LIFECYCLE_ACTION_SELECTION_SOURCES);
+}
+
 describe("agent lifecycle", () => {
   it("pulls, boots, refreshes, writes a handoff, and pushes across two device stores", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-"));
@@ -315,6 +326,10 @@ describe("agent lifecycle", () => {
       expect(codexFinish.next.actions_by_id.start_next_session).toEqual(
         codexFinish.next.actions.find((action) => action.action === "start_next_session")
       );
+      for (const action of codexFinish.next.actions) {
+        expectLifecycleActionSelectionSources(action);
+      }
+      expectLifecycleActionSelectionSources(codexFinish.next.actions_by_id.start_next_session);
       expect(codexFinish.next.actions_by_id[codexFinish.next.recommended_start_action_id]).toEqual(
         codexFinish.next.actions_by_id.start_next_session
       );
@@ -453,6 +468,12 @@ describe("agent lifecycle", () => {
       expect(geminiStart.next.actions_by_id.refresh_context).toEqual(
         geminiStart.next.actions.find((action) => action.action === "refresh_context")
       );
+      for (const action of geminiStart.next.actions) {
+        expectLifecycleActionSelectionSources(action);
+      }
+      expectLifecycleActionSelectionSources(geminiStart.next.actions_by_id.publish_status);
+      expectLifecycleActionSelectionSources(geminiStart.next.actions_by_id.finish_session);
+      expectLifecycleActionSelectionSources(geminiStart.next.actions_by_id.refresh_context);
       expect(geminiStart.next.actions_by_id[geminiStart.next.required_end_action_id]).toEqual(
         geminiStart.next.actions_by_id.finish_session
       );
@@ -879,6 +900,14 @@ describe("agent lifecycle", () => {
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action"
       });
+      expect(doctor.next.actions_by_id.start_session).toEqual(
+        doctor.next.actions.find((action) => action.action === "start_session")
+      );
+      expect(doctor.next.actions_by_id.run_lifecycle_smoke).toEqual(
+        doctor.next.actions.find((action) => action.action === "run_lifecycle_smoke")
+      );
+      expectLifecycleActionSelectionSources(doctor.next.actions_by_id.start_session);
+      expectLifecycleActionSelectionSources(doctor.next.actions_by_id.run_lifecycle_smoke);
       expect(doctor.next.command).toContain("moryn agent start");
       expect(doctor.next.command).toContain("--sync-remote");
       expect(doctor.next.arguments).toMatchObject({
@@ -919,6 +948,10 @@ describe("agent lifecycle", () => {
         },
         arguments: { remote: "<remote>" }
       }));
+      expect(doctor.next.actions_by_id.run_lifecycle_smoke).toEqual(
+        doctor.next.actions.find((action) => action.action === "run_lifecycle_smoke")
+      );
+      expectLifecycleActionSelectionSources(doctor.next.actions_by_id.run_lifecycle_smoke);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1093,7 +1126,7 @@ describe("agent lifecycle", () => {
         next_safety: doctor.next.safety,
         next_interfaces: doctor.next.interfaces,
         next_workflow: doctor.next.workflow,
-        next_selection_sources: {},
+        next_selection_sources: doctor.next.selection_sources,
         next_arguments: {}
       });
       expect(doctor.next.actions).toContainEqual(expect.objectContaining({
@@ -1104,6 +1137,12 @@ describe("agent lifecycle", () => {
         required_fields: [],
         arguments: {}
       }));
+      expect(doctor.next.actions_by_id.list_projects).toEqual(doctor.next.actions[0]);
+      expectLifecycleActionSelectionSources(doctor.next.actions_by_id.list_projects);
+      expect(doctor.next.selection_sources).toEqual({
+        action: "next.actions_by_id.<action>",
+        action_id: "next.actions_by_id.<action>.action"
+      });
     } finally {
       process.chdir(previousCwd);
       await rm(root, { recursive: true, force: true });
