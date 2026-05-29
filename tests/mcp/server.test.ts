@@ -41,6 +41,20 @@ const GUIDE_ENTRYPOINT_SELECTION_SOURCES = {
   next_action: "next",
   workflow_phase: "workflow.phases_by_name.start_or_resume"
 };
+const WRITE_SELECTION_SOURCES = {
+  record: "record",
+  record_id: "record.id",
+  warning_next_action: "warning.next_action"
+};
+const MUTATION_EVENT_SELECTION_SOURCES = {
+  event: "event",
+  event_id: "event.event_id",
+  record_id: "event.record_id"
+};
+const LINK_EVENT_SELECTION_SOURCES = {
+  ...MUTATION_EVENT_SELECTION_SOURCES,
+  linked_record_id: "event.linked_record_id"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -4237,7 +4251,7 @@ describe("MCP stdio server", () => {
             text: "MCP mutation source target.",
             state: "candidate"
           }
-        })) as { record: { id: string } };
+        })) as { record: { id: string }; selection_sources: Record<string, string> };
         const linked = parseTextContent(await client.callTool({
           name: "write",
           arguments: {
@@ -4248,46 +4262,56 @@ describe("MCP stdio server", () => {
             text: "MCP mutation source linked record.",
             state: "candidate"
           }
-        })) as { record: { id: string } };
+        })) as { record: { id: string }; selection_sources: Record<string, string> };
 
-        parseTextContent(await client.callTool({
+        expect(target.selection_sources).toEqual(WRITE_SELECTION_SOURCES);
+        expect(linked.selection_sources).toEqual(WRITE_SELECTION_SOURCES);
+
+        const revised = parseTextContent(await client.callTool({
           name: "revise",
           arguments: {
             record_id: target.record.id,
             patch: { "content.text": "MCP mutation source revised target." },
             reason: "Default MCP source"
           }
-        }));
-        parseTextContent(await client.callTool({
+        })) as { event: { record_id: string }; selection_sources: Record<string, string> };
+        const promoted = parseTextContent(await client.callTool({
           name: "promote",
           arguments: {
             record_id: target.record.id,
             target_state: "canonical",
             reason: "Default MCP source"
           }
-        }));
-        parseTextContent(await client.callTool({
+        })) as { event: { record_id: string }; selection_sources: Record<string, string> };
+        const link = parseTextContent(await client.callTool({
           name: "link",
           arguments: {
             record_id: target.record.id,
             linked_record_id: linked.record.id,
             link_type: "related"
           }
-        }));
-        parseTextContent(await client.callTool({
+        })) as { event: { record_id: string; linked_record_id: string }; selection_sources: Record<string, string> };
+        const archived = parseTextContent(await client.callTool({
           name: "archive",
           arguments: {
             record_id: linked.record.id,
             reason: "Default MCP source"
           }
-        }));
-        parseTextContent(await client.callTool({
+        })) as { event: { record_id: string }; selection_sources: Record<string, string> };
+        const quarantined = parseTextContent(await client.callTool({
           name: "quarantine",
           arguments: {
             record_id: target.record.id,
             reason: "Default MCP source"
           }
-        }));
+        })) as { event: { record_id: string }; selection_sources: Record<string, string> };
+
+        expect(revised.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
+        expect(promoted.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
+        expect(link.selection_sources).toEqual(LINK_EVENT_SELECTION_SOURCES);
+        expect(link.event.linked_record_id).toBe(linked.record.id);
+        expect(archived.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
+        expect(quarantined.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
 
         const events = await readEvents(store);
         const mutationClients = events

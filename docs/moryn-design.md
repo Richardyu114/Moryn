@@ -1912,6 +1912,11 @@ not repeat the original write or assume the record became canonical:
     "id": "rec_123",
     "state": "candidate"
   },
+  "selection_sources": {
+    "record": "record",
+    "record_id": "record.id",
+    "warning_next_action": "warning.next_action"
+  },
   "warning": {
     "code": "CONFIRMATION_REQUIRED",
     "reason": "canonical state requires explicit user confirmation",
@@ -1956,6 +1961,15 @@ not repeat the original write or assume the record became canonical:
   }
 }
 ```
+
+All successful mutation responses expose top-level `selection_sources` so hosts
+can select ids without inferring paths. `write` names `record`, `record.id`, and
+`warning.next_action`. `revise`, `promote`, `archive`, and `quarantine` name
+`event`, `event.event_id`, and `event.record_id`; `link` additionally names
+`event.linked_record_id`. When a sensitive `revise` also emits a quarantine
+event, the response names `quarantine_event` and `quarantine_event.event_id`.
+These paths are intentionally shallow and stable because mutation results are
+often passed directly into the next operation.
 
 Rebuildable index errors return a safe derived-view rebuild action:
 

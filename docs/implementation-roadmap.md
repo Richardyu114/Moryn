@@ -213,6 +213,10 @@ Deliverables:
   `argument_sources.record_id`, and a `write.record.id` workflow replacement
   source, so agents can promote the created candidate without repeating the
   write or rediscovering the record id.
+- Done: Successful write and mutation responses expose top-level
+  `selection_sources` for returned records, events, affected record ids, linked
+  record ids, and sensitive-revision quarantine events, so agents can feed the
+  next mutation from stable paths instead of guessing nested result fields.
 - Done: Lifecycle, guide, setup, project-discovery, error-recovery, and
   warning-recovery action templates expose `safety` metadata that explains
   `safe_to_run` with user-confirmation, authored-input, and local-config-write

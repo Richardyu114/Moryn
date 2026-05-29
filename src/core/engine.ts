@@ -75,6 +75,29 @@ const START_LISTED_PROJECT_WHEN = "After choosing this project from project_list
 const RECALL_REFRESH_CHANGE_WHEN = "After refresh reports this change and the agent needs the full record content.";
 const WRITE_CANDIDATE_RECORD_ID_SOURCE = "write.record.id";
 
+const WRITE_SELECTION_SOURCES = {
+  record: "record",
+  record_id: "record.id",
+  warning_next_action: "warning.next_action"
+};
+
+const MUTATION_EVENT_SELECTION_SOURCES = {
+  event: "event",
+  event_id: "event.event_id",
+  record_id: "event.record_id"
+};
+
+const LINK_EVENT_SELECTION_SOURCES = {
+  ...MUTATION_EVENT_SELECTION_SOURCES,
+  linked_record_id: "event.linked_record_id"
+};
+
+const SENSITIVE_REVISE_SELECTION_SOURCES = {
+  ...MUTATION_EVENT_SELECTION_SOURCES,
+  quarantine_event: "quarantine_event",
+  quarantine_event_id: "quarantine_event.event_id"
+};
+
 const PROJECT_LIST_SELECTION_SOURCES = {
   project: "projects_by_id.<project_id>",
   project_id: "projects_by_id.<project_id>.project_id",
@@ -990,6 +1013,7 @@ export function createEngine(deps: EngineDeps) {
           : undefined;
       return {
         record,
+        selection_sources: WRITE_SELECTION_SOURCES,
         warning
       };
     },
@@ -1031,7 +1055,7 @@ export function createEngine(deps: EngineDeps) {
       await appendEvent(deps.storePath, event);
       if (!sensitive.sensitive) {
         await rebuildDerivedViews(deps.storePath);
-        return { event };
+        return { event, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
       }
 
       const revisedRecord = { ...record, updated_at: createdAt };
@@ -1049,6 +1073,7 @@ export function createEngine(deps: EngineDeps) {
       return {
         event,
         quarantine_event: quarantineEvent,
+        selection_sources: SENSITIVE_REVISE_SELECTION_SOURCES,
         warning: { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason }
       };
     },
@@ -1083,7 +1108,7 @@ export function createEngine(deps: EngineDeps) {
         source
       };
       await appendEventAndRebuild(event);
-      return { event };
+      return { event, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
     },
 
     async archive(input: StateChangeInput) {
@@ -1099,7 +1124,7 @@ export function createEngine(deps: EngineDeps) {
         source: input.source ?? { client: "moryn" }
       };
       await appendEventAndRebuild(event);
-      return { event };
+      return { event, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
     },
 
     async quarantine(input: StateChangeInput) {
@@ -1115,7 +1140,7 @@ export function createEngine(deps: EngineDeps) {
         source: input.source ?? { client: "moryn" }
       };
       await appendEventAndRebuild(event);
-      return { event };
+      return { event, selection_sources: MUTATION_EVENT_SELECTION_SOURCES };
     },
 
     async link(input: LinkInput) {
@@ -1133,7 +1158,7 @@ export function createEngine(deps: EngineDeps) {
         source: input.source ?? { client: "moryn" }
       };
       await appendEventAndRebuild(event);
-      return { event };
+      return { event, selection_sources: LINK_EVENT_SELECTION_SOURCES };
     },
 
     async recall(input: RecallInput) {

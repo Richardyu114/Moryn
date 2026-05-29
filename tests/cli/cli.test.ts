@@ -38,6 +38,20 @@ const GUIDE_ENTRYPOINT_SELECTION_SOURCES = {
   next_action: "next",
   workflow_phase: "workflow.phases_by_name.start_or_resume"
 };
+const WRITE_SELECTION_SOURCES = {
+  record: "record",
+  record_id: "record.id",
+  warning_next_action: "warning.next_action"
+};
+const MUTATION_EVENT_SELECTION_SOURCES = {
+  event: "event",
+  event_id: "event.event_id",
+  record_id: "event.record_id"
+};
+const LINK_EVENT_SELECTION_SOURCES = {
+  ...MUTATION_EVENT_SELECTION_SOURCES,
+  linked_record_id: "event.linked_record_id"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -2031,14 +2045,36 @@ describe("moryn CLI", () => {
         "--state", "canonical",
         "--text", "Review this warning"
       ]);
-      const skillId = (JSON.parse(skillWrite.stdout) as { record: { id: string } }).record.id;
-      const decisionId = (JSON.parse(decisionWrite.stdout) as { record: { id: string } }).record.id;
-      const oldId = (JSON.parse(oldWrite.stdout) as { record: { id: string } }).record.id;
-      const secretId = (JSON.parse(secretWrite.stdout) as { record: { id: string } }).record.id;
+      const parsedSkillWrite = JSON.parse(skillWrite.stdout) as { record: { id: string }; selection_sources: Record<string, string> };
+      const parsedDecisionWrite = JSON.parse(decisionWrite.stdout) as { record: { id: string }; selection_sources: Record<string, string> };
+      const parsedOldWrite = JSON.parse(oldWrite.stdout) as { record: { id: string }; selection_sources: Record<string, string> };
+      const parsedSecretWrite = JSON.parse(secretWrite.stdout) as { record: { id: string }; selection_sources: Record<string, string> };
+      const skillId = parsedSkillWrite.record.id;
+      const decisionId = parsedDecisionWrite.record.id;
+      const oldId = parsedOldWrite.record.id;
+      const secretId = parsedSecretWrite.record.id;
 
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "link", decisionId, oldId, "--type", "supersedes"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "archive", oldId, "--reason", "Superseded"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "quarantine", secretId, "--reason", "Needs review"]);
+      expect(parsedSkillWrite.selection_sources).toEqual(WRITE_SELECTION_SOURCES);
+      expect(parsedDecisionWrite.selection_sources).toEqual(WRITE_SELECTION_SOURCES);
+
+      const link = JSON.parse((await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "link", decisionId, oldId, "--type", "supersedes"])).stdout) as {
+        event: { record_id: string; linked_record_id: string };
+        selection_sources: Record<string, string>;
+      };
+      const archive = JSON.parse((await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "archive", oldId, "--reason", "Superseded"])).stdout) as {
+        event: { record_id: string };
+        selection_sources: Record<string, string>;
+      };
+      const quarantine = JSON.parse((await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "quarantine", secretId, "--reason", "Needs review"])).stdout) as {
+        event: { record_id: string };
+        selection_sources: Record<string, string>;
+      };
+
+      expect(link.selection_sources).toEqual(LINK_EVENT_SELECTION_SOURCES);
+      expect(link.event.record_id).toBe(decisionId);
+      expect(link.event.linked_record_id).toBe(oldId);
+      expect(archive.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
+      expect(quarantine.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
 
       const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "boot", "--project", project]);
       expect(boot.stdout).toContain(skillId);

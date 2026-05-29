@@ -4,6 +4,26 @@ import { toErrorEnvelope } from "../../src/core/errors.js";
 import { readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
+const WRITE_SELECTION_SOURCES = {
+  record: "record",
+  record_id: "record.id",
+  warning_next_action: "warning.next_action"
+};
+const MUTATION_EVENT_SELECTION_SOURCES = {
+  event: "event",
+  event_id: "event.event_id",
+  record_id: "event.record_id"
+};
+const LINK_EVENT_SELECTION_SOURCES = {
+  ...MUTATION_EVENT_SELECTION_SOURCES,
+  linked_record_id: "event.linked_record_id"
+};
+const SENSITIVE_REVISE_SELECTION_SOURCES = {
+  ...MUTATION_EVENT_SELECTION_SOURCES,
+  quarantine_event: "quarantine_event",
+  quarantine_event_id: "quarantine_event.event_id"
+};
+
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
     ...workflow,
@@ -215,8 +235,27 @@ describe("core engine", () => {
         source: { client: "test" }
       });
 
-      await engine.revise({ record_id: written.record.id, patch: { "content.text": "Use private GitHub sync." }, reason: "Clarify privacy" });
-      await engine.promote({ record_id: written.record.id, target_state: "canonical", reason: "User confirmed" });
+      expect(written.selection_sources).toEqual(WRITE_SELECTION_SOURCES);
+      const revised = await engine.revise({ record_id: written.record.id, patch: { "content.text": "Use private GitHub sync." }, reason: "Clarify privacy" });
+      const promoted = await engine.promote({ record_id: written.record.id, target_state: "canonical", reason: "User confirmed" });
+      const linked = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Use store-owned Git remotes.", format: "text" },
+        state: "candidate",
+        source: { client: "test" }
+      });
+      const link = await engine.link({ record_id: written.record.id, linked_record_id: linked.record.id, link_type: "related" });
+      const archived = await engine.archive({ record_id: linked.record.id, reason: "Covered by primary decision" });
+      const quarantined = await engine.quarantine({ record_id: linked.record.id, reason: "Needs review" });
+
+      expect(revised.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
+      expect(promoted.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
+      expect(link.selection_sources).toEqual(LINK_EVENT_SELECTION_SOURCES);
+      expect(archived.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
+      expect(quarantined.selection_sources).toEqual(MUTATION_EVENT_SELECTION_SOURCES);
 
       const recall = await engine.recall({ query: "github sync", project_id: "moryn", limit: 5 });
       expect(recall.results[0]?.record.content.text).toBe("Use private GitHub sync.");
@@ -728,6 +767,7 @@ describe("core engine", () => {
         source: { client: "test" }
       });
 
+      expect(revised.selection_sources).toEqual(SENSITIVE_REVISE_SELECTION_SOURCES);
       expect(revised.warning?.code).toBe("SENSITIVE_CONTENT_DETECTED");
       expect((await engine.boot({ project_id: "moryn" })).project.warnings).toHaveLength(0);
       expect((await engine.recall({ query: "Authorization", project_id: "moryn" })).results).toHaveLength(0);

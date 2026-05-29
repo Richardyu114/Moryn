@@ -695,7 +695,13 @@ agents should not repeat the write or assume it is already canonical. That
 action includes `candidate_record_id`, sets `argument_sources.record_id` to
 `"write.record.id"`, and uses `write.record.id` as the workflow `record_id`
 replacement source, so hosts can promote the created candidate without
-inventing or rediscovering an id.
+inventing or rediscovering an id. Successful mutation responses also expose
+top-level `selection_sources`: `write` names `record`, `record.id`, and
+`warning.next_action`; `revise`, `promote`, `archive`, and `quarantine` name
+`event`, `event.event_id`, and `event.record_id`; `link` also names
+`event.linked_record_id`; sensitive revisions additionally name
+`quarantine_event` and `quarantine_event.event_id`. Agents can pass these ids
+to the next action without guessing which nested field is authoritative.
 Invalid local `config.json` errors return a guarded `init --repair` next action.
 The action is not safe to run automatically because it replaces the device-local
 store config.
@@ -751,11 +757,11 @@ interrupts. Agents should prefer `agent_start` over manually composing
 which mirrors the record objects returned in profile, project, skills,
 task-relevant, and recent-change sections so agents can dereference a known
 boot record id without scanning nested arrays. `boot.selection_sources` names
-the keyed boot record, record-id, important-decision, and warning paths
-explicitly. The project section also mirrors
-`important_decisions` and `warnings` as `important_decisions_by_id` and
-`warnings_by_id`, so agents can inspect known project blockers or decisions
-without scanning those project arrays. `list_recent` responses also return
+the aggregate keyed boot record plus each section-local by-id path explicitly:
+profile preferences, soul records, global rules, project decisions, project
+warnings, skills, task-relevant records, and recent changes. These section
+mirrors let agents inspect known boot context in its semantic location without
+scanning every boot array. `list_recent` responses also return
 ordered `records` plus `records_by_id` and `selection_sources`; after a missing-record error,
 prefer `list_recent.records_by_id.<record_id>.id` for the selected replacement
 id and use `list_recent.records[].id` only as an ordered compatibility view. Read
@@ -864,7 +870,9 @@ revise(record_id, patch, reason)
 This logically updates the record while appending a new event to preserve history.
 If a revision would make a canonical record conflict with existing canonical
 memory, CLI callers must add `--confirm`; MCP callers must pass
-`confirmed: true`.
+`confirmed: true`. The response includes `selection_sources` for the mutation
+event id and affected record id; if sensitive content is detected during
+revision, it also includes a quarantining event and paths for that event.
 
 At the end of meaningful work:
 
@@ -923,6 +931,8 @@ link(record_id, linked_record_id, link_type)
 ```
 
 Archived and quarantined records stay in history but are excluded from default boot and recall. They can still be fetched explicitly with a matching `state` filter.
+These mutation responses include `selection_sources` for the event id and
+affected record id; link responses also name the linked record id path.
 
 ## Memory Promotion Model
 
