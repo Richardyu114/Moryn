@@ -924,8 +924,12 @@ placeholder values. Most recovery actions are single-step workflows;
 id from `list_recent.records_by_id.<record_id>.id`. The ordered
 `list_recent.records[].id` path remains available for display and fallback.
 Warning recovery actions use the same `warning.next_action.interfaces`
-shape, `warning.next_action.safety`, and single-step
-`warning.next_action.workflow`. For
+shape, `warning.next_action.safety`, and explicit
+`warning.next_action.workflow` metadata. Candidate-promotion warnings include
+`candidate_record_id` plus `argument_sources.record_id: "write.record.id"`;
+their workflow phase uses `write.record.id` as the `record_id` replacement
+source, so agents promote the candidate returned by the original write instead
+of repeating the write or guessing an id. For
 `PROJECT_PATH_NOT_FOUND`, the `next_action.arguments.path` value is the exact
 missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
 `next_action.rejected_arguments.project_id` preserves the rejected id and
@@ -1262,10 +1266,11 @@ Agents should follow this contract:
 12. When `agent_start.handoff.next_action` exists, use it for the prioritized recall action; for a different handoff entry, prefer `handoff.inbox_by_record_id.<record_id>.next_action` or `handoff.active_sessions_by_record_id.<record_id>.next_action`, falling back to `handoff.inbox[].next_action` or `handoff.active_sessions[].next_action`, instead of manually composing a `recall` call.
 13. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions_by_id.start_next_session` to the next agent or device.
 14. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
-15. Write raw notes as `agent_note`, not canonical memory.
-16. Do not promote long-term preferences, soul records, or global skills without user confirmation.
-17. Treat sync `interrupt` results as a reason to pause and inspect related records.
-18. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
+15. When a canonical write returns `warning.next_action.recommended_action: "ask_user_then_promote_candidate"`, take the candidate id from `write.record.id` or `warning.next_action.candidate_record_id`, ask the user, then run the returned promote action with confirmation instead of repeating the write.
+16. Write raw notes as `agent_note`, not canonical memory.
+17. Do not promote long-term preferences, soul records, or global skills without user confirmation.
+18. Treat sync `interrupt` results as a reason to pause and inspect related records.
+19. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
 
 Cross-agent handoff depends on the lifecycle commands, not agent awareness of
 each other. Codex, Gemini, and other agents can run on separate machines if they
@@ -1745,11 +1750,37 @@ not repeat the original write or assume the record became canonical:
       "recommended_action": "ask_user_then_promote_candidate",
       "tool": "promote",
       "command": "moryn promote rec_123 --state canonical --reason 'User confirmed' --confirm",
+      "candidate_record_id": "rec_123",
       "arguments": {
         "record_id": "rec_123",
         "target_state": "canonical",
         "reason": "User confirmed",
         "confirmed": true
+      },
+      "argument_sources": {
+        "record_id": "write.record.id"
+      },
+      "workflow": {
+        "version": 1,
+        "start": "next_action",
+        "continue_from": [
+          "error.next_action",
+          "warning.next_action",
+          "write.record.id"
+        ],
+        "phases": [
+          {
+            "phase": "ask_user_then_promote_candidate",
+            "order": 1,
+            "action_source": "write.record.id",
+            "tool": "promote",
+            "required_when": "After the user explicitly confirms that the candidate should become canonical.",
+            "required_fields": ["record_id"],
+            "replace_arguments": {
+              "record_id": "write.record.id"
+            }
+          }
+        ]
       },
       "safe_to_run": false
     }

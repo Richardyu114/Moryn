@@ -601,7 +601,11 @@ from `promote` and `revise` return a retry action with `confirmed: true` and
 `--confirm`, but also keep `safe_to_run: false` so the agent asks the user first.
 High-risk canonical `write` calls are stored as candidates and return
 `warning.next_action` for promoting the candidate after user confirmation, so
-agents should not repeat the write or assume it is already canonical.
+agents should not repeat the write or assume it is already canonical. That
+action includes `candidate_record_id`, sets `argument_sources.record_id` to
+`"write.record.id"`, and uses `write.record.id` as the workflow `record_id`
+replacement source, so hosts can promote the created candidate without
+inventing or rediscovering an id.
 Invalid local `config.json` errors return a guarded `init --repair` next action.
 The action is not safe to run automatically because it replaces the device-local
 store config.

@@ -23,6 +23,8 @@ export interface MorynErrorNextAction {
   safety: ActionSafety;
   rejected_arguments?: Record<string, unknown>;
   candidate_project_ids?: string[];
+  candidate_record_id?: string;
+  argument_sources?: Record<string, string>;
   safe_to_run: boolean;
 }
 

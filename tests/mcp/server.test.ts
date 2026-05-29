@@ -94,6 +94,41 @@ function expectRecoveryWorkflow(action: {
   });
 }
 
+function expectCandidatePromoteWorkflow(action: {
+  required_when?: string;
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+      replace_arguments?: Record<string, string>;
+    }>;
+  };
+}) {
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["error.next_action", "warning.next_action", "write.record.id"],
+    phases: [
+      {
+        phase: "ask_user_then_promote_candidate",
+        order: 1,
+        action_source: "write.record.id",
+        tool: "promote",
+        required_when: action.required_when,
+        required_fields: ["record_id"],
+        replace_arguments: { record_id: "write.record.id" }
+      }
+    ]
+  });
+}
+
 function expectLifecycleWorkflow(action: {
   step: string;
   tool: string;
@@ -3568,15 +3603,20 @@ describe("MCP stdio server", () => {
           recommended_action: "ask_user_then_promote_candidate",
           tool: "promote",
           command: `moryn promote ${write.record.id} --state canonical --reason 'User confirmed' --confirm`,
+          candidate_record_id: write.record.id,
           arguments: {
             record_id: write.record.id,
             target_state: "canonical",
             reason: "User confirmed",
             confirmed: true
           },
+          argument_sources: {
+            record_id: "write.record.id"
+          },
           required_fields: [],
           safe_to_run: false
         });
+        expectCandidatePromoteWorkflow(write.warning!.next_action!);
 
         const memoryPreference = parseTextContent(await client.callTool({
           name: "write",
@@ -4142,6 +4182,8 @@ describe("MCP stdio server", () => {
               tool: string;
               command: string;
               arguments: Record<string, unknown>;
+              argument_sources?: Record<string, string>;
+              candidate_record_id?: string;
               required_when?: string;
               required_fields: string[];
               workflow?: Record<string, unknown>;
@@ -4156,15 +4198,20 @@ describe("MCP stdio server", () => {
           recommended_action: "ask_user_then_promote_candidate",
           tool: "promote",
           command: expect.stringMatching(/^moryn promote rec_[a-f0-9]+ --state canonical --reason 'User confirmed' --confirm$/),
+          candidate_record_id: expect.stringMatching(/^rec_[a-f0-9]+$/),
           arguments: expect.objectContaining({
             target_state: "canonical",
             reason: "User confirmed",
             confirmed: true
           }),
+          argument_sources: {
+            record_id: "write.record.id"
+          },
           required_fields: [],
           safe_to_run: false
         });
-        expectRecoveryWorkflow(conflicting.warning!.next_action!);
+        expect(conflicting.warning!.next_action!.arguments.record_id).toBe(conflicting.warning!.next_action!.candidate_record_id);
+        expectCandidatePromoteWorkflow(conflicting.warning!.next_action!);
         expectActionSafety(conflicting.warning!.next_action!);
         expect(conflicting.warning!.next_action!.safety).toMatchObject({
           safe_to_auto_run: false,

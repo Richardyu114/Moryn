@@ -183,6 +183,10 @@ Deliverables:
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_when` and a single-step `workflow`, so recovery branches tell agents
   when to run the suggested action instead of relying on action-name guessing.
+- Done: High-risk canonical write warnings expose `candidate_record_id`,
+  `argument_sources.record_id`, and a `write.record.id` workflow replacement
+  source, so agents can promote the created candidate without repeating the
+  write or rediscovering the record id.
 - Done: Lifecycle, guide, setup, project-discovery, error-recovery, and
   warning-recovery action templates expose `safety` metadata that explains
   `safe_to_run` with user-confirmation, authored-input, and local-config-write

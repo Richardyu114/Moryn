@@ -36,6 +36,7 @@ function expectNextActionWorkflow(action: {
       tool?: string;
       required_when?: string;
       required_fields?: string[];
+      replace_arguments?: Record<string, string>;
     }>;
   };
 }) {
@@ -53,6 +54,41 @@ function expectNextActionWorkflow(action: {
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
+function expectCandidatePromoteWorkflow(action: {
+  required_when?: string;
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+      replace_arguments?: Record<string, string>;
+    }>;
+  };
+}) {
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["error.next_action", "warning.next_action", "write.record.id"],
+    phases: [
+      {
+        phase: "ask_user_then_promote_candidate",
+        order: 1,
+        action_source: "write.record.id",
+        tool: "promote",
+        required_when: action.required_when,
+        required_fields: ["record_id"],
+        replace_arguments: { record_id: "write.record.id" }
       }
     ]
   });
@@ -1108,11 +1144,15 @@ describe("core engine", () => {
         recommended_action: "ask_user_then_promote_candidate",
         tool: "promote",
         command: `moryn promote ${soul.record.id} --state canonical --reason 'User confirmed' --confirm`,
+        candidate_record_id: soul.record.id,
         arguments: {
           record_id: soul.record.id,
           target_state: "canonical",
           reason: "User confirmed",
           confirmed: true
+        },
+        argument_sources: {
+          record_id: "write.record.id"
         },
         interfaces: {
           cli: {
@@ -1132,7 +1172,7 @@ describe("core engine", () => {
         safe_to_run: false
       });
       expectNextActionInterfaces(soul.warning!.next_action!);
-      expectNextActionWorkflow(soul.warning!.next_action!);
+      expectCandidatePromoteWorkflow(soul.warning!.next_action!);
       expectActionSafety(soul.warning!.next_action!);
       expect(soul.warning!.next_action!.safety).toMatchObject({
         safe_to_auto_run: false,
@@ -1206,11 +1246,15 @@ describe("core engine", () => {
         recommended_action: "ask_user_then_promote_candidate",
         tool: "promote",
         command: `moryn promote ${conflicting.record.id} --state canonical --reason 'User confirmed' --confirm`,
+        candidate_record_id: conflicting.record.id,
         arguments: {
           record_id: conflicting.record.id,
           target_state: "canonical",
           reason: "User confirmed",
           confirmed: true
+        },
+        argument_sources: {
+          record_id: "write.record.id"
         },
         interfaces: {
           cli: {
@@ -1230,7 +1274,7 @@ describe("core engine", () => {
         safe_to_run: false
       });
       expectNextActionInterfaces(conflicting.warning!.next_action!);
-      expectNextActionWorkflow(conflicting.warning!.next_action!);
+      expectCandidatePromoteWorkflow(conflicting.warning!.next_action!);
       expect(conflicting.record.conflict).toEqual({
         kind: "semantic",
         with: [existing.record.id],

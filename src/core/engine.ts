@@ -72,6 +72,7 @@ interface ListProjectsInput {
 
 const START_LISTED_PROJECT_WHEN = "After choosing this project from project_list results.";
 const RECALL_REFRESH_CHANGE_WHEN = "After refresh reports this change and the agent needs the full record content.";
+const WRITE_CANDIDATE_RECORD_ID_SOURCE = "write.record.id";
 
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
   return {
@@ -747,20 +748,40 @@ function provenanceMethod(source: RecordSource, confirmed?: boolean): "agent-pro
 
 function promoteCandidateNextAction(recordId: string): MorynErrorNextAction {
   const reason = "User confirmed";
-  return withNextActionMetadata({
+  const action = withNextActionMetadata({
     recommended_action: "ask_user_then_promote_candidate",
     tool: "promote",
     command: `${commandForPromoteContext({ record_id: recordId, target_state: "canonical", reason })} --confirm`,
+    candidate_record_id: recordId,
     arguments: {
       record_id: recordId,
       target_state: "canonical",
       reason,
       confirmed: true
     },
+    argument_sources: {
+      record_id: WRITE_CANDIDATE_RECORD_ID_SOURCE
+    },
     required_when: PROMOTE_CANDIDATE_WHEN,
     required_fields: [],
     safe_to_run: false
   });
+  return {
+    ...action,
+    workflow: {
+      version: 1,
+      start: "next_action",
+      continue_from: ["error.next_action", "warning.next_action", WRITE_CANDIDATE_RECORD_ID_SOURCE],
+      phases: [
+        {
+          ...action.workflow.phases[0]!,
+          action_source: WRITE_CANDIDATE_RECORD_ID_SOURCE,
+          required_fields: ["record_id"],
+          replace_arguments: { record_id: WRITE_CANDIDATE_RECORD_ID_SOURCE }
+        }
+      ]
+    }
+  };
 }
 
 function requiresCanonicalConfirmation(input: { kind: RecordKind; type: string; scope: RecordScope }): boolean {
