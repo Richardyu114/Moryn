@@ -910,7 +910,10 @@ hosts can choose a project by id instead of array position. The top-level
 execute `next.actions_by_project_id.<project_id>`. In `start_session` and
 `discover_projects` modes, `next.workflow` exposes the ordered runtime action
 track and valid follow-up sources so hosts can continue from the live response
-without consulting static guide templates. Direct `agent_start`,
+without consulting static guide templates. In `start_session`,
+`required_end_action_source` and `recommended_refresh_action_source` point
+directly at the keyed finish and refresh templates in `next.actions_by_id`.
+Direct `agent_start`,
 `agent_status`, and `agent_finish` responses also include `next.workflow`,
 derived from their returned `next.actions`, so every lifecycle entrypoint
 carries its own follow-up contract. `next.workflow.phases_by_name` mirrors the
@@ -1183,7 +1186,8 @@ needed and initializes Git sync before writing and pushing the handoff. Its
 restart through `agent_start` without inferring arguments from prose. That
 restart template is also available as `next.actions_by_id.start_next_session`,
 is marked `safe_to_run: true`, and is named by
-`next.recommended_start_action_id` for direct keyed lookup. It carries `required_when` for next-session
+`next.recommended_start_action_id` for direct keyed lookup, with
+`next.recommended_start_action_source` exposing the exact JSON path. It carries `required_when` for next-session
 startup; when the next task is unknown, `arguments.current_task` is set to
 `"<current_task>"` and `argument_sources.current_task` is set to
 `"user_input.current_task"`.
@@ -1211,7 +1215,9 @@ using the status record timestamp as the next refresh cursor; `finish_session`
 is `safe_to_run: false` and carries `arguments.summary: "<summary>"`, while
 `refresh_context` is `safe_to_run: true`. Both actions are also available under
 `next.actions_by_id`, are named by `next.recommended_finish_action_id` and
-`next.recommended_refresh_action_id`, and include `required_when` so agents can distinguish a
+`next.recommended_refresh_action_id`, expose exact JSON paths through
+`next.recommended_finish_action_source` and
+`next.recommended_refresh_action_source`, and include `required_when` so agents can distinguish a
 handoff write from an automatic context refresh. Their `argument_sources` map
 `summary` to `user_input.summary` and `refresh_since` to `record.updated_at`.
 
@@ -1322,12 +1328,12 @@ Agents should follow this contract:
 6. Inspect `agent_start.handoff.active_sessions` before overlapping another agent's work.
 7. Inspect `agent_start.handoff.inbox` before continuing from another agent's final handoff.
 8. Call `recall` when context is missing or uncertain.
-9. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions_by_id.finish_session` or `agent_status.next.actions_by_id.refresh_context`.
+9. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.recommended_finish_action_source` or `agent_status.next.recommended_refresh_action_source`.
 10. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
 11. For each reportable non-raw refresh change that needs full context, prefer `refresh.changes_by_record_id.<record_id>.next_action` or follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
 12. When `agent_start.handoff.next_action` exists, use it for the prioritized recall action; for a different handoff entry, prefer `handoff.inbox_by_record_id.<record_id>.next_action` or `handoff.active_sessions_by_record_id.<record_id>.next_action`, and fill `record_ids` from `next_action.argument_sources.record_ids`, instead of manually composing a `recall` call.
 13. For lifecycle follow-up actions, prefer `next.actions_by_id.<action>` and fill replaceable arguments from `action.argument_sources` instead of parsing command strings or placeholders.
-14. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions_by_id.start_next_session` to the next agent or device.
+14. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.recommended_start_action_source` to the next agent or device.
 15. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
 16. When a canonical write returns `warning.next_action.recommended_action: "ask_user_then_promote_candidate"`, take the candidate id from `write.record.id` or `warning.next_action.candidate_record_id`, ask the user, then run the returned promote action with confirmation instead of repeating the write.
 17. Write raw notes as `agent_note`, not canonical memory.

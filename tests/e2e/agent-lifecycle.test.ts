@@ -273,6 +273,7 @@ describe("agent lifecycle", () => {
       expect(codexFinish.sync.push?.pushed).toBe(true);
       expect(codexFinish.next.recommended_start_command).toBe("moryn agent start --project <path> --current-task <task>");
       expect(codexFinish.next.recommended_start_action_id).toBe("start_next_session");
+      expect(codexFinish.next.recommended_start_action_source).toBe("next.actions_by_id.start_next_session");
       expect(codexFinish.next.actions).toContainEqual(expect.objectContaining({
         action: "start_next_session",
         tool: "agent_start",
@@ -344,7 +345,9 @@ describe("agent lifecycle", () => {
       expect(geminiStart.boot.recent_changes.map((record) => record.content.text)).toContain("Codex finished lifecycle wiring and left a Gemini handoff.");
       expect(geminiStart.next.required_end_action).toBe("call agent_finish with a session_summary");
       expect(geminiStart.next.required_end_action_id).toBe("finish_session");
+      expect(geminiStart.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
       expect(geminiStart.next.recommended_refresh_action_id).toBe("refresh_context");
+      expect(geminiStart.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
         tool: "agent_status",
@@ -577,7 +580,9 @@ describe("agent lifecycle", () => {
       });
       expect(status.sync.push?.pushed).toBe(true);
       expect(status.next.recommended_finish_action_id).toBe("finish_session");
+      expect(status.next.recommended_finish_action_source).toBe("next.actions_by_id.finish_session");
       expect(status.next.recommended_refresh_action_id).toBe("refresh_context");
+      expect(status.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
       expect(status.next.actions).toContainEqual(expect.objectContaining({
         action: "finish_session",
         tool: "agent_finish",
@@ -1307,6 +1312,10 @@ describe("agent lifecycle", () => {
       expect(entered.next.actions_by_id.publish_status).toEqual(
         entered.next.actions.find((action) => action.action === "publish_status")
       );
+      expect(entered.next.required_end_action_id).toBe("finish_session");
+      expect(entered.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
+      expect(entered.next.recommended_refresh_action_id).toBe("refresh_context");
+      expect(entered.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
       expect(entered.next.workflow.phases.map((phase) => phase.action_source)).toContain("next.actions_by_id.publish_status");
       expect(entered.start.project.default_skills).toEqual(["release"]);
       expect(entered.start.handoff).toMatchObject({

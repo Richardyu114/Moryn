@@ -463,7 +463,9 @@ prose.
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime
 workflow first: in `start_session`, review returned boot, refresh, and handoff
-context before using `next.actions_by_id` or `next.actions`; in
+context before using `next.actions_by_id` or `next.actions`, with
+`required_end_action_source` and `recommended_refresh_action_source` pointing
+at the keyed finish and refresh templates; in
 `discover_projects`, top-level `next.required_fields_by_name.project_id` and
 `next.arguments.project_id` declare the required project choice, then hosts run
 the matching `next.actions_by_project_id.<project_id>` `agent_start` template
@@ -573,7 +575,9 @@ is the stable action source for a known project id.
 In
 `start_session` and `discover_projects` modes, `next.workflow` gives the
 ordered runtime action track and names which response fields are valid follow-up
-sources. Direct `agent_start`,
+sources. In `start_session`, `required_end_action_source` and
+`recommended_refresh_action_source` directly identify the keyed finish and
+refresh templates in `next.actions_by_id`. Direct `agent_start`,
 `agent_status`, and `agent_finish` responses also include `next.workflow`, so a
 host can continue from direct lifecycle calls without falling back to prose.
 If `agent_enter` returns `needs_setup`, its top-level `next` is the same
@@ -717,7 +721,8 @@ and `refresh_context` (`agent_start` with the returned refresh cursor). Each
 action is also available under `agent_start.next.actions_by_id.<action>`, so an
 agent can call `finish_session` or `refresh_context` without scanning the array.
 The top-level `required_end_action_id` and `recommended_refresh_action_id`
-point at those keyed entries directly, so hosts can execute
+point at those keyed entries directly; `required_end_action_source` and
+`recommended_refresh_action_source` also expose the exact JSON paths, so hosts can execute
 `agent_start.next.actions_by_id[agent_start.next.required_end_action_id]`
 instead of translating prose hints into action ids.
 Each action carries
@@ -777,7 +782,9 @@ automatic context update. The finish template includes
 "user_input.summary"`; the refresh template sets `argument_sources.refresh_since:
 "record.updated_at"`. The top-level `recommended_finish_action_id` and
 `recommended_refresh_action_id` point at the matching keyed templates in
-`agent_status.next.actions_by_id`.
+`agent_status.next.actions_by_id`; the matching
+`recommended_finish_action_source` and `recommended_refresh_action_source`
+fields expose the exact JSON paths.
 
 When existing memory or skill needs correction:
 
@@ -802,7 +809,9 @@ Agents should prefer `agent_finish` over manually composing `write` and
 `start_next_session` template for the next agent or device, marked
 `safe_to_run: true` with `required_when` explaining that it is for the next
 session after the handoff. `agent_finish.next.recommended_start_action_id`
-points at the same keyed template in `next.actions_by_id`. If the next task is
+points at the same keyed template in `next.actions_by_id`, and
+`agent_finish.next.recommended_start_action_source` exposes the exact JSON
+path. If the next task is
 not already known, the template
 carries `arguments.current_task: "<current_task>"` and
 `argument_sources.current_task: "user_input.current_task"`.

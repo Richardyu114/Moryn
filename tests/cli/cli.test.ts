@@ -2406,6 +2406,7 @@ describe("moryn CLI", () => {
       expect(parsedFinish.record.content.text).toBe("CLI Codex finished the lifecycle protocol.");
       expect(parsedFinish.sync.push?.pushed).toBe(true);
       expect(parsedFinish.next.recommended_start_action_id).toBe("start_next_session");
+      expect(parsedFinish.next.recommended_start_action_source).toBe("next.actions_by_id.start_next_session");
       expect(parsedFinish.next.actions).toContainEqual(expect.objectContaining({
         action: "start_next_session",
         tool: "agent_start",
@@ -2534,7 +2535,9 @@ describe("moryn CLI", () => {
         expectActionInterfaces(action);
       }
       expect(parsedStart.next.required_end_action_id).toBe("finish_session");
+      expect(parsedStart.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
       expect(parsedStart.next.recommended_refresh_action_id).toBe("refresh_context");
+      expect(parsedStart.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
       expect(parsedStart.next.actions_by_id.publish_status).toEqual(parsedStart.next.actions.find((action) => action.action === "publish_status"));
       expect(parsedStart.next.actions_by_id.finish_session).toEqual(parsedStart.next.actions.find((action) => action.action === "finish_session"));
       expect(parsedStart.next.actions_by_id.refresh_context).toEqual(parsedStart.next.actions.find((action) => action.action === "refresh_context"));
@@ -2740,7 +2743,9 @@ describe("moryn CLI", () => {
       expect(parsedStatus.next.actions_by_id.finish_session).toEqual(parsedStatus.next.actions.find((action) => action.action === "finish_session"));
       expect(parsedStatus.next.actions_by_id.refresh_context).toEqual(parsedStatus.next.actions.find((action) => action.action === "refresh_context"));
       expect(parsedStatus.next.recommended_finish_action_id).toBe("finish_session");
+      expect(parsedStatus.next.recommended_finish_action_source).toBe("next.actions_by_id.finish_session");
       expect(parsedStatus.next.recommended_refresh_action_id).toBe("refresh_context");
+      expect(parsedStatus.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
       expect(parsedStatus.next.actions_by_id[parsedStatus.next.recommended_finish_action_id]).toEqual(parsedStatus.next.actions_by_id.finish_session);
       expect(parsedStatus.next.actions_by_id[parsedStatus.next.recommended_refresh_action_id]).toEqual(parsedStatus.next.actions_by_id.refresh_context);
       expect(parsedStatus.next.workflow).toEqual(withPhasesByName({
@@ -3536,6 +3541,10 @@ describe("moryn CLI", () => {
       expect(parsed.next.actions_by_id.publish_status).toEqual(parsed.next.actions.find((action) => action.action === "publish_status"));
       expect(parsed.next.actions_by_id.finish_session).toEqual(parsed.next.actions.find((action) => action.action === "finish_session"));
       expect(parsed.next.actions_by_id.refresh_context).toEqual(parsed.next.actions.find((action) => action.action === "refresh_context"));
+      expect(parsed.next.required_end_action_id).toBe("finish_session");
+      expect(parsed.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
+      expect(parsed.next.recommended_refresh_action_id).toBe("refresh_context");
+      expect(parsed.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
       expect(parsed.next.workflow).toEqual(withPhasesByName({
         version: 1,
         start: "start",

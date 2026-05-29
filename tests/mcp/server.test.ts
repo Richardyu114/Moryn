@@ -1490,6 +1490,7 @@ describe("MCP stdio server", () => {
           expect(finish.record.content.text).toBe("MCP Codex left a lifecycle handoff.");
           expect(finish.sync.push?.pushed).toBe(true);
           expect(finish.next.recommended_start_action_id).toBe("start_next_session");
+          expect(finish.next.recommended_start_action_source).toBe("next.actions_by_id.start_next_session");
           expect(finish.next.actions).toContainEqual(expect.objectContaining({
             action: "start_next_session",
             tool: "agent_start",
@@ -1603,7 +1604,9 @@ describe("MCP stdio server", () => {
           expect(start.next.actions_by_id.finish_session).toEqual(start.next.actions.find((action) => action.action === "finish_session"));
           expect(start.next.actions_by_id.refresh_context).toEqual(start.next.actions.find((action) => action.action === "refresh_context"));
           expect(start.next.required_end_action_id).toBe("finish_session");
+          expect(start.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
           expect(start.next.recommended_refresh_action_id).toBe("refresh_context");
+          expect(start.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
           expect(start.next.actions_by_id[start.next.required_end_action_id]).toEqual(start.next.actions_by_id.finish_session);
           expect(start.next.actions_by_id[start.next.recommended_refresh_action_id]).toEqual(start.next.actions_by_id.refresh_context);
           expect(start.next.actions).toContainEqual(expect.objectContaining({
@@ -1849,7 +1852,9 @@ describe("MCP stdio server", () => {
           expect(status.next.actions_by_id.finish_session).toEqual(status.next.actions.find((action) => action.action === "finish_session"));
           expect(status.next.actions_by_id.refresh_context).toEqual(status.next.actions.find((action) => action.action === "refresh_context"));
           expect(status.next.recommended_finish_action_id).toBe("finish_session");
+          expect(status.next.recommended_finish_action_source).toBe("next.actions_by_id.finish_session");
           expect(status.next.recommended_refresh_action_id).toBe("refresh_context");
+          expect(status.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
           expect(status.next.actions_by_id[status.next.recommended_finish_action_id]).toEqual(status.next.actions_by_id.finish_session);
           expect(status.next.actions_by_id[status.next.recommended_refresh_action_id]).toEqual(status.next.actions_by_id.refresh_context);
           expect(status.next.workflow).toEqual(withPhasesByName({
@@ -2615,6 +2620,10 @@ describe("MCP stdio server", () => {
         expect(entered.next.actions_by_id.publish_status).toEqual(entered.next.actions.find((action) => action.action === "publish_status"));
         expect(entered.next.actions_by_id.finish_session).toEqual(entered.next.actions.find((action) => action.action === "finish_session"));
         expect(entered.next.actions_by_id.refresh_context).toEqual(entered.next.actions.find((action) => action.action === "refresh_context"));
+        expect(entered.next.required_end_action_id).toBe("finish_session");
+        expect(entered.next.required_end_action_source).toBe("next.actions_by_id.finish_session");
+        expect(entered.next.recommended_refresh_action_id).toBe("refresh_context");
+        expect(entered.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
         expect(entered.next.workflow).toEqual(withPhasesByName({
           version: 1,
           start: "start",
