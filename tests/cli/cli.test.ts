@@ -4917,6 +4917,9 @@ describe("moryn CLI", () => {
           command: "moryn sync init <remote>",
           arguments: { remote: "<remote>" },
           required_fields: ["remote"],
+          argument_sources: {
+            remote: "user_input.remote"
+          },
           required_fields_by_name: {
             remote: {
               name: "remote",
@@ -4963,6 +4966,9 @@ describe("moryn CLI", () => {
           command: "moryn sync init <remote>",
           arguments: { remote: "<remote>" },
           required_fields: ["remote"],
+          argument_sources: {
+            remote: "user_input.remote"
+          },
           safe_to_run: false
         }
       });

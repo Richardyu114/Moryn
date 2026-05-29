@@ -87,6 +87,11 @@ const INIT_OR_CORRECT_PROJECT_WHEN = "After a project_path does not exist, befor
 const LIST_PROJECTS_FOR_ID_WHEN = "After a project_id is rejected, before retrying with a known project id.";
 const CONFIRM_RETRY_WHEN = "After the user explicitly confirms the high-risk change that was rejected.";
 export const PROMOTE_CANDIDATE_WHEN = "After the user explicitly confirms that the candidate should become canonical.";
+const USER_INPUT_ARGUMENT_SOURCES: Record<string, string> = {
+  path: "user_input.path",
+  project_id: "user_input.project_id",
+  remote: "user_input.remote"
+};
 
 function shellQuote(value: string): string {
   if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
@@ -102,6 +107,15 @@ function appendRepeatedCommandOption(parts: string[], option: string, values: st
   for (const value of values ?? []) {
     appendCommandOption(parts, option, value);
   }
+}
+
+function userInputArgumentSources(requiredFields: string[]): Record<string, string> | undefined {
+  const sources = Object.fromEntries(
+    requiredFields
+      .map((field) => [field, USER_INPUT_ARGUMENT_SOURCES[field]])
+      .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
+  return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
 export function withNextActionMetadata<T extends {
@@ -609,6 +623,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           arguments: { path, repair: true },
           required_when: REPAIR_PROJECT_CONFIG_WHEN,
           required_fields: path === "<path>" ? ["path"] : [],
+          argument_sources: userInputArgumentSources(path === "<path>" ? ["path"] : []),
           safe_to_run: false
         });
       }
@@ -630,6 +645,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         arguments: { remote: "<remote>" },
         required_when: CONFIGURE_SYNC_WHEN,
         required_fields: ["remote"],
+        argument_sources: userInputArgumentSources(["remote"]),
         safe_to_run: false
       });
     case "SYNC_REMOTE_UNAVAILABLE":
@@ -710,6 +726,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           arguments: { project_id: projectId },
           required_when: RETRY_PROJECT_CONFIG_ID_WHEN,
           required_fields: resolvedProjectId ? [] : ["project_id"],
+          argument_sources: userInputArgumentSources(resolvedProjectId ? [] : ["project_id"]),
           ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
           ...(resolvedProjectId ? { candidate_project_ids: [resolvedProjectId] } : {}),
           safe_to_run: false
@@ -740,6 +757,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           arguments: { path },
           required_when: INIT_OR_CORRECT_PROJECT_WHEN,
           required_fields: path === "<path>" ? ["path"] : [],
+          argument_sources: userInputArgumentSources(path === "<path>" ? ["path"] : []),
           safe_to_run: false
         });
       }

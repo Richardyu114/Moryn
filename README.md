@@ -616,6 +616,9 @@ error envelopes also include a machine-readable `error.next_action` with
 `required_fields`, `required_fields_by_name`, `argument_sources`, `workflow`,
 `safety`, and `safe_to_run`, so agents can recover without parsing prose or
 guessing placeholder values.
+When a recovery action still needs authored setup input, the same
+`argument_sources` map names that source, such as `user_input.remote`,
+`user_input.path`, or `user_input.project_id`.
 `error.next_action.interfaces` and `warning.next_action.interfaces` use the same
 CLI/MCP shape as lifecycle action templates. Most recovery actions have a
 single-step `workflow`; missing-record recovery is two-step so hosts run

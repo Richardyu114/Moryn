@@ -3167,6 +3167,9 @@ describe("MCP stdio server", () => {
             command: "moryn sync init <remote>",
             arguments: { remote: "<remote>" },
             required_fields: ["remote"],
+            argument_sources: {
+              remote: "user_input.remote"
+            },
             safe_to_run: false
           }
         });
@@ -3205,6 +3208,9 @@ describe("MCP stdio server", () => {
             command: "moryn sync init <remote>",
             arguments: { remote: "<remote>" },
             required_fields: ["remote"],
+            argument_sources: {
+              remote: "user_input.remote"
+            },
             safe_to_run: false
           }
         });

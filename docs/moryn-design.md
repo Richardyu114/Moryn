@@ -957,6 +957,9 @@ project listing, or corrected retry arguments. These error envelopes also carry
 `required_when`, `required_fields`, `required_fields_by_name`,
 `argument_sources`, `workflow`, `safety`, and `safe_to_run`, so agents can
 recover from the envelope without parsing prose or guessing placeholder values.
+When a recovery action still needs authored setup input, `argument_sources`
+maps placeholders such as `remote`, `path`, or `project_id` to
+`user_input.remote`, `user_input.path`, or `user_input.project_id`.
 Most recovery actions are single-step workflows;
 `RECORD_NOT_FOUND` uses a two-step workflow so agents first run the safe
 `list_recent` action and then retry the original tool with the selected returned
@@ -1889,6 +1892,9 @@ Agents must fill the user-owned remote before running it:
       "command": "moryn sync init <remote>",
       "arguments": {
         "remote": "<remote>"
+      },
+      "argument_sources": {
+        "remote": "user_input.remote"
       },
       "safe_to_run": false
     }

@@ -135,12 +135,43 @@ describe("error envelopes", () => {
           command: "moryn sync init <remote>",
           arguments: { remote: "<remote>" },
           required_fields: ["remote"],
+          argument_sources: { remote: "user_input.remote" },
           safe_to_run: false
         }
       }
     });
     expectNextActionInterfaces(envelope.error.next_action!);
     expectNextActionWorkflow(envelope.error.next_action!);
+  });
+
+  it("points authored recovery placeholders at user input sources", () => {
+    const syncSetup = toErrorEnvelope(new Error("Sync not configured"));
+    expect(syncSetup.error.next_action).toMatchObject({
+      arguments: { remote: "<remote>" },
+      required_fields: ["remote"],
+      argument_sources: { remote: "user_input.remote" }
+    });
+
+    const invalidProjectConfig = toErrorEnvelope(new Error("Invalid project config: project_id must be non-empty"));
+    expect(invalidProjectConfig.error.next_action).toMatchObject({
+      arguments: { path: "<path>", repair: true },
+      required_fields: ["path"],
+      argument_sources: { path: "user_input.path" }
+    });
+
+    const missingProjectPath = toErrorEnvelope(new Error("Project path does not exist: <path>. Run project_init for a new project, or pass the correct project_path/project_id."));
+    expect(missingProjectPath.error.next_action).toMatchObject({
+      arguments: { path: "<path>" },
+      required_fields: ["path"],
+      argument_sources: { path: "user_input.path" }
+    });
+
+    const projectIdConflict = toErrorEnvelope(new Error("Project id conflict: project_path resolves to , but project_id was other. Use the .moryn.json project_id or update the project config."));
+    expect(projectIdConflict.error.next_action).toMatchObject({
+      arguments: { project_id: "<project_id_from_config>" },
+      required_fields: ["project_id"],
+      argument_sources: { project_id: "user_input.project_id" }
+    });
   });
 
   it("explains recovery action safety beyond safe_to_run", () => {
