@@ -411,8 +411,9 @@ highest-priority entry action, preferring active sessions before inbox summaries
 so agents can act on `handoff.recommended_action` without choosing a record from prose.
 `handoff.inbox_by_record_id` and `handoff.active_sessions_by_record_id` mirror
 the ordered handoff arrays for agents that already know a record id, and
-handoff entry workflows prefer those keyed paths while keeping the ordered
-arrays for display. If startup,
+`handoff.selection_sources` names the keyed entry, record-id, and next-action
+paths for both inbox and active-session entries. Handoff entry workflows prefer
+those keyed paths while keeping the ordered arrays for display. If startup,
 status, or finish can continue locally while
 sync is unavailable, their `sync.*_error` strings are paired with
 `sync.*_error_details` objects containing `code`, `recommended_action`, and
@@ -721,8 +722,10 @@ for the first prioritized recall action or a specific handoff entry's
 is known, prefer
 `agent_start.handoff.active_sessions_by_record_id.<record_id>.next_action` or
 `agent_start.handoff.inbox_by_record_id.<record_id>.next_action` instead of
-scanning the handoff arrays, and fill `record_ids` from the action's
-`argument_sources.record_ids`. `agent_start.next.actions`
+scanning the handoff arrays. `agent_start.handoff.selection_sources` names the
+same keyed paths for hosts that should not infer them from workflow phases, and
+agents should fill `record_ids` from the action's `argument_sources.record_ids`.
+`agent_start.next.actions`
 includes machine-readable templates for the next safe lifecycle calls,
 including the exact CLI command template, MCP tool name, `required_when`,
 required fields, and prefilled arguments for `agent_status`, `agent_finish`,

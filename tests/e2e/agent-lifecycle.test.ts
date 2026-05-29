@@ -348,6 +348,14 @@ describe("agent lifecycle", () => {
         active_sessions: []
       });
       expect(geminiStart.handoff.inbox_by_record_id[codexFinish.record.id]).toEqual(geminiStart.handoff.inbox[0]);
+      expect(geminiStart.handoff.selection_sources).toEqual({
+        inbox_entry: "handoff.inbox_by_record_id.<record_id>",
+        inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
+        inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
+        active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
+        active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
+        active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action"
+      });
       expect(geminiStart.handoff.active_sessions_by_record_id).toEqual({});
       expectHandoffEntryNextAction(geminiStart.handoff.inbox[0]!.next_action, codexFinish.record.id, "moryn");
       expect(geminiStart.handoff.inbox_by_record_id[codexFinish.record.id]!.next_action).toEqual(geminiStart.handoff.inbox[0]!.next_action);
@@ -664,6 +672,14 @@ describe("agent lifecycle", () => {
         })
       ]);
       expect(start.handoff.active_sessions_by_record_id[status.record.id]).toEqual(start.handoff.active_sessions[0]);
+      expect(start.handoff.selection_sources).toEqual({
+        inbox_entry: "handoff.inbox_by_record_id.<record_id>",
+        inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
+        inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
+        active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
+        active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
+        active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action"
+      });
       expectHandoffEntryNextAction(start.handoff.active_sessions[0]!.next_action, status.record.id, "moryn", "active_sessions");
       expect(start.handoff.active_sessions_by_record_id[status.record.id]!.next_action).toEqual(start.handoff.active_sessions[0]!.next_action);
       expect(start.handoff.next_action).toEqual(start.handoff.active_sessions[0]!.next_action);

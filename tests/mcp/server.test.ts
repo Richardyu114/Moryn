@@ -1594,6 +1594,7 @@ describe("MCP stdio server", () => {
               }>;
               active_sessions: Array<{ text: string }>;
               active_sessions_by_record_id: Record<string, { record_id: string }>;
+              selection_sources: Record<string, string>;
             };
             next: {
               workflow: {
@@ -1618,6 +1619,14 @@ describe("MCP stdio server", () => {
             })
           ]);
           expect(start.handoff.inbox_by_record_id[start.handoff.inbox[0]!.record_id]).toEqual(start.handoff.inbox[0]);
+          expect(start.handoff.selection_sources).toEqual({
+            inbox_entry: "handoff.inbox_by_record_id.<record_id>",
+            inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
+            inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
+            active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
+            active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
+            active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action"
+          });
           expectHandoffEntryNextAction(start.handoff.inbox[0]!.next_action, start.handoff.inbox[0]!.record_id, "moryn");
           expect(start.handoff.inbox_by_record_id[start.handoff.inbox[0]!.record_id]!.next_action.workflow).toEqual(start.handoff.inbox[0]!.next_action.workflow);
           expect(start.handoff.next_action).toEqual(start.handoff.inbox[0]!.next_action);

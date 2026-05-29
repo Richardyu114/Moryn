@@ -1167,8 +1167,10 @@ a recall call from the handoff prose. When `handoff.recommended_action` is not `
 top-level `handoff.next_action` mirrors the first active-session action or, if no
 active sessions exist, the first inbox action. The response also mirrors the
 ordered handoff arrays as `handoff.active_sessions_by_record_id` and
-`handoff.inbox_by_record_id`, keyed by `record_id`; handoff entry workflows
-prefer those keyed paths and retain the ordered arrays as compatibility sources.
+`handoff.inbox_by_record_id`, keyed by `record_id`; `handoff.selection_sources`
+names the keyed entry, record-id, and next-action paths for both inbox and
+active-session entries. Handoff entry workflows prefer those keyed paths and
+retain the ordered arrays as compatibility sources.
 The
 `next.actions` field returns machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP

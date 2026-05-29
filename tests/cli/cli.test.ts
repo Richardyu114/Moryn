@@ -2845,6 +2845,7 @@ describe("moryn CLI", () => {
               workflow?: Record<string, unknown>;
             };
           }>;
+          selection_sources: Record<string, string>;
           inbox: Array<{ text: string }>;
           inbox_by_record_id: Record<string, { record_id: string }>;
         };
@@ -2863,6 +2864,14 @@ describe("moryn CLI", () => {
         })
       ]);
       expect(parsedStart.handoff.active_sessions_by_record_id[parsedStart.handoff.active_sessions[0]!.record_id]).toEqual(parsedStart.handoff.active_sessions[0]);
+      expect(parsedStart.handoff.selection_sources).toEqual({
+        inbox_entry: "handoff.inbox_by_record_id.<record_id>",
+        inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
+        inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
+        active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
+        active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
+        active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action"
+      });
       expectHandoffEntryNextAction(parsedStart.handoff.active_sessions[0]!.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn", "active_sessions");
       expect(parsedStart.handoff.active_sessions_by_record_id[parsedStart.handoff.active_sessions[0]!.record_id]!.next_action.workflow).toEqual(parsedStart.handoff.active_sessions[0]!.next_action.workflow);
       expect(parsedStart.handoff.next_action).toEqual(parsedStart.handoff.active_sessions[0]!.next_action);

@@ -134,6 +134,14 @@ const DISCOVER_PROJECT_SELECTION_SOURCES = {
   start_action: "next.actions_by_project_id.<project_id>",
   lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
 };
+const HANDOFF_SELECTION_SOURCES = {
+  inbox_entry: "handoff.inbox_by_record_id.<record_id>",
+  inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
+  inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
+  active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
+  active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
+  active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action"
+};
 const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
@@ -1311,6 +1319,7 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
   inbox_by_record_id: Record<string, AgentHandoffEntry>;
   active_sessions: AgentHandoffEntry[];
   active_sessions_by_record_id: Record<string, AgentHandoffEntry>;
+  selection_sources: typeof HANDOFF_SELECTION_SOURCES;
   active_session_ttl_minutes: number;
   recommended_action: "continue_current_task" | "review_handoff_inbox" | "coordinate_with_active_sessions";
   next_action?: HandoffEntryNextAction;
@@ -1352,6 +1361,7 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
     inbox_by_record_id: Object.fromEntries(inbox.map((entry) => [entry.record_id, entry])),
     active_sessions: activeSessions,
     active_sessions_by_record_id: Object.fromEntries(activeSessions.map((entry) => [entry.record_id, entry])),
+    selection_sources: HANDOFF_SELECTION_SOURCES,
     active_session_ttl_minutes: ACTIVE_SESSION_TTL_MINUTES,
     recommended_action: activeSessions.length
       ? "coordinate_with_active_sessions"
