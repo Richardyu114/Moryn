@@ -17,6 +17,44 @@ function expectNextActionInterfaces(action: {
   });
 }
 
+function expectNextActionWorkflow(action: {
+  recommended_action: string;
+  tool: string;
+  required_when?: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.required_when).toEqual(expect.any(String));
+  expect(action.required_when).not.toHaveLength(0);
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["error.next_action", "warning.next_action"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "next_action",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 describe("error envelopes", () => {
   it("classifies sensitive content failures with the documented error code", () => {
     const envelope = toErrorEnvelope(new Error("Sensitive content detected: event must be redacted before append"));
@@ -71,6 +109,7 @@ describe("error envelopes", () => {
       }
     });
     expectNextActionInterfaces(envelope.error.next_action!);
+    expectNextActionWorkflow(envelope.error.next_action!);
   });
 
   it("returns a safe status check action when remote sync is unavailable", () => {
@@ -191,6 +230,7 @@ describe("error envelopes", () => {
       }
     });
     expectNextActionInterfaces(envelope.error.next_action!);
+    expectNextActionWorkflow(envelope.error.next_action!);
   });
 
   it("classifies invalid replay failures as invalid record history", () => {
@@ -263,6 +303,7 @@ describe("error envelopes", () => {
       }
     });
     expectNextActionInterfaces(missingPath.error.next_action!);
+    expectNextActionWorkflow(missingPath.error.next_action!);
 
     const unknownProjectId = toErrorEnvelope(new Error("Project id is not known in this store: morym. Run project_list and choose one of: moryn."));
     expect(unknownProjectId).toMatchObject({
@@ -282,6 +323,7 @@ describe("error envelopes", () => {
       }
     });
     expectNextActionInterfaces(unknownProjectId.error.next_action!);
+    expectNextActionWorkflow(unknownProjectId.error.next_action!);
 
     const projectIdConflict = toErrorEnvelope(new Error("Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config."));
     expect(projectIdConflict).toMatchObject({
@@ -301,6 +343,7 @@ describe("error envelopes", () => {
       }
     });
     expectNextActionInterfaces(projectIdConflict.error.next_action!);
+    expectNextActionWorkflow(projectIdConflict.error.next_action!);
 
     const missingContext = toErrorEnvelope(new Error("Project context required: this store already has known projects (moryn). Run project_list or agent_enter, then retry with project_path/project_id."));
     expect(missingContext).toMatchObject({
@@ -319,5 +362,6 @@ describe("error envelopes", () => {
       }
     });
     expectNextActionInterfaces(missingContext.error.next_action!);
+    expectNextActionWorkflow(missingContext.error.next_action!);
   });
 });

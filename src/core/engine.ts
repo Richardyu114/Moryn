@@ -4,7 +4,7 @@ import { applyRecordPatch, replayEvents } from "./replay.js";
 import { isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
-import { commandForPromoteContext, withNextActionInterfaces, type MorynErrorNextAction } from "./errors.js";
+import { commandForPromoteContext, PROMOTE_CANDIDATE_WHEN, withNextActionMetadata, type MorynErrorNextAction } from "./errors.js";
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 
@@ -653,7 +653,7 @@ function provenanceMethod(source: RecordSource, confirmed?: boolean): "agent-pro
 
 function promoteCandidateNextAction(recordId: string): MorynErrorNextAction {
   const reason = "User confirmed";
-  return withNextActionInterfaces({
+  return withNextActionMetadata({
     recommended_action: "ask_user_then_promote_candidate",
     tool: "promote",
     command: `${commandForPromoteContext({ record_id: recordId, target_state: "canonical", reason })} --confirm`,
@@ -663,6 +663,7 @@ function promoteCandidateNextAction(recordId: string): MorynErrorNextAction {
       reason,
       confirmed: true
     },
+    required_when: PROMOTE_CANDIDATE_WHEN,
     required_fields: [],
     safe_to_run: false
   });

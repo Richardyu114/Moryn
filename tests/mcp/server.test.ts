@@ -56,6 +56,44 @@ function expectActionInterfaces(action: {
   });
 }
 
+function expectRecoveryWorkflow(action: {
+  recommended_action: string;
+  tool: string;
+  required_when?: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.required_when).toEqual(expect.any(String));
+  expect(action.required_when).not.toHaveLength(0);
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["error.next_action", "warning.next_action"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "next_action",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promise<T>, cwd = repoRoot): Promise<T> {
   const transport = new StdioClientTransport({
     command: "node",
@@ -2697,6 +2735,9 @@ describe("MCP stdio server", () => {
               command: string;
               arguments: Record<string, unknown>;
               rejected_arguments?: Record<string, unknown>;
+              required_when?: string;
+              required_fields: string[];
+              workflow?: Record<string, unknown>;
               safe_to_run: boolean;
             };
           };
@@ -3158,6 +3199,7 @@ describe("MCP stdio server", () => {
           required_fields: [],
           safe_to_run: true
         });
+        expectRecoveryWorkflow(missingProject.error.next_action!);
         expect(await readEvents(store)).toHaveLength(0);
       });
     } finally {
@@ -3416,6 +3458,9 @@ describe("MCP stdio server", () => {
               tool: string;
               command: string;
               arguments: Record<string, unknown>;
+              required_when?: string;
+              required_fields: string[];
+              workflow?: Record<string, unknown>;
               safe_to_run: boolean;
             };
           };
@@ -3435,6 +3480,7 @@ describe("MCP stdio server", () => {
           required_fields: [],
           safe_to_run: false
         });
+        expectRecoveryWorkflow(conflicting.warning!.next_action!);
         expect(conflicting.record.conflict?.with).toEqual([existing.record.id]);
         expect(conflicting.record.conflict?.resolution).toBe("needs_review");
       });

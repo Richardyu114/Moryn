@@ -20,6 +20,44 @@ function expectNextActionInterfaces(action: {
   });
 }
 
+function expectNextActionWorkflow(action: {
+  recommended_action: string;
+  tool: string;
+  required_when?: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.required_when).toEqual(expect.any(String));
+  expect(action.required_when).not.toHaveLength(0);
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["error.next_action", "warning.next_action"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "next_action",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 describe("core engine", () => {
   it("writes, recalls, revises, and promotes records", async () => {
     await withInitializedTempStore(async (storePath) => {
@@ -963,7 +1001,7 @@ describe("core engine", () => {
 
       expect(soul.record.state).toBe("candidate");
       expect(soul.warning?.code).toBe("CONFIRMATION_REQUIRED");
-      expect(soul.warning?.next_action).toEqual({
+      expect(soul.warning?.next_action).toMatchObject({
         recommended_action: "ask_user_then_promote_candidate",
         tool: "promote",
         command: `moryn promote ${soul.record.id} --state canonical --reason 'User confirmed' --confirm`,
@@ -991,6 +1029,7 @@ describe("core engine", () => {
         safe_to_run: false
       });
       expectNextActionInterfaces(soul.warning!.next_action!);
+      expectNextActionWorkflow(soul.warning!.next_action!);
       expect(globalSkill.record.state).toBe("candidate");
       expect(globalSkill.warning?.code).toBe("CONFIRMATION_REQUIRED");
       expect(securityRule.record.state).toBe("candidate");
@@ -1052,7 +1091,7 @@ describe("core engine", () => {
 
       expect(conflicting.record.state).toBe("candidate");
       expect(conflicting.warning?.code).toBe("CONFIRMATION_REQUIRED");
-      expect(conflicting.warning?.next_action).toEqual({
+      expect(conflicting.warning?.next_action).toMatchObject({
         recommended_action: "ask_user_then_promote_candidate",
         tool: "promote",
         command: `moryn promote ${conflicting.record.id} --state canonical --reason 'User confirmed' --confirm`,
@@ -1080,6 +1119,7 @@ describe("core engine", () => {
         safe_to_run: false
       });
       expectNextActionInterfaces(conflicting.warning!.next_action!);
+      expectNextActionWorkflow(conflicting.warning!.next_action!);
       expect(conflicting.record.conflict).toEqual({
         kind: "semantic",
         with: [existing.record.id],

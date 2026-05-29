@@ -53,6 +53,44 @@ function expectActionInterfaces(action: {
   });
 }
 
+function expectRecoveryWorkflow(action: {
+  recommended_action: string;
+  tool: string;
+  required_when?: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.required_when).toEqual(expect.any(String));
+  expect(action.required_when).not.toHaveLength(0);
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["error.next_action", "warning.next_action"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "next_action",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "moryn-cli-"));
   try {
@@ -732,6 +770,9 @@ describe("moryn CLI", () => {
               command: string;
               arguments: Record<string, unknown>;
               rejected_arguments?: Record<string, unknown>;
+              required_when?: string;
+              required_fields: string[];
+              workflow?: Record<string, unknown>;
               safe_to_run: boolean;
             };
           };
@@ -749,6 +790,7 @@ describe("moryn CLI", () => {
           required_fields: [],
           safe_to_run: true
         });
+        expectRecoveryWorkflow(parsed.error.next_action!);
       }
 
       expect(await readEvents(dir)).toHaveLength(0);
@@ -3259,6 +3301,9 @@ describe("moryn CLI", () => {
             tool: string;
             command: string;
             arguments: Record<string, unknown>;
+            required_when?: string;
+            required_fields: string[];
+            workflow?: Record<string, unknown>;
             safe_to_run: boolean;
           };
         };
@@ -3278,6 +3323,7 @@ describe("moryn CLI", () => {
         required_fields: [],
         safe_to_run: false
       });
+      expectRecoveryWorkflow(parsedWrite.warning!.next_action!);
 
       const memoryPreference = await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,

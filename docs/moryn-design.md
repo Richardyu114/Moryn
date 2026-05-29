@@ -766,9 +766,10 @@ calls also classify explicit project mistakes as recoverable structured errors:
 store. Their `recommended_action` values point agents to project initialization,
 project listing, or corrected retry arguments. These error envelopes also carry
 `error.next_action` with `tool`, `command`, `arguments`, `interfaces`,
-`required_fields`, and `safe_to_run`, so agents can recover from the envelope
-without parsing prose or guessing placeholder values. Warning recovery actions
-use the same `warning.next_action.interfaces` shape. For
+`required_when`, `required_fields`, `workflow`, and `safe_to_run`, so agents can
+recover from the envelope without parsing prose or guessing placeholder values.
+Warning recovery actions use the same `warning.next_action.interfaces` shape and
+single-step `warning.next_action.workflow`. For
 `PROJECT_PATH_NOT_FOUND`, the `next_action.arguments.path` value is the exact
 missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
 `next_action.rejected_arguments.project_id` preserves the rejected id and
@@ -785,9 +786,10 @@ templates also include `required_when`, a short usage condition that tells an
 agent when to choose that action instead of inferring intent from array order or
 action names.
 Lifecycle, guide, setup, project-discovery, error-recovery, and warning-recovery
-action templates also expose `interfaces.cli.command` and
-`interfaces.mcp.tool`/`interfaces.mcp.arguments`, so CLI and MCP hosts can
-execute the same recommendation without translating field names by memory.
+action templates also expose `interfaces.cli.command`,
+`interfaces.mcp.tool`/`interfaces.mcp.arguments`, and single-step recovery
+`workflow` metadata, so CLI and MCP hosts can execute the same recommendation
+without translating field names by memory.
 
 ### `agent_doctor`
 

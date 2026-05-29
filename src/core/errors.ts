@@ -15,7 +15,9 @@ export interface MorynErrorNextAction {
   command: string;
   arguments: Record<string, unknown>;
   interfaces: ActionInterfaces<Record<string, unknown>>;
+  required_when: string;
   required_fields: string[];
+  workflow: NextActionWorkflow;
   rejected_arguments?: Record<string, unknown>;
   candidate_project_ids?: string[];
   safe_to_run: boolean;
@@ -31,20 +33,59 @@ interface ActionInterfaces<TArguments> {
   };
 }
 
+interface NextActionWorkflow {
+  version: 1;
+  start: "next_action";
+  continue_from: ["error.next_action", "warning.next_action"];
+  phases: [
+    {
+      phase: string;
+      order: 1;
+      action_source: "next_action";
+      tool: string;
+      required_when: string;
+      required_fields: string[];
+    }
+  ];
+}
+
 export interface MorynErrorContext {
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
 }
 
+const INITIALIZE_STORE_WHEN = "Before retrying any Moryn command when the store is missing or uninitialized.";
+const REPAIR_STORE_CONFIG_WHEN = "Before retrying Moryn commands when local store config is invalid.";
+const REPAIR_PROJECT_CONFIG_WHEN = "Before starting lifecycle or project-scoped work when .moryn.json is invalid.";
+const REBUILD_INDEX_WHEN = "After receiving INDEX_STALE, before retrying recall or derived-view reads.";
+const CONFIGURE_SYNC_WHEN = "Before using sync operations when no remote has been configured.";
+const CHECK_REMOTE_SYNC_WHEN = "After a remote sync failure, before retrying remote operations.";
+const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
+const LIST_RECORDS_WHEN = "After a record id is rejected, before retrying with a replacement record id.";
+const DISCOVER_PROJECT_FOR_WRITE_WHEN = "Before retrying a project-scoped write when project_id was omitted.";
+const RETRY_PROJECT_CONFIG_ID_WHEN = "After project_path and project_id disagree, before starting lifecycle work with corrected project identity.";
+const DISCOVER_PROJECT_CONTEXT_WHEN = "When a populated store requires explicit project context and none was provided.";
+const INIT_OR_CORRECT_PROJECT_WHEN = "After a project_path does not exist, before retrying with that project or a corrected path.";
+const LIST_PROJECTS_FOR_ID_WHEN = "After a project_id is rejected, before retrying with a known project id.";
+const CONFIRM_RETRY_WHEN = "After the user explicitly confirms the high-risk change that was rejected.";
+export const PROMOTE_CANDIDATE_WHEN = "After the user explicitly confirms that the candidate should become canonical.";
+
 function shellQuote(value: string): string {
   if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-export function withNextActionInterfaces<T extends { tool: string; command: string; arguments: Record<string, unknown> }>(
+export function withNextActionMetadata<T extends {
+  recommended_action: string;
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  required_when: string;
+  required_fields: string[];
+}>(
   action: T
-): T & { interfaces: ActionInterfaces<T["arguments"]> } {
+): T & { interfaces: ActionInterfaces<T["arguments"]>; workflow: NextActionWorkflow } {
   return {
     ...action,
     interfaces: {
@@ -55,6 +96,21 @@ export function withNextActionInterfaces<T extends { tool: string; command: stri
         tool: action.tool,
         arguments: action.arguments
       }
+    },
+    workflow: {
+      version: 1,
+      start: "next_action",
+      continue_from: ["error.next_action", "warning.next_action"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "next_action",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
     }
   };
 }
@@ -208,7 +264,7 @@ function appendConfirmFlag(command: string): string {
 
 function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextAction | undefined {
   if (!context) return undefined;
-  return withNextActionInterfaces({
+  return withNextActionMetadata({
     recommended_action: "ask_user_then_retry_with_confirmation",
     tool: context.tool,
     command: appendConfirmFlag(context.command),
@@ -216,6 +272,7 @@ function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextActi
       ...context.arguments,
       confirmed: true
     },
+    required_when: CONFIRM_RETRY_WHEN,
     required_fields: [],
     safe_to_run: false
   });
@@ -244,22 +301,24 @@ export function commandForReviseContext(input: { record_id: string; patch: Recor
 export function nextAction(code: string, message = "", context?: MorynErrorContext): MorynErrorNextAction | undefined {
   switch (code) {
     case "STORE_NOT_INITIALIZED":
-      return withNextActionInterfaces({
+      return withNextActionMetadata({
         recommended_action: "initialize_store",
         tool: "init",
         command: "moryn init",
         arguments: {},
+        required_when: INITIALIZE_STORE_WHEN,
         required_fields: [],
         safe_to_run: false
       });
     case "CONFIRMATION_REQUIRED":
       return confirmationNextAction(context);
     case "INVALID_STORE_CONFIG":
-      return withNextActionInterfaces({
+      return withNextActionMetadata({
         recommended_action: "repair_local_store_config",
         tool: "init",
         command: "moryn init --repair",
         arguments: { repair: true },
+        required_when: REPAIR_STORE_CONFIG_WHEN,
         required_fields: [],
         safe_to_run: false
       });
@@ -267,59 +326,65 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
       {
         const configPath = projectConfigPathFromMessage(message);
         const path = configPath?.replace(/\/\.moryn\.json$/, "") ?? "<path>";
-        return withNextActionInterfaces({
+        return withNextActionMetadata({
           recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
           tool: "project_init",
           command: `moryn project init --path ${path} --repair`,
           arguments: { path, repair: true },
+          required_when: REPAIR_PROJECT_CONFIG_WHEN,
           required_fields: path === "<path>" ? ["path"] : [],
           safe_to_run: false
         });
       }
     case "INDEX_STALE":
-      return withNextActionInterfaces({
+      return withNextActionMetadata({
         recommended_action: "rebuild_derived_views",
         tool: "rebuild",
         command: "moryn rebuild",
         arguments: {},
+        required_when: REBUILD_INDEX_WHEN,
         required_fields: [],
         safe_to_run: true
       });
     case "SYNC_NOT_CONFIGURED":
-      return withNextActionInterfaces({
+      return withNextActionMetadata({
         recommended_action: "configure_sync_remote",
         tool: "sync_init",
         command: "moryn sync init <remote>",
         arguments: { remote: "<remote>" },
+        required_when: CONFIGURE_SYNC_WHEN,
         required_fields: ["remote"],
         safe_to_run: false
       });
     case "SYNC_REMOTE_UNAVAILABLE":
-      return withNextActionInterfaces({
+      return withNextActionMetadata({
         recommended_action: "check_sync_status_before_retrying_remote_operation",
         tool: "sync_status",
         command: "moryn sync --status",
         arguments: {},
+        required_when: CHECK_REMOTE_SYNC_WHEN,
         required_fields: [],
         safe_to_run: true
       });
     case "SYNC_CONFLICT":
-      return withNextActionInterfaces({
+      return withNextActionMetadata({
         recommended_action: "inspect_sync_conflict_before_retrying",
         tool: "sync_status",
         command: "moryn sync --status",
         arguments: {},
+        required_when: INSPECT_SYNC_CONFLICT_WHEN,
         required_fields: [],
         safe_to_run: true
       });
     case "RECORD_NOT_FOUND":
       {
         const recordId = missingRecordIdFromMessage(message);
-        return withNextActionInterfaces({
+        return withNextActionMetadata({
           recommended_action: "list_recent_records_and_retry_with_known_record_id",
           tool: "list_recent",
           command: "moryn list-recent",
           arguments: {},
+          required_when: LIST_RECORDS_WHEN,
           required_fields: [],
           ...(recordId ? { rejected_arguments: { record_id: recordId } } : {}),
           safe_to_run: true
@@ -327,11 +392,12 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
       }
     case "INVALID_ARGUMENT":
       if (message === "Invalid argument: project_id is required for project scope") {
-        return withNextActionInterfaces({
+        return withNextActionMetadata({
           recommended_action: "discover_project_context_before_project_scoped_write",
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          required_when: DISCOVER_PROJECT_FOR_WRITE_WHEN,
           required_fields: [],
           rejected_arguments: { scope: "project" },
           safe_to_run: true
@@ -342,11 +408,12 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
       {
         const { resolvedProjectId, rejectedProjectId } = conflictingProjectIdFromMessage(message);
         const projectId = resolvedProjectId ?? "<project_id_from_config>";
-        return withNextActionInterfaces({
+        return withNextActionMetadata({
           recommended_action: "retry_with_project_config_id_or_update_project_config",
           tool: "agent_enter",
           command: `moryn agent enter --project-id ${projectId}`,
           arguments: { project_id: projectId },
+          required_when: RETRY_PROJECT_CONFIG_ID_WHEN,
           required_fields: resolvedProjectId ? [] : ["project_id"],
           ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
           ...(resolvedProjectId ? { candidate_project_ids: [resolvedProjectId] } : {}),
@@ -356,11 +423,12 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
     case "PROJECT_CONTEXT_REQUIRED":
       {
         const candidateProjectIds = knownProjectIdsFromContextMessage(message);
-        return withNextActionInterfaces({
+        return withNextActionMetadata({
           recommended_action: "discover_projects_before_lifecycle_write",
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          required_when: DISCOVER_PROJECT_CONTEXT_WHEN,
           required_fields: [],
           ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
           safe_to_run: true
@@ -369,11 +437,12 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
     case "PROJECT_PATH_NOT_FOUND":
       {
         const path = projectPathFromMessage(message) ?? "<path>";
-        return withNextActionInterfaces({
+        return withNextActionMetadata({
           recommended_action: "initialize_project_or_retry_corrected_context",
           tool: "project_init",
           command: `moryn project init --path ${path}`,
           arguments: { path },
+          required_when: INIT_OR_CORRECT_PROJECT_WHEN,
           required_fields: path === "<path>" ? ["path"] : [],
           safe_to_run: false
         });
@@ -381,11 +450,12 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
     case "PROJECT_ID_NOT_FOUND":
       {
         const { rejectedProjectId, candidateProjectIds } = unknownProjectIdFromMessage(message);
-        return withNextActionInterfaces({
+        return withNextActionMetadata({
           recommended_action: "list_projects_and_retry_with_known_project_id",
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          required_when: LIST_PROJECTS_FOR_ID_WHEN,
           required_fields: [],
           ...(rejectedProjectId ? { rejected_arguments: { project_id: rejectedProjectId } } : {}),
           ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),

@@ -153,6 +153,9 @@ Deliverables:
   `interfaces.cli.command` plus `interfaces.mcp.tool` and
   `interfaces.mcp.arguments`, so failure recovery uses the same explicit
   execution contract as normal action templates.
+- Done: Structured `error.next_action` and warning `next_action` payloads expose
+  `required_when` and a single-step `workflow`, so recovery branches tell agents
+  when to run the suggested action instead of relying on action-name guessing.
 - Done: Lifecycle actions and guide templates mirror required field placeholders
   in `arguments` (`<status>`, `<summary>`, `<current_task>`, `<remote>`) so MCP
   agents can replace JSON fields instead of parsing command strings.
