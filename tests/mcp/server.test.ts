@@ -13,6 +13,32 @@ const exec = promisify(execFile);
 const repoRoot = process.cwd();
 const tsxLoader = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
 const cliPath = join(repoRoot, "src/cli.ts");
+const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
+const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
+const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
+
+function singleNextWorkflow(input: {
+  recommendedAction: string;
+  tool: string;
+  requiredWhen: string;
+  requiredFields?: string[];
+}) {
+  return {
+    version: 1,
+    start: "next",
+    continue_from: ["next"],
+    phases: [
+      {
+        phase: input.recommendedAction,
+        order: 1,
+        action_source: "next",
+        tool: input.tool,
+        required_when: input.requiredWhen,
+        required_fields: input.requiredFields ?? []
+      }
+    ]
+  };
+}
 
 async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promise<T>, cwd = repoRoot): Promise<T> {
   const transport = new StdioClientTransport({
@@ -1283,7 +1309,16 @@ describe("MCP stdio server", () => {
             next_tool: string;
             next_command: string;
           };
-          next: { recommended_action: string; tool: string; safe_to_run: boolean; command: string; arguments: Record<string, unknown> };
+          next: {
+            recommended_action: string;
+            tool: string;
+            safe_to_run: boolean;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            workflow: Record<string, unknown>;
+            arguments: Record<string, unknown>;
+          };
         };
         expect(doctor.sync).toMatchObject({
           sync_state: "conflict",
@@ -1297,6 +1332,13 @@ describe("MCP stdio server", () => {
           tool: "sync_status",
           safe_to_run: true,
           command: "moryn sync --status",
+          required_when: INSPECT_SYNC_CONFLICT_WHEN,
+          required_fields: [],
+          workflow: singleNextWorkflow({
+            recommendedAction: "resolve_sync_conflict_before_lifecycle",
+            tool: "sync_status",
+            requiredWhen: INSPECT_SYNC_CONFLICT_WHEN
+          }),
           arguments: {}
         });
         expect(doctor.readiness).toEqual({
@@ -1320,14 +1362,28 @@ describe("MCP stdio server", () => {
           }
         })) as {
           mode: string;
-          next: { recommended_action: string; tool: string; safe_to_run: boolean };
+          next: {
+            recommended_action: string;
+            tool: string;
+            safe_to_run: boolean;
+            required_when: string;
+            required_fields: string[];
+            workflow: Record<string, unknown>;
+          };
         };
         expect(entered).toMatchObject({
           mode: "needs_setup",
           next: {
             recommended_action: "resolve_sync_conflict_before_lifecycle",
             tool: "sync_status",
-            safe_to_run: true
+            safe_to_run: true,
+            required_when: INSPECT_SYNC_CONFLICT_WHEN,
+            required_fields: [],
+            workflow: singleNextWorkflow({
+              recommendedAction: "resolve_sync_conflict_before_lifecycle",
+              tool: "sync_status",
+              requiredWhen: INSPECT_SYNC_CONFLICT_WHEN
+            })
           }
         });
 
@@ -1441,20 +1497,36 @@ describe("MCP stdio server", () => {
           }
         })) as {
           project: { ok: boolean };
-          next: { recommended_action: string; tool: string; command: string; safe_to_run: boolean; actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[] }> };
+          next: {
+            recommended_action: string;
+            tool: string;
+            command: string;
+            safe_to_run: boolean;
+            required_when: string;
+            required_fields: string[];
+            workflow: Record<string, unknown>;
+            actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[] }>;
+          };
         };
 
         expect(doctor.next).toMatchObject({
           recommended_action: "list_projects",
           tool: "project_list",
           safe_to_run: true,
-          command: "moryn project list"
+          command: "moryn project list",
+          required_when: LIST_PROJECTS_WHEN,
+          required_fields: [],
+          workflow: singleNextWorkflow({
+            recommendedAction: "list_projects",
+            tool: "project_list",
+            requiredWhen: LIST_PROJECTS_WHEN
+          })
         });
         expect(doctor.next.actions).toContainEqual(expect.objectContaining({
           action: "list_projects",
           tool: "project_list",
           command: "moryn project list",
-          required_when: "When the shared store has projects but this agent has no explicit project context.",
+          required_when: LIST_PROJECTS_WHEN,
           required_fields: []
         }));
       }, store);
@@ -1690,15 +1762,32 @@ describe("MCP stdio server", () => {
           }
         })) as {
           project: { ok: boolean; error?: string };
-          next: { tool: string; safe_to_run: boolean; command: string; arguments: { path?: string } };
+          next: {
+            recommended_action: string;
+            tool: string;
+            safe_to_run: boolean;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            workflow: Record<string, unknown>;
+            arguments: { path?: string };
+          };
         };
 
         expect(doctor.project.ok).toBe(false);
         expect(doctor.project.error).toContain("Project path does not exist");
         expect(doctor.next).toMatchObject({
+          recommended_action: "fix_project_config",
           tool: "project_init",
           safe_to_run: false,
           command: `moryn project init --path ${missingProject}`,
+          required_when: FIX_PROJECT_CONFIG_WHEN,
+          required_fields: [],
+          workflow: singleNextWorkflow({
+            recommendedAction: "fix_project_config",
+            tool: "project_init",
+            requiredWhen: FIX_PROJECT_CONFIG_WHEN
+          }),
           arguments: { path: missingProject }
         });
 
@@ -1711,14 +1800,30 @@ describe("MCP stdio server", () => {
           }
         })) as {
           mode: string;
-          next: { tool: string; safe_to_run: boolean; arguments: { path?: string } };
+          next: {
+            recommended_action: string;
+            tool: string;
+            safe_to_run: boolean;
+            required_when: string;
+            required_fields: string[];
+            workflow: Record<string, unknown>;
+            arguments: { path?: string };
+          };
         };
 
         expect(entered).toMatchObject({
           mode: "needs_setup",
           next: {
+            recommended_action: "fix_project_config",
             tool: "project_init",
             safe_to_run: false,
+            required_when: FIX_PROJECT_CONFIG_WHEN,
+            required_fields: [],
+            workflow: singleNextWorkflow({
+              recommendedAction: "fix_project_config",
+              tool: "project_init",
+              requiredWhen: FIX_PROJECT_CONFIG_WHEN
+            }),
             arguments: { path: missingProject }
           }
         });
@@ -1793,7 +1898,15 @@ describe("MCP stdio server", () => {
           }
         })) as {
           project: { ok: boolean; error?: string };
-          next: { recommended_action: string; tool: string; safe_to_run: boolean; command: string };
+          next: {
+            recommended_action: string;
+            tool: string;
+            safe_to_run: boolean;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            workflow: Record<string, unknown>;
+          };
         };
 
         expect(doctor.project.ok).toBe(false);
@@ -1802,7 +1915,14 @@ describe("MCP stdio server", () => {
           recommended_action: "list_projects",
           tool: "project_list",
           safe_to_run: true,
-          command: "moryn project list"
+          command: "moryn project list",
+          required_when: LIST_PROJECTS_WHEN,
+          required_fields: [],
+          workflow: singleNextWorkflow({
+            recommendedAction: "list_projects",
+            tool: "project_list",
+            requiredWhen: LIST_PROJECTS_WHEN
+          })
         });
 
         const entered = parseTextContent(await client.callTool({

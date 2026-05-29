@@ -68,6 +68,7 @@ const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent ha
 const CHOOSE_DISCOVERED_PROJECT_WHEN = "After choosing this project from discovery results.";
 const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
+const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
 
 interface BootstrapResult {
   initialized_store: boolean;
@@ -541,6 +542,9 @@ function syncConflictNextAction() {
     tool: "sync_status",
     safe_to_run: true,
     command: "moryn sync --status",
+    required_when: INSPECT_SYNC_CONFLICT_WHEN,
+    required_fields: [],
+    workflow: singleNextWorkflow("resolve_sync_conflict_before_lifecycle", "sync_status", INSPECT_SYNC_CONFLICT_WHEN, []),
     arguments: {}
   };
 }
@@ -844,6 +848,24 @@ function directFinishWorkflow(actions: LifecycleActionTemplate[]) {
   };
 }
 
+function singleNextWorkflow(recommendedAction: string, tool: string, requiredWhen: string, requiredFields: string[]) {
+  return {
+    version: 1,
+    start: "next",
+    continue_from: ["next"],
+    phases: [
+      {
+        phase: recommendedAction,
+        order: 1,
+        action_source: "next",
+        tool,
+        required_when: requiredWhen,
+        required_fields: requiredFields
+      }
+    ]
+  };
+}
+
 function discoverProjectsWorkflow() {
   return {
     version: 1,
@@ -1092,6 +1114,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
 
   const discoverProjects = shouldDiscoverProjects(input, await hasKnownProjects(input, storeInitialized), project);
   const setupInput = projectInitInput(input, project.ok ? undefined : project.error);
+  const setupRequiredFields = setupInput.projectPath ? [] : ["path"];
   const next = syncConflict
     ? syncConflictNextAction()
     : discoverProjects
@@ -1100,6 +1123,9 @@ export async function agentDoctor(input: AgentDoctorInput) {
         tool: "project_list",
         safe_to_run: true,
         command: buildProjectListCommand(),
+        required_when: LIST_PROJECTS_WHEN,
+        required_fields: [],
+        workflow: singleNextWorkflow("list_projects", "project_list", LIST_PROJECTS_WHEN, []),
         actions: projectListNextActions(),
         arguments: {}
       }
@@ -1109,6 +1135,9 @@ export async function agentDoctor(input: AgentDoctorInput) {
         tool: "agent_start",
         safe_to_run: true,
         command: buildAgentStartCommand(input),
+        required_when: START_OR_RESUME_WHEN,
+        required_fields: [],
+        workflow: singleNextWorkflow("call_agent_start", "agent_start", START_OR_RESUME_WHEN, []),
         actions: doctorNextActions(input),
         arguments: {
           project_path: input.projectPath,
@@ -1123,6 +1152,9 @@ export async function agentDoctor(input: AgentDoctorInput) {
         tool: "project_init",
         safe_to_run: false,
         command: buildProjectInitCommand(setupInput),
+        required_when: FIX_PROJECT_CONFIG_WHEN,
+        required_fields: setupRequiredFields,
+        workflow: singleNextWorkflow("fix_project_config", "project_init", FIX_PROJECT_CONFIG_WHEN, setupRequiredFields),
         arguments: projectInitArguments(setupInput)
       };
 

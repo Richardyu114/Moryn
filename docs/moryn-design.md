@@ -722,6 +722,11 @@ without consulting static guide templates. Direct `agent_start`, `agent_status`,
 and `agent_finish` responses also include `next.workflow`, derived from their
 returned `next.actions`, so every lifecycle entrypoint carries its own follow-up
 contract.
+Setup and recovery branches use the same shape: `agent_doctor.next` and
+`agent_enter` `needs_setup` responses include top-level `required_when`,
+`required_fields`, and a single-step `next.workflow` for `project_init`,
+`project_list`, or `sync_status`, so hosts can recover from setup uncertainty
+without parsing prose or sibling action arrays.
 
 CLI:
 

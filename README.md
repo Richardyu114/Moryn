@@ -412,6 +412,10 @@ response self-describing even when the host did not call `agent guide` first.
 Direct `agent start`, `agent status`, and `agent finish` responses also include
 `next.workflow`, derived from the returned `next.actions`, so agents can follow
 the same ordered action contract from any lifecycle entrypoint.
+Setup and diagnosis `next` actions from `agent doctor` and `agent enter`
+include the same top-level `required_when`, `required_fields`, and
+single-step `next.workflow` metadata, so hosts can distinguish safe read-only
+inspection from user-confirmed setup writes without inferring from prose.
 
 ## Current MVP Commands
 
@@ -491,6 +495,10 @@ modes, `next.workflow` gives the ordered runtime action track and names which
 response fields are valid follow-up sources. Direct `agent_start`,
 `agent_status`, and `agent_finish` responses also include `next.workflow`, so a
 host can continue from direct lifecycle calls without falling back to prose.
+If `agent_enter` returns `needs_setup`, its top-level `next` is the same
+machine-readable action selected by `agent_doctor`, including `required_when`,
+`required_fields`, and a single-step workflow pointing at the required setup or
+inspection command.
 
 When setup is uncertain:
 
@@ -511,6 +519,10 @@ of starting a new typo project. If `project_path` config and explicit
 When `run_lifecycle_smoke` needs a remote, the action includes
 `required_fields: ["remote"]`, `arguments.remote: "<remote>"`, and
 `--remote <remote>` in the command template.
+The selected top-level `next` action also carries `required_when`,
+`required_fields`, and `next.workflow` for `agent_start`, `project_list`,
+`project_init`, or `sync_status`, so an agent can execute the next step from
+the selected action without inspecting sibling templates.
 The returned setup action does not echo the conflicting `project_id`. Direct
 `agent_start`, `agent_status`, and `agent_finish` calls require `project_path`,
 `project_id`, or a `.moryn.json` config when the store already has known

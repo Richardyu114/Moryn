@@ -171,6 +171,10 @@ Deliverables:
 - Done: Direct `agent_start`, `agent_status`, and `agent_finish` responses now
   include `next.workflow` derived from their `next.actions`, so every lifecycle
   entrypoint is self-describing for follow-up actions.
+- Done: Setup and recovery `next` actions from `agent_doctor` and
+  `agent_enter.needs_setup` now include top-level `required_when`,
+  `required_fields`, and single-step `next.workflow` metadata for
+  `project_init`, `project_list`, and `sync_status`.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.
