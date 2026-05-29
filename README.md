@@ -682,8 +682,11 @@ interrupts. Agents should prefer `agent_start` over manually composing
 `sync_pull`, `boot`, and `refresh`. Boot responses include `records_by_id`,
 which mirrors the record objects returned in profile, project, skills,
 task-relevant, and recent-change sections so agents can dereference a known
-boot record id without scanning nested arrays. `list_recent` responses also
-return ordered `records` plus `records_by_id`; after a missing-record error,
+boot record id without scanning nested arrays. The project section also mirrors
+`important_decisions` and `warnings` as `important_decisions_by_id` and
+`warnings_by_id`, so agents can inspect known project blockers or decisions
+without scanning those project arrays. `list_recent` responses also return
+ordered `records` plus `records_by_id`; after a missing-record error,
 prefer `list_recent.records_by_id.<record_id>.id` for the selected replacement
 id and use `list_recent.records[].id` only as an ordered compatibility view. Read
 `agent_start.handoff.active_sessions`

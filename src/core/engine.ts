@@ -1145,7 +1145,9 @@ export function createEngine(deps: EngineDeps) {
           tech_stack: boundedBootTexts(projectMemoryRecords.filter((record) => record.type === "tech_stack")),
           active_goals: boundedBootTexts(projectMemoryRecords.filter((record) => record.type === "active_goal" || record.type === "goal")),
           important_decisions: importantDecisions,
-          warnings
+          important_decisions_by_id: recordsById(importantDecisions),
+          warnings,
+          warnings_by_id: recordsById(warnings)
         },
         skills,
         task_relevant: taskRelevant,

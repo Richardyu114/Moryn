@@ -1913,6 +1913,8 @@ describe("core engine", () => {
       expect(boot.profile.soul.map((record) => record.content.text)).toEqual(["Prefer concise engineering updates."]);
       expect(boot.project.important_decisions.map((record) => record.content.text)).toEqual(["Use append-only events."]);
       expect(boot.project.warnings.map((record) => record.content.text)).toEqual(["Do not include secrets in memory."]);
+      expect(boot.project.important_decisions_by_id[decision.record.id]).toEqual(boot.project.important_decisions[0]);
+      expect(boot.project.warnings_by_id[warning.record.id]).toEqual(boot.project.warnings[0]);
       expect(boot.skills.map((record) => record.content.text)).toEqual(["Run tests before committing."]);
       expect(boot.skills.map((record) => record.content.text)).not.toContain("Unrelated global skill.");
       expect(boot.recent_changes.map((record) => record.content.text)).not.toContain("Raw note should not boot.");

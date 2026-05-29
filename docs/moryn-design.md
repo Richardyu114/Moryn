@@ -458,7 +458,9 @@ Output:
     "tech_stack": [],
     "active_goals": [],
     "important_decisions": [],
-    "warnings": []
+    "important_decisions_by_id": {},
+    "warnings": [],
+    "warnings_by_id": {}
   },
   "skills": [],
   "task_relevant": [],
@@ -476,7 +478,10 @@ Output:
 `records_by_id` mirrors only the record objects returned in this boot response
 across profile, project, skills, `task_relevant`, and `recent_changes`. It is a
 convenience map for dereferencing a known boot record id, not a full-store
-index.
+index. The `project` object also exposes `important_decisions_by_id` and
+`warnings_by_id`, keyed by record id, as local mirrors of the corresponding
+project arrays so agents can inspect a known project decision or blocker
+without scanning `project.important_decisions[]` or `project.warnings[]`.
 
 CLI:
 

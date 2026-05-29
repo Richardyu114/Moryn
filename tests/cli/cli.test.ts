@@ -1470,7 +1470,7 @@ describe("moryn CLI", () => {
         "--import", "tsx", "src/cli.ts", "--store", dir,
         "boot",
         "--project-id", "moryn"
-      ])).stdout) as { project: { summary: string; warnings: Array<{ id: string }> } };
+      ])).stdout) as { project: { summary: string; warnings: Array<{ id: string }>; warnings_by_id: Record<string, { id: string }> } };
       const refresh = JSON.parse((await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", dir,
         "refresh",
@@ -1486,6 +1486,7 @@ describe("moryn CLI", () => {
 
       expect(boot.project.summary).toBe("CLI structured boot summary.");
       expect(boot.project.warnings.map((record) => record.id)).toContain(warningId);
+      expect(boot.project.warnings_by_id[warningId]?.id).toBe(warningId);
       expect(refresh.changes).toContainEqual(expect.objectContaining({
         record_id: summaryId,
         summary: "CLI structured boot summary."

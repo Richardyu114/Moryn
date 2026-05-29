@@ -4187,7 +4187,7 @@ describe("MCP stdio server", () => {
         const boot = parseTextContent(await client.callTool({
           name: "boot",
           arguments: { project_id: "moryn" }
-        })) as { project: { summary: string; warnings: Array<{ id: string }> } };
+        })) as { project: { summary: string; warnings: Array<{ id: string }>; warnings_by_id: Record<string, { id: string }> } };
         const refresh = parseTextContent(await client.callTool({
           name: "refresh",
           arguments: {
@@ -4205,6 +4205,7 @@ describe("MCP stdio server", () => {
 
         expect(boot.project.summary).toBe("MCP structured boot summary.");
         expect(boot.project.warnings.map((record) => record.id)).toContain(warning.record.id);
+        expect(boot.project.warnings_by_id[warning.record.id]?.id).toBe(warning.record.id);
         expect(refresh.changes).toContainEqual(expect.objectContaining({
           record_id: summary.record.id,
           summary: "MCP structured boot summary."
