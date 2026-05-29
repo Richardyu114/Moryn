@@ -1186,18 +1186,22 @@ includes the record id, text, originating agent identity, timestamp, and a
 recommended action so agents do not have to infer coordination state from
 `recent_changes`. Each entry also includes a safe `next_action` for the exact
 `recall` call that fetches the full session summary or status record, with
-CLI/MCP interfaces, `safety`, `required_when`, `argument_sources`, and workflow
-metadata. `argument_sources.record_ids` points at the matching keyed handoff
-entry's `record_id`, so agents can fill recall arguments without scanning
-workflow phases. Agents should follow that action instead of manually composing
-a recall call from the handoff prose. When `handoff.recommended_action` is not `continue_current_task`,
+CLI/MCP interfaces, `safety`, `required_when`, `argument_sources`, action-local
+`selection_sources`, and workflow metadata. `argument_sources.record_ids` points
+at the matching keyed handoff entry's `record_id`, and
+`next_action.selection_sources` names the selected keyed entry, record-id,
+next-action, and ordered fallback paths, so agents can fill recall arguments
+without scanning workflow phases. Agents should follow that action instead of
+manually composing a recall call from the handoff prose. When `handoff.recommended_action` is not `continue_current_task`,
 top-level `handoff.next_action` mirrors the first active-session action or, if no
 active sessions exist, the first inbox action. The response also mirrors the
 ordered handoff arrays as `handoff.active_sessions_by_record_id` and
 `handoff.inbox_by_record_id`, keyed by `record_id`; `handoff.selection_sources`
 names the keyed entry, record-id, and next-action paths for both inbox and
 active-session entries. Handoff entry workflows prefer those keyed paths and
-retain the ordered arrays as compatibility sources.
+retain the ordered arrays as compatibility sources; each nested
+`next_action.selection_sources` repeats the selected path set for hosts that
+only receive the action.
 The
 `next.actions` field returns machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP

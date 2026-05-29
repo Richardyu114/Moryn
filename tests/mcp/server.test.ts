@@ -397,6 +397,7 @@ function expectHandoffEntryNextAction(action: {
   command: string;
   arguments: Record<string, unknown>;
   argument_sources?: Record<string, string>;
+  selection_sources?: Record<string, string>;
   safe_to_run: boolean;
   required_when: string;
   required_fields: string[];
@@ -444,6 +445,16 @@ function expectHandoffEntryNextAction(action: {
     },
     argument_sources: {
       record_ids: recordIdSource
+    },
+    selection_sources: {
+      entry: source === "inbox"
+        ? "handoff.inbox_by_record_id.<record_id>"
+        : "handoff.active_sessions_by_record_id.<record_id>",
+      record_id: recordIdSource,
+      next_action: actionSource,
+      ordered_next_action: source === "inbox"
+        ? "handoff.inbox[].next_action"
+        : "handoff.active_sessions[].next_action"
     }
   });
   expectActionInterfaces(action);

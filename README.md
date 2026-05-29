@@ -413,15 +413,19 @@ recent in-progress status checkpoints from other sessions. Active sessions are
 time-bounded and include `active_until`, so stale status records do not look
 like live work forever. Each handoff entry includes a safe `next_action` for the
 exact `recall` call that retrieves the full handoff or status record, including
-CLI/MCP interfaces, `safety`, `required_when`, `argument_sources`, and workflow
-metadata. When a handoff exists, top-level `handoff.next_action` points to the
+CLI/MCP interfaces, `safety`, `required_when`, `argument_sources`, action-local
+`selection_sources`, and workflow metadata. When a handoff exists, top-level
+`handoff.next_action` points to the
 highest-priority entry action, preferring active sessions before inbox summaries,
 so agents can act on `handoff.recommended_action` without choosing a record from prose.
 `handoff.inbox_by_record_id` and `handoff.active_sessions_by_record_id` mirror
 the ordered handoff arrays for agents that already know a record id, and
 `handoff.selection_sources` names the keyed entry, record-id, and next-action
 paths for both inbox and active-session entries. Handoff entry workflows prefer
-those keyed paths while keeping the ordered arrays for display. If startup,
+those keyed paths while keeping the ordered arrays for display. Each handoff
+`next_action.selection_sources` repeats the selected entry, record-id,
+next-action, and ordered fallback paths for agents that only receive that
+action. If startup,
 status, or finish can continue locally while
 sync is unavailable, their `sync.*_error` strings are paired with
 `sync.*_error_details` objects containing `code`, `recommended_action`, and
@@ -742,7 +746,9 @@ is known, prefer
 `agent_start.handoff.inbox_by_record_id.<record_id>.next_action` instead of
 scanning the handoff arrays. `agent_start.handoff.selection_sources` names the
 same keyed paths for hosts that should not infer them from workflow phases, and
-agents should fill `record_ids` from the action's `argument_sources.record_ids`.
+each handoff `next_action.selection_sources` repeats the selected action-local
+paths. Agents should fill `record_ids` from the action's
+`argument_sources.record_ids`.
 `agent_start.next.actions`
 includes machine-readable templates for the next safe lifecycle calls,
 including the exact CLI command template, MCP tool name, `required_when`,

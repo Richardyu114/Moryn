@@ -135,6 +135,10 @@ Deliverables:
 - Done: `agent_start.handoff.next_action` now mirrors the prioritized active
   session or inbox recall action, so top-level handoff recommendations are
   directly executable.
+- Done: Handoff entry `next_action` templates now expose action-local
+  `selection_sources`, so selected recall actions keep their keyed entry,
+  record-id, keyed next-action, and ordered fallback paths when passed around
+  independently.
 - Done: Refresh responses now expose `changes_by_record_id` and keyed
   `next_action` workflow sources, so agents can recall a known changed record
   without scanning `changes[]`.

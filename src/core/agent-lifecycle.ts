@@ -71,6 +71,13 @@ type HandoffRecordIdArgumentSource =
   "handoff.inbox_by_record_id.<record_id>.record_id"
   | "handoff.active_sessions_by_record_id.<record_id>.record_id";
 
+type HandoffEntrySelectionSources = {
+  entry: "handoff.inbox_by_record_id.<record_id>" | "handoff.active_sessions_by_record_id.<record_id>";
+  record_id: HandoffRecordIdArgumentSource;
+  next_action: "handoff.inbox_by_record_id.<record_id>.next_action" | "handoff.active_sessions_by_record_id.<record_id>.next_action";
+  ordered_next_action: "handoff.inbox[].next_action" | "handoff.active_sessions[].next_action";
+};
+
 type HandoffEntryNextAction = {
   recommended_action: "call_recall_with_record_id";
   tool: "recall";
@@ -86,6 +93,7 @@ type HandoffEntryNextAction = {
   argument_sources: {
     record_ids: HandoffRecordIdArgumentSource;
   };
+  selection_sources: HandoffEntrySelectionSources;
   interfaces: ActionInterfaces<{
     record_ids: string[];
     project_id: string;
@@ -1262,6 +1270,19 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
   const recordIdSource: HandoffRecordIdArgumentSource = source === "inbox"
     ? "handoff.inbox_by_record_id.<record_id>.record_id"
     : "handoff.active_sessions_by_record_id.<record_id>.record_id";
+  const selectionSources: HandoffEntrySelectionSources = source === "inbox"
+    ? {
+        entry: "handoff.inbox_by_record_id.<record_id>",
+        record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
+        next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
+        ordered_next_action: "handoff.inbox[].next_action"
+      }
+    : {
+        entry: "handoff.active_sessions_by_record_id.<record_id>",
+        record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
+        next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
+        ordered_next_action: "handoff.active_sessions[].next_action"
+      };
   const action = withActionInterfaces({
     recommended_action: "call_recall_with_record_id" as const,
     tool: "recall" as const,
@@ -1279,6 +1300,7 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
   });
   return {
     ...action,
+    selection_sources: selectionSources,
     workflow: withPhasesByName({
       version: 1,
       start: "next_action",
