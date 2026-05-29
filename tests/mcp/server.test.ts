@@ -1041,8 +1041,15 @@ describe("MCP stdio server", () => {
         })) as {
           project: { important_decisions: Array<{ id: string; content: { text: string } }> };
           records_by_id: Record<string, { id: string; content: { text: string } }>;
+          selection_sources: Record<string, string>;
         };
 
+        expect(bootResult.selection_sources).toEqual({
+          record: "records_by_id.<record_id>",
+          record_id: "records_by_id.<record_id>.id",
+          important_decision: "project.important_decisions_by_id.<record_id>",
+          warning: "project.warnings_by_id.<record_id>"
+        });
         expect(bootResult.project.important_decisions[0]?.id).toBe(writeResult.record.id);
         expect(bootResult.records_by_id[writeResult.record.id]).toEqual(bootResult.project.important_decisions[0]);
 

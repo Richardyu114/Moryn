@@ -704,7 +704,9 @@ interrupts. Agents should prefer `agent_start` over manually composing
 `sync_pull`, `boot`, and `refresh`. Boot responses include `records_by_id`,
 which mirrors the record objects returned in profile, project, skills,
 task-relevant, and recent-change sections so agents can dereference a known
-boot record id without scanning nested arrays. The project section also mirrors
+boot record id without scanning nested arrays. `boot.selection_sources` names
+the keyed boot record, record-id, important-decision, and warning paths
+explicitly. The project section also mirrors
 `important_decisions` and `warnings` as `important_decisions_by_id` and
 `warnings_by_id`, so agents can inspect known project blockers or decisions
 without scanning those project arrays. `list_recent` responses also return

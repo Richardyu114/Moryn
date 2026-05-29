@@ -92,6 +92,13 @@ const RECALL_SELECTION_SOURCES = {
   record_id: "results_by_id.<record_id>.record.id"
 };
 
+const BOOT_SELECTION_SOURCES = {
+  record: "records_by_id.<record_id>",
+  record_id: "records_by_id.<record_id>.id",
+  important_decision: "project.important_decisions_by_id.<record_id>",
+  warning: "project.warnings_by_id.<record_id>"
+};
+
 const REFRESH_SELECTION_SOURCES = {
   change: "changes_by_record_id.<record_id>",
   record_id: "changes_by_record_id.<record_id>.record_id",
@@ -1179,6 +1186,7 @@ export function createEngine(deps: EngineDeps) {
         skills,
         task_relevant: taskRelevant,
         recent_changes: recentChanges,
+        selection_sources: BOOT_SELECTION_SOURCES,
         records_by_id: recordsById([
           ...userPreferences,
           ...soul,

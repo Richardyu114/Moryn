@@ -312,6 +312,12 @@ describe("agent lifecycle", () => {
         sync_mode: "session"
       });
       expect(geminiStart.sync.pull?.pulled).toBe(true);
+      expect(geminiStart.boot.selection_sources).toEqual({
+        record: "records_by_id.<record_id>",
+        record_id: "records_by_id.<record_id>.id",
+        important_decision: "project.important_decisions_by_id.<record_id>",
+        warning: "project.warnings_by_id.<record_id>"
+      });
       expect(geminiStart.refresh.changes).toEqual([
         expect.objectContaining({
           importance: "notice",

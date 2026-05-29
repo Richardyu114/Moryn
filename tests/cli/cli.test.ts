@@ -1197,9 +1197,16 @@ describe("moryn CLI", () => {
       const parsedBoot = JSON.parse(boot.stdout) as {
         recent_changes: Array<{ id: string }>;
         records_by_id: Record<string, { id: string }>;
+        selection_sources: Record<string, string>;
       };
 
       expect(parsedWrite.record.confidence).toBe(0.9);
+      expect(parsedBoot.selection_sources).toEqual({
+        record: "records_by_id.<record_id>",
+        record_id: "records_by_id.<record_id>.id",
+        important_decision: "project.important_decisions_by_id.<record_id>",
+        warning: "project.warnings_by_id.<record_id>"
+      });
       expect(parsedBoot.recent_changes.map((record) => record.id)).toContain(parsedWrite.record.id);
       expect(parsedBoot.records_by_id[parsedWrite.record.id]).toEqual(
         parsedBoot.recent_changes.find((record) => record.id === parsedWrite.record.id)

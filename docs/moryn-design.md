@@ -465,6 +465,12 @@ Output:
   "skills": [],
   "task_relevant": [],
   "recent_changes": [],
+  "selection_sources": {
+    "record": "records_by_id.<record_id>",
+    "record_id": "records_by_id.<record_id>.id",
+    "important_decision": "project.important_decisions_by_id.<record_id>",
+    "warning": "project.warnings_by_id.<record_id>"
+  },
   "records_by_id": {
     "rec_...": {}
   },
@@ -478,7 +484,9 @@ Output:
 `records_by_id` mirrors only the record objects returned in this boot response
 across profile, project, skills, `task_relevant`, and `recent_changes`. It is a
 convenience map for dereferencing a known boot record id, not a full-store
-index. The `project` object also exposes `important_decisions_by_id` and
+index. `selection_sources` names the keyed boot record, record-id, important
+decision, and warning paths explicitly. The `project` object also exposes
+`important_decisions_by_id` and
 `warnings_by_id`, keyed by record id, as local mirrors of the corresponding
 project arrays so agents can inspect a known project decision or blocker
 without scanning `project.important_decisions[]` or `project.warnings[]`.

@@ -1924,6 +1924,12 @@ describe("core engine", () => {
 
       const boot = await engine.boot({ project_id: "moryn" });
 
+      expect(boot.selection_sources).toEqual({
+        record: "records_by_id.<record_id>",
+        record_id: "records_by_id.<record_id>.id",
+        important_decision: "project.important_decisions_by_id.<record_id>",
+        warning: "project.warnings_by_id.<record_id>"
+      });
       expect(boot.profile.soul.map((record) => record.content.text)).toEqual(["Prefer concise engineering updates."]);
       expect(boot.project.important_decisions.map((record) => record.content.text)).toEqual(["Use append-only events."]);
       expect(boot.project.warnings.map((record) => record.content.text)).toEqual(["Do not include secrets in memory."]);
