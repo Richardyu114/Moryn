@@ -541,6 +541,11 @@ Output:
         "recent_warning"
       ]
     }
+  },
+  "selection_sources": {
+    "result": "results_by_id.<record_id>",
+    "record": "results_by_id.<record_id>.record",
+    "record_id": "results_by_id.<record_id>.record.id"
   }
 }
 ```
@@ -555,7 +560,8 @@ Archived and quarantined records are excluded by default. To inspect them,
 query by explicit record id with a matching state filter.
 `results[]` is the ranked display list, while `results_by_id` mirrors the
 returned records by `record.id` so hosts can consume a known result without
-array scanning.
+array scanning. `selection_sources` names the keyed result, record, and
+record-id paths explicitly.
 
 ### `write`
 

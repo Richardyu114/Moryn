@@ -86,6 +86,12 @@ const LIST_RECENT_SELECTION_SOURCES = {
   record_id: "records_by_id.<record_id>.id"
 };
 
+const RECALL_SELECTION_SOURCES = {
+  result: "results_by_id.<record_id>",
+  record: "results_by_id.<record_id>.record",
+  record_id: "results_by_id.<record_id>.record.id"
+};
+
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
   return {
     ...("required_fields" in action && Array.isArray(action.required_fields)
@@ -1118,6 +1124,7 @@ export function createEngine(deps: EngineDeps) {
         .slice(0, limit);
       return {
         results: records,
+        selection_sources: RECALL_SELECTION_SOURCES,
         results_by_id: Object.fromEntries(records.map((result) => [result.record.id, result]))
       };
     },

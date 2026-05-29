@@ -1565,6 +1565,11 @@ describe("core engine", () => {
       expect(recall.results[0]?.reason).toContain("record_id_match");
       expect(recall.results[0]?.reason).toContain("tag_match:auth");
       expect(recall.results[0]?.reason).toContain("file_match:src/auth.ts");
+      expect(recall.selection_sources).toEqual({
+        result: "results_by_id.<record_id>",
+        record: "results_by_id.<record_id>.record",
+        record_id: "results_by_id.<record_id>.record.id"
+      });
       expect(recall.results_by_id[decision.record.id]).toEqual(recall.results[0]);
     });
   });

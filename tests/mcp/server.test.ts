@@ -1023,10 +1023,16 @@ describe("MCP stdio server", () => {
         })) as {
           results: Array<{ record: { id: string; content: { text: string } } }>;
           results_by_id: Record<string, { record: { id: string; content: { text: string } } }>;
+          selection_sources: Record<string, string>;
         };
 
         expect(recallResult.results[0]?.record.id).toBe(writeResult.record.id);
         expect(recallResult.results[0]?.record.content.text).toBe("Use real MCP tools.");
+        expect(recallResult.selection_sources).toEqual({
+          result: "results_by_id.<record_id>",
+          record: "results_by_id.<record_id>.record",
+          record_id: "results_by_id.<record_id>.record.id"
+        });
         expect(recallResult.results_by_id[writeResult.record.id]).toEqual(recallResult.results[0]);
 
         const bootResult = parseTextContent(await client.callTool({
