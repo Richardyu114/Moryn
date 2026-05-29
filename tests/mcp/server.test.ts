@@ -1326,11 +1326,19 @@ describe("MCP stdio server", () => {
               writes_local_config: boolean;
               reasons: string[];
             };
+            next_interfaces: {
+              cli: { command: string };
+              mcp: { tool: string; arguments: Record<string, unknown> };
+            };
             next_arguments: Record<string, unknown>;
           };
           next: {
             tool: string;
             command: string;
+            interfaces: {
+              cli: { command: string };
+              mcp: { tool: string; arguments: Record<string, unknown> };
+            };
             actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
             arguments: {
               project_path?: string;
@@ -1361,6 +1369,7 @@ describe("MCP stdio server", () => {
             writes_local_config: false,
             reasons: ["safe_read_or_status_check"]
           },
+          next_interfaces: doctor.next.interfaces,
           next_arguments: {
             project_path: project,
             sync_remote: remote,
@@ -1420,6 +1429,7 @@ describe("MCP stdio server", () => {
             next_command: string;
             next_required_when: string;
             next_safety: Record<string, unknown>;
+            next_interfaces: Record<string, unknown>;
           };
           next: {
             recommended_action: string;
@@ -1430,6 +1440,7 @@ describe("MCP stdio server", () => {
             required_fields: string[];
             workflow: Record<string, unknown>;
             arguments: Record<string, unknown>;
+            interfaces: Record<string, unknown>;
             safety?: {
               safe_to_auto_run?: boolean;
               requires_user_confirmation?: boolean;
@@ -1487,6 +1498,7 @@ describe("MCP stdio server", () => {
           next_required_when: INSPECT_SYNC_CONFLICT_WHEN,
           next_required_fields: [],
           next_safety: doctor.next.safety,
+          next_interfaces: doctor.next.interfaces,
           next_arguments: {}
         });
 

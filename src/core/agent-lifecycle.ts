@@ -674,8 +674,20 @@ function doctorReadiness(
     required_fields?: string[];
     safety?: ActionSafety;
     arguments?: Record<string, unknown>;
+    interfaces?: ActionInterfaces<Record<string, unknown>>;
   }
 ) {
+  const nextArguments = next.arguments ?? {};
+  const nextInterfaces = next.interfaces ?? {
+    cli: {
+      command: next.command
+    },
+    mcp: {
+      tool: next.tool,
+      arguments: nextArguments
+    }
+  };
+
   return {
     safe_to_start: next.tool === "agent_start",
     blocking_checks: checks
@@ -688,7 +700,8 @@ function doctorReadiness(
     next_required_when: next.required_when,
     next_required_fields: next.required_fields ?? [],
     next_safety: next.safety,
-    next_arguments: next.arguments ?? {}
+    next_interfaces: nextInterfaces,
+    next_arguments: nextArguments
   };
 }
 

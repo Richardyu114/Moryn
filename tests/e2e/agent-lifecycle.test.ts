@@ -507,6 +507,7 @@ describe("agent lifecycle", () => {
           writes_local_config: false,
           reasons: ["safe_read_or_status_check"]
         },
+        next_interfaces: doctor.next.interfaces,
         next_arguments: {
           project_path: project,
           sync_remote: remote,
@@ -642,6 +643,7 @@ describe("agent lifecycle", () => {
         next_required_when: "Before retrying lifecycle writes or sync operations after a Git conflict.",
         next_required_fields: [],
         next_safety: doctor.next.safety,
+        next_interfaces: doctor.next.interfaces,
         next_arguments: {}
       });
 
@@ -732,6 +734,7 @@ describe("agent lifecycle", () => {
         next_required_when: "When the shared store has projects but this agent has no explicit project context.",
         next_required_fields: [],
         next_safety: doctor.next.safety,
+        next_interfaces: doctor.next.interfaces,
         next_arguments: {}
       });
       expect(doctor.next.actions).toContainEqual(expect.objectContaining({
