@@ -79,6 +79,8 @@ Deliverables:
 - Done: Ranking reasons are explicit and stable.
 - Done: Boot separates profile, project decisions, warnings, skills, recent changes,
   and sync status.
+- Done: Boot responses expose `records_by_id`, so agents can dereference
+  returned boot records without scanning nested arrays.
 - Done: `moryn refresh` reports changes since a cursor as `silent`, `notice`, or
   `interrupt`.
 - Done: Reportable non-raw refresh changes now include safe `recall`

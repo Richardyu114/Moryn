@@ -980,10 +980,16 @@ describe("moryn CLI", () => {
       const parsedWrite = JSON.parse(write.stdout) as { record: { id: string; confidence: number } };
 
       const boot = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "boot", "--project-id", "moryn"]);
-      const parsedBoot = JSON.parse(boot.stdout) as { recent_changes: Array<{ id: string }> };
+      const parsedBoot = JSON.parse(boot.stdout) as {
+        recent_changes: Array<{ id: string }>;
+        records_by_id: Record<string, { id: string }>;
+      };
 
       expect(parsedWrite.record.confidence).toBe(0.9);
       expect(parsedBoot.recent_changes.map((record) => record.id)).toContain(parsedWrite.record.id);
+      expect(parsedBoot.records_by_id[parsedWrite.record.id]).toEqual(
+        parsedBoot.recent_changes.find((record) => record.id === parsedWrite.record.id)
+      );
     });
   });
 

@@ -1792,7 +1792,7 @@ describe("core engine", () => {
       ];
       const engine = createEngine({ storePath, now: () => timestamps[nextTime++] ?? "2026-05-27T00:09:00.000Z", id: (prefix) => `${prefix}_${++nextId}` });
 
-      await engine.write({
+      const soul = await engine.write({
         kind: "soul",
         type: "preference",
         scope: "global",
@@ -1800,7 +1800,7 @@ describe("core engine", () => {
         state: "canonical",
         source: { client: "user" }
       });
-      await engine.write({
+      const decision = await engine.write({
         kind: "memory",
         type: "decision",
         scope: "project",
@@ -1810,7 +1810,7 @@ describe("core engine", () => {
         priority: "high",
         source: { client: "test" }
       });
-      await engine.write({
+      const warning = await engine.write({
         kind: "memory",
         type: "warning",
         scope: "project",
@@ -1820,7 +1820,7 @@ describe("core engine", () => {
         priority: "high",
         source: { client: "test" }
       });
-      await engine.write({
+      const skill = await engine.write({
         kind: "skill",
         type: "procedure",
         scope: "global",
@@ -1855,6 +1855,10 @@ describe("core engine", () => {
       expect(boot.skills.map((record) => record.content.text)).toEqual(["Run tests before committing."]);
       expect(boot.skills.map((record) => record.content.text)).not.toContain("Unrelated global skill.");
       expect(boot.recent_changes.map((record) => record.content.text)).not.toContain("Raw note should not boot.");
+      expect(boot.records_by_id[soul.record.id]).toEqual(boot.profile.soul[0]);
+      expect(boot.records_by_id[decision.record.id]).toEqual(boot.project.important_decisions[0]);
+      expect(boot.records_by_id[warning.record.id]).toEqual(boot.project.warnings[0]);
+      expect(boot.records_by_id[skill.record.id]).toEqual(boot.skills[0]);
       expect(boot.sync.cursor).toBe("2026-05-27T00:05:00.000Z");
     });
   });

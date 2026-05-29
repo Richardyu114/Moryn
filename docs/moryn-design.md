@@ -463,12 +463,20 @@ Output:
   "skills": [],
   "task_relevant": [],
   "recent_changes": [],
+  "records_by_id": {
+    "rec_...": {}
+  },
   "sync": {
     "cursor": "cur_...",
     "remote_has_updates": false
   }
 }
 ```
+
+`records_by_id` mirrors only the record objects returned in this boot response
+across profile, project, skills, `task_relevant`, and `recent_changes`. It is a
+convenience map for dereferencing a known boot record id, not a full-store
+index.
 
 CLI:
 

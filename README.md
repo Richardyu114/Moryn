@@ -640,7 +640,11 @@ agent_start(project_path, current_task, agent)
 This pulls remote events when sync is configured, resolves the project identity,
 returns a small boot context package, and reports recent changes as notices or
 interrupts. Agents should prefer `agent_start` over manually composing
-`sync_pull`, `boot`, and `refresh`. Read `agent_start.handoff.active_sessions`
+`sync_pull`, `boot`, and `refresh`. Boot responses include `records_by_id`,
+which mirrors the record objects returned in profile, project, skills,
+task-relevant, and recent-change sections so agents can dereference a known
+boot record id without scanning nested arrays. Read
+`agent_start.handoff.active_sessions`
 before starting overlapping work, and read `agent_start.handoff.inbox` before
 continuing from another agent's final handoff; follow `agent_start.handoff.next_action`
 for the first prioritized recall action or a specific handoff entry's

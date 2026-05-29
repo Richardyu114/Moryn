@@ -843,6 +843,17 @@ describe("MCP stdio server", () => {
         expect(recallResult.results[0]?.record.content.text).toBe("Use real MCP tools.");
         expect(recallResult.results_by_id[writeResult.record.id]).toEqual(recallResult.results[0]);
 
+        const bootResult = parseTextContent(await client.callTool({
+          name: "boot",
+          arguments: { project_id: "moryn" }
+        })) as {
+          project: { important_decisions: Array<{ id: string; content: { text: string } }> };
+          records_by_id: Record<string, { id: string; content: { text: string } }>;
+        };
+
+        expect(bootResult.project.important_decisions[0]?.id).toBe(writeResult.record.id);
+        expect(bootResult.records_by_id[writeResult.record.id]).toEqual(bootResult.project.important_decisions[0]);
+
         parseTextContent(await client.callTool({
           name: "revise",
           arguments: {

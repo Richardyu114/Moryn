@@ -524,6 +524,10 @@ function boundedBootRecords(records: MorynRecord[], limit = 5): MorynRecord[] {
     .slice(0, limit);
 }
 
+function recordsById(records: MorynRecord[]): Record<string, MorynRecord> {
+  return Object.fromEntries(records.map((record) => [record.id, record]));
+}
+
 function recallTypePriority(type: string): { score: number; reason: string } | undefined {
   const normalized = type.toLowerCase();
   if (normalized === "blocker" || normalized === "warning" || normalized === "conflict") return { score: 4, reason: `type_priority:${normalized}` };
@@ -1089,24 +1093,41 @@ export function createEngine(deps: EngineDeps) {
           .filter((record) => record.kind === "memory" && record.scope === "project")
           .filter((record) => matchesCurrentTask(record, input.current_task)))
         : [];
+      const userPreferences = boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "preference"));
+      const soul = boundedBootRecords(records.filter((record) => record.kind === "soul"));
+      const globalRules = boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule"));
+      const importantDecisions = boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "decision"));
+      const warnings = boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker"));
+      const skills = boundedBootRecords(bootSkills(records, input));
+      const recentChanges = recent.filter((record) => record.kind !== "soul").slice(0, 5);
       const cursor = [...visibleRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at ?? new Date().toISOString();
       const remoteUpdates = await remoteHasUpdates();
       return {
         profile: {
-          user_preferences: boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "preference")),
-          soul: boundedBootRecords(records.filter((record) => record.kind === "soul")),
-          global_rules: boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule"))
+          user_preferences: userPreferences,
+          soul,
+          global_rules: globalRules
         },
         project: {
           summary: projectSummary(projectMemoryRecords),
           tech_stack: boundedBootTexts(projectMemoryRecords.filter((record) => record.type === "tech_stack")),
           active_goals: boundedBootTexts(projectMemoryRecords.filter((record) => record.type === "active_goal" || record.type === "goal")),
-          important_decisions: boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "decision")),
-          warnings: boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker"))
+          important_decisions: importantDecisions,
+          warnings
         },
-        skills: boundedBootRecords(bootSkills(records, input)),
+        skills,
         task_relevant: taskRelevant,
-        recent_changes: recent.filter((record) => record.kind !== "soul").slice(0, 5),
+        recent_changes: recentChanges,
+        records_by_id: recordsById([
+          ...userPreferences,
+          ...soul,
+          ...globalRules,
+          ...importantDecisions,
+          ...warnings,
+          ...skills,
+          ...taskRelevant,
+          ...recentChanges
+        ]),
         sync: { cursor, remote_has_updates: remoteUpdates }
       };
     },
