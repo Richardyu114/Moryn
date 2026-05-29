@@ -14,6 +14,13 @@ const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent ha
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 
+function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
+  return {
+    ...workflow,
+    phases_by_name: Object.fromEntries(workflow.phases.map((phase) => [phase.phase, phase]))
+  };
+}
+
 function singleNextWorkflow(input: {
   recommendedAction: string;
   tool: string;
@@ -74,7 +81,7 @@ function expectRecoveryWorkflow(action: {
 }) {
   expect(action.required_when).toEqual(expect.any(String));
   expect(action.required_when).not.toHaveLength(0);
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["error.next_action", "warning.next_action"],
@@ -88,7 +95,7 @@ function expectRecoveryWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectCandidatePromoteWorkflow(action: {
@@ -108,7 +115,7 @@ function expectCandidatePromoteWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["error.next_action", "warning.next_action", "write.record.id"],
@@ -123,7 +130,7 @@ function expectCandidatePromoteWorkflow(action: {
         replace_arguments: { record_id: "write.record.id" }
       }
     ]
-  });
+  }));
 }
 
 function expectLifecycleWorkflow(action: {
@@ -145,7 +152,7 @@ function expectLifecycleWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "lifecycle_by_step",
     continue_from: ["lifecycle_by_step", "lifecycle"],
@@ -159,7 +166,7 @@ function expectLifecycleWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectGuideEntrypointWorkflow(action: {
@@ -180,7 +187,7 @@ function expectGuideEntrypointWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "startup",
     continue_from: ["startup"],
@@ -194,7 +201,7 @@ function expectGuideEntrypointWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectGuideNextWorkflow(action: {
@@ -215,7 +222,7 @@ function expectGuideNextWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next",
     continue_from: ["next"],
@@ -229,7 +236,7 @@ function expectGuideNextWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectProjectListNextWorkflow(action: {
@@ -251,7 +258,7 @@ function expectProjectListNextWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next",
     continue_from: ["project_list.projects_by_id.<project_id>.next", "project_list.projects[].next"],
@@ -265,7 +272,7 @@ function expectProjectListNextWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectActionSafety(action: {
@@ -337,7 +344,7 @@ function expectRefreshChangeNextAction(action: {
   expectActionInterfaces(action);
   expectActionSafety(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
@@ -351,7 +358,7 @@ function expectRefreshChangeNextAction(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectHandoffEntryNextAction(action: {
@@ -405,7 +412,7 @@ function expectHandoffEntryNextAction(action: {
   expectActionInterfaces(action);
   expectActionSafety(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: [
@@ -424,7 +431,7 @@ function expectHandoffEntryNextAction(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
@@ -574,6 +581,14 @@ describe("moryn CLI", () => {
           start: string;
           continue_from: string[];
           phases: Array<{
+            phase: string;
+            order: number;
+            action_source: string;
+            tool?: string;
+            required_when: string;
+            required_fields: string[];
+          }>;
+          phases_by_name: Record<string, {
             phase: string;
             order: number;
             action_source: string;
@@ -764,6 +779,8 @@ describe("moryn CLI", () => {
           required_fields: ["refresh_since"]
         }
       ]);
+      expect(parsed.workflow.phases_by_name.publish_status).toEqual(parsed.workflow.phases.find((phase) => phase.phase === "publish_status"));
+      expect(parsed.workflow.phases_by_name.finish_handoff).toEqual(parsed.workflow.phases.find((phase) => phase.phase === "finish_handoff"));
       expect(parsed.next).toMatchObject({
         recommended_action: "call_agent_enter",
         tool: "agent_enter",
@@ -2328,7 +2345,7 @@ describe("moryn CLI", () => {
         expectActionInterfaces(action);
       }
       expect(parsedFinish.next.actions_by_id.start_next_session).toEqual(parsedFinish.next.actions.find((action) => action.action === "start_next_session"));
-      expect(parsedFinish.next.workflow).toEqual({
+      expect(parsedFinish.next.workflow).toEqual(withPhasesByName({
         version: 1,
         start: "next.actions_by_id",
         continue_from: ["next.actions_by_id", "next.actions"],
@@ -2342,7 +2359,7 @@ describe("moryn CLI", () => {
             required_fields: ["current_task"]
           }
         ]
-      });
+      }));
 
       const start = await exec("node", [
         "--import", tsxLoader, cliPath, "--store", storeB,
@@ -2424,7 +2441,7 @@ describe("moryn CLI", () => {
       expect(parsedStart.next.actions_by_id.publish_status).toEqual(parsedStart.next.actions.find((action) => action.action === "publish_status"));
       expect(parsedStart.next.actions_by_id.finish_session).toEqual(parsedStart.next.actions.find((action) => action.action === "finish_session"));
       expect(parsedStart.next.actions_by_id.refresh_context).toEqual(parsedStart.next.actions.find((action) => action.action === "refresh_context"));
-      expect(parsedStart.next.workflow).toEqual({
+      expect(parsedStart.next.workflow).toEqual(withPhasesByName({
         version: 1,
         start: "context",
         continue_from: ["boot", "refresh", "handoff", "next.actions_by_id", "next.actions"],
@@ -2461,7 +2478,7 @@ describe("moryn CLI", () => {
             required_fields: []
           }
         ]
-      });
+      }));
     });
   }, 30000);
 
@@ -2617,7 +2634,7 @@ describe("moryn CLI", () => {
       }));
       expect(parsedStatus.next.actions_by_id.finish_session).toEqual(parsedStatus.next.actions.find((action) => action.action === "finish_session"));
       expect(parsedStatus.next.actions_by_id.refresh_context).toEqual(parsedStatus.next.actions.find((action) => action.action === "refresh_context"));
-      expect(parsedStatus.next.workflow).toEqual({
+      expect(parsedStatus.next.workflow).toEqual(withPhasesByName({
         version: 1,
         start: "next.actions_by_id",
         continue_from: ["record", "next.actions_by_id", "next.actions"],
@@ -2639,7 +2656,7 @@ describe("moryn CLI", () => {
             required_fields: []
           }
         ]
-      });
+      }));
 
       const start = await exec("node", [
         "--import", tsxLoader, cliPath, "--store", storeB,
@@ -3252,7 +3269,7 @@ describe("moryn CLI", () => {
         recommended_action: "choose_project_and_call_agent_start",
         tool: "agent_start"
       });
-      expect(parsed.next.workflow).toEqual({
+      expect(parsed.next.workflow).toEqual(withPhasesByName({
         version: 1,
         start: "projects",
         continue_from: [
@@ -3287,7 +3304,7 @@ describe("moryn CLI", () => {
             required_fields: []
           }
         ]
-      });
+      }));
       expect(parsed.next.actions_by_project_id.moryn).toEqual(parsed.next.actions[0]);
       expect(parsed.projects.projects[0]?.project_id).toBe("moryn");
       expect(parsed.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find project' --agent gemini --session-id gemini-cli-enter");
@@ -3346,7 +3363,7 @@ describe("moryn CLI", () => {
       expect(parsed.next.actions_by_id.publish_status).toEqual(parsed.next.actions.find((action) => action.action === "publish_status"));
       expect(parsed.next.actions_by_id.finish_session).toEqual(parsed.next.actions.find((action) => action.action === "finish_session"));
       expect(parsed.next.actions_by_id.refresh_context).toEqual(parsed.next.actions.find((action) => action.action === "refresh_context"));
-      expect(parsed.next.workflow).toEqual({
+      expect(parsed.next.workflow).toEqual(withPhasesByName({
         version: 1,
         start: "start",
         continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions_by_id", "next.actions"],
@@ -3383,7 +3400,7 @@ describe("moryn CLI", () => {
             required_fields: []
           }
         ]
-      });
+      }));
     });
   });
 

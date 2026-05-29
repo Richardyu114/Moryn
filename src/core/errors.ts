@@ -1,4 +1,5 @@
 import { actionSafety, type ActionSafety } from "./action-safety.js";
+import { withPhasesByName } from "./workflow.js";
 
 export interface MorynErrorEnvelope {
   ok: false;
@@ -43,6 +44,7 @@ interface NextActionWorkflow {
   start: "next_action";
   continue_from: string[];
   phases: NextActionWorkflowPhase[];
+  phases_by_name: Record<string, NextActionWorkflowPhase>;
 }
 
 interface NextActionWorkflowPhase {
@@ -124,7 +126,7 @@ export function withNextActionMetadata<T extends {
       }
     },
     safety: actionSafety(action),
-    workflow: {
+    workflow: withPhasesByName({
       version: 1,
       start: "next_action",
       continue_from: ["error.next_action", "warning.next_action"],
@@ -138,7 +140,7 @@ export function withNextActionMetadata<T extends {
           required_fields: action.required_fields
         }
       ]
-    }
+    })
   };
 }
 
@@ -388,7 +390,7 @@ function withProjectSelectionWorkflow(
 ): MorynErrorNextAction {
   return {
     ...action,
-    workflow: {
+    workflow: withPhasesByName({
       version: 1,
       start: "next_action",
       continue_from: [
@@ -401,7 +403,7 @@ function withProjectSelectionWorkflow(
         action.workflow.phases[0]!,
         projectIdRetryPhase(context, rejectedProjectId)
       ]
-    }
+    })
   };
 }
 
@@ -661,7 +663,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         });
         return {
           ...action,
-          workflow: {
+          workflow: withPhasesByName({
             version: 1,
             start: "next_action",
             continue_from: [
@@ -674,7 +676,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
               action.workflow.phases[0]!,
               missingRecordRetryPhase(context, recordId)
             ]
-          }
+          })
         };
       }
     case "INVALID_ARGUMENT":

@@ -434,7 +434,11 @@ includes a single-step `workflow`, so a host can execute
 top-level decision track. Top-level `workflow.phases[]` tells hosts the order
 and action source:
 call `startup`, then prefer `agent_enter.next.actions`, then use static
-lifecycle templates only for status, finish, or refresh. `guardrails[]` gives
+lifecycle templates only for status, finish, or refresh. Every workflow also
+mirrors `phases[]` in `phases_by_name`, so hosts can read
+`workflow.phases_by_name.publish_status` or
+`next.workflow.phases_by_name.refresh_context` directly instead of scanning the
+ordered phase list. `guardrails[]` gives
 agent hosts stable ids, risks, forbidden behaviors, required behaviors, and
 replacement actions for common mistakes such as manually composing startup,
 guessing project ids, or reconstructing lifecycle commands from memory; the
@@ -459,7 +463,8 @@ Direct `agent start`, `agent status`, and `agent finish` responses also include
 `next.workflow`, derived from the returned action templates, so agents can follow
 the same ordered action contract from any lifecycle entrypoint. Workflow phases
 prefer `next.actions_by_id.<action>` as the stable source and retain
-`next.actions` as an ordered compatibility list.
+`next.actions` as an ordered compatibility list; `next.workflow.phases_by_name`
+mirrors those phases by name for direct lookup.
 Setup and diagnosis `next` actions from `agent doctor` and `agent enter`
 include the same top-level `required_when`, `required_fields`, and
 single-step `next.workflow` metadata, so hosts can distinguish safe read-only

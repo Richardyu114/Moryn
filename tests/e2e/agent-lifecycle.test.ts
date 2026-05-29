@@ -12,6 +12,13 @@ import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.
 
 const exec = promisify(execFile);
 
+function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
+  return {
+    ...workflow,
+    phases_by_name: Object.fromEntries(workflow.phases.map((phase) => [phase.phase, phase]))
+  };
+}
+
 async function eventFiles(storePath: string): Promise<string[]> {
   async function walk(dir: string, prefix = ""): Promise<string[]> {
     const entries = await readdir(dir, { withFileTypes: true }).catch((error) => {
@@ -72,7 +79,7 @@ function expectLifecycleWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "lifecycle_by_step",
     continue_from: ["lifecycle_by_step", "lifecycle"],
@@ -86,7 +93,7 @@ function expectLifecycleWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectRefreshChangeNextAction(action: {
@@ -123,7 +130,7 @@ function expectRefreshChangeNextAction(action: {
       project_id: projectId
     }
   });
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
@@ -137,7 +144,7 @@ function expectRefreshChangeNextAction(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectHandoffEntryNextAction(action: {
@@ -205,7 +212,7 @@ function expectHandoffEntryNextAction(action: {
       reasons: ["safe_read_or_status_check"]
     }
   });
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: [
@@ -224,7 +231,7 @@ function expectHandoffEntryNextAction(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 describe("agent lifecycle", () => {

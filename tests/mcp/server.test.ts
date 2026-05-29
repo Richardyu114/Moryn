@@ -17,6 +17,13 @@ const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent ha
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 
+function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
+  return {
+    ...workflow,
+    phases_by_name: Object.fromEntries(workflow.phases.map((phase) => [phase.phase, phase]))
+  };
+}
+
 function singleNextWorkflow(input: {
   recommendedAction: string;
   tool: string;
@@ -77,7 +84,7 @@ function expectRecoveryWorkflow(action: {
 }) {
   expect(action.required_when).toEqual(expect.any(String));
   expect(action.required_when).not.toHaveLength(0);
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["error.next_action", "warning.next_action"],
@@ -91,7 +98,7 @@ function expectRecoveryWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectCandidatePromoteWorkflow(action: {
@@ -111,7 +118,7 @@ function expectCandidatePromoteWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["error.next_action", "warning.next_action", "write.record.id"],
@@ -126,7 +133,7 @@ function expectCandidatePromoteWorkflow(action: {
         replace_arguments: { record_id: "write.record.id" }
       }
     ]
-  });
+  }));
 }
 
 function expectLifecycleWorkflow(action: {
@@ -148,7 +155,7 @@ function expectLifecycleWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "lifecycle_by_step",
     continue_from: ["lifecycle_by_step", "lifecycle"],
@@ -162,7 +169,7 @@ function expectLifecycleWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectGuideEntrypointWorkflow(action: {
@@ -183,7 +190,7 @@ function expectGuideEntrypointWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "startup",
     continue_from: ["startup"],
@@ -197,7 +204,7 @@ function expectGuideEntrypointWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectGuideNextWorkflow(action: {
@@ -218,7 +225,7 @@ function expectGuideNextWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next",
     continue_from: ["next"],
@@ -232,7 +239,7 @@ function expectGuideNextWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectProjectListNextWorkflow(action: {
@@ -254,7 +261,7 @@ function expectProjectListNextWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next",
     continue_from: ["project_list.projects_by_id.<project_id>.next", "project_list.projects[].next"],
@@ -268,7 +275,7 @@ function expectProjectListNextWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectActionSafety(action: {
@@ -340,7 +347,7 @@ function expectRefreshChangeNextAction(action: {
   expectActionInterfaces(action);
   expectActionSafety(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
@@ -354,7 +361,7 @@ function expectRefreshChangeNextAction(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectHandoffEntryNextAction(action: {
@@ -408,7 +415,7 @@ function expectHandoffEntryNextAction(action: {
   expectActionInterfaces(action);
   expectActionSafety(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: [
@@ -427,7 +434,7 @@ function expectHandoffEntryNextAction(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promise<T>, cwd = repoRoot): Promise<T> {
@@ -606,6 +613,14 @@ describe("MCP stdio server", () => {
               required_when: string;
               required_fields: string[];
             }>;
+            phases_by_name: Record<string, {
+              phase: string;
+              order: number;
+              action_source: string;
+              tool?: string;
+              required_when: string;
+              required_fields: string[];
+            }>;
           };
           next: {
             recommended_action: string;
@@ -767,6 +782,8 @@ describe("MCP stdio server", () => {
             required_fields: ["refresh_since"]
           }
         ]);
+        expect(guide.workflow.phases_by_name.publish_status).toEqual(guide.workflow.phases.find((phase) => phase.phase === "publish_status"));
+        expect(guide.workflow.phases_by_name.finish_handoff).toEqual(guide.workflow.phases.find((phase) => phase.phase === "finish_handoff"));
         expect(guide.next).toMatchObject({
           recommended_action: "call_agent_enter",
           tool: "agent_enter",
@@ -1434,7 +1451,7 @@ describe("MCP stdio server", () => {
             })
           }));
           expect(finish.next.actions_by_id.start_next_session).toEqual(finish.next.actions.find((action) => action.action === "start_next_session"));
-          expect(finish.next.workflow).toEqual({
+          expect(finish.next.workflow).toEqual(withPhasesByName({
             version: 1,
             start: "next.actions_by_id",
             continue_from: ["next.actions_by_id", "next.actions"],
@@ -1448,7 +1465,7 @@ describe("MCP stdio server", () => {
                 required_fields: ["current_task"]
               }
             ]
-          });
+          }));
 
           const start = parseTextContent(await agentB.callTool({
             name: "agent_start",
@@ -1555,7 +1572,7 @@ describe("MCP stdio server", () => {
               current_task: "continue lifecycle handoff"
             })
           }));
-          expect(start.next.workflow).toEqual({
+          expect(start.next.workflow).toEqual(withPhasesByName({
             version: 1,
             start: "context",
             continue_from: ["boot", "refresh", "handoff", "next.actions_by_id", "next.actions"],
@@ -1592,7 +1609,7 @@ describe("MCP stdio server", () => {
                 required_fields: []
               }
             ]
-          });
+          }));
         });
       });
     } finally {
@@ -1759,7 +1776,7 @@ describe("MCP stdio server", () => {
           }));
           expect(status.next.actions_by_id.finish_session).toEqual(status.next.actions.find((action) => action.action === "finish_session"));
           expect(status.next.actions_by_id.refresh_context).toEqual(status.next.actions.find((action) => action.action === "refresh_context"));
-          expect(status.next.workflow).toEqual({
+          expect(status.next.workflow).toEqual(withPhasesByName({
             version: 1,
             start: "next.actions_by_id",
             continue_from: ["record", "next.actions_by_id", "next.actions"],
@@ -1781,7 +1798,7 @@ describe("MCP stdio server", () => {
                 required_fields: []
               }
             ]
-          });
+          }));
 
           const start = parseTextContent(await agentB.callTool({
             name: "agent_start",
@@ -2367,7 +2384,7 @@ describe("MCP stdio server", () => {
           recommended_action: "choose_project_and_call_agent_start",
           tool: "agent_start"
         });
-        expect(entered.next.workflow).toEqual({
+        expect(entered.next.workflow).toEqual(withPhasesByName({
           version: 1,
           start: "projects",
           continue_from: [
@@ -2402,7 +2419,7 @@ describe("MCP stdio server", () => {
               required_fields: []
             }
           ]
-        });
+        }));
         expect(entered.next.actions_by_project_id.moryn).toEqual(entered.next.actions[0]);
         expect(entered.projects.projects[0]?.project_id).toBe("moryn");
         expect(entered.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter");
@@ -2458,7 +2475,7 @@ describe("MCP stdio server", () => {
         expect(entered.next.actions_by_id.publish_status).toEqual(entered.next.actions.find((action) => action.action === "publish_status"));
         expect(entered.next.actions_by_id.finish_session).toEqual(entered.next.actions.find((action) => action.action === "finish_session"));
         expect(entered.next.actions_by_id.refresh_context).toEqual(entered.next.actions.find((action) => action.action === "refresh_context"));
-        expect(entered.next.workflow).toEqual({
+        expect(entered.next.workflow).toEqual(withPhasesByName({
           version: 1,
           start: "start",
           continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions_by_id", "next.actions"],
@@ -2495,7 +2512,7 @@ describe("MCP stdio server", () => {
               required_fields: []
             }
           ]
-        });
+        }));
       });
     } finally {
       await rm(root, { recursive: true, force: true });

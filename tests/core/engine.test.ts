@@ -4,6 +4,13 @@ import { toErrorEnvelope } from "../../src/core/errors.js";
 import { readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
+function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
+  return {
+    ...workflow,
+    phases_by_name: Object.fromEntries(workflow.phases.map((phase) => [phase.phase, phase]))
+  };
+}
+
 function expectNextActionInterfaces(action: {
   tool: string;
   command: string;
@@ -42,7 +49,7 @@ function expectNextActionWorkflow(action: {
 }) {
   expect(action.required_when).toEqual(expect.any(String));
   expect(action.required_when).not.toHaveLength(0);
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["error.next_action", "warning.next_action"],
@@ -56,7 +63,7 @@ function expectNextActionWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectCandidatePromoteWorkflow(action: {
@@ -76,7 +83,7 @@ function expectCandidatePromoteWorkflow(action: {
     }>;
   };
 }) {
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["error.next_action", "warning.next_action", "write.record.id"],
@@ -91,7 +98,7 @@ function expectCandidatePromoteWorkflow(action: {
         replace_arguments: { record_id: "write.record.id" }
       }
     ]
-  });
+  }));
 }
 
 function expectActionSafety(action: {
@@ -163,7 +170,7 @@ function expectRefreshChangeRecallAction(action: {
   expectNextActionInterfaces(action);
   expectActionSafety(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
@@ -177,7 +184,7 @@ function expectRefreshChangeRecallAction(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 describe("core engine", () => {
@@ -310,7 +317,17 @@ describe("core engine", () => {
             required_when: "After choosing this project from project_list results.",
             required_fields: []
           }
-        ]
+        ],
+        phases_by_name: {
+          call_agent_start: {
+            phase: "call_agent_start",
+            order: 1,
+            action_source: "project_list.projects_by_id.<project_id>.next",
+            tool: "agent_start",
+            required_when: "After choosing this project from project_list results.",
+            required_fields: []
+          }
+        }
       });
     });
   });

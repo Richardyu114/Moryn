@@ -8,6 +8,7 @@ import { commandForPromoteContext, PROMOTE_CANDIDATE_WHEN, withNextActionMetadat
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 import { actionSafety } from "./action-safety.js";
+import { withPhasesByName } from "./workflow.js";
 
 interface EngineDeps {
   storePath: string;
@@ -103,7 +104,7 @@ function withProjectListNextMetadata<T extends {
   return {
     ...withActionInterfaces(action),
     safety: actionSafety(action),
-    workflow: {
+    workflow: withPhasesByName({
       version: 1,
       start: "next",
       continue_from: ["project_list.projects_by_id.<project_id>.next", "project_list.projects[].next"],
@@ -117,7 +118,7 @@ function withProjectListNextMetadata<T extends {
           required_fields: action.required_fields
         }
       ]
-    }
+    })
   };
 }
 
@@ -135,7 +136,7 @@ function withRefreshChangeNextActionMetadata<T extends {
   return {
     ...withActionInterfaces(action),
     safety: actionSafety(action),
-    workflow: {
+    workflow: withPhasesByName({
       version: 1,
       start: "next_action",
       continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
@@ -149,7 +150,7 @@ function withRefreshChangeNextActionMetadata<T extends {
           required_fields: action.required_fields
         }
       ]
-    }
+    })
   };
 }
 
@@ -768,7 +769,7 @@ function promoteCandidateNextAction(recordId: string): MorynErrorNextAction {
   });
   return {
     ...action,
-    workflow: {
+    workflow: withPhasesByName({
       version: 1,
       start: "next_action",
       continue_from: ["error.next_action", "warning.next_action", WRITE_CANDIDATE_RECORD_ID_SOURCE],
@@ -780,7 +781,7 @@ function promoteCandidateNextAction(recordId: string): MorynErrorNextAction {
           replace_arguments: { record_id: WRITE_CANDIDATE_RECORD_ID_SOURCE }
         }
       ]
-    }
+    })
   };
 }
 

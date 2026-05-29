@@ -7,6 +7,7 @@ import type { MorynRecord, RecordSource } from "./types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
 import { actionSafety, type ActionSafety } from "./action-safety.js";
+import { withPhasesByName } from "./workflow.js";
 
 interface AgentIdentity {
   client: string;
@@ -810,7 +811,7 @@ function projectListNextActions() {
 }
 
 function lifecycleStepWorkflow(step: string, tool: string, requiredWhen: string, requiredFields: string[]) {
-  return {
+  return withPhasesByName({
     version: 1,
     start: "lifecycle_by_step",
     continue_from: ["lifecycle_by_step", "lifecycle"],
@@ -824,7 +825,7 @@ function lifecycleStepWorkflow(step: string, tool: string, requiredWhen: string,
         required_fields: requiredFields
       }
     ]
-  };
+  });
 }
 
 function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_enter") {
@@ -916,7 +917,7 @@ function lifecyclePhase(
 function agentGuideWorkflow(lifecycle: ReturnType<typeof agentGuideLifecycle>) {
   const start = lifecycle.find((item) => item.step === "start_or_resume");
   if (!start) throw new Error("Missing guide lifecycle step: start_or_resume");
-  return {
+  return withPhasesByName({
     version: 1,
     start: "startup",
     continue_from: ["agent_enter.next.actions", "lifecycle_by_step", "lifecycle"],
@@ -940,7 +941,7 @@ function agentGuideWorkflow(lifecycle: ReturnType<typeof agentGuideLifecycle>) {
       lifecyclePhase(lifecycle, "finish_handoff", 4),
       lifecyclePhase(lifecycle, "refresh_context", 5)
     ]
-  };
+  });
 }
 
 function runtimeActionPhase(
@@ -962,7 +963,7 @@ function runtimeActionPhase(
 }
 
 function startSessionWorkflow(actions: LifecycleActionTemplate[]) {
-  return {
+  return withPhasesByName({
     version: 1,
     start: "start",
     continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions_by_id", "next.actions"],
@@ -978,11 +979,11 @@ function startSessionWorkflow(actions: LifecycleActionTemplate[]) {
       runtimeActionPhase(actions, "finish_session", "finish_session", 3),
       runtimeActionPhase(actions, "refresh_context", "refresh_context", 4)
     ]
-  };
+  });
 }
 
 function directStartWorkflow(actions: LifecycleActionTemplate[]) {
-  return {
+  return withPhasesByName({
     version: 1,
     start: "context",
     continue_from: ["boot", "refresh", "handoff", "next.actions_by_id", "next.actions"],
@@ -998,11 +999,11 @@ function directStartWorkflow(actions: LifecycleActionTemplate[]) {
       runtimeActionPhase(actions, "finish_session", "finish_session", 3),
       runtimeActionPhase(actions, "refresh_context", "refresh_context", 4)
     ]
-  };
+  });
 }
 
 function directStatusWorkflow(actions: LifecycleActionTemplate[]) {
-  return {
+  return withPhasesByName({
     version: 1,
     start: "next.actions_by_id",
     continue_from: ["record", "next.actions_by_id", "next.actions"],
@@ -1010,18 +1011,18 @@ function directStatusWorkflow(actions: LifecycleActionTemplate[]) {
       runtimeActionPhase(actions, "finish_session", "finish_session", 1),
       runtimeActionPhase(actions, "refresh_context", "refresh_context", 2)
     ]
-  };
+  });
 }
 
 function directFinishWorkflow(actions: LifecycleActionTemplate[]) {
-  return {
+  return withPhasesByName({
     version: 1,
     start: "next.actions_by_id",
     continue_from: ["next.actions_by_id", "next.actions"],
     phases: [
       runtimeActionPhase(actions, "start_next_session", "start_next_session", 1)
     ]
-  };
+  });
 }
 
 function singleNextWorkflow(
@@ -1031,7 +1032,7 @@ function singleNextWorkflow(
   requiredFields: string[],
   actionSource = "next"
 ) {
-  return {
+  return withPhasesByName({
     version: 1,
     start: actionSource,
     continue_from: [actionSource],
@@ -1045,11 +1046,11 @@ function singleNextWorkflow(
         required_fields: requiredFields
       }
     ]
-  };
+  });
 }
 
 function discoverProjectsWorkflow() {
-  return {
+  return withPhasesByName({
     version: 1,
     start: "projects",
     continue_from: [
@@ -1084,7 +1085,7 @@ function discoverProjectsWorkflow() {
         required_fields: []
       }
     ]
-  };
+  });
 }
 
 async function hasKnownProjects(input: AgentLifecycleInput, storeInitialized: boolean): Promise<boolean> {
@@ -1137,7 +1138,7 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
   });
   return {
     ...action,
-    workflow: {
+    workflow: withPhasesByName({
       version: 1,
       start: "next_action",
       continue_from: [
@@ -1158,7 +1159,7 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
           required_fields: action.required_fields
         }
       ]
-    }
+    })
   };
 }
 

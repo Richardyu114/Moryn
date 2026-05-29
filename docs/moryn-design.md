@@ -834,7 +834,10 @@ by id so hosts can fetch known rules such as
 `guardrails[]`. It
 also returns `workflow`, a machine-readable ordering contract with `start`,
 valid `continue_from` sources, and ordered `phases[]` that name the action
-source, usage condition, and required fields. The `startup` object and
+source, usage condition, and required fields. Every workflow mirrors those
+ordered phases in `phases_by_name`, so hosts can fetch phases such as
+`publish_status`, `refresh_context`, or `retry_original_tool_with_selected_project_id`
+directly instead of scanning `phases[]`. The `startup` object and
 top-level `next` action are complete `agent_enter`
 templates with `safe_to_run`, `required_when`, `required_fields`, arguments,
 and single-step `workflow`, so hosts can execute the recommended entrypoint
@@ -888,7 +891,9 @@ action track and valid follow-up sources so hosts can continue from the live
 response without consulting static guide templates. Direct `agent_start`,
 `agent_status`, and `agent_finish` responses also include `next.workflow`,
 derived from their returned `next.actions`, so every lifecycle entrypoint
-carries its own follow-up contract.
+carries its own follow-up contract. `next.workflow.phases_by_name` mirrors the
+ordered phases by name while preserving `phases[]` for display and
+compatibility.
 Setup and recovery branches use the same shape: `agent_doctor.next` and
 `agent_enter` `needs_setup` responses include top-level `required_when`,
 `required_fields`, `safety`, and a single-step `next.workflow` for

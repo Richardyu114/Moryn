@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { toErrorEnvelope } from "../../src/core/errors.js";
 
+function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
+  return {
+    ...workflow,
+    phases_by_name: Object.fromEntries(workflow.phases.map((phase) => [phase.phase, phase]))
+  };
+}
+
 function expectNextActionInterfaces(action: {
   tool: string;
   command: string;
@@ -38,7 +45,7 @@ function expectNextActionWorkflow(action: {
 }) {
   expect(action.required_when).toEqual(expect.any(String));
   expect(action.required_when).not.toHaveLength(0);
-  expect(action.workflow).toEqual({
+  expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
     start: "next_action",
     continue_from: ["error.next_action", "warning.next_action"],
@@ -52,7 +59,7 @@ function expectNextActionWorkflow(action: {
         required_fields: action.required_fields
       }
     ]
-  });
+  }));
 }
 
 function expectNextActionSafety(action: {
@@ -353,7 +360,26 @@ describe("error envelopes", () => {
           required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
           required_fields: ["record_id"]
         }
-      ]
+      ],
+      phases_by_name: {
+        list_recent_records_and_retry_with_known_record_id: {
+          phase: "list_recent_records_and_retry_with_known_record_id",
+          order: 1,
+          action_source: "next_action",
+          tool: "list_recent",
+          required_when: "After a record id is rejected, before retrying with a replacement record id.",
+          required_fields: []
+        },
+        retry_original_tool_with_selected_record_id: {
+          phase: "retry_original_tool_with_selected_record_id",
+          order: 2,
+          action_source: "list_recent.records_by_id.<record_id>.id",
+          tool: "original_tool",
+          replace_arguments: { record_id: "list_recent.records_by_id.<record_id>.id" },
+          required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
+          required_fields: ["record_id"]
+        }
+      }
     });
   });
 
@@ -450,7 +476,7 @@ describe("error envelopes", () => {
       }
     });
     expectNextActionInterfaces(unknownProjectId.error.next_action!);
-    expect(unknownProjectId.error.next_action?.workflow).toEqual({
+    expect(unknownProjectId.error.next_action?.workflow).toEqual(withPhasesByName({
       version: 1,
       start: "next_action",
       continue_from: [
@@ -478,7 +504,7 @@ describe("error envelopes", () => {
           required_fields: ["project_id"]
         }
       ]
-    });
+    }));
 
     const unknownProjectIdWithContext = toErrorEnvelope(
       new Error("Project id is not known in this store: morym. Run project_list and choose one of: moryn."),
