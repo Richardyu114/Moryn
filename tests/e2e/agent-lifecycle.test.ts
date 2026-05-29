@@ -1018,6 +1018,19 @@ describe("agent lifecycle", () => {
           })
         ]
       });
+      expect(entered.next.actions_by_project_id.moryn).toEqual(entered.next.actions[0]);
+      expect(entered.next.workflow.continue_from).toEqual([
+        "next.actions_by_project_id",
+        "next.actions",
+        "next.actions_by_project_id.<project_id>.lifecycle",
+        "agent_start.next.actions_by_id",
+        "agent_start.next.actions"
+      ]);
+      expect(entered.next.workflow.phases.map((phase) => phase.action_source)).toEqual([
+        "projects.projects",
+        "next.actions_by_project_id.<project_id>",
+        "next.actions_by_project_id.<project_id>.lifecycle"
+      ]);
       for (const action of discoveredLifecycle) {
         expectLifecycleWorkflow(action);
       }
@@ -1083,6 +1096,7 @@ describe("agent lifecycle", () => {
         }
       });
       expect(entered.doctor.next).toMatchObject({ tool: "project_list" });
+      expect(entered.next.actions_by_project_id.moryn).toEqual(entered.next.actions[0]);
       expect(entered.projects.projects[0]).toMatchObject({
         project_id: "moryn",
         latest_activity: {

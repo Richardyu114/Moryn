@@ -2115,6 +2115,8 @@ describe("MCP stdio server", () => {
             actions: Array<{
               project_id: string;
               required_when?: string;
+              command?: string;
+              arguments?: Record<string, unknown>;
               lifecycle?: Array<{
                 step: string;
                 tool: string;
@@ -2123,6 +2125,12 @@ describe("MCP stdio server", () => {
                 required_fields: string[];
                 workflow?: Record<string, unknown>;
               }>;
+            }>;
+            actions_by_project_id: Record<string, {
+              project_id: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              lifecycle?: Array<{ step: string; tool: string; command: string; required_when: string; required_fields: string[]; workflow?: Record<string, unknown> }>;
             }>;
           };
         };
@@ -2135,7 +2143,13 @@ describe("MCP stdio server", () => {
         expect(entered.next.workflow).toEqual({
           version: 1,
           start: "projects",
-          continue_from: ["next.actions", "next.actions[].lifecycle", "agent_start.next.actions"],
+          continue_from: [
+            "next.actions_by_project_id",
+            "next.actions",
+            "next.actions_by_project_id.<project_id>.lifecycle",
+            "agent_start.next.actions_by_id",
+            "agent_start.next.actions"
+          ],
           phases: [
             {
               phase: "choose_project",
@@ -2147,7 +2161,7 @@ describe("MCP stdio server", () => {
             {
               phase: "start_session",
               order: 2,
-              action_source: "next.actions.start_session",
+              action_source: "next.actions_by_project_id.<project_id>",
               tool: "agent_start",
               required_when: "After choosing this project from discovery results.",
               required_fields: []
@@ -2155,12 +2169,13 @@ describe("MCP stdio server", () => {
             {
               phase: "continue_selected_project_lifecycle",
               order: 3,
-              action_source: "next.actions[].lifecycle",
+              action_source: "next.actions_by_project_id.<project_id>.lifecycle",
               required_when: "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
               required_fields: []
             }
           ]
         });
+        expect(entered.next.actions_by_project_id.moryn).toEqual(entered.next.actions[0]);
         expect(entered.projects.projects[0]?.project_id).toBe("moryn");
         expect(entered.projects.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter");
         expect(entered.next.actions[0]?.required_when).toBe("After choosing this project from discovery results.");

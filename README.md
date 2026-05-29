@@ -433,8 +433,9 @@ inferring commands from README prose.
 `start_session` or `discover_projects`. Hosts should follow that runtime
 workflow first: in `start_session`, review returned boot, refresh, and handoff
 context before using `next.actions_by_id` or `next.actions`; in
-`discover_projects`, choose one returned project from the ordered action list and
-then run that action's `agent_start` template. This keeps the live
+`discover_projects`, choose one returned project from `next.actions_by_project_id`
+by `project_id` or from the ordered action list, then run that action's
+`agent_start` template. This keeps the live
 response self-describing even when the host did not call `agent guide` first.
 Direct `agent start`, `agent status`, and `agent finish` responses also include
 `next.workflow`, derived from the returned action templates, so agents can follow
@@ -524,7 +525,10 @@ The top-level `next.actions` for discovered
 projects also include lifecycle templates for status, finish, and refresh using
 the selected `project_id`, so agents do not need to reconstruct follow-up
 commands after choosing a project. Those discovered lifecycle templates carry
-the same single-step `workflow` metadata as `agent_guide.lifecycle[]`. In
+the same single-step `workflow` metadata as `agent_guide.lifecycle[]`. Because
+each discovered action is named `start_session`, `agent_enter` also returns
+`next.actions_by_project_id` so automation can select a project by id without
+guessing from array order. In
 `start_session` and `discover_projects` modes, `next.workflow` gives the
 ordered runtime action track and names which response fields are valid follow-up
 sources. Direct `agent_start`,

@@ -778,7 +778,9 @@ provided, it initializes Git sync and pulls the shared store before choosing
 between project discovery and startup. In `discover_projects` mode, each
 top-level start action also includes lifecycle templates for status, finish,
 and refresh using the selected `project_id`; each of those nested lifecycle
-templates carries its own single-step `workflow`. In `start_session` and
+templates carries its own single-step `workflow`. Because every discovered action
+is named `start_session`, the response also includes `next.actions_by_project_id`
+so hosts can choose a project by id instead of array position. In `start_session` and
 `discover_projects` modes, `next.workflow` exposes the ordered runtime action
 track and valid follow-up sources so hosts can continue from the live response
 without consulting static guide templates. Direct `agent_start`, `agent_status`,
@@ -845,9 +847,11 @@ agent when to choose that action instead of inferring intent from array order or
 action names.
 Runtime lifecycle responses with unique follow-up action ids also expose
 `next.actions_by_id`, keyed by action id, alongside the ordered `next.actions`
-array. Workflow phases prefer keyed `next.actions_by_id.<action>` sources so
-hosts can execute a known action without scanning the array or reconstructing
-action names.
+array. Project-discovery responses use `next.actions_by_project_id` because the
+candidate actions share the same `start_session` action id. Workflow phases
+prefer keyed `next.actions_by_id.<action>` or
+`next.actions_by_project_id.<project_id>` sources so hosts can execute a known
+action without scanning the array or reconstructing action names.
 Lifecycle, guide, setup, project-discovery, error-recovery, and warning-recovery
 action templates also expose `interfaces.cli.command`,
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, `safety`, and single-step
@@ -911,8 +915,9 @@ project includes a complete `agent_start` action template with command, MCP
 arguments, `interfaces`, `safety`, `required_when`, required fields, and a
 single-step `workflow`.
 When surfaced through `agent_enter`, these project actions also carry
-post-selection lifecycle templates so agents can continue without reconstructing
-commands from prose.
+post-selection lifecycle templates and `next.actions_by_project_id`, so agents
+can continue without reconstructing commands from prose or relying on array
+position.
 
 ### `agent_start`
 

@@ -599,6 +599,10 @@ function actionsById(actions: LifecycleActionTemplate[]): Record<string, Lifecyc
   return Object.fromEntries(actions.map((action) => [action.action, action]));
 }
 
+function actionsByProjectId<T extends { project_id: string }>(actions: T[]): Record<string, T> {
+  return Object.fromEntries(actions.map((action) => [action.project_id, action]));
+}
+
 function syncConflictNextActions() {
   return [
     withActionInterfaces({
@@ -1006,7 +1010,13 @@ function discoverProjectsWorkflow() {
   return {
     version: 1,
     start: "projects",
-    continue_from: ["next.actions", "next.actions[].lifecycle", "agent_start.next.actions"],
+    continue_from: [
+      "next.actions_by_project_id",
+      "next.actions",
+      "next.actions_by_project_id.<project_id>.lifecycle",
+      "agent_start.next.actions_by_id",
+      "agent_start.next.actions"
+    ],
     phases: [
       {
         phase: "choose_project",
@@ -1018,7 +1028,7 @@ function discoverProjectsWorkflow() {
       {
         phase: "start_session",
         order: 2,
-        action_source: "next.actions.start_session",
+        action_source: "next.actions_by_project_id.<project_id>",
         tool: "agent_start",
         required_when: CHOOSE_DISCOVERED_PROJECT_WHEN,
         required_fields: []
@@ -1026,7 +1036,7 @@ function discoverProjectsWorkflow() {
       {
         phase: "continue_selected_project_lifecycle",
         order: 3,
-        action_source: "next.actions[].lifecycle",
+        action_source: "next.actions_by_project_id.<project_id>.lifecycle",
         required_when: "After the selected project starts, use that action's lifecycle templates for status, finish, and refresh.",
         required_fields: []
       }
@@ -1365,6 +1375,18 @@ export async function agentEnter(input: AgentEnterInput) {
       sync_remote: input.syncRemote,
       agent: sourceFromAgent(input.agent)
     });
+    const actions = projects.projects.map((project) => ({
+      action: "start_session",
+      project_id: project.project_id,
+      tool: project.next.tool,
+      safe_to_run: true,
+      command: project.next.command,
+      required_when: CHOOSE_DISCOVERED_PROJECT_WHEN,
+      required_fields: [],
+      arguments: project.next.arguments,
+      interfaces: project.next.interfaces,
+      lifecycle: agentGuideLifecycle({ ...input, projectId: project.project_id }, "agent_start")
+    }));
     return {
       ok: true,
       mode: "discover_projects",
@@ -1377,18 +1399,8 @@ export async function agentEnter(input: AgentEnterInput) {
         tool: "agent_start",
         safe_to_run: true,
         workflow: discoverProjectsWorkflow(),
-        actions: projects.projects.map((project) => ({
-          action: "start_session",
-          project_id: project.project_id,
-          tool: project.next.tool,
-          safe_to_run: true,
-          command: project.next.command,
-          required_when: CHOOSE_DISCOVERED_PROJECT_WHEN,
-          required_fields: [],
-          arguments: project.next.arguments,
-          interfaces: project.next.interfaces,
-          lifecycle: agentGuideLifecycle({ ...input, projectId: project.project_id }, "agent_start")
-        }))
+        actions,
+        actions_by_project_id: actionsByProjectId(actions)
       }
     };
   }
