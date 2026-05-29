@@ -1018,7 +1018,34 @@ describe("agent lifecycle", () => {
         mode: "discover_projects",
         next: {
           recommended_action: "choose_project_and_call_agent_start",
-          tool: "agent_start"
+          tool: "agent_start",
+          safe_to_run: true,
+          required_when: "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",
+          required_fields: ["project_id"],
+          required_fields_by_name: {
+            project_id: {
+              name: "project_id",
+              argument_path: "project_id",
+              value: "<project_id>",
+              placeholder: "<project_id>"
+            }
+          },
+          arguments: { project_id: "<project_id>" },
+          safety: {
+            safe_to_auto_run: true,
+            requires_user_confirmation: false,
+            requires_authored_input: true,
+            writes_local_config: false,
+            reasons: ["required_fields"]
+          }
+        }
+      });
+      expect(entered.next.command).toBe("moryn agent start --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list");
+      expect(entered.next.interfaces).toEqual({
+        cli: { command: entered.next.command },
+        mcp: {
+          tool: "agent_start",
+          arguments: { project_id: "<project_id>" }
         }
       });
       expect(entered.doctor.next).toMatchObject({ tool: "project_list" });
@@ -1138,7 +1165,26 @@ describe("agent lifecycle", () => {
         },
         next: {
           recommended_action: "choose_project_and_call_agent_start",
-          tool: "agent_start"
+          tool: "agent_start",
+          safe_to_run: true,
+          required_when: "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",
+          required_fields: ["project_id"],
+          required_fields_by_name: {
+            project_id: {
+              name: "project_id",
+              argument_path: "project_id",
+              value: "<project_id>",
+              placeholder: "<project_id>"
+            }
+          },
+          arguments: { project_id: "<project_id>" },
+          safety: {
+            safe_to_auto_run: true,
+            requires_user_confirmation: false,
+            requires_authored_input: true,
+            writes_local_config: false,
+            reasons: ["required_fields"]
+          }
         }
       });
       expect(entered.doctor.next).toMatchObject({ tool: "project_list" });
@@ -1456,7 +1502,11 @@ describe("agent lifecycle", () => {
         mode: "discover_projects",
         next: {
           recommended_action: "choose_project_and_call_agent_start",
-          tool: "agent_start"
+          tool: "agent_start",
+          safe_to_run: true,
+          required_when: "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",
+          required_fields: ["project_id"],
+          arguments: { project_id: "<project_id>" }
         }
       });
       expect(entered.projects.projects[0]).toMatchObject({

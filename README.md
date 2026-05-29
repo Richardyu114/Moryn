@@ -459,9 +459,10 @@ prose.
 `start_session` or `discover_projects`. Hosts should follow that runtime
 workflow first: in `start_session`, review returned boot, refresh, and handoff
 context before using `next.actions_by_id` or `next.actions`; in
-`discover_projects`, choose one returned project from `next.actions_by_project_id`
-by `project_id` or from the ordered action list, then run that action's
-`agent_start` template. This keeps the live
+`discover_projects`, top-level `next.required_fields_by_name.project_id` and
+`next.arguments.project_id` declare the required project choice, then hosts run
+the matching `next.actions_by_project_id.<project_id>` `agent_start` template
+or use the ordered action list as a display fallback. This keeps the live
 response self-describing even when the host did not call `agent guide` first.
 Direct `agent start`, `agent status`, and `agent finish` responses also include
 `next.workflow`, derived from the returned action templates, so agents can follow
@@ -557,11 +558,13 @@ commands after choosing a project. Those discovered lifecycle templates carry
 the same `lifecycle_by_step` map and single-step `workflow` metadata as
 `agent_guide.lifecycle[]`. Because each discovered action is named
 `start_session`, `agent_enter` also returns `next.actions_by_project_id` so
-automation can select a project by id without guessing from array order. In
-direct `project_list`, the top-level `projects_by_id` map serves the same
-purpose: `projects[]` stays ordered for display, while
-`projects_by_id.<project_id>.next` is the stable action source for a known
-project id.
+automation can select a project by id without guessing from array order. Its
+top-level `next` declares `project_id` as the only required field and carries a
+placeholder `agent_start` command plus CLI/MCP interfaces; after choosing, the
+stable executable source is `next.actions_by_project_id.<project_id>`. In direct
+`project_list`, the top-level `projects_by_id` map serves the same purpose:
+`projects[]` stays ordered for display, while `projects_by_id.<project_id>.next`
+is the stable action source for a known project id.
 In
 `start_session` and `discover_projects` modes, `next.workflow` gives the
 ordered runtime action track and names which response fields are valid follow-up

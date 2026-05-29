@@ -888,10 +888,14 @@ and refresh using the selected `project_id`; each of those nested lifecycle
 templates carries its own single-step `workflow` and is mirrored in
 `lifecycle_by_step` by step name. Because every discovered action is named
 `start_session`, the response also includes `next.actions_by_project_id` so
-hosts can choose a project by id instead of array position. In `start_session`
-and `discover_projects` modes, `next.workflow` exposes the ordered runtime
-action track and valid follow-up sources so hosts can continue from the live
-response without consulting static guide templates. Direct `agent_start`,
+hosts can choose a project by id instead of array position. The top-level
+`next` for `discover_projects` declares `project_id` in `required_fields`,
+`required_fields_by_name`, and `arguments`, and carries a placeholder
+`agent_start` command plus CLI/MCP interfaces; after selection, hosts should
+execute `next.actions_by_project_id.<project_id>`. In `start_session` and
+`discover_projects` modes, `next.workflow` exposes the ordered runtime action
+track and valid follow-up sources so hosts can continue from the live response
+without consulting static guide templates. Direct `agent_start`,
 `agent_status`, and `agent_finish` responses also include `next.workflow`,
 derived from their returned `next.actions`, so every lifecycle entrypoint
 carries its own follow-up contract. `next.workflow.phases_by_name` mirrors the
@@ -974,8 +978,10 @@ action names.
 Runtime lifecycle responses with unique follow-up action ids also expose
 `next.actions_by_id`, keyed by action id, alongside the ordered `next.actions`
 array. Project-discovery responses use `next.actions_by_project_id` because the
-candidate actions share the same `start_session` action id. Workflow phases
-prefer keyed `next.actions_by_id.<action>` or
+candidate actions share the same `start_session` action id; their top-level
+`next` still marks `project_id` as required so a lightweight host knows the
+selection variable before dereferencing the keyed map. Workflow phases prefer
+keyed `next.actions_by_id.<action>` or
 `next.actions_by_project_id.<project_id>` sources so hosts can execute a known
 action without scanning the array or reconstructing action names.
 Direct `project_list` responses also expose top-level `projects_by_id`, keyed
@@ -1054,9 +1060,10 @@ The response keeps `projects[]` as the ordered display list and also returns
 `projects_by_id.<project_id>` value mirrors the matching `projects[]` record,
 including its `next` template.
 When surfaced through `agent_enter`, these project actions also carry
-post-selection lifecycle templates and `next.actions_by_project_id`, so agents
-can continue without reconstructing commands from prose or relying on array
-position.
+post-selection lifecycle templates and `next.actions_by_project_id`. The
+surrounding `next` object declares `project_id` as the required selection field
+and provides placeholder CLI/MCP interfaces, so agents can continue without
+reconstructing commands from prose or relying on array position.
 
 ### `agent_start`
 

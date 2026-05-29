@@ -2388,6 +2388,23 @@ describe("MCP stdio server", () => {
           next: {
             recommended_action: string;
             tool: string;
+            safe_to_run: boolean;
+            required_when: string;
+            required_fields: string[];
+            required_fields_by_name: Record<string, {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }>;
+            arguments: Record<string, unknown>;
+            safety: {
+              safe_to_auto_run: boolean;
+              requires_user_confirmation: boolean;
+              requires_authored_input: boolean;
+              writes_local_config: boolean;
+              reasons: string[];
+            };
             workflow: {
               version: number;
               start: string;
@@ -2429,8 +2446,29 @@ describe("MCP stdio server", () => {
         expect(entered.mode).toBe("discover_projects");
         expect(entered.next).toMatchObject({
           recommended_action: "choose_project_and_call_agent_start",
-          tool: "agent_start"
+          tool: "agent_start",
+          safe_to_run: true,
+          required_when: "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",
+          required_fields: ["project_id"],
+          required_fields_by_name: {
+            project_id: {
+              name: "project_id",
+              argument_path: "project_id",
+              value: "<project_id>",
+              placeholder: "<project_id>"
+            }
+          },
+          arguments: { project_id: "<project_id>" },
+          safety: {
+            safe_to_auto_run: true,
+            requires_user_confirmation: false,
+            requires_authored_input: true,
+            writes_local_config: false,
+            reasons: ["required_fields"]
+          }
         });
+        expect(entered.next.command).toBe("moryn agent start --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find MCP project' --agent gemini --session-id gemini-mcp-enter");
+        expectActionInterfaces(entered.next);
         expect(entered.next.workflow).toEqual(withPhasesByName({
           version: 1,
           start: "projects",

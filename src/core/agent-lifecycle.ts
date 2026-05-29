@@ -118,6 +118,7 @@ const REFRESH_CONTEXT_WHEN = "When the user asks to refresh memory, or after rec
 const START_NEXT_SESSION_WHEN = "When another agent or device should start the next session from this handoff.";
 const RECALL_HANDOFF_ENTRY_WHEN = "After reading this handoff entry and needing the full session record.";
 const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
+const CHOOSE_DISCOVERED_PROJECT_ID_WHEN = "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.";
 const CHOOSE_DISCOVERED_PROJECT_WHEN = "After choosing this project from discovery results.";
 const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
@@ -276,6 +277,19 @@ function buildAgentStartCommand(input: AgentLifecycleInput): string {
   const parts = ["moryn", "agent", "start"];
   appendOption(parts, "--project", input.projectPath);
   appendOption(parts, "--project-id", input.projectId);
+  appendOption(parts, "--sync-remote", input.syncRemote);
+  appendOption(parts, "--current-task", input.currentTask);
+  appendOption(parts, "--agent", input.agent?.client);
+  appendOption(parts, "--session-id", input.agent?.session_id);
+  appendOption(parts, "--model", input.agent?.model);
+  appendOption(parts, "--device-id", input.agent?.device_id);
+  return parts.join(" ");
+}
+
+function buildDiscoveredProjectStartTemplateCommand(input: AgentLifecycleInput): string {
+  const parts = ["moryn", "agent", "start"];
+  appendOption(parts, "--project", input.projectPath);
+  appendTemplateOption(parts, "--project-id", "<project_id>");
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
   appendOption(parts, "--agent", input.agent?.client);
@@ -1098,6 +1112,33 @@ function discoverProjectsWorkflow() {
   });
 }
 
+function discoverProjectsNextAction(input: AgentLifecycleInput, actions: Array<{
+  action: string;
+  project_id: string;
+  tool: string;
+  safe_to_run: boolean;
+  command: string;
+  required_when: string;
+  required_fields: string[];
+  arguments: Record<string, unknown>;
+}>) {
+  const requiredFields = ["project_id"];
+  return withActionInterfaces({
+    recommended_action: "choose_project_and_call_agent_start",
+    tool: "agent_start",
+    safe_to_run: true,
+    command: buildDiscoveredProjectStartTemplateCommand(input),
+    required_when: CHOOSE_DISCOVERED_PROJECT_ID_WHEN,
+    required_fields: requiredFields,
+    workflow: discoverProjectsWorkflow(),
+    actions,
+    actions_by_project_id: actionsByProjectId(actions),
+    arguments: {
+      project_id: "<project_id>"
+    }
+  });
+}
+
 async function hasKnownProjects(input: AgentLifecycleInput, storeInitialized: boolean): Promise<boolean> {
   if (!storeInitialized) return false;
   const result = await trySync(() => createEngine({ storePath: input.storePath }).listProjects({ limit: 1 }));
@@ -1469,12 +1510,7 @@ export async function agentEnter(input: AgentEnterInput) {
       doctor,
       projects,
       next: {
-        recommended_action: "choose_project_and_call_agent_start",
-        tool: "agent_start",
-        safe_to_run: true,
-        workflow: discoverProjectsWorkflow(),
-        actions,
-        actions_by_project_id: actionsByProjectId(actions)
+        ...discoverProjectsNextAction(input, actions)
       }
     };
   }
