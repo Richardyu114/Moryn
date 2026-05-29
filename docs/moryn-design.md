@@ -516,7 +516,19 @@ Output:
         "recent_warning"
       ]
     }
-  ]
+  ],
+  "results_by_id": {
+    "rec_...": {
+      "record": {},
+      "score": 0.82,
+      "reason": [
+        "same_project",
+        "tag_match:auth",
+        "canonical",
+        "recent_warning"
+      ]
+    }
+  }
 }
 ```
 
@@ -528,6 +540,9 @@ moryn recall "fix auth middleware bug" --project . --kind memory --kind skill
 
 Archived and quarantined records are excluded by default. To inspect them,
 query by explicit record id with a matching state filter.
+`results[]` is the ranked display list, while `results_by_id` mirrors the
+returned records by `record.id` so hosts can consume a known result without
+array scanning.
 
 ### `write`
 

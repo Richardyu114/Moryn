@@ -87,6 +87,8 @@ Deliverables:
   conflicts, and high-priority changes.
 - Done: Agents can request explicit refresh through CLI or MCP.
 - Done: Explicit scope filtering is supported in core, CLI, and MCP recall.
+- Done: Recall responses now expose `results_by_id`, so agents can consume a
+  known returned record id without scanning the ranked `results[]` array.
 - Done: Text queries require a text/tag/type match instead of returning unrelated
   same-project records.
 

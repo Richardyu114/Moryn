@@ -921,8 +921,13 @@ describe("moryn CLI", () => {
         "--tag", "sync",
         "--file", "src/sync/git.ts"
       ]);
-      expect(recall.stdout).toContain("file_match:src/sync/git.ts");
-      expect(recall.stdout).toContain("Sync must not overwrite local events.");
+      const parsedRecall = JSON.parse(recall.stdout) as {
+        results: Array<{ record: { id: string; content: { text: string } }; reason: string[] }>;
+        results_by_id: Record<string, { record: { id: string; content: { text: string } }; reason: string[] }>;
+      };
+      expect(JSON.stringify(parsedRecall)).toContain("file_match:src/sync/git.ts");
+      expect(JSON.stringify(parsedRecall)).toContain("Sync must not overwrite local events.");
+      expect(parsedRecall.results_by_id[recordId]).toEqual(parsedRecall.results[0]);
 
       const refresh = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "refresh", "--project-id", "moryn", "--cursor", "2000-01-01T00:00:00.000Z"]);
       const parsedRefresh = JSON.parse(refresh.stdout) as {

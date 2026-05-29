@@ -672,7 +672,10 @@ When more context is needed:
 recall(query, project_id, files, kinds)
 ```
 
-This returns ranked memory and skill candidates with reasons.
+This returns ranked memory and skill candidates with reasons. `results[]`
+preserves ranking for display, and `results_by_id` mirrors the returned results
+by `record.id` so agents that already have a record id can read the exact
+result without scanning the ranked array.
 
 When the user asks to refresh memory, or during a periodic check:
 

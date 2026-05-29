@@ -1066,7 +1066,10 @@ export function createEngine(deps: EngineDeps) {
         .filter((result) => result.score > 0 || (!input.query && !input.record_ids?.length))
         .sort((a, b) => (b.score - a.score) || b.record.updated_at.localeCompare(a.record.updated_at) || a.record.id.localeCompare(b.record.id))
         .slice(0, limit);
-      return { results: records };
+      return {
+        results: records,
+        results_by_id: Object.fromEntries(records.map((result) => [result.record.id, result]))
+      };
     },
 
     async boot(input: BootInput) {
