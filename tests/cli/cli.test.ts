@@ -63,6 +63,22 @@ const REBUILD_SELECTION_SOURCES = {
   recall_index: "artifacts.indexes.recall",
   sync_cursors_index: "artifacts.indexes.sync_cursors"
 };
+const SYNC_STATUS_SELECTION_SOURCES = {
+  configured: "configured",
+  branch: "branch",
+  remote: "remote",
+  dirty: "dirty",
+  sync_state: "sync_state",
+  conflict: "conflict",
+  conflict_file: "conflict.files_by_path.<path>",
+  conflict_file_path: "conflict.files_by_path.<path>.path",
+  ordered_conflict_file: "conflict.files[]",
+  ahead: "ahead",
+  behind: "behind",
+  last_sync: "last_sync",
+  last_commit: "last_commit",
+  error: "error"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -2370,6 +2386,7 @@ describe("moryn CLI", () => {
       const status = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--status"]);
       const parsedStatus = JSON.parse(status.stdout) as {
         sync_state?: string;
+        selection_sources?: Record<string, string>;
           conflict?: {
             operation?: string;
             files?: string[];
@@ -2385,6 +2402,7 @@ describe("moryn CLI", () => {
           };
       };
       expect(parsedStatus.sync_state).toBe("conflict");
+      expect(parsedStatus.selection_sources).toEqual(SYNC_STATUS_SELECTION_SOURCES);
       expect(parsedStatus.conflict).toEqual({
         operation: "rebase",
         files: [conflictFile],

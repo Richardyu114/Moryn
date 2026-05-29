@@ -853,6 +853,22 @@ structured conflict diagnostics instead of only a dirty worktree flag:
     "safe_to_auto_resolve": false,
     "safe_to_retry_sync": false,
     "recommended_action": "resolve Git conflicts before retrying sync"
+  },
+  "selection_sources": {
+    "configured": "configured",
+    "branch": "branch",
+    "remote": "remote",
+    "dirty": "dirty",
+    "sync_state": "sync_state",
+    "conflict": "conflict",
+    "conflict_file": "conflict.files_by_path.<path>",
+    "conflict_file_path": "conflict.files_by_path.<path>.path",
+    "ordered_conflict_file": "conflict.files[]",
+    "ahead": "ahead",
+    "behind": "behind",
+    "last_sync": "last_sync",
+    "last_commit": "last_commit",
+    "error": "error"
   }
 }
 ```
@@ -861,7 +877,9 @@ Agents must treat `sync_state: "conflict"` as a stop sign for automatic sync
 retry. The status response is safe to inspect, but conflict resolution itself
 requires explicit user or host policy. `conflict.files[]` preserves the ordered
 display list, while `conflict.files_by_path.<path>` lets agents inspect a known
-conflicted event file without scanning the array.
+conflicted event file without scanning the array. `selection_sources` is present
+on unconfigured, clean, dirty, conflict, and error status responses so recovery
+hosts can read the same fields regardless of sync state.
 
 ### `agent_guide`
 

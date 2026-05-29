@@ -150,6 +150,10 @@ When a pull or push leaves Git in a conflict state, `moryn sync --status`
 returns `sync_state: "conflict"` plus ordered `conflict.files`, keyed
 `conflict.files_by_path`, the active Git operation, and flags that tell agents
 not to retry sync or auto-resolve without user-level conflict handling.
+Every sync status response also includes `selection_sources` for `configured`,
+`remote`, `dirty`, `sync_state`, `ahead`, `behind`, `last_sync`, `last_commit`,
+and conflict paths such as `conflict.files_by_path.<path>`, so agents can read
+status and recovery details without guessing JSON fields.
 
 For a new agent device, the lifecycle commands can bootstrap the local store and
 sync remote in one step:

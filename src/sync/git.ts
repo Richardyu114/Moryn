@@ -8,6 +8,23 @@ import { rebuildDerivedViews } from "../core/derived.js";
 
 const exec = promisify(execFile);
 
+export const SYNC_STATUS_SELECTION_SOURCES = {
+  configured: "configured",
+  branch: "branch",
+  remote: "remote",
+  dirty: "dirty",
+  sync_state: "sync_state",
+  conflict: "conflict",
+  conflict_file: "conflict.files_by_path.<path>",
+  conflict_file_path: "conflict.files_by_path.<path>.path",
+  ordered_conflict_file: "conflict.files[]",
+  ahead: "ahead",
+  behind: "behind",
+  last_sync: "last_sync",
+  last_commit: "last_commit",
+  error: "error"
+} as const;
+
 export interface GitSyncStatus {
   configured: boolean;
   branch?: string;
@@ -20,6 +37,7 @@ export interface GitSyncStatus {
   last_sync?: GitLastSync;
   last_commit?: string;
   error?: string;
+  selection_sources: typeof SYNC_STATUS_SELECTION_SOURCES;
 }
 
 export interface GitSyncConflictStatus {
@@ -70,6 +88,15 @@ function validateSyncOptions(options: unknown): asserts options is { message?: s
     throw new Error("Invalid argument: Invalid sync options");
   }
   validateOptionalString((options as { message?: unknown }).message, "message");
+}
+
+function withSyncStatusSelectionSources(
+  status: Omit<GitSyncStatus, "selection_sources">
+): GitSyncStatus {
+  return {
+    ...status,
+    selection_sources: SYNC_STATUS_SELECTION_SOURCES
+  };
 }
 
 async function git(cwd: string, args: string[]): Promise<string> {
@@ -261,7 +288,7 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
   validateRequiredString(storePath, "storePath");
   try {
     const configured = await gitOk(storePath, ["rev-parse", "--git-dir"]);
-    if (!configured) return { configured: false, error: "Not a git repository" };
+    if (!configured) return withSyncStatusSelectionSources({ configured: false, error: "Not a git repository" });
 
     const branch = await git(storePath, ["branch", "--show-current"]);
     const remote = await git(storePath, ["remote", "get-url", "origin"]).catch(() => undefined);
@@ -280,7 +307,7 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
       ahead = left ?? 0;
       behind = right ?? 0;
     }
-    return {
+    return withSyncStatusSelectionSources({
       configured: true,
       branch,
       remote,
@@ -291,10 +318,10 @@ export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus
       behind,
       last_sync: lastSync,
       last_commit: lastCommit
-    };
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { configured: false, error: message };
+    return withSyncStatusSelectionSources({ configured: false, error: message });
   }
 }
 

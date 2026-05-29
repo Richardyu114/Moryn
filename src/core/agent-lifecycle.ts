@@ -4,7 +4,7 @@ import { initializeStore, readStoreConfig } from "./config.js";
 import { resolveProjectContext, type ProjectContext, type SyncMode } from "./project.js";
 import { displayRecordText } from "./content-text.js";
 import type { MorynRecord, RecordSource } from "./types.js";
-import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
+import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, SYNC_STATUS_SELECTION_SOURCES, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
 import { actionSafety, type ActionSafety } from "./action-safety.js";
 import { requiredFieldsByName, withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
@@ -1576,7 +1576,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
 
   const syncStatus = storeInitialized
     ? await getGitSyncStatus(input.storePath)
-    : { configured: false, error: "Store not initialized" };
+    : { configured: false, error: "Store not initialized", selection_sources: SYNC_STATUS_SELECTION_SOURCES };
   const syncConfigured = Boolean(syncStatus.configured && syncStatus.remote);
   const remoteMatches = input.syncRemote === undefined || syncStatus.remote === input.syncRemote;
   const syncConflict = syncStatus.sync_state === "conflict";

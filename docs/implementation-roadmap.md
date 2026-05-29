@@ -125,6 +125,9 @@ Deliverables:
   failed pull or push so agents do not infer recovery from a dirty worktree.
 - Done: Sync conflict diagnostics expose `conflict.files_by_path`, so agents can
   inspect a known conflicted event path without scanning `conflict.files[]`.
+- Done: `sync_status` responses expose top-level `selection_sources` for status,
+  remote, divergence, last-sync, error, and conflict-file paths, so recovery
+  hosts can inspect sync state without guessing JSON fields.
 - Done: Agent lifecycle entrypoints, status checkpoints, and finish handoffs
   stop before lifecycle writes when sync is conflicted and return a structured
   `sync_status` recovery action.

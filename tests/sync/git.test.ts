@@ -11,6 +11,22 @@ import { rebuildDerivedViews } from "../../src/core/derived.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
+const SYNC_STATUS_SELECTION_SOURCES = {
+  configured: "configured",
+  branch: "branch",
+  remote: "remote",
+  dirty: "dirty",
+  sync_state: "sync_state",
+  conflict: "conflict",
+  conflict_file: "conflict.files_by_path.<path>",
+  conflict_file_path: "conflict.files_by_path.<path>.path",
+  ordered_conflict_file: "conflict.files[]",
+  ahead: "ahead",
+  behind: "behind",
+  last_sync: "last_sync",
+  last_commit: "last_commit",
+  error: "error"
+};
 
 async function expectInvalidArgument(action: () => Promise<unknown>, expectedMessage: RegExp): Promise<void> {
   let caught: unknown;
@@ -35,6 +51,7 @@ describe("git sync adapter", () => {
     try {
       const status = await getGitSyncStatus(dir);
       expect(status.configured).toBe(false);
+      expect(status.selection_sources).toEqual(SYNC_STATUS_SELECTION_SOURCES);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -190,6 +207,7 @@ describe("git sync adapter", () => {
 
       const status = await getGitSyncStatus(storeB);
       expect(status.configured).toBe(true);
+      expect(status.selection_sources).toEqual(SYNC_STATUS_SELECTION_SOURCES);
       expect(status.remote).toBe(remote);
       expect(status.branch).toBe("main");
       expect(status.dirty).toBe(false);
@@ -293,6 +311,7 @@ describe("git sync adapter", () => {
 
       await expect(getGitSyncStatus(storeB)).resolves.toEqual(expect.objectContaining({
         configured: true,
+        selection_sources: SYNC_STATUS_SELECTION_SOURCES,
         dirty: true,
         sync_state: "conflict",
         conflict: {
