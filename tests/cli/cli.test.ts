@@ -3824,6 +3824,7 @@ describe("moryn CLI", () => {
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          argument_sources: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
           rejected_arguments: { project_id: "morym" },
           candidate_project_ids: ["moryn"],
           required_fields: [],
@@ -4231,6 +4232,7 @@ describe("moryn CLI", () => {
           tool: "list_recent",
           command: "moryn list-recent",
           arguments: {},
+          argument_sources: { record_id: "list_recent.records_by_id.<record_id>.id" },
           rejected_arguments: { record_id: "rec_missing" },
           required_fields: [],
           safe_to_run: true

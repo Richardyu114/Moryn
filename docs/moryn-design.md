@@ -944,12 +944,15 @@ calls also classify explicit project mistakes as recoverable structured errors:
 store. Their `recommended_action` values point agents to project initialization,
 project listing, or corrected retry arguments. These error envelopes also carry
 `error.next_action` with `tool`, `command`, `arguments`, `interfaces`,
-`required_when`, `required_fields`, `required_fields_by_name`, `workflow`,
-`safety`, and `safe_to_run`, so agents can recover from the envelope without
-parsing prose or guessing placeholder values. Most recovery actions are single-step workflows;
+`required_when`, `required_fields`, `required_fields_by_name`,
+`argument_sources`, `workflow`, `safety`, and `safe_to_run`, so agents can
+recover from the envelope without parsing prose or guessing placeholder values.
+Most recovery actions are single-step workflows;
 `RECORD_NOT_FOUND` uses a two-step workflow so agents first run the safe
 `list_recent` action and then retry the original tool with the selected returned
-id from `list_recent.records_by_id.<record_id>.id`. The ordered
+id from `list_recent.records_by_id.<record_id>.id`. `argument_sources` mirrors
+the retry replacement map at the top level so hosts can fill selected arguments
+without scanning workflow phases. The ordered
 `list_recent.records[].id` path remains available for display and fallback.
 Warning recovery actions use the same `warning.next_action.interfaces`
 shape, `warning.next_action.safety`, and explicit
@@ -967,6 +970,7 @@ missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
 populated store can name known projects. Both project-selection recovery
 workflows include a second `retry_original_tool_with_selected_project_id`
 phase sourced from `project_list.projects_by_id.<project_id>.project_id`;
+the same source is mirrored as `next_action.argument_sources.project_id`.
 `project_list.projects[].project_id` remains an ordered fallback source. Direct
 `agent_start`, `agent_status`, and `agent_finish` CLI/MCP wrappers pass their
 original tool, command, and JSON arguments into that retry phase so agents can
@@ -1616,6 +1620,9 @@ for agents that should not infer the recovery command from prose:
       "tool": "project_list",
       "command": "moryn project list",
       "arguments": {},
+      "argument_sources": {
+        "project_id": "project_list.projects_by_id.<project_id>.project_id"
+      },
       "candidate_project_ids": [
         "moryn"
       ],
@@ -1933,6 +1940,9 @@ and arguments with only the rejected record id replaced by
       "tool": "list_recent",
       "command": "moryn list-recent",
       "arguments": {},
+      "argument_sources": {
+        "record_id": "list_recent.records_by_id.<record_id>.id"
+      },
       "rejected_arguments": {
         "record_id": "rec_missing"
       },

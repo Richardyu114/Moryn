@@ -390,8 +390,10 @@ function withProjectSelectionWorkflow(
   context: MorynErrorContext | undefined,
   rejectedProjectId: string | undefined
 ): MorynErrorNextAction {
+  const retryPhase = projectIdRetryPhase(context, rejectedProjectId);
   return {
     ...action,
+    argument_sources: retryPhase.replace_arguments,
     workflow: withPhasesByName({
       version: 1,
       start: "next_action",
@@ -403,7 +405,7 @@ function withProjectSelectionWorkflow(
       ],
       phases: [
         action.workflow.phases[0]!,
-        projectIdRetryPhase(context, rejectedProjectId)
+        retryPhase
       ]
     })
   };
@@ -653,6 +655,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
     case "RECORD_NOT_FOUND":
       {
         const recordId = missingRecordIdFromMessage(message);
+        const retryPhase = missingRecordRetryPhase(context, recordId);
         const action = withNextActionMetadata({
           recommended_action: "list_recent_records_and_retry_with_known_record_id",
           tool: "list_recent",
@@ -665,6 +668,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         });
         return {
           ...action,
+          argument_sources: retryPhase.replace_arguments,
           workflow: withPhasesByName({
             version: 1,
             start: "next_action",
@@ -676,7 +680,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
             ],
             phases: [
               action.workflow.phases[0]!,
-              missingRecordRetryPhase(context, recordId)
+              retryPhase
             ]
           })
         };

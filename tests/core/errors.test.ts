@@ -327,6 +327,7 @@ describe("error envelopes", () => {
           tool: "list_recent",
           command: "moryn list-recent",
           arguments: {},
+          argument_sources: { record_id: "list_recent.records_by_id.<record_id>.id" },
           rejected_arguments: { record_id: "rec_missing" },
           required_fields_by_name: {},
           safe_to_run: true
@@ -383,6 +384,9 @@ describe("error envelopes", () => {
       }
     });
     expect(envelope.error.next_action?.required_fields_by_name).toEqual({});
+    expect(envelope.error.next_action?.argument_sources).toEqual({
+      record_id: "list_recent.records_by_id.<record_id>.id"
+    });
     expect(envelope.error.next_action?.workflow.phases_by_name.retry_original_tool_with_selected_record_id.required_fields).toEqual(["record_id"]);
   });
 
@@ -404,6 +408,9 @@ describe("error envelopes", () => {
       required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
       required_fields: ["record_id"]
     });
+    expect(envelope.error.next_action?.argument_sources).toEqual({
+      record_id: "list_recent.records_by_id.<record_id>.id"
+    });
   });
 
   it("replaces explicit recall record ids without changing the search query", () => {
@@ -419,6 +426,9 @@ describe("error envelopes", () => {
       arguments: { query: "rec_missing", record_ids: ["<record_id_from_list_recent>"] },
       replace_arguments: { record_ids: "list_recent.records_by_id.<record_id>.id" },
       required_fields: ["record_ids"]
+    });
+    expect(envelope.error.next_action?.argument_sources).toEqual({
+      record_ids: "list_recent.records_by_id.<record_id>.id"
     });
   });
 
@@ -471,6 +481,7 @@ describe("error envelopes", () => {
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          argument_sources: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
           required_fields: [],
           rejected_arguments: { project_id: "morym" },
           candidate_project_ids: ["moryn"],
@@ -528,6 +539,9 @@ describe("error envelopes", () => {
       required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
       required_fields: ["project_id"]
     });
+    expect(unknownProjectIdWithContext.error.next_action?.argument_sources).toEqual({
+      project_id: "project_list.projects_by_id.<project_id>.project_id"
+    });
 
     const projectIdConflict = toErrorEnvelope(new Error("Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config."));
     expect(projectIdConflict).toMatchObject({
@@ -559,6 +573,7 @@ describe("error envelopes", () => {
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          argument_sources: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
           required_fields: [],
           candidate_project_ids: ["moryn"],
           safe_to_run: true
@@ -599,6 +614,9 @@ describe("error envelopes", () => {
       replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
       required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
       required_fields: ["project_id"]
+    });
+    expect(missingContextWithOriginalTool.error.next_action?.argument_sources).toEqual({
+      project_id: "project_list.projects_by_id.<project_id>.project_id"
     });
   });
 });

@@ -2844,6 +2844,7 @@ describe("MCP stdio server", () => {
           tool: "project_list",
           command: "moryn project list",
           arguments: {},
+          argument_sources: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
           rejected_arguments: { project_id: "morym" },
           candidate_project_ids: ["moryn"],
           required_fields: [],

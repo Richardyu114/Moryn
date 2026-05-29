@@ -608,14 +608,14 @@ explicit project mistakes: `PROJECT_PATH_NOT_FOUND` for missing paths and
 whether to initialize, list projects, or retry with corrected arguments. These
 error envelopes also include a machine-readable `error.next_action` with
 `tool`, `command`, `arguments`, `interfaces`, `required_when`,
-`required_fields`, `required_fields_by_name`, `workflow`, `safety`, and
-`safe_to_run`, so agents can recover without parsing prose or guessing
-placeholder values.
+`required_fields`, `required_fields_by_name`, `argument_sources`, `workflow`,
+`safety`, and `safe_to_run`, so agents can recover without parsing prose or
+guessing placeholder values.
 `error.next_action.interfaces` and `warning.next_action.interfaces` use the same
 CLI/MCP shape as lifecycle action templates. Most recovery actions have a
 single-step `workflow`; missing-record recovery is two-step so hosts run
 `list_recent`, choose a returned id, and retry the original tool with that id.
-The retry phase points replacement fields at
+The retry phase and top-level `argument_sources` point replacement fields at
 `list_recent.records_by_id.<record_id>.id`; `list_recent.records[].id` remains
 available as the ordered view.
 Their `safety` object explains whether the action can be auto-run, needs user
@@ -643,6 +643,8 @@ id in `next_action.rejected_arguments.record_id`. Their workflow then adds a
 `retry_original_tool_with_selected_record_id` phase with the original tool,
 command, and JSON arguments when the failing entrypoint supplied context, so
 agents discover a real id and retry without inventing the mutation shape.
+`next_action.argument_sources` mirrors that replacement map at the top level, so
+hosts can fill the retry arguments without scanning workflow phases.
 Remote sync unavailable errors return a safe read-only `sync_status` next
 action, so agents inspect remote health before retrying pull/push while
 continuing to use the local store.
@@ -661,8 +663,9 @@ carry `candidate_project_ids` when the populated store can name the known
 projects. Unknown-project and missing-context workflows then add a
 `retry_original_tool_with_selected_project_id` phase. That phase uses
 `project_list.projects_by_id.<project_id>.project_id` as the replacement source
-and includes the original tool, command, and JSON arguments when the failing
-entrypoint supplied context. Their returned `next.actions` are portable: if
+and mirrors it in `next_action.argument_sources.project_id`; it includes the
+original tool, command, and JSON arguments when the failing entrypoint supplied
+context. Their returned `next.actions` are portable: if
 project context was resolved from `.moryn.json`, the actions are prefilled with
 the resolved `project_id`.
 Project id conflict errors preserve the rejected explicit id and return the
