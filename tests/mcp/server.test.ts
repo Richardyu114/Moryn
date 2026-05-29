@@ -36,6 +36,11 @@ const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   step: "lifecycle_by_step.<step>.step",
   ordered_lifecycle_action: "lifecycle[]"
 };
+const GUIDE_ENTRYPOINT_SELECTION_SOURCES = {
+  startup_action: "startup",
+  next_action: "next",
+  workflow_phase: "workflow.phases_by_name.start_or_resume"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -99,6 +104,12 @@ function expectGuideLifecycleStepSelectionSources(action: {
   selection_sources?: Record<string, string>;
 }) {
   expect(action.selection_sources).toEqual(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES);
+}
+
+function expectGuideEntrypointSelectionSources(action: {
+  selection_sources?: Record<string, string>;
+}) {
+  expect(action.selection_sources).toEqual(GUIDE_ENTRYPOINT_SELECTION_SOURCES);
 }
 
 function expectRecoveryWorkflow(action: {
@@ -602,6 +613,7 @@ describe("MCP stdio server", () => {
               cli?: { command?: string };
               mcp?: { tool?: string; arguments?: Record<string, unknown> };
             };
+            selection_sources?: Record<string, string>;
             workflow?: Record<string, unknown>;
           };
           lifecycle: Array<{
@@ -716,6 +728,7 @@ describe("MCP stdio server", () => {
               cli?: { command?: string };
               mcp?: { tool?: string; arguments?: Record<string, unknown> };
             };
+            selection_sources?: Record<string, string>;
             workflow?: Record<string, unknown>;
           };
         };
@@ -742,6 +755,7 @@ describe("MCP stdio server", () => {
           }
         });
         expectActionInterfaces(guide.startup);
+        expectGuideEntrypointSelectionSources(guide.startup);
         expectGuideEntrypointWorkflow(guide.startup);
         expect(guide.lifecycle.map((step) => step.tool)).toEqual([
           "agent_enter",
@@ -914,6 +928,7 @@ describe("MCP stdio server", () => {
           arguments: guide.startup.arguments
         });
         expectActionInterfaces(guide.next);
+        expectGuideEntrypointSelectionSources(guide.next);
         expectGuideNextWorkflow(guide.next);
       });
     } finally {

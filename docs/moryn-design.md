@@ -872,8 +872,11 @@ ordered phases in `phases_by_name`, so hosts can fetch phases such as
 directly instead of scanning `phases[]`. The `startup` object and
 top-level `next` action are complete `agent_enter`
 templates with `safe_to_run`, `required_when`, `required_fields`, arguments,
-`required_fields_by_name`, and single-step `workflow`, so hosts can execute the
-recommended entrypoint without merging data from lifecycle steps.
+`required_fields_by_name`, single-step `workflow`, and action-local
+`selection_sources` for `startup`, `next`, and
+`workflow.phases_by_name.start_or_resume`, so hosts can execute the recommended
+entrypoint without merging data from lifecycle steps or scanning workflow
+phases.
 `required_fields_by_name` maps each required field to the matching argument
 path, template value, and placeholder such as `<summary>`, so hosts can prompt
 for authored input without reverse-engineering `arguments`. Lifecycle action

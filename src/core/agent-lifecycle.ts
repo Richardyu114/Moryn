@@ -53,6 +53,11 @@ type LifecycleStepSelectionSources = {
   step: string;
   ordered_lifecycle_action: string;
 };
+type GuideEntrypointSelectionSources = {
+  startup_action: "startup";
+  next_action: "next";
+  workflow_phase: "workflow.phases_by_name.start_or_resume";
+};
 type LifecycleActionTemplate = {
   action: string;
   tool: string;
@@ -186,6 +191,11 @@ const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   step: "lifecycle_by_step.<step>.step",
   ordered_lifecycle_action: "lifecycle[]"
 } satisfies LifecycleStepSelectionSources;
+const GUIDE_ENTRYPOINT_SELECTION_SOURCES: GuideEntrypointSelectionSources = {
+  startup_action: "startup",
+  next_action: "next",
+  workflow_phase: "workflow.phases_by_name.start_or_resume"
+};
 const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
   lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>",
   step: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.step",
@@ -285,6 +295,15 @@ function withLifecycleStepSelectionSources<
   return {
     ...action,
     selection_sources: selectionSources
+  };
+}
+
+function withGuideEntrypointSelectionSources<
+  T extends { tool: string; command: string; arguments: unknown; safe_to_run: boolean; required_fields: string[] }
+>(action: T): T & { selection_sources: GuideEntrypointSelectionSources } {
+  return {
+    ...action,
+    selection_sources: GUIDE_ENTRYPOINT_SELECTION_SOURCES
   };
 }
 
@@ -581,7 +600,7 @@ function lifecycleActionArguments(input: AgentLifecycleInput): {
 
 function agentEnterActionTemplate(command: string, args: ReturnType<typeof lifecycleActionArguments>) {
   const requiredFields: string[] = [];
-  return withActionInterfaces({
+  return withGuideEntrypointSelectionSources(withActionInterfaces({
     tool: "agent_enter",
     command,
     safe_to_run: true,
@@ -589,7 +608,7 @@ function agentEnterActionTemplate(command: string, args: ReturnType<typeof lifec
     required_fields: requiredFields,
     workflow: singleNextWorkflow("call_agent_enter", "agent_enter", START_OR_RESUME_WHEN, requiredFields, "startup"),
     arguments: args
-  });
+  }));
 }
 
 function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplate>) {

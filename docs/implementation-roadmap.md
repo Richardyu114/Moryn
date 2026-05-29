@@ -253,6 +253,10 @@ Deliverables:
   metadata (`safe_to_run`, `required_when`, `required_fields`, arguments, and
   single-step `workflow`) so agents can call the recommended entrypoint without
   recombining fields.
+- Done: `agent_guide.startup` and top-level `next` now include action-local
+  `selection_sources` for `startup`, `next`, and
+  `workflow.phases_by_name.start_or_resume`, so selected entrypoint actions
+  stay self-describing outside the full guide response.
 - Done: `agent_guide.guardrails[]` now exposes stable machine-readable
   anti-hallucination constraints, including forbidden behaviors, required
   behavior, and replacement actions for startup and project-discovery mistakes.

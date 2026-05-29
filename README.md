@@ -447,9 +447,11 @@ complete CLI command, MCP arguments, lifecycle steps, anti-hallucination rules,
 structured `guardrails`, and a top-level `workflow` decision track. Its
 `startup` object and top-level `next` action include `safe_to_run`,
 `required_when`, `required_fields`, `required_fields_by_name`, `safety`,
-arguments, and their own single-step `workflow`, so an agent can call the
-recommended `agent_enter` entrypoint directly without recombining fields from
-the lifecycle list. `required_fields_by_name` mirrors required field names to
+arguments, their own single-step `workflow`, and action-local
+`selection_sources` for `startup`, `next`, and
+`workflow.phases_by_name.start_or_resume`, so an agent can call the recommended
+`agent_enter` entrypoint directly without recombining fields from the lifecycle
+list or scanning workflow phases. `required_fields_by_name` mirrors required field names to
 their argument path, current template value, and placeholder such as
 `<status>`, so hosts can render or validate authored input without scanning
 `arguments`. Each
