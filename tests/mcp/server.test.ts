@@ -130,6 +130,76 @@ function expectLifecycleWorkflow(action: {
   });
 }
 
+function expectGuideEntrypointWorkflow(action: {
+  tool: string;
+  required_when: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "startup",
+    continue_from: ["startup"],
+    phases: [
+      {
+        phase: "call_agent_enter",
+        order: 1,
+        action_source: "startup",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
+function expectGuideNextWorkflow(action: {
+  tool: string;
+  required_when: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}) {
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next",
+    continue_from: ["next"],
+    phases: [
+      {
+        phase: "call_agent_enter",
+        order: 1,
+        action_source: "next",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 function expectActionSafety(action: {
   safe_to_run: boolean;
   required_fields: string[];
@@ -246,6 +316,7 @@ describe("MCP stdio server", () => {
               cli?: { command?: string };
               mcp?: { tool?: string; arguments?: Record<string, unknown> };
             };
+            workflow?: Record<string, unknown>;
           };
           lifecycle: Array<{
             step: string;
@@ -306,6 +377,7 @@ describe("MCP stdio server", () => {
               cli?: { command?: string };
               mcp?: { tool?: string; arguments?: Record<string, unknown> };
             };
+            workflow?: Record<string, unknown>;
           };
         };
 
@@ -325,6 +397,7 @@ describe("MCP stdio server", () => {
           }
         });
         expectActionInterfaces(guide.startup);
+        expectGuideEntrypointWorkflow(guide.startup);
         expect(guide.lifecycle.map((step) => step.tool)).toEqual([
           "agent_enter",
           "agent_status",
@@ -434,6 +507,7 @@ describe("MCP stdio server", () => {
           arguments: guide.startup.arguments
         });
         expectActionInterfaces(guide.next);
+        expectGuideNextWorkflow(guide.next);
       });
     } finally {
       await rm(store, { recursive: true, force: true });

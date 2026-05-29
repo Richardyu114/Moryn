@@ -402,12 +402,13 @@ not touch the store or sync remote; it returns the preferred startup tool,
 complete CLI command, MCP arguments, lifecycle steps, anti-hallucination rules,
 structured `guardrails`, and a top-level `workflow` decision track. Its
 `startup` object and top-level `next` action include `safe_to_run`,
-`required_when`, `required_fields`, `safety`, and arguments, so an agent can
-call the recommended `agent_enter` entrypoint directly without recombining
-fields from the lifecycle list. Each `lifecycle[]` template also includes a
-single-step `workflow`, so a host can execute an individual status, finish, or
-refresh template without consulting the top-level decision track. Top-level
-`workflow.phases[]` tells hosts the order and action source:
+`required_when`, `required_fields`, `safety`, arguments, and their own
+single-step `workflow`, so an agent can call the recommended `agent_enter`
+entrypoint directly without recombining fields from the lifecycle list. Each
+`lifecycle[]` template also includes a single-step `workflow`, so a host can
+execute an individual status, finish, or refresh template without consulting
+the top-level decision track. Top-level `workflow.phases[]` tells hosts the
+order and action source:
 call `startup`, then prefer `agent_enter.next.actions`, then use static
 lifecycle templates only for status, finish, or refresh. `guardrails[]` gives
 agent hosts stable ids, risks, forbidden behaviors, required behaviors, and
@@ -478,9 +479,10 @@ status, finish, and refresh, plus rules and `guardrails[]` that tell the agent
 not to guess project ids or manually compose lower-level sync/boot/refresh
 calls. The returned `startup` and `next` objects are complete action templates
 for `agent_enter`, including safety, usage timing, required fields, and
-arguments. Each action also carries `interfaces` with the CLI command and MCP
-tool arguments side by side, so agents do not need to translate between
-transport shapes. `workflow` is the machine-readable ordering contract: `start`
+arguments plus a single-step `workflow`. Each action also carries `interfaces`
+with the CLI command and MCP tool arguments side by side, so agents do not need
+to translate between transport shapes. Top-level `workflow` is the
+machine-readable ordering contract: `start`
 points at `startup`, `continue_from` names valid follow-up action sources, and
 `phases[]` gives order, action source, usage condition, and required fields.
 Guardrails are machine-readable: each entry names what to avoid, what behavior

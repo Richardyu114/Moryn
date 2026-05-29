@@ -173,8 +173,9 @@ Deliverables:
   so agents can choose follow-up actions without relying on array order or
   action-name guessing.
 - Done: `agent_guide.startup` and top-level `next` now expose the same action
-  metadata (`safe_to_run`, `required_when`, `required_fields`, arguments) so
-  agents can call the recommended entrypoint without recombining fields.
+  metadata (`safe_to_run`, `required_when`, `required_fields`, arguments, and
+  single-step `workflow`) so agents can call the recommended entrypoint without
+  recombining fields.
 - Done: `agent_guide.guardrails[]` now exposes stable machine-readable
   anti-hallucination constraints, including forbidden behaviors, required
   behavior, and replacement actions for startup and project-discovery mistakes.

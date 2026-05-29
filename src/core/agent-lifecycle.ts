@@ -398,12 +398,14 @@ function lifecycleActionArguments(input: AgentLifecycleInput): {
 }
 
 function agentEnterActionTemplate(command: string, args: ReturnType<typeof lifecycleActionArguments>) {
+  const requiredFields: string[] = [];
   return withActionInterfaces({
     tool: "agent_enter",
     command,
     safe_to_run: true,
     required_when: START_OR_RESUME_WHEN,
-    required_fields: [],
+    required_fields: requiredFields,
+    workflow: singleNextWorkflow("call_agent_enter", "agent_enter", START_OR_RESUME_WHEN, requiredFields, "startup"),
     arguments: args
   });
 }
@@ -932,16 +934,22 @@ function directFinishWorkflow(actions: LifecycleActionTemplate[]) {
   };
 }
 
-function singleNextWorkflow(recommendedAction: string, tool: string, requiredWhen: string, requiredFields: string[]) {
+function singleNextWorkflow(
+  recommendedAction: string,
+  tool: string,
+  requiredWhen: string,
+  requiredFields: string[],
+  actionSource = "next"
+) {
   return {
     version: 1,
-    start: "next",
-    continue_from: ["next"],
+    start: actionSource,
+    continue_from: [actionSource],
     phases: [
       {
         phase: recommendedAction,
         order: 1,
-        action_source: "next",
+        action_source: actionSource,
         tool,
         required_when: requiredWhen,
         required_fields: requiredFields
@@ -1354,7 +1362,8 @@ export function agentGuide(input: AgentGuideInput) {
     workflow: agentGuideWorkflow(lifecycle),
     next: {
       recommended_action: "call_agent_enter",
-      ...startup
+      ...startup,
+      workflow: singleNextWorkflow("call_agent_enter", "agent_enter", startup.required_when, startup.required_fields)
     }
   };
 }
