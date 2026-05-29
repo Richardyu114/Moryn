@@ -922,9 +922,13 @@ missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
 `next_action.candidate_project_ids` lists known choices while
 `next_action.arguments` remains valid for the target recovery tool.
 `PROJECT_CONTEXT_REQUIRED` also includes `candidate_project_ids` when the
-populated store can name known projects. When a lifecycle command resolves
-project context from `.moryn.json`, its returned `next.actions` are prefilled
-with the resolved `project_id` so they can be reused outside the original cwd.
+populated store can name known projects. Both project-selection recovery
+workflows include a second `retry_original_tool_with_selected_project_id`
+phase sourced from `project_list.projects_by_id.<project_id>.project_id`;
+`project_list.projects[].project_id` remains an ordered fallback source. When a
+lifecycle command resolves project context from `.moryn.json`, its returned
+`next.actions` are prefilled with the resolved `project_id` so they can be
+reused outside the original cwd.
 When an action lists `required_fields`, the same required field appears in
 `arguments` with a `<field>` placeholder; agents should replace those JSON
 argument values rather than parse the CLI command template. Lifecycle action
@@ -1562,6 +1566,45 @@ for agents that should not infer the recovery command from prose:
       "candidate_project_ids": [
         "moryn"
       ],
+      "workflow": {
+        "version": 1,
+        "start": "next_action",
+        "continue_from": [
+          "error.next_action",
+          "warning.next_action",
+          "project_list.projects_by_id.<project_id>.project_id",
+          "project_list.projects[].project_id"
+        ],
+        "phases": [
+          {
+            "phase": "list_projects_and_retry_with_known_project_id",
+            "order": 1,
+            "action_source": "next_action",
+            "tool": "project_list",
+            "required_when": "After a project_id is rejected, before retrying with a known project id.",
+            "required_fields": []
+          },
+          {
+            "phase": "retry_original_tool_with_selected_project_id",
+            "order": 2,
+            "action_source": "project_list.projects_by_id.<project_id>.project_id",
+            "tool": "agent_start",
+            "command": "moryn agent start --project-id <project_id_from_project_list> --current-task 'avoid typo id' --agent codex",
+            "arguments": {
+              "project_id": "<project_id_from_project_list>",
+              "current_task": "avoid typo id",
+              "agent": {
+                "client": "codex"
+              }
+            },
+            "replace_arguments": {
+              "project_id": "project_list.projects_by_id.<project_id>.project_id"
+            },
+            "required_when": "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+            "required_fields": ["project_id"]
+          }
+        ]
+      },
       "safe_to_run": true
     }
   }

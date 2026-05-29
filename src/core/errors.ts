@@ -72,6 +72,9 @@ const LIST_RECORDS_WHEN = "After a record id is rejected, before retrying with a
 const RETRY_WITH_SELECTED_RECORD_WHEN = "After choosing the correct record id from list_recent results, retry the original tool with that selected id.";
 const LIST_RECENT_SELECTED_RECORD_ID_SOURCE = "list_recent.records_by_id.<record_id>.id";
 const LIST_RECENT_ORDERED_RECORD_ID_SOURCE = "list_recent.records[].id";
+const RETRY_WITH_SELECTED_PROJECT_WHEN = "After choosing the correct project id from project_list results, retry the original tool with that selected project id.";
+const PROJECT_LIST_SELECTED_PROJECT_ID_SOURCE = "project_list.projects_by_id.<project_id>.project_id";
+const PROJECT_LIST_ORDERED_PROJECT_ID_SOURCE = "project_list.projects[].project_id";
 const DISCOVER_PROJECT_FOR_WRITE_WHEN = "Before retrying a project-scoped write when project_id was omitted.";
 const RETRY_PROJECT_CONFIG_ID_WHEN = "After project_path and project_id disagree, before starting lifecycle work with corrected project identity.";
 const DISCOVER_PROJECT_CONTEXT_WHEN = "When a populated store requires explicit project context and none was provided.";
@@ -325,6 +328,16 @@ function replaceCommandArgument(command: string, argumentKey: string, rejectedRe
   return replaceCommandRecordId(command, rejectedRecordId, placeholder);
 }
 
+function replaceProjectIdCommandArgument(command: string, rejectedProjectId: string | undefined, placeholder: string): string {
+  if (!rejectedProjectId) return `${command} --project-id ${placeholder}`;
+  const quotedProjectId = shellQuote(rejectedProjectId);
+  const flaggedQuotedPattern = `--project-id ${quotedProjectId}`;
+  if (command.includes(flaggedQuotedPattern)) return command.replace(flaggedQuotedPattern, `--project-id ${placeholder}`);
+  const flaggedPattern = `--project-id ${rejectedProjectId}`;
+  if (command.includes(flaggedPattern)) return command.replace(flaggedPattern, `--project-id ${placeholder}`);
+  return `${command} --project-id ${placeholder}`;
+}
+
 function missingRecordRetryPhase(context: MorynErrorContext | undefined, rejectedRecordId: string | undefined): NextActionWorkflowPhase {
   const placeholder = "<record_id_from_list_recent>";
   const argumentKey = missingRecordArgumentKey(context, rejectedRecordId);
@@ -343,6 +356,50 @@ function missingRecordRetryPhase(context: MorynErrorContext | undefined, rejecte
     replace_arguments: { [argumentKey]: LIST_RECENT_SELECTED_RECORD_ID_SOURCE },
     required_when: RETRY_WITH_SELECTED_RECORD_WHEN,
     required_fields: [argumentKey]
+  };
+}
+
+function projectIdRetryPhase(context: MorynErrorContext | undefined, rejectedProjectId: string | undefined): NextActionWorkflowPhase {
+  const placeholder = "<project_id_from_project_list>";
+  return {
+    phase: "retry_original_tool_with_selected_project_id",
+    order: 2,
+    action_source: PROJECT_LIST_SELECTED_PROJECT_ID_SOURCE,
+    tool: context?.tool ?? "original_tool",
+    ...(context ? {
+      command: replaceProjectIdCommandArgument(context.command, rejectedProjectId, placeholder),
+      arguments: {
+        ...context.arguments,
+        project_id: placeholder
+      }
+    } : {}),
+    replace_arguments: { project_id: PROJECT_LIST_SELECTED_PROJECT_ID_SOURCE },
+    required_when: RETRY_WITH_SELECTED_PROJECT_WHEN,
+    required_fields: ["project_id"]
+  };
+}
+
+function withProjectSelectionWorkflow(
+  action: MorynErrorNextAction,
+  context: MorynErrorContext | undefined,
+  rejectedProjectId: string | undefined
+): MorynErrorNextAction {
+  return {
+    ...action,
+    workflow: {
+      version: 1,
+      start: "next_action",
+      continue_from: [
+        "error.next_action",
+        "warning.next_action",
+        PROJECT_LIST_SELECTED_PROJECT_ID_SOURCE,
+        PROJECT_LIST_ORDERED_PROJECT_ID_SOURCE
+      ],
+      phases: [
+        action.workflow.phases[0]!,
+        projectIdRetryPhase(context, rejectedProjectId)
+      ]
+    }
   };
 }
 
@@ -437,6 +494,36 @@ export function commandForLinkContext(input: { record_id: string; linked_record_
     "--type",
     shellQuote(input.link_type)
   ].join(" ");
+}
+
+export function commandForAgentStartContext(input: {
+  project_id?: string;
+  project_path?: string;
+  sync_remote?: string;
+  current_task?: string;
+  refresh_since?: string;
+  limit?: number;
+  pull?: boolean;
+  agent?: {
+    client?: string;
+    session_id?: string;
+    model?: string;
+    device_id?: string;
+  };
+}): string {
+  const parts = ["moryn", "agent", "start"];
+  appendCommandOption(parts, "--project", input.project_path);
+  appendCommandOption(parts, "--project-id", input.project_id);
+  appendCommandOption(parts, "--sync-remote", input.sync_remote);
+  appendCommandOption(parts, "--current-task", input.current_task);
+  appendCommandOption(parts, "--refresh-since", input.refresh_since);
+  appendCommandOption(parts, "--limit", input.limit);
+  if (input.pull === false) parts.push("--no-pull");
+  appendCommandOption(parts, "--agent", input.agent?.client);
+  appendCommandOption(parts, "--session-id", input.agent?.session_id);
+  appendCommandOption(parts, "--model", input.agent?.model);
+  appendCommandOption(parts, "--device-id", input.agent?.device_id);
+  return parts.join(" ");
 }
 
 export function nextAction(code: string, message = "", context?: MorynErrorContext): MorynErrorNextAction | undefined {
@@ -581,7 +668,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
     case "PROJECT_CONTEXT_REQUIRED":
       {
         const candidateProjectIds = knownProjectIdsFromContextMessage(message);
-        return withNextActionMetadata({
+        const action = withNextActionMetadata({
           recommended_action: "discover_projects_before_lifecycle_write",
           tool: "project_list",
           command: "moryn project list",
@@ -591,6 +678,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
           safe_to_run: true
         });
+        return withProjectSelectionWorkflow(action, context, undefined);
       }
     case "PROJECT_PATH_NOT_FOUND":
       {
@@ -608,7 +696,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
     case "PROJECT_ID_NOT_FOUND":
       {
         const { rejectedProjectId, candidateProjectIds } = unknownProjectIdFromMessage(message);
-        return withNextActionMetadata({
+        const action = withNextActionMetadata({
           recommended_action: "list_projects_and_retry_with_known_project_id",
           tool: "project_list",
           command: "moryn project list",
@@ -619,6 +707,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
           safe_to_run: true
         });
+        return withProjectSelectionWorkflow(action, context, rejectedProjectId);
       }
     default:
       return undefined;

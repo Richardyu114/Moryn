@@ -629,9 +629,13 @@ exact path instead of a placeholder. For unknown project ids,
 `next_action.candidate_project_ids` carries known choices while keeping
 `next_action.arguments` valid for `project_list`. Missing-context errors also
 carry `candidate_project_ids` when the populated store can name the known
-projects. Their returned `next.actions` are portable: if project context was
-resolved from `.moryn.json`, the actions are prefilled with the resolved
-`project_id`.
+projects. Unknown-project and missing-context workflows then add a
+`retry_original_tool_with_selected_project_id` phase. That phase uses
+`project_list.projects_by_id.<project_id>.project_id` as the replacement source
+and includes the original tool, command, and JSON arguments when the failing
+entrypoint supplied context. Their returned `next.actions` are portable: if
+project context was resolved from `.moryn.json`, the actions are prefilled with
+the resolved `project_id`.
 Project id conflict errors preserve the rejected explicit id and return the
 `.moryn.json` project id as the only retry candidate. The retry action uses
 `agent_enter` and is not marked safe to run automatically, because entering a

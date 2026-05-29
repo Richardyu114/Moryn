@@ -6,6 +6,7 @@ import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
 import {
+  commandForAgentStartContext,
   commandForArchiveContext,
   commandForLinkContext,
   commandForPromoteContext,
@@ -65,6 +66,10 @@ async function toolResult(fn: () => Promise<unknown>, context?: MorynErrorContex
       isError: true
     };
   }
+}
+
+function compactUndefined<T extends Record<string, unknown>>(input: T): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
 }
 
 export async function runMcpServer(engine: Engine, options: { storePath: string }): Promise<void> {
@@ -535,17 +540,33 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: sourceSchema.optional()
       }
     },
-    async ({ project_id, project_path, sync_remote, current_task, refresh_since, limit, pull, agent }) => toolResult(async () => agentStart({
-      storePath: options.storePath,
-      projectId: project_id,
-      projectPath: project_path,
-      syncRemote: sync_remote,
-      currentTask: current_task,
-      refreshSince: refresh_since,
-      limit,
-      pull,
-      agent
-    }))
+    async ({ project_id, project_path, sync_remote, current_task, refresh_since, limit, pull, agent }) => {
+      const contextArguments = compactUndefined({
+        project_id,
+        project_path,
+        sync_remote,
+        current_task,
+        refresh_since,
+        limit,
+        pull,
+        agent
+      });
+      return toolResult(async () => agentStart({
+        storePath: options.storePath,
+        projectId: project_id,
+        projectPath: project_path,
+        syncRemote: sync_remote,
+        currentTask: current_task,
+        refreshSince: refresh_since,
+        limit,
+        pull,
+        agent
+      }), {
+        tool: "agent_start",
+        command: commandForAgentStartContext(contextArguments),
+        arguments: contextArguments
+      });
+    }
   );
 
   server.registerTool(

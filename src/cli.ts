@@ -9,6 +9,7 @@ import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
 import {
+  commandForAgentStartContext,
   commandForArchiveContext,
   commandForLinkContext,
   commandForPromoteContext,
@@ -164,6 +165,10 @@ function parseAgentOptions(options: { agent?: string; sessionId?: string; model?
     model: parseNonEmptyString(options.model, "--model"),
     device_id: parseNonEmptyString(options.deviceId, "--device-id")
   };
+}
+
+function compactUndefined<T extends Record<string, unknown>>(input: T): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
 }
 
 program
@@ -553,17 +558,39 @@ agent.command("start")
   .option("--model <model>")
   .option("--device-id <id>")
   .action(async (options) => {
-    printJson(await agentStart({
-      storePath: storePath(),
-      projectPath: options.project,
-      projectId: options.projectId,
-      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
-      refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
-      limit: parseLimit(options.limit),
-      pull: parseBooleanDefault(options.pull, true),
-      agent: parseAgentOptions(options)
-    }));
+    const pull = parseBooleanDefault(options.pull, true);
+    const agentOptions = parseAgentOptions(options);
+    const contextArguments = compactUndefined({
+      project_id: parseNonEmptyString(options.projectId, "--project-id"),
+      project_path: parseNonEmptyString(options.project, "--project"),
+      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
+      refresh_since: parseNonEmptyString(options.refreshSince, "--refresh-since"),
+      ...(options.limit !== "20" ? { limit: parseLimit(options.limit) } : {}),
+      ...(pull === false ? { pull } : {}),
+      agent: agentOptions
+    });
+    const context = {
+      tool: "agent_start",
+      command: commandForAgentStartContext(contextArguments),
+      arguments: contextArguments
+    };
+    try {
+      printJson(await agentStart({
+        storePath: storePath(),
+        projectPath: options.project,
+        projectId: options.projectId,
+        syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+        currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+        refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
+        limit: parseLimit(options.limit),
+        pull,
+        agent: agentOptions
+      }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 agent.command("status")

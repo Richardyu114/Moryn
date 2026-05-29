@@ -200,6 +200,10 @@ Deliverables:
 - Done: Direct `project_list` responses now expose `projects_by_id` and keyed
   workflow sources, so agents can select a known project id without scanning
   the ordered project array.
+- Done: Unknown-project and missing-context recovery workflows now add a
+  `retry_original_tool_with_selected_project_id` phase sourced from
+  `project_list.projects_by_id`, so agents can retry the original lifecycle
+  call without reconstructing arguments from prose.
 - Done: Lifecycle `next.actions` now include `required_when` usage conditions
   so agents can choose follow-up actions without relying on array order or
   action-name guessing.

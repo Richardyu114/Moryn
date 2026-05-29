@@ -450,7 +450,55 @@ describe("error envelopes", () => {
       }
     });
     expectNextActionInterfaces(unknownProjectId.error.next_action!);
-    expectNextActionWorkflow(unknownProjectId.error.next_action!);
+    expect(unknownProjectId.error.next_action?.workflow).toEqual({
+      version: 1,
+      start: "next_action",
+      continue_from: [
+        "error.next_action",
+        "warning.next_action",
+        "project_list.projects_by_id.<project_id>.project_id",
+        "project_list.projects[].project_id"
+      ],
+      phases: [
+        {
+          phase: "list_projects_and_retry_with_known_project_id",
+          order: 1,
+          action_source: "next_action",
+          tool: "project_list",
+          required_when: "After a project_id is rejected, before retrying with a known project id.",
+          required_fields: []
+        },
+        {
+          phase: "retry_original_tool_with_selected_project_id",
+          order: 2,
+          action_source: "project_list.projects_by_id.<project_id>.project_id",
+          tool: "original_tool",
+          replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
+          required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+          required_fields: ["project_id"]
+        }
+      ]
+    });
+
+    const unknownProjectIdWithContext = toErrorEnvelope(
+      new Error("Project id is not known in this store: morym. Run project_list and choose one of: moryn."),
+      {
+        tool: "agent_start",
+        command: "moryn agent start --project-id morym --current-task 'avoid typo id' --agent codex",
+        arguments: { project_id: "morym", current_task: "avoid typo id", agent: { client: "codex" } }
+      }
+    );
+    expect(unknownProjectIdWithContext.error.next_action?.workflow.phases[1]).toEqual({
+      phase: "retry_original_tool_with_selected_project_id",
+      order: 2,
+      action_source: "project_list.projects_by_id.<project_id>.project_id",
+      tool: "agent_start",
+      command: "moryn agent start --project-id <project_id_from_project_list> --current-task 'avoid typo id' --agent codex",
+      arguments: { project_id: "<project_id_from_project_list>", current_task: "avoid typo id", agent: { client: "codex" } },
+      replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
+      required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+      required_fields: ["project_id"]
+    });
 
     const projectIdConflict = toErrorEnvelope(new Error("Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config."));
     expect(projectIdConflict).toMatchObject({
@@ -489,6 +537,39 @@ describe("error envelopes", () => {
       }
     });
     expectNextActionInterfaces(missingContext.error.next_action!);
-    expectNextActionWorkflow(missingContext.error.next_action!);
+    expect(missingContext.error.next_action?.workflow.phases[1]).toEqual({
+      phase: "retry_original_tool_with_selected_project_id",
+      order: 2,
+      action_source: "project_list.projects_by_id.<project_id>.project_id",
+      tool: "original_tool",
+      replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
+      required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+      required_fields: ["project_id"]
+    });
+
+    const missingContextWithOriginalTool = toErrorEnvelope(
+      new Error("Project context required: this store already has known projects (moryn). Run project_list or agent_enter, then retry with project_path/project_id."),
+      {
+        tool: "agent_status",
+        command: "moryn agent status --status 'still working' --current-task 'avoid missing context' --agent codex",
+        arguments: { status: "still working", current_task: "avoid missing context", agent: { client: "codex" } }
+      }
+    );
+    expect(missingContextWithOriginalTool.error.next_action?.workflow.phases[1]).toEqual({
+      phase: "retry_original_tool_with_selected_project_id",
+      order: 2,
+      action_source: "project_list.projects_by_id.<project_id>.project_id",
+      tool: "agent_status",
+      command: "moryn agent status --status 'still working' --current-task 'avoid missing context' --agent codex --project-id <project_id_from_project_list>",
+      arguments: {
+        status: "still working",
+        current_task: "avoid missing context",
+        agent: { client: "codex" },
+        project_id: "<project_id_from_project_list>"
+      },
+      replace_arguments: { project_id: "project_list.projects_by_id.<project_id>.project_id" },
+      required_when: "After choosing the correct project id from project_list results, retry the original tool with that selected project id.",
+      required_fields: ["project_id"]
+    });
   });
 });
