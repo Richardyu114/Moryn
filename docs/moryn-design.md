@@ -1323,6 +1323,45 @@ CLI:
 moryn rebuild
 ```
 
+Output includes the regenerated artifact paths:
+
+```json
+{
+  "ok": true,
+  "records": 12,
+  "projects": ["moryn"],
+  "skills": 2,
+  "artifacts": {
+    "snapshots": {
+      "user": "snapshots/user.json",
+      "projects_by_id": {
+        "moryn": "snapshots/projects/moryn.json"
+      },
+      "skills": "snapshots/skills/index.json"
+    },
+    "indexes": {
+      "recall": "indexes/recall.json",
+      "sync_cursors": "indexes/sync-cursors.json"
+    }
+  },
+  "selection_sources": {
+    "record_count": "records",
+    "project_ids": "projects",
+    "skill_count": "skills",
+    "artifacts": "artifacts",
+    "user_snapshot": "artifacts.snapshots.user",
+    "project_snapshots": "artifacts.snapshots.projects_by_id",
+    "skills_snapshot": "artifacts.snapshots.skills",
+    "recall_index": "artifacts.indexes.recall",
+    "sync_cursors_index": "artifacts.indexes.sync_cursors"
+  }
+}
+```
+
+Agents should use `artifacts.snapshots.projects_by_id.<project_id>` and the
+named `selection_sources` paths when they need to inspect a derived snapshot or
+index after rebuild.
+
 ### `promote`
 
 Used to move records between states.

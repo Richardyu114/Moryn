@@ -55,6 +55,17 @@ const LINK_EVENT_SELECTION_SOURCES = {
   ...MUTATION_EVENT_SELECTION_SOURCES,
   linked_record_id: "event.linked_record_id"
 };
+const REBUILD_SELECTION_SOURCES = {
+  record_count: "records",
+  project_ids: "projects",
+  skill_count: "skills",
+  artifacts: "artifacts",
+  user_snapshot: "artifacts.snapshots.user",
+  project_snapshots: "artifacts.snapshots.projects_by_id",
+  skills_snapshot: "artifacts.snapshots.skills",
+  recall_index: "artifacts.indexes.recall",
+  sync_cursors_index: "artifacts.indexes.sync_cursors"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -1418,9 +1429,20 @@ describe("MCP stdio server", () => {
           const rebuild = parseTextContent(await agentB.callTool({
             name: "rebuild",
             arguments: {}
-          })) as { ok: boolean; records: number };
+          })) as {
+            ok: boolean;
+            records: number;
+            artifacts: {
+              snapshots: { projects_by_id: Record<string, string> };
+              indexes: { recall: string };
+            };
+            selection_sources: Record<string, string>;
+          };
           expect(rebuild.ok).toBe(true);
           expect(rebuild.records).toBe(1);
+          expect(rebuild.selection_sources).toEqual(REBUILD_SELECTION_SOURCES);
+          expect(rebuild.artifacts.snapshots.projects_by_id.moryn).toBe("snapshots/projects/moryn.json");
+          expect(rebuild.artifacts.indexes.recall).toBe("indexes/recall.json");
 
           const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
           expect(recallIndex.records.map((record) => record.text)).toContain("MCP sync shares events.");

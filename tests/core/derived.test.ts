@@ -5,6 +5,18 @@ import { createEngine } from "../../src/core/engine.js";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
 import { withInitializedTempStore } from "../helpers/temp-store.js";
 
+const REBUILD_SELECTION_SOURCES = {
+  record_count: "records",
+  project_ids: "projects",
+  skill_count: "skills",
+  artifacts: "artifacts",
+  user_snapshot: "artifacts.snapshots.user",
+  project_snapshots: "artifacts.snapshots.projects_by_id",
+  skills_snapshot: "artifacts.snapshots.skills",
+  recall_index: "artifacts.indexes.recall",
+  sync_cursors_index: "artifacts.indexes.sync_cursors"
+};
+
 describe("derived views", () => {
   it("rebuilds snapshots and recall index from replayed events", async () => {
     await withInitializedTempStore(async (storePath) => {
@@ -127,6 +139,13 @@ describe("derived views", () => {
       expect(result.records).toBe(11);
       expect(result.projects).toEqual(["moryn", "other"]);
       expect(result.skills).toBe(1);
+      expect(result.selection_sources).toEqual(REBUILD_SELECTION_SOURCES);
+      expect(result.artifacts.snapshots.user).toBe("snapshots/user.json");
+      expect(result.artifacts.snapshots.projects_by_id.moryn).toBe("snapshots/projects/moryn.json");
+      expect(result.artifacts.snapshots.projects_by_id.other).toBe("snapshots/projects/other.json");
+      expect(result.artifacts.snapshots.skills).toBe("snapshots/skills/index.json");
+      expect(result.artifacts.indexes.recall).toBe("indexes/recall.json");
+      expect(result.artifacts.indexes.sync_cursors).toBe("indexes/sync-cursors.json");
 
       const user = JSON.parse(await readFile(join(storePath, "snapshots", "user.json"), "utf8")) as { soul: unknown[] };
       expect(user.soul).toHaveLength(1);
@@ -150,6 +169,8 @@ describe("derived views", () => {
       const rebuiltRecall = JSON.parse(rebuiltRecallRaw) as { records: Array<{ id: string }> };
 
       expect(rebuilt.records).toBe(11);
+      expect(rebuilt.artifacts).toEqual(result.artifacts);
+      expect(rebuilt.selection_sources).toEqual(REBUILD_SELECTION_SOURCES);
       expect(rebuiltRecall.records).toHaveLength(11);
       expect(rebuiltRecallRaw).toBe(firstRecallRaw);
     });

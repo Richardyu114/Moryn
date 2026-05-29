@@ -551,6 +551,12 @@ moryn sync --pull
 moryn mcp
 ```
 
+`moryn rebuild` returns the regenerated artifact paths under
+`artifacts.snapshots` and `artifacts.indexes`, plus `selection_sources` for
+`records`, `projects`, `skills`, and each artifact path. Agents can read the
+reported `artifacts.snapshots.projects_by_id.<project_id>` path instead of
+guessing where derived files live.
+
 ## Agent Workflow
 
 Agents should use Moryn through a consistent protocol.

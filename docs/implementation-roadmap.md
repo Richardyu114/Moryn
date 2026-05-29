@@ -165,6 +165,9 @@ Deliverables:
 - Done: `moryn rebuild` regenerates snapshots and recall indexes from events.
 - Done: Snapshots include user profile, project summaries, and skill index.
 - Done: Indexes are deterministic and safe to delete.
+- Done: Rebuild success responses expose regenerated artifact paths and
+  `selection_sources`, so agents can inspect snapshots and indexes without
+  guessing file locations.
 - Done: Tests prove event replay is the source of truth.
 
 ## Phase 6: Cross-Agent Workflow Hardening

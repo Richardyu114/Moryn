@@ -6,11 +6,35 @@ import { readEvents } from "./store.js";
 import type { MorynRecord } from "./types.js";
 import { displayRecordText, searchableRecordText } from "./content-text.js";
 
+const REBUILD_SELECTION_SOURCES = {
+  record_count: "records",
+  project_ids: "projects",
+  skill_count: "skills",
+  artifacts: "artifacts",
+  user_snapshot: "artifacts.snapshots.user",
+  project_snapshots: "artifacts.snapshots.projects_by_id",
+  skills_snapshot: "artifacts.snapshots.skills",
+  recall_index: "artifacts.indexes.recall",
+  sync_cursors_index: "artifacts.indexes.sync_cursors"
+} as const;
+
 export interface RebuildResult {
   ok: true;
   records: number;
   projects: string[];
   skills: number;
+  artifacts: {
+    snapshots: {
+      user: string;
+      projects_by_id: Record<string, string>;
+      skills: string;
+    };
+    indexes: {
+      recall: string;
+      sync_cursors: string;
+    };
+  };
+  selection_sources: typeof REBUILD_SELECTION_SOURCES;
 }
 
 const REBUILD_LOCK_TIMEOUT_MS = 60_000;
@@ -145,6 +169,22 @@ async function readLegacyJsonIfExists(path: string): Promise<unknown | undefined
   }
 }
 
+function rebuildArtifacts(projectIds: string[]): RebuildResult["artifacts"] {
+  return {
+    snapshots: {
+      user: "snapshots/user.json",
+      projects_by_id: Object.fromEntries(
+        projectIds.map((projectId) => [projectId, `snapshots/projects/${projectId}.json`])
+      ),
+      skills: "snapshots/skills/index.json"
+    },
+    indexes: {
+      recall: "indexes/recall.json",
+      sync_cursors: "indexes/sync-cursors.json"
+    }
+  };
+}
+
 export async function rebuildDerivedViews(storePath: string): Promise<RebuildResult> {
   return withRebuildLock(storePath, () => rebuildDerivedViewsUnlocked(storePath));
 }
@@ -223,5 +263,12 @@ async function rebuildDerivedViewsUnlocked(storePath: string): Promise<RebuildRe
     latest_record_update: generatedFromCursor
   });
 
-  return { ok: true, records: activeRecords.length, projects: projectIds, skills: skills.length };
+  return {
+    ok: true,
+    records: activeRecords.length,
+    projects: projectIds,
+    skills: skills.length,
+    artifacts: rebuildArtifacts(projectIds),
+    selection_sources: REBUILD_SELECTION_SOURCES
+  };
 }
