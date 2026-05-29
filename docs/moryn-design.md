@@ -695,6 +695,12 @@ from lifecycle steps. When no project is provided, non-startup lifecycle
 templates require `project_id` and include `--project-id <project_id>` so
 agents must use the discovery result before writing status, finishing, or
 refreshing.
+Every action template also includes an `interfaces` object. `interfaces.cli`
+contains the exact command string for shell clients, while `interfaces.mcp`
+contains the tool name and JSON arguments for MCP hosts. These fields are
+derived from the existing `tool`, `command`, and `arguments` values so agents
+can choose their runtime interface without reverse-engineering one transport
+from the other.
 
 CLI:
 
@@ -777,6 +783,10 @@ argument values rather than parse the CLI command template. Lifecycle action
 templates also include `required_when`, a short usage condition that tells an
 agent when to choose that action instead of inferring intent from array order or
 action names.
+Lifecycle, guide, setup, and project-discovery action templates also expose
+`interfaces.cli.command` and `interfaces.mcp.tool`/`interfaces.mcp.arguments`,
+so CLI and MCP hosts can execute the same recommendation without translating
+field names by memory.
 
 ### `agent_doctor`
 

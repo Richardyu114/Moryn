@@ -40,6 +40,22 @@ function singleNextWorkflow(input: {
   };
 }
 
+function expectActionInterfaces(action: {
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  interfaces?: {
+    cli?: { command?: string };
+    mcp?: { tool?: string; arguments?: Record<string, unknown> };
+  };
+}) {
+  expect(action.interfaces?.cli).toEqual({ command: action.command });
+  expect(action.interfaces?.mcp).toEqual({
+    tool: action.tool,
+    arguments: action.arguments
+  });
+}
+
 async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promise<T>, cwd = repoRoot): Promise<T> {
   const transport = new StdioClientTransport({
     command: "node",
@@ -133,6 +149,10 @@ describe("MCP stdio server", () => {
               current_task?: string;
               agent?: { client: string; session_id?: string };
             };
+            interfaces?: {
+              cli?: { command?: string };
+              mcp?: { tool?: string; arguments?: Record<string, unknown> };
+            };
           };
           lifecycle: Array<{
             step: string;
@@ -142,6 +162,10 @@ describe("MCP stdio server", () => {
             required_when: string;
             required_fields: string[];
             arguments: Record<string, unknown>;
+            interfaces?: {
+              cli?: { command?: string };
+              mcp?: { tool?: string; arguments?: Record<string, unknown> };
+            };
           }>;
           guardrails: Array<{
             id: string;
@@ -157,6 +181,10 @@ describe("MCP stdio server", () => {
               required_when: string;
               required_fields: string[];
               arguments: Record<string, unknown>;
+              interfaces?: {
+                cli?: { command?: string };
+                mcp?: { tool?: string; arguments?: Record<string, unknown> };
+              };
             };
             allowed_action_sources?: string[];
           }>;
@@ -181,6 +209,10 @@ describe("MCP stdio server", () => {
             required_when: string;
             required_fields: string[];
             arguments: Record<string, unknown>;
+            interfaces?: {
+              cli?: { command?: string };
+              mcp?: { tool?: string; arguments?: Record<string, unknown> };
+            };
           };
         };
 
@@ -199,6 +231,7 @@ describe("MCP stdio server", () => {
             agent: { client: "gemini", session_id: "gemini-mcp-guide" }
           }
         });
+        expectActionInterfaces(guide.startup);
         expect(guide.lifecycle.map((step) => step.tool)).toEqual([
           "agent_enter",
           "agent_status",
@@ -226,6 +259,9 @@ describe("MCP stdio server", () => {
           command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-guide --refresh-since <refresh_since>",
           required_fields: ["refresh_since"]
         }));
+        for (const action of guide.lifecycle) {
+          expectActionInterfaces(action);
+        }
         expect(guide.guardrails.map((guardrail) => guardrail.id)).toEqual([
           "prefer_agent_enter_for_startup",
           "discover_project_before_lifecycle_writes",
@@ -303,6 +339,7 @@ describe("MCP stdio server", () => {
           required_fields: [],
           arguments: guide.startup.arguments
         });
+        expectActionInterfaces(guide.next);
       });
     } finally {
       await rm(store, { recursive: true, force: true });
@@ -1339,6 +1376,15 @@ describe("MCP stdio server", () => {
             tool: "sync_status",
             requiredWhen: INSPECT_SYNC_CONFLICT_WHEN
           }),
+          interfaces: {
+            cli: {
+              command: "moryn sync --status"
+            },
+            mcp: {
+              tool: "sync_status",
+              arguments: {}
+            }
+          },
           arguments: {}
         });
         expect(doctor.readiness).toEqual({
@@ -2343,7 +2389,19 @@ describe("MCP stdio server", () => {
           name: "project_list",
           arguments: {}
         })) as {
-          projects: Array<{ project_id: string; latest_activity: { text: string; agent: { client?: string; session_id?: string } }; next: { tool: string; arguments: { project_id: string } } }>;
+          projects: Array<{
+            project_id: string;
+            latest_activity: { text: string; agent: { client?: string; session_id?: string } };
+            next: {
+              tool: string;
+              command: string;
+              arguments: { project_id: string };
+              interfaces?: {
+                cli?: { command?: string };
+                mcp?: { tool?: string; arguments?: Record<string, unknown> };
+              };
+            };
+          }>;
         };
 
         expect(listed.projects.map((project) => project.project_id)).toEqual(["beta", "alpha"]);
@@ -2358,6 +2416,7 @@ describe("MCP stdio server", () => {
             arguments: { project_id: "beta" }
           }
         });
+        expectActionInterfaces(listed.projects[0]!.next);
       });
     } finally {
       await rm(store, { recursive: true, force: true });

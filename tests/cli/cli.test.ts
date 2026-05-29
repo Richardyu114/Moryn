@@ -37,6 +37,22 @@ function singleNextWorkflow(input: {
   };
 }
 
+function expectActionInterfaces(action: {
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  interfaces?: {
+    cli?: { command?: string };
+    mcp?: { tool?: string; arguments?: Record<string, unknown> };
+  };
+}) {
+  expect(action.interfaces?.cli).toEqual({ command: action.command });
+  expect(action.interfaces?.mcp).toEqual({
+    tool: action.tool,
+    arguments: action.arguments
+  });
+}
+
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "moryn-cli-"));
   try {
@@ -101,6 +117,10 @@ describe("moryn CLI", () => {
             current_task?: string;
             agent?: { client: string; session_id?: string };
           };
+          interfaces?: {
+            cli?: { command?: string };
+            mcp?: { tool?: string; arguments?: Record<string, unknown> };
+          };
         };
         lifecycle: Array<{
           step: string;
@@ -110,6 +130,10 @@ describe("moryn CLI", () => {
           required_when: string;
           required_fields: string[];
           arguments: Record<string, unknown>;
+          interfaces?: {
+            cli?: { command?: string };
+            mcp?: { tool?: string; arguments?: Record<string, unknown> };
+          };
         }>;
         rules: string[];
         guardrails: Array<{
@@ -126,6 +150,10 @@ describe("moryn CLI", () => {
             required_when: string;
             required_fields: string[];
             arguments: Record<string, unknown>;
+            interfaces?: {
+              cli?: { command?: string };
+              mcp?: { tool?: string; arguments?: Record<string, unknown> };
+            };
           };
           allowed_action_sources?: string[];
         }>;
@@ -150,6 +178,10 @@ describe("moryn CLI", () => {
           required_when: string;
           required_fields: string[];
           arguments: Record<string, unknown>;
+          interfaces?: {
+            cli?: { command?: string };
+            mcp?: { tool?: string; arguments?: Record<string, unknown> };
+          };
         };
       };
 
@@ -168,6 +200,7 @@ describe("moryn CLI", () => {
           agent: { client: "gemini", session_id: "gemini-guide" }
         }
       });
+      expectActionInterfaces(parsed.startup);
       expect(parsed.lifecycle.map((step) => step.tool)).toEqual([
         "agent_enter",
         "agent_status",
@@ -195,6 +228,9 @@ describe("moryn CLI", () => {
         command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue handoff' --agent gemini --session-id gemini-guide --refresh-since <refresh_since>",
         required_fields: ["refresh_since"]
       }));
+      for (const action of parsed.lifecycle) {
+        expectActionInterfaces(action);
+      }
       expect(parsed.rules).toContain("Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.");
       expect(parsed.rules).toContain("When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.");
       expect(parsed.guardrails.map((guardrail) => guardrail.id)).toEqual([
@@ -274,6 +310,7 @@ describe("moryn CLI", () => {
         required_fields: [],
         arguments: parsed.startup.arguments
       });
+      expectActionInterfaces(parsed.next);
     });
   });
 
@@ -1602,7 +1639,20 @@ describe("moryn CLI", () => {
 
       const listed = await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "project", "list"]);
       const parsed = JSON.parse(listed.stdout) as {
-        projects: Array<{ project_id: string; records: number; latest_activity: { text: string }; next: { tool: string; arguments: { project_id: string } } }>;
+        projects: Array<{
+          project_id: string;
+          records: number;
+          latest_activity: { text: string };
+          next: {
+            tool: string;
+            command: string;
+            arguments: { project_id: string };
+            interfaces?: {
+              cli?: { command?: string };
+              mcp?: { tool?: string; arguments?: Record<string, unknown> };
+            };
+          };
+        }>;
       };
 
       expect(parsed.projects.map((project) => project.project_id)).toEqual(["beta", "alpha"]);
@@ -1615,6 +1665,7 @@ describe("moryn CLI", () => {
           arguments: { project_id: "beta" }
         }
       });
+      expectActionInterfaces(parsed.projects[0]!.next);
     });
   });
 
@@ -1647,7 +1698,18 @@ describe("moryn CLI", () => {
             start: string;
             phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
           };
-          actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+          actions: Array<{
+            action: string;
+            tool: string;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+            interfaces?: {
+              cli?: { command?: string };
+              mcp?: { tool?: string; arguments?: Record<string, unknown> };
+            };
+          }>;
         };
       };
       expect(parsedFinish.record.content.text).toBe("CLI Codex finished the lifecycle protocol.");
@@ -1664,6 +1726,9 @@ describe("moryn CLI", () => {
           agent: expect.objectContaining({ client: "codex", session_id: "codex-cli" })
         })
       }));
+      for (const action of parsedFinish.next.actions) {
+        expectActionInterfaces(action);
+      }
       expect(parsedFinish.next.workflow).toEqual({
         version: 1,
         start: "next.actions",
@@ -1698,7 +1763,18 @@ describe("moryn CLI", () => {
             start: string;
             phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
           };
-          actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+          actions: Array<{
+            action: string;
+            tool: string;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+            interfaces?: {
+              cli?: { command?: string };
+              mcp?: { tool?: string; arguments?: Record<string, unknown> };
+            };
+          }>;
         };
       };
       expect(parsedStart.project.project_id).toBe("moryn");
@@ -1731,6 +1807,9 @@ describe("moryn CLI", () => {
           current_task: "continue lifecycle protocol"
         })
       }));
+      for (const action of parsedStart.next.actions) {
+        expectActionInterfaces(action);
+      }
       expect(parsedStart.next.workflow).toEqual({
         version: 1,
         start: "context",
@@ -2111,6 +2190,15 @@ describe("moryn CLI", () => {
           tool: "sync_status",
           requiredWhen: INSPECT_SYNC_CONFLICT_WHEN
         }),
+        interfaces: {
+          cli: {
+            command: "moryn sync --status"
+          },
+          mcp: {
+            tool: "sync_status",
+            arguments: {}
+          }
+        },
         arguments: {}
       });
       expect(parsedDoctor.readiness).toEqual({

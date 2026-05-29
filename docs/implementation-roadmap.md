@@ -152,6 +152,10 @@ Deliverables:
 - Done: Lifecycle actions and guide templates mirror required field placeholders
   in `arguments` (`<status>`, `<summary>`, `<current_task>`, `<remote>`) so MCP
   agents can replace JSON fields instead of parsing command strings.
+- Done: Lifecycle, guide, setup, and project-discovery actions now include
+  `interfaces.cli.command` plus `interfaces.mcp.tool` and
+  `interfaces.mcp.arguments`, making the intended execution transport explicit
+  for CLI and MCP hosts.
 - Done: Lifecycle `next.actions` now include `required_when` usage conditions
   so agents can choose follow-up actions without relying on array order or
   action-name guessing.

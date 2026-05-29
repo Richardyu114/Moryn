@@ -49,6 +49,17 @@ type LifecycleActionTemplate = {
   required_when: string;
   required_fields: string[];
   arguments: Record<string, unknown>;
+  interfaces: ActionInterfaces<Record<string, unknown>>;
+};
+
+type ActionInterfaces<TArguments> = {
+  cli: {
+    command: string;
+  };
+  mcp: {
+    tool: string;
+    arguments: TArguments;
+  };
 };
 
 export interface AgentDoctorInput extends AgentLifecycleInput {}
@@ -115,6 +126,23 @@ function projectEnvelope(project: ProjectContext): {
     sync_mode: project.config?.sync.mode ?? "session",
     tags: project.config?.tags ?? [],
     default_skills: project.config?.default_skills ?? []
+  };
+}
+
+function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(
+  action: T
+): T & { interfaces: ActionInterfaces<T["arguments"]> } {
+  return {
+    ...action,
+    interfaces: {
+      cli: {
+        command: action.command
+      },
+      mcp: {
+        tool: action.tool,
+        arguments: action.arguments
+      }
+    }
   };
 }
 
@@ -367,14 +395,14 @@ function lifecycleActionArguments(input: AgentLifecycleInput): {
 }
 
 function agentEnterActionTemplate(command: string, args: ReturnType<typeof lifecycleActionArguments>) {
-  return {
+  return withActionInterfaces({
     tool: "agent_enter",
     command,
     safe_to_run: true,
     required_when: START_OR_RESUME_WHEN,
     required_fields: [],
     arguments: args
-  };
+  });
 }
 
 function agentGuideGuardrails(startup: ReturnType<typeof agentEnterActionTemplate>) {
@@ -489,7 +517,7 @@ function portableLifecycleInput(input: AgentLifecycleInput, project: ProjectCont
 
 function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActionTemplate[] {
   const actions: LifecycleActionTemplate[] = [
-    {
+    withActionInterfaces({
       action: "publish_status",
       tool: "agent_status",
       safe_to_run: false,
@@ -497,8 +525,8 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       required_when: PUBLISH_STATUS_WHEN,
       required_fields: ["status"],
       arguments: statusActionArguments(input)
-    },
-    {
+    }),
+    withActionInterfaces({
       action: "finish_session",
       tool: "agent_finish",
       safe_to_run: false,
@@ -506,10 +534,10 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       required_when: FINISH_HANDOFF_WHEN,
       required_fields: ["summary"],
       arguments: finishActionArguments(input)
-    }
+    })
   ];
   if (cursor) {
-    actions.push({
+    actions.push(withActionInterfaces({
       action: "refresh_context",
       tool: "agent_start",
       safe_to_run: true,
@@ -517,14 +545,14 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
       required_when: REFRESH_CONTEXT_WHEN,
       required_fields: [],
       arguments: refreshActionArguments(input, cursor)
-    });
+    }));
   }
   return actions;
 }
 
 function syncConflictNextActions() {
   return [
-    {
+    withActionInterfaces({
       action: "inspect_sync_conflict",
       tool: "sync_status",
       safe_to_run: true,
@@ -532,12 +560,12 @@ function syncConflictNextActions() {
       required_when: INSPECT_SYNC_CONFLICT_WHEN,
       required_fields: [],
       arguments: {}
-    }
+    })
   ];
 }
 
 function syncConflictNextAction() {
-  return {
+  return withActionInterfaces({
     recommended_action: "resolve_sync_conflict_before_lifecycle",
     tool: "sync_status",
     safe_to_run: true,
@@ -546,7 +574,7 @@ function syncConflictNextAction() {
     required_fields: [],
     workflow: singleNextWorkflow("resolve_sync_conflict_before_lifecycle", "sync_status", INSPECT_SYNC_CONFLICT_WHEN, []),
     arguments: {}
-  };
+  });
 }
 
 async function assertSyncNotConflicted(storePath: string): Promise<GitSyncStatus> {
@@ -560,7 +588,7 @@ async function assertSyncNotConflicted(storePath: string): Promise<GitSyncStatus
 function finishNextActions(input: AgentLifecycleInput) {
   const requiredFields = input.currentTask ? [] : ["current_task"];
   return [
-    {
+    withActionInterfaces({
       action: "start_next_session",
       tool: "agent_start",
       safe_to_run: true,
@@ -568,13 +596,13 @@ function finishNextActions(input: AgentLifecycleInput) {
       required_when: START_NEXT_SESSION_WHEN,
       required_fields: requiredFields,
       arguments: agentStartActionArguments(input, requiredFields)
-    }
+    })
   ];
 }
 
 function statusNextActions(input: AgentLifecycleInput, cursor: string) {
   return [
-    {
+    withActionInterfaces({
       action: "finish_session",
       tool: "agent_finish",
       safe_to_run: false,
@@ -582,8 +610,8 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
       required_when: FINISH_HANDOFF_WHEN,
       required_fields: ["summary"],
       arguments: finishActionArguments(input)
-    },
-    {
+    }),
+    withActionInterfaces({
       action: "refresh_context",
       tool: "agent_start",
       safe_to_run: true,
@@ -591,7 +619,7 @@ function statusNextActions(input: AgentLifecycleInput, cursor: string) {
       required_when: REFRESH_CONTEXT_WHEN,
       required_fields: [],
       arguments: refreshActionArguments(input, cursor)
-    }
+    })
   ];
 }
 
@@ -611,7 +639,7 @@ function lifecycleSmokeActionArguments(input: AgentLifecycleInput): {
 
 function doctorNextActions(input: AgentLifecycleInput) {
   return [
-    {
+    withActionInterfaces({
       action: "start_session",
       tool: "agent_start",
       safe_to_run: true,
@@ -619,8 +647,8 @@ function doctorNextActions(input: AgentLifecycleInput) {
       required_when: START_OR_RESUME_WHEN,
       required_fields: [],
       arguments: agentStartActionArguments(input)
-    },
-    {
+    }),
+    withActionInterfaces({
       action: "run_lifecycle_smoke",
       tool: "moryn-agent-smoke",
       safe_to_run: true,
@@ -628,7 +656,7 @@ function doctorNextActions(input: AgentLifecycleInput) {
       required_when: LIFECYCLE_SMOKE_WHEN,
       required_fields: input.syncRemote ? [] : ["remote"],
       arguments: lifecycleSmokeActionArguments(input)
-    }
+    })
   ];
 }
 
@@ -659,7 +687,7 @@ function doctorReadiness(
 
 function projectListNextActions() {
   return [
-    {
+    withActionInterfaces({
       action: "list_projects",
       tool: "project_list",
       safe_to_run: true,
@@ -667,7 +695,7 @@ function projectListNextActions() {
       required_when: LIST_PROJECTS_WHEN,
       required_fields: [],
       arguments: {}
-    }
+    })
   ];
 }
 
@@ -681,7 +709,7 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
     ? lifecycleArguments
     : lifecycleActionArguments(input);
   return [
-    {
+    withActionInterfaces({
       step: "start_or_resume",
       tool: startTool,
       safe_to_run: true,
@@ -689,8 +717,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       command: startCommand,
       required_fields: [],
       arguments: startArguments
-    },
-    {
+    }),
+    withActionInterfaces({
       step: "publish_status",
       tool: "agent_status",
       safe_to_run: false,
@@ -698,8 +726,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       command: buildAgentStatusTemplateCommand(lifecycleInput),
       required_fields: guideRequiredFields(input, ["status"]),
       arguments: { ...lifecycleArguments, status: "<status>" }
-    },
-    {
+    }),
+    withActionInterfaces({
       step: "finish_handoff",
       tool: "agent_finish",
       safe_to_run: false,
@@ -707,8 +735,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       command: buildAgentFinishTemplateCommand(lifecycleInput),
       required_fields: guideRequiredFields(input, ["summary"]),
       arguments: { ...lifecycleArguments, summary: "<summary>" }
-    },
-    {
+    }),
+    withActionInterfaces({
       step: "refresh_context",
       tool: "agent_start",
       safe_to_run: true,
@@ -716,7 +744,7 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       command: buildAgentRefreshTemplateCommand(lifecycleInput),
       required_fields: guideRequiredFields(input, ["refresh_since"]),
       arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" }
-    }
+    })
   ];
 }
 
@@ -1118,7 +1146,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
   const next = syncConflict
     ? syncConflictNextAction()
     : discoverProjects
-    ? {
+    ? withActionInterfaces({
         recommended_action: "list_projects",
         tool: "project_list",
         safe_to_run: true,
@@ -1128,9 +1156,9 @@ export async function agentDoctor(input: AgentDoctorInput) {
         workflow: singleNextWorkflow("list_projects", "project_list", LIST_PROJECTS_WHEN, []),
         actions: projectListNextActions(),
         arguments: {}
-      }
+      })
     : project.ok
-    ? {
+    ? withActionInterfaces({
         recommended_action: "call_agent_start",
         tool: "agent_start",
         safe_to_run: true,
@@ -1146,8 +1174,8 @@ export async function agentDoctor(input: AgentDoctorInput) {
           current_task: input.currentTask,
           agent: input.agent
         }
-      }
-    : {
+      })
+    : withActionInterfaces({
         recommended_action: "fix_project_config",
         tool: "project_init",
         safe_to_run: false,
@@ -1156,7 +1184,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
         required_fields: setupRequiredFields,
         workflow: singleNextWorkflow("fix_project_config", "project_init", FIX_PROJECT_CONFIG_WHEN, setupRequiredFields),
         arguments: projectInitArguments(setupInput)
-      };
+      });
 
   return {
     ok: true,
@@ -1211,6 +1239,7 @@ export async function agentEnter(input: AgentEnterInput) {
           required_when: CHOOSE_DISCOVERED_PROJECT_WHEN,
           required_fields: [],
           arguments: project.next.arguments,
+          interfaces: project.next.interfaces,
           lifecycle: agentGuideLifecycle({ ...input, projectId: project.project_id }, "agent_start")
         }))
       }

@@ -367,6 +367,10 @@ values and call the listed tool instead of parsing placeholders out of the CLI
 command string. Lifecycle action templates also include `required_when`, a
 short usage condition that tells an agent when to choose that action instead of
 inferring intent from array order or action names.
+Action templates also expose `interfaces.cli.command` and
+`interfaces.mcp.tool`/`interfaces.mcp.arguments`, derived from the same
+top-level fields. Agent hosts should use the interface matching their runtime
+instead of guessing whether a shell command or MCP call is expected.
 
 `agent start` is the low-friction startup command for agents. It resolves
 `.moryn.json`, creates the store if needed, initializes sync when
@@ -465,8 +469,10 @@ status, finish, and refresh, plus rules and `guardrails[]` that tell the agent
 not to guess project ids or manually compose lower-level sync/boot/refresh
 calls. The returned `startup` and `next` objects are complete action templates
 for `agent_enter`, including safety, usage timing, required fields, and
-arguments. `workflow` is the machine-readable ordering contract: `start` points
-at `startup`, `continue_from` names valid follow-up action sources, and
+arguments. Each action also carries `interfaces` with the CLI command and MCP
+tool arguments side by side, so agents do not need to translate between
+transport shapes. `workflow` is the machine-readable ordering contract: `start`
+points at `startup`, `continue_from` names valid follow-up action sources, and
 `phases[]` gives order, action source, usage condition, and required fields.
 Guardrails are machine-readable: each entry names what to avoid, what behavior
 is required, and where applicable a `use_instead` action that can be executed

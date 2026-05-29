@@ -69,6 +69,21 @@ interface ListProjectsInput {
   agent?: RecordSource;
 }
 
+function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
+  return {
+    ...action,
+    interfaces: {
+      cli: {
+        command: action.command
+      },
+      mcp: {
+        tool: action.tool,
+        arguments: action.arguments
+      }
+    }
+  };
+}
+
 interface StateChangeInput {
   record_id: string;
   reason?: string;
@@ -1059,12 +1074,12 @@ export function createEngine(deps: EngineDeps) {
             records: records.length,
             tags,
             latest_activity: projectActivity(latest),
-            next: {
+            next: withActionInterfaces({
               recommended_action: "call_agent_start",
               tool: "agent_start",
               command: projectStartCommand(projectId, input),
               arguments: projectStartArguments(projectId, input)
-            }
+            })
           };
         })
         .sort((a, b) => b.latest_activity.updated_at.localeCompare(a.latest_activity.updated_at) || a.project_id.localeCompare(b.project_id))
