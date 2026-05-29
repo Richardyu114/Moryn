@@ -595,6 +595,10 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
   return actions;
 }
 
+function actionsById(actions: LifecycleActionTemplate[]): Record<string, LifecycleActionTemplate> {
+  return Object.fromEntries(actions.map((action) => [action.action, action]));
+}
+
 function syncConflictNextActions() {
   return [
     withActionInterfaces({
@@ -904,7 +908,7 @@ function runtimeActionPhase(
   return {
     phase,
     order,
-    action_source: `next.actions.${action.action}`,
+    action_source: `next.actions_by_id.${action.action}`,
     tool: action.tool,
     required_when: action.required_when,
     required_fields: action.required_fields
@@ -915,7 +919,7 @@ function startSessionWorkflow(actions: LifecycleActionTemplate[]) {
   return {
     version: 1,
     start: "start",
-    continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions"],
+    continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions_by_id", "next.actions"],
     phases: [
       {
         phase: "work_with_handoff_context",
@@ -935,7 +939,7 @@ function directStartWorkflow(actions: LifecycleActionTemplate[]) {
   return {
     version: 1,
     start: "context",
-    continue_from: ["boot", "refresh", "handoff", "next.actions"],
+    continue_from: ["boot", "refresh", "handoff", "next.actions_by_id", "next.actions"],
     phases: [
       {
         phase: "review_context",
@@ -954,8 +958,8 @@ function directStartWorkflow(actions: LifecycleActionTemplate[]) {
 function directStatusWorkflow(actions: LifecycleActionTemplate[]) {
   return {
     version: 1,
-    start: "next.actions",
-    continue_from: ["record", "next.actions"],
+    start: "next.actions_by_id",
+    continue_from: ["record", "next.actions_by_id", "next.actions"],
     phases: [
       runtimeActionPhase(actions, "finish_session", "finish_session", 1),
       runtimeActionPhase(actions, "refresh_context", "refresh_context", 2)
@@ -966,8 +970,8 @@ function directStatusWorkflow(actions: LifecycleActionTemplate[]) {
 function directFinishWorkflow(actions: LifecycleActionTemplate[]) {
   return {
     version: 1,
-    start: "next.actions",
-    continue_from: ["next.actions"],
+    start: "next.actions_by_id",
+    continue_from: ["next.actions_by_id", "next.actions"],
     phases: [
       runtimeActionPhase(actions, "start_next_session", "start_next_session", 1)
     ]
@@ -1284,6 +1288,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
   const discoverProjects = shouldDiscoverProjects(input, await hasKnownProjects(input, storeInitialized), project);
   const setupInput = projectInitInput(input, project.ok ? undefined : project.error);
   const setupRequiredFields = setupInput.projectPath ? [] : ["path"];
+  const doctorActions = doctorNextActions(input);
   const next = syncConflict
     ? syncConflictNextAction()
     : discoverProjects
@@ -1307,7 +1312,8 @@ export async function agentDoctor(input: AgentDoctorInput) {
         required_when: START_OR_RESUME_WHEN,
         required_fields: [],
         workflow: singleNextWorkflow("call_agent_start", "agent_start", START_OR_RESUME_WHEN, []),
-        actions: doctorNextActions(input),
+        actions: doctorActions,
+        actions_by_id: actionsById(doctorActions),
         arguments: {
           project_path: input.projectPath,
           project_id: input.projectId,
@@ -1403,7 +1409,8 @@ export async function agentEnter(input: AgentEnterInput) {
         tool: "agent_start",
         safe_to_run: true,
         workflow: startSessionWorkflow(actions),
-        actions
+        actions,
+        actions_by_id: actionsById(actions)
       }
     };
   }
@@ -1502,7 +1509,8 @@ export async function agentStart(input: AgentStartInput) {
       required_end_action: "call agent_finish with a session_summary",
       recommended_refresh_action: "call agent_start again with the previous refresh cursor, or call refresh directly",
       workflow: directStartWorkflow(actions),
-      actions
+      actions,
+      actions_by_id: actionsById(actions)
     }
   };
 }
@@ -1554,7 +1562,8 @@ export async function agentFinish(input: AgentFinishInput) {
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>",
       workflow: directFinishWorkflow(actions),
-      actions
+      actions,
+      actions_by_id: actionsById(actions)
     }
   };
 }
@@ -1611,7 +1620,8 @@ export async function agentStatus(input: AgentStatusInput) {
     next: {
       recommended_finish_action: "call agent_finish with the final session_summary when meaningful work ends",
       workflow: directStatusWorkflow(actions),
-      actions
+      actions,
+      actions_by_id: actionsById(actions)
     }
   };
 }

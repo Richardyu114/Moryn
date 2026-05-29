@@ -843,6 +843,11 @@ argument values rather than parse the CLI command template. Lifecycle action
 templates also include `required_when`, a short usage condition that tells an
 agent when to choose that action instead of inferring intent from array order or
 action names.
+Runtime lifecycle responses with unique follow-up action ids also expose
+`next.actions_by_id`, keyed by action id, alongside the ordered `next.actions`
+array. Workflow phases prefer keyed `next.actions_by_id.<action>` sources so
+hosts can execute a known action without scanning the array or reconstructing
+action names.
 Lifecycle, guide, setup, project-discovery, error-recovery, and warning-recovery
 action templates also expose `interfaces.cli.command`,
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, `safety`, and single-step
@@ -962,7 +967,10 @@ tool name, CLI command template, required fields, prefilled arguments, and
 between status, finish, refresh, discovery, and smoke-test actions without using
 array order as policy. The templates include status checkpoints, finish handoff,
 and refresh context (`agent_start` with `refresh_since` set to the returned
-cursor). Actions that only start, discover, inspect, or refresh lifecycle
+cursor). Runtime responses with unique follow-up actions also duplicate these
+templates in `next.actions_by_id` by action id, and workflow phases point to
+those keyed paths when the action id is known. Actions that only start, discover,
+inspect, or refresh lifecycle
 context are `safe_to_run: true`; actions that write agent-authored status or
 summary content are `safe_to_run: false`. Required authored values are still
 present in
@@ -990,9 +998,10 @@ or MCP `sync_remote` is provided, `agent_finish` creates the local store if
 needed and initializes Git sync before writing and pushing the handoff. Its
 `next.actions` includes a `start_next_session` template so another agent can
 restart through `agent_start` without inferring arguments from prose. That
-restart template is marked `safe_to_run: true` and carries `required_when` for
-next-session startup; when the next task is unknown, `arguments.current_task` is
-set to `"<current_task>"`.
+restart template is also available as `next.actions_by_id.start_next_session`,
+is marked `safe_to_run: true`, and carries `required_when` for next-session
+startup; when the next task is unknown, `arguments.current_task` is set to
+`"<current_task>"`.
 
 ### `agent_status`
 
@@ -1015,8 +1024,9 @@ remaining distinguishable from final handoffs by `type=status`. Its
 `next.actions` includes templates for `finish_session` and `refresh_context`
 using the status record timestamp as the next refresh cursor; `finish_session`
 is `safe_to_run: false` and carries `arguments.summary: "<summary>"`, while
-`refresh_context` is `safe_to_run: true`. Both actions include `required_when`
-so agents can distinguish a handoff write from an automatic context refresh.
+`refresh_context` is `safe_to_run: true`. Both actions are also available under
+`next.actions_by_id`, and include `required_when` so agents can distinguish a
+handoff write from an automatic context refresh.
 
 ### `rebuild`
 
@@ -1097,18 +1107,18 @@ moryn list-recent --limit 20
 Agents should follow this contract:
 
 1. If the agent does not know the workflow, call `agent_guide` and follow its returned tools, commands, and arguments.
-2. On a new machine, fresh store, or uncertain setup, call `agent_enter` first, then follow its `mode` and `next.actions`.
+2. On a new machine, fresh store, or uncertain setup, call `agent_enter` first, then follow its `mode`, `next.workflow`, and `next.actions_by_id` when present.
 3. If using lower-level tools and the target project is unclear, call `project_list` and use the returned `agent_start` arguments.
 4. Pass the shared private Git remote through `--sync-remote` or MCP `sync_remote`.
 5. Call `agent_start` at task start.
 6. Inspect `agent_start.handoff.active_sessions` before overlapping another agent's work.
 7. Inspect `agent_start.handoff.inbox` before continuing from another agent's final handoff.
 8. Call `recall` when context is missing or uncertain.
-9. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions` for finish or refresh.
+9. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions_by_id.finish_session` or `agent_status.next.actions_by_id.refresh_context`.
 10. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
 11. For each reportable non-raw refresh change that needs full context, follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
 12. When `agent_start.handoff.next_action` exists, use it for the prioritized recall action; for a different handoff entry, follow `handoff.inbox[].next_action` or `handoff.active_sessions[].next_action` instead of manually composing a `recall` call.
-13. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
+13. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions_by_id.start_next_session` to the next agent or device.
 14. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
 15. Write raw notes as `agent_note`, not canonical memory.
 16. Do not promote long-term preferences, soul records, or global skills without user confirmation.

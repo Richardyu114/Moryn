@@ -263,6 +263,9 @@ describe("agent lifecycle", () => {
           agent: { client: "codex", device_id: "device_codex", session_id: "codex-1" }
         })
       }));
+      expect(codexFinish.next.actions_by_id.start_next_session).toEqual(
+        codexFinish.next.actions.find((action) => action.action === "start_next_session")
+      );
 
       const geminiStart = await agentStart({
         storePath: storeB,
@@ -348,6 +351,21 @@ describe("agent lifecycle", () => {
           agent: { client: "gemini", device_id: "device_gemini", session_id: "gemini-1" }
         })
       }));
+      expect(geminiStart.next.actions_by_id.publish_status).toEqual(
+        geminiStart.next.actions.find((action) => action.action === "publish_status")
+      );
+      expect(geminiStart.next.actions_by_id.finish_session).toEqual(
+        geminiStart.next.actions.find((action) => action.action === "finish_session")
+      );
+      expect(geminiStart.next.actions_by_id.refresh_context).toEqual(
+        geminiStart.next.actions.find((action) => action.action === "refresh_context")
+      );
+      expect(geminiStart.next.workflow.phases.map((phase) => phase.action_source)).toEqual([
+        "boot+refresh+handoff",
+        "next.actions_by_id.publish_status",
+        "next.actions_by_id.finish_session",
+        "next.actions_by_id.refresh_context"
+      ]);
 
       const geminiFinish = await agentFinish({
         storePath: storeB,
@@ -1117,6 +1135,10 @@ describe("agent lifecycle", () => {
           tool: "agent_start"
         }
       });
+      expect(entered.next.actions_by_id.publish_status).toEqual(
+        entered.next.actions.find((action) => action.action === "publish_status")
+      );
+      expect(entered.next.workflow.phases.map((phase) => phase.action_source)).toContain("next.actions_by_id.publish_status");
       expect(entered.start.project.default_skills).toEqual(["release"]);
       expect(entered.start.handoff).toMatchObject({
         active_sessions: [],

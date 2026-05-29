@@ -2105,9 +2105,22 @@ describe("moryn CLI", () => {
         next: {
           workflow: {
             start: string;
+            continue_from: string[];
             phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
           };
           actions: Array<{
+            action: string;
+            tool: string;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+            interfaces?: {
+              cli?: { command?: string };
+              mcp?: { tool?: string; arguments?: Record<string, unknown> };
+            };
+          }>;
+          actions_by_id: Record<string, {
             action: string;
             tool: string;
             command: string;
@@ -2138,15 +2151,16 @@ describe("moryn CLI", () => {
       for (const action of parsedFinish.next.actions) {
         expectActionInterfaces(action);
       }
+      expect(parsedFinish.next.actions_by_id.start_next_session).toEqual(parsedFinish.next.actions.find((action) => action.action === "start_next_session"));
       expect(parsedFinish.next.workflow).toEqual({
         version: 1,
-        start: "next.actions",
-        continue_from: ["next.actions"],
+        start: "next.actions_by_id",
+        continue_from: ["next.actions_by_id", "next.actions"],
         phases: [
           {
             phase: "start_next_session",
             order: 1,
-            action_source: "next.actions.start_next_session",
+            action_source: "next.actions_by_id.start_next_session",
             tool: "agent_start",
             required_when: "When another agent or device should start the next session from this handoff.",
             required_fields: ["current_task"]
@@ -2173,6 +2187,18 @@ describe("moryn CLI", () => {
             phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
           };
           actions: Array<{
+            action: string;
+            tool: string;
+            command: string;
+            required_when: string;
+            required_fields: string[];
+            arguments: Record<string, unknown>;
+            interfaces?: {
+              cli?: { command?: string };
+              mcp?: { tool?: string; arguments?: Record<string, unknown> };
+            };
+          }>;
+          actions_by_id: Record<string, {
             action: string;
             tool: string;
             command: string;
@@ -2219,10 +2245,13 @@ describe("moryn CLI", () => {
       for (const action of parsedStart.next.actions) {
         expectActionInterfaces(action);
       }
+      expect(parsedStart.next.actions_by_id.publish_status).toEqual(parsedStart.next.actions.find((action) => action.action === "publish_status"));
+      expect(parsedStart.next.actions_by_id.finish_session).toEqual(parsedStart.next.actions.find((action) => action.action === "finish_session"));
+      expect(parsedStart.next.actions_by_id.refresh_context).toEqual(parsedStart.next.actions.find((action) => action.action === "refresh_context"));
       expect(parsedStart.next.workflow).toEqual({
         version: 1,
         start: "context",
-        continue_from: ["boot", "refresh", "handoff", "next.actions"],
+        continue_from: ["boot", "refresh", "handoff", "next.actions_by_id", "next.actions"],
         phases: [
           {
             phase: "review_context",
@@ -2234,7 +2263,7 @@ describe("moryn CLI", () => {
           {
             phase: "publish_status",
             order: 2,
-            action_source: "next.actions.publish_status",
+            action_source: "next.actions_by_id.publish_status",
             tool: "agent_status",
             required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
             required_fields: ["status"]
@@ -2242,7 +2271,7 @@ describe("moryn CLI", () => {
           {
             phase: "finish_session",
             order: 3,
-            action_source: "next.actions.finish_session",
+            action_source: "next.actions_by_id.finish_session",
             tool: "agent_finish",
             required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
             required_fields: ["summary"]
@@ -2250,7 +2279,7 @@ describe("moryn CLI", () => {
           {
             phase: "refresh_context",
             order: 4,
-            action_source: "next.actions.refresh_context",
+            action_source: "next.actions_by_id.refresh_context",
             tool: "agent_start",
             required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
             required_fields: []
@@ -2370,6 +2399,7 @@ describe("moryn CLI", () => {
             phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
           };
           actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+          actions_by_id: Record<string, { action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
         };
       };
       expect(parsedStatus.record).toMatchObject({
@@ -2409,15 +2439,17 @@ describe("moryn CLI", () => {
           current_task: "coordinate status"
         })
       }));
+      expect(parsedStatus.next.actions_by_id.finish_session).toEqual(parsedStatus.next.actions.find((action) => action.action === "finish_session"));
+      expect(parsedStatus.next.actions_by_id.refresh_context).toEqual(parsedStatus.next.actions.find((action) => action.action === "refresh_context"));
       expect(parsedStatus.next.workflow).toEqual({
         version: 1,
-        start: "next.actions",
-        continue_from: ["record", "next.actions"],
+        start: "next.actions_by_id",
+        continue_from: ["record", "next.actions_by_id", "next.actions"],
         phases: [
           {
             phase: "finish_session",
             order: 1,
-            action_source: "next.actions.finish_session",
+            action_source: "next.actions_by_id.finish_session",
             tool: "agent_finish",
             required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
             required_fields: ["summary"]
@@ -2425,7 +2457,7 @@ describe("moryn CLI", () => {
           {
             phase: "refresh_context",
             order: 2,
-            action_source: "next.actions.refresh_context",
+            action_source: "next.actions_by_id.refresh_context",
             tool: "agent_start",
             required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
             required_fields: []
@@ -2547,6 +2579,7 @@ describe("moryn CLI", () => {
           workflow: Record<string, unknown>;
           arguments: { project_path?: string; sync_remote?: string; agent?: { client?: string } };
           actions: Array<{ action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+          actions_by_id: Record<string, { action: string; tool: string; command: string; required_fields: string[]; arguments: Record<string, unknown> }>;
         };
       };
       expect(parsed.store.initialized).toBe(false);
@@ -2588,6 +2621,8 @@ describe("moryn CLI", () => {
         required_fields: [],
         arguments: expect.objectContaining({ remote })
       }));
+      expect(parsed.next.actions_by_id.start_session).toEqual(parsed.next.actions.find((action) => action.action === "start_session"));
+      expect(parsed.next.actions_by_id.run_lifecycle_smoke).toEqual(parsed.next.actions.find((action) => action.action === "run_lifecycle_smoke"));
       expect(parsed.next.arguments).toMatchObject({
         project_path: project,
         sync_remote: remote,
@@ -3042,6 +3077,8 @@ describe("moryn CLI", () => {
         mode: string;
         next: {
           recommended_action: string;
+          actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+          actions_by_id: Record<string, { action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
           workflow: {
             version: number;
             start: string;
@@ -3053,10 +3090,13 @@ describe("moryn CLI", () => {
 
       expect(parsed.mode).toBe("start_session");
       expect(parsed.next.recommended_action).toBe("work_with_handoff_context");
+      expect(parsed.next.actions_by_id.publish_status).toEqual(parsed.next.actions.find((action) => action.action === "publish_status"));
+      expect(parsed.next.actions_by_id.finish_session).toEqual(parsed.next.actions.find((action) => action.action === "finish_session"));
+      expect(parsed.next.actions_by_id.refresh_context).toEqual(parsed.next.actions.find((action) => action.action === "refresh_context"));
       expect(parsed.next.workflow).toEqual({
         version: 1,
         start: "start",
-        continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions"],
+        continue_from: ["start.boot", "start.refresh", "start.handoff", "next.actions_by_id", "next.actions"],
         phases: [
           {
             phase: "work_with_handoff_context",
@@ -3068,7 +3108,7 @@ describe("moryn CLI", () => {
           {
             phase: "publish_status",
             order: 2,
-            action_source: "next.actions.publish_status",
+            action_source: "next.actions_by_id.publish_status",
             tool: "agent_status",
             required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
             required_fields: ["status"]
@@ -3076,7 +3116,7 @@ describe("moryn CLI", () => {
           {
             phase: "finish_session",
             order: 3,
-            action_source: "next.actions.finish_session",
+            action_source: "next.actions_by_id.finish_session",
             tool: "agent_finish",
             required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
             required_fields: ["summary"]
@@ -3084,7 +3124,7 @@ describe("moryn CLI", () => {
           {
             phase: "refresh_context",
             order: 4,
-            action_source: "next.actions.refresh_context",
+            action_source: "next.actions_by_id.refresh_context",
             tool: "agent_start",
             required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
             required_fields: []

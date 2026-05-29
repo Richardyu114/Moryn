@@ -373,6 +373,12 @@ inferring intent from array order or action names. Action templates include a
 `writes_local_config`, and stable `reasons`, so hosts can distinguish safe
 read-only actions from agent-authored writes, local setup changes, and actions
 that need explicit user approval.
+Lifecycle responses with unique follow-up action ids keep `next.actions` for
+ordered display and also expose `next.actions_by_id`, keyed by ids such as
+`publish_status`, `finish_session`, `refresh_context`, and
+`start_next_session`. Automation should prefer the keyed map when it already
+knows which lifecycle action it needs, and use
+`next.workflow.phases[].action_source` to find the exact keyed path.
 Action templates also expose `interfaces.cli.command` and
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, derived from the same
 top-level fields. Agent hosts should use the interface matching their runtime
@@ -426,12 +432,15 @@ inferring commands from README prose.
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime
 workflow first: in `start_session`, review returned boot, refresh, and handoff
-context before using `next.actions`; in `discover_projects`, choose one returned
-project and then run that action's `agent_start` template. This keeps the live
+context before using `next.actions_by_id` or `next.actions`; in
+`discover_projects`, choose one returned project from the ordered action list and
+then run that action's `agent_start` template. This keeps the live
 response self-describing even when the host did not call `agent guide` first.
 Direct `agent start`, `agent status`, and `agent finish` responses also include
-`next.workflow`, derived from the returned `next.actions`, so agents can follow
-the same ordered action contract from any lifecycle entrypoint.
+`next.workflow`, derived from the returned action templates, so agents can follow
+the same ordered action contract from any lifecycle entrypoint. Workflow phases
+prefer `next.actions_by_id.<action>` as the stable source and retain
+`next.actions` as an ordered compatibility list.
 Setup and diagnosis `next` actions from `agent doctor` and `agent enter`
 include the same top-level `required_when`, `required_fields`, and
 single-step `next.workflow` metadata, so hosts can distinguish safe read-only
@@ -623,7 +632,9 @@ includes machine-readable templates for the next safe lifecycle calls,
 including the exact CLI command template, MCP tool name, `required_when`,
 required fields, and prefilled arguments for `agent_status`, `agent_finish`,
 and `refresh_context` (`agent_start` with the returned refresh cursor). Each
-action carries
+action is also available under `agent_start.next.actions_by_id.<action>`, so an
+agent can call `finish_session` or `refresh_context` without scanning the array.
+Each action carries
 `safe_to_run`: refresh/start/discovery helpers are `true`, while status and
 finish templates are `false` because the agent must provide user-meaningful
 content before writing a checkpoint or handoff. For those authored fields,
