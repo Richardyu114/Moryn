@@ -82,6 +82,13 @@ const SYNC_STATUS_SELECTION_SOURCES = {
   last_commit: "last_commit",
   error: "error"
 };
+const SYNC_RESULT_SELECTION_SOURCES = {
+  ok: "ok",
+  committed: "committed",
+  pushed: "pushed",
+  pulled: "pulled",
+  message: "message"
+};
 const STORE_INIT_SELECTION_SOURCES = {
   store: "store",
   config: "config",
@@ -1422,14 +1429,16 @@ describe("MCP stdio server", () => {
           const initA = parseTextContent(await agentA.callTool({
             name: "sync_init",
             arguments: { remote }
-          })) as { ok: boolean };
+          })) as { ok: boolean; selection_sources: Record<string, string> };
           const initB = parseTextContent(await agentB.callTool({
             name: "sync_init",
             arguments: { remote }
-          })) as { ok: boolean };
+          })) as { ok: boolean; selection_sources: Record<string, string> };
 
           expect(initA.ok).toBe(true);
           expect(initB.ok).toBe(true);
+          expect(initA.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
+          expect(initB.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
 
           parseTextContent(await agentA.callTool({
             name: "write",
@@ -1447,16 +1456,18 @@ describe("MCP stdio server", () => {
           const push = parseTextContent(await agentA.callTool({
             name: "sync_push",
             arguments: { message: "sync from mcp agent a" }
-          })) as { ok: boolean; pushed?: boolean };
+          })) as { ok: boolean; pushed?: boolean; selection_sources: Record<string, string> };
           expect(push.ok).toBe(true);
           expect(push.pushed).toBe(true);
+          expect(push.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
 
           const pull = parseTextContent(await agentB.callTool({
             name: "sync_pull",
             arguments: {}
-          })) as { ok: boolean; pulled?: boolean };
+          })) as { ok: boolean; pulled?: boolean; selection_sources: Record<string, string> };
           expect(pull.ok).toBe(true);
           expect(pull.pulled).toBe(true);
+          expect(pull.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
 
           const rebuild = parseTextContent(await agentB.callTool({
             name: "rebuild",

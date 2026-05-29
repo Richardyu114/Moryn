@@ -150,6 +150,12 @@ moryn sync --pull
 ```
 
 The default Git sync commits event files and `.gitignore`. Local `config.json`, snapshots, and indexes remain device-local or rebuildable.
+Successful `sync init`, `sync --pull`, and `sync --push` results include
+`selection_sources` for `ok`, `committed`, `pushed`, `pulled`, and `message`, so
+agents can inspect sync outcomes without guessing which flags may be present for
+each operation. Library hosts can reuse the exported
+`SYNC_RESULT_SELECTION_SOURCES` map from the package entrypoint as the canonical
+field-path contract.
 When a pull or push leaves Git in a conflict state, `moryn sync --status`
 returns `sync_state: "conflict"` plus ordered `conflict.files`, keyed
 `conflict.files_by_path`, the active Git operation, and flags that tell agents

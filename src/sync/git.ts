@@ -25,6 +25,14 @@ export const SYNC_STATUS_SELECTION_SOURCES = {
   error: "error"
 } as const;
 
+export const SYNC_RESULT_SELECTION_SOURCES = {
+  ok: "ok",
+  committed: "committed",
+  pushed: "pushed",
+  pulled: "pulled",
+  message: "message"
+} as const;
+
 export interface GitSyncStatus {
   configured: boolean;
   branch?: string;
@@ -68,6 +76,7 @@ export interface GitSyncResult {
   pushed?: boolean;
   pulled?: boolean;
   message?: string;
+  selection_sources: typeof SYNC_RESULT_SELECTION_SOURCES;
 }
 
 function validateRequiredString(value: unknown, name: string): asserts value is string {
@@ -96,6 +105,15 @@ function withSyncStatusSelectionSources(
   return {
     ...status,
     selection_sources: SYNC_STATUS_SELECTION_SOURCES
+  };
+}
+
+function withSyncResultSelectionSources(
+  result: Omit<GitSyncResult, "selection_sources">
+): GitSyncResult {
+  return {
+    ...result,
+    selection_sources: SYNC_RESULT_SELECTION_SOURCES
   };
 }
 
@@ -281,7 +299,7 @@ export async function initializeGitSync(storePath: string, remoteUrl: string): P
     }
   }
   await writeLastSync(storePath, "init");
-  return { ok: true, message: "Git sync initialized" };
+  return withSyncResultSelectionSources({ ok: true, message: "Git sync initialized" });
 }
 
 export async function getGitSyncStatus(storePath: string): Promise<GitSyncStatus> {
@@ -330,7 +348,7 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
   await ensureGitSyncConfigured(storePath);
   const localConfig = await readStoreConfig(storePath);
   if (!await hasRemoteHead(storePath)) {
-    return { ok: true, pulled: false, message: "Remote branch main does not exist yet" };
+    return withSyncResultSelectionSources({ ok: true, pulled: false, message: "Remote branch main does not exist yet" });
   }
   await git(storePath, ["fetch", "origin", "main"]);
   const hasLocal = await hasCommits(storePath);
@@ -338,12 +356,12 @@ export async function pullGitSync(storePath: string): Promise<GitSyncResult> {
     await git(storePath, ["checkout", "-B", "main", "origin/main"]);
     await restoreLocalOnlyStateAfterGitUpdate(storePath, localConfig);
     await writeLastSync(storePath, "pull");
-    return { ok: true, pulled: true };
+    return withSyncResultSelectionSources({ ok: true, pulled: true });
   }
   await git(storePath, ["pull", "--rebase", "origin", "main"]);
   await restoreLocalOnlyStateAfterGitUpdate(storePath, localConfig);
   await writeLastSync(storePath, "pull");
-  return { ok: true, pulled: true };
+  return withSyncResultSelectionSources({ ok: true, pulled: true });
 }
 
 export async function pushGitSync(storePath: string, options: { message?: string } = {}): Promise<GitSyncResult> {
@@ -369,5 +387,5 @@ export async function pushGitSync(storePath: string, options: { message?: string
   }
   await git(storePath, ["push", "-u", "origin", "main"]);
   await writeLastSync(storePath, "push");
-  return { ok: true, committed, pushed: true };
+  return withSyncResultSelectionSources({ ok: true, committed, pushed: true });
 }

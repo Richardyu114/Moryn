@@ -8,7 +8,7 @@ import { toErrorEnvelope } from "../../src/core/errors.js";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeStore } from "../../src/core/config.js";
 import { rebuildDerivedViews } from "../../src/core/derived.js";
-import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
+import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, SYNC_RESULT_SELECTION_SOURCES as EXPORTED_SYNC_RESULT_SELECTION_SOURCES } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
 const SYNC_STATUS_SELECTION_SOURCES = {
@@ -26,6 +26,13 @@ const SYNC_STATUS_SELECTION_SOURCES = {
   last_sync: "last_sync",
   last_commit: "last_commit",
   error: "error"
+};
+const SYNC_RESULT_SELECTION_SOURCES = {
+  ok: "ok",
+  committed: "committed",
+  pushed: "pushed",
+  pulled: "pulled",
+  message: "message"
 };
 
 async function expectInvalidArgument(action: () => Promise<unknown>, expectedMessage: RegExp): Promise<void> {
@@ -46,6 +53,10 @@ async function expectInvalidArgument(action: () => Promise<unknown>, expectedMes
 }
 
 describe("git sync adapter", () => {
+  it("exports stable sync result selection source paths", () => {
+    expect(EXPORTED_SYNC_RESULT_SELECTION_SOURCES).toEqual(SYNC_RESULT_SELECTION_SOURCES);
+  });
+
   it("reports unconfigured status outside a git repo", async () => {
     const dir = await mkdtemp(join(tmpdir(), "moryn-sync-"));
     try {
@@ -174,8 +185,10 @@ describe("git sync adapter", () => {
         id: () => "device_b"
       });
 
-      await initializeGitSync(storeA, remote);
-      await initializeGitSync(storeB, remote);
+      const initA = await initializeGitSync(storeA, remote);
+      const initB = await initializeGitSync(storeB, remote);
+      expect(initA.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
+      expect(initB.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
 
       const engineA = createEngine({
         storePath: storeA,
@@ -195,9 +208,11 @@ describe("git sync adapter", () => {
       const push = await pushGitSync(storeA, { message: "sync from device a" });
       expect(push.committed).toBe(true);
       expect(push.pushed).toBe(true);
+      expect(push.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
 
       const pull = await pullGitSync(storeB);
       expect(pull.pulled).toBe(true);
+      expect(pull.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
       const recallIndex = JSON.parse(await readFile(join(storeB, "indexes", "recall.json"), "utf8")) as { records: Array<{ text: string }> };
       expect(recallIndex.records.map((record) => record.text)).toContain("Sync events through Git.");
 

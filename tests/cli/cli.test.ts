@@ -79,6 +79,13 @@ const SYNC_STATUS_SELECTION_SOURCES = {
   last_commit: "last_commit",
   error: "error"
 };
+const SYNC_RESULT_SELECTION_SOURCES = {
+  ok: "ok",
+  committed: "committed",
+  pushed: "pushed",
+  pulled: "pulled",
+  message: "message"
+};
 const STORE_INIT_SELECTION_SOURCES = {
   store: "store",
   config: "config",
@@ -2179,17 +2186,21 @@ describe("moryn CLI", () => {
 
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "init"]);
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "init"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "init", remote]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote]);
+      const initA = JSON.parse((await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "init", remote])).stdout) as { selection_sources: Record<string, string> };
+      const initB = JSON.parse((await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "init", remote])).stdout) as { selection_sources: Record<string, string> };
+      expect(initA.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
+      expect(initB.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--state", "canonical", "--text", "CLI sync uses Git"]);
 
       const push = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "--push", "--message", "custom cli sync"]);
       expect(push.stdout).toContain("\"pushed\": true");
+      expect((JSON.parse(push.stdout) as { selection_sources: Record<string, string> }).selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
       const commitMessage = await exec("git", ["log", "-1", "--pretty=%s"], { cwd: storeA });
       expect(commitMessage.stdout.trim()).toBe("custom cli sync");
 
       const pull = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--pull"]);
       expect(pull.stdout).toContain("\"pulled\": true");
+      expect((JSON.parse(pull.stdout) as { selection_sources: Record<string, string> }).selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
 
       const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "recall", "Git", "--project-id", "moryn"]);
       expect(recall.stdout).toContain("CLI sync uses Git");

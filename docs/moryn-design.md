@@ -883,6 +883,29 @@ moryn sync --push --message "sync after session"
 MCP exposes the same sync semantics as separate tools: `sync_init`,
 `sync_status`, `sync_pull`, and `sync_push`.
 
+Successful `sync_init`, `sync_pull`, and `sync_push` results include operation
+flags and their stable field sources:
+
+```json
+{
+  "ok": true,
+  "committed": true,
+  "pushed": true,
+  "selection_sources": {
+    "ok": "ok",
+    "committed": "committed",
+    "pushed": "pushed",
+    "pulled": "pulled",
+    "message": "message"
+  }
+}
+```
+
+Only fields relevant to the operation are present; `selection_sources` names the
+full stable result surface so hosts can inspect whichever flags are returned
+without operation-specific guessing. Library hosts can reuse the exported
+`SYNC_RESULT_SELECTION_SOURCES` map as the canonical field-path contract.
+
 When Git is left in a conflict state after pull or push, `sync_status` returns
 structured conflict diagnostics instead of only a dirty worktree flag:
 

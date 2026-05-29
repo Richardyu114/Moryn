@@ -122,6 +122,9 @@ Deliverables:
 - Done: `moryn sync --pull` rebases local event commits when remote history has
   moved ahead.
 - Done: `moryn sync --push` commits local event files and pushes.
+- Done: Successful `sync_init`, `sync_pull`, and `sync_push` responses expose
+  `selection_sources` for operation result flags, so hosts can read sync
+  outcomes without guessing which fields are present.
 - Done: `moryn sync --status` reports configured remote, branch, dirty state, ahead,
   behind, and last sync.
 - Done: `moryn sync --status` reports structured conflict diagnostics after a
