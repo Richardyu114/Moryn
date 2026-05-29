@@ -126,12 +126,12 @@ function expectRefreshChangeNextAction(action: {
   expect(action.workflow).toEqual({
     version: 1,
     start: "next_action",
-    continue_from: ["refresh.changes[].next_action"],
+    continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
     phases: [
       {
         phase: action.recommended_action,
         order: 1,
-        action_source: "refresh.changes[].next_action",
+        action_source: "refresh.changes_by_record_id.<record_id>.next_action",
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -290,7 +290,9 @@ describe("agent lifecycle", () => {
           next_action: expect.any(Object)
         })
       ]);
+      expect(geminiStart.refresh.changes_by_record_id[codexFinish.record.id]).toEqual(geminiStart.refresh.changes[0]);
       expectRefreshChangeNextAction(geminiStart.refresh.changes[0]!.next_action, codexFinish.record.id, "moryn");
+      expect(geminiStart.refresh.changes_by_record_id[codexFinish.record.id]!.next_action).toEqual(geminiStart.refresh.changes[0]!.next_action);
       expect(geminiStart.handoff).toMatchObject({
         inbox: [
           {

@@ -137,12 +137,12 @@ function withRefreshChangeNextActionMetadata<T extends {
     workflow: {
       version: 1,
       start: "next_action",
-      continue_from: ["refresh.changes[].next_action"],
+      continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
       phases: [
         {
           phase: action.recommended_action,
           order: 1,
-          action_source: "refresh.changes[].next_action",
+          action_source: "refresh.changes_by_record_id.<record_id>.next_action",
           tool: action.tool,
           required_when: action.required_when,
           required_fields: action.required_fields
@@ -1138,6 +1138,7 @@ export function createEngine(deps: EngineDeps) {
       return {
         cursor: latest,
         changes: changes.map((change) => change.change),
+        changes_by_record_id: Object.fromEntries(changes.map((change) => [change.change.record_id, change.change])),
         should_interrupt: changes.some((change) => change.change.importance === "interrupt")
       };
     },

@@ -130,12 +130,12 @@ function expectRefreshChangeRecallAction(action: {
   expect(action.workflow).toEqual({
     version: 1,
     start: "next_action",
-    continue_from: ["refresh.changes[].next_action"],
+    continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
     phases: [
       {
         phase: action.recommended_action,
         order: 1,
-        action_source: "refresh.changes[].next_action",
+        action_source: "refresh.changes_by_record_id.<record_id>.next_action",
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -2457,8 +2457,11 @@ describe("core engine", () => {
           next_action: expect.any(Object)
         })
       ]);
+      expect(refresh.changes_by_record_id[decision.record.id]).toEqual(refresh.changes[0]);
+      expect(refresh.changes_by_record_id[blocker.record.id]).toEqual(refresh.changes[1]);
       expectRefreshChangeRecallAction(refresh.changes[0]!.next_action, decision.record.id, "moryn");
       expectRefreshChangeRecallAction(refresh.changes[1]!.next_action, blocker.record.id, "moryn");
+      expect(refresh.changes_by_record_id[decision.record.id]!.next_action).toEqual(refresh.changes[0]!.next_action);
     });
   });
 

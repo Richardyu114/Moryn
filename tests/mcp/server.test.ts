@@ -308,12 +308,12 @@ function expectRefreshChangeNextAction(action: {
   expect(action.workflow).toEqual({
     version: 1,
     start: "next_action",
-    continue_from: ["refresh.changes[].next_action"],
+    continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
     phases: [
       {
         phase: action.recommended_action,
         order: 1,
-        action_source: "refresh.changes[].next_action",
+        action_source: "refresh.changes_by_record_id.<record_id>.next_action",
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -881,6 +881,13 @@ describe("MCP stdio server", () => {
               required_fields: string[];
             };
           }>;
+          changes_by_record_id: Record<string, {
+            record_id: string;
+            importance: string;
+            next_action: {
+              workflow?: Record<string, unknown>;
+            };
+          }>;
         };
 
         expect(refreshResult.changes).toEqual([
@@ -890,7 +897,9 @@ describe("MCP stdio server", () => {
             next_action: expect.any(Object)
           })
         ]);
+        expect(refreshResult.changes_by_record_id[writeResult.record.id]).toEqual(refreshResult.changes[0]);
         expectRefreshChangeNextAction(refreshResult.changes[0]!.next_action, writeResult.record.id, "moryn");
+        expect(refreshResult.changes_by_record_id[writeResult.record.id]!.next_action.workflow).toEqual(refreshResult.changes[0]!.next_action.workflow);
 
         const globalPreference = parseTextContent(await client.callTool({
           name: "write",

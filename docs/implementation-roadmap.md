@@ -116,6 +116,9 @@ Deliverables:
 - Done: `agent_start.handoff.next_action` now mirrors the prioritized active
   session or inbox recall action, so top-level handoff recommendations are
   directly executable.
+- Done: Refresh responses now expose `changes_by_record_id` and keyed
+  `next_action` workflow sources, so agents can recall a known changed record
+  without scanning `changes[]`.
 - Done: `agent_doctor` returns an explicit readiness summary so agents do not
   infer startup safety from raw checks.
 - Done: Generated snapshots/indexes are excluded from sync by default.

@@ -654,12 +654,12 @@ Output:
         "workflow": {
           "version": 1,
           "start": "next_action",
-          "continue_from": ["refresh.changes[].next_action"],
+          "continue_from": ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
           "phases": [
             {
               "phase": "call_recall_with_record_id",
               "order": 1,
-              "action_source": "refresh.changes[].next_action",
+              "action_source": "refresh.changes_by_record_id.<record_id>.next_action",
               "tool": "recall",
               "required_when": "After refresh reports this change and the agent needs the full record content.",
               "required_fields": []
@@ -669,13 +669,71 @@ Output:
       }
     }
   ],
+  "changes_by_record_id": {
+    "rec_...": {
+      "record_id": "rec_...",
+      "importance": "notice",
+      "reason": "current_task_match",
+      "summary": "A new project decision was recorded.",
+      "recommended_action": "call recall with record_id",
+      "next_action": {
+        "recommended_action": "call_recall_with_record_id",
+        "tool": "recall",
+        "safe_to_run": true,
+        "required_when": "After refresh reports this change and the agent needs the full record content.",
+        "required_fields": [],
+        "command": "moryn recall --record-id rec_... --project-id moryn",
+        "arguments": {
+          "record_ids": ["rec_..."],
+          "project_id": "moryn"
+        },
+        "interfaces": {
+          "cli": {
+            "command": "moryn recall --record-id rec_... --project-id moryn"
+          },
+          "mcp": {
+            "tool": "recall",
+            "arguments": {
+              "record_ids": ["rec_..."],
+              "project_id": "moryn"
+            }
+          }
+        },
+        "safety": {
+          "safe_to_auto_run": true,
+          "requires_user_confirmation": false,
+          "requires_authored_input": false,
+          "writes_local_config": false,
+          "reasons": ["safe_read_or_status_check"]
+        },
+        "workflow": {
+          "version": 1,
+          "start": "next_action",
+          "continue_from": ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
+          "phases": [
+            {
+              "phase": "call_recall_with_record_id",
+              "order": 1,
+              "action_source": "refresh.changes_by_record_id.<record_id>.next_action",
+              "tool": "recall",
+              "required_when": "After refresh reports this change and the agent needs the full record content.",
+              "required_fields": []
+            }
+          ]
+        }
+      }
+    }
+  },
   "should_interrupt": false
 }
 ```
 
 Reportable non-raw changes include `next_action` so agents can retrieve full
 record content through the safe `recall` interface instead of composing CLI or
-MCP arguments from the prose `recommended_action`.
+MCP arguments from the prose `recommended_action`. The ordered `changes[]` list
+is mirrored by `changes_by_record_id`, keyed by `record_id`; workflow phases
+prefer `refresh.changes_by_record_id.<record_id>.next_action` while retaining
+`refresh.changes[].next_action` as an ordered compatibility source.
 
 CLI:
 
@@ -1130,7 +1188,7 @@ Agents should follow this contract:
 8. Call `recall` when context is missing or uncertain.
 9. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions_by_id.finish_session` or `agent_status.next.actions_by_id.refresh_context`.
 10. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
-11. For each reportable non-raw refresh change that needs full context, follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
+11. For each reportable non-raw refresh change that needs full context, prefer `refresh.changes_by_record_id.<record_id>.next_action` or follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
 12. When `agent_start.handoff.next_action` exists, use it for the prioritized recall action; for a different handoff entry, follow `handoff.inbox[].next_action` or `handoff.active_sessions[].next_action` instead of manually composing a `recall` call.
 13. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions_by_id.start_next_session` to the next agent or device.
 14. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.

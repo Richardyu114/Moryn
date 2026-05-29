@@ -305,12 +305,12 @@ function expectRefreshChangeNextAction(action: {
   expect(action.workflow).toEqual({
     version: 1,
     start: "next_action",
-    continue_from: ["refresh.changes[].next_action"],
+    continue_from: ["refresh.changes_by_record_id.<record_id>.next_action", "refresh.changes[].next_action"],
     phases: [
       {
         phase: action.recommended_action,
         order: 1,
-        action_source: "refresh.changes[].next_action",
+        action_source: "refresh.changes_by_record_id.<record_id>.next_action",
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -931,13 +931,22 @@ describe("moryn CLI", () => {
             required_fields: string[];
           };
         }>;
+        changes_by_record_id: Record<string, {
+          record_id: string;
+          importance: string;
+          next_action: {
+            workflow?: Record<string, unknown>;
+          };
+        }>;
       };
       expect(parsedRefresh.changes).toContainEqual(expect.objectContaining({
         record_id: recordId,
         importance: "interrupt",
         next_action: expect.any(Object)
       }));
+      expect(parsedRefresh.changes_by_record_id[recordId]).toEqual(parsedRefresh.changes[0]);
       expectRefreshChangeNextAction(parsedRefresh.changes[0]!.next_action, recordId, "moryn");
+      expect(parsedRefresh.changes_by_record_id[recordId]!.next_action.workflow).toEqual(parsedRefresh.changes[0]!.next_action.workflow);
     });
   });
 
