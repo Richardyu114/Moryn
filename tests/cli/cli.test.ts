@@ -492,6 +492,12 @@ describe("moryn CLI", () => {
           safe_to_run: boolean;
           required_when: string;
           required_fields: string[];
+          required_fields_by_name?: Record<string, {
+            name: string;
+            argument_path: string;
+            placeholder?: string;
+            value?: unknown;
+          }>;
           arguments: {
             project_path?: string;
             sync_remote?: string;
@@ -511,6 +517,12 @@ describe("moryn CLI", () => {
           command: string;
           required_when: string;
           required_fields: string[];
+          required_fields_by_name?: Record<string, {
+            name: string;
+            argument_path: string;
+            placeholder?: string;
+            value?: unknown;
+          }>;
           arguments: Record<string, unknown>;
           safety?: {
             safe_to_auto_run?: boolean;
@@ -531,6 +543,12 @@ describe("moryn CLI", () => {
           command: string;
           required_when: string;
           required_fields: string[];
+          required_fields_by_name?: Record<string, {
+            name: string;
+            argument_path: string;
+            placeholder?: string;
+            value?: unknown;
+          }>;
           arguments: Record<string, unknown>;
         }>;
         rules: string[];
@@ -640,6 +658,25 @@ describe("moryn CLI", () => {
       expect(parsed.lifecycle_by_step.publish_status).toEqual(parsed.lifecycle.find((step) => step.step === "publish_status"));
       expect(parsed.lifecycle_by_step.finish_handoff).toEqual(parsed.lifecycle.find((step) => step.step === "finish_handoff"));
       expect(parsed.lifecycle_by_step.refresh_context).toEqual(parsed.lifecycle.find((step) => step.step === "refresh_context"));
+      expect(parsed.startup.required_fields_by_name).toEqual({});
+      expect(parsed.lifecycle_by_step.publish_status.required_fields_by_name?.status).toEqual({
+        name: "status",
+        argument_path: "status",
+        placeholder: "<status>",
+        value: "<status>"
+      });
+      expect(parsed.lifecycle_by_step.finish_handoff.required_fields_by_name?.summary).toEqual({
+        name: "summary",
+        argument_path: "summary",
+        placeholder: "<summary>",
+        value: "<summary>"
+      });
+      expect(parsed.lifecycle_by_step.refresh_context.required_fields_by_name?.refresh_since).toEqual({
+        name: "refresh_since",
+        argument_path: "refresh_since",
+        placeholder: "<refresh_since>",
+        value: "<refresh_since>"
+      });
       expect(parsed.lifecycle).toContainEqual(expect.objectContaining({
         step: "publish_status",
         tool: "agent_status",
@@ -2114,12 +2151,18 @@ describe("moryn CLI", () => {
             code: string;
             recoverable: boolean;
             recommended_action: string;
-            next_action?: {
+              next_action?: {
               recommended_action: string;
               tool: string;
               command: string;
               arguments: Record<string, unknown>;
               required_fields: string[];
+              required_fields_by_name?: Record<string, {
+                name: string;
+                argument_path: string;
+                placeholder?: string;
+                value?: unknown;
+              }>;
               safe_to_run: boolean;
             };
           };
@@ -2307,6 +2350,12 @@ describe("moryn CLI", () => {
             command: string;
             required_when: string;
             required_fields: string[];
+            required_fields_by_name?: Record<string, {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }>;
             arguments: Record<string, unknown>;
             interfaces?: {
               cli?: { command?: string };
@@ -2319,6 +2368,12 @@ describe("moryn CLI", () => {
             command: string;
             required_when: string;
             required_fields: string[];
+            required_fields_by_name?: Record<string, {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }>;
             arguments: Record<string, unknown>;
             interfaces?: {
               cli?: { command?: string };
@@ -2345,6 +2400,12 @@ describe("moryn CLI", () => {
         expectActionInterfaces(action);
       }
       expect(parsedFinish.next.actions_by_id.start_next_session).toEqual(parsedFinish.next.actions.find((action) => action.action === "start_next_session"));
+      expect(parsedFinish.next.actions_by_id.start_next_session.required_fields_by_name?.current_task).toEqual({
+        name: "current_task",
+        argument_path: "current_task",
+        placeholder: "<current_task>",
+        value: "<current_task>"
+      });
       expect(parsedFinish.next.workflow).toEqual(withPhasesByName({
         version: 1,
         start: "next.actions_by_id",
@@ -4742,6 +4803,14 @@ describe("moryn CLI", () => {
           command: "moryn sync init <remote>",
           arguments: { remote: "<remote>" },
           required_fields: ["remote"],
+          required_fields_by_name: {
+            remote: {
+              name: "remote",
+              argument_path: "remote",
+              placeholder: "<remote>",
+              value: "<remote>"
+            }
+          },
           safe_to_run: false
         }
       });

@@ -543,6 +543,12 @@ describe("MCP stdio server", () => {
             command: string;
             required_when: string;
             required_fields: string[];
+            required_fields_by_name?: Record<string, {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }>;
             arguments: Record<string, unknown>;
             interfaces?: {
               cli?: { command?: string };
@@ -556,6 +562,12 @@ describe("MCP stdio server", () => {
             command: string;
             required_when: string;
             required_fields: string[];
+            required_fields_by_name?: Record<string, {
+              name: string;
+              argument_path: string;
+              placeholder?: string;
+              value?: unknown;
+            }>;
             arguments: Record<string, unknown>;
           }>;
           rules: string[];
@@ -665,6 +677,25 @@ describe("MCP stdio server", () => {
         expect(guide.lifecycle_by_step.publish_status).toEqual(guide.lifecycle.find((step) => step.step === "publish_status"));
         expect(guide.lifecycle_by_step.finish_handoff).toEqual(guide.lifecycle.find((step) => step.step === "finish_handoff"));
         expect(guide.lifecycle_by_step.refresh_context).toEqual(guide.lifecycle.find((step) => step.step === "refresh_context"));
+        expect(guide.startup.required_fields_by_name).toEqual({});
+        expect(guide.lifecycle_by_step.publish_status.required_fields_by_name?.status).toEqual({
+          name: "status",
+          argument_path: "status",
+          placeholder: "<status>",
+          value: "<status>"
+        });
+        expect(guide.lifecycle_by_step.finish_handoff.required_fields_by_name?.summary).toEqual({
+          name: "summary",
+          argument_path: "summary",
+          placeholder: "<summary>",
+          value: "<summary>"
+        });
+        expect(guide.lifecycle_by_step.refresh_context.required_fields_by_name?.refresh_since).toEqual({
+          name: "refresh_since",
+          argument_path: "refresh_since",
+          placeholder: "<refresh_since>",
+          value: "<refresh_since>"
+        });
         expect(guide.lifecycle).toContainEqual(expect.objectContaining({
           step: "publish_status",
           tool: "agent_status",

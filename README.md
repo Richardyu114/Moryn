@@ -424,9 +424,13 @@ not touch the store or sync remote; it returns the preferred startup tool,
 complete CLI command, MCP arguments, lifecycle steps, anti-hallucination rules,
 structured `guardrails`, and a top-level `workflow` decision track. Its
 `startup` object and top-level `next` action include `safe_to_run`,
-`required_when`, `required_fields`, `safety`, arguments, and their own
-single-step `workflow`, so an agent can call the recommended `agent_enter`
-entrypoint directly without recombining fields from the lifecycle list. Each
+`required_when`, `required_fields`, `required_fields_by_name`, `safety`,
+arguments, and their own single-step `workflow`, so an agent can call the
+recommended `agent_enter` entrypoint directly without recombining fields from
+the lifecycle list. `required_fields_by_name` mirrors required field names to
+their argument path, current template value, and placeholder such as
+`<status>`, so hosts can render or validate authored input without scanning
+`arguments`. Each
 `lifecycle[]` template is also mirrored in `lifecycle_by_step` by step name and
 includes a single-step `workflow`, so a host can execute
 `lifecycle_by_step.publish_status`, `lifecycle_by_step.finish_handoff`, or
@@ -601,8 +605,9 @@ explicit project mistakes: `PROJECT_PATH_NOT_FOUND` for missing paths and
 whether to initialize, list projects, or retry with corrected arguments. These
 error envelopes also include a machine-readable `error.next_action` with
 `tool`, `command`, `arguments`, `interfaces`, `required_when`,
-`required_fields`, `workflow`, `safety`, and `safe_to_run`, so agents can
-recover without parsing prose or guessing placeholder values.
+`required_fields`, `required_fields_by_name`, `workflow`, `safety`, and
+`safe_to_run`, so agents can recover without parsing prose or guessing
+placeholder values.
 `error.next_action.interfaces` and `warning.next_action.interfaces` use the same
 CLI/MCP shape as lifecycle action templates. Most recovery actions have a
 single-step `workflow`; missing-record recovery is two-step so hosts run

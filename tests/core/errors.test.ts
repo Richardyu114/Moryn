@@ -328,6 +328,7 @@ describe("error envelopes", () => {
           command: "moryn list-recent",
           arguments: {},
           rejected_arguments: { record_id: "rec_missing" },
+          required_fields_by_name: {},
           safe_to_run: true
         }
       }
@@ -381,6 +382,8 @@ describe("error envelopes", () => {
         }
       }
     });
+    expect(envelope.error.next_action?.required_fields_by_name).toEqual({});
+    expect(envelope.error.next_action?.workflow.phases_by_name.retry_original_tool_with_selected_record_id.required_fields).toEqual(["record_id"]);
   });
 
   it("uses error context to make missing-record retry workflows executable", () => {

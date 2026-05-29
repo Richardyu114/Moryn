@@ -1,5 +1,5 @@
 import { actionSafety, type ActionSafety } from "./action-safety.js";
-import { withPhasesByName } from "./workflow.js";
+import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 
 export interface MorynErrorEnvelope {
   ok: false;
@@ -20,6 +20,7 @@ export interface MorynErrorNextAction {
   interfaces: ActionInterfaces<Record<string, unknown>>;
   required_when: string;
   required_fields: string[];
+  required_fields_by_name: Record<string, RequiredFieldMetadata>;
   workflow: NextActionWorkflow;
   safety: ActionSafety;
   rejected_arguments?: Record<string, unknown>;
@@ -113,9 +114,10 @@ export function withNextActionMetadata<T extends {
   safe_to_run: boolean;
 }>(
   action: T
-): T & { interfaces: ActionInterfaces<T["arguments"]>; safety: ActionSafety; workflow: NextActionWorkflow } {
+): T & { interfaces: ActionInterfaces<T["arguments"]>; required_fields_by_name: Record<string, RequiredFieldMetadata>; safety: ActionSafety; workflow: NextActionWorkflow } {
+  const actionWithRequiredFields = withRequiredFieldsByName(action);
   return {
-    ...action,
+    ...actionWithRequiredFields,
     interfaces: {
       cli: {
         command: action.command

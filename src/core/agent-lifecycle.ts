@@ -7,7 +7,7 @@ import type { MorynRecord, RecordSource } from "./types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
 import { actionSafety, type ActionSafety } from "./action-safety.js";
-import { withPhasesByName } from "./workflow.js";
+import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 
 interface AgentIdentity {
   client: string;
@@ -50,6 +50,7 @@ type LifecycleActionTemplate = {
   command: string;
   required_when: string;
   required_fields: string[];
+  required_fields_by_name: Record<string, RequiredFieldMetadata>;
   arguments: Record<string, unknown>;
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ActionSafety;
@@ -72,6 +73,7 @@ type HandoffEntryNextAction = {
   command: string;
   required_when: string;
   required_fields: [];
+  required_fields_by_name: Record<string, RequiredFieldMetadata>;
   arguments: {
     record_ids: string[];
     project_id: string;
@@ -172,9 +174,14 @@ function projectEnvelope(project: ProjectContext): {
 
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown; safe_to_run: boolean; required_fields: string[] }>(
   action: T
-): T & { interfaces: ActionInterfaces<T["arguments"]>; safety: ActionSafety } {
-  return {
+): T & { required_fields_by_name: Record<string, RequiredFieldMetadata>; interfaces: ActionInterfaces<T["arguments"]>; safety: ActionSafety } {
+  const actionWithRequiredFields = withRequiredFieldsByName({
     ...action,
+    arguments: action.arguments as Record<string, unknown>
+  });
+  return {
+    ...actionWithRequiredFields,
+    arguments: action.arguments,
     interfaces: {
       cli: {
         command: action.command

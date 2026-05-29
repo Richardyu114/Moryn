@@ -840,8 +840,11 @@ ordered phases in `phases_by_name`, so hosts can fetch phases such as
 directly instead of scanning `phases[]`. The `startup` object and
 top-level `next` action are complete `agent_enter`
 templates with `safe_to_run`, `required_when`, `required_fields`, arguments,
-and single-step `workflow`, so hosts can execute the recommended entrypoint
-without merging data from lifecycle steps. `lifecycle_by_step` mirrors
+`required_fields_by_name`, and single-step `workflow`, so hosts can execute the
+recommended entrypoint without merging data from lifecycle steps.
+`required_fields_by_name` maps each required field to the matching argument
+path, template value, and placeholder such as `<summary>`, so hosts can prompt
+for authored input without reverse-engineering `arguments`. `lifecycle_by_step` mirrors
 `lifecycle[]` by step name, and lifecycle workflows prefer
 `lifecycle_by_step.<step>` while keeping `lifecycle[]` as a compatibility
 source; hosts can fetch `publish_status`, `finish_handoff`, or
@@ -932,9 +935,9 @@ calls also classify explicit project mistakes as recoverable structured errors:
 store. Their `recommended_action` values point agents to project initialization,
 project listing, or corrected retry arguments. These error envelopes also carry
 `error.next_action` with `tool`, `command`, `arguments`, `interfaces`,
-`required_when`, `required_fields`, `workflow`, `safety`, and `safe_to_run`, so
-agents can recover from the envelope without parsing prose or guessing
-placeholder values. Most recovery actions are single-step workflows;
+`required_when`, `required_fields`, `required_fields_by_name`, `workflow`,
+`safety`, and `safe_to_run`, so agents can recover from the envelope without
+parsing prose or guessing placeholder values. Most recovery actions are single-step workflows;
 `RECORD_NOT_FOUND` uses a two-step workflow so agents first run the safe
 `list_recent` action and then retry the original tool with the selected returned
 id from `list_recent.records_by_id.<record_id>.id`. The ordered

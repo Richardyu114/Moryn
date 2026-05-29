@@ -8,7 +8,7 @@ import { commandForPromoteContext, PROMOTE_CANDIDATE_WHEN, withNextActionMetadat
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 import { actionSafety } from "./action-safety.js";
-import { withPhasesByName } from "./workflow.js";
+import { withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 
 interface EngineDeps {
   storePath: string;
@@ -77,7 +77,14 @@ const WRITE_CANDIDATE_RECORD_ID_SOURCE = "write.record.id";
 
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
   return {
-    ...action,
+    ...("required_fields" in action && Array.isArray(action.required_fields)
+      ? withRequiredFieldsByName({
+          ...action,
+          required_fields: action.required_fields,
+          arguments: action.arguments as Record<string, unknown>
+        })
+      : action),
+    arguments: action.arguments,
     interfaces: {
       cli: {
         command: action.command
