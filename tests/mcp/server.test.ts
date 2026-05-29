@@ -1317,7 +1317,15 @@ describe("MCP stdio server", () => {
             next_tool: string;
             next_command: string;
             next_safe_to_run: boolean;
+            next_required_when: string;
             next_required_fields: string[];
+            next_safety: {
+              safe_to_auto_run: boolean;
+              requires_user_confirmation: boolean;
+              requires_authored_input: boolean;
+              writes_local_config: boolean;
+              reasons: string[];
+            };
             next_arguments: Record<string, unknown>;
           };
           next: {
@@ -1344,7 +1352,15 @@ describe("MCP stdio server", () => {
           next_tool: "agent_start",
           next_command: doctor.next.command,
           next_safe_to_run: true,
+          next_required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
           next_required_fields: [],
+          next_safety: {
+            safe_to_auto_run: true,
+            requires_user_confirmation: false,
+            requires_authored_input: false,
+            writes_local_config: false,
+            reasons: ["safe_read_or_status_check"]
+          },
           next_arguments: {
             project_path: project,
             sync_remote: remote,
@@ -1402,6 +1418,8 @@ describe("MCP stdio server", () => {
             recommended_action: string;
             next_tool: string;
             next_command: string;
+            next_required_when: string;
+            next_safety: Record<string, unknown>;
           };
           next: {
             recommended_action: string;
@@ -1466,7 +1484,9 @@ describe("MCP stdio server", () => {
           next_tool: "sync_status",
           next_command: "moryn sync --status",
           next_safe_to_run: true,
+          next_required_when: INSPECT_SYNC_CONFLICT_WHEN,
           next_required_fields: [],
+          next_safety: doctor.next.safety,
           next_arguments: {}
         });
 

@@ -355,9 +355,9 @@ project context in a populated store unless the current directory resolves via a
 `.moryn.json` config; agents should call `agent enter` or `project list` first.
 `agent doctor` also returns a top-level `readiness` summary with
 `safe_to_start`, `blocking_checks`, and the selected next tool/command,
-`safe_to_run`, required fields, and arguments, so agents can decide whether
-startup is allowed without inferring from every check or recombining fields from
-the full `next` object.
+`safe_to_run`, `required_when`, required fields, `safety`, and arguments, so
+agents can decide whether startup is allowed without inferring from every check
+or recombining fields from the full `next` object.
 After a lifecycle command resolves a project from `.moryn.json`, returned
 `next.actions` include the resolved `project_id`, so agents can reuse those
 commands from another cwd or MCP host without relying on ambient directory
@@ -509,8 +509,8 @@ response fields are valid follow-up sources. Direct `agent_start`,
 host can continue from direct lifecycle calls without falling back to prose.
 If `agent_enter` returns `needs_setup`, its top-level `next` is the same
 machine-readable action selected by `agent_doctor`, including `required_when`,
-`required_fields`, and a single-step workflow pointing at the required setup or
-inspection command.
+`required_fields`, `safety`, and a single-step workflow pointing at the required
+setup or inspection command.
 
 When setup is uncertain:
 

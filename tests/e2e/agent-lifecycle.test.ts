@@ -498,7 +498,15 @@ describe("agent lifecycle", () => {
         next_tool: "agent_start",
         next_command: doctor.next.command,
         next_safe_to_run: true,
+        next_required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
         next_required_fields: [],
+        next_safety: {
+          safe_to_auto_run: true,
+          requires_user_confirmation: false,
+          requires_authored_input: false,
+          writes_local_config: false,
+          reasons: ["safe_read_or_status_check"]
+        },
         next_arguments: {
           project_path: project,
           sync_remote: remote,
@@ -631,7 +639,9 @@ describe("agent lifecycle", () => {
         next_tool: "sync_status",
         next_command: "moryn sync --status",
         next_safe_to_run: true,
+        next_required_when: "Before retrying lifecycle writes or sync operations after a Git conflict.",
         next_required_fields: [],
+        next_safety: doctor.next.safety,
         next_arguments: {}
       });
 
@@ -719,7 +729,9 @@ describe("agent lifecycle", () => {
         next_tool: "project_list",
         next_command: "moryn project list",
         next_safe_to_run: true,
+        next_required_when: "When the shared store has projects but this agent has no explicit project context.",
         next_required_fields: [],
+        next_safety: doctor.next.safety,
         next_arguments: {}
       });
       expect(doctor.next.actions).toContainEqual(expect.objectContaining({

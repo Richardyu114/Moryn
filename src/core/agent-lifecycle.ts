@@ -670,7 +670,9 @@ function doctorReadiness(
     tool: string;
     safe_to_run: boolean;
     command: string;
+    required_when?: string;
     required_fields?: string[];
+    safety?: ActionSafety;
     arguments?: Record<string, unknown>;
   }
 ) {
@@ -683,7 +685,9 @@ function doctorReadiness(
     next_tool: next.tool,
     next_command: next.command,
     next_safe_to_run: next.safe_to_run,
+    next_required_when: next.required_when,
     next_required_fields: next.required_fields ?? [],
+    next_safety: next.safety,
     next_arguments: next.arguments ?? {}
   };
 }
