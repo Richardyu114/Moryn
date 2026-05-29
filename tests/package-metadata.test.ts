@@ -5,7 +5,15 @@ describe("package metadata", () => {
   it("is ready for scoped npm publication", async () => {
     const packageJson = JSON.parse(await readFile("package.json", "utf8")) as {
       name: string;
+      main?: string;
+      types?: string;
       license: string;
+      exports?: {
+        "."?: {
+          types?: string;
+          import?: string;
+        };
+      };
       repository?: { type: string; url: string };
       bugs?: { url: string };
       homepage?: string;
@@ -14,6 +22,12 @@ describe("package metadata", () => {
     const license = await readFile("LICENSE", "utf8");
 
     expect(packageJson.name).toBe("@richardyu114/moryn");
+    expect(packageJson.main).toBe("./dist/index.js");
+    expect(packageJson.types).toBe("./dist/index.d.ts");
+    expect(packageJson.exports?.["."]).toEqual({
+      types: "./dist/index.d.ts",
+      import: "./dist/index.js"
+    });
     expect(packageJson.license).toBe("MIT");
     expect(packageJson.repository).toEqual({
       type: "git",

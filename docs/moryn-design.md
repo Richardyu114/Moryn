@@ -436,6 +436,9 @@ sources:
 }
 ```
 
+Library hosts can reuse the exported `STORE_INIT_SELECTION_SOURCES` map from
+the package entrypoint as the canonical field-path contract.
+
 The `repair` option is explicit and guarded. It replaces an invalid local
 `config.json` while leaving event history untouched.
 
@@ -481,6 +484,9 @@ sources:
   }
 }
 ```
+
+Library hosts can reuse the exported `PROJECT_INIT_SELECTION_SOURCES` map from
+the package entrypoint as the canonical field-path contract.
 
 The `repair` option is explicit and guarded. It replaces an invalid existing
 `.moryn.json` only after the caller supplies the intended project fields.
@@ -559,7 +565,9 @@ expose `important_decisions_by_id` and `warnings_by_id`; top-level arrays
 expose `skills_by_id`, `task_relevant_by_id`, and `recent_changes_by_id`. These
 local mirrors let agents inspect a known boot preference, soul record, rule,
 decision, warning, skill, task-relevant record, or recent change without
-scanning the corresponding ordered arrays.
+scanning the corresponding ordered arrays. Library hosts can reuse the exported
+`BOOT_SELECTION_SOURCES` map from the package entrypoint as the canonical
+field-path contract.
 
 CLI:
 
@@ -639,7 +647,9 @@ query by explicit record id with a matching state filter.
 `results[]` is the ranked display list, while `results_by_id` mirrors the
 returned records by `record.id` so hosts can consume a known result without
 array scanning. `selection_sources` names the keyed result, record, and
-record-id paths explicitly.
+record-id paths explicitly. Library hosts can reuse the exported
+`RECALL_SELECTION_SOURCES` map from the package entrypoint as the canonical
+field-path contract.
 
 ### `write`
 
@@ -859,6 +869,9 @@ next-action paths for agents that receive only the nested action;
 so hosts can fill recall arguments without scanning workflow phases. Workflow
 phases prefer `refresh.changes_by_record_id.<record_id>.next_action` while
 retaining `refresh.changes[].next_action` as an ordered compatibility source.
+Library hosts can reuse the exported `REFRESH_SELECTION_SOURCES` and
+`REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES` maps from the package entrypoint
+as canonical field-path contracts.
 
 CLI:
 
@@ -1457,7 +1470,9 @@ Output includes the regenerated artifact paths:
 
 Agents should use `artifacts.snapshots.projects_by_id.<project_id>` and the
 named `selection_sources` paths when they need to inspect a derived snapshot or
-index after rebuild.
+index after rebuild. Library hosts can reuse the exported
+`REBUILD_SELECTION_SOURCES` map from the package entrypoint as the canonical
+field-path contract.
 
 ### `promote`
 
@@ -1547,7 +1562,9 @@ Output:
 `records` preserves the ordered recent-record list. `records_by_id` mirrors
 only those returned records so agents can dereference a selected id without
 rescanning the ordered array. `selection_sources` names the keyed record and
-record-id paths explicitly.
+record-id paths explicitly. Library hosts can reuse the exported
+`LIST_RECENT_SELECTION_SOURCES` map from the package entrypoint as the
+canonical field-path contract.
 
 ## Agent Usage Contract
 
@@ -2105,7 +2122,10 @@ can select ids without inferring paths. `write` names `record`, `record.id`, and
 `event.linked_record_id`. When a sensitive `revise` also emits a quarantine
 event, the response names `quarantine_event` and `quarantine_event.event_id`.
 These paths are intentionally shallow and stable because mutation results are
-often passed directly into the next operation.
+often passed directly into the next operation. Library hosts can reuse the
+exported `WRITE_SELECTION_SOURCES`, `MUTATION_EVENT_SELECTION_SOURCES`,
+`LINK_EVENT_SELECTION_SOURCES`, and `SENSITIVE_REVISE_SELECTION_SOURCES` maps
+from the package entrypoint as canonical field-path contracts.
 
 Rebuildable index errors return a safe derived-view rebuild action:
 

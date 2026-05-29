@@ -6,7 +6,7 @@ import { readEvents } from "./store.js";
 import type { MorynRecord } from "./types.js";
 import { displayRecordText, searchableRecordText } from "./content-text.js";
 
-const REBUILD_SELECTION_SOURCES = {
+export const REBUILD_SELECTION_SOURCES = {
   record_count: "records",
   project_ids: "projects",
   skill_count: "skills",

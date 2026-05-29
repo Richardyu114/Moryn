@@ -40,7 +40,7 @@ export interface InitializeProjectConfigInput {
   repair?: boolean;
 }
 
-const PROJECT_INIT_SELECTION_SOURCES = {
+export const PROJECT_INIT_SELECTION_SOURCES = {
   path: "path",
   config: "config",
   config_file: "artifacts.config",

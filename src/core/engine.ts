@@ -75,54 +75,54 @@ const START_LISTED_PROJECT_WHEN = "After choosing this project from project_list
 const RECALL_REFRESH_CHANGE_WHEN = "After refresh reports this change and the agent needs the full record content.";
 const WRITE_CANDIDATE_RECORD_ID_SOURCE = "write.record.id";
 
-const WRITE_SELECTION_SOURCES = {
+export const WRITE_SELECTION_SOURCES = {
   record: "record",
   record_id: "record.id",
   warning_next_action: "warning.next_action"
 };
 
-const MUTATION_EVENT_SELECTION_SOURCES = {
+export const MUTATION_EVENT_SELECTION_SOURCES = {
   event: "event",
   event_id: "event.event_id",
   record_id: "event.record_id"
 };
 
-const LINK_EVENT_SELECTION_SOURCES = {
+export const LINK_EVENT_SELECTION_SOURCES = {
   ...MUTATION_EVENT_SELECTION_SOURCES,
   linked_record_id: "event.linked_record_id"
 };
 
-const SENSITIVE_REVISE_SELECTION_SOURCES = {
+export const SENSITIVE_REVISE_SELECTION_SOURCES = {
   ...MUTATION_EVENT_SELECTION_SOURCES,
   quarantine_event: "quarantine_event",
   quarantine_event_id: "quarantine_event.event_id"
 };
 
-const PROJECT_LIST_SELECTION_SOURCES = {
+export const PROJECT_LIST_SELECTION_SOURCES = {
   project: "projects_by_id.<project_id>",
   project_id: "projects_by_id.<project_id>.project_id",
   next_action: "projects_by_id.<project_id>.next"
 };
 
-const PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES = {
+export const PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES = {
   project: "project_list.projects_by_id.<project_id>",
   project_id: "project_list.projects_by_id.<project_id>.project_id",
   next_action: "project_list.projects_by_id.<project_id>.next",
   ordered_next_action: "project_list.projects[].next"
 };
 
-const LIST_RECENT_SELECTION_SOURCES = {
+export const LIST_RECENT_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
   record_id: "records_by_id.<record_id>.id"
 };
 
-const RECALL_SELECTION_SOURCES = {
+export const RECALL_SELECTION_SOURCES = {
   result: "results_by_id.<record_id>",
   record: "results_by_id.<record_id>.record",
   record_id: "results_by_id.<record_id>.record.id"
 };
 
-const BOOT_SELECTION_SOURCES = {
+export const BOOT_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
   record_id: "records_by_id.<record_id>.id",
   user_preference: "profile.user_preferences_by_id.<record_id>",
@@ -135,13 +135,13 @@ const BOOT_SELECTION_SOURCES = {
   recent_change: "recent_changes_by_id.<record_id>"
 };
 
-const REFRESH_SELECTION_SOURCES = {
+export const REFRESH_SELECTION_SOURCES = {
   change: "changes_by_record_id.<record_id>",
   record_id: "changes_by_record_id.<record_id>.record_id",
   next_action: "changes_by_record_id.<record_id>.next_action"
 };
 
-const REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES = {
+export const REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES = {
   change: "refresh.changes_by_record_id.<record_id>",
   record_id: "refresh.changes_by_record_id.<record_id>.record_id",
   next_action: "refresh.changes_by_record_id.<record_id>.next_action",

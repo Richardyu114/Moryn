@@ -12,7 +12,7 @@ const storeConfigSchema = z.object({
 
 export type StoreConfig = z.infer<typeof storeConfigSchema>;
 
-const STORE_INIT_SELECTION_SOURCES = {
+export const STORE_INIT_SELECTION_SOURCES = {
   store: "store",
   config: "config",
   config_file: "artifacts.config",

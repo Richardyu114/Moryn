@@ -510,6 +510,13 @@ sections include `user_preferences_by_id`, `soul_by_id`, and
 `task_relevant_by_id`, and `recent_changes_by_id`. `selection_sources` names
 each of those paths, so a host with a known boot record id can dereference the
 record in its section without scanning every boot array.
+Library hosts can import the canonical selection-source maps from the package
+entrypoint, including `STORE_INIT_SELECTION_SOURCES`,
+`PROJECT_INIT_SELECTION_SOURCES`, `REBUILD_SELECTION_SOURCES`,
+`WRITE_SELECTION_SOURCES`, `RECALL_SELECTION_SOURCES`,
+`BOOT_SELECTION_SOURCES`, `REFRESH_SELECTION_SOURCES`,
+`LIST_RECENT_SELECTION_SOURCES`, and the sync maps, instead of copying path
+strings from command output or docs.
 
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime

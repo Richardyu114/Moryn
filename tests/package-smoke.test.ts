@@ -56,9 +56,15 @@ describe("published package smoke", () => {
         const recordId = (JSON.parse(decision.stdout) as { record: { id: string } }).record.id;
         const boot = await exec(moryn, ["--store", store, "boot", "--project", project], { cwd: dir });
         const recall = await exec(moryn, ["--store", store, "recall", "--record-id", recordId, "--project", project], { cwd: dir });
+        const importCheck = await exec("node", [
+          "--input-type=module",
+          "-e",
+          "import { BOOT_SELECTION_SOURCES, STORE_INIT_SELECTION_SOURCES, SYNC_RESULT_SELECTION_SOURCES } from '@richardyu114/moryn'; console.log(`${STORE_INIT_SELECTION_SOURCES.config_file}|${BOOT_SELECTION_SOURCES.skill}|${SYNC_RESULT_SELECTION_SOURCES.pushed}`);"
+        ], { cwd: dir });
 
         expect(boot.stdout).toContain("Release from packed CLI");
         expect(recall.stdout).toContain("Packed CLI can write memory");
+        expect(importCheck.stdout.trim()).toBe("artifacts.config|skills_by_id.<record_id>|pushed");
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });
       } finally {
         if (tarball) {

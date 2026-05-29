@@ -95,6 +95,9 @@ Deliverables:
   `interrupt`.
 - Done: Reportable non-raw refresh changes now include safe `recall`
   `next_action` metadata with CLI/MCP interfaces, safety, and workflow fields.
+- Done: Core response `selection_sources` maps are exported from the package
+  entrypoint, so library hosts can reuse canonical field-path contracts instead
+  of copying strings from docs or runtime examples.
 - Done: Refresh change `next_action` templates expose action-local
   `selection_sources`, so agents that receive only the nested action still see
   the stable keyed change, record-id, keyed next-action, and ordered fallback
