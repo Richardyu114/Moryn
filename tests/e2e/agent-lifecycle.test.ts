@@ -835,6 +835,11 @@ describe("agent lifecycle", () => {
       expect(doctor.checks_by_name.store).toEqual(doctor.checks.find((check) => check.name === "store"));
       expect(doctor.checks_by_name.project).toEqual(doctor.checks.find((check) => check.name === "project"));
       expect(doctor.checks_by_name.sync).toEqual(doctor.checks.find((check) => check.name === "sync"));
+      expect(doctor.selection_sources).toEqual({
+        check: "checks_by_name.<check_name>",
+        blocking_check: "readiness.blocking_checks_by_name.<check_name>",
+        next_action: "next"
+      });
       expect(doctor.next).toMatchObject({
         recommended_action: "call_agent_start",
         tool: "agent_start",

@@ -1969,6 +1969,7 @@ describe("MCP stdio server", () => {
           sync: { configured: boolean; expected_remote?: string };
           checks: Array<{ name: string; ok: boolean; severity: string; message: string }>;
           checks_by_name: Record<string, { name: string; ok: boolean; severity: string; message: string }>;
+          selection_sources: Record<string, string>;
           readiness?: {
             safe_to_start: boolean;
             blocking_checks: string[];
@@ -2059,6 +2060,11 @@ describe("MCP stdio server", () => {
         });
         expect(doctor.readiness?.next_required_when).toEqual(doctor.next.required_when);
         expect(doctor.readiness?.next_required_fields_by_name).toEqual(doctor.next.required_fields_by_name);
+        expect(doctor.selection_sources).toEqual({
+          check: "checks_by_name.<check_name>",
+          blocking_check: "readiness.blocking_checks_by_name.<check_name>",
+          next_action: "next"
+        });
         expect(doctor.checks_by_name.store).toEqual(doctor.checks.find((check) => check.name === "store"));
         expect(doctor.checks_by_name.project).toEqual(doctor.checks.find((check) => check.name === "project"));
         expect(doctor.checks_by_name.sync).toEqual(doctor.checks.find((check) => check.name === "sync"));

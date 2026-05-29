@@ -359,7 +359,9 @@ a `readiness` summary with `safe_to_start`, `blocking_checks`,
 `required_when`, required fields, `required_fields_by_name`, `safety`,
 transport `interfaces`, `workflow`, arguments, and `argument_sources`. Agents can inspect `checks_by_name.sync` or
 `readiness.blocking_checks_by_name.sync` directly instead of scanning `checks[]`,
-then execute the selected CLI or MCP action without recombining fields from the
+and `agent_doctor.selection_sources` names those keyed check paths plus the
+selected `next` action path. Agents can then execute the selected CLI or MCP
+action without recombining fields from the
 full `next` object.
 After a lifecycle command resolves a project from `.moryn.json`, returned
 `next.actions` include the resolved `project_id`, so agents can reuse those

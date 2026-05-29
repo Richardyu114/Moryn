@@ -1079,7 +1079,9 @@ inferring commands from prose. It also returns a `readiness` summary:
 The top-level `checks_by_name` mirrors `checks[]` by check name, and
 `readiness.blocking_checks_by_name` mirrors only the blocking warning checks, so
 agents can read `checks_by_name.sync` or
-`readiness.blocking_checks_by_name.sync` without scanning arrays. The same
+`readiness.blocking_checks_by_name.sync` without scanning arrays.
+`selection_sources` names the keyed check, keyed blocking check, and selected
+`next` action paths explicitly. The same
 summary repeats the selected next tool, command, `safe_to_run`, `required_when`,
 required fields, `required_fields_by_name`, `safety`, transport `interfaces`,
 and `workflow` plus arguments and `argument_sources` so a lightweight agent can follow readiness

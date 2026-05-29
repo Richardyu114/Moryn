@@ -2919,6 +2919,7 @@ describe("moryn CLI", () => {
         sync: { configured: boolean; expected_remote?: string };
         checks: Array<{ name: string; ok: boolean; severity: string; message: string }>;
         checks_by_name: Record<string, { name: string; ok: boolean; severity: string; message: string }>;
+        selection_sources: Record<string, string>;
         readiness?: {
           safe_to_start: boolean;
           blocking_checks: string[];
@@ -3003,6 +3004,11 @@ describe("moryn CLI", () => {
       });
       expect(parsed.readiness?.next_required_when).toEqual(parsed.next.required_when);
       expect(parsed.readiness?.next_required_fields_by_name).toEqual(parsed.next.required_fields_by_name);
+      expect(parsed.selection_sources).toEqual({
+        check: "checks_by_name.<check_name>",
+        blocking_check: "readiness.blocking_checks_by_name.<check_name>",
+        next_action: "next"
+      });
       expect(parsed.checks_by_name.store).toEqual(parsed.checks.find((check) => check.name === "store"));
       expect(parsed.checks_by_name.project).toEqual(parsed.checks.find((check) => check.name === "project"));
       expect(parsed.checks_by_name.sync).toEqual(parsed.checks.find((check) => check.name === "sync"));

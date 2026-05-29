@@ -146,6 +146,11 @@ const LIFECYCLE_NEXT_SELECTION_SOURCES = {
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action"
 };
+const DOCTOR_SELECTION_SOURCES = {
+  check: "checks_by_name.<check_name>",
+  blocking_check: "readiness.blocking_checks_by_name.<check_name>",
+  next_action: "next"
+};
 const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
@@ -1549,6 +1554,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
     },
     checks,
     checks_by_name: Object.fromEntries(checks.map((check) => [check.name, check])),
+    selection_sources: DOCTOR_SELECTION_SOURCES,
     readiness: doctorReadiness(checks, next),
     next
   };
