@@ -396,6 +396,11 @@ Revision event example:
 ## MCP Tools and CLI
 
 The MCP server and CLI expose the same semantics.
+Library hosts can import all stable selection-source path maps individually
+from the package entrypoint, or use the grouped `SELECTION_SOURCE_CONTRACTS`
+registry. The registry is organized by `setup`, `core`, `sync`, `lifecycle`,
+and `recovery`, and each entry references the same canonical map object exposed
+under its individual export name.
 
 ### `init`
 

@@ -218,6 +218,9 @@ Deliverables:
   package entrypoint, so host integrations can reuse canonical guide, doctor,
   handoff, lifecycle, discovery, and error-action field paths instead of
   copying strings from response examples.
+- Done: The package entrypoint exports a grouped `SELECTION_SOURCE_CONTRACTS`
+  registry, so hosts can enumerate setup, core, sync, lifecycle, and recovery
+  field-path maps without knowing every individual constant name.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

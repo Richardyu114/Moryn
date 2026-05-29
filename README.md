@@ -520,6 +520,9 @@ entrypoint, including `STORE_INIT_SELECTION_SOURCES`,
 `GUIDE_SELECTION_SOURCES` and `DOCTOR_SELECTION_SOURCES`, recovery maps such as
 `NEXT_ACTION_SELECTION_SOURCES`, and the sync maps, instead of copying path
 strings from command output or docs.
+Hosts that prefer one import can use `SELECTION_SOURCE_CONTRACTS`, grouped by
+`setup`, `core`, `sync`, `lifecycle`, and `recovery`, to enumerate the same
+canonical maps without knowing each individual export name.
 
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime
