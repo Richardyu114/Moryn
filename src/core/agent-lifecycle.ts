@@ -64,6 +64,37 @@ type ActionInterfaces<TArguments> = {
   };
 };
 
+type HandoffEntryNextAction = {
+  recommended_action: "call_recall_with_record_id";
+  tool: "recall";
+  safe_to_run: true;
+  command: string;
+  required_when: string;
+  required_fields: [];
+  arguments: {
+    record_ids: string[];
+    project_id: string;
+  };
+  interfaces: ActionInterfaces<{
+    record_ids: string[];
+    project_id: string;
+  }>;
+  safety: ActionSafety;
+  workflow: {
+    version: 1;
+    start: "next_action";
+    continue_from: ["handoff.inbox[].next_action", "handoff.active_sessions[].next_action"];
+    phases: Array<{
+      phase: "call_recall_with_record_id";
+      order: 1;
+      action_source: "handoff.next_action";
+      tool: "recall";
+      required_when: string;
+      required_fields: [];
+    }>;
+  };
+};
+
 export interface AgentDoctorInput extends AgentLifecycleInput {}
 
 export interface AgentEnterInput extends AgentStartInput {}
@@ -77,6 +108,7 @@ const PUBLISH_STATUS_WHEN = "During meaningful long-running work, before interru
 const FINISH_HANDOFF_WHEN = "At the end of meaningful work, before stopping, or before handing off to another agent.";
 const REFRESH_CONTEXT_WHEN = "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.";
 const START_NEXT_SESSION_WHEN = "When another agent or device should start the next session from this handoff.";
+const RECALL_HANDOFF_ENTRY_WHEN = "After reading this handoff entry and needing the full session record.";
 const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
 const CHOOSE_DISCOVERED_PROJECT_WHEN = "After choosing this project from discovery results.";
 const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
@@ -102,6 +134,7 @@ interface AgentHandoffEntry {
   updated_at: string;
   active_until?: string;
   recommended_action: "review_handoff_summary" | "coordinate_with_active_session";
+  next_action: HandoffEntryNextAction;
 }
 
 function sourceFromAgent(agent: AgentIdentity | undefined): RecordSource {
@@ -350,6 +383,13 @@ function buildAgentFinishCommand(input: AgentLifecycleInput): string {
   appendOption(parts, "--model", input.agent?.model);
   appendOption(parts, "--device-id", input.agent?.device_id);
   parts.push("--summary", "<summary>");
+  return parts.join(" ");
+}
+
+function buildRecallRecordCommand(recordId: string, projectId: string): string {
+  const parts = ["moryn", "recall"];
+  appendOption(parts, "--record-id", recordId);
+  appendOption(parts, "--project-id", projectId);
   return parts.join(" ");
 }
 
@@ -1025,7 +1065,40 @@ function isSameAgentSession(source: RecordSource, agent: AgentIdentity | undefin
     && source.session_id === agent.session_id;
 }
 
-function handoffEntry(record: MorynRecord, recommendedAction: AgentHandoffEntry["recommended_action"]): AgentHandoffEntry {
+function handoffEntryNextAction(record: MorynRecord, projectId: string): HandoffEntryNextAction {
+  const action = withActionInterfaces({
+    recommended_action: "call_recall_with_record_id" as const,
+    tool: "recall" as const,
+    safe_to_run: true as const,
+    command: buildRecallRecordCommand(record.id, projectId),
+    required_when: RECALL_HANDOFF_ENTRY_WHEN,
+    required_fields: [] as [],
+    arguments: {
+      record_ids: [record.id],
+      project_id: projectId
+    }
+  });
+  return {
+    ...action,
+    workflow: {
+      version: 1,
+      start: "next_action",
+      continue_from: ["handoff.inbox[].next_action", "handoff.active_sessions[].next_action"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "handoff.next_action",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    }
+  };
+}
+
+function handoffEntry(record: MorynRecord, projectId: string, recommendedAction: AgentHandoffEntry["recommended_action"]): AgentHandoffEntry {
   const currentTask = typeof record.content.current_task === "string" ? record.content.current_task : undefined;
   const updatedAt = Date.parse(record.updated_at);
   const activeUntil = recommendedAction === "coordinate_with_active_session" && Number.isFinite(updatedAt)
@@ -1039,7 +1112,8 @@ function handoffEntry(record: MorynRecord, recommendedAction: AgentHandoffEntry[
     agent: record.source,
     updated_at: record.updated_at,
     active_until: activeUntil,
-    recommended_action: recommendedAction
+    recommended_action: recommendedAction,
+    next_action: handoffEntryNextAction(record, projectId)
   };
 }
 
@@ -1048,7 +1122,7 @@ function isFreshActiveStatus(record: MorynRecord, now: Date): boolean {
   return Number.isFinite(updatedAt) && updatedAt + ACTIVE_SESSION_TTL_MS > now.getTime();
 }
 
-function buildHandoff(records: MorynRecord[], input: AgentLifecycleInput, now = new Date()): {
+function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLifecycleInput, now = new Date()): {
   inbox: AgentHandoffEntry[];
   active_sessions: AgentHandoffEntry[];
   active_session_ttl_minutes: number;
@@ -1076,14 +1150,14 @@ function buildHandoff(records: MorynRecord[], input: AgentLifecycleInput, now = 
     if (actorFinalSummary && actorFinalSummary.updated_at >= record.updated_at) continue;
     if (seenActiveActors.has(actorKey)) continue;
     seenActiveActors.add(actorKey);
-    activeSessions.push(handoffEntry(record, "coordinate_with_active_session"));
+    activeSessions.push(handoffEntry(record, projectId, "coordinate_with_active_session"));
     if (activeSessions.length >= 5) break;
   }
 
   const inbox = finalSummaries
     .filter((record) => !isSameAgentSession(record.source, input.agent))
     .slice(0, 5)
-    .map((record) => handoffEntry(record, "review_handoff_summary"));
+    .map((record) => handoffEntry(record, projectId, "review_handoff_summary"));
 
   return {
     inbox,
@@ -1104,7 +1178,7 @@ async function agentHandoff(engine: ReturnType<typeof createEngine>, projectId: 
     scopes: ["project"],
     limit: 100
   });
-  return buildHandoff(summaries.results.map((result) => result.record), input);
+  return buildHandoff(summaries.results.map((result) => result.record), projectId, input);
 }
 
 async function initializeLifecycleSync(storePath: string, syncRemote: string | undefined, result: BootstrapResult): Promise<void> {

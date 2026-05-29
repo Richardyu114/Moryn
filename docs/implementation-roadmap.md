@@ -110,6 +110,9 @@ Deliverables:
   `sync_status` recovery action.
 - Done: Agent lifecycle partial sync failures include structured
   `*_error_details` recovery contracts alongside legacy error strings.
+- Done: `agent_start.handoff.inbox[]` and `handoff.active_sessions[]` now expose
+  safe `recall` `next_action` metadata, so agents can inspect full handoff or
+  status records without guessing CLI/MCP arguments.
 - Done: `agent_doctor` returns an explicit readiness summary so agents do not
   infer startup safety from raw checks.
 - Done: Generated snapshots/indexes are excluded from sync by default.

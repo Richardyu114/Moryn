@@ -140,6 +140,85 @@ function expectRefreshChangeNextAction(action: {
   });
 }
 
+function expectHandoffEntryNextAction(action: {
+  recommended_action: string;
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  safe_to_run: boolean;
+  required_when: string;
+  required_fields: string[];
+  interfaces?: {
+    cli?: { command?: string };
+    mcp?: { tool?: string; arguments?: Record<string, unknown> };
+  };
+  safety?: {
+    safe_to_auto_run?: boolean;
+    requires_user_confirmation?: boolean;
+    requires_authored_input?: boolean;
+    writes_local_config?: boolean;
+    reasons?: string[];
+  };
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}, recordId: string, projectId: string) {
+  expect(action).toMatchObject({
+    recommended_action: "call_recall_with_record_id",
+    tool: "recall",
+    safe_to_run: true,
+    required_when: "After reading this handoff entry and needing the full session record.",
+    required_fields: [],
+    command: `moryn recall --record-id ${recordId} --project-id ${projectId}`,
+    arguments: {
+      record_ids: [recordId],
+      project_id: projectId
+    },
+    interfaces: {
+      cli: { command: `moryn recall --record-id ${recordId} --project-id ${projectId}` },
+      mcp: {
+        tool: "recall",
+        arguments: {
+          record_ids: [recordId],
+          project_id: projectId
+        }
+      }
+    },
+    safety: {
+      safe_to_auto_run: true,
+      requires_user_confirmation: false,
+      requires_authored_input: false,
+      writes_local_config: false,
+      reasons: ["safe_read_or_status_check"]
+    }
+  });
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["handoff.inbox[].next_action", "handoff.active_sessions[].next_action"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "handoff.next_action",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 describe("agent lifecycle", () => {
   it("pulls, boots, refreshes, writes a handoff, and pushes across two device stores", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-"));
@@ -216,11 +295,13 @@ describe("agent lifecycle", () => {
             type: "summary",
             text: "Codex finished lifecycle wiring and left a Gemini handoff.",
             agent: { client: "codex", device_id: "device_codex", session_id: "codex-1" },
-            recommended_action: "review_handoff_summary"
+            recommended_action: "review_handoff_summary",
+            next_action: expect.any(Object)
           }
         ],
         active_sessions: []
       });
+      expectHandoffEntryNextAction(geminiStart.handoff.inbox[0]!.next_action, codexFinish.record.id, "moryn");
       expect(geminiStart.boot.recent_changes.map((record) => record.content.text)).toContain("Codex finished lifecycle wiring and left a Gemini handoff.");
       expect(geminiStart.next.required_end_action).toBe("call agent_finish with a session_summary");
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
@@ -477,9 +558,11 @@ describe("agent lifecycle", () => {
           text: "Codex is refactoring lifecycle status propagation.",
           current_task: "lifecycle status propagation",
           agent: expect.objectContaining({ client: "codex", session_id: "codex-status" }),
-          recommended_action: "coordinate_with_active_session"
+          recommended_action: "coordinate_with_active_session",
+          next_action: expect.any(Object)
         })
       ]);
+      expectHandoffEntryNextAction(start.handoff.active_sessions[0]!.next_action, status.record.id, "moryn");
       expect(start.handoff.inbox).toEqual([]);
       expect(start.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",

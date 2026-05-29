@@ -948,7 +948,11 @@ agent. Active sessions use a 120-minute window and include `active_until` so
 stale status records do not look like live work forever. Each handoff entry
 includes the record id, text, originating agent identity, timestamp, and a
 recommended action so agents do not have to infer coordination state from
-`recent_changes`. The
+`recent_changes`. Each entry also includes a safe `next_action` for the exact
+`recall` call that fetches the full session summary or status record, with
+CLI/MCP interfaces, `safety`, `required_when`, and workflow metadata. Agents
+should follow that action instead of manually composing a recall call from the
+handoff prose. The
 `next.actions` field returns machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP
 tool name, CLI command template, required fields, prefilled arguments, and
@@ -1101,12 +1105,13 @@ Agents should follow this contract:
 9. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions` for finish or refresh.
 10. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
 11. For each reportable non-raw refresh change that needs full context, follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
-12. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
-13. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
-14. Write raw notes as `agent_note`, not canonical memory.
-15. Do not promote long-term preferences, soul records, or global skills without user confirmation.
-16. Treat sync `interrupt` results as a reason to pause and inspect related records.
-17. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
+12. For each handoff entry that needs full context, follow `handoff.inbox[].next_action` or `handoff.active_sessions[].next_action` instead of manually composing a `recall` call.
+13. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
+14. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
+15. Write raw notes as `agent_note`, not canonical memory.
+16. Do not promote long-term preferences, soul records, or global skills without user confirmation.
+17. Treat sync `interrupt` results as a reason to pause and inspect related records.
+18. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
 
 Cross-agent handoff depends on the lifecycle commands, not agent awareness of
 each other. Codex, Gemini, and other agents can run on separate machines if they

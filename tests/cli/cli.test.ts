@@ -319,6 +319,71 @@ function expectRefreshChangeNextAction(action: {
   });
 }
 
+function expectHandoffEntryNextAction(action: {
+  recommended_action: string;
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  safe_to_run: boolean;
+  required_when: string;
+  required_fields: string[];
+  interfaces?: {
+    cli?: { command?: string };
+    mcp?: { tool?: string; arguments?: Record<string, unknown> };
+  };
+  safety?: {
+    safe_to_auto_run?: boolean;
+    requires_user_confirmation?: boolean;
+    requires_authored_input?: boolean;
+    writes_local_config?: boolean;
+    reasons?: string[];
+  };
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}, recordId: string, projectId: string) {
+  expect(action).toMatchObject({
+    recommended_action: "call_recall_with_record_id",
+    tool: "recall",
+    safe_to_run: true,
+    required_when: "After reading this handoff entry and needing the full session record.",
+    required_fields: [],
+    command: `moryn recall --record-id ${recordId} --project-id ${projectId}`,
+    arguments: {
+      record_ids: [recordId],
+      project_id: projectId
+    }
+  });
+  expectActionInterfaces(action);
+  expectActionSafety(action);
+  expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["handoff.inbox[].next_action", "handoff.active_sessions[].next_action"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "handoff.next_action",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "moryn-cli-"));
   try {
@@ -2380,7 +2445,22 @@ describe("moryn CLI", () => {
       const parsedStart = JSON.parse(start.stdout) as {
         refresh: { changes: Array<{ summary: string; importance: string }> };
         handoff: {
-          active_sessions: Array<{ text: string; current_task?: string; agent: { client?: string; session_id?: string }; recommended_action: string }>;
+          active_sessions: Array<{
+            record_id: string;
+            text: string;
+            current_task?: string;
+            agent: { client?: string; session_id?: string };
+            recommended_action: string;
+            next_action: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+              required_when: string;
+              required_fields: string[];
+            };
+          }>;
           inbox: Array<{ text: string }>;
         };
       };
@@ -2393,9 +2473,11 @@ describe("moryn CLI", () => {
           text: "CLI Codex is currently wiring status propagation.",
           current_task: "coordinate status",
           agent: expect.objectContaining({ client: "codex", session_id: "codex-cli-status" }),
-          recommended_action: "coordinate_with_active_session"
+          recommended_action: "coordinate_with_active_session",
+          next_action: expect.any(Object)
         })
       ]);
+      expectHandoffEntryNextAction(parsedStart.handoff.active_sessions[0]!.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn");
       expect(parsedStart.handoff.inbox).toEqual([]);
     });
   }, 30000);

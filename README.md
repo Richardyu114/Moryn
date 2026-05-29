@@ -386,7 +386,10 @@ adds a structured `handoff` block. `handoff.inbox` contains recent final
 handoff summaries from other sessions; `handoff.active_sessions` contains
 recent in-progress status checkpoints from other sessions. Active sessions are
 time-bounded and include `active_until`, so stale status records do not look
-like live work forever. If startup, status, or finish can continue locally while
+like live work forever. Each handoff entry includes a safe `next_action` for the
+exact `recall` call that retrieves the full handoff or status record, including
+CLI/MCP interfaces, `safety`, `required_when`, and workflow metadata. If startup,
+status, or finish can continue locally while
 sync is unavailable, their `sync.*_error` strings are paired with
 `sync.*_error_details` objects containing `code`, `recommended_action`, and
 `next_action`, so agents do not have to parse prose to recover.
@@ -610,7 +613,8 @@ returns a small boot context package, and reports recent changes as notices or
 interrupts. Agents should prefer `agent_start` over manually composing
 `sync_pull`, `boot`, and `refresh`. Read `agent_start.handoff.active_sessions`
 before starting overlapping work, and read `agent_start.handoff.inbox` before
-continuing from another agent's final handoff. `agent_start.next.actions`
+continuing from another agent's final handoff; follow a handoff entry's
+`next_action` when the full session record is needed. `agent_start.next.actions`
 includes machine-readable templates for the next safe lifecycle calls,
 including the exact CLI command template, MCP tool name, `required_when`,
 required fields, and prefilled arguments for `agent_status`, `agent_finish`,
