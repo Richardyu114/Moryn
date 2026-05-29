@@ -306,7 +306,13 @@ describe("core engine", () => {
           recommended_action: "call_agent_start",
           tool: "agent_start",
           command: "moryn agent start --project-id alpha",
-          arguments: { project_id: "alpha" }
+          arguments: { project_id: "alpha" },
+          selection_sources: {
+            project: "project_list.projects_by_id.<project_id>",
+            project_id: "project_list.projects_by_id.<project_id>.project_id",
+            next_action: "project_list.projects_by_id.<project_id>.next",
+            ordered_next_action: "project_list.projects[].next"
+          }
         }
       });
       expect(projects.projects[1]).toMatchObject({

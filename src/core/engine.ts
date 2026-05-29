@@ -81,6 +81,13 @@ const PROJECT_LIST_SELECTION_SOURCES = {
   next_action: "projects_by_id.<project_id>.next"
 };
 
+const PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES = {
+  project: "project_list.projects_by_id.<project_id>",
+  project_id: "project_list.projects_by_id.<project_id>.project_id",
+  next_action: "project_list.projects_by_id.<project_id>.next",
+  ordered_next_action: "project_list.projects[].next"
+};
+
 const LIST_RECENT_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
   record_id: "records_by_id.<record_id>.id"
@@ -147,6 +154,7 @@ function withProjectListNextMetadata<T extends {
 ) {
   return {
     ...withActionInterfaces(action),
+    selection_sources: PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES,
     safety: actionSafety(action),
     workflow: withPhasesByName({
       version: 1,

@@ -394,7 +394,10 @@ knows which lifecycle action it needs, and use
 Direct `project_list` responses use the same pattern with top-level
 `projects_by_id`, keyed by `project_id`; each keyed record mirrors the ordered
 `projects[]` entry, and project-list workflow phases prefer
-`project_list.projects_by_id.<project_id>.next`.
+`project_list.projects_by_id.<project_id>.next`. Each nested `next` action also
+includes action-local `selection_sources`, so agents that pass the action
+around independently still know the keyed project, project id, keyed next-action
+path, and ordered fallback path.
 Action templates also expose `interfaces.cli.command` and
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, derived from the same
 top-level fields. Agent hosts should use the interface matching their runtime
@@ -584,7 +587,10 @@ stable executable source is `next.actions_by_project_id.<project_id>`.
 `project_list`, the top-level `projects_by_id` map serves the same purpose:
 `projects[]` stays ordered for display, while `projects_by_id.<project_id>.next`
 is the stable action source for a known project id; `selection_sources` names
-those keyed paths explicitly.
+those keyed paths explicitly. The nested `next.selection_sources` repeats the
+fully qualified `project_list.projects_by_id.<project_id>.next` and
+`project_list.projects[].next` sources for hosts that only receive the selected
+action.
 In
 `start_session` and `discover_projects` modes, `next.workflow` gives the
 ordered runtime action track and names which response fields are valid follow-up

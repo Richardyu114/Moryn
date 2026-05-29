@@ -2385,7 +2385,13 @@ describe("moryn CLI", () => {
           safe_to_run: true,
           required_when: "After choosing this project from project_list results.",
           required_fields: [],
-          arguments: { project_id: "beta" }
+          arguments: { project_id: "beta" },
+          selection_sources: {
+            project: "project_list.projects_by_id.<project_id>",
+            project_id: "project_list.projects_by_id.<project_id>.project_id",
+            next_action: "project_list.projects_by_id.<project_id>.next",
+            ordered_next_action: "project_list.projects[].next"
+          }
         }
       });
       expectActionInterfaces(parsed.projects[0]!.next);

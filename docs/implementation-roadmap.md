@@ -223,6 +223,10 @@ Deliverables:
 - Done: Direct `project_list` responses now expose `projects_by_id` and keyed
   workflow sources, so agents can select a known project id without scanning
   the ordered project array.
+- Done: Each `project_list.projects[].next` action now exposes action-local
+  `selection_sources`, so selected start actions keep their keyed project,
+  project-id, keyed next-action, and ordered fallback paths when passed around
+  independently.
 - Done: Unknown-project and missing-context recovery workflows now add a
   `retry_original_tool_with_selected_project_id` phase sourced from
   `project_list.projects_by_id`; direct `agent_start`, `agent_status`, and

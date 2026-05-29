@@ -1057,7 +1057,9 @@ by `project_id`, where each keyed project mirrors its ordered `projects[]`
 entry. `selection_sources` names the selected project, project id, and next
 action paths directly. Project-list workflow phases prefer
 `project_list.projects_by_id.<project_id>.next` while retaining
-`project_list.projects[].next` as an ordered compatibility source.
+`project_list.projects[].next` as an ordered compatibility source. Each nested
+`next.selection_sources` repeats those fully qualified keyed and ordered action
+paths for hosts that only receive the selected action.
 Lifecycle, guide, setup, project-discovery, error-recovery, and warning-recovery
 action templates also expose `interfaces.cli.command`,
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, `safety`, and single-step
@@ -1133,7 +1135,9 @@ single-step `workflow`.
 The response keeps `projects[]` as the ordered display list and also returns
 `projects_by_id` for direct keyed selection. Each
 `projects_by_id.<project_id>` value mirrors the matching `projects[]` record,
-including its `next` template.
+including its `next` template; that nested `next` template carries
+`selection_sources` for the keyed project, project id, keyed action, and ordered
+fallback paths.
 When surfaced through `agent_enter`, these project actions also carry
 post-selection lifecycle templates and `next.actions_by_project_id`. The
 surrounding `next` object declares `project_id` as the required selection field
