@@ -2784,6 +2784,39 @@ describe("core engine", () => {
     });
   });
 
+  it("returns recent records with keyed lookup metadata", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-05-27T00:00:0${++tick}.000Z`
+      });
+
+      const first = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "global",
+        content: { text: "First recent record.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const second = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "global",
+        content: { text: "Second recent record.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const recent = await engine.listRecent(2);
+
+      expect(recent.records.map((record) => record.id)).toEqual([second.record.id, first.record.id]);
+      expect(recent.records_by_id[second.record.id]).toEqual(recent.records[0]);
+      expect(recent.records_by_id[first.record.id]).toEqual(recent.records[1]);
+    });
+  });
+
   it("rejects invalid core result limits", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });

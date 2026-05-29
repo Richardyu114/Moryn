@@ -70,6 +70,8 @@ const CHECK_REMOTE_SYNC_WHEN = "After a remote sync failure, before retrying rem
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 const LIST_RECORDS_WHEN = "After a record id is rejected, before retrying with a replacement record id.";
 const RETRY_WITH_SELECTED_RECORD_WHEN = "After choosing the correct record id from list_recent results, retry the original tool with that selected id.";
+const LIST_RECENT_SELECTED_RECORD_ID_SOURCE = "list_recent.records_by_id.<record_id>.id";
+const LIST_RECENT_ORDERED_RECORD_ID_SOURCE = "list_recent.records[].id";
 const DISCOVER_PROJECT_FOR_WRITE_WHEN = "Before retrying a project-scoped write when project_id was omitted.";
 const RETRY_PROJECT_CONFIG_ID_WHEN = "After project_path and project_id disagree, before starting lifecycle work with corrected project identity.";
 const DISCOVER_PROJECT_CONTEXT_WHEN = "When a populated store requires explicit project context and none was provided.";
@@ -329,7 +331,7 @@ function missingRecordRetryPhase(context: MorynErrorContext | undefined, rejecte
   return {
     phase: "retry_original_tool_with_selected_record_id",
     order: 2,
-    action_source: "list_recent[].id",
+    action_source: LIST_RECENT_SELECTED_RECORD_ID_SOURCE,
     tool: context?.tool ?? "original_tool",
     ...(context ? {
       command: replaceCommandArgument(context.command, argumentKey, rejectedRecordId, placeholder),
@@ -338,7 +340,7 @@ function missingRecordRetryPhase(context: MorynErrorContext | undefined, rejecte
         [argumentKey]: replaceArgumentValue(context.arguments[argumentKey], rejectedRecordId, placeholder)
       }
     } : {}),
-    replace_arguments: { [argumentKey]: "list_recent[].id" },
+    replace_arguments: { [argumentKey]: LIST_RECENT_SELECTED_RECORD_ID_SOURCE },
     required_when: RETRY_WITH_SELECTED_RECORD_WHEN,
     required_fields: [argumentKey]
   };
@@ -533,7 +535,12 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
           workflow: {
             version: 1,
             start: "next_action",
-            continue_from: ["error.next_action", "warning.next_action", "list_recent", "list_recent[].id"],
+            continue_from: [
+              "error.next_action",
+              "warning.next_action",
+              LIST_RECENT_SELECTED_RECORD_ID_SOURCE,
+              LIST_RECENT_ORDERED_RECORD_ID_SOURCE
+            ],
             phases: [
               action.workflow.phases[0]!,
               missingRecordRetryPhase(context, recordId)

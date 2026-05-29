@@ -1171,7 +1171,11 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async listRecent(limit = 20) {
-      return (await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20));
+      const records = (await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20));
+      return {
+        records,
+        records_by_id: recordsById(records)
+      };
     },
 
     async listProjects(input: ListProjectsInput = {}) {

@@ -877,11 +877,15 @@ describe("MCP stdio server", () => {
         const recentResult = parseTextContent(await client.callTool({
           name: "list_recent",
           arguments: { limit: 1 }
-        })) as Array<{ id: string; state: string; content: { text: string } }>;
+        })) as {
+          records: Array<{ id: string; state: string; content: { text: string } }>;
+          records_by_id: Record<string, { id: string; state: string; content: { text: string } }>;
+        };
 
-        expect(recentResult[0]?.id).toBe(writeResult.record.id);
-        expect(recentResult[0]?.state).toBe("canonical");
-        expect(recentResult[0]?.content.text).toBe("Use official MCP tools.");
+        expect(recentResult.records[0]?.id).toBe(writeResult.record.id);
+        expect(recentResult.records[0]?.state).toBe("canonical");
+        expect(recentResult.records[0]?.content.text).toBe("Use official MCP tools.");
+        expect(recentResult.records_by_id[writeResult.record.id]).toEqual(recentResult.records[0]);
 
         const refreshResult = parseTextContent(await client.callTool({
           name: "refresh",
@@ -3281,11 +3285,11 @@ describe("MCP stdio server", () => {
         expect(result.error.next_action?.workflow?.phases?.[1]).toEqual({
           phase: "retry_original_tool_with_selected_record_id",
           order: 2,
-          action_source: "list_recent[].id",
+          action_source: "list_recent.records_by_id.<record_id>.id",
           tool: "archive",
           command: "moryn archive <record_id_from_list_recent> --reason 'Should fail'",
           arguments: { record_id: "<record_id_from_list_recent>", reason: "Should fail" },
-          replace_arguments: { record_id: "list_recent[].id" },
+          replace_arguments: { record_id: "list_recent.records_by_id.<record_id>.id" },
           required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
           required_fields: ["record_id"]
         });
@@ -3323,11 +3327,11 @@ describe("MCP stdio server", () => {
         expect(result.error.next_action?.workflow?.phases?.[1]).toEqual({
           phase: "retry_original_tool_with_selected_record_id",
           order: 2,
-          action_source: "list_recent[].id",
+          action_source: "list_recent.records_by_id.<record_id>.id",
           tool: "recall",
           command: "moryn recall --record-id <record_id_from_list_recent>",
           arguments: { record_ids: ["<record_id_from_list_recent>"] },
-          replace_arguments: { record_ids: "list_recent[].id" },
+          replace_arguments: { record_ids: "list_recent.records_by_id.<record_id>.id" },
           required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
           required_fields: ["record_ids"]
         });

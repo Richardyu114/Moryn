@@ -911,7 +911,9 @@ agents can recover from the envelope without parsing prose or guessing
 placeholder values. Most recovery actions are single-step workflows;
 `RECORD_NOT_FOUND` uses a two-step workflow so agents first run the safe
 `list_recent` action and then retry the original tool with the selected returned
-id. Warning recovery actions use the same `warning.next_action.interfaces`
+id from `list_recent.records_by_id.<record_id>.id`. The ordered
+`list_recent.records[].id` path remains available for display and fallback.
+Warning recovery actions use the same `warning.next_action.interfaces`
 shape, `warning.next_action.safety`, and single-step
 `warning.next_action.workflow`. For
 `PROJECT_PATH_NOT_FOUND`, the `next_action.arguments.path` value is the exact
@@ -1203,6 +1205,27 @@ CLI:
 ```bash
 moryn list-recent --limit 20
 ```
+
+Output:
+
+```json
+{
+  "records": [
+    {
+      "id": "rec_..."
+    }
+  ],
+  "records_by_id": {
+    "rec_...": {
+      "id": "rec_..."
+    }
+  }
+}
+```
+
+`records` preserves the ordered recent-record list. `records_by_id` mirrors
+only those returned records so agents can dereference a selected id without
+rescanning the ordered array.
 
 ## Agent Usage Contract
 
@@ -1797,8 +1820,8 @@ and arguments with only the rejected record id replaced by
         "continue_from": [
           "error.next_action",
           "warning.next_action",
-          "list_recent",
-          "list_recent[].id"
+          "list_recent.records_by_id.<record_id>.id",
+          "list_recent.records[].id"
         ],
         "phases": [
           {
@@ -1812,7 +1835,7 @@ and arguments with only the rejected record id replaced by
           {
             "phase": "retry_original_tool_with_selected_record_id",
             "order": 2,
-            "action_source": "list_recent[].id",
+            "action_source": "list_recent.records_by_id.<record_id>.id",
             "tool": "promote",
             "command": "moryn promote <record_id_from_list_recent> --state canonical",
             "arguments": {
@@ -1820,7 +1843,7 @@ and arguments with only the rejected record id replaced by
               "target_state": "canonical"
             },
             "replace_arguments": {
-              "record_id": "list_recent[].id"
+              "record_id": "list_recent.records_by_id.<record_id>.id"
             },
             "required_when": "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
             "required_fields": ["record_id"]

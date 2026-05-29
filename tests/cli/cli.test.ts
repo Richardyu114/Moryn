@@ -960,6 +960,14 @@ describe("moryn CLI", () => {
       expect(parsedRefresh.changes_by_record_id[recordId]).toEqual(parsedRefresh.changes[0]);
       expectRefreshChangeNextAction(parsedRefresh.changes[0]!.next_action, recordId, "moryn");
       expect(parsedRefresh.changes_by_record_id[recordId]!.next_action.workflow).toEqual(parsedRefresh.changes[0]!.next_action.workflow);
+
+      const recent = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "list-recent", "--limit", "1"]);
+      const parsedRecent = JSON.parse(recent.stdout) as {
+        records: Array<{ id: string; content: { text: string } }>;
+        records_by_id: Record<string, { id: string; content: { text: string } }>;
+      };
+      expect(parsedRecent.records[0]?.id).toBe(recordId);
+      expect(parsedRecent.records_by_id[recordId]).toEqual(parsedRecent.records[0]);
     });
   });
 
@@ -3845,11 +3853,11 @@ describe("moryn CLI", () => {
         expect(parsed.error.next_action?.workflow?.phases?.[1]).toEqual({
           phase: "retry_original_tool_with_selected_record_id",
           order: 2,
-          action_source: "list_recent[].id",
+          action_source: "list_recent.records_by_id.<record_id>.id",
           tool: "promote",
           command: "moryn promote <record_id_from_list_recent> --state canonical",
           arguments: { record_id: "<record_id_from_list_recent>", target_state: "canonical" },
-          replace_arguments: { record_id: "list_recent[].id" },
+          replace_arguments: { record_id: "list_recent.records_by_id.<record_id>.id" },
           required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
           required_fields: ["record_id"]
         });
@@ -3887,11 +3895,11 @@ describe("moryn CLI", () => {
         expect(parsed.error.next_action?.workflow?.phases?.[1]).toEqual({
           phase: "retry_original_tool_with_selected_record_id",
           order: 2,
-          action_source: "list_recent[].id",
+          action_source: "list_recent.records_by_id.<record_id>.id",
           tool: "recall",
           command: "moryn recall --record-id <record_id_from_list_recent>",
           arguments: { record_ids: ["<record_id_from_list_recent>"] },
-          replace_arguments: { record_ids: "list_recent[].id" },
+          replace_arguments: { record_ids: "list_recent.records_by_id.<record_id>.id" },
           required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
           required_fields: ["record_ids"]
         });

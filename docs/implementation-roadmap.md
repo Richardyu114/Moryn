@@ -81,13 +81,15 @@ Deliverables:
   and sync status.
 - Done: Boot responses expose `records_by_id`, so agents can dereference
   returned boot records without scanning nested arrays.
+- Done: `list_recent` responses expose ordered `records` plus `records_by_id`,
+  so missing-record recovery can point agents at a keyed replacement id source.
 - Done: `moryn refresh` reports changes since a cursor as `silent`, `notice`, or
   `interrupt`.
 - Done: Reportable non-raw refresh changes now include safe `recall`
   `next_action` metadata with CLI/MCP interfaces, safety, and workflow fields.
 - Done: Missing-record recovery now exposes a two-step workflow: run safe
   `list_recent`, then retry the original CLI/MCP tool with the selected returned
-  record id instead of guessing a mutation shape.
+  record id from `records_by_id` instead of guessing a mutation shape.
 - Done: `current_task` narrows refresh interrupts to related blockers, warnings,
   conflicts, and high-priority changes.
 - Done: Agents can request explicit refresh through CLI or MCP.

@@ -329,7 +329,12 @@ describe("error envelopes", () => {
     expect(envelope.error.next_action?.workflow).toEqual({
       version: 1,
       start: "next_action",
-      continue_from: ["error.next_action", "warning.next_action", "list_recent", "list_recent[].id"],
+      continue_from: [
+        "error.next_action",
+        "warning.next_action",
+        "list_recent.records_by_id.<record_id>.id",
+        "list_recent.records[].id"
+      ],
       phases: [
         {
           phase: "list_recent_records_and_retry_with_known_record_id",
@@ -342,9 +347,9 @@ describe("error envelopes", () => {
         {
           phase: "retry_original_tool_with_selected_record_id",
           order: 2,
-          action_source: "list_recent[].id",
+          action_source: "list_recent.records_by_id.<record_id>.id",
           tool: "original_tool",
-          replace_arguments: { record_id: "list_recent[].id" },
+          replace_arguments: { record_id: "list_recent.records_by_id.<record_id>.id" },
           required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
           required_fields: ["record_id"]
         }
@@ -362,11 +367,11 @@ describe("error envelopes", () => {
     expect(envelope.error.next_action?.workflow.phases[1]).toEqual({
       phase: "retry_original_tool_with_selected_record_id",
       order: 2,
-      action_source: "list_recent[].id",
+      action_source: "list_recent.records_by_id.<record_id>.id",
       tool: "promote",
       command: "moryn promote <record_id_from_list_recent> --state canonical",
       arguments: { record_id: "<record_id_from_list_recent>", target_state: "canonical" },
-      replace_arguments: { record_id: "list_recent[].id" },
+      replace_arguments: { record_id: "list_recent.records_by_id.<record_id>.id" },
       required_when: "After choosing the correct record id from list_recent results, retry the original tool with that selected id.",
       required_fields: ["record_id"]
     });
@@ -383,7 +388,7 @@ describe("error envelopes", () => {
       tool: "recall",
       command: "moryn recall rec_missing --record-id <record_id_from_list_recent>",
       arguments: { query: "rec_missing", record_ids: ["<record_id_from_list_recent>"] },
-      replace_arguments: { record_ids: "list_recent[].id" },
+      replace_arguments: { record_ids: "list_recent.records_by_id.<record_id>.id" },
       required_fields: ["record_ids"]
     });
   });

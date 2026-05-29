@@ -590,6 +590,9 @@ recover without parsing prose or guessing placeholder values.
 CLI/MCP shape as lifecycle action templates. Most recovery actions have a
 single-step `workflow`; missing-record recovery is two-step so hosts run
 `list_recent`, choose a returned id, and retry the original tool with that id.
+The retry phase points replacement fields at
+`list_recent.records_by_id.<record_id>.id`; `list_recent.records[].id` remains
+available as the ordered view.
 Their `safety` object explains whether the action can be auto-run, needs user
 confirmation, needs authored arguments, or writes local configuration. Uninitialized
 store errors return an `init` next action with
@@ -646,7 +649,10 @@ interrupts. Agents should prefer `agent_start` over manually composing
 `sync_pull`, `boot`, and `refresh`. Boot responses include `records_by_id`,
 which mirrors the record objects returned in profile, project, skills,
 task-relevant, and recent-change sections so agents can dereference a known
-boot record id without scanning nested arrays. Read
+boot record id without scanning nested arrays. `list_recent` responses also
+return ordered `records` plus `records_by_id`; after a missing-record error,
+prefer `list_recent.records_by_id.<record_id>.id` for the selected replacement
+id and use `list_recent.records[].id` only as an ordered compatibility view. Read
 `agent_start.handoff.active_sessions`
 before starting overlapping work, and read `agent_start.handoff.inbox` before
 continuing from another agent's final handoff; follow `agent_start.handoff.next_action`
