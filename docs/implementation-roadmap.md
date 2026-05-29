@@ -113,6 +113,10 @@ Deliverables:
 - Done: `agent_start.handoff.inbox[]` and `handoff.active_sessions[]` now expose
   safe `recall` `next_action` metadata, so agents can inspect full handoff or
   status records without guessing CLI/MCP arguments.
+- Done: `agent_start.handoff.inbox_by_record_id` and
+  `handoff.active_sessions_by_record_id` now mirror handoff arrays with keyed
+  workflow sources, so agents can recall a known handoff record without scanning
+  arrays.
 - Done: `agent_start.handoff.next_action` now mirrors the prioritized active
   session or inbox recall action, so top-level handoff recommendations are
   directly executable.

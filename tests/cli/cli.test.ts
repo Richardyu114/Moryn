@@ -351,7 +351,10 @@ function expectHandoffEntryNextAction(action: {
       required_fields?: string[];
     }>;
   };
-}, recordId: string, projectId: string) {
+}, recordId: string, projectId: string, source: "inbox" | "active_sessions" = "inbox") {
+  const actionSource = source === "inbox"
+    ? "handoff.inbox_by_record_id.<record_id>.next_action"
+    : "handoff.active_sessions_by_record_id.<record_id>.next_action";
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
     tool: "recall",
@@ -370,12 +373,17 @@ function expectHandoffEntryNextAction(action: {
   expect(action.workflow).toEqual({
     version: 1,
     start: "next_action",
-    continue_from: ["handoff.inbox[].next_action", "handoff.active_sessions[].next_action"],
+    continue_from: [
+      "handoff.inbox_by_record_id.<record_id>.next_action",
+      "handoff.active_sessions_by_record_id.<record_id>.next_action",
+      "handoff.inbox[].next_action",
+      "handoff.active_sessions[].next_action"
+    ],
     phases: [
       {
         phase: action.recommended_action,
         order: 1,
-        action_source: "handoff.next_action",
+        action_source: actionSource,
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -2522,7 +2530,14 @@ describe("moryn CLI", () => {
               required_fields: string[];
             };
           }>;
+          active_sessions_by_record_id: Record<string, {
+            record_id: string;
+            next_action: {
+              workflow?: Record<string, unknown>;
+            };
+          }>;
           inbox: Array<{ text: string }>;
+          inbox_by_record_id: Record<string, { record_id: string }>;
         };
       };
       expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
@@ -2538,10 +2553,13 @@ describe("moryn CLI", () => {
           next_action: expect.any(Object)
         })
       ]);
-      expectHandoffEntryNextAction(parsedStart.handoff.active_sessions[0]!.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn");
+      expect(parsedStart.handoff.active_sessions_by_record_id[parsedStart.handoff.active_sessions[0]!.record_id]).toEqual(parsedStart.handoff.active_sessions[0]);
+      expectHandoffEntryNextAction(parsedStart.handoff.active_sessions[0]!.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn", "active_sessions");
+      expect(parsedStart.handoff.active_sessions_by_record_id[parsedStart.handoff.active_sessions[0]!.record_id]!.next_action.workflow).toEqual(parsedStart.handoff.active_sessions[0]!.next_action.workflow);
       expect(parsedStart.handoff.next_action).toEqual(parsedStart.handoff.active_sessions[0]!.next_action);
-      expectHandoffEntryNextAction(parsedStart.handoff.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn");
+      expectHandoffEntryNextAction(parsedStart.handoff.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn", "active_sessions");
       expect(parsedStart.handoff.inbox).toEqual([]);
+      expect(parsedStart.handoff.inbox_by_record_id).toEqual({});
     });
   }, 30000);
 

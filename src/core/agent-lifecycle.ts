@@ -83,11 +83,16 @@ type HandoffEntryNextAction = {
   workflow: {
     version: 1;
     start: "next_action";
-    continue_from: ["handoff.inbox[].next_action", "handoff.active_sessions[].next_action"];
+    continue_from: [
+      "handoff.inbox_by_record_id.<record_id>.next_action",
+      "handoff.active_sessions_by_record_id.<record_id>.next_action",
+      "handoff.inbox[].next_action",
+      "handoff.active_sessions[].next_action"
+    ];
     phases: Array<{
       phase: "call_recall_with_record_id";
       order: 1;
-      action_source: "handoff.next_action";
+      action_source: "handoff.inbox_by_record_id.<record_id>.next_action" | "handoff.active_sessions_by_record_id.<record_id>.next_action";
       tool: "recall";
       required_when: string;
       required_fields: [];
@@ -1079,7 +1084,7 @@ function isSameAgentSession(source: RecordSource, agent: AgentIdentity | undefin
     && source.session_id === agent.session_id;
 }
 
-function handoffEntryNextAction(record: MorynRecord, projectId: string): HandoffEntryNextAction {
+function handoffEntryNextAction(record: MorynRecord, projectId: string, source: "inbox" | "active_sessions"): HandoffEntryNextAction {
   const action = withActionInterfaces({
     recommended_action: "call_recall_with_record_id" as const,
     tool: "recall" as const,
@@ -1097,12 +1102,19 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string): Handoff
     workflow: {
       version: 1,
       start: "next_action",
-      continue_from: ["handoff.inbox[].next_action", "handoff.active_sessions[].next_action"],
+      continue_from: [
+        "handoff.inbox_by_record_id.<record_id>.next_action",
+        "handoff.active_sessions_by_record_id.<record_id>.next_action",
+        "handoff.inbox[].next_action",
+        "handoff.active_sessions[].next_action"
+      ],
       phases: [
         {
           phase: action.recommended_action,
           order: 1,
-          action_source: "handoff.next_action",
+          action_source: source === "inbox"
+            ? "handoff.inbox_by_record_id.<record_id>.next_action"
+            : "handoff.active_sessions_by_record_id.<record_id>.next_action",
           tool: action.tool,
           required_when: action.required_when,
           required_fields: action.required_fields
@@ -1127,7 +1139,11 @@ function handoffEntry(record: MorynRecord, projectId: string, recommendedAction:
     updated_at: record.updated_at,
     active_until: activeUntil,
     recommended_action: recommendedAction,
-    next_action: handoffEntryNextAction(record, projectId)
+    next_action: handoffEntryNextAction(
+      record,
+      projectId,
+      recommendedAction === "coordinate_with_active_session" ? "active_sessions" : "inbox"
+    )
   };
 }
 
@@ -1138,7 +1154,9 @@ function isFreshActiveStatus(record: MorynRecord, now: Date): boolean {
 
 function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLifecycleInput, now = new Date()): {
   inbox: AgentHandoffEntry[];
+  inbox_by_record_id: Record<string, AgentHandoffEntry>;
   active_sessions: AgentHandoffEntry[];
+  active_sessions_by_record_id: Record<string, AgentHandoffEntry>;
   active_session_ttl_minutes: number;
   recommended_action: "continue_current_task" | "review_handoff_inbox" | "coordinate_with_active_sessions";
   next_action?: HandoffEntryNextAction;
@@ -1177,7 +1195,9 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
 
   return {
     inbox,
+    inbox_by_record_id: Object.fromEntries(inbox.map((entry) => [entry.record_id, entry])),
     active_sessions: activeSessions,
+    active_sessions_by_record_id: Object.fromEntries(activeSessions.map((entry) => [entry.record_id, entry])),
     active_session_ttl_minutes: ACTIVE_SESSION_TTL_MINUTES,
     recommended_action: activeSessions.length
       ? "coordinate_with_active_sessions"

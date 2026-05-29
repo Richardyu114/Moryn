@@ -354,7 +354,10 @@ function expectHandoffEntryNextAction(action: {
       required_fields?: string[];
     }>;
   };
-}, recordId: string, projectId: string) {
+}, recordId: string, projectId: string, source: "inbox" | "active_sessions" = "inbox") {
+  const actionSource = source === "inbox"
+    ? "handoff.inbox_by_record_id.<record_id>.next_action"
+    : "handoff.active_sessions_by_record_id.<record_id>.next_action";
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
     tool: "recall",
@@ -373,12 +376,17 @@ function expectHandoffEntryNextAction(action: {
   expect(action.workflow).toEqual({
     version: 1,
     start: "next_action",
-    continue_from: ["handoff.inbox[].next_action", "handoff.active_sessions[].next_action"],
+    continue_from: [
+      "handoff.inbox_by_record_id.<record_id>.next_action",
+      "handoff.active_sessions_by_record_id.<record_id>.next_action",
+      "handoff.inbox[].next_action",
+      "handoff.active_sessions[].next_action"
+    ],
     phases: [
       {
         phase: action.recommended_action,
         order: 1,
-        action_source: "handoff.next_action",
+        action_source: actionSource,
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -1326,9 +1334,17 @@ describe("MCP stdio server", () => {
                   safe_to_run: boolean;
                   required_when: string;
                   required_fields: string[];
+                  workflow?: Record<string, unknown>;
+                };
+              }>;
+              inbox_by_record_id: Record<string, {
+                record_id: string;
+                next_action: {
+                  workflow?: Record<string, unknown>;
                 };
               }>;
               active_sessions: Array<{ text: string }>;
+              active_sessions_by_record_id: Record<string, { record_id: string }>;
             };
             next: {
               workflow: {
@@ -1352,10 +1368,13 @@ describe("MCP stdio server", () => {
               next_action: expect.any(Object)
             })
           ]);
+          expect(start.handoff.inbox_by_record_id[start.handoff.inbox[0]!.record_id]).toEqual(start.handoff.inbox[0]);
           expectHandoffEntryNextAction(start.handoff.inbox[0]!.next_action, start.handoff.inbox[0]!.record_id, "moryn");
+          expect(start.handoff.inbox_by_record_id[start.handoff.inbox[0]!.record_id]!.next_action.workflow).toEqual(start.handoff.inbox[0]!.next_action.workflow);
           expect(start.handoff.next_action).toEqual(start.handoff.inbox[0]!.next_action);
           expectHandoffEntryNextAction(start.handoff.next_action, start.handoff.inbox[0]!.record_id, "moryn");
           expect(start.handoff.active_sessions).toEqual([]);
+          expect(start.handoff.active_sessions_by_record_id).toEqual({});
           expect(start.next.actions_by_id.publish_status).toEqual(start.next.actions.find((action) => action.action === "publish_status"));
           expect(start.next.actions_by_id.finish_session).toEqual(start.next.actions.find((action) => action.action === "finish_session"));
           expect(start.next.actions_by_id.refresh_context).toEqual(start.next.actions.find((action) => action.action === "refresh_context"));

@@ -172,7 +172,10 @@ function expectHandoffEntryNextAction(action: {
       required_fields?: string[];
     }>;
   };
-}, recordId: string, projectId: string) {
+}, recordId: string, projectId: string, source: "inbox" | "active_sessions" = "inbox") {
+  const actionSource = source === "inbox"
+    ? "handoff.inbox_by_record_id.<record_id>.next_action"
+    : "handoff.active_sessions_by_record_id.<record_id>.next_action";
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
     tool: "recall",
@@ -205,12 +208,17 @@ function expectHandoffEntryNextAction(action: {
   expect(action.workflow).toEqual({
     version: 1,
     start: "next_action",
-    continue_from: ["handoff.inbox[].next_action", "handoff.active_sessions[].next_action"],
+    continue_from: [
+      "handoff.inbox_by_record_id.<record_id>.next_action",
+      "handoff.active_sessions_by_record_id.<record_id>.next_action",
+      "handoff.inbox[].next_action",
+      "handoff.active_sessions[].next_action"
+    ],
     phases: [
       {
         phase: action.recommended_action,
         order: 1,
-        action_source: "handoff.next_action",
+        action_source: actionSource,
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -306,7 +314,10 @@ describe("agent lifecycle", () => {
         ],
         active_sessions: []
       });
+      expect(geminiStart.handoff.inbox_by_record_id[codexFinish.record.id]).toEqual(geminiStart.handoff.inbox[0]);
+      expect(geminiStart.handoff.active_sessions_by_record_id).toEqual({});
       expectHandoffEntryNextAction(geminiStart.handoff.inbox[0]!.next_action, codexFinish.record.id, "moryn");
+      expect(geminiStart.handoff.inbox_by_record_id[codexFinish.record.id]!.next_action).toEqual(geminiStart.handoff.inbox[0]!.next_action);
       expect(geminiStart.handoff.next_action).toEqual(geminiStart.handoff.inbox[0]!.next_action);
       expectHandoffEntryNextAction(geminiStart.handoff.next_action!, codexFinish.record.id, "moryn");
       expect(geminiStart.boot.recent_changes.map((record) => record.content.text)).toContain("Codex finished lifecycle wiring and left a Gemini handoff.");
@@ -584,10 +595,13 @@ describe("agent lifecycle", () => {
           next_action: expect.any(Object)
         })
       ]);
-      expectHandoffEntryNextAction(start.handoff.active_sessions[0]!.next_action, status.record.id, "moryn");
+      expect(start.handoff.active_sessions_by_record_id[status.record.id]).toEqual(start.handoff.active_sessions[0]);
+      expectHandoffEntryNextAction(start.handoff.active_sessions[0]!.next_action, status.record.id, "moryn", "active_sessions");
+      expect(start.handoff.active_sessions_by_record_id[status.record.id]!.next_action).toEqual(start.handoff.active_sessions[0]!.next_action);
       expect(start.handoff.next_action).toEqual(start.handoff.active_sessions[0]!.next_action);
-      expectHandoffEntryNextAction(start.handoff.next_action!, status.record.id, "moryn");
+      expectHandoffEntryNextAction(start.handoff.next_action!, status.record.id, "moryn", "active_sessions");
       expect(start.handoff.inbox).toEqual([]);
+      expect(start.handoff.inbox_by_record_id).toEqual({});
       expect(start.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
         tool: "agent_status",

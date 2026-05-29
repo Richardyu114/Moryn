@@ -1031,7 +1031,11 @@ CLI/MCP interfaces, `safety`, `required_when`, and workflow metadata. Agents
 should follow that action instead of manually composing a recall call from the
 handoff prose. When `handoff.recommended_action` is not `continue_current_task`,
 top-level `handoff.next_action` mirrors the first active-session action or, if no
-active sessions exist, the first inbox action. The
+active sessions exist, the first inbox action. The response also mirrors the
+ordered handoff arrays as `handoff.active_sessions_by_record_id` and
+`handoff.inbox_by_record_id`, keyed by `record_id`; handoff entry workflows
+prefer those keyed paths and retain the ordered arrays as compatibility sources.
+The
 `next.actions` field returns machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP
 tool name, CLI command template, required fields, prefilled arguments, and
@@ -1189,7 +1193,7 @@ Agents should follow this contract:
 9. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions_by_id.finish_session` or `agent_status.next.actions_by_id.refresh_context`.
 10. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
 11. For each reportable non-raw refresh change that needs full context, prefer `refresh.changes_by_record_id.<record_id>.next_action` or follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
-12. When `agent_start.handoff.next_action` exists, use it for the prioritized recall action; for a different handoff entry, follow `handoff.inbox[].next_action` or `handoff.active_sessions[].next_action` instead of manually composing a `recall` call.
+12. When `agent_start.handoff.next_action` exists, use it for the prioritized recall action; for a different handoff entry, prefer `handoff.inbox_by_record_id.<record_id>.next_action` or `handoff.active_sessions_by_record_id.<record_id>.next_action`, falling back to `handoff.inbox[].next_action` or `handoff.active_sessions[].next_action`, instead of manually composing a `recall` call.
 13. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions_by_id.start_next_session` to the next agent or device.
 14. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
 15. Write raw notes as `agent_note`, not canonical memory.
