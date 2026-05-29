@@ -885,7 +885,11 @@ actions point `refresh_since` at `refresh.cursor` or `record.updated_at`.
 `lifecycle[]` by step name, and lifecycle workflows prefer
 `lifecycle_by_step.<step>` while keeping `lifecycle[]` as a compatibility
 source; hosts can fetch `publish_status`, `finish_handoff`, or
-`refresh_context` directly instead of scanning the ordered lifecycle list.
+`refresh_context` directly instead of scanning the ordered lifecycle list. Each
+guide lifecycle template also includes action-local `selection_sources` for the
+keyed `lifecycle_by_step.<step>` entry, the step field, and ordered
+`lifecycle[]` fallback, so a selected step remains self-describing outside the
+full guide response.
 Top-level `selection_sources` names the stable startup, keyed lifecycle action,
 keyed rule, and keyed guardrail lookup paths for hosts that should not derive
 those paths from prose. When
@@ -926,7 +930,11 @@ between project discovery and startup. In `discover_projects` mode, each
 top-level start action also includes lifecycle templates for status, finish,
 and refresh using the selected `project_id`; each of those nested lifecycle
 templates carries its own single-step `workflow` and is mirrored in
-`lifecycle_by_step` by step name. Because every discovered action is named
+`lifecycle_by_step` by step name. Each nested lifecycle template also includes
+action-local `selection_sources` for
+`next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>`, its step
+field, and the selected project's ordered `lifecycle[]` fallback. Because every
+discovered action is named
 `start_session`, the response also includes `next.actions_by_project_id` so
 hosts can choose a project by id instead of array position. The top-level
 `next` for `discover_projects` declares `project_id` in `required_fields`,

@@ -16,6 +16,11 @@ const LIFECYCLE_ACTION_SELECTION_SOURCES = {
   action_id: "next.actions_by_id.<action>.action",
   ordered_action: "next.actions[]"
 };
+const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
+  lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>",
+  step: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.step",
+  ordered_lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle[]"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -268,6 +273,12 @@ function expectLifecycleActionSelectionSources(action: {
   selection_sources?: Record<string, string>;
 }) {
   expect(action.selection_sources).toEqual(LIFECYCLE_ACTION_SELECTION_SOURCES);
+}
+
+function expectDiscoveredLifecycleStepSelectionSources(action: {
+  selection_sources?: Record<string, string>;
+}) {
+  expect(action.selection_sources).toEqual(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES);
 }
 
 describe("agent lifecycle", () => {
@@ -1270,6 +1281,13 @@ describe("agent lifecycle", () => {
       expect(entered.next.actions[0]?.lifecycle_by_step.publish_status).toEqual(discoveredLifecycle.find((action) => action.step === "publish_status"));
       expect(entered.next.actions[0]?.lifecycle_by_step.finish_handoff).toEqual(discoveredLifecycle.find((action) => action.step === "finish_handoff"));
       expect(entered.next.actions[0]?.lifecycle_by_step.refresh_context).toEqual(discoveredLifecycle.find((action) => action.step === "refresh_context"));
+      for (const action of discoveredLifecycle) {
+        expectDiscoveredLifecycleStepSelectionSources(action);
+      }
+      expectDiscoveredLifecycleStepSelectionSources(entered.next.actions[0]!.lifecycle_by_step.start_or_resume);
+      expectDiscoveredLifecycleStepSelectionSources(entered.next.actions[0]!.lifecycle_by_step.publish_status);
+      expectDiscoveredLifecycleStepSelectionSources(entered.next.actions[0]!.lifecycle_by_step.finish_handoff);
+      expectDiscoveredLifecycleStepSelectionSources(entered.next.actions[0]!.lifecycle_by_step.refresh_context);
       expect(entered.next.workflow.continue_from).toEqual([
         "next.actions_by_project_id",
         "next.actions",

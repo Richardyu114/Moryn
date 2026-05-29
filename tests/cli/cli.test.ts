@@ -28,6 +28,11 @@ const LIFECYCLE_ACTION_SELECTION_SOURCES = {
   action_id: "next.actions_by_id.<action>.action",
   ordered_action: "next.actions[]"
 };
+const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
+  lifecycle_action: "lifecycle_by_step.<step>",
+  step: "lifecycle_by_step.<step>.step",
+  ordered_lifecycle_action: "lifecycle[]"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -85,6 +90,12 @@ function expectLifecycleActionSelectionSources(action: {
   selection_sources?: Record<string, string>;
 }) {
   expect(action.selection_sources).toEqual(LIFECYCLE_ACTION_SELECTION_SOURCES);
+}
+
+function expectGuideLifecycleStepSelectionSources(action: {
+  selection_sources?: Record<string, string>;
+}) {
+  expect(action.selection_sources).toEqual(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES);
 }
 
 function expectRecoveryWorkflow(action: {
@@ -581,6 +592,7 @@ describe("moryn CLI", () => {
             value?: unknown;
           }>;
           arguments: Record<string, unknown>;
+          selection_sources?: Record<string, string>;
           safety?: {
             safe_to_auto_run?: boolean;
             requires_user_confirmation?: boolean;
@@ -607,6 +619,7 @@ describe("moryn CLI", () => {
             value?: unknown;
           }>;
           arguments: Record<string, unknown>;
+          selection_sources?: Record<string, string>;
         }>;
         rules: string[];
         rules_by_id: Record<string, {
@@ -795,7 +808,11 @@ describe("moryn CLI", () => {
         expectActionInterfaces(action);
         expectActionSafety(action);
         expectLifecycleWorkflow(action);
+        expectGuideLifecycleStepSelectionSources(action);
       }
+      expectGuideLifecycleStepSelectionSources(parsed.lifecycle_by_step.publish_status);
+      expectGuideLifecycleStepSelectionSources(parsed.lifecycle_by_step.finish_handoff);
+      expectGuideLifecycleStepSelectionSources(parsed.lifecycle_by_step.refresh_context);
       expect(parsed.rules).toContain("Prefer agent_enter for startup; do not manually compose sync_pull, boot, and refresh.");
       expect(parsed.rules).toContain("When the project is unclear, follow project_list or agent_enter discovery results instead of guessing a project id.");
       expect(Object.keys(parsed.rules_by_id)).toEqual([

@@ -48,6 +48,11 @@ type LifecycleActionSelectionSources = {
   action_id: "next.actions_by_id.<action>.action";
   ordered_action: "next.actions[]";
 };
+type LifecycleStepSelectionSources = {
+  lifecycle_action: string;
+  step: string;
+  ordered_lifecycle_action: string;
+};
 type LifecycleActionTemplate = {
   action: string;
   tool: string;
@@ -176,6 +181,16 @@ const GUIDE_SELECTION_SOURCES = {
   rule: "rules_by_id.<rule_id>",
   guardrail: "guardrails_by_id.<guardrail_id>"
 };
+const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
+  lifecycle_action: "lifecycle_by_step.<step>",
+  step: "lifecycle_by_step.<step>.step",
+  ordered_lifecycle_action: "lifecycle[]"
+} satisfies LifecycleStepSelectionSources;
+const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
+  lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>",
+  step: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.step",
+  ordered_lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle[]"
+} satisfies LifecycleStepSelectionSources;
 const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
@@ -258,6 +273,18 @@ function withLifecycleActionSelectionSources<T extends LifecycleActionTemplate>(
   return {
     ...action,
     selection_sources: LIFECYCLE_ACTION_SELECTION_SOURCES
+  };
+}
+
+function withLifecycleStepSelectionSources<
+  T extends { step: string; tool: string; command: string; arguments: unknown; safe_to_run: boolean; required_fields: string[] }
+>(
+  action: T,
+  selectionSources: LifecycleStepSelectionSources
+): T & { selection_sources: LifecycleStepSelectionSources } {
+  return {
+    ...action,
+    selection_sources: selectionSources
   };
 }
 
@@ -958,6 +985,14 @@ function lifecycleStepWorkflow(step: string, tool: string, requiredWhen: string,
 }
 
 function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_enter") {
+  return agentGuideLifecycleWithSelectionSources(input, startTool, GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES);
+}
+
+function agentGuideLifecycleWithSelectionSources(
+  input: AgentLifecycleInput,
+  startTool = "agent_enter",
+  selectionSources: LifecycleStepSelectionSources
+) {
   const lifecycleInput = ensureGuideProjectIdentity(input);
   const lifecycleArguments = lifecycleActionArguments(lifecycleInput);
   const startCommand = startTool === "agent_start"
@@ -971,7 +1006,7 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
   const finishRequiredFields = guideRequiredFields(input, ["summary"]);
   const refreshRequiredFields = guideRequiredFields(input, ["refresh_since"]);
   return [
-    withActionInterfaces({
+    withLifecycleStepSelectionSources(withActionInterfaces({
       step: "start_or_resume",
       tool: startTool,
       safe_to_run: true,
@@ -980,8 +1015,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       required_fields: startRequiredFields,
       workflow: lifecycleStepWorkflow("start_or_resume", startTool, START_OR_RESUME_WHEN, startRequiredFields),
       arguments: startArguments
-    }),
-    withActionInterfaces({
+    }), selectionSources),
+    withLifecycleStepSelectionSources(withActionInterfaces({
       step: "publish_status",
       tool: "agent_status",
       safe_to_run: false,
@@ -991,8 +1026,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       workflow: lifecycleStepWorkflow("publish_status", "agent_status", PUBLISH_STATUS_WHEN, statusRequiredFields),
       arguments: { ...lifecycleArguments, status: "<status>" },
       argument_sources: userInputArgumentSources(statusRequiredFields)
-    }),
-    withActionInterfaces({
+    }), selectionSources),
+    withLifecycleStepSelectionSources(withActionInterfaces({
       step: "finish_handoff",
       tool: "agent_finish",
       safe_to_run: false,
@@ -1002,8 +1037,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       workflow: lifecycleStepWorkflow("finish_handoff", "agent_finish", FINISH_HANDOFF_WHEN, finishRequiredFields),
       arguments: { ...lifecycleArguments, summary: "<summary>" },
       argument_sources: userInputArgumentSources(finishRequiredFields)
-    }),
-    withActionInterfaces({
+    }), selectionSources),
+    withLifecycleStepSelectionSources(withActionInterfaces({
       step: "refresh_context",
       tool: "agent_start",
       safe_to_run: true,
@@ -1013,7 +1048,7 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
       workflow: lifecycleStepWorkflow("refresh_context", "agent_start", REFRESH_CONTEXT_WHEN, refreshRequiredFields),
       arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" },
       argument_sources: userInputArgumentSources(refreshRequiredFields)
-    })
+    }), selectionSources)
   ];
 }
 
@@ -1627,7 +1662,11 @@ export async function agentEnter(input: AgentEnterInput) {
       agent: sourceFromAgent(input.agent)
     });
     const actions = projects.projects.map((project) => {
-      const lifecycle = agentGuideLifecycle({ ...input, projectId: project.project_id }, "agent_start");
+      const lifecycle = agentGuideLifecycleWithSelectionSources(
+        { ...input, projectId: project.project_id },
+        "agent_start",
+        DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES
+      );
       return {
         action: "start_session",
         project_id: project.project_id,

@@ -268,6 +268,10 @@ Deliverables:
 - Done: `agent_guide.lifecycle_by_step` and discovered-project
   `lifecycle_by_step` mirror lifecycle templates by step name, so hosts can
   choose status, finish, or refresh without scanning `lifecycle[]`.
+- Done: `agent_guide.lifecycle[]` and discovered-project lifecycle templates
+  now include action-local `selection_sources`, so selected static lifecycle
+  steps retain their keyed step, step-id, and ordered fallback paths when passed
+  around independently.
 - Done: `agent_guide.selection_sources` names the stable startup, lifecycle
   action, rule, and guardrail lookup paths so hosts do not infer guide paths
   from prose.

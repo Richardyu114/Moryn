@@ -457,8 +457,11 @@ their argument path, current template value, and placeholder such as
 includes a single-step `workflow`, so a host can execute
 `lifecycle_by_step.publish_status`, `lifecycle_by_step.finish_handoff`, or
 `lifecycle_by_step.refresh_context` without scanning arrays or consulting the
-top-level decision track. Top-level `workflow.phases[]` tells hosts the order
-and action source:
+top-level decision track. Each lifecycle template also carries action-local
+`selection_sources` for the keyed `lifecycle_by_step.<step>` template, the
+step-id field, and the ordered `lifecycle[]` fallback, so selected templates
+remain self-describing when copied out of the guide. Top-level
+`workflow.phases[]` tells hosts the order and action source:
 call `startup`, then prefer `agent_enter.next.actions`, then use static
 lifecycle templates only for status, finish, or refresh. Every workflow also
 mirrors `phases[]` in `phases_by_name`, so hosts can read
@@ -586,7 +589,10 @@ projects also include lifecycle templates for status, finish, and refresh using
 the selected `project_id`, so agents do not need to reconstruct follow-up
 commands after choosing a project. Those discovered lifecycle templates carry
 the same `lifecycle_by_step` map and single-step `workflow` metadata as
-`agent_guide.lifecycle[]`. Because each discovered action is named
+`agent_guide.lifecycle[]`, plus action-local `selection_sources` that point back
+to `next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>` and the
+ordered lifecycle fallback for the selected project. Because each discovered
+action is named
 `start_session`, `agent_enter` also returns `next.actions_by_project_id` so
 automation can select a project by id without guessing from array order. Its
 top-level `next` declares `project_id` as the only required field and carries a
