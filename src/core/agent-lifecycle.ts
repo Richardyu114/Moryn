@@ -43,17 +43,17 @@ export interface AgentStatusInput extends AgentLifecycleInput {
 
 type DoctorSeverity = "ok" | "notice" | "warning";
 type DoctorCheck = { name: string; ok: boolean; severity: DoctorSeverity; message: string };
-type LifecycleActionSelectionSources = {
+export type LifecycleActionSelectionSources = {
   action: "next.actions_by_id.<action>";
   action_id: "next.actions_by_id.<action>.action";
   ordered_action: "next.actions[]";
 };
-type LifecycleStepSelectionSources = {
+export type LifecycleStepSelectionSources = {
   lifecycle_action: string;
   step: string;
   ordered_lifecycle_action: string;
 };
-type GuideEntrypointSelectionSources = {
+export type GuideEntrypointSelectionSources = {
   startup_action: "startup";
   next_action: "next";
   workflow_phase: "workflow.phases_by_name.start_or_resume";
@@ -87,7 +87,7 @@ type HandoffRecordIdArgumentSource =
   "handoff.inbox_by_record_id.<record_id>.record_id"
   | "handoff.active_sessions_by_record_id.<record_id>.record_id";
 
-type HandoffEntrySelectionSources = {
+export type HandoffEntrySelectionSources = {
   entry: "handoff.inbox_by_record_id.<record_id>" | "handoff.active_sessions_by_record_id.<record_id>";
   record_id: HandoffRecordIdArgumentSource;
   next_action: "handoff.inbox_by_record_id.<record_id>.next_action" | "handoff.active_sessions_by_record_id.<record_id>.next_action";
@@ -152,13 +152,13 @@ const RECALL_HANDOFF_ENTRY_WHEN = "After reading this handoff entry and needing 
 const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
 const CHOOSE_DISCOVERED_PROJECT_ID_WHEN = "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.";
 const CHOOSE_DISCOVERED_PROJECT_WHEN = "After choosing this project from discovery results.";
-const DISCOVER_PROJECT_SELECTION_SOURCES = {
+export const DISCOVER_PROJECT_SELECTION_SOURCES = {
   project: "projects.projects_by_id.<project_id>",
   project_id: "projects.projects_by_id.<project_id>.project_id",
   start_action: "next.actions_by_project_id.<project_id>",
   lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
 };
-const HANDOFF_SELECTION_SOURCES = {
+export const HANDOFF_SELECTION_SOURCES = {
   inbox_entry: "handoff.inbox_by_record_id.<record_id>",
   inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
   inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
@@ -166,37 +166,37 @@ const HANDOFF_SELECTION_SOURCES = {
   active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
   active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action"
 };
-const LIFECYCLE_NEXT_SELECTION_SOURCES = {
+export const LIFECYCLE_NEXT_SELECTION_SOURCES = {
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action"
 };
-const LIFECYCLE_ACTION_SELECTION_SOURCES: LifecycleActionSelectionSources = {
+export const LIFECYCLE_ACTION_SELECTION_SOURCES: LifecycleActionSelectionSources = {
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action",
   ordered_action: "next.actions[]"
 };
-const DOCTOR_SELECTION_SOURCES = {
+export const DOCTOR_SELECTION_SOURCES = {
   check: "checks_by_name.<check_name>",
   blocking_check: "readiness.blocking_checks_by_name.<check_name>",
   next_action: "next"
 };
-const GUIDE_SELECTION_SOURCES = {
+export const GUIDE_SELECTION_SOURCES = {
   startup: "startup",
   lifecycle_action: "lifecycle_by_step.<step>",
   rule: "rules_by_id.<rule_id>",
   guardrail: "guardrails_by_id.<guardrail_id>"
 };
-const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
+export const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   lifecycle_action: "lifecycle_by_step.<step>",
   step: "lifecycle_by_step.<step>.step",
   ordered_lifecycle_action: "lifecycle[]"
 } satisfies LifecycleStepSelectionSources;
-const GUIDE_ENTRYPOINT_SELECTION_SOURCES: GuideEntrypointSelectionSources = {
+export const GUIDE_ENTRYPOINT_SELECTION_SOURCES: GuideEntrypointSelectionSources = {
   startup_action: "startup",
   next_action: "next",
   workflow_phase: "workflow.phases_by_name.start_or_resume"
 };
-const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
+export const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
   lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>",
   step: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.step",
   ordered_lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle[]"

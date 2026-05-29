@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   BOOT_SELECTION_SOURCES,
+  DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES,
+  DISCOVER_PROJECT_SELECTION_SOURCES,
+  DOCTOR_SELECTION_SOURCES,
+  GUIDE_ENTRYPOINT_SELECTION_SOURCES,
+  GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES,
+  GUIDE_SELECTION_SOURCES,
+  HANDOFF_SELECTION_SOURCES,
   LINK_EVENT_SELECTION_SOURCES,
+  LIFECYCLE_ACTION_SELECTION_SOURCES,
+  LIFECYCLE_NEXT_SELECTION_SOURCES,
   LIST_RECENT_SELECTION_SOURCES,
   MUTATION_EVENT_SELECTION_SOURCES,
+  NEXT_ACTION_SELECTION_SOURCES,
   PROJECT_INIT_SELECTION_SOURCES,
   PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES,
   PROJECT_LIST_SELECTION_SOURCES,
@@ -44,5 +54,18 @@ describe("package smoke test", () => {
     expect(LINK_EVENT_SELECTION_SOURCES.linked_record_id).toBe("event.linked_record_id");
     expect(SENSITIVE_REVISE_SELECTION_SOURCES.quarantine_event_id).toBe("quarantine_event.event_id");
     expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.ordered_next_action).toBe("refresh.changes[].next_action");
+  });
+
+  it("exports lifecycle and recovery selection source contracts from the package entrypoint", () => {
+    expect(NEXT_ACTION_SELECTION_SOURCES.error_next_action).toBe("error.next_action");
+    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action).toBe("next.actions_by_id.<action>");
+    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.ordered_action).toBe("next.actions[]");
+    expect(GUIDE_SELECTION_SOURCES.guardrail).toBe("guardrails_by_id.<guardrail_id>");
+    expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.step).toBe("lifecycle_by_step.<step>.step");
+    expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.workflow_phase).toBe("workflow.phases_by_name.start_or_resume");
+    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action).toBe("next.actions_by_project_id.<project_id>");
+    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.lifecycle_action).toBe("next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>");
+    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action");
+    expect(DOCTOR_SELECTION_SOURCES.blocking_check).toBe("readiness.blocking_checks_by_name.<check_name>");
   });
 });

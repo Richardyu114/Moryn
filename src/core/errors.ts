@@ -12,7 +12,7 @@ export interface MorynErrorEnvelope {
   };
 }
 
-interface NextActionSelectionSources {
+export interface NextActionSelectionSources {
   error_next_action: "error.next_action";
   warning_next_action: "warning.next_action";
   error_required_field: "error.next_action.required_fields_by_name.<field>";
@@ -99,7 +99,7 @@ const INIT_OR_CORRECT_PROJECT_WHEN = "After a project_path does not exist, befor
 const LIST_PROJECTS_FOR_ID_WHEN = "After a project_id is rejected, before retrying with a known project id.";
 const CONFIRM_RETRY_WHEN = "After the user explicitly confirms the high-risk change that was rejected.";
 export const PROMOTE_CANDIDATE_WHEN = "After the user explicitly confirms that the candidate should become canonical.";
-const NEXT_ACTION_SELECTION_SOURCES: NextActionSelectionSources = {
+export const NEXT_ACTION_SELECTION_SOURCES: NextActionSelectionSources = {
   error_next_action: "error.next_action",
   warning_next_action: "warning.next_action",
   error_required_field: "error.next_action.required_fields_by_name.<field>",

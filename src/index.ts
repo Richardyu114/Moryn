@@ -1,4 +1,15 @@
 export const version = "0.1.0";
+export {
+  DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES,
+  DISCOVER_PROJECT_SELECTION_SOURCES,
+  DOCTOR_SELECTION_SOURCES,
+  GUIDE_ENTRYPOINT_SELECTION_SOURCES,
+  GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES,
+  GUIDE_SELECTION_SOURCES,
+  HANDOFF_SELECTION_SOURCES,
+  LIFECYCLE_ACTION_SELECTION_SOURCES,
+  LIFECYCLE_NEXT_SELECTION_SOURCES
+} from "./core/agent-lifecycle.js";
 export { STORE_INIT_SELECTION_SOURCES } from "./core/config.js";
 export { REBUILD_SELECTION_SOURCES } from "./core/derived.js";
 export { createEngine } from "./core/engine.js";
@@ -15,6 +26,7 @@ export {
   SENSITIVE_REVISE_SELECTION_SOURCES,
   WRITE_SELECTION_SOURCES
 } from "./core/engine.js";
+export { NEXT_ACTION_SELECTION_SOURCES } from "./core/errors.js";
 export { PROJECT_INIT_SELECTION_SOURCES } from "./core/project.js";
 export { parseRecord } from "./core/schema.js";
 export { SYNC_RESULT_SELECTION_SOURCES, SYNC_STATUS_SELECTION_SOURCES } from "./sync/git.js";

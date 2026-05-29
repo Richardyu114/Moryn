@@ -515,7 +515,10 @@ entrypoint, including `STORE_INIT_SELECTION_SOURCES`,
 `PROJECT_INIT_SELECTION_SOURCES`, `REBUILD_SELECTION_SOURCES`,
 `WRITE_SELECTION_SOURCES`, `RECALL_SELECTION_SOURCES`,
 `BOOT_SELECTION_SOURCES`, `REFRESH_SELECTION_SOURCES`,
-`LIST_RECENT_SELECTION_SOURCES`, and the sync maps, instead of copying path
+`LIST_RECENT_SELECTION_SOURCES`, lifecycle maps such as
+`LIFECYCLE_ACTION_SELECTION_SOURCES`, guide and doctor maps such as
+`GUIDE_SELECTION_SOURCES` and `DOCTOR_SELECTION_SOURCES`, recovery maps such as
+`NEXT_ACTION_SELECTION_SOURCES`, and the sync maps, instead of copying path
 strings from command output or docs.
 
 `agent enter` runtime responses also include `next.workflow` when they return

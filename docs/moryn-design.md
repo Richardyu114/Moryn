@@ -1019,7 +1019,10 @@ keyed `lifecycle_by_step.<step>` entry, the step field, and ordered
 full guide response.
 Top-level `selection_sources` names the stable startup, keyed lifecycle action,
 keyed rule, and keyed guardrail lookup paths for hosts that should not derive
-those paths from prose. When
+those paths from prose. Library hosts can reuse the exported
+`GUIDE_SELECTION_SOURCES`, `GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES`, and
+`GUIDE_ENTRYPOINT_SELECTION_SOURCES` maps from the package entrypoint as
+canonical field-path contracts. When
 no project is provided, non-startup lifecycle templates require `project_id`
 and include `--project-id <project_id>` so agents must use the discovery result
 before writing status, finishing, or refreshing.
@@ -1135,7 +1138,9 @@ maps placeholders such as `remote`, `path`, or `project_id` to
 `warning.next_action` container paths plus keyed `required_fields_by_name`,
 `argument_sources`, and `workflow.phases_by_name` paths, so hosts can locate
 the recovery contract without inferring whether the action came from an error
-or a warning.
+or a warning. Library hosts can reuse the exported
+`NEXT_ACTION_SELECTION_SOURCES` map from the package entrypoint as the
+canonical field-path contract.
 Most recovery actions are single-step workflows;
 `RECORD_NOT_FOUND` uses a two-step workflow so agents first run the safe
 `list_recent` action and then retry the original tool with the selected returned
@@ -1190,7 +1195,11 @@ action without scanning the array or reconstructing action names.
 Runtime lifecycle actions additionally carry action-local `selection_sources`
 for the keyed `next.actions_by_id.<action>` entry, the action-id field, and the
 ordered `next.actions[]` fallback. This lets a host pass a single action object
-between planning and execution without losing the stable source path.
+between planning and execution without losing the stable source path. Library
+hosts can reuse the exported `LIFECYCLE_NEXT_SELECTION_SOURCES`,
+`LIFECYCLE_ACTION_SELECTION_SOURCES`, `DISCOVER_PROJECT_SELECTION_SOURCES`, and
+`DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES` maps from the package entrypoint
+as canonical field-path contracts.
 Direct `project_list` responses also expose top-level `projects_by_id`, keyed
 by `project_id`, where each keyed project mirrors its ordered `projects[]`
 entry. `selection_sources` names the selected project, project id, and next
@@ -1240,6 +1249,9 @@ agents can read `checks_by_name.sync` or
 alternate `actions_by_id`, its own `selection_sources` names the keyed action
 and action-id paths as well; `readiness.next_selection_sources` mirrors those
 paths, or `{}` when the selected action has no keyed alternates. The same
+selection source maps are exported as `DOCTOR_SELECTION_SOURCES` and
+`LIFECYCLE_NEXT_SELECTION_SOURCES` from the package entrypoint for library
+hosts that need canonical field paths. The readiness
 summary repeats the selected next tool, command, `safe_to_run`, `required_when`,
 required fields, `required_fields_by_name`, `safety`, transport `interfaces`,
 and `workflow` plus arguments, `argument_sources`, and selection sources so a
@@ -1340,9 +1352,10 @@ names the keyed entry, record-id, and next-action paths for both inbox and
 active-session entries. Handoff entry workflows prefer those keyed paths and
 retain the ordered arrays as compatibility sources; each nested
 `next_action.selection_sources` repeats the selected path set for hosts that
-only receive the action.
-The
-`next.actions` field returns machine-readable lifecycle templates so agents do
+only receive the action. Library hosts can reuse the exported
+`HANDOFF_SELECTION_SOURCES` map from the package entrypoint as the canonical
+handoff field-path contract. The `next.actions` field returns
+machine-readable lifecycle templates so agents do
 not have to infer follow-up tool calls from prose: each action includes the MCP
 tool name, CLI command template, required fields, prefilled arguments, and
 `safe_to_run`. Each template also carries `required_when` so an agent can choose
