@@ -718,7 +718,10 @@ top-level start action also includes lifecycle templates for status, finish,
 and refresh using the selected `project_id`. In `start_session` and
 `discover_projects` modes, `next.workflow` exposes the ordered runtime action
 track and valid follow-up sources so hosts can continue from the live response
-without consulting static guide templates.
+without consulting static guide templates. Direct `agent_start`, `agent_status`,
+and `agent_finish` responses also include `next.workflow`, derived from their
+returned `next.actions`, so every lifecycle entrypoint carries its own follow-up
+contract.
 
 CLI:
 

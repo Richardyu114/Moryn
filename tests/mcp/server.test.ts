@@ -820,7 +820,13 @@ describe("MCP stdio server", () => {
           })) as {
             record: { content: { text: string } };
             sync: { push?: { pushed?: boolean } };
-            next: { actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+            next: {
+              workflow: {
+                start: string;
+                phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+              };
+              actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+            };
           };
           expect(finish.record.content.text).toBe("MCP Codex left a lifecycle handoff.");
           expect(finish.sync.push?.pushed).toBe(true);
@@ -836,6 +842,21 @@ describe("MCP stdio server", () => {
               agent: { client: "codex", session_id: "codex-mcp", device_id: "device_a" }
             })
           }));
+          expect(finish.next.workflow).toEqual({
+            version: 1,
+            start: "next.actions",
+            continue_from: ["next.actions"],
+            phases: [
+              {
+                phase: "start_next_session",
+                order: 1,
+                action_source: "next.actions.start_next_session",
+                tool: "agent_start",
+                required_when: "When another agent or device should start the next session from this handoff.",
+                required_fields: ["current_task"]
+              }
+            ]
+          });
 
           const start = parseTextContent(await agentB.callTool({
             name: "agent_start",
@@ -853,7 +874,13 @@ describe("MCP stdio server", () => {
               inbox: Array<{ text: string; agent: { client?: string; session_id?: string; device_id?: string }; recommended_action: string }>;
               active_sessions: Array<{ text: string }>;
             };
-            next: { actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+            next: {
+              workflow: {
+                start: string;
+                phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+              };
+              actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+            };
           };
           expect(start.project.project_id).toBe("moryn");
           expect(start.sync.pull?.pulled).toBe(true);
@@ -895,6 +922,44 @@ describe("MCP stdio server", () => {
               current_task: "continue lifecycle handoff"
             })
           }));
+          expect(start.next.workflow).toEqual({
+            version: 1,
+            start: "context",
+            continue_from: ["boot", "refresh", "handoff", "next.actions"],
+            phases: [
+              {
+                phase: "review_context",
+                order: 1,
+                action_source: "boot+refresh+handoff",
+                required_when: "Immediately after agent_start returns, review boot, refresh, and handoff context before taking user-task actions.",
+                required_fields: []
+              },
+              {
+                phase: "publish_status",
+                order: 2,
+                action_source: "next.actions.publish_status",
+                tool: "agent_status",
+                required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
+                required_fields: ["status"]
+              },
+              {
+                phase: "finish_session",
+                order: 3,
+                action_source: "next.actions.finish_session",
+                tool: "agent_finish",
+                required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+                required_fields: ["summary"]
+              },
+              {
+                phase: "refresh_context",
+                order: 4,
+                action_source: "next.actions.refresh_context",
+                tool: "agent_start",
+                required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+                required_fields: []
+              }
+            ]
+          });
         });
       });
     } finally {
@@ -1017,7 +1082,13 @@ describe("MCP stdio server", () => {
           })) as {
             record: { kind: string; type: string; updated_at: string; content: { text: string; current_task?: string } };
             sync: { push?: { pushed?: boolean } };
-            next: { actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }> };
+            next: {
+              workflow: {
+                start: string;
+                phases: Array<{ phase: string; order: number; action_source: string; tool?: string; required_when: string; required_fields: string[] }>;
+              };
+              actions: Array<{ action: string; tool: string; command: string; required_when: string; required_fields: string[]; arguments: Record<string, unknown> }>;
+            };
           };
           expect(status.record).toMatchObject({
             kind: "session_summary",
@@ -1053,6 +1124,29 @@ describe("MCP stdio server", () => {
               current_task: "coordinate MCP status"
             })
           }));
+          expect(status.next.workflow).toEqual({
+            version: 1,
+            start: "next.actions",
+            continue_from: ["record", "next.actions"],
+            phases: [
+              {
+                phase: "finish_session",
+                order: 1,
+                action_source: "next.actions.finish_session",
+                tool: "agent_finish",
+                required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
+                required_fields: ["summary"]
+              },
+              {
+                phase: "refresh_context",
+                order: 2,
+                action_source: "next.actions.refresh_context",
+                tool: "agent_start",
+                required_when: "When the user asks to refresh memory, or after receiving a refresh cursor from a lifecycle response.",
+                required_fields: []
+              }
+            ]
+          });
 
           const start = parseTextContent(await agentB.callTool({
             name: "agent_start",

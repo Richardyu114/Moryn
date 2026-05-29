@@ -168,6 +168,9 @@ Deliverables:
 - Done: `agent_enter.next.workflow` now exposes ordered runtime tracks for
   `start_session` and `discover_projects`, including valid follow-up response
   sources and required fields derived from returned actions.
+- Done: Direct `agent_start`, `agent_status`, and `agent_finish` responses now
+  include `next.workflow` derived from their `next.actions`, so every lifecycle
+  entrypoint is self-describing for follow-up actions.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

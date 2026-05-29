@@ -409,6 +409,9 @@ workflow first: in `start_session`, review returned boot, refresh, and handoff
 context before using `next.actions`; in `discover_projects`, choose one returned
 project and then run that action's `agent_start` template. This keeps the live
 response self-describing even when the host did not call `agent guide` first.
+Direct `agent start`, `agent status`, and `agent finish` responses also include
+`next.workflow`, derived from the returned `next.actions`, so agents can follow
+the same ordered action contract from any lifecycle entrypoint.
 
 ## Current MVP Commands
 
@@ -485,7 +488,9 @@ projects also include lifecycle templates for status, finish, and refresh using
 the selected `project_id`, so agents do not need to reconstruct follow-up
 commands after choosing a project. In `start_session` and `discover_projects`
 modes, `next.workflow` gives the ordered runtime action track and names which
-response fields are valid follow-up sources.
+response fields are valid follow-up sources. Direct `agent_start`,
+`agent_status`, and `agent_finish` responses also include `next.workflow`, so a
+host can continue from direct lifecycle calls without falling back to prose.
 
 When setup is uncertain:
 

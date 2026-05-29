@@ -801,6 +801,49 @@ function startSessionWorkflow(actions: LifecycleActionTemplate[]) {
   };
 }
 
+function directStartWorkflow(actions: LifecycleActionTemplate[]) {
+  return {
+    version: 1,
+    start: "context",
+    continue_from: ["boot", "refresh", "handoff", "next.actions"],
+    phases: [
+      {
+        phase: "review_context",
+        order: 1,
+        action_source: "boot+refresh+handoff",
+        required_when: "Immediately after agent_start returns, review boot, refresh, and handoff context before taking user-task actions.",
+        required_fields: []
+      },
+      runtimeActionPhase(actions, "publish_status", "publish_status", 2),
+      runtimeActionPhase(actions, "finish_session", "finish_session", 3),
+      runtimeActionPhase(actions, "refresh_context", "refresh_context", 4)
+    ]
+  };
+}
+
+function directStatusWorkflow(actions: LifecycleActionTemplate[]) {
+  return {
+    version: 1,
+    start: "next.actions",
+    continue_from: ["record", "next.actions"],
+    phases: [
+      runtimeActionPhase(actions, "finish_session", "finish_session", 1),
+      runtimeActionPhase(actions, "refresh_context", "refresh_context", 2)
+    ]
+  };
+}
+
+function directFinishWorkflow(actions: LifecycleActionTemplate[]) {
+  return {
+    version: 1,
+    start: "next.actions",
+    continue_from: ["next.actions"],
+    phases: [
+      runtimeActionPhase(actions, "start_next_session", "start_next_session", 1)
+    ]
+  };
+}
+
 function discoverProjectsWorkflow() {
   return {
     version: 1,
@@ -1241,6 +1284,7 @@ export async function agentStart(input: AgentStartInput) {
     limit: input.limit
   });
   const handoff = await agentHandoff(engine, project.project_id, input);
+  const actions = nextActions(actionInput, refresh.cursor);
 
   return {
     ok: true,
@@ -1254,7 +1298,8 @@ export async function agentStart(input: AgentStartInput) {
     next: {
       required_end_action: "call agent_finish with a session_summary",
       recommended_refresh_action: "call agent_start again with the previous refresh cursor, or call refresh directly",
-      actions: nextActions(actionInput, refresh.cursor)
+      workflow: directStartWorkflow(actions),
+      actions
     }
   };
 }
@@ -1293,6 +1338,7 @@ export async function agentFinish(input: AgentFinishInput) {
     }
   }
   sync.status = await getGitSyncStatus(input.storePath);
+  const actions = finishNextActions(actionInput);
 
   return {
     ok: true,
@@ -1304,7 +1350,8 @@ export async function agentFinish(input: AgentFinishInput) {
     sync,
     next: {
       recommended_start_command: "moryn agent start --project <path> --current-task <task>",
-      actions: finishNextActions(actionInput)
+      workflow: directFinishWorkflow(actions),
+      actions
     }
   };
 }
@@ -1348,6 +1395,7 @@ export async function agentStatus(input: AgentStatusInput) {
     }
   }
   sync.status = await getGitSyncStatus(input.storePath);
+  const actions = statusNextActions(actionInput, record.record.updated_at);
 
   return {
     ok: true,
@@ -1359,7 +1407,8 @@ export async function agentStatus(input: AgentStatusInput) {
     sync,
     next: {
       recommended_finish_action: "call agent_finish with the final session_summary when meaningful work ends",
-      actions: statusNextActions(actionInput, record.record.updated_at)
+      workflow: directStatusWorkflow(actions),
+      actions
     }
   };
 }
