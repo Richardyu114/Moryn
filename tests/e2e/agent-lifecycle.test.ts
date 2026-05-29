@@ -89,6 +89,57 @@ function expectLifecycleWorkflow(action: {
   });
 }
 
+function expectRefreshChangeNextAction(action: {
+  recommended_action: string;
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  safe_to_run: boolean;
+  required_when: string;
+  required_fields: string[];
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}, recordId: string, projectId: string) {
+  expect(action).toMatchObject({
+    recommended_action: "call_recall_with_record_id",
+    tool: "recall",
+    safe_to_run: true,
+    required_when: "After refresh reports this change and the agent needs the full record content.",
+    required_fields: [],
+    command: `moryn recall --record-id ${recordId} --project-id ${projectId}`,
+    arguments: {
+      record_ids: [recordId],
+      project_id: projectId
+    }
+  });
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["refresh.changes[].next_action"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "refresh.changes[].next_action",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 describe("agent lifecycle", () => {
   it("pulls, boots, refreshes, writes a handoff, and pushes across two device stores", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-"));
@@ -153,9 +204,11 @@ describe("agent lifecycle", () => {
         expect.objectContaining({
           importance: "notice",
           summary: "Codex finished lifecycle wiring and left a Gemini handoff.",
-          recommended_action: "call recall with record_id"
+          recommended_action: "call recall with record_id",
+          next_action: expect.any(Object)
         })
       ]);
+      expectRefreshChangeNextAction(geminiStart.refresh.changes[0]!.next_action, codexFinish.record.id, "moryn");
       expect(geminiStart.handoff).toMatchObject({
         inbox: [
           {

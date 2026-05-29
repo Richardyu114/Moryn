@@ -71,6 +71,7 @@ interface ListProjectsInput {
 }
 
 const START_LISTED_PROJECT_WHEN = "After choosing this project from project_list results.";
+const RECALL_REFRESH_CHANGE_WHEN = "After refresh reports this change and the agent needs the full record content.";
 
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
   return {
@@ -110,6 +111,38 @@ function withProjectListNextMetadata<T extends {
           phase: action.recommended_action,
           order: 1,
           action_source: "project_list.projects[].next",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    }
+  };
+}
+
+function withRefreshChangeNextActionMetadata<T extends {
+  recommended_action: string;
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  safe_to_run: boolean;
+  required_when: string;
+  required_fields: string[];
+}>(
+  action: T
+) {
+  return {
+    ...withActionInterfaces(action),
+    safety: actionSafety(action),
+    workflow: {
+      version: 1,
+      start: "next_action",
+      continue_from: ["refresh.changes[].next_action"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "refresh.changes[].next_action",
           tool: action.tool,
           required_when: action.required_when,
           required_fields: action.required_fields
@@ -373,6 +406,28 @@ function projectStartCommand(projectId: string, input: ListProjectsInput): strin
   appendCommandOption(parts, "--model", input.agent?.model);
   appendCommandOption(parts, "--device-id", input.agent?.device_id);
   return parts.join(" ");
+}
+
+function recallRecordCommand(recordId: string, projectId: string | undefined): string {
+  const parts = ["moryn", "recall"];
+  appendCommandOption(parts, "--record-id", recordId);
+  appendCommandOption(parts, "--project-id", projectId);
+  return parts.join(" ");
+}
+
+function refreshChangeNextAction(record: MorynRecord, input: RefreshInput) {
+  return withRefreshChangeNextActionMetadata({
+    recommended_action: "call_recall_with_record_id",
+    tool: "recall",
+    safe_to_run: true,
+    required_when: RECALL_REFRESH_CHANGE_WHEN,
+    required_fields: [],
+    command: recallRecordCommand(record.id, input.project_id),
+    arguments: {
+      record_ids: [record.id],
+      ...(input.project_id ? { project_id: input.project_id } : {})
+    }
+  });
 }
 
 function matchesAny(values: string[], filters: string[] | undefined): boolean {
@@ -1070,7 +1125,8 @@ export function createEngine(deps: EngineDeps) {
             importance: importance.importance,
             reason: importance.reason,
             summary: summarizeRecord(record),
-            recommended_action: record.state === "raw" ? "ignore unless relevant" : "call recall with record_id"
+            recommended_action: record.state === "raw" ? "ignore unless relevant" : "call recall with record_id",
+            ...(record.state === "raw" ? {} : { next_action: refreshChangeNextAction(record, input) })
           }
         };
       });

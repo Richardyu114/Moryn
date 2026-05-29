@@ -641,6 +641,10 @@ refresh(cursor, current_task)
 ```
 
 This reports new changes as `silent`, `notice`, or `interrupt`.
+Reportable non-raw changes also include `next_action` metadata for the exact
+safe `recall` call, with CLI/MCP interfaces, `required_when`, `safety`, and a
+single-step workflow, so agents can fetch the full record without synthesizing
+arguments from prose.
 
 During meaningful long-running work:
 

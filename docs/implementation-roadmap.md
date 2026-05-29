@@ -81,6 +81,8 @@ Deliverables:
   and sync status.
 - Done: `moryn refresh` reports changes since a cursor as `silent`, `notice`, or
   `interrupt`.
+- Done: Reportable non-raw refresh changes now include safe `recall`
+  `next_action` metadata with CLI/MCP interfaces, safety, and workflow fields.
 - Done: `current_task` narrows refresh interrupts to related blockers, warnings,
   conflicts, and high-priority changes.
 - Done: Agents can request explicit refresh through CLI or MCP.

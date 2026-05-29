@@ -255,6 +255,73 @@ function expectActionSafety(action: {
   expect(action.safety?.reasons?.length).toBeGreaterThan(0);
 }
 
+function expectRefreshChangeNextAction(action: {
+  recommended_action: string;
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  safe_to_run: boolean;
+  required_when: string;
+  required_fields: string[];
+  interfaces?: {
+    cli?: { command?: string };
+    mcp?: { tool?: string; arguments?: Record<string, unknown> };
+  };
+  safety?: {
+    safe_to_auto_run?: boolean;
+    requires_user_confirmation?: boolean;
+    requires_authored_input?: boolean;
+    writes_local_config?: boolean;
+    reasons?: string[];
+  };
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}, recordId: string, projectId?: string) {
+  expect(action).toMatchObject({
+    recommended_action: "call_recall_with_record_id",
+    tool: "recall",
+    safe_to_run: true,
+    required_when: "After refresh reports this change and the agent needs the full record content.",
+    required_fields: [],
+    command: projectId
+      ? `moryn recall --record-id ${recordId} --project-id ${projectId}`
+      : `moryn recall --record-id ${recordId}`,
+    arguments: {
+      record_ids: [recordId],
+      ...(projectId ? { project_id: projectId } : {})
+    }
+  });
+  expectActionInterfaces(action);
+  expectActionSafety(action);
+  expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["refresh.changes[].next_action"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "refresh.changes[].next_action",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 async function withMcpClient<T>(storePath: string, fn: (client: Client) => Promise<T>, cwd = repoRoot): Promise<T> {
   const transport = new StdioClientTransport({
     command: "node",
@@ -735,11 +802,30 @@ describe("MCP stdio server", () => {
             cursor: "2000-01-01T00:00:00.000Z",
             current_task: "real MCP"
           }
-        })) as { changes: Array<{ record_id: string; importance: string }> };
+        })) as {
+          changes: Array<{
+            record_id: string;
+            importance: string;
+            next_action: {
+              recommended_action: string;
+              tool: string;
+              command: string;
+              arguments: Record<string, unknown>;
+              safe_to_run: boolean;
+              required_when: string;
+              required_fields: string[];
+            };
+          }>;
+        };
 
         expect(refreshResult.changes).toEqual([
-          expect.objectContaining({ record_id: writeResult.record.id, importance: "notice" })
+          expect.objectContaining({
+            record_id: writeResult.record.id,
+            importance: "notice",
+            next_action: expect.any(Object)
+          })
         ]);
+        expectRefreshChangeNextAction(refreshResult.changes[0]!.next_action, writeResult.record.id, "moryn");
 
         const globalPreference = parseTextContent(await client.callTool({
           name: "write",

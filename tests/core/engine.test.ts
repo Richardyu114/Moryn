@@ -77,6 +77,73 @@ function expectActionSafety(action: {
   expect(action.safety?.reasons?.length).toBeGreaterThan(0);
 }
 
+function expectRefreshChangeRecallAction(action: {
+  recommended_action: string;
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  safe_to_run: boolean;
+  required_when: string;
+  required_fields: string[];
+  interfaces?: {
+    cli?: { command?: string };
+    mcp?: { tool?: string; arguments?: Record<string, unknown> };
+  };
+  safety?: {
+    safe_to_auto_run?: boolean;
+    requires_user_confirmation?: boolean;
+    requires_authored_input?: boolean;
+    writes_local_config?: boolean;
+    reasons?: string[];
+  };
+  workflow?: {
+    version?: number;
+    start?: string;
+    continue_from?: string[];
+    phases?: Array<{
+      phase?: string;
+      order?: number;
+      action_source?: string;
+      tool?: string;
+      required_when?: string;
+      required_fields?: string[];
+    }>;
+  };
+}, recordId: string, projectId?: string) {
+  expect(action).toMatchObject({
+    recommended_action: "call_recall_with_record_id",
+    tool: "recall",
+    safe_to_run: true,
+    required_when: "After refresh reports this change and the agent needs the full record content.",
+    required_fields: [],
+    command: projectId
+      ? `moryn recall --record-id ${recordId} --project-id ${projectId}`
+      : `moryn recall --record-id ${recordId}`,
+    arguments: {
+      record_ids: [recordId],
+      ...(projectId ? { project_id: projectId } : {})
+    }
+  });
+  expectNextActionInterfaces(action);
+  expectActionSafety(action);
+  expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
+  expect(action.workflow).toEqual({
+    version: 1,
+    start: "next_action",
+    continue_from: ["refresh.changes[].next_action"],
+    phases: [
+      {
+        phase: action.recommended_action,
+        order: 1,
+        action_source: "refresh.changes[].next_action",
+        tool: action.tool,
+        required_when: action.required_when,
+        required_fields: action.required_fields
+      }
+    ]
+  });
+}
+
 describe("core engine", () => {
   it("writes, recalls, revises, and promotes records", async () => {
     await withInitializedTempStore(async (storePath) => {
@@ -2362,9 +2429,19 @@ describe("core engine", () => {
       expect(refresh.cursor).toBe("2026-05-27T00:06:00.000Z");
       expect(refresh.should_interrupt).toBe(true);
       expect(refresh.changes).toEqual([
-        expect.objectContaining({ record_id: decision.record.id, importance: "notice" }),
-        expect.objectContaining({ record_id: blocker.record.id, importance: "interrupt" })
+        expect.objectContaining({
+          record_id: decision.record.id,
+          importance: "notice",
+          next_action: expect.any(Object)
+        }),
+        expect.objectContaining({
+          record_id: blocker.record.id,
+          importance: "interrupt",
+          next_action: expect.any(Object)
+        })
       ]);
+      expectRefreshChangeRecallAction(refresh.changes[0]!.next_action, decision.record.id, "moryn");
+      expectRefreshChangeRecallAction(refresh.changes[1]!.next_action, blocker.record.id, "moryn");
     });
   });
 

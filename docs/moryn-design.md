@@ -620,12 +620,62 @@ Output:
       "importance": "notice",
       "reason": "current_task_match",
       "summary": "A new project decision was recorded.",
-      "recommended_action": "call recall with record_id"
+      "recommended_action": "call recall with record_id",
+      "next_action": {
+        "recommended_action": "call_recall_with_record_id",
+        "tool": "recall",
+        "safe_to_run": true,
+        "required_when": "After refresh reports this change and the agent needs the full record content.",
+        "required_fields": [],
+        "command": "moryn recall --record-id rec_... --project-id moryn",
+        "arguments": {
+          "record_ids": ["rec_..."],
+          "project_id": "moryn"
+        },
+        "interfaces": {
+          "cli": {
+            "command": "moryn recall --record-id rec_... --project-id moryn"
+          },
+          "mcp": {
+            "tool": "recall",
+            "arguments": {
+              "record_ids": ["rec_..."],
+              "project_id": "moryn"
+            }
+          }
+        },
+        "safety": {
+          "safe_to_auto_run": true,
+          "requires_user_confirmation": false,
+          "requires_authored_input": false,
+          "writes_local_config": false,
+          "reasons": ["safe_read_or_status_check"]
+        },
+        "workflow": {
+          "version": 1,
+          "start": "next_action",
+          "continue_from": ["refresh.changes[].next_action"],
+          "phases": [
+            {
+              "phase": "call_recall_with_record_id",
+              "order": 1,
+              "action_source": "refresh.changes[].next_action",
+              "tool": "recall",
+              "required_when": "After refresh reports this change and the agent needs the full record content.",
+              "required_fields": []
+            }
+          ]
+        }
+      }
     }
   ],
   "should_interrupt": false
 }
 ```
+
+Reportable non-raw changes include `next_action` so agents can retrieve full
+record content through the safe `recall` interface instead of composing CLI or
+MCP arguments from the prose `recommended_action`.
 
 CLI:
 
@@ -1050,12 +1100,13 @@ Agents should follow this contract:
 8. Call `recall` when context is missing or uncertain.
 9. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.actions` for finish or refresh.
 10. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
-11. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
-12. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
-13. Write raw notes as `agent_note`, not canonical memory.
-14. Do not promote long-term preferences, soul records, or global skills without user confirmation.
-15. Treat sync `interrupt` results as a reason to pause and inspect related records.
-16. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
+11. For each reportable non-raw refresh change that needs full context, follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
+12. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.actions` to the next agent or device.
+13. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
+14. Write raw notes as `agent_note`, not canonical memory.
+15. Do not promote long-term preferences, soul records, or global skills without user confirmation.
+16. Treat sync `interrupt` results as a reason to pause and inspect related records.
+17. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
 
 Cross-agent handoff depends on the lifecycle commands, not agent awareness of
 each other. Codex, Gemini, and other agents can run on separate machines if they
