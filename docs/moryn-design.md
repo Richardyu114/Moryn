@@ -972,6 +972,8 @@ id from `list_recent.records_by_id.<record_id>.id`. `argument_sources` mirrors
 the retry replacement map at the top level so hosts can fill selected arguments
 without scanning workflow phases. The ordered
 `list_recent.records[].id` path remains available for display and fallback.
+Normal `list_recent` responses also expose `selection_sources` for the keyed
+record and record-id paths.
 Warning recovery actions use the same `warning.next_action.interfaces`
 shape, `warning.next_action.safety`, and explicit
 `warning.next_action.workflow` metadata. Candidate-promotion warnings include
@@ -1314,13 +1316,18 @@ Output:
     "rec_...": {
       "id": "rec_..."
     }
+  },
+  "selection_sources": {
+    "record": "records_by_id.<record_id>",
+    "record_id": "records_by_id.<record_id>.id"
   }
 }
 ```
 
 `records` preserves the ordered recent-record list. `records_by_id` mirrors
 only those returned records so agents can dereference a selected id without
-rescanning the ordered array.
+rescanning the ordered array. `selection_sources` names the keyed record and
+record-id paths explicitly.
 
 ## Agent Usage Contract
 

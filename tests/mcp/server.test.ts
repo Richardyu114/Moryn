@@ -1066,9 +1066,14 @@ describe("MCP stdio server", () => {
         })) as {
           records: Array<{ id: string; state: string; content: { text: string } }>;
           records_by_id: Record<string, { id: string; state: string; content: { text: string } }>;
+          selection_sources: Record<string, string>;
         };
 
         expect(recentResult.records[0]?.id).toBe(writeResult.record.id);
+        expect(recentResult.selection_sources).toEqual({
+          record: "records_by_id.<record_id>",
+          record_id: "records_by_id.<record_id>.id"
+        });
         expect(recentResult.records[0]?.state).toBe("canonical");
         expect(recentResult.records[0]?.content.text).toBe("Use official MCP tools.");
         expect(recentResult.records_by_id[writeResult.record.id]).toEqual(recentResult.records[0]);

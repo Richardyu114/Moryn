@@ -2884,6 +2884,10 @@ describe("core engine", () => {
       const recent = await engine.listRecent(2);
 
       expect(recent.records.map((record) => record.id)).toEqual([second.record.id, first.record.id]);
+      expect(recent.selection_sources).toEqual({
+        record: "records_by_id.<record_id>",
+        record_id: "records_by_id.<record_id>.id"
+      });
       expect(recent.records_by_id[second.record.id]).toEqual(recent.records[0]);
       expect(recent.records_by_id[first.record.id]).toEqual(recent.records[1]);
     });

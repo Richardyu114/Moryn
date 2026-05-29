@@ -1154,8 +1154,13 @@ describe("moryn CLI", () => {
       const parsedRecent = JSON.parse(recent.stdout) as {
         records: Array<{ id: string; content: { text: string } }>;
         records_by_id: Record<string, { id: string; content: { text: string } }>;
+        selection_sources: Record<string, string>;
       };
       expect(parsedRecent.records[0]?.id).toBe(recordId);
+      expect(parsedRecent.selection_sources).toEqual({
+        record: "records_by_id.<record_id>",
+        record_id: "records_by_id.<record_id>.id"
+      });
       expect(parsedRecent.records_by_id[recordId]).toEqual(parsedRecent.records[0]);
     });
   });

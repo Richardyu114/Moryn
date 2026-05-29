@@ -81,6 +81,11 @@ const PROJECT_LIST_SELECTION_SOURCES = {
   next_action: "projects_by_id.<project_id>.next"
 };
 
+const LIST_RECENT_SELECTION_SOURCES = {
+  record: "records_by_id.<record_id>",
+  record_id: "records_by_id.<record_id>.id"
+};
+
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
   return {
     ...("required_fields" in action && Array.isArray(action.required_fields)
@@ -1214,6 +1219,7 @@ export function createEngine(deps: EngineDeps) {
       const records = (await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20));
       return {
         records,
+        selection_sources: LIST_RECENT_SELECTION_SOURCES,
         records_by_id: recordsById(records)
       };
     },
