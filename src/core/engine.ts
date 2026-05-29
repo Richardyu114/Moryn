@@ -75,6 +75,12 @@ const START_LISTED_PROJECT_WHEN = "After choosing this project from project_list
 const RECALL_REFRESH_CHANGE_WHEN = "After refresh reports this change and the agent needs the full record content.";
 const WRITE_CANDIDATE_RECORD_ID_SOURCE = "write.record.id";
 
+const PROJECT_LIST_SELECTION_SOURCES = {
+  project: "projects_by_id.<project_id>",
+  project_id: "projects_by_id.<project_id>.project_id",
+  next_action: "projects_by_id.<project_id>.next"
+};
+
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
   return {
     ...("required_fields" in action && Array.isArray(action.required_fields)
@@ -1248,6 +1254,7 @@ export function createEngine(deps: EngineDeps) {
 
       return {
         projects,
+        selection_sources: PROJECT_LIST_SELECTION_SOURCES,
         projects_by_id: Object.fromEntries(projects.map((project) => [project.project_id, project]))
       };
     }

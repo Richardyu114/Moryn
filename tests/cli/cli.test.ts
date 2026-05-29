@@ -2310,9 +2310,15 @@ describe("moryn CLI", () => {
             arguments: { project_id: string };
           };
         }>;
+        selection_sources: Record<string, string>;
       };
 
       expect(parsed.projects.map((project) => project.project_id)).toEqual(["beta", "alpha"]);
+      expect(parsed.selection_sources).toEqual({
+        project: "projects_by_id.<project_id>",
+        project_id: "projects_by_id.<project_id>.project_id",
+        next_action: "projects_by_id.<project_id>.next"
+      });
       expect(parsed.projects_by_id.beta).toEqual(parsed.projects[0]);
       expect(parsed.projects_by_id.alpha).toEqual(parsed.projects[1]);
       expect(parsed.projects[0]).toMatchObject({
@@ -3432,6 +3438,12 @@ describe("moryn CLI", () => {
         },
         argument_sources: {
           project_id: "next.actions_by_project_id.<project_id>.project_id"
+        },
+        selection_sources: {
+          project: "projects.projects_by_id.<project_id>",
+          project_id: "projects.projects_by_id.<project_id>.project_id",
+          start_action: "next.actions_by_project_id.<project_id>",
+          lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
         },
         arguments: { project_id: "<project_id>" },
         safety: {

@@ -469,7 +469,9 @@ at the keyed finish and refresh templates; in
 `discover_projects`, top-level `next.required_fields_by_name.project_id` and
 `next.arguments.project_id` declare the required project choice, then hosts run
 the matching `next.actions_by_project_id.<project_id>` `agent_start` template
-or use the ordered action list as a display fallback. This keeps the live
+or use the ordered action list as a display fallback. `next.selection_sources`
+names the selected project, `project_id`, start action, and lifecycle action
+map paths. This keeps the live
 response self-describing even when the host did not call `agent guide` first.
 Direct `agent start`, `agent status`, and `agent finish` responses also include
 `next.workflow`, derived from the returned action templates, so agents can follow
@@ -568,10 +570,13 @@ the same `lifecycle_by_step` map and single-step `workflow` metadata as
 automation can select a project by id without guessing from array order. Its
 top-level `next` declares `project_id` as the only required field and carries a
 placeholder `agent_start` command plus CLI/MCP interfaces; after choosing, the
-stable executable source is `next.actions_by_project_id.<project_id>`. In direct
+stable executable source is `next.actions_by_project_id.<project_id>`.
+`next.selection_sources` also points at the selected project, selected
+`project_id`, start action, and selected lifecycle templates. In direct
 `project_list`, the top-level `projects_by_id` map serves the same purpose:
 `projects[]` stays ordered for display, while `projects_by_id.<project_id>.next`
-is the stable action source for a known project id.
+is the stable action source for a known project id; `selection_sources` names
+those keyed paths explicitly.
 In
 `start_session` and `discover_projects` modes, `next.workflow` gives the
 ordered runtime action track and names which response fields are valid follow-up

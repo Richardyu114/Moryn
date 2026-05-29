@@ -1089,6 +1089,12 @@ describe("agent lifecycle", () => {
           argument_sources: {
             project_id: "next.actions_by_project_id.<project_id>.project_id"
           },
+          selection_sources: {
+            project: "projects.projects_by_id.<project_id>",
+            project_id: "projects.projects_by_id.<project_id>.project_id",
+            start_action: "next.actions_by_project_id.<project_id>",
+            lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
+          },
           arguments: { project_id: "<project_id>" },
           safety: {
             safe_to_auto_run: true,
@@ -1155,6 +1161,7 @@ describe("agent lifecycle", () => {
         ]
       });
       expect(entered.next.actions_by_project_id.moryn).toEqual(entered.next.actions[0]);
+      expect(entered.projects.projects_by_id.moryn).toEqual(entered.projects.projects[0]);
       expect(entered.next.actions[0]?.lifecycle_by_step.start_or_resume).toEqual(discoveredLifecycle[0]);
       expect(entered.next.actions[0]?.lifecycle_by_step.publish_status).toEqual(discoveredLifecycle.find((action) => action.step === "publish_status"));
       expect(entered.next.actions[0]?.lifecycle_by_step.finish_handoff).toEqual(discoveredLifecycle.find((action) => action.step === "finish_handoff"));
@@ -1246,6 +1253,12 @@ describe("agent lifecycle", () => {
             }
           },
           arguments: { project_id: "<project_id>" },
+          selection_sources: {
+            project: "projects.projects_by_id.<project_id>",
+            project_id: "projects.projects_by_id.<project_id>.project_id",
+            start_action: "next.actions_by_project_id.<project_id>",
+            lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
+          },
           safety: {
             safe_to_auto_run: true,
             requires_user_confirmation: false,
@@ -1257,6 +1270,7 @@ describe("agent lifecycle", () => {
       });
       expect(entered.doctor.next).toMatchObject({ tool: "project_list" });
       expect(entered.next.actions_by_project_id.moryn).toEqual(entered.next.actions[0]);
+      expect(entered.projects.projects_by_id.moryn).toEqual(entered.projects.projects[0]);
       expect(entered.projects.projects[0]).toMatchObject({
         project_id: "moryn",
         latest_activity: {

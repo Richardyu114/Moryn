@@ -278,6 +278,11 @@ describe("core engine", () => {
       const projects = await engine.listProjects();
 
       expect(projects.projects.map((project) => project.project_id)).toEqual(["alpha", "beta"]);
+      expect(projects.selection_sources).toEqual({
+        project: "projects_by_id.<project_id>",
+        project_id: "projects_by_id.<project_id>.project_id",
+        next_action: "projects_by_id.<project_id>.next"
+      });
       expect(projects.projects_by_id.alpha).toEqual(projects.projects[0]);
       expect(projects.projects_by_id.beta).toEqual(projects.projects[1]);
       expect(projects.projects[0]).toMatchObject({

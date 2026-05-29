@@ -2515,6 +2515,12 @@ describe("MCP stdio server", () => {
           argument_sources: {
             project_id: "next.actions_by_project_id.<project_id>.project_id"
           },
+          selection_sources: {
+            project: "projects.projects_by_id.<project_id>",
+            project_id: "projects.projects_by_id.<project_id>.project_id",
+            start_action: "next.actions_by_project_id.<project_id>",
+            lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
+          },
           arguments: { project_id: "<project_id>" },
           safety: {
             safe_to_auto_run: true,
@@ -3377,9 +3383,15 @@ describe("MCP stdio server", () => {
               arguments: { project_id: string };
             };
           }>;
+          selection_sources: Record<string, string>;
         };
 
         expect(listed.projects.map((project) => project.project_id)).toEqual(["beta", "alpha"]);
+        expect(listed.selection_sources).toEqual({
+          project: "projects_by_id.<project_id>",
+          project_id: "projects_by_id.<project_id>.project_id",
+          next_action: "projects_by_id.<project_id>.next"
+        });
         expect(listed.projects_by_id.beta).toEqual(listed.projects[0]);
         expect(listed.projects_by_id.alpha).toEqual(listed.projects[1]);
         expect(listed.projects[0]).toMatchObject({

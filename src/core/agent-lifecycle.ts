@@ -128,6 +128,12 @@ const RECALL_HANDOFF_ENTRY_WHEN = "After reading this handoff entry and needing 
 const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
 const CHOOSE_DISCOVERED_PROJECT_ID_WHEN = "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.";
 const CHOOSE_DISCOVERED_PROJECT_WHEN = "After choosing this project from discovery results.";
+const DISCOVER_PROJECT_SELECTION_SOURCES = {
+  project: "projects.projects_by_id.<project_id>",
+  project_id: "projects.projects_by_id.<project_id>.project_id",
+  start_action: "next.actions_by_project_id.<project_id>",
+  lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
+};
 const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
@@ -1186,7 +1192,8 @@ function discoverProjectsNextAction(input: AgentLifecycleInput, actions: Array<{
     },
     argument_sources: {
       project_id: "next.actions_by_project_id.<project_id>.project_id"
-    }
+    },
+    selection_sources: DISCOVER_PROJECT_SELECTION_SOURCES
   });
 }
 

@@ -907,7 +907,9 @@ hosts can choose a project by id instead of array position. The top-level
 `next` for `discover_projects` declares `project_id` in `required_fields`,
 `required_fields_by_name`, and `arguments`, and carries a placeholder
 `agent_start` command plus CLI/MCP interfaces; after selection, hosts should
-execute `next.actions_by_project_id.<project_id>`. In `start_session` and
+execute `next.actions_by_project_id.<project_id>`. `next.selection_sources`
+names the selected project, `project_id`, start action, and lifecycle template
+map paths for hosts that should not parse workflow phases. In `start_session` and
 `discover_projects` modes, `next.workflow` exposes the ordered runtime action
 track and valid follow-up sources so hosts can continue from the live response
 without consulting static guide templates. In `start_session`,
@@ -1005,13 +1007,16 @@ Runtime lifecycle responses with unique follow-up action ids also expose
 array. Project-discovery responses use `next.actions_by_project_id` because the
 candidate actions share the same `start_session` action id; their top-level
 `next` still marks `project_id` as required so a lightweight host knows the
-selection variable before dereferencing the keyed map. Workflow phases prefer
+selection variable before dereferencing the keyed map, and
+`next.selection_sources` names the selected project/action paths directly.
+Workflow phases prefer
 keyed `next.actions_by_id.<action>` or
 `next.actions_by_project_id.<project_id>` sources so hosts can execute a known
 action without scanning the array or reconstructing action names.
 Direct `project_list` responses also expose top-level `projects_by_id`, keyed
 by `project_id`, where each keyed project mirrors its ordered `projects[]`
-entry. Project-list workflow phases prefer
+entry. `selection_sources` names the selected project, project id, and next
+action paths directly. Project-list workflow phases prefer
 `project_list.projects_by_id.<project_id>.next` while retaining
 `project_list.projects[].next` as an ordered compatibility source.
 Lifecycle, guide, setup, project-discovery, error-recovery, and warning-recovery
@@ -1087,8 +1092,9 @@ including its `next` template.
 When surfaced through `agent_enter`, these project actions also carry
 post-selection lifecycle templates and `next.actions_by_project_id`. The
 surrounding `next` object declares `project_id` as the required selection field
-and provides placeholder CLI/MCP interfaces, so agents can continue without
-reconstructing commands from prose or relying on array position.
+and provides placeholder CLI/MCP interfaces plus `selection_sources`, so agents
+can continue without reconstructing commands from prose or relying on array
+position.
 
 ### `agent_start`
 
