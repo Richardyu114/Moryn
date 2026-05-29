@@ -219,12 +219,12 @@ function expectProjectListNextWorkflow(action: {
   expect(action.workflow).toEqual({
     version: 1,
     start: "next",
-    continue_from: ["project_list.projects[].next"],
+    continue_from: ["project_list.projects_by_id.<project_id>.next", "project_list.projects[].next"],
     phases: [
       {
         phase: action.recommended_action,
         order: 1,
-        action_source: "project_list.projects[].next",
+        action_source: "project_list.projects_by_id.<project_id>.next",
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -2056,9 +2056,19 @@ describe("moryn CLI", () => {
             workflow?: Record<string, unknown>;
           };
         }>;
+        projects_by_id: Record<string, {
+          project_id: string;
+          latest_activity: { text: string };
+          next: {
+            workflow?: Record<string, unknown>;
+            arguments: { project_id: string };
+          };
+        }>;
       };
 
       expect(parsed.projects.map((project) => project.project_id)).toEqual(["beta", "alpha"]);
+      expect(parsed.projects_by_id.beta).toEqual(parsed.projects[0]);
+      expect(parsed.projects_by_id.alpha).toEqual(parsed.projects[1]);
       expect(parsed.projects[0]).toMatchObject({
         project_id: "beta",
         records: 1,
@@ -2075,6 +2085,7 @@ describe("moryn CLI", () => {
       expectActionInterfaces(parsed.projects[0]!.next);
       expectActionSafety(parsed.projects[0]!.next);
       expectProjectListNextWorkflow(parsed.projects[0]!.next);
+      expect(parsed.projects_by_id.beta.next.workflow).toEqual(parsed.projects[0]!.next.workflow);
     });
   });
 

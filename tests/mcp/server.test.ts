@@ -222,12 +222,12 @@ function expectProjectListNextWorkflow(action: {
   expect(action.workflow).toEqual({
     version: 1,
     start: "next",
-    continue_from: ["project_list.projects[].next"],
+    continue_from: ["project_list.projects_by_id.<project_id>.next", "project_list.projects[].next"],
     phases: [
       {
         phase: action.recommended_action,
         order: 1,
-        action_source: "project_list.projects[].next",
+        action_source: "project_list.projects_by_id.<project_id>.next",
         tool: action.tool,
         required_when: action.required_when,
         required_fields: action.required_fields
@@ -2895,9 +2895,19 @@ describe("MCP stdio server", () => {
               workflow?: Record<string, unknown>;
             };
           }>;
+          projects_by_id: Record<string, {
+            project_id: string;
+            latest_activity: { text: string; agent: { client?: string; session_id?: string } };
+            next: {
+              workflow?: Record<string, unknown>;
+              arguments: { project_id: string };
+            };
+          }>;
         };
 
         expect(listed.projects.map((project) => project.project_id)).toEqual(["beta", "alpha"]);
+        expect(listed.projects_by_id.beta).toEqual(listed.projects[0]);
+        expect(listed.projects_by_id.alpha).toEqual(listed.projects[1]);
         expect(listed.projects[0]).toMatchObject({
           project_id: "beta",
           latest_activity: {
@@ -2916,6 +2926,7 @@ describe("MCP stdio server", () => {
         expectActionInterfaces(listed.projects[0]!.next);
         expectActionSafety(listed.projects[0]!.next);
         expectProjectListNextWorkflow(listed.projects[0]!.next);
+        expect(listed.projects_by_id.beta.next.workflow).toEqual(listed.projects[0]!.next.workflow);
       });
     } finally {
       await rm(store, { recursive: true, force: true });

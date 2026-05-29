@@ -181,6 +181,9 @@ Deliverables:
   action metadata, including `safe_to_run`, `required_when`, `required_fields`,
   `safety`, and single-step `workflow`, so agents can start a selected project
   without inferring safety or timing from the command string.
+- Done: Direct `project_list` responses now expose `projects_by_id` and keyed
+  workflow sources, so agents can select a known project id without scanning
+  the ordered project array.
 - Done: Lifecycle `next.actions` now include `required_when` usage conditions
   so agents can choose follow-up actions without relying on array order or
   action-name guessing.

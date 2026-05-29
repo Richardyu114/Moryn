@@ -379,6 +379,10 @@ ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `start_next_session`. Automation should prefer the keyed map when it already
 knows which lifecycle action it needs, and use
 `next.workflow.phases[].action_source` to find the exact keyed path.
+Direct `project_list` responses use the same pattern with top-level
+`projects_by_id`, keyed by `project_id`; each keyed record mirrors the ordered
+`projects[]` entry, and project-list workflow phases prefer
+`project_list.projects_by_id.<project_id>.next`.
 Action templates also expose `interfaces.cli.command` and
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, derived from the same
 top-level fields. Agent hosts should use the interface matching their runtime
@@ -529,6 +533,11 @@ the same single-step `workflow` metadata as `agent_guide.lifecycle[]`. Because
 each discovered action is named `start_session`, `agent_enter` also returns
 `next.actions_by_project_id` so automation can select a project by id without
 guessing from array order. In
+direct `project_list`, the top-level `projects_by_id` map serves the same
+purpose: `projects[]` stays ordered for display, while
+`projects_by_id.<project_id>.next` is the stable action source for a known
+project id.
+In
 `start_session` and `discover_projects` modes, `next.workflow` gives the
 ordered runtime action track and names which response fields are valid follow-up
 sources. Direct `agent_start`,

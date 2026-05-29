@@ -231,6 +231,8 @@ describe("core engine", () => {
       const projects = await engine.listProjects();
 
       expect(projects.projects.map((project) => project.project_id)).toEqual(["alpha", "beta"]);
+      expect(projects.projects_by_id.alpha).toEqual(projects.projects[0]);
+      expect(projects.projects_by_id.beta).toEqual(projects.projects[1]);
       expect(projects.projects[0]).toMatchObject({
         project_id: "alpha",
         records: 2,
@@ -258,6 +260,21 @@ describe("core engine", () => {
           current_task: "beta migration",
           agent: { client: "codex", session_id: "codex-beta" }
         }
+      });
+      expect(projects.projects_by_id.alpha.next.workflow).toEqual({
+        version: 1,
+        start: "next",
+        continue_from: ["project_list.projects_by_id.<project_id>.next", "project_list.projects[].next"],
+        phases: [
+          {
+            phase: "call_agent_start",
+            order: 1,
+            action_source: "project_list.projects_by_id.<project_id>.next",
+            tool: "agent_start",
+            required_when: "After choosing this project from project_list results.",
+            required_fields: []
+          }
+        ]
       });
     });
   });

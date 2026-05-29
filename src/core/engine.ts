@@ -105,12 +105,12 @@ function withProjectListNextMetadata<T extends {
     workflow: {
       version: 1,
       start: "next",
-      continue_from: ["project_list.projects[].next"],
+      continue_from: ["project_list.projects_by_id.<project_id>.next", "project_list.projects[].next"],
       phases: [
         {
           phase: action.recommended_action,
           order: 1,
-          action_source: "project_list.projects[].next",
+          action_source: "project_list.projects_by_id.<project_id>.next",
           tool: action.tool,
           required_when: action.required_when,
           required_fields: action.required_fields
@@ -1180,7 +1180,10 @@ export function createEngine(deps: EngineDeps) {
         .sort((a, b) => b.latest_activity.updated_at.localeCompare(a.latest_activity.updated_at) || a.project_id.localeCompare(b.project_id))
         .slice(0, limit);
 
-      return { projects };
+      return {
+        projects,
+        projects_by_id: Object.fromEntries(projects.map((project) => [project.project_id, project]))
+      };
     }
   };
 
