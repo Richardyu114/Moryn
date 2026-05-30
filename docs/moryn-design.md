@@ -457,7 +457,8 @@ shell strings. For Moryn subcommands, `executable` is `"moryn"` and `args`
 equals the subcommand `argv`.
 `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
-`required_inputs`, `required_inputs_by_field`, and
+`required_inputs`, `required_inputs_by_field`,
+`required_input_paths_by_value_path`, and
 `requires_user_confirmation`, so hosts can decide whether to run, collect
 fields, ask for confirmation, or block automation without recomputing safety
 policy. `required_inputs[]` joins each missing field to its original
@@ -470,12 +471,23 @@ and enum `allowed_values` when present. Its `collect` recipe includes
 choice's `expected_value` and `apply_to` assignments instead of filling every
 alternative target.
 `required_inputs_by_field` mirrors those entries by field name for direct host
-lookups. `mcp_targets` names the MCP argument, optional nested path, type,
+lookups. `required_input_paths_by_value_path` maps collected value paths such
+as `user_input.summary` or multi-flag subpaths such as `user_input.agent.client`
+back to canonical `execution.required_inputs_by_field.<field>` paths, so hosts
+can resolve stored input without scanning arrays. `mcp_targets` names the MCP
+argument, optional nested path, type,
 required flag, and preferred alternative for each fillable target.
 `cli_targets` names equivalent CLI flags, positionals, repeatability, defaults,
 types, and preferred alternatives.
 The operation selection source registry names that keyed input path as
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` and
+the value-path index as
+`operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>`.
+Operation-local `selection_sources` intentionally omit that long value-path
+registry entry to keep operation contracts below the 1 MB payload budget; hosts
+should read it from the top-level registry and the operation-local execution
+index.
+It also names
 the reverse lookup paths as `operations_by_mcp_tool.<tool>` and
 `operations_by_cli_command.<command>`. It also names CLI execution fields as
 `operations_by_id.<operation>.interfaces.cli.executable`,
@@ -1285,7 +1297,9 @@ the aggregate `collect.apply_to` assignments, aggregate
 each choice's `apply_to`, and each choice's `expected_value`, so a host can
 follow the recipe without discovering nested fields dynamically.
 `execution.required_inputs_by_field` exposes the same metadata keyed by field
-name.
+name. `execution.required_input_paths_by_value_path` maps collected value paths
+back to canonical `execution.required_inputs_by_field.<field>` paths, including
+per-flag subpaths from object-style CLI assignments.
 
 CLI:
 

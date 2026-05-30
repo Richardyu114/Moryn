@@ -265,6 +265,12 @@ Deliverables:
   hosts can collect user input and fill MCP arguments or shell commands without
   joining `required_fields_by_name`, `arguments_by_name`, `argument_sources`,
   and operation metadata or parsing `text|content` strings.
+- Done: `execution.required_input_paths_by_value_path` maps collected value
+  paths, including multi-flag object subpaths, to canonical
+  `execution.required_inputs_by_field.<field>` entries. The full registry path
+  is exposed in the top-level operation selection sources, while operation-local
+  selection sources omit the repeated long key to stay under the 1 MB host
+  payload budget.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

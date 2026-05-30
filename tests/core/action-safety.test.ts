@@ -348,6 +348,7 @@ describe("action execution readiness", () => {
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      required_input_paths_by_value_path: {},
       runbook: {
         next: "call_mcp",
         current_step: callMcpCurrentStep,
@@ -426,6 +427,9 @@ describe("action execution readiness", () => {
           placeholder: "<summary>",
           value: "<summary>"
         }
+      },
+      required_input_paths_by_value_path: {
+        "user_input.summary": "execution.required_inputs_by_field.summary"
       },
       runbook: {
         next: "collect_required_inputs",
@@ -787,6 +791,10 @@ describe("action execution readiness", () => {
     expect(execution.required_inputs_by_argument_path.text).toBe(execution.required_inputs_by_field.text_or_content);
     expect(execution.required_inputs_by_argument_path.content).toBe(execution.required_inputs_by_field.text_or_content);
     expect(execution.required_inputs_by_argument_path.kind).toBe(execution.required_inputs_by_field.kind);
+    expect(execution.required_input_paths_by_value_path).toEqual({
+      "user_input.kind": "execution.required_inputs_by_field.kind",
+      "user_input.text_or_content": "execution.required_inputs_by_field.text_or_content"
+    });
   });
 
   it("maps nested MCP and repeatable CLI argument paths for required inputs", () => {
@@ -1002,6 +1010,13 @@ describe("action execution readiness", () => {
       required: false,
       preferred: true
     }]);
+    expect(execution.required_input_paths_by_value_path).toEqual({
+      "user_input.agent": "execution.required_inputs_by_field.agent",
+      "user_input.agent.client": "execution.required_inputs_by_field.agent",
+      "user_input.agent.session_id": "execution.required_inputs_by_field.agent",
+      "user_input.agent.model": "execution.required_inputs_by_field.agent",
+      "user_input.agent.device_id": "execution.required_inputs_by_field.agent"
+    });
   });
 
   it("distinguishes confirmation-only actions from authored-input actions", () => {
@@ -1017,6 +1032,7 @@ describe("action execution readiness", () => {
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      required_input_paths_by_value_path: {},
       runbook: {
         next: "ask_user_confirmation",
         current_step: askUserConfirmationCurrentStep,
@@ -1068,6 +1084,7 @@ describe("action execution readiness", () => {
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      required_input_paths_by_value_path: {},
       runbook: {
         next: "ask_user_confirmation",
         current_step: askUserConfirmationCurrentStep,

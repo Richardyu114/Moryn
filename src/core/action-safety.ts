@@ -230,6 +230,7 @@ export interface ActionExecution {
   required_inputs: ActionRequiredInput[];
   required_inputs_by_field: Record<string, ActionRequiredInput>;
   required_inputs_by_argument_path: Record<string, ActionRequiredInput>;
+  required_input_paths_by_value_path: Record<string, string>;
   runbook: ActionRunbook;
   requires_user_confirmation: boolean;
   reason: string;
@@ -604,6 +605,36 @@ function actionRunbook(blockedBy: ActionExecutionBlocker[]): ActionRunbook {
   };
 }
 
+function requiredInputValuePaths(requiredInput: ActionRequiredInput): string[] {
+  const valuePaths = new Set<string>();
+  const collect = requiredInput.collect;
+  if (collect.value_path) valuePaths.add(collect.value_path);
+  if (collect.expected_value?.value_path) valuePaths.add(collect.expected_value.value_path);
+  for (const assignment of collect.apply_to.mcp_assignments ?? []) {
+    valuePaths.add(assignment.value_path);
+  }
+  for (const assignment of collect.apply_to.cli_assignments ?? []) {
+    valuePaths.add(assignment.value_path);
+    for (const flagValuePath of assignment.flag_value_paths ?? []) {
+      valuePaths.add(flagValuePath.value_path);
+    }
+  }
+  for (const choice of collect.choices ?? []) {
+    valuePaths.add(choice.value_path);
+    if (choice.expected_value?.value_path) valuePaths.add(choice.expected_value.value_path);
+    for (const assignment of choice.apply_to.mcp_assignments ?? []) {
+      valuePaths.add(assignment.value_path);
+    }
+    for (const assignment of choice.apply_to.cli_assignments ?? []) {
+      valuePaths.add(assignment.value_path);
+      for (const flagValuePath of assignment.flag_value_paths ?? []) {
+        valuePaths.add(flagValuePath.value_path);
+      }
+    }
+  }
+  return [...valuePaths];
+}
+
 export function actionSafety(input: {
   tool: string;
   safe_to_run: boolean;
@@ -701,6 +732,14 @@ export function actionExecution(input: {
       requiredInput.argument_paths.map((argumentPath) => [argumentPath, requiredInput])
     )
   );
+  const requiredInputPathsByValuePath = Object.fromEntries(
+    requiredInputs.flatMap((requiredInput) =>
+      requiredInputValuePaths(requiredInput).map((valuePath) => [
+        valuePath,
+        `execution.required_inputs_by_field.${requiredInput.field}`
+      ])
+    )
+  );
   if (input.required_fields.length > 0) {
     const blocked_by: ActionExecutionBlocker[] = [
       "required_fields",
@@ -714,6 +753,7 @@ export function actionExecution(input: {
       required_inputs: requiredInputs,
       required_inputs_by_field: requiredInputsByField,
       required_inputs_by_argument_path: requiredInputsByArgumentPath,
+      required_input_paths_by_value_path: requiredInputPathsByValuePath,
       runbook: actionRunbook(blocked_by),
       requires_user_confirmation: safety.requires_user_confirmation,
       reason: "Action requires authored input before it can run."
@@ -730,6 +770,7 @@ export function actionExecution(input: {
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      required_input_paths_by_value_path: {},
       runbook: actionRunbook(blocked_by),
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
@@ -746,6 +787,7 @@ export function actionExecution(input: {
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      required_input_paths_by_value_path: {},
       runbook: actionRunbook(blocked_by),
       requires_user_confirmation: false,
       reason: "Action is not safe to auto-run."
@@ -760,6 +802,7 @@ export function actionExecution(input: {
     required_inputs: [],
     required_inputs_by_field: {},
     required_inputs_by_argument_path: {},
+    required_input_paths_by_value_path: {},
     runbook: actionRunbook([]),
     requires_user_confirmation: false,
     reason: "Action is safe and all required fields are already filled."

@@ -405,10 +405,15 @@ read-only actions from agent-authored writes, local setup changes, and actions
 that need explicit user approval. They also include `execution`, a concise
 next-step summary with `ready_to_run`, `next_step`,
 `blocked_by`, `missing_required_fields`, `required_inputs`,
-`required_inputs_by_field`, `required_inputs_by_argument_path`, `runbook`, and
+`required_inputs_by_field`, `required_inputs_by_argument_path`,
+`required_input_paths_by_value_path`, `runbook`, and
 `requires_user_confirmation`, so hosts can choose between running the action,
 collecting fields, asking for confirmation, or blocking automation without
-recomputing that policy. `blocked_by` is a
+recomputing that policy. `required_input_paths_by_value_path` maps collected
+value paths such as `user_input.summary` or `user_input.agent.client` back to
+the canonical `execution.required_inputs_by_field.<field>` entry, so hosts can
+store user input by value path without scanning required-input arrays.
+`blocked_by` is a
 machine-readable reason list: `required_fields`, `user_confirmation`, or
 `unsafe_action`. Agents should treat `execution.ready_to_run`, not
 `safe_to_run` alone, as the immediate run gate. `execution.runbook.next` names
@@ -454,7 +459,9 @@ can detect `"choose_one"` before applying any MCP or CLI writes.
 already know which input they need. `required_inputs_by_argument_path` mirrors
 the same entries by each split argument path, so a host holding the CLI/MCP
 argument name, such as `text`, can directly find the broader required field,
-such as `text_or_content`. `mcp_targets` tells MCP hosts which argument, nested
+such as `text_or_content`. `required_input_paths_by_value_path` gives the
+same canonical required-input path from collected value paths, including
+multi-flag subpaths. `mcp_targets` tells MCP hosts which argument, nested
 path, type, and preferred alternative to fill; `collect.apply_to.mcp_assignments`
 turns those targets into direct write-back instructions with `argument`,
 optional nested `path`, `value_path`, and preferred flag. `cli_targets` tells CLI
@@ -627,13 +634,18 @@ command, plus
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` for
 field-keyed required-input lookups and
 `operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>`
-for direct argument-path lookups. Each operation also repeats that
-`selection_sources` map locally, so a host can pass around one operation object
-without losing the registry paths.
+for direct argument-path lookups. The top-level registry also names
+`operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>`.
+Operation-local `selection_sources` omit that long value-path entry to keep the
+contracts response under the 1 MB host payload budget; use the top-level
+registry path with the operation-local `execution.required_input_paths_by_value_path`
+map.
 `execution.required_inputs[]` mirrors required inputs in call-ready form, and
 `execution.required_inputs_by_field` indexes the same entries by field name.
 `execution.required_inputs_by_argument_path` indexes them by every split
 argument path, including alternatives such as `text` and `content`.
+`execution.required_input_paths_by_value_path` indexes collected value paths to
+canonical `execution.required_inputs_by_field.<field>` paths.
 `execution.blocked_by` names why the operation is not immediately runnable, so
 hosts can avoid running placeholder commands when `safe_to_run` is true but
 required user input is still missing. `execution.runbook` turns those blockers
