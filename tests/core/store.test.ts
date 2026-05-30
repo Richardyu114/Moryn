@@ -6,7 +6,7 @@ import { appendEvent, readEvents } from "../../src/core/store.js";
 import { withInitializedTempStore, withTempStore } from "../helpers/temp-store.js";
 
 describe("event store", () => {
-  async function expectInvalidStorePath(action: () => Promise<unknown>): Promise<void> {
+  async function expectInvalidStorePath(action: () => Promise<unknown>, value: unknown): Promise<void> {
     let caught: unknown;
     try {
       await action();
@@ -21,6 +21,12 @@ describe("event store", () => {
     const envelope = toErrorEnvelope(caught);
     expect(envelope.error.code).toBe("INVALID_ARGUMENT");
     expect(envelope.error.message).toContain("Invalid storePath");
+    expect(envelope.error.recommended_action).toBe("retry store operation with a non-empty storePath");
+    expect(envelope.error.recovery_hint).toEqual({
+      rejected_argument: { argument: "storePath", value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: "storePath", value_placeholder: "<storePath>" }
+    });
   }
 
   async function expectInvalidEventPathComponent(action: () => Promise<unknown>, componentName: string): Promise<void> {
@@ -70,8 +76,8 @@ describe("event store", () => {
   });
 
   it("rejects invalid store paths before checking initialization", async () => {
-    await expectInvalidStorePath(() => readEvents(""));
-    await expectInvalidStorePath(() => readEvents(null as never));
+    await expectInvalidStorePath(() => readEvents(""), "");
+    await expectInvalidStorePath(() => readEvents(null as never), null);
     await expectInvalidStorePath(() => appendEvent("", {
       event_id: "evt_invalid_store_path",
       op: "upsert_record",
@@ -92,7 +98,7 @@ describe("event store", () => {
         updated_at: "2026-05-27T00:00:00.000Z",
         source: { client: "test" }
       }
-    }));
+    }), "");
     await expectInvalidStorePath(() => appendEvent(123 as never, {
       event_id: "evt_invalid_store_path_number",
       op: "upsert_record",
@@ -113,7 +119,7 @@ describe("event store", () => {
         updated_at: "2026-05-27T00:00:00.000Z",
         source: { client: "test" }
       }
-    }));
+    }), 123);
   });
 
   it("appends events under device and month partitions", async () => {

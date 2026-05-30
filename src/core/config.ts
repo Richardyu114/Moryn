@@ -39,9 +39,28 @@ function isNotFoundError(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
+class StorePathArgumentError extends Error {
+  readonly recommended_action = "retry store operation with a non-empty storePath";
+  readonly recovery_hint: {
+    rejected_argument: { argument: "storePath"; value: unknown };
+    expected: { kind: "non_empty_string"; min_length: 1 };
+    retry_with: { argument: "storePath"; value_placeholder: "<storePath>" };
+  };
+
+  constructor(storePath: unknown) {
+    super("Invalid argument: Invalid storePath");
+    this.name = "StorePathArgumentError";
+    this.recovery_hint = {
+      rejected_argument: { argument: "storePath", value: storePath },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: "storePath", value_placeholder: "<storePath>" }
+    };
+  }
+}
+
 export function validateStorePath(storePath: unknown): asserts storePath is string {
   if (typeof storePath !== "string" || storePath.length === 0) {
-    throw new Error("Invalid argument: Invalid storePath");
+    throw new StorePathArgumentError(storePath);
   }
 }
 

@@ -14,7 +14,7 @@ const STORE_INIT_SELECTION_SOURCES = {
 };
 
 describe("store config", () => {
-  async function expectInvalidStorePath(action: () => Promise<unknown>): Promise<void> {
+  async function expectInvalidStorePath(action: () => Promise<unknown>, value: unknown): Promise<void> {
     let caught: unknown;
     try {
       await action();
@@ -29,6 +29,12 @@ describe("store config", () => {
     const envelope = toErrorEnvelope(caught);
     expect(envelope.error.code).toBe("INVALID_ARGUMENT");
     expect(envelope.error.message).toContain("Invalid storePath");
+    expect(envelope.error.recommended_action).toBe("retry store operation with a non-empty storePath");
+    expect(envelope.error.recovery_hint).toEqual({
+      rejected_argument: { argument: "storePath", value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: "storePath", value_placeholder: "<storePath>" }
+    });
   }
 
   it("initializes config and local store directories", async () => {
@@ -76,10 +82,10 @@ describe("store config", () => {
   it("rejects invalid store paths before writing local store files", async () => {
     await withTempStore(async (root) => {
       const sentinel = join(root, "sentinel");
-      await expectInvalidStorePath(() => initializeStore(""));
-      await expectInvalidStorePath(() => initializeStore(null as never));
-      await expectInvalidStorePath(() => readStoreConfig(""));
-      await expectInvalidStorePath(() => readStoreConfig(123 as never));
+      await expectInvalidStorePath(() => initializeStore(""), "");
+      await expectInvalidStorePath(() => initializeStore(null as never), null);
+      await expectInvalidStorePath(() => readStoreConfig(""), "");
+      await expectInvalidStorePath(() => readStoreConfig(123 as never), 123);
 
       await expect(access(sentinel)).rejects.toMatchObject({ code: "ENOENT" });
     });
