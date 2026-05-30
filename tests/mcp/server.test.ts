@@ -5983,6 +5983,21 @@ describe("MCP stdio server", () => {
         expect(missingProject.ok).toBe(false);
         expect(missingProject.error.code).toBe("INVALID_ARGUMENT");
         expect(missingProject.error.message).toContain("project_id is required for project scope");
+        expect(missingProject.error.recommended_action).toBe("run moryn project list, then retry with a known project_id");
+        expect(missingProject.error.recovery_hint).toEqual({
+          rejected_argument: { argument: "scope", value: "project" },
+          expected: { kind: "project_context", required: true },
+          discover_with: {
+            tool: "project_list",
+            command: "moryn project list",
+            arguments: {}
+          },
+          retry_with: {
+            argument: "project_id",
+            value_source: "project_list.projects_by_id.<project_id>.project_id",
+            value_placeholder: "<project_id>"
+          }
+        });
         expect(missingProject.error.next_action).toMatchObject({
           recommended_action: "discover_project_context_before_project_scoped_write",
           tool: "project_list",

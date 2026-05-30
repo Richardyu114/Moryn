@@ -608,7 +608,17 @@ describe("error envelopes", () => {
       ok: false,
       error: {
         code: "INVALID_ARGUMENT",
-        recommended_action: "fix the command arguments and retry",
+        recommended_action: "run moryn project list, then retry with a known project_id",
+        recovery_hint: {
+          rejected_argument: { argument: "scope", value: "project" },
+          expected: { kind: "project_context", required: true },
+          discover_with: {
+            tool: "project_list",
+            command: "moryn project list",
+            arguments: {}
+          },
+          retry_with: { argument: "project_id", value_source: "project_list.projects_by_id.<project_id>.project_id", value_placeholder: "<project_id>" }
+        },
         next_action: {
           recommended_action: "discover_project_context_before_project_scoped_write",
           tool: "project_list",

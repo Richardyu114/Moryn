@@ -722,12 +722,12 @@ and refresh cursor validation errors also include `recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
 allowed values, non-empty constraints, integer or numeric bounds, JSON object
 expectations, MCP argument requirements such as `type`/`scope`, dependency rules
-such as `--message` requiring `--push`, path-assignment shape, revise patch
-rules, or ISO datetime cursor requirements, `missing_argument` or
-`missing_one_of` names omitted inputs, `rejected_patch` names invalid patch
-paths or patch payloads, `rejected_arguments` lists conflicting inputs, and
-`retry_with` gives exact options/arguments plus placeholders for corrected
-values. Agents should use
+such as `--message` requiring `--push`, project-context requirements,
+path-assignment shape, revise patch rules, or ISO datetime cursor requirements,
+`missing_argument` or `missing_one_of` names omitted inputs, `rejected_patch`
+names invalid patch paths or patch payloads, `rejected_arguments` lists
+conflicting inputs, `discover_with` names safe lookup calls, and `retry_with`
+gives exact options/arguments plus placeholders for corrected values. Agents should use
 those fields instead of splitting the human-readable error message.
 Each static operation `interfaces.cli` entry includes a display `command`, a
 prequoted `command_line`, `executable`, `args`, grouped `exec_file`, legacy

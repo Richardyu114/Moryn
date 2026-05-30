@@ -2776,6 +2776,12 @@ describe("moryn CLI", () => {
             code: string;
             message: string;
             recommended_action: string;
+            recovery_hint: {
+              rejected_argument: { option: string; value: string };
+              expected: { kind: string; required: boolean };
+              discover_with: { tool: string; command: string; arguments: Record<string, unknown> };
+              retry_with: { option: string; value_source: string; value_placeholder: string };
+            };
             next_action?: {
               recommended_action: string;
               tool: string;
@@ -2792,7 +2798,21 @@ describe("moryn CLI", () => {
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("INVALID_ARGUMENT");
         expect(parsed.error.message).toContain("project_id is required for project scope");
-        expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        expect(parsed.error.recommended_action).toBe("run moryn project list, then retry with a known project_id");
+        expect(parsed.error.recovery_hint).toEqual({
+          rejected_argument: { option: "--scope", value: "project" },
+          expected: { kind: "project_context", required: true },
+          discover_with: {
+            tool: "project_list",
+            command: "moryn project list",
+            arguments: {}
+          },
+          retry_with: {
+            option: "--project-id",
+            value_source: "project_list.projects_by_id.<project_id>.project_id",
+            value_placeholder: "<project_id>"
+          }
+        });
         expect(parsed.error.next_action).toMatchObject({
           recommended_action: "discover_project_context_before_project_scoped_write",
           tool: "project_list",

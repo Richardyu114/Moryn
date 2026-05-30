@@ -268,8 +268,9 @@ Deliverables:
   cursor and revise-patch validation errors now return structured
   `error.recovery_hint` metadata with `missing_argument`, `missing_one_of`,
   `rejected_argument`, `rejected_arguments`, `rejected_patch`,
-  machine-readable `expected` rules, and `retry_with`, so agents can recover
-  from omitted `--kind`/`--type` values, missing MCP write `type`/`scope`, empty
+  machine-readable `expected` rules, `discover_with`, and `retry_with`, so
+  agents can recover from omitted `--kind`/`--type` values, missing MCP write
+  `type`/`scope`, omitted project context for project-scoped writes, empty
   placeholders such as `--text ""`, malformed `--content-json`, malformed
   `--set path=value` assignments, managed-field revise attempts, invalid revise
   patches, conflicting write content or sync operation inputs, invalid sync

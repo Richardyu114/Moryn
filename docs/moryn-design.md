@@ -669,9 +669,10 @@ or `rejected_arguments` identifies invalid or conflicting values,
 exposes allowed values, non-empty constraints, integer or numeric bounds, JSON
 object expectations, choice rules, MCP argument requirements such as write
 `type` and `scope`, option requirements such as `--message` requiring `--push`,
-path-assignment shape, revise patch rules, or ISO datetime cursor requirements,
-and `retry_with` contains the option/argument value placeholder to use for the
-corrected retry.
+project-context requirements, path-assignment shape, revise patch rules, or ISO
+datetime cursor requirements, `discover_with` names safe lookup calls such as
+`project_list`, and `retry_with` contains the option/argument value placeholder
+to use for the corrected retry.
 
 ### `init`
 
@@ -2648,7 +2649,27 @@ rejected scope in metadata, so agents do not invent a `project_id`:
     "code": "INVALID_ARGUMENT",
     "message": "Invalid argument: project_id is required for project scope",
     "recoverable": true,
-    "recommended_action": "fix the command arguments and retry",
+    "recommended_action": "run moryn project list, then retry with a known project_id",
+    "recovery_hint": {
+      "rejected_argument": {
+        "argument": "scope",
+        "value": "project"
+      },
+      "expected": {
+        "kind": "project_context",
+        "required": true
+      },
+      "discover_with": {
+        "tool": "project_list",
+        "command": "moryn project list",
+        "arguments": {}
+      },
+      "retry_with": {
+        "argument": "project_id",
+        "value_source": "project_list.projects_by_id.<project_id>.project_id",
+        "value_placeholder": "<project_id>"
+      }
+    },
     "next_action": {
       "recommended_action": "discover_project_context_before_project_scoped_write",
       "tool": "project_list",

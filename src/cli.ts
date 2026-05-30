@@ -140,6 +140,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function cliOptionForCoreArgument(argument: string, context?: MorynErrorContext): string | undefined {
+  if (argument === "scope") {
+    return "--scope";
+  }
+  if (argument === "project_id") {
+    return "--project-id";
+  }
   if (argument === "cursor") {
     return context?.arguments.refresh_since !== undefined ? "--refresh-since" : "--cursor";
   }
@@ -149,23 +155,26 @@ function cliOptionForCoreArgument(argument: string, context?: MorynErrorContext)
   return undefined;
 }
 
+function cliArgumentObjectToOption(value: Record<string, unknown>, context?: MorynErrorContext): Record<string, unknown> {
+  if (typeof value.argument !== "string") return value;
+  const option = cliOptionForCoreArgument(value.argument, context);
+  if (!option) return value;
+  const { argument: _argument, ...rest } = value;
+  return { option, ...rest };
+}
+
 function cliRecoveryHint(recoveryHint: unknown, context?: MorynErrorContext): unknown {
-  if (!isRecord(recoveryHint) || !isRecord(recoveryHint.rejected_argument) || !isRecord(recoveryHint.retry_with)) {
+  if (!isRecord(recoveryHint)) {
     return recoveryHint;
   }
-  const rejectedArgument = recoveryHint.rejected_argument;
-  const retryWith = recoveryHint.retry_with;
-  if (typeof rejectedArgument.argument !== "string" || retryWith.argument !== rejectedArgument.argument) {
-    return recoveryHint;
-  }
-  const option = cliOptionForCoreArgument(rejectedArgument.argument, context);
-  if (!option) return recoveryHint;
-  const { argument: _rejectedArgument, ...rejectedRest } = rejectedArgument;
-  const { argument: _retryArgument, ...retryRest } = retryWith;
   return {
     ...recoveryHint,
-    rejected_argument: { option, ...rejectedRest },
-    retry_with: { option, ...retryRest }
+    ...(isRecord(recoveryHint.rejected_argument)
+      ? { rejected_argument: cliArgumentObjectToOption(recoveryHint.rejected_argument, context) }
+      : {}),
+    ...(isRecord(recoveryHint.retry_with)
+      ? { retry_with: cliArgumentObjectToOption(recoveryHint.retry_with, context) }
+      : {})
   };
 }
 

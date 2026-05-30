@@ -94,6 +94,9 @@ export interface MorynErrorContext {
 
 const REFRESH_CURSOR_SOURCE = "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor";
 const REFRESH_CURSOR_RECOMMENDED_ACTION = "retry with a refresh cursor returned by Moryn";
+const PROJECT_SCOPE_CONTEXT_REQUIRED_MESSAGE = "Invalid argument: project_id is required for project scope";
+const PROJECT_SCOPE_CONTEXT_REQUIRED_RECOMMENDED_ACTION = "run moryn project list, then retry with a known project_id";
+const PROJECT_CONTEXT_PROJECT_ID_SOURCE = "project_list.projects_by_id.<project_id>.project_id";
 
 export class InvalidRefreshCursorError extends Error {
   readonly recommended_action = REFRESH_CURSOR_RECOMMENDED_ACTION;
@@ -156,6 +159,31 @@ function contextRecoveryHint(recoveryHint: unknown, context?: MorynErrorContext)
     ...recoveryHint,
     rejected_argument: { ...rejectedArgument, argument: externalArgument },
     retry_with: { ...retryWith, argument: externalArgument }
+  };
+}
+
+function knownRecommendedAction(message: string): string | undefined {
+  if (message === PROJECT_SCOPE_CONTEXT_REQUIRED_MESSAGE) {
+    return PROJECT_SCOPE_CONTEXT_REQUIRED_RECOMMENDED_ACTION;
+  }
+  return undefined;
+}
+
+function knownRecoveryHint(message: string): unknown {
+  if (message !== PROJECT_SCOPE_CONTEXT_REQUIRED_MESSAGE) return undefined;
+  return {
+    rejected_argument: { argument: "scope", value: "project" },
+    expected: { kind: "project_context", required: true },
+    discover_with: {
+      tool: "project_list",
+      command: "moryn project list",
+      arguments: {}
+    },
+    retry_with: {
+      argument: "project_id",
+      value_source: PROJECT_CONTEXT_PROJECT_ID_SOURCE,
+      value_placeholder: "<project_id>"
+    }
   };
 }
 
@@ -957,14 +985,15 @@ export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): Mo
   const action = nextAction(code, message, context);
   const errorRecord = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
   const overrideRecommendedAction = typeof errorRecord.recommended_action === "string" ? errorRecord.recommended_action : undefined;
-  const recoveryHint = "recovery_hint" in errorRecord ? contextRecoveryHint(errorRecord.recovery_hint, context) : undefined;
+  const baseRecoveryHint = "recovery_hint" in errorRecord ? errorRecord.recovery_hint : knownRecoveryHint(message);
+  const recoveryHint = baseRecoveryHint !== undefined ? contextRecoveryHint(baseRecoveryHint, context) : undefined;
   return {
     ok: false,
     error: {
       code,
       message,
       recoverable: isRecoverable(code),
-      recommended_action: overrideRecommendedAction ?? recommendedAction(code),
+      recommended_action: overrideRecommendedAction ?? knownRecommendedAction(message) ?? recommendedAction(code),
       ...(recoveryHint !== undefined ? { recovery_hint: recoveryHint } : {}),
       ...(action ? { next_action: action } : {})
     }
