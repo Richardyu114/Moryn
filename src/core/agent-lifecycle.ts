@@ -50,6 +50,10 @@ export type LifecycleActionSelectionSources = {
   ordered_action: "next.actions[]";
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>";
   ordered_argument: "next.actions[].arguments_by_name.<argument>";
+  required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>";
+  ordered_required_field: "next.actions[].required_fields_by_name.<field>";
+  argument_source: "next.actions_by_id.<action>.argument_sources.<field>";
+  ordered_argument_source: "next.actions[].argument_sources.<field>";
 };
 export type LifecycleStepSelectionSources = {
   lifecycle_action: string;
@@ -57,12 +61,20 @@ export type LifecycleStepSelectionSources = {
   ordered_lifecycle_action: string;
   argument: string;
   ordered_argument: string;
+  required_field: string;
+  ordered_required_field: string;
+  argument_source: string;
+  ordered_argument_source: string;
 };
 export type GuideEntrypointSelectionSources = {
   startup_action: "startup";
   next_action: "next";
   startup_argument: "startup.arguments_by_name.<argument>";
   next_argument: "next.arguments_by_name.<argument>";
+  startup_required_field: "startup.required_fields_by_name.<field>";
+  next_required_field: "next.required_fields_by_name.<field>";
+  startup_argument_source: "startup.argument_sources.<field>";
+  next_argument_source: "next.argument_sources.<field>";
   workflow_phase: "workflow.phases_by_name.start_or_resume";
 };
 type LifecycleActionTemplate = {
@@ -102,6 +114,10 @@ export type HandoffEntrySelectionSources = {
   ordered_next_action: "handoff.inbox[].next_action" | "handoff.active_sessions[].next_action";
   argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>";
   ordered_argument: "handoff.inbox[].next_action.arguments_by_name.<argument>" | "handoff.active_sessions[].next_action.arguments_by_name.<argument>";
+  required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>";
+  ordered_required_field: "handoff.inbox[].next_action.required_fields_by_name.<field>" | "handoff.active_sessions[].next_action.required_fields_by_name.<field>";
+  argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>";
+  ordered_argument_source: "handoff.inbox[].next_action.argument_sources.<field>" | "handoff.active_sessions[].next_action.argument_sources.<field>";
 };
 
 type HandoffEntryNextAction = {
@@ -168,6 +184,8 @@ export const DISCOVER_PROJECT_SELECTION_SOURCES = {
   project_id: "projects.projects_by_id.<project_id>.project_id",
   start_action: "next.actions_by_project_id.<project_id>",
   start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
+  start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
+  start_action_argument_source: "next.actions_by_project_id.<project_id>.argument_sources.<field>",
   lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
 };
 export const HANDOFF_SELECTION_SOURCES = {
@@ -175,28 +193,40 @@ export const HANDOFF_SELECTION_SOURCES = {
   inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
   inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
   inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+  inbox_next_action_required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+  inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
   active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
   active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
   active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
-  active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>"
+  active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+  active_session_next_action_required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+  active_session_next_action_argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>"
 };
 export const LIFECYCLE_NEXT_SELECTION_SOURCES = {
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action",
-  action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+  action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+  action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+  action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
 };
 export const LIFECYCLE_ACTION_SELECTION_SOURCES: LifecycleActionSelectionSources = {
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action",
   ordered_action: "next.actions[]",
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
-  ordered_argument: "next.actions[].arguments_by_name.<argument>"
+  ordered_argument: "next.actions[].arguments_by_name.<argument>",
+  required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+  ordered_required_field: "next.actions[].required_fields_by_name.<field>",
+  argument_source: "next.actions_by_id.<action>.argument_sources.<field>",
+  ordered_argument_source: "next.actions[].argument_sources.<field>"
 };
 export const DOCTOR_SELECTION_SOURCES = {
   check: "checks_by_name.<check_name>",
   blocking_check: "readiness.blocking_checks_by_name.<check_name>",
   next_action: "next",
-  next_argument: "next.arguments_by_name.<argument>"
+  next_argument: "next.arguments_by_name.<argument>",
+  next_required_field: "next.required_fields_by_name.<field>",
+  next_argument_source: "next.argument_sources.<field>"
 };
 export const GUIDE_SELECTION_SOURCES = {
   startup: "startup",
@@ -209,13 +239,21 @@ export const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   step: "lifecycle_by_step.<step>.step",
   ordered_lifecycle_action: "lifecycle[]",
   argument: "lifecycle_by_step.<step>.arguments_by_name.<argument>",
-  ordered_argument: "lifecycle[].arguments_by_name.<argument>"
+  ordered_argument: "lifecycle[].arguments_by_name.<argument>",
+  required_field: "lifecycle_by_step.<step>.required_fields_by_name.<field>",
+  ordered_required_field: "lifecycle[].required_fields_by_name.<field>",
+  argument_source: "lifecycle_by_step.<step>.argument_sources.<field>",
+  ordered_argument_source: "lifecycle[].argument_sources.<field>"
 } satisfies LifecycleStepSelectionSources;
 export const GUIDE_ENTRYPOINT_SELECTION_SOURCES: GuideEntrypointSelectionSources = {
   startup_action: "startup",
   next_action: "next",
   startup_argument: "startup.arguments_by_name.<argument>",
   next_argument: "next.arguments_by_name.<argument>",
+  startup_required_field: "startup.required_fields_by_name.<field>",
+  next_required_field: "next.required_fields_by_name.<field>",
+  startup_argument_source: "startup.argument_sources.<field>",
+  next_argument_source: "next.argument_sources.<field>",
   workflow_phase: "workflow.phases_by_name.start_or_resume"
 };
 export const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
@@ -223,7 +261,11 @@ export const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
   step: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.step",
   ordered_lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle[]",
   argument: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.arguments_by_name.<argument>",
-  ordered_argument: "next.actions_by_project_id.<project_id>.lifecycle[].arguments_by_name.<argument>"
+  ordered_argument: "next.actions_by_project_id.<project_id>.lifecycle[].arguments_by_name.<argument>",
+  required_field: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.required_fields_by_name.<field>",
+  ordered_required_field: "next.actions_by_project_id.<project_id>.lifecycle[].required_fields_by_name.<field>",
+  argument_source: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.argument_sources.<field>",
+  ordered_argument_source: "next.actions_by_project_id.<project_id>.lifecycle[].argument_sources.<field>"
 } satisfies LifecycleStepSelectionSources;
 const LIFECYCLE_SMOKE_WHEN = "Before trusting lifecycle sync on a new machine or remote.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
@@ -1381,7 +1423,11 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
         next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
         ordered_next_action: "handoff.inbox[].next_action",
         argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-        ordered_argument: "handoff.inbox[].next_action.arguments_by_name.<argument>"
+        ordered_argument: "handoff.inbox[].next_action.arguments_by_name.<argument>",
+        required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+        ordered_required_field: "handoff.inbox[].next_action.required_fields_by_name.<field>",
+        argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
+        ordered_argument_source: "handoff.inbox[].next_action.argument_sources.<field>"
       }
     : {
         entry: "handoff.active_sessions_by_record_id.<record_id>",
@@ -1389,7 +1435,11 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
         next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
         ordered_next_action: "handoff.active_sessions[].next_action",
         argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-        ordered_argument: "handoff.active_sessions[].next_action.arguments_by_name.<argument>"
+        ordered_argument: "handoff.active_sessions[].next_action.arguments_by_name.<argument>",
+        required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+        ordered_required_field: "handoff.active_sessions[].next_action.required_fields_by_name.<field>",
+        argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>",
+        ordered_argument_source: "handoff.active_sessions[].next_action.argument_sources.<field>"
       };
   const action = withActionInterfaces({
     recommended_action: "call_recall_with_record_id" as const,

@@ -16,14 +16,22 @@ const LIFECYCLE_ACTION_SELECTION_SOURCES = {
   action_id: "next.actions_by_id.<action>.action",
   ordered_action: "next.actions[]",
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
-  ordered_argument: "next.actions[].arguments_by_name.<argument>"
+  ordered_argument: "next.actions[].arguments_by_name.<argument>",
+  required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+  ordered_required_field: "next.actions[].required_fields_by_name.<field>",
+  argument_source: "next.actions_by_id.<action>.argument_sources.<field>",
+  ordered_argument_source: "next.actions[].argument_sources.<field>"
 };
 const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
   lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>",
   step: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.step",
   ordered_lifecycle_action: "next.actions_by_project_id.<project_id>.lifecycle[]",
   argument: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.arguments_by_name.<argument>",
-  ordered_argument: "next.actions_by_project_id.<project_id>.lifecycle[].arguments_by_name.<argument>"
+  ordered_argument: "next.actions_by_project_id.<project_id>.lifecycle[].arguments_by_name.<argument>",
+  required_field: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.required_fields_by_name.<field>",
+  ordered_required_field: "next.actions_by_project_id.<project_id>.lifecycle[].required_fields_by_name.<field>",
+  argument_source: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.argument_sources.<field>",
+  ordered_argument_source: "next.actions_by_project_id.<project_id>.lifecycle[].argument_sources.<field>"
 };
 const BOOT_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
@@ -163,7 +171,11 @@ function expectRefreshChangeNextAction(action: {
       next_action: "refresh.changes_by_record_id.<record_id>.next_action",
       ordered_next_action: "refresh.changes[].next_action",
       argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-      ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>"
+      ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>",
+      required_field: "refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+      ordered_required_field: "refresh.changes[].next_action.required_fields_by_name.<field>",
+      argument_source: "refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>",
+      ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
     }
   });
   expect(action.workflow).toEqual(withPhasesByName({
@@ -258,7 +270,15 @@ function expectHandoffEntryNextAction(action: {
       argument: `${actionSource}.arguments_by_name.<argument>`,
       ordered_argument: source === "inbox"
         ? "handoff.inbox[].next_action.arguments_by_name.<argument>"
-        : "handoff.active_sessions[].next_action.arguments_by_name.<argument>"
+        : "handoff.active_sessions[].next_action.arguments_by_name.<argument>",
+      required_field: `${actionSource}.required_fields_by_name.<field>`,
+      ordered_required_field: source === "inbox"
+        ? "handoff.inbox[].next_action.required_fields_by_name.<field>"
+        : "handoff.active_sessions[].next_action.required_fields_by_name.<field>",
+      argument_source: `${actionSource}.argument_sources.<field>`,
+      ordered_argument_source: source === "inbox"
+        ? "handoff.inbox[].next_action.argument_sources.<field>"
+        : "handoff.active_sessions[].next_action.argument_sources.<field>"
     },
     interfaces: {
       cli: { command: `moryn recall --record-id ${recordId} --project-id ${projectId}` },
@@ -355,7 +375,9 @@ describe("agent lifecycle", () => {
       expect(codexFinish.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
-        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+        action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+        action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
       expect(codexFinish.next.actions).toContainEqual(expect.objectContaining({
         action: "start_next_session",
@@ -438,10 +460,14 @@ describe("agent lifecycle", () => {
         inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
         inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
         inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+        inbox_next_action_required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+        inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
         active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
         active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
         active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
-        active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>"
+        active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+        active_session_next_action_required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+        active_session_next_action_argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>"
       });
       expect(geminiStart.handoff.active_sessions_by_record_id).toEqual({});
       expectHandoffEntryNextAction(geminiStart.handoff.inbox[0]!.next_action, codexFinish.record.id, "moryn");
@@ -457,7 +483,9 @@ describe("agent lifecycle", () => {
       expect(geminiStart.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
-        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+        action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+        action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
       expect(geminiStart.next.actions).toContainEqual(expect.objectContaining({
         action: "publish_status",
@@ -775,10 +803,14 @@ describe("agent lifecycle", () => {
         inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
         inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
         inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+        inbox_next_action_required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+        inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
         active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
         active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
         active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
-        active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>"
+        active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+        active_session_next_action_required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+        active_session_next_action_argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>"
       });
       expectHandoffEntryNextAction(start.handoff.active_sessions[0]!.next_action, status.record.id, "moryn", "active_sessions");
       expect(start.handoff.active_sessions_by_record_id[status.record.id]!.next_action).toEqual(start.handoff.active_sessions[0]!.next_action);
@@ -932,7 +964,9 @@ describe("agent lifecycle", () => {
         check: "checks_by_name.<check_name>",
         blocking_check: "readiness.blocking_checks_by_name.<check_name>",
         next_action: "next",
-        next_argument: "next.arguments_by_name.<argument>"
+        next_argument: "next.arguments_by_name.<argument>",
+        next_required_field: "next.required_fields_by_name.<field>",
+        next_argument_source: "next.argument_sources.<field>"
       });
       expect(doctor.next).toMatchObject({
         recommended_action: "call_agent_start",
@@ -953,7 +987,9 @@ describe("agent lifecycle", () => {
       expect(doctor.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
-        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+        action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+        action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
       expect(doctor.next.actions_by_id.start_session).toEqual(
         doctor.next.actions.find((action) => action.action === "start_session")
@@ -1197,7 +1233,9 @@ describe("agent lifecycle", () => {
       expect(doctor.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
-        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+        action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+        action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
     } finally {
       process.chdir(previousCwd);
@@ -1254,6 +1292,8 @@ describe("agent lifecycle", () => {
             project_id: "projects.projects_by_id.<project_id>.project_id",
             start_action: "next.actions_by_project_id.<project_id>",
             start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
+            start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
+            start_action_argument_source: "next.actions_by_project_id.<project_id>.argument_sources.<field>",
             lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
           },
           arguments: { project_id: "<project_id>" },
@@ -1426,6 +1466,8 @@ describe("agent lifecycle", () => {
             project_id: "projects.projects_by_id.<project_id>.project_id",
             start_action: "next.actions_by_project_id.<project_id>",
             start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
+            start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
+            start_action_argument_source: "next.actions_by_project_id.<project_id>.argument_sources.<field>",
             lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
           },
           safety: {
@@ -1502,7 +1544,9 @@ describe("agent lifecycle", () => {
       expect(entered.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
-        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+        action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+        action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
       expect(entered.next.workflow.phases.map((phase) => phase.action_source)).toContain("next.actions_by_id.publish_status");
       expect(entered.start.project.default_skills).toEqual(["release"]);

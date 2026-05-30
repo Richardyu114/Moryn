@@ -1373,9 +1373,10 @@ keyed `next.actions_by_id.<action>` or
 action without scanning the array or reconstructing action names.
 Runtime lifecycle actions additionally carry action-local `selection_sources`
 for the keyed `next.actions_by_id.<action>` entry, the action-id field, and the
-`arguments_by_name.<argument>` metadata directory, plus the ordered
-`next.actions[]` fallback. This lets a host pass a single action object between
-planning and execution without losing the stable source path. Library
+`arguments_by_name.<argument>`, `required_fields_by_name.<field>`, and
+`argument_sources.<field>` metadata directories, plus ordered `next.actions[]`
+fallbacks. This lets a host pass a single action object between planning and
+execution without losing the stable source path. Library
 hosts can reuse the exported `LIFECYCLE_NEXT_SELECTION_SOURCES`,
 `LIFECYCLE_ACTION_SELECTION_SOURCES`, `DISCOVER_PROJECT_SELECTION_SOURCES`, and
 `DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES` maps from the package entrypoint
@@ -1387,8 +1388,8 @@ action paths directly. Project-list workflow phases prefer
 `project_list.projects_by_id.<project_id>.next` while retaining
 `project_list.projects[].next` as an ordered compatibility source. Each nested
 `next.selection_sources` repeats those fully qualified keyed and ordered action
-paths, plus the selected action's `arguments_by_name.<argument>` directories,
-for hosts that only receive the selected action.
+paths, plus the selected action's parameter, required-field, and argument-source
+directories, for hosts that only receive the selected action.
 Lifecycle, guide, setup, project-discovery, error-recovery, and warning-recovery
 action templates also expose `interfaces.cli.command`,
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, `safety`, and single-step
@@ -1531,7 +1532,9 @@ ordered handoff arrays as `handoff.active_sessions_by_record_id` and
 `handoff.inbox_by_record_id`, keyed by `record_id`; `handoff.selection_sources`
 names the keyed entry, record-id, and next-action paths for both inbox and
 active-session entries, including the nested
-`next_action.arguments_by_name.<argument>` directories. Handoff entry workflows
+`next_action.arguments_by_name.<argument>`,
+`next_action.required_fields_by_name.<field>`, and
+`next_action.argument_sources.<field>` directories. Handoff entry workflows
 prefer those keyed paths and retain the ordered arrays as compatibility sources;
 each nested `next_action.selection_sources` repeats the selected path set for
 hosts that only receive the action. Library hosts can reuse the exported

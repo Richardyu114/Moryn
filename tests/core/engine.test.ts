@@ -198,7 +198,11 @@ function expectRefreshChangeRecallAction(action: {
       next_action: "refresh.changes_by_record_id.<record_id>.next_action",
       ordered_next_action: "refresh.changes[].next_action",
       argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-      ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>"
+      ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>",
+      required_field: "refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+      ordered_required_field: "refresh.changes[].next_action.required_fields_by_name.<field>",
+      argument_source: "refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>",
+      ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
     }
   });
   expectNextActionInterfaces(action);
@@ -369,7 +373,11 @@ describe("core engine", () => {
             next_action: "project_list.projects_by_id.<project_id>.next",
             ordered_next_action: "project_list.projects[].next",
             argument: "project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>",
-            ordered_argument: "project_list.projects[].next.arguments_by_name.<argument>"
+            ordered_argument: "project_list.projects[].next.arguments_by_name.<argument>",
+            required_field: "project_list.projects_by_id.<project_id>.next.required_fields_by_name.<field>",
+            ordered_required_field: "project_list.projects[].next.required_fields_by_name.<field>",
+            argument_source: "project_list.projects_by_id.<project_id>.next.argument_sources.<field>",
+            ordered_argument_source: "project_list.projects[].next.argument_sources.<field>"
           }
         }
       });

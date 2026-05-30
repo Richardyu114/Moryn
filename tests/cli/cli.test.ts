@@ -30,20 +30,32 @@ const LIFECYCLE_ACTION_SELECTION_SOURCES = {
   action_id: "next.actions_by_id.<action>.action",
   ordered_action: "next.actions[]",
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
-  ordered_argument: "next.actions[].arguments_by_name.<argument>"
+  ordered_argument: "next.actions[].arguments_by_name.<argument>",
+  required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+  ordered_required_field: "next.actions[].required_fields_by_name.<field>",
+  argument_source: "next.actions_by_id.<action>.argument_sources.<field>",
+  ordered_argument_source: "next.actions[].argument_sources.<field>"
 };
 const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   lifecycle_action: "lifecycle_by_step.<step>",
   step: "lifecycle_by_step.<step>.step",
   ordered_lifecycle_action: "lifecycle[]",
   argument: "lifecycle_by_step.<step>.arguments_by_name.<argument>",
-  ordered_argument: "lifecycle[].arguments_by_name.<argument>"
+  ordered_argument: "lifecycle[].arguments_by_name.<argument>",
+  required_field: "lifecycle_by_step.<step>.required_fields_by_name.<field>",
+  ordered_required_field: "lifecycle[].required_fields_by_name.<field>",
+  argument_source: "lifecycle_by_step.<step>.argument_sources.<field>",
+  ordered_argument_source: "lifecycle[].argument_sources.<field>"
 };
 const GUIDE_ENTRYPOINT_SELECTION_SOURCES = {
   startup_action: "startup",
   next_action: "next",
   startup_argument: "startup.arguments_by_name.<argument>",
   next_argument: "next.arguments_by_name.<argument>",
+  startup_required_field: "startup.required_fields_by_name.<field>",
+  next_required_field: "next.required_fields_by_name.<field>",
+  startup_argument_source: "startup.argument_sources.<field>",
+  next_argument_source: "next.argument_sources.<field>",
   workflow_phase: "workflow.phases_by_name.start_or_resume"
 };
 const WRITE_SELECTION_SOURCES = {
@@ -492,7 +504,11 @@ function expectRefreshChangeNextAction(action: {
       next_action: "refresh.changes_by_record_id.<record_id>.next_action",
       ordered_next_action: "refresh.changes[].next_action",
       argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
-      ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>"
+      ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>",
+      required_field: "refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+      ordered_required_field: "refresh.changes[].next_action.required_fields_by_name.<field>",
+      argument_source: "refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>",
+      ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
     }
   });
   expectActionInterfaces(action);
@@ -582,7 +598,15 @@ function expectHandoffEntryNextAction(action: {
       argument: `${actionSource}.arguments_by_name.<argument>`,
       ordered_argument: source === "inbox"
         ? "handoff.inbox[].next_action.arguments_by_name.<argument>"
-        : "handoff.active_sessions[].next_action.arguments_by_name.<argument>"
+        : "handoff.active_sessions[].next_action.arguments_by_name.<argument>",
+      required_field: `${actionSource}.required_fields_by_name.<field>`,
+      ordered_required_field: source === "inbox"
+        ? "handoff.inbox[].next_action.required_fields_by_name.<field>"
+        : "handoff.active_sessions[].next_action.required_fields_by_name.<field>",
+      argument_source: `${actionSource}.argument_sources.<field>`,
+      ordered_argument_source: source === "inbox"
+        ? "handoff.inbox[].next_action.argument_sources.<field>"
+        : "handoff.active_sessions[].next_action.argument_sources.<field>"
     }
   });
   expectActionInterfaces(action);
@@ -2790,7 +2814,11 @@ describe("moryn CLI", () => {
             next_action: "project_list.projects_by_id.<project_id>.next",
             ordered_next_action: "project_list.projects[].next",
             argument: "project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>",
-            ordered_argument: "project_list.projects[].next.arguments_by_name.<argument>"
+            ordered_argument: "project_list.projects[].next.arguments_by_name.<argument>",
+            required_field: "project_list.projects_by_id.<project_id>.next.required_fields_by_name.<field>",
+            ordered_required_field: "project_list.projects[].next.required_fields_by_name.<field>",
+            argument_source: "project_list.projects_by_id.<project_id>.next.argument_sources.<field>",
+            ordered_argument_source: "project_list.projects[].next.argument_sources.<field>"
           }
         }
       });
@@ -2877,7 +2905,9 @@ describe("moryn CLI", () => {
       expect(parsedFinish.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
-        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+        action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+        action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
       expect(parsedFinish.next.actions).toContainEqual(expect.objectContaining({
         action: "start_next_session",
@@ -3017,7 +3047,9 @@ describe("moryn CLI", () => {
       expect(parsedStart.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
-        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+        action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+        action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
       expect(parsedStart.next.actions_by_id.publish_status).toEqual(parsedStart.next.actions.find((action) => action.action === "publish_status"));
       expect(parsedStart.next.actions_by_id.finish_session).toEqual(parsedStart.next.actions.find((action) => action.action === "finish_session"));
@@ -3234,7 +3266,9 @@ describe("moryn CLI", () => {
       expect(parsedStatus.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
-        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+        action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+        action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
       expect(parsedStatus.next.actions_by_id[parsedStatus.next.recommended_finish_action_id]).toEqual(parsedStatus.next.actions_by_id.finish_session);
       expect(parsedStatus.next.actions_by_id[parsedStatus.next.recommended_refresh_action_id]).toEqual(parsedStatus.next.actions_by_id.refresh_context);
@@ -3329,10 +3363,14 @@ describe("moryn CLI", () => {
         inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
         inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
         inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+        inbox_next_action_required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+        inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
         active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
         active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
         active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
-        active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>"
+        active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+        active_session_next_action_required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
+        active_session_next_action_argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>"
       });
       expectHandoffEntryNextAction(parsedStart.handoff.active_sessions[0]!.next_action, parsedStart.handoff.active_sessions[0]!.record_id, "moryn", "active_sessions");
       expect(parsedStart.handoff.active_sessions_by_record_id[parsedStart.handoff.active_sessions[0]!.record_id]!.next_action.workflow).toEqual(parsedStart.handoff.active_sessions[0]!.next_action.workflow);
@@ -3459,7 +3497,9 @@ describe("moryn CLI", () => {
         check: "checks_by_name.<check_name>",
         blocking_check: "readiness.blocking_checks_by_name.<check_name>",
         next_action: "next",
-        next_argument: "next.arguments_by_name.<argument>"
+        next_argument: "next.arguments_by_name.<argument>",
+        next_required_field: "next.required_fields_by_name.<field>",
+        next_argument_source: "next.argument_sources.<field>"
       });
       expect(parsed.checks_by_name.store).toEqual(parsed.checks.find((check) => check.name === "store"));
       expect(parsed.checks_by_name.project).toEqual(parsed.checks.find((check) => check.name === "project"));
@@ -3481,7 +3521,9 @@ describe("moryn CLI", () => {
       expect(parsed.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
-        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+        action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+        action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
       expect(parsed.next.arguments).toMatchObject({
         project_path: project,
@@ -3813,7 +3855,9 @@ describe("moryn CLI", () => {
       expect(parsed.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
-        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
+        action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+        action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
+        action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
       });
     });
   });
@@ -3968,6 +4012,8 @@ describe("moryn CLI", () => {
           project_id: "projects.projects_by_id.<project_id>.project_id",
           start_action: "next.actions_by_project_id.<project_id>",
           start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
+          start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
+          start_action_argument_source: "next.actions_by_project_id.<project_id>.argument_sources.<field>",
           lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
         },
         arguments: { project_id: "<project_id>" },

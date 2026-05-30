@@ -277,6 +277,10 @@ Deliverables:
   discovery action selection-source maps now include local
   `arguments_by_name.<argument>` paths, so agents can find parameter metadata
   from the selected action instead of guessing from operation names.
+- Done: The same action-local selection-source maps now include
+  `required_fields_by_name.<field>` and `argument_sources.<field>` paths, so
+  agents can find authored-input requirements and existing argument provenance
+  without parsing command strings.
 - Done: Unknown-project and missing-context recovery workflows now add a
   `retry_original_tool_with_selected_project_id` phase sourced from
   `project_list.projects_by_id`; direct `agent_start`, `agent_status`, and
