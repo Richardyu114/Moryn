@@ -415,13 +415,19 @@ machine-readable reason list: `required_fields`, `user_confirmation`, or
 the immediate host action, such as `collect_required_inputs`,
 `ask_user_confirmation`, `call_mcp`, or `do_not_run`, and
 `execution.runbook.steps[]` lists stable object paths such as
+`execution.required_inputs[].collect`,
 `execution.required_inputs_by_argument_path`, `interfaces.mcp`, and
 `interfaces.cli.exec_file` in the order a host should follow. Each
 `required_inputs[]` entry names the field,
 original `argument_path`, split `argument_paths`, optional argument source,
 optional `selection_sources.required_input` and
 `selection_sources.required_input_argument_path`, placeholder/value,
-`mcp_targets`, `cli_targets`, alternatives, and allowed values when present;
+`mcp_targets`, `cli_targets`, alternatives, allowed values, and a `collect`
+object when present. `collect` is the host-facing input recipe: it gives a
+stable `input_key`, a short user prompt, where to apply the answer in MCP and
+CLI arguments, the `value_path` such as `user_input.summary`, placeholder, and
+any enum or alternative choices, so hosts do not invent questions or argument
+mappings from prose;
 `required_inputs_by_field` mirrors those entries by field name for hosts that
 already know which input they need. `required_inputs_by_argument_path` mirrors
 the same entries by each split argument path, so a host holding the CLI/MCP
@@ -608,8 +614,10 @@ into ordered machine steps: collect required inputs from the `required_inputs`
 indexes, ask for user confirmation when required, then call the returned MCP
 interface or `exec_file` only after the blockers have been satisfied.
 Each entry includes `selection_sources.required_input`,
-`selection_sources.required_input_argument_path`, `mcp_targets`, and
-`cli_targets`, so hosts do not need to join
+`selection_sources.required_input_argument_path`, `collect`, `mcp_targets`, and
+`cli_targets`; hosts should prefer `required_inputs[].collect` when asking the
+user and then use `collect.apply_to` to patch MCP arguments or CLI args. That
+keeps hosts from needing to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.
 Each static operation `interfaces.cli` entry includes a display `command`, a

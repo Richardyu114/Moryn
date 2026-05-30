@@ -1117,9 +1117,38 @@ describe("MCP stdio server", () => {
             runbook: {
               next: "collect_required_inputs",
               steps: [
-                expect.objectContaining({ step: "collect_required_inputs" }),
+                expect.objectContaining({
+                  step: "collect_required_inputs",
+                  required_input_collect: "execution.required_inputs[].collect"
+                }),
                 expect.objectContaining({ step: "call_mcp" })
               ]
+            },
+            required_inputs_by_field: {
+              summary: {
+                collect: {
+                  source: "user",
+                  input_key: "summary",
+                  prompt: "Provide summary.",
+                  apply_to: {
+                    mcp_argument_paths: ["summary"],
+                    mcp_targets: [{
+                      argument: "summary",
+                      type: "string",
+                      required: true,
+                      preferred: true
+                    }],
+                    cli_targets: [{
+                      flag: "--summary",
+                      type: "string",
+                      required: true,
+                      preferred: true
+                    }]
+                  },
+                  value_path: "user_input.summary",
+                  placeholder: "<summary>"
+                }
+              }
             },
             requires_user_confirmation: false,
             reason: "Action requires authored input before it can run."
@@ -1197,12 +1226,61 @@ describe("MCP stdio server", () => {
             }
           }
         });
+        expect(parsed.operations_by_id.write.execution.required_inputs_by_field.text_or_content.collect).toMatchObject({
+          source: "user",
+          input_key: "text_or_content",
+          prompt: "Provide text or content.",
+          apply_to: {
+            mcp_argument_paths: ["text", "content"],
+            mcp_targets: [
+              {
+                argument: "text",
+                type: "string",
+                required: false,
+                preferred: true
+              },
+              {
+                argument: "content",
+                type: "object",
+                required: false,
+                preferred: false
+              }
+            ],
+            cli_targets: [
+              {
+                flag: "--text",
+                type: "string",
+                required: false,
+                preferred: true
+              },
+              {
+                flag: "--content-json",
+                type: "object",
+                required: false,
+                preferred: false
+              }
+            ]
+          },
+          value_path: "user_input.text_or_content",
+          placeholder: "<text_or_content>",
+          alternatives: ["text", "content"]
+        });
         expect(parsed.operations_by_id.promote).toMatchObject({
           execution: {
             ready_to_run: false,
             next_step: "collect_required_fields",
             blocked_by: ["required_fields"],
             missing_required_fields: ["record_id", "target_state"],
+            required_inputs_by_field: {
+              target_state: {
+                collect: {
+                  source: "user",
+                  input_key: "target_state",
+                  prompt: "Provide target state.",
+                  allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+                }
+              }
+            },
             requires_user_confirmation: false
           },
           required_fields_by_name: {

@@ -15,6 +15,7 @@ export interface ActionRunbookCollectRequiredInputsStep {
   reason: "required_fields";
   missing_required_fields: "execution.missing_required_fields";
   required_inputs: "execution.required_inputs";
+  required_input_collect: "execution.required_inputs[].collect";
   required_inputs_by_field: "execution.required_inputs_by_field";
   required_inputs_by_argument_path: "execution.required_inputs_by_argument_path";
 }
@@ -73,10 +74,26 @@ export interface ActionCliTarget {
   preferred: boolean;
 }
 
+export interface ActionRequiredInputCollect {
+  source: "user";
+  input_key: string;
+  prompt: string;
+  apply_to: {
+    mcp_argument_paths: string[];
+    mcp_targets?: ActionMcpTarget[];
+    cli_targets?: ActionCliTarget[];
+  };
+  value_path?: string;
+  placeholder?: string;
+  alternatives?: readonly string[];
+  allowed_values?: readonly string[];
+}
+
 export interface ActionRequiredInput {
   field: string;
   argument_path: string;
   argument_paths: string[];
+  collect: ActionRequiredInputCollect;
   selection_sources?: Record<string, string>;
   mcp_targets?: ActionMcpTarget[];
   cli_targets?: ActionCliTarget[];
@@ -181,11 +198,42 @@ function cliTargets(
   return targets.length > 0 ? targets : undefined;
 }
 
+function promptForRequiredInput(field: string): string {
+  return `Provide ${field.replace(/_/g, " ")}.`;
+}
+
+function collectRequiredInput(input: {
+  field: string;
+  paths: string[];
+  mcp_targets?: ActionMcpTarget[];
+  cli_targets?: ActionCliTarget[];
+  argument_source?: string;
+  placeholder?: string;
+  alternatives?: readonly string[];
+  allowed_values?: readonly string[];
+}): ActionRequiredInputCollect {
+  return {
+    source: "user",
+    input_key: input.field,
+    prompt: promptForRequiredInput(input.field),
+    apply_to: {
+      mcp_argument_paths: input.paths,
+      ...(input.mcp_targets ? { mcp_targets: input.mcp_targets } : {}),
+      ...(input.cli_targets ? { cli_targets: input.cli_targets } : {})
+    },
+    ...(input.argument_source ? { value_path: input.argument_source } : {}),
+    ...(input.placeholder ? { placeholder: input.placeholder } : {}),
+    ...(input.alternatives ? { alternatives: input.alternatives } : {}),
+    ...(input.allowed_values ? { allowed_values: input.allowed_values } : {})
+  };
+}
+
 const COLLECT_REQUIRED_INPUTS_STEP: ActionRunbookCollectRequiredInputsStep = {
   step: "collect_required_inputs",
   reason: "required_fields",
   missing_required_fields: "execution.missing_required_fields",
   required_inputs: "execution.required_inputs",
+  required_input_collect: "execution.required_inputs[].collect",
   required_inputs_by_field: "execution.required_inputs_by_field",
   required_inputs_by_argument_path: "execution.required_inputs_by_argument_path"
 };
@@ -267,18 +315,30 @@ export function actionExecution(input: {
     const splitArgumentPaths = argumentPaths(argumentPath);
     const mcpTargetList = mcpTargets(splitArgumentPaths, input.arguments_by_name);
     const cliTargetList = cliTargets(splitArgumentPaths, input.arguments_by_name, field);
+    const argumentSource = input.argument_sources?.[field];
+    const placeholder = metadata?.placeholder;
     return {
       field,
       argument_path: argumentPath,
       argument_paths: splitArgumentPaths,
+      collect: collectRequiredInput({
+        field,
+        paths: splitArgumentPaths,
+        ...(mcpTargetList ? { mcp_targets: mcpTargetList } : {}),
+        ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
+        ...(argumentSource ? { argument_source: argumentSource } : {}),
+        ...(placeholder ? { placeholder } : {}),
+        ...(metadata?.alternatives ? { alternatives: metadata.alternatives } : {}),
+        ...(metadata?.allowed_values ? { allowed_values: metadata.allowed_values } : {})
+      }),
       ...(input.required_input_selection_sources && Object.keys(input.required_input_selection_sources).length > 0
         ? { selection_sources: input.required_input_selection_sources }
         : {}),
       ...(mcpTargetList ? { mcp_targets: mcpTargetList } : {}),
       ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
-      ...(input.argument_sources?.[field] ? { argument_source: input.argument_sources[field] } : {}),
+      ...(argumentSource ? { argument_source: argumentSource } : {}),
       ...(metadata && "value" in metadata ? { value: metadata.value } : {}),
-      ...(metadata?.placeholder ? { placeholder: metadata.placeholder } : {}),
+      ...(placeholder ? { placeholder } : {}),
       ...(metadata?.alternatives ? { alternatives: metadata.alternatives } : {}),
       ...(metadata?.allowed_values ? { allowed_values: metadata.allowed_values } : {})
     };

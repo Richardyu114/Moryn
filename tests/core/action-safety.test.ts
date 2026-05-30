@@ -18,6 +18,7 @@ const collectRequiredInputsStep = {
   reason: "required_fields",
   missing_required_fields: "execution.missing_required_fields",
   required_inputs: "execution.required_inputs",
+  required_input_collect: "execution.required_inputs[].collect",
   required_inputs_by_field: "execution.required_inputs_by_field",
   required_inputs_by_argument_path: "execution.required_inputs_by_argument_path"
 };
@@ -26,6 +27,17 @@ const askUserConfirmationStep = {
   step: "ask_user_confirmation",
   reason: "user_confirmation",
   confirmation_required: "execution.requires_user_confirmation"
+};
+
+const summaryCollect = {
+  source: "user",
+  input_key: "summary",
+  prompt: "Provide summary.",
+  apply_to: {
+    mcp_argument_paths: ["summary"]
+  },
+  value_path: "user_input.summary",
+  placeholder: "<summary>"
 };
 
 describe("action execution readiness", () => {
@@ -84,6 +96,48 @@ describe("action execution readiness", () => {
         collectRequiredInputsStep,
         callMcpStep
       ]
+    });
+  });
+
+  it("describes how hosts should collect and apply required inputs", () => {
+    const execution = actionExecution({
+      tool: "agent_finish",
+      safe_to_run: false,
+      required_fields: ["summary"],
+      required_fields_by_name: {
+        summary: {
+          name: "summary",
+          argument_path: "summary",
+          placeholder: "<summary>",
+          value: "<summary>"
+        }
+      },
+      arguments_by_name: {
+        summary: {
+          type: "string",
+          required: true,
+          cli: { flag: "--summary" },
+          mcp: { argument: "summary" }
+        }
+      },
+      argument_sources: {
+        summary: "user_input.summary"
+      }
+    });
+
+    expect(execution.required_inputs_by_field.summary).toMatchObject({
+      field: "summary",
+      collect: {
+        source: "user",
+        input_key: "summary",
+        prompt: "Provide summary.",
+        apply_to: {
+          mcp_argument_paths: ["summary"],
+          cli_targets: [{ flag: "--summary", type: "string", required: true, preferred: true }]
+        },
+        value_path: "user_input.summary",
+        placeholder: "<summary>"
+      }
     });
   });
 
@@ -163,6 +217,7 @@ describe("action execution readiness", () => {
         field: "summary",
         argument_path: "summary",
         argument_paths: ["summary"],
+        collect: summaryCollect,
         argument_source: "user_input.summary",
         selection_sources: {
           required_input: "next.execution.required_inputs_by_field.<field>",
@@ -176,6 +231,7 @@ describe("action execution readiness", () => {
           field: "summary",
           argument_path: "summary",
           argument_paths: ["summary"],
+          collect: summaryCollect,
           argument_source: "user_input.summary",
           selection_sources: {
             required_input: "next.execution.required_inputs_by_field.<field>",
@@ -190,6 +246,7 @@ describe("action execution readiness", () => {
           field: "summary",
           argument_path: "summary",
           argument_paths: ["summary"],
+          collect: summaryCollect,
           argument_source: "user_input.summary",
           selection_sources: {
             required_input: "next.execution.required_inputs_by_field.<field>",
@@ -268,6 +325,29 @@ describe("action execution readiness", () => {
         placeholder: "<kind>",
         value: "<kind>",
         allowed_values: ["memory", "skill"],
+        collect: {
+          source: "user",
+          input_key: "kind",
+          prompt: "Provide kind.",
+          apply_to: {
+            mcp_argument_paths: ["kind"],
+            mcp_targets: [{
+              argument: "kind",
+              type: "string",
+              required: true,
+              preferred: true
+            }],
+            cli_targets: [{
+              flag: "--kind",
+              type: "string",
+              required: true,
+              preferred: true
+            }]
+          },
+          value_path: "user_input.kind",
+          placeholder: "<kind>",
+          allowed_values: ["memory", "skill"]
+        },
         mcp_targets: [{
           argument: "kind",
           type: "string",
@@ -289,6 +369,45 @@ describe("action execution readiness", () => {
         placeholder: "<text_or_content>",
         value: "<text_or_content>",
         alternatives: ["text", "content"],
+        collect: {
+          source: "user",
+          input_key: "text_or_content",
+          prompt: "Provide text or content.",
+          apply_to: {
+            mcp_argument_paths: ["text", "content"],
+            mcp_targets: [
+              {
+                argument: "text",
+                type: "string",
+                required: false,
+                preferred: true
+              },
+              {
+                argument: "content",
+                type: "object",
+                required: false,
+                preferred: false
+              }
+            ],
+            cli_targets: [
+              {
+                flag: "--text",
+                type: "string",
+                required: false,
+                preferred: true
+              },
+              {
+                flag: "--content-json",
+                type: "object",
+                required: false,
+                preferred: false
+              }
+            ]
+          },
+          value_path: "user_input.text_or_content",
+          placeholder: "<text_or_content>",
+          alternatives: ["text", "content"]
+        },
         mcp_targets: [
           {
             argument: "text",
@@ -327,6 +446,45 @@ describe("action execution readiness", () => {
       placeholder: "<text_or_content>",
       value: "<text_or_content>",
       alternatives: ["text", "content"],
+      collect: {
+        source: "user",
+        input_key: "text_or_content",
+        prompt: "Provide text or content.",
+        apply_to: {
+          mcp_argument_paths: ["text", "content"],
+          mcp_targets: [
+            {
+              argument: "text",
+              type: "string",
+              required: false,
+              preferred: true
+            },
+            {
+              argument: "content",
+              type: "object",
+              required: false,
+              preferred: false
+            }
+          ],
+          cli_targets: [
+            {
+              flag: "--text",
+              type: "string",
+              required: false,
+              preferred: true
+            },
+            {
+              flag: "--content-json",
+              type: "object",
+              required: false,
+              preferred: false
+            }
+          ]
+        },
+        value_path: "user_input.text_or_content",
+        placeholder: "<text_or_content>",
+        alternatives: ["text", "content"]
+      },
       mcp_targets: [
         {
           argument: "text",

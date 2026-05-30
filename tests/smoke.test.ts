@@ -266,6 +266,28 @@ describe("package smoke test", () => {
         field: "summary",
         argument_path: "summary",
         argument_paths: ["summary"],
+        collect: {
+          source: "user",
+          input_key: "summary",
+          prompt: "Provide summary.",
+          apply_to: {
+            mcp_argument_paths: ["summary"],
+            mcp_targets: [{
+              argument: "summary",
+              type: "string",
+              required: true,
+              preferred: true
+            }],
+            cli_targets: [{
+              flag: "--summary",
+              type: "string",
+              required: true,
+              preferred: true
+            }]
+          },
+          value_path: "user_input.summary",
+          placeholder: "<summary>"
+        },
         argument_source: "user_input.summary",
         selection_sources: {
           required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
@@ -291,6 +313,28 @@ describe("package smoke test", () => {
           field: "summary",
           argument_path: "summary",
           argument_paths: ["summary"],
+          collect: {
+            source: "user",
+            input_key: "summary",
+            prompt: "Provide summary.",
+            apply_to: {
+              mcp_argument_paths: ["summary"],
+              mcp_targets: [{
+                argument: "summary",
+                type: "string",
+                required: true,
+                preferred: true
+              }],
+              cli_targets: [{
+                flag: "--summary",
+                type: "string",
+                required: true,
+                preferred: true
+              }]
+            },
+            value_path: "user_input.summary",
+            placeholder: "<summary>"
+          },
           argument_source: "user_input.summary",
           selection_sources: {
             required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
@@ -324,6 +368,28 @@ describe("package smoke test", () => {
           field: "record_id",
           argument_path: "record_id",
           argument_paths: ["record_id"],
+          collect: {
+            source: "user",
+            input_key: "record_id",
+            prompt: "Provide record id.",
+            apply_to: {
+              mcp_argument_paths: ["record_id"],
+              mcp_targets: [{
+                argument: "record_id",
+                type: "string",
+                required: true,
+                preferred: true
+              }],
+              cli_targets: [{
+                positional: "record-id",
+                type: "string",
+                required: true,
+                preferred: true
+              }]
+            },
+            value_path: "user_input.record_id",
+            placeholder: "<record_id>"
+          },
           argument_source: "user_input.record_id",
           placeholder: "<record_id>",
           value: "<record_id>",
@@ -344,6 +410,29 @@ describe("package smoke test", () => {
           field: "target_state",
           argument_path: "target_state",
           argument_paths: ["target_state"],
+          collect: {
+            source: "user",
+            input_key: "target_state",
+            prompt: "Provide target state.",
+            apply_to: {
+              mcp_argument_paths: ["target_state"],
+              mcp_targets: [{
+                argument: "target_state",
+                type: "string",
+                required: true,
+                preferred: true
+              }],
+              cli_targets: [{
+                flag: "--state",
+                type: "string",
+                required: true,
+                preferred: true
+              }]
+            },
+            value_path: "user_input.target_state",
+            placeholder: "<state>",
+            allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+          },
           argument_source: "user_input.target_state",
           placeholder: "<state>",
           value: "<state>",
@@ -416,6 +505,29 @@ describe("package smoke test", () => {
         field: "path",
         argument_path: "path",
         argument_paths: ["path"],
+        collect: {
+          source: "user",
+          input_key: "path",
+          prompt: "Provide path.",
+          apply_to: {
+            mcp_argument_paths: ["path"],
+            mcp_targets: [{
+              argument: "path",
+              type: "string",
+              required: true,
+              preferred: true
+            }],
+            cli_targets: [{
+              flag: "--path",
+              type: "string",
+              required: true,
+              default: ".",
+              preferred: true
+            }]
+          },
+          value_path: "user_input.path",
+          placeholder: "<path>"
+        },
         argument_source: "user_input.path",
         placeholder: "<path>",
         value: "<path>",
@@ -510,6 +622,45 @@ describe("package smoke test", () => {
       argument_path: "text|content",
       argument_paths: ["text", "content"],
       alternatives: ["text", "content"],
+      collect: {
+        source: "user",
+        input_key: "text_or_content",
+        prompt: "Provide text or content.",
+        apply_to: {
+          mcp_argument_paths: ["text", "content"],
+          mcp_targets: [
+            {
+              argument: "text",
+              type: "string",
+              required: false,
+              preferred: true
+            },
+            {
+              argument: "content",
+              type: "object",
+              required: false,
+              preferred: false
+            }
+          ],
+          cli_targets: [
+            {
+              flag: "--text",
+              type: "string",
+              required: false,
+              preferred: true
+            },
+            {
+              flag: "--content-json",
+              type: "object",
+              required: false,
+              preferred: false
+            }
+          ]
+        },
+        value_path: "user_input.text_or_content",
+        placeholder: "<text_or_content>",
+        alternatives: ["text", "content"]
+      },
       mcp_targets: [
         {
           argument: "text",
