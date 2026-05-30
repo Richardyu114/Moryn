@@ -419,6 +419,8 @@ the immediate host action, such as `collect_required_inputs`,
 `execution.required_inputs[].collect.apply_to`,
 `execution.required_inputs[].collect.apply_to.assignment_mode`,
 `execution.required_inputs[].collect.expected_value`,
+`execution.required_inputs[].collect.choice_options[]`,
+`execution.required_inputs[].collect.preferred_choice`,
 `execution.required_inputs[].collect.choices_by_option.<option>.apply_to`,
 `execution.required_inputs[].collect.choices[].apply_to`,
 `execution.required_inputs_by_argument_path`, `interfaces.mcp`, and
@@ -437,10 +439,11 @@ shape (`string`, `enum`, `json_object`, `string_list`, and related CLI
 encodings) so hosts can render and validate inputs without reverse-engineering
 argument metadata. When `collect.input_mode` or
 `collect.apply_to.assignment_mode` is `"choose_one"`, hosts should ask for one
-value plus one `collect.choices[].option`, look up the selected option in
-`collect.choices_by_option`, then apply only that choice's `apply_to`
+value plus one option from `collect.choice_options`, default to
+`collect.preferred_choice` when the user has not picked one, look up the selected
+option in `collect.choices_by_option`, then apply only that choice's `apply_to`
 assignments and `expected_value`; this removes the need to parse `text|content`,
-scan arrays, or guess whether all alternatives should be filled.
+scan arrays, infer defaults, or guess whether all alternatives should be filled.
 The collect runbook step also names the aggregate
 `collect.apply_to.assignment_mode` path, so hosts that start from assignments
 can detect `"choose_one"` before applying any MCP or CLI writes.
@@ -635,9 +638,10 @@ into ordered machine steps: collect required inputs from the `required_inputs`
 indexes, ask for user confirmation when required, then call the returned MCP
 interface or `exec_file` only after the blockers have been satisfied. The
 collect step includes direct paths for `collect.expected_value`,
-`collect.choices[]`, keyed `collect.choices_by_option`, each choice's
-`apply_to`, and each choice's `expected_value`, so hosts can follow the input
-recipe without exploring the response shape.
+`collect.choice_options[]`, `collect.preferred_choice`, `collect.choices[]`,
+keyed `collect.choices_by_option`, each choice's `apply_to`, and each choice's
+`expected_value`, so hosts can follow the input recipe without exploring the
+response shape.
 Each entry includes `selection_sources.required_input`,
 `selection_sources.required_input_argument_path`, `collect`, `mcp_targets`, and
 `cli_targets`; hosts should prefer `required_inputs[].collect` when asking the
@@ -646,9 +650,10 @@ user and then use `collect.apply_to.mcp_assignments` to patch MCP arguments or
 and `value_encoding`. Use `collect.expected_value.kind` to decide whether the
 answer should be a string, enum value, JSON object, list, object field map, or
 path-value entries. For alternatives, present `collect.choices[]` to the user
-and then prefer `collect.choices_by_option.<option>` for execution: use that
-choice's own `expected_value` and `apply_to` instructions so only the selected
-MCP argument or CLI flag is populated. A top-level
+using `collect.choice_options` and `collect.preferred_choice`, then prefer
+`collect.choices_by_option.<option>` for execution: use that choice's own
+`expected_value` and `apply_to` instructions so only the selected MCP argument
+or CLI flag is populated. A top-level
 `collect.apply_to.assignment_mode` of `"choose_one"` marks its aggregate
 assignments as informational, not a list to apply wholesale. That
 keeps hosts from needing to join

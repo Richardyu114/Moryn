@@ -262,6 +262,8 @@ describe("package smoke test", () => {
             required_input_apply_to: "execution.required_inputs[].collect.apply_to",
             required_input_assignment_mode: "execution.required_inputs[].collect.apply_to.assignment_mode",
             required_input_expected_value: "execution.required_inputs[].collect.expected_value",
+            required_input_choice_options: "execution.required_inputs[].collect.choice_options[]",
+            required_input_preferred_choice: "execution.required_inputs[].collect.preferred_choice",
             required_input_choices: "execution.required_inputs[].collect.choices[]",
             required_input_choices_by_option: "execution.required_inputs[].collect.choices_by_option",
             required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
@@ -803,6 +805,8 @@ describe("package smoke test", () => {
       alternatives: ["text", "content"],
       collect: {
         input_mode: "choose_one",
+        choice_options: ["text", "content"],
+        preferred_choice: "text",
         choices: [
           {
             option: "text",

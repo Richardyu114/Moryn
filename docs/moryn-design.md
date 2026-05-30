@@ -1264,19 +1264,20 @@ next step is `collect_required_fields`, `execution.required_inputs[]` gives the
 exact field, source path, placeholder, alternatives, allowed values, and split
 argument paths to use for collecting input and filling the action. Each entry
 also includes `collect`, `mcp_targets`, and `cli_targets`; when `collect`
-contains `choices[]`, hosts pick exactly one choice and apply that choice's
-`expected_value` plus MCP/CLI assignments. `collect.choices_by_option` mirrors
-the same choices by option name so hosts can execute a selected option without
-scanning the array. The top-level
+contains `choices[]`, hosts pick exactly one choice from `choice_options`, use
+`preferred_choice` as the default, and apply that choice's `expected_value` plus
+MCP/CLI assignments. `collect.choices_by_option` mirrors the same choices by
+option name so hosts can execute a selected option without scanning the array.
+The top-level
 `collect.apply_to.assignment_mode` repeats that constraint for hosts that inspect
 assignments first, so they do not need to parse `text|content` or infer which
 alternative is intended.
 The collect runbook step also names the stable paths for `collect.expected_value`,
 the aggregate `collect.apply_to` assignments, aggregate
-`collect.apply_to.assignment_mode`, `collect.choices[]`, keyed
-`collect.choices_by_option`, each choice's `apply_to`, and each choice's
-`expected_value`, so a host can follow the recipe without discovering nested
-fields dynamically.
+`collect.apply_to.assignment_mode`, `collect.choice_options[]`,
+`collect.preferred_choice`, `collect.choices[]`, keyed `collect.choices_by_option`,
+each choice's `apply_to`, and each choice's `expected_value`, so a host can
+follow the recipe without discovering nested fields dynamically.
 `execution.required_inputs_by_field` exposes the same metadata keyed by field
 name.
 
