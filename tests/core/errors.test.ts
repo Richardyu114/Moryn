@@ -267,6 +267,19 @@ describe("error envelopes", () => {
       error: {
         code: "SYNC_NOT_CONFIGURED",
         recommended_action: "run moryn sync init <remote>",
+        recovery_hint: {
+          missing_argument: { argument: "remote", placeholder: "<remote>" },
+          expected: {
+            kind: "git_remote",
+            source: "user_input.remote"
+          },
+          retry_with: {
+            tool: "sync_init",
+            command: "moryn sync init <remote>",
+            arguments: { remote: "<remote>" },
+            safe_to_run: false
+          }
+        },
         next_action: {
           recommended_action: "configure_sync_remote",
           tool: "sync_init",
@@ -380,6 +393,21 @@ describe("error envelopes", () => {
       error: {
         code: "SYNC_REMOTE_UNAVAILABLE",
         recommended_action: "continue locally and retry sync later",
+        recovery_hint: {
+          remote_available: false,
+          local_store_usable: true,
+          inspect_with: {
+            tool: "sync_status",
+            command: "moryn sync --status",
+            arguments: {},
+            safe_to_run: true
+          },
+          retry_after: {
+            condition: "remote_reachable_or_credentials_fixed",
+            action: "retry_original_sync_operation"
+          },
+          do_not: ["discard_local_events", "overwrite_remote_history", "retry_in_loop_without_status_check"]
+        },
         next_action: {
           recommended_action: "check_sync_status_before_retrying_remote_operation",
           tool: "sync_status",
@@ -400,6 +428,20 @@ describe("error envelopes", () => {
       error: {
         code: "SYNC_CONFLICT",
         recommended_action: "inspect Git sync state before retrying",
+        recovery_hint: {
+          conflict_detected: true,
+          inspect_with: {
+            tool: "sync_status",
+            command: "moryn sync --status",
+            arguments: {},
+            safe_to_run: true
+          },
+          retry_after: {
+            condition: "conflict_resolved",
+            action: "retry_original_sync_operation"
+          },
+          do_not: ["write_lifecycle_records", "retry_pull_or_push_until_conflict_resolved", "auto_resolve_generated_files"]
+        },
         next_action: {
           recommended_action: "inspect_sync_conflict_before_retrying",
           tool: "sync_status",
@@ -409,6 +451,44 @@ describe("error envelopes", () => {
         }
       }
     });
+  });
+
+  it("returns a guarded recovery hint when sync credentials or permissions fail", () => {
+    const envelope = toErrorEnvelope(new Error("Permission denied (publickey). Authentication failed."));
+
+    expect(envelope).toMatchObject({
+      ok: false,
+      error: {
+        code: "PERMISSION_DENIED",
+        recoverable: true,
+        recommended_action: "check Git credentials and filesystem permissions",
+        recovery_hint: {
+          permission_denied: true,
+          local_store_usable: true,
+          expected: {
+            kind: "valid_git_credentials_or_filesystem_permissions"
+          },
+          inspect_with: {
+            tool: "sync_status",
+            command: "moryn sync --status",
+            arguments: {},
+            safe_to_run: true
+          },
+          retry_after: {
+            condition: "credentials_or_permissions_fixed",
+            action: "retry_original_operation"
+          },
+          do_not: ["echo_private_key", "write_credentials_to_memory", "retry_in_loop_without_user_action"]
+        }
+      }
+    });
+  });
+
+  it("does not attach sync runtime recovery hints to non-sync conflict prose", () => {
+    const envelope = toErrorEnvelope(new Error("Invalid argument: conflicting write content inputs"));
+
+    expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+    expect(envelope.error.recovery_hint).toBeUndefined();
   });
 
   it("returns a machine-readable recovery action for uninitialized stores", () => {

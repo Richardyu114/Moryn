@@ -662,9 +662,9 @@ CLI and MCP boundary validation errors for required options, option dependencies
 non-empty strings, enum values, integer and number ranges, JSON object inputs,
 read filters, project init inputs, store path inputs, sync inputs, event path
 components, schema validation, replay history failures, sensitive-content
-failures, stale derived views, write core fields such as `kind`, `type`,
-`scope`, and `project_id`, write content payloads, write metadata such as
-`tags`, `source.client`,
+failures, stale derived views, sync runtime failures, write core fields such as
+`kind`, `type`, `scope`, and `project_id`, write content payloads, write
+metadata such as `tags`, `source.client`,
 `state`, `priority`, `confidence`, `confirmed`, and `provenance.*`, mutation
 arguments such as
 `record_id`, `linked_record_id`, `target_state`, `reason`, `confirmed`,
@@ -693,10 +693,11 @@ shape, revise patch rules, record/event schema validation issues with `path`,
 `event_op`, `record_id`, and rebuild inspection hint, or ISO datetime cursor
 requirements, sensitive-content failures that omit the detected secret value and
 return a redaction retry template, stale derived-view errors with safe rebuild
-and retry-after-original-read instructions, `validation_issues` lists schema
-paths to repair, `discover_with` names safe lookup calls such as `project_list`,
-and `retry_with` contains the option/argument value placeholder to use for the
-corrected retry.
+and retry-after-original-read instructions, sync runtime failures with safe
+status inspection, local-store continuity, retry conditions, and `do_not`
+guardrails, `validation_issues` lists schema paths to repair, `discover_with`
+names safe lookup calls such as `project_list`, and `retry_with` contains the
+option/argument value placeholder to use for the corrected retry.
 
 ### `init`
 
@@ -2548,6 +2549,24 @@ Agents must fill the user-owned remote before running it:
     "message": "Sync not configured",
     "recoverable": true,
     "recommended_action": "run moryn sync init <remote>",
+    "recovery_hint": {
+      "missing_argument": {
+        "argument": "remote",
+        "placeholder": "<remote>"
+      },
+      "expected": {
+        "kind": "git_remote",
+        "source": "user_input.remote"
+      },
+      "retry_with": {
+        "tool": "sync_init",
+        "command": "moryn sync init <remote>",
+        "arguments": {
+          "remote": "<remote>"
+        },
+        "safe_to_run": false
+      }
+    },
     "next_action": {
       "recommended_action": "configure_sync_remote",
       "tool": "sync_init",
@@ -2576,6 +2595,25 @@ local boot, recall, and write workflows:
     "message": "fatal: 'origin' does not appear to be a git repository",
     "recoverable": true,
     "recommended_action": "continue locally and retry sync later",
+    "recovery_hint": {
+      "remote_available": false,
+      "local_store_usable": true,
+      "inspect_with": {
+        "tool": "sync_status",
+        "command": "moryn sync --status",
+        "arguments": {},
+        "safe_to_run": true
+      },
+      "retry_after": {
+        "condition": "remote_reachable_or_credentials_fixed",
+        "action": "retry_original_sync_operation"
+      },
+      "do_not": [
+        "discard_local_events",
+        "overwrite_remote_history",
+        "retry_in_loop_without_status_check"
+      ]
+    },
     "next_action": {
       "recommended_action": "check_sync_status_before_retrying_remote_operation",
       "tool": "sync_status",
@@ -2599,12 +2637,69 @@ resolution:
     "message": "CONFLICT (add/add): Merge conflict in events/device/2026-05/evt.json",
     "recoverable": true,
     "recommended_action": "inspect Git sync state before retrying",
+    "recovery_hint": {
+      "conflict_detected": true,
+      "inspect_with": {
+        "tool": "sync_status",
+        "command": "moryn sync --status",
+        "arguments": {},
+        "safe_to_run": true
+      },
+      "retry_after": {
+        "condition": "conflict_resolved",
+        "action": "retry_original_sync_operation"
+      },
+      "do_not": [
+        "write_lifecycle_records",
+        "retry_pull_or_push_until_conflict_resolved",
+        "auto_resolve_generated_files"
+      ]
+    },
     "next_action": {
       "recommended_action": "inspect_sync_conflict_before_retrying",
       "tool": "sync_status",
       "command": "moryn sync --status",
       "arguments": {},
       "safe_to_run": true
+    }
+  }
+}
+```
+
+Permission or authentication failures keep local operations available but tell
+agents not to echo or store credentials. Agents should ask the user to fix Git
+credentials or filesystem permissions, inspect status, and retry only after that
+external condition changes:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "PERMISSION_DENIED",
+    "message": "Permission denied (publickey). Authentication failed.",
+    "recoverable": true,
+    "recommended_action": "check Git credentials and filesystem permissions",
+    "recovery_hint": {
+      "permission_denied": true,
+      "local_store_usable": true,
+      "expected": {
+        "kind": "valid_git_credentials_or_filesystem_permissions"
+      },
+      "inspect_with": {
+        "tool": "sync_status",
+        "command": "moryn sync --status",
+        "arguments": {},
+        "safe_to_run": true
+      },
+      "retry_after": {
+        "condition": "credentials_or_permissions_fixed",
+        "action": "retry_original_operation"
+      },
+      "do_not": [
+        "echo_private_key",
+        "write_credentials_to_memory",
+        "retry_in_loop_without_user_action"
+      ]
     }
   }
 }

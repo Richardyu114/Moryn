@@ -169,7 +169,7 @@ function knownRecommendedAction(message: string): string | undefined {
   return undefined;
 }
 
-function knownRecoveryHint(message: string): unknown {
+function knownRecoveryHint(code: string, message: string): unknown {
   if (message === PROJECT_SCOPE_CONTEXT_REQUIRED_MESSAGE) {
     return {
       rejected_argument: { argument: "scope", value: "project" },
@@ -211,6 +211,74 @@ function knownRecoveryHint(message: string): unknown {
         condition: "derived_views_rebuilt",
         action: "retry_original_read"
       }
+    };
+  }
+  if (code === "SYNC_NOT_CONFIGURED") {
+    return {
+      missing_argument: { argument: "remote", placeholder: "<remote>" },
+      expected: {
+        kind: "git_remote",
+        source: "user_input.remote"
+      },
+      retry_with: {
+        tool: "sync_init",
+        command: "moryn sync init <remote>",
+        arguments: { remote: "<remote>" },
+        safe_to_run: false
+      }
+    };
+  }
+  if (code === "PERMISSION_DENIED") {
+    return {
+      permission_denied: true,
+      local_store_usable: true,
+      expected: {
+        kind: "valid_git_credentials_or_filesystem_permissions"
+      },
+      inspect_with: {
+        tool: "sync_status",
+        command: "moryn sync --status",
+        arguments: {},
+        safe_to_run: true
+      },
+      retry_after: {
+        condition: "credentials_or_permissions_fixed",
+        action: "retry_original_operation"
+      },
+      do_not: ["echo_private_key", "write_credentials_to_memory", "retry_in_loop_without_user_action"]
+    };
+  }
+  if (code === "SYNC_CONFLICT") {
+    return {
+      conflict_detected: true,
+      inspect_with: {
+        tool: "sync_status",
+        command: "moryn sync --status",
+        arguments: {},
+        safe_to_run: true
+      },
+      retry_after: {
+        condition: "conflict_resolved",
+        action: "retry_original_sync_operation"
+      },
+      do_not: ["write_lifecycle_records", "retry_pull_or_push_until_conflict_resolved", "auto_resolve_generated_files"]
+    };
+  }
+  if (code === "SYNC_REMOTE_UNAVAILABLE") {
+    return {
+      remote_available: false,
+      local_store_usable: true,
+      inspect_with: {
+        tool: "sync_status",
+        command: "moryn sync --status",
+        arguments: {},
+        safe_to_run: true
+      },
+      retry_after: {
+        condition: "remote_reachable_or_credentials_fixed",
+        action: "retry_original_sync_operation"
+      },
+      do_not: ["discard_local_events", "overwrite_remote_history", "retry_in_loop_without_status_check"]
     };
   }
   return undefined;
@@ -1014,7 +1082,7 @@ export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): Mo
   const action = nextAction(code, message, context);
   const errorRecord = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
   const overrideRecommendedAction = typeof errorRecord.recommended_action === "string" ? errorRecord.recommended_action : undefined;
-  const baseRecoveryHint = "recovery_hint" in errorRecord ? errorRecord.recovery_hint : knownRecoveryHint(message);
+  const baseRecoveryHint = "recovery_hint" in errorRecord ? errorRecord.recovery_hint : knownRecoveryHint(code, message);
   const recoveryHint = baseRecoveryHint !== undefined ? contextRecoveryHint(baseRecoveryHint, context) : undefined;
   return {
     ok: false,
