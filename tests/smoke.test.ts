@@ -30,6 +30,8 @@ import {
   SYNC_STATUS_SELECTION_SOURCES,
   WRITE_SELECTION_SOURCES,
   getOperationContract,
+  getOperationContractByCliCommand,
+  getOperationContractByMcpTool,
   getOperationContracts,
   getSelectionSourceContracts,
   version
@@ -165,6 +167,8 @@ describe("package smoke test", () => {
   it("exports self-describing operation contracts from the package entrypoint", () => {
     const response = getOperationContracts();
     const agentFinishContract = getOperationContract("agent_finish");
+    const agentFinishByMcpTool = getOperationContractByMcpTool("agent_finish");
+    const agentFinishByCliCommand = getOperationContractByCliCommand("moryn agent finish --summary <summary>");
     const operationRequiredInputSources = {
       required_input: OPERATION_CONTRACTS_SELECTION_SOURCES.required_input,
       required_input_argument_path: OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_argument_path
@@ -187,8 +191,19 @@ describe("package smoke test", () => {
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(agentFinishContract?.operation).toBe(response.operations_by_id.agent_finish);
     expect(agentFinishContract?.operation_source).toBe("operations_by_id.agent_finish");
+    expect(agentFinishContract?.matched_source).toBe("operations_by_id.agent_finish");
     expect(agentFinishContract?.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(agentFinishByMcpTool?.operation).toBe(response.operations_by_id.agent_finish);
+    expect(agentFinishByMcpTool?.operation_source).toBe("operations_by_id.agent_finish");
+    expect(agentFinishByMcpTool?.matched_source).toBe("operations_by_mcp_tool.agent_finish");
+    expect(agentFinishByMcpTool?.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(agentFinishByCliCommand?.operation).toBe(response.operations_by_id.agent_finish);
+    expect(agentFinishByCliCommand?.operation_source).toBe("operations_by_id.agent_finish");
+    expect(agentFinishByCliCommand?.matched_source).toBe("operations_by_cli_command.moryn agent finish --summary <summary>");
+    expect(agentFinishByCliCommand?.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(getOperationContract("missing_operation")).toBeUndefined();
+    expect(getOperationContractByMcpTool("missing_tool")).toBeUndefined();
+    expect(getOperationContractByCliCommand("moryn missing")).toBeUndefined();
     expect(response.operations_by_mcp_tool.agent_enter).toBe(response.operations_by_id.agent_enter);
     expect(response.operations_by_mcp_tool.operation_contracts).toBe(response.operations_by_id.operation_contracts);
     expect(response.operations_by_mcp_tool.write).toBe(response.operations_by_id.write);

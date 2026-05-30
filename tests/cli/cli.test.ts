@@ -1483,6 +1483,7 @@ describe("moryn CLI", () => {
     ]);
     const parsed = JSON.parse(result.stdout) as {
       operation_source: string;
+      matched_source: string;
       operation: {
         operation: string;
         execution: {
@@ -1495,10 +1496,58 @@ describe("moryn CLI", () => {
 
     expect(Buffer.byteLength(result.stdout, "utf8")).toBeLessThan(128 * 1024);
     expect(parsed.operation_source).toBe("operations_by_id.agent_finish");
+    expect(parsed.matched_source).toBe("operations_by_id.agent_finish");
     expect(parsed.operation.operation).toBe("agent_finish");
     expect(parsed.operation.execution.next_step).toBe("collect_required_fields");
     expect(parsed.operation.execution.required_input_paths_by_value_path["user_input.summary"]).toBe("execution.required_inputs_by_field.summary");
     expect(parsed.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
+  });
+
+  it("returns one operation contract from the CLI by MCP tool or CLI command", async () => {
+    const byMcpTool = await exec("node", [
+      "--import", tsxLoader, cliPath,
+      "contracts", "operations",
+      "--mcp-tool", "agent_finish"
+    ]);
+    const byCliCommand = await exec("node", [
+      "--import", tsxLoader, cliPath,
+      "contracts", "operations",
+      "--cli-command", "moryn agent finish --summary <summary>"
+    ]);
+    const parsedByMcpTool = JSON.parse(byMcpTool.stdout) as {
+      operation_source: string;
+      matched_source: string;
+      operation: { operation: string };
+      selection_sources: Record<string, string>;
+    };
+    const parsedByCliCommand = JSON.parse(byCliCommand.stdout) as {
+      operation_source: string;
+      matched_source: string;
+      operation: { operation: string };
+      selection_sources: Record<string, string>;
+    };
+
+    expect(Buffer.byteLength(byMcpTool.stdout, "utf8")).toBeLessThan(128 * 1024);
+    expect(parsedByMcpTool.operation.operation).toBe("agent_finish");
+    expect(parsedByMcpTool.operation_source).toBe("operations_by_id.agent_finish");
+    expect(parsedByMcpTool.matched_source).toBe("operations_by_mcp_tool.agent_finish");
+    expect(parsedByMcpTool.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(Buffer.byteLength(byCliCommand.stdout, "utf8")).toBeLessThan(128 * 1024);
+    expect(parsedByCliCommand.operation.operation).toBe("agent_finish");
+    expect(parsedByCliCommand.operation_source).toBe("operations_by_id.agent_finish");
+    expect(parsedByCliCommand.matched_source).toBe("operations_by_cli_command.moryn agent finish --summary <summary>");
+    expect(parsedByCliCommand.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
+  });
+
+  it("rejects ambiguous operation contract CLI lookup flags", async () => {
+    await expect(exec("node", [
+      "--import", tsxLoader, cliPath,
+      "contracts", "operations",
+      "--operation", "agent_finish",
+      "--mcp-tool", "agent_finish"
+    ])).rejects.toMatchObject({
+      stderr: expect.stringContaining("Use only one operation contract lookup option")
+    });
   });
 
   it("returns machine-readable agent guide from the CLI", async () => {

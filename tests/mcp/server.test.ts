@@ -1537,6 +1537,7 @@ describe("MCP stdio server", () => {
         }
         const parsed = JSON.parse(first.text) as {
           operation_source: string;
+          matched_source: string;
           operation: {
             operation: string;
             execution: {
@@ -1549,10 +1550,57 @@ describe("MCP stdio server", () => {
 
         expect(Buffer.byteLength(first.text, "utf8")).toBeLessThan(128 * 1024);
         expect(parsed.operation_source).toBe("operations_by_id.agent_finish");
+        expect(parsed.matched_source).toBe("operations_by_id.agent_finish");
         expect(parsed.operation.operation).toBe("agent_finish");
         expect(parsed.operation.execution.next_step).toBe("collect_required_fields");
         expect(parsed.operation.execution.required_input_paths_by_value_path["user_input.summary"]).toBe("execution.required_inputs_by_field.summary");
         expect(parsed.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("returns one operation contract through MCP by MCP tool or CLI command", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-operation-contract-lookup-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const byMcpTool = await client.callTool({
+          name: "operation_contracts",
+          arguments: { mcp_tool: "agent_finish" }
+        });
+        const byCliCommand = await client.callTool({
+          name: "operation_contracts",
+          arguments: { cli_command: "moryn agent finish --summary <summary>" }
+        });
+        const firstByMcpTool = "content" in byMcpTool ? byMcpTool.content[0] : undefined;
+        const firstByCliCommand = "content" in byCliCommand ? byCliCommand.content[0] : undefined;
+        if (!firstByMcpTool || firstByMcpTool.type !== "text" || !firstByCliCommand || firstByCliCommand.type !== "text") {
+          throw new Error("Expected text content from operation_contracts");
+        }
+        const parsedByMcpTool = JSON.parse(firstByMcpTool.text) as {
+          operation_source: string;
+          matched_source: string;
+          operation: { operation: string };
+          selection_sources: Record<string, string>;
+        };
+        const parsedByCliCommand = JSON.parse(firstByCliCommand.text) as {
+          operation_source: string;
+          matched_source: string;
+          operation: { operation: string };
+          selection_sources: Record<string, string>;
+        };
+
+        expect(Buffer.byteLength(firstByMcpTool.text, "utf8")).toBeLessThan(128 * 1024);
+        expect(parsedByMcpTool.operation.operation).toBe("agent_finish");
+        expect(parsedByMcpTool.operation_source).toBe("operations_by_id.agent_finish");
+        expect(parsedByMcpTool.matched_source).toBe("operations_by_mcp_tool.agent_finish");
+        expect(parsedByMcpTool.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
+        expect(Buffer.byteLength(firstByCliCommand.text, "utf8")).toBeLessThan(128 * 1024);
+        expect(parsedByCliCommand.operation.operation).toBe("agent_finish");
+        expect(parsedByCliCommand.operation_source).toBe("operations_by_id.agent_finish");
+        expect(parsedByCliCommand.matched_source).toBe("operations_by_cli_command.moryn agent finish --summary <summary>");
+        expect(parsedByCliCommand.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
       });
     } finally {
       await rm(store, { recursive: true, force: true });

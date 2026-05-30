@@ -234,10 +234,14 @@ Deliverables:
   how to call Moryn without hallucinating command names, placeholders, optional
   arguments, defaults, enum values, operation ids, or argument shapes.
 - Done: `moryn contracts operations --operation <id>`,
-  `operation_contracts` with an `operation` argument, and package helper
-  `getOperationContract(<id>)` return a single operation contract with its
-  canonical source path and selection-source registry, so agents can inspect one
-  call shape without loading the full operation directory into context.
+  `moryn contracts operations --mcp-tool <tool>`,
+  `moryn contracts operations --cli-command <command>`, `operation_contracts`
+  with one of `operation`, `mcp_tool`, or `cli_command`, and package helpers
+  `getOperationContract(<id>)`, `getOperationContractByMcpTool(<tool>)`, and
+  `getOperationContractByCliCommand(<command>)` return a single operation
+  contract with its canonical source path, matched lookup source, and
+  selection-source registry, so agents can inspect one call shape without
+  loading the full operation directory into context.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

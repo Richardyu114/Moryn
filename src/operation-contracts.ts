@@ -99,6 +99,7 @@ type OperationContractInput = Omit<OperationContract, "required_fields_by_name" 
 export type SingleOperationContractResponse = {
   operation: OperationContract;
   operation_source: string;
+  matched_source: string;
   selection_sources: typeof OPERATION_CONTRACTS_SELECTION_SOURCES;
 };
 
@@ -1100,6 +1101,10 @@ const OPERATION_CONTRACTS_BY_TOOL = Object.fromEntries(
   OPERATION_CONTRACTS.map((operation) => [operation.interfaces.mcp.tool, operation])
 ) as Record<string, OperationContract>;
 
+const OPERATION_CONTRACTS_BY_CLI_COMMAND = Object.fromEntries(
+  OPERATION_CONTRACTS.map((operation) => [operation.interfaces.cli.command, operation])
+) as Record<string, OperationContract>;
+
 export function operationArgumentsByTool(tool: string): Record<string, OperationArgumentMetadata> {
   return OPERATION_CONTRACTS_BY_TOOL[tool]?.arguments_by_name ?? {};
 }
@@ -1108,14 +1113,31 @@ export function operationCliArgvByTool(tool: string): readonly string[] {
   return OPERATION_CONTRACTS_BY_TOOL[tool]?.interfaces.cli.argv ?? tool.split("_");
 }
 
+function singleOperationContractResponse(contract: OperationContract, matchedSource: string): SingleOperationContractResponse {
+  return {
+    operation: contract,
+    operation_source: `operations_by_id.${contract.operation}`,
+    matched_source: matchedSource,
+    selection_sources: OPERATION_CONTRACTS_SELECTION_SOURCES
+  };
+}
+
 export function getOperationContract(operation: string): SingleOperationContractResponse | undefined {
   const contract = OPERATION_CONTRACTS_BY_ID[operation];
   if (!contract) return undefined;
-  return {
-    operation: contract,
-    operation_source: `operations_by_id.${operation}`,
-    selection_sources: OPERATION_CONTRACTS_SELECTION_SOURCES
-  };
+  return singleOperationContractResponse(contract, `operations_by_id.${operation}`);
+}
+
+export function getOperationContractByMcpTool(tool: string): SingleOperationContractResponse | undefined {
+  const contract = OPERATION_CONTRACTS_BY_TOOL[tool];
+  if (!contract) return undefined;
+  return singleOperationContractResponse(contract, `operations_by_mcp_tool.${tool}`);
+}
+
+export function getOperationContractByCliCommand(command: string): SingleOperationContractResponse | undefined {
+  const contract = OPERATION_CONTRACTS_BY_CLI_COMMAND[command];
+  if (!contract) return undefined;
+  return singleOperationContractResponse(contract, `operations_by_cli_command.${command}`);
 }
 
 function operationsByCategory(operations: readonly OperationContract[]): Record<string, Record<string, OperationContract>> {

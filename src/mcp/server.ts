@@ -1,7 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { getOperationContract, getOperationContracts, getSelectionSourceContracts } from "../index.js";
+import {
+  getOperationContract,
+  getOperationContractByCliCommand,
+  getOperationContractByMcpTool,
+  getOperationContracts,
+  getSelectionSourceContracts
+} from "../index.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
@@ -156,15 +162,44 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Get Moryn Operation Contracts",
       description: "Return stable CLI/MCP operation contracts, safety metadata, and required fields.",
       inputSchema: {
-        operation: nonEmptyStringSchema.optional()
+        operation: nonEmptyStringSchema.optional(),
+        mcp_tool: nonEmptyStringSchema.optional(),
+        cli_command: nonEmptyStringSchema.optional()
       }
     },
-    async ({ operation }) => {
+    async ({ operation, mcp_tool, cli_command }) => {
+      const lookupCount = [operation, mcp_tool, cli_command].filter(Boolean).length;
+      if (lookupCount > 1) {
+        return {
+          ...jsonResult(toErrorEnvelope(new Error("Invalid argument: Use only one operation contract lookup option: operation, mcp_tool, or cli_command"))),
+          isError: true
+        };
+      }
       if (operation) {
         const contract = getOperationContract(operation);
         if (!contract) {
           return {
             ...jsonResult(toErrorEnvelope(new Error(`Invalid argument: Unknown operation: ${operation}`))),
+            isError: true
+          };
+        }
+        return jsonResult(contract, { pretty: false });
+      }
+      if (mcp_tool) {
+        const contract = getOperationContractByMcpTool(mcp_tool);
+        if (!contract) {
+          return {
+            ...jsonResult(toErrorEnvelope(new Error(`Invalid argument: Unknown MCP tool: ${mcp_tool}`))),
+            isError: true
+          };
+        }
+        return jsonResult(contract, { pretty: false });
+      }
+      if (cli_command) {
+        const contract = getOperationContractByCliCommand(cli_command);
+        if (!contract) {
+          return {
+            ...jsonResult(toErrorEnvelope(new Error(`Invalid argument: Unknown CLI command: ${cli_command}`))),
             isError: true
           };
         }
