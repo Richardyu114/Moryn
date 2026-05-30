@@ -533,9 +533,12 @@ Agents that need to discover available commands or MCP tools can run
 `moryn contracts operations` or call the `operation_contracts` MCP tool. That
 registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP
 interfaces, `safe_to_run`, `safety`, `required_when`, `required_fields`,
-`required_fields_by_name`, and `argument_sources`. Field metadata may include
-`allowed_values`, so hosts can fill named placeholders and enum arguments
-without parsing command strings.
+`required_fields_by_name`, `arguments_by_name`, and `argument_sources`.
+`arguments_by_name` is the full parameter directory: each entry names the CLI
+flag or positional argument, MCP argument, type, required flag, default,
+repeatability, alternatives, and enum `allowed_values` when applicable. This
+lets hosts fill optional arguments as well as required placeholders without
+parsing command strings.
 Library hosts can call `getOperationContracts()` and reuse
 `OPERATION_CONTRACTS_SELECTION_SOURCES`. Treat this as the static operation
 directory; after any runtime response returns `next.actions`, prefer those

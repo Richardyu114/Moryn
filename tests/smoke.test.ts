@@ -101,10 +101,18 @@ describe("package smoke test", () => {
     const response = getOperationContracts();
 
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.operation).toBe("operations_by_id.<operation>");
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.argument).toBe("operations_by_id.<operation>.arguments_by_name.<argument>");
     expect(response.recommended_entrypoint).toBe("agent_enter");
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(response.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");
     expect(response.operations_by_id.agent_enter.interfaces.mcp.tool).toBe("agent_enter");
+    expect(response.operations_by_id.agent_enter.arguments_by_name.pull).toMatchObject({
+      type: "boolean",
+      required: false,
+      default: true,
+      cli: { negative_flag: "--no-pull" },
+      mcp: { argument: "pull" }
+    });
     expect(response.operations_by_id.agent_finish.required_fields).toEqual(["summary"]);
     expect(response.operations_by_id.agent_finish.required_fields_by_name.summary).toMatchObject({
       argument_path: "summary",
@@ -114,6 +122,26 @@ describe("package smoke test", () => {
       summary: "user_input.summary"
     });
     expect(response.operations_by_id.write.required_fields).toEqual(["kind", "type", "scope", "text_or_content"]);
+    expect(response.operations_by_id.write.arguments_by_name.kind).toMatchObject({
+      type: "string",
+      required: true,
+      cli: { flag: "--kind" },
+      mcp: { argument: "kind" },
+      allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"]
+    });
+    expect(response.operations_by_id.write.arguments_by_name.content).toMatchObject({
+      type: "object",
+      required: false,
+      cli: { flag: "--content-json" },
+      mcp: { argument: "content" },
+      alternatives: ["text"]
+    });
+    expect(response.operations_by_id.write.arguments_by_name.derived_from).toMatchObject({
+      type: "string[]",
+      required: false,
+      cli: { flag: "--derived-from", repeatable: true },
+      mcp: { argument: "provenance", path: "provenance.derived_from" }
+    });
     expect(response.operations_by_id.write.required_fields_by_name.kind.allowed_values).toEqual([
       "memory", "skill", "soul", "session_summary", "agent_note"
     ]);
@@ -130,6 +158,20 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.project_init.required_fields_by_name.sync_mode.allowed_values).toEqual([
       "manual", "session", "interval"
     ]);
+    expect(response.operations_by_id.recall.arguments_by_name.kinds).toMatchObject({
+      type: "string[]",
+      required: false,
+      cli: { flag: "--kind", repeatable: true },
+      mcp: { argument: "kinds" },
+      allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"]
+    });
+    expect(response.operations_by_id.recall.arguments_by_name.limit).toMatchObject({
+      type: "number",
+      required: false,
+      default: 10,
+      cli: { flag: "--limit", default: 10 },
+      mcp: { argument: "limit" }
+    });
     expect(response.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
     expect(response.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
     expect(response.operations_by_category.lifecycle.agent_enter).toBe(response.operations_by_id.agent_enter);

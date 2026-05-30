@@ -118,6 +118,8 @@ const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   category_operation: "operations_by_category.<category>.<operation>",
   required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
   allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
+  argument: "operations_by_id.<operation>.arguments_by_name.<argument>",
+  argument_allowed_value: "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
@@ -709,6 +711,16 @@ describe("MCP stdio server", () => {
             safe_to_run: boolean;
             required_fields: string[];
             required_fields_by_name: Record<string, { name: string; argument_path: string; placeholder?: string; value?: unknown; alternatives?: string[]; allowed_values?: string[] }>;
+            arguments_by_name: Record<string, {
+              name: string;
+              type: string;
+              required: boolean;
+              cli?: { flag?: string; flags?: string[]; positional?: string; repeatable?: boolean; default?: unknown; negative_flag?: string };
+              mcp?: { argument: string };
+              default?: unknown;
+              allowed_values?: string[];
+              alternatives?: string[];
+            }>;
             argument_sources?: Record<string, string>;
             interfaces: {
               cli: { command: string };
@@ -730,6 +742,14 @@ describe("MCP stdio server", () => {
             cli: { command: "moryn agent enter" },
             mcp: { tool: "agent_enter", arguments: {} }
           }
+        });
+        expect(parsed.operations_by_id.agent_enter.arguments_by_name.pull).toMatchObject({
+          name: "pull",
+          type: "boolean",
+          required: false,
+          default: true,
+          cli: { negative_flag: "--no-pull" },
+          mcp: { argument: "pull" }
         });
         expect(parsed.operations_by_id.agent_finish).toMatchObject({
           safe_to_run: false,
@@ -753,6 +773,24 @@ describe("MCP stdio server", () => {
         expect(parsed.operations_by_id.write).toMatchObject({
           safe_to_run: false,
           required_fields: ["kind", "type", "scope", "text_or_content"],
+          arguments_by_name: {
+            kind: {
+              name: "kind",
+              type: "string",
+              required: true,
+              cli: { flag: "--kind" },
+              mcp: { argument: "kind" },
+              allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"]
+            },
+            content: {
+              name: "content",
+              type: "object",
+              required: false,
+              cli: { flag: "--content-json" },
+              mcp: { argument: "content" },
+              alternatives: ["text"]
+            }
+          },
           required_fields_by_name: {
             kind: {
               allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"]
@@ -795,6 +833,24 @@ describe("MCP stdio server", () => {
           },
           argument_sources: {
             path: "user_input.path"
+          }
+        });
+        expect(parsed.operations_by_id.recall.arguments_by_name).toMatchObject({
+          kinds: {
+            name: "kinds",
+            type: "string[]",
+            required: false,
+            cli: { flag: "--kind", repeatable: true },
+            mcp: { argument: "kinds" },
+            allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"]
+          },
+          limit: {
+            name: "limit",
+            type: "number",
+            required: false,
+            default: 10,
+            cli: { flag: "--limit", default: 10 },
+            mcp: { argument: "limit" }
           }
         });
         expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");

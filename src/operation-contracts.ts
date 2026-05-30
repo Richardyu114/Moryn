@@ -28,6 +28,7 @@ export type OperationContract = {
   required_when: string;
   required_fields: string[];
   required_fields_by_name: Record<string, OperationRequiredFieldMetadata>;
+  arguments_by_name: Record<string, OperationArgumentMetadata>;
   argument_sources?: Record<string, string>;
   interfaces: OperationInterfaces;
   safety: ActionSafety;
@@ -38,8 +39,36 @@ type OperationRequiredFieldMetadata = RequiredFieldMetadata & {
   allowed_values?: readonly string[];
 };
 
-type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "safety"> & {
+type OperationArgumentType = "string" | "string[]" | "number" | "boolean" | "object";
+
+type OperationArgumentMetadata = {
+  name: string;
+  type: OperationArgumentType;
+  required: boolean;
+  cli?: {
+    flag?: string;
+    flags?: readonly string[];
+    positional?: string;
+    repeatable?: boolean;
+    default?: unknown;
+    negative_flag?: string;
+  };
+  mcp?: {
+    argument: string;
+    path?: string;
+  };
+  default?: unknown;
+  allowed_values?: readonly string[];
+  alternatives?: readonly string[];
+};
+
+type OperationArgumentMetadataInput = Omit<OperationArgumentMetadata, "name"> & {
+  name?: string;
+};
+
+type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "arguments_by_name" | "safety"> & {
   required_fields_by_name?: Record<string, OperationRequiredFieldMetadata>;
+  arguments_by_name?: Record<string, OperationArgumentMetadataInput>;
 };
 
 export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
@@ -49,6 +78,8 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   category_operation: "operations_by_category.<category>.<operation>",
   required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
   allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
+  argument: "operations_by_id.<operation>.arguments_by_name.<argument>",
+  argument_allowed_value: "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
@@ -66,10 +97,18 @@ function operationRequiredFieldsByName(input: OperationContractInput): Record<st
   };
 }
 
+function operationArgumentsByName(input: OperationContractInput): Record<string, OperationArgumentMetadata> {
+  return Object.fromEntries(Object.entries(input.arguments_by_name ?? {}).map(([name, metadata]) => [
+    name,
+    { ...metadata, name }
+  ]));
+}
+
 function operationContract(input: OperationContractInput): OperationContract {
   return {
     ...input,
     required_fields_by_name: operationRequiredFieldsByName(input),
+    arguments_by_name: operationArgumentsByName(input),
     ...(input.argument_sources ? { argument_sources: input.argument_sources } : {}),
     safety: actionSafety({
       tool: input.interfaces.mcp.tool,
@@ -79,6 +118,82 @@ function operationContract(input: OperationContractInput): OperationContract {
   };
 }
 
+const agentSourceArgument = {
+  agent: {
+    type: "object",
+    required: false,
+    cli: { flags: ["--agent", "--session-id", "--model", "--device-id"] },
+    mcp: { argument: "agent" }
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
+const projectContextArguments = {
+  project_id: {
+    type: "string",
+    required: false,
+    cli: { flag: "--project-id" },
+    mcp: { argument: "project_id" }
+  },
+  project_path: {
+    type: "string",
+    required: false,
+    cli: { flag: "--project" },
+    mcp: { argument: "project_path" }
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
+const lifecycleContextArguments = {
+  ...projectContextArguments,
+  sync_remote: {
+    type: "string",
+    required: false,
+    cli: { flag: "--sync-remote" },
+    mcp: { argument: "sync_remote" }
+  },
+  current_task: {
+    type: "string",
+    required: false,
+    cli: { flag: "--current-task" },
+    mcp: { argument: "current_task" }
+  },
+  ...agentSourceArgument
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
+const startSessionArguments = {
+  ...lifecycleContextArguments,
+  refresh_since: {
+    type: "string",
+    required: false,
+    cli: { flag: "--refresh-since" },
+    mcp: { argument: "refresh_since" }
+  },
+  limit: {
+    type: "number",
+    required: false,
+    default: 20,
+    cli: { flag: "--limit", default: 20 },
+    mcp: { argument: "limit" }
+  },
+  pull: {
+    type: "boolean",
+    required: false,
+    default: true,
+    cli: { negative_flag: "--no-pull" },
+    mcp: { argument: "pull" }
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
+const publishSessionArguments = {
+  ...lifecycleContextArguments,
+  push: {
+    type: "boolean",
+    required: false,
+    default: true,
+    cli: { negative_flag: "--no-push" },
+    mcp: { argument: "push" }
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
 export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "agent_enter",
@@ -87,6 +202,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "At the start of an agent turn, or whenever store/project/sync context is uncertain.",
     required_fields: [],
+    arguments_by_name: startSessionArguments,
     interfaces: {
       cli: { command: "moryn agent enter" },
       mcp: { tool: "agent_enter", arguments: {} }
@@ -99,6 +215,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "When an agent host needs the lifecycle contract before choosing runtime actions.",
     required_fields: [],
+    arguments_by_name: lifecycleContextArguments,
     interfaces: {
       cli: { command: "moryn agent guide" },
       mcp: { tool: "agent_guide", arguments: {} }
@@ -111,6 +228,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "When setup may be missing or broken and the agent needs a read-only readiness check.",
     required_fields: [],
+    arguments_by_name: lifecycleContextArguments,
     interfaces: {
       cli: { command: "moryn agent doctor" },
       mcp: { tool: "agent_doctor", arguments: {} }
@@ -123,6 +241,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "After project context is known, or when following agent_enter/agent_guide startup actions.",
     required_fields: [],
+    arguments_by_name: startSessionArguments,
     interfaces: {
       cli: { command: "moryn agent start" },
       mcp: { tool: "agent_start", arguments: {} }
@@ -136,6 +255,15 @@ export const OPERATION_CONTRACTS = [
     required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
     required_fields: ["status"],
     argument_sources: userInputSources(["status"]),
+    arguments_by_name: {
+      status: {
+        type: "string",
+        required: true,
+        cli: { flag: "--status" },
+        mcp: { argument: "status" }
+      },
+      ...publishSessionArguments
+    },
     interfaces: {
       cli: { command: "moryn agent status --status <status>" },
       mcp: { tool: "agent_status", arguments: { status: "<status>" } }
@@ -149,6 +277,15 @@ export const OPERATION_CONTRACTS = [
     required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
     required_fields: ["summary"],
     argument_sources: userInputSources(["summary"]),
+    arguments_by_name: {
+      summary: {
+        type: "string",
+        required: true,
+        cli: { flag: "--summary" },
+        mcp: { argument: "summary" }
+      },
+      ...publishSessionArguments
+    },
     interfaces: {
       cli: { command: "moryn agent finish --summary <summary>" },
       mcp: { tool: "agent_finish", arguments: { summary: "<summary>" } }
@@ -185,6 +322,14 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When the store is missing and the user wants to initialize local memory.",
     required_fields: [],
+    arguments_by_name: {
+      repair: {
+        type: "boolean",
+        required: false,
+        cli: { flag: "--repair" },
+        mcp: { argument: "repair" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn init" },
       mcp: { tool: "init", arguments: {} }
@@ -198,6 +343,45 @@ export const OPERATION_CONTRACTS = [
     required_when: "When a project path has no Moryn config or the project config needs explicit repair.",
     required_fields: ["path"],
     argument_sources: userInputSources(["path"]),
+    arguments_by_name: {
+      path: {
+        type: "string",
+        required: true,
+        cli: { flag: "--path", default: "." },
+        mcp: { argument: "path" }
+      },
+      project_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--project-id" },
+        mcp: { argument: "project_id" }
+      },
+      tags: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--tag", repeatable: true },
+        mcp: { argument: "tags" }
+      },
+      default_skills: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--default-skill", repeatable: true },
+        mcp: { argument: "default_skills" }
+      },
+      sync_mode: {
+        type: "string",
+        required: false,
+        cli: { flag: "--sync-mode" },
+        mcp: { argument: "sync_mode" },
+        allowed_values: SYNC_MODES
+      },
+      repair: {
+        type: "boolean",
+        required: false,
+        cli: { flag: "--repair" },
+        mcp: { argument: "repair" }
+      }
+    },
     required_fields_by_name: {
       sync_mode: {
         name: "sync_mode",
@@ -217,6 +401,28 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "When project context is unclear and the store may already know one or more projects.",
     required_fields: [],
+    arguments_by_name: {
+      limit: {
+        type: "number",
+        required: false,
+        default: 20,
+        cli: { flag: "--limit", default: 20 },
+        mcp: { argument: "limit" }
+      },
+      current_task: {
+        type: "string",
+        required: false,
+        cli: { flag: "--current-task" },
+        mcp: { argument: "current_task" }
+      },
+      sync_remote: {
+        type: "string",
+        required: false,
+        cli: { flag: "--sync-remote" },
+        mcp: { argument: "sync_remote" }
+      },
+      ...agentSourceArgument
+    },
     interfaces: {
       cli: { command: "moryn project list" },
       mcp: { tool: "project_list", arguments: {} }
@@ -229,6 +435,25 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "When an agent needs context and already knows the target project.",
     required_fields: [],
+    arguments_by_name: {
+      ...projectContextArguments,
+      current_task: {
+        type: "string",
+        required: false,
+        cli: { flag: "--current-task" },
+        mcp: { argument: "current_task" }
+      },
+      default_skills: {
+        type: "string[]",
+        required: false,
+        mcp: { argument: "default_skills" }
+      },
+      sync_remote: {
+        type: "string",
+        required: false,
+        mcp: { argument: "sync_remote" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn boot" },
       mcp: { tool: "boot", arguments: {} }
@@ -241,6 +466,67 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "When an agent needs specific memory records or the full content behind a returned record id.",
     required_fields: [],
+    arguments_by_name: {
+      query: {
+        type: "string",
+        required: false,
+        cli: { positional: "query" },
+        mcp: { argument: "query" }
+      },
+      record_ids: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--record-id", repeatable: true },
+        mcp: { argument: "record_ids" }
+      },
+      ...projectContextArguments,
+      kinds: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--kind", repeatable: true },
+        mcp: { argument: "kinds" },
+        allowed_values: RECORD_KINDS
+      },
+      scopes: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--scope", repeatable: true },
+        mcp: { argument: "scopes" },
+        allowed_values: RECORD_SCOPES
+      },
+      types: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--type", repeatable: true },
+        mcp: { argument: "types" }
+      },
+      states: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--state", repeatable: true },
+        mcp: { argument: "states" },
+        allowed_values: RECORD_STATES
+      },
+      tags: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--tag", repeatable: true },
+        mcp: { argument: "tags" }
+      },
+      files: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--file", repeatable: true },
+        mcp: { argument: "files" }
+      },
+      limit: {
+        type: "number",
+        required: false,
+        default: 10,
+        cli: { flag: "--limit", default: 10 },
+        mcp: { argument: "limit" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn recall" },
       mcp: { tool: "recall", arguments: {} }
@@ -254,6 +540,92 @@ export const OPERATION_CONTRACTS = [
     required_when: "When the agent has authored record content and the target kind/type/scope are known.",
     required_fields: ["kind", "type", "scope", "text_or_content"],
     argument_sources: userInputSources(["kind", "type", "scope", "text_or_content"]),
+    arguments_by_name: {
+      kind: {
+        type: "string",
+        required: true,
+        cli: { flag: "--kind" },
+        mcp: { argument: "kind" },
+        allowed_values: RECORD_KINDS
+      },
+      type: {
+        type: "string",
+        required: true,
+        cli: { flag: "--type" },
+        mcp: { argument: "type" }
+      },
+      scope: {
+        type: "string",
+        required: true,
+        cli: { flag: "--scope" },
+        mcp: { argument: "scope" },
+        allowed_values: RECORD_SCOPES
+      },
+      text: {
+        type: "string",
+        required: false,
+        cli: { flag: "--text" },
+        mcp: { argument: "text" },
+        alternatives: ["content"]
+      },
+      content: {
+        type: "object",
+        required: false,
+        cli: { flag: "--content-json" },
+        mcp: { argument: "content" },
+        alternatives: ["text"]
+      },
+      ...projectContextArguments,
+      tags: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--tag", repeatable: true },
+        mcp: { argument: "tags" }
+      },
+      state: {
+        type: "string",
+        required: false,
+        cli: { flag: "--state" },
+        mcp: { argument: "state" },
+        allowed_values: RECORD_STATES
+      },
+      confidence: {
+        type: "number",
+        required: false,
+        cli: { flag: "--confidence" },
+        mcp: { argument: "confidence" }
+      },
+      priority: {
+        type: "string",
+        required: false,
+        cli: { flag: "--priority" },
+        mcp: { argument: "priority" },
+        allowed_values: RECORD_PRIORITIES
+      },
+      derived_from: {
+        type: "string[]",
+        required: false,
+        cli: { flag: "--derived-from", repeatable: true },
+        mcp: { argument: "provenance", path: "provenance.derived_from" }
+      },
+      reason: {
+        type: "string",
+        required: false,
+        cli: { flag: "--reason" },
+        mcp: { argument: "provenance", path: "provenance.reason" }
+      },
+      confirmed: {
+        type: "boolean",
+        required: false,
+        cli: { flag: "--confirm" },
+        mcp: { argument: "confirmed" }
+      },
+      source: {
+        type: "object",
+        required: false,
+        mcp: { argument: "source" }
+      }
+    },
     required_fields_by_name: {
       kind: {
         name: "kind",
@@ -294,6 +666,37 @@ export const OPERATION_CONTRACTS = [
     required_when: "When an existing record needs a targeted patch and the patch is already known.",
     required_fields: ["record_id", "patch"],
     argument_sources: userInputSources(["record_id", "patch"]),
+    arguments_by_name: {
+      record_id: {
+        type: "string",
+        required: true,
+        cli: { positional: "record-id" },
+        mcp: { argument: "record_id" }
+      },
+      patch: {
+        type: "object",
+        required: true,
+        cli: { flag: "--set", repeatable: true },
+        mcp: { argument: "patch" }
+      },
+      reason: {
+        type: "string",
+        required: false,
+        cli: { flag: "--reason" },
+        mcp: { argument: "reason" }
+      },
+      confirmed: {
+        type: "boolean",
+        required: false,
+        cli: { flag: "--confirm" },
+        mcp: { argument: "confirmed" }
+      },
+      source: {
+        type: "object",
+        required: false,
+        mcp: { argument: "source" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn revise <record_id> --set <path=value>" },
       mcp: { tool: "revise", arguments: { record_id: "<record_id>", patch: { "<path>": "<value>" } } }
@@ -307,6 +710,38 @@ export const OPERATION_CONTRACTS = [
     required_when: "When a candidate, archived, or quarantined record should move to a target state.",
     required_fields: ["record_id", "target_state"],
     argument_sources: userInputSources(["record_id", "target_state"]),
+    arguments_by_name: {
+      record_id: {
+        type: "string",
+        required: true,
+        cli: { positional: "record-id" },
+        mcp: { argument: "record_id" }
+      },
+      target_state: {
+        type: "string",
+        required: true,
+        cli: { flag: "--state" },
+        mcp: { argument: "target_state" },
+        allowed_values: RECORD_STATES
+      },
+      reason: {
+        type: "string",
+        required: false,
+        cli: { flag: "--reason" },
+        mcp: { argument: "reason" }
+      },
+      confirmed: {
+        type: "boolean",
+        required: false,
+        cli: { flag: "--confirm" },
+        mcp: { argument: "confirmed" }
+      },
+      source: {
+        type: "object",
+        required: false,
+        mcp: { argument: "source" }
+      }
+    },
     required_fields_by_name: {
       target_state: {
         name: "target_state",
@@ -329,6 +764,25 @@ export const OPERATION_CONTRACTS = [
     required_when: "When a record should be removed from normal retrieval without deleting history.",
     required_fields: ["record_id"],
     argument_sources: userInputSources(["record_id"]),
+    arguments_by_name: {
+      record_id: {
+        type: "string",
+        required: true,
+        cli: { positional: "record-id" },
+        mcp: { argument: "record_id" }
+      },
+      reason: {
+        type: "string",
+        required: false,
+        cli: { flag: "--reason" },
+        mcp: { argument: "reason" }
+      },
+      source: {
+        type: "object",
+        required: false,
+        mcp: { argument: "source" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn archive <record_id>" },
       mcp: { tool: "archive", arguments: { record_id: "<record_id>" } }
@@ -342,6 +796,25 @@ export const OPERATION_CONTRACTS = [
     required_when: "When a record should stop appearing in normal agent context because it is unsafe or sensitive.",
     required_fields: ["record_id"],
     argument_sources: userInputSources(["record_id"]),
+    arguments_by_name: {
+      record_id: {
+        type: "string",
+        required: true,
+        cli: { positional: "record-id" },
+        mcp: { argument: "record_id" }
+      },
+      reason: {
+        type: "string",
+        required: false,
+        cli: { flag: "--reason" },
+        mcp: { argument: "reason" }
+      },
+      source: {
+        type: "object",
+        required: false,
+        mcp: { argument: "source" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn quarantine <record_id>" },
       mcp: { tool: "quarantine", arguments: { record_id: "<record_id>" } }
@@ -355,6 +828,31 @@ export const OPERATION_CONTRACTS = [
     required_when: "When two existing records should be connected by a known relationship type.",
     required_fields: ["record_id", "linked_record_id", "link_type"],
     argument_sources: userInputSources(["record_id", "linked_record_id", "link_type"]),
+    arguments_by_name: {
+      record_id: {
+        type: "string",
+        required: true,
+        cli: { positional: "record-id" },
+        mcp: { argument: "record_id" }
+      },
+      linked_record_id: {
+        type: "string",
+        required: true,
+        cli: { positional: "linked-record-id" },
+        mcp: { argument: "linked_record_id" }
+      },
+      link_type: {
+        type: "string",
+        required: true,
+        cli: { flag: "--type" },
+        mcp: { argument: "link_type" }
+      },
+      source: {
+        type: "object",
+        required: false,
+        mcp: { argument: "source" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn link <record_id> <linked_record_id> --type <type>" },
       mcp: { tool: "link", arguments: { record_id: "<record_id>", linked_record_id: "<linked_record_id>", link_type: "<type>" } }
@@ -367,6 +865,15 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "When an agent needs a quick recent-record index or a fallback after a missing record id.",
     required_fields: [],
+    arguments_by_name: {
+      limit: {
+        type: "number",
+        required: false,
+        default: 20,
+        cli: { flag: "--limit", default: 20 },
+        mcp: { argument: "limit" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn list-recent" },
       mcp: { tool: "list_recent", arguments: {} }
@@ -379,6 +886,28 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "When an agent has a refresh cursor and needs changes without a full boot.",
     required_fields: [],
+    arguments_by_name: {
+      ...projectContextArguments,
+      cursor: {
+        type: "string",
+        required: false,
+        cli: { flag: "--cursor" },
+        mcp: { argument: "cursor" }
+      },
+      current_task: {
+        type: "string",
+        required: false,
+        cli: { flag: "--current-task" },
+        mcp: { argument: "current_task" }
+      },
+      limit: {
+        type: "number",
+        required: false,
+        default: 20,
+        cli: { flag: "--limit", default: 20 },
+        mcp: { argument: "limit" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn refresh" },
       mcp: { tool: "refresh", arguments: {} }
@@ -392,6 +921,14 @@ export const OPERATION_CONTRACTS = [
     required_when: "When cross-device sync is needed and the target remote is known.",
     required_fields: ["remote"],
     argument_sources: userInputSources(["remote"]),
+    arguments_by_name: {
+      remote: {
+        type: "string",
+        required: true,
+        cli: { positional: "remote" },
+        mcp: { argument: "remote" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn sync init <remote>" },
       mcp: { tool: "sync_init", arguments: { remote: "<remote>" } }
@@ -404,6 +941,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "Before retrying sync operations after a conflict, or when sync readiness is unclear.",
     required_fields: [],
+    arguments_by_name: {},
     interfaces: {
       cli: { command: "moryn sync --status" },
       mcp: { tool: "sync_status", arguments: {} }
@@ -416,6 +954,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When the user wants a direct pull instead of using agent_start/agent_enter lifecycle sync.",
     required_fields: [],
+    arguments_by_name: {},
     interfaces: {
       cli: { command: "moryn sync --pull" },
       mcp: { tool: "sync_pull", arguments: {} }
@@ -428,6 +967,14 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When the user wants a direct push instead of using lifecycle status/finish sync.",
     required_fields: [],
+    arguments_by_name: {
+      message: {
+        type: "string",
+        required: false,
+        cli: { flag: "--message" },
+        mcp: { argument: "message" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn sync --push" },
       mcp: { tool: "sync_push", arguments: {} }
@@ -440,6 +987,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "When derived views may be stale or after manual event-store recovery.",
     required_fields: [],
+    arguments_by_name: {},
     interfaces: {
       cli: { command: "moryn rebuild" },
       mcp: { tool: "rebuild", arguments: {} }

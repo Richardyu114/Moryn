@@ -448,8 +448,10 @@ MCP tool: `operation_contracts`.
 The response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, and selection sources for those keyed paths. Each
 operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
-`required_fields`, `required_fields_by_name`, and `argument_sources`.
-Required-field metadata can include `allowed_values` for enum arguments:
+`required_fields`, `required_fields_by_name`, `arguments_by_name`, and
+`argument_sources`. `arguments_by_name` is the full parameter directory,
+including CLI flags or positionals, MCP arguments, types, defaults,
+repeatability, alternatives, and enum `allowed_values`:
 
 ```json
 {
@@ -460,6 +462,20 @@ Required-field metadata can include `allowed_values` for enum arguments:
       "category": "lifecycle",
       "safe_to_run": true,
       "required_fields": [],
+      "arguments_by_name": {
+        "pull": {
+          "name": "pull",
+          "type": "boolean",
+          "required": false,
+          "default": true,
+          "cli": {
+            "negative_flag": "--no-pull"
+          },
+          "mcp": {
+            "argument": "pull"
+          }
+        }
+      },
       "interfaces": {
         "cli": {
           "command": "moryn agent enter"
@@ -489,6 +505,32 @@ Required-field metadata can include `allowed_values` for enum arguments:
     },
     "write": {
       "operation": "write",
+      "arguments_by_name": {
+        "kind": {
+          "name": "kind",
+          "type": "string",
+          "required": true,
+          "cli": {
+            "flag": "--kind"
+          },
+          "mcp": {
+            "argument": "kind"
+          },
+          "allowed_values": ["memory", "skill", "soul", "session_summary", "agent_note"]
+        },
+        "content": {
+          "name": "content",
+          "type": "object",
+          "required": false,
+          "cli": {
+            "flag": "--content-json"
+          },
+          "mcp": {
+            "argument": "content"
+          },
+          "alternatives": ["text"]
+        }
+      },
       "required_fields_by_name": {
         "kind": {
           "name": "kind",
@@ -514,6 +556,8 @@ Required-field metadata can include `allowed_values` for enum arguments:
     "category_operation": "operations_by_category.<category>.<operation>",
     "required_field": "operations_by_id.<operation>.required_fields_by_name.<field>",
     "allowed_value": "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
+    "argument": "operations_by_id.<operation>.arguments_by_name.<argument>",
+    "argument_allowed_value": "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
     "argument_source": "operations_by_id.<operation>.argument_sources.<field>",
     "cli_command": "operations_by_id.<operation>.interfaces.cli.command",
     "mcp_tool": "operations_by_id.<operation>.interfaces.mcp.tool",
