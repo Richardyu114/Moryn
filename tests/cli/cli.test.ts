@@ -1464,6 +1464,13 @@ describe("moryn CLI", () => {
     expect(parsed.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe("moryn contracts operations");
     expect(parsed.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
     expect(parsed.operations_by_id.operation_contracts.arguments_by_name).toMatchObject({
+      index: {
+        name: "index",
+        type: "boolean",
+        required: false,
+        cli: { flag: "--index" },
+        mcp: { argument: "index" }
+      },
       operation: {
         name: "operation",
         type: "string",
@@ -1487,6 +1494,7 @@ describe("moryn CLI", () => {
       }
     });
     expect(parsed.operations_by_id.operation_contracts.interfaces.mcp.arguments).toEqual({
+      index: true,
       operation: "<operation>",
       mcp_tool: "<tool>",
       cli_command: "<command>"
@@ -1530,11 +1538,18 @@ describe("moryn CLI", () => {
       operations_by_id: Record<string, { operation: string; mcp_tool: string; cli_command: string; required_fields: string[]; missing_required_fields: string[] }>;
       operations_by_mcp_tool: Record<string, string>;
       operations_by_cli_command: Record<string, string>;
+      selection_sources: Record<string, string>;
     };
 
     expect(Buffer.byteLength(result.stdout, "utf8")).toBeLessThan(64 * 1024);
     expect(parsed.recommended_entrypoint).toBe("agent_enter");
     expect(parsed.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
+    expect(parsed.selection_sources).toEqual({
+      operation: "operations_by_id.<operation>",
+      mcp_tool_operation: "operations_by_mcp_tool.<tool>",
+      cli_command_operation: "operations_by_cli_command.<command>",
+      ordered_operation: "operations[]"
+    });
     expect(parsed.next_lookup.cli.by_operation).toBe("moryn contracts operations --operation <operation>");
     expect(parsed.next_lookup.mcp).toEqual({
       tool: "operation_contracts",

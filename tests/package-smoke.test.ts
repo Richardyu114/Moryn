@@ -129,6 +129,7 @@ describe("published package smoke", () => {
           }>;
           operations_by_mcp_tool: Record<string, string>;
           operations_by_cli_command: Record<string, string>;
+          selection_sources: Record<string, string>;
         };
 
         expect(boot.stdout).toContain("Release from packed CLI");
@@ -163,6 +164,13 @@ describe("published package smoke", () => {
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.has_placeholders).toBe(false);
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe("moryn contracts operations");
         expect(parsedOperations.operations_by_id.operation_contracts.arguments_by_name).toMatchObject({
+          index: {
+            name: "index",
+            type: "boolean",
+            required: false,
+            cli: { flag: "--index" },
+            mcp: { argument: "index" }
+          },
           operation: {
             name: "operation",
             type: "string",
@@ -186,6 +194,7 @@ describe("published package smoke", () => {
           }
         });
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.mcp.arguments).toEqual({
+          index: true,
           operation: "<operation>",
           mcp_tool: "<tool>",
           cli_command: "<command>"
@@ -702,6 +711,12 @@ describe("published package smoke", () => {
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
         expect(Buffer.byteLength(operationsIndex.stdout, "utf8")).toBeLessThan(64 * 1024);
         expect(parsedOperationsIndex.recommended_entrypoint).toBe("agent_enter");
+        expect(parsedOperationsIndex.selection_sources).toEqual({
+          operation: "operations_by_id.<operation>",
+          mcp_tool_operation: "operations_by_mcp_tool.<tool>",
+          cli_command_operation: "operations_by_cli_command.<command>",
+          ordered_operation: "operations[]"
+        });
         expect(parsedOperationsIndex.operations_by_id.agent_finish).toEqual({
           operation: "agent_finish",
           category: "lifecycle",

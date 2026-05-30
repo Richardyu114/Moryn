@@ -141,6 +141,10 @@ export type OperationContractIndexResponse = {
   operations_by_id: Record<string, OperationContractIndexEntry>;
   operations_by_mcp_tool: Record<string, string>;
   operations_by_cli_command: Record<string, string>;
+  selection_sources: Pick<
+    typeof OPERATION_CONTRACTS_SELECTION_SOURCES,
+    "operation" | "mcp_tool_operation" | "cli_command_operation" | "ordered_operation"
+  >;
 };
 
 export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
@@ -448,6 +452,12 @@ export const OPERATION_CONTRACTS = [
     required_when: "When an agent needs to discover available Moryn operations without reading docs.",
     required_fields: [],
     arguments_by_name: {
+      index: {
+        type: "boolean",
+        required: false,
+        cli: { flag: "--index" },
+        mcp: { argument: "index" }
+      },
       operation: {
         type: "string",
         required: false,
@@ -472,6 +482,7 @@ export const OPERATION_CONTRACTS = [
       mcp: {
         tool: "operation_contracts",
         arguments: {
+          index: true,
           operation: "<operation>",
           mcp_tool: "<tool>",
           cli_command: "<command>"
@@ -1245,7 +1256,13 @@ export function getOperationContractIndex(): OperationContractIndexResponse {
     operations,
     operations_by_id: Object.fromEntries(operations.map((operation) => [operation.operation, operation])),
     operations_by_mcp_tool: operationsByMcpToolId(OPERATION_CONTRACTS),
-    operations_by_cli_command: operationsByCliCommandId(OPERATION_CONTRACTS)
+    operations_by_cli_command: operationsByCliCommandId(OPERATION_CONTRACTS),
+    selection_sources: {
+      operation: OPERATION_CONTRACTS_SELECTION_SOURCES.operation,
+      mcp_tool_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.mcp_tool_operation,
+      cli_command_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation,
+      ordered_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.ordered_operation
+    }
   };
 }
 

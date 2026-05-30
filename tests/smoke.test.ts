@@ -194,6 +194,12 @@ describe("package smoke test", () => {
     expect(Buffer.byteLength(JSON.stringify(index), "utf8")).toBeLessThan(64 * 1024);
     expect(index.recommended_entrypoint).toBe("agent_enter");
     expect(index.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
+    expect(index.selection_sources).toEqual({
+      operation: "operations_by_id.<operation>",
+      mcp_tool_operation: "operations_by_mcp_tool.<tool>",
+      cli_command_operation: "operations_by_cli_command.<command>",
+      ordered_operation: "operations[]"
+    });
     expect(index.next_lookup).toEqual({
       package_helpers: {
         by_operation: "getOperationContract(operation)",
@@ -271,6 +277,13 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.operation_contracts.interfaces.cli.has_placeholders).toBe(false);
     expect(response.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe("moryn contracts operations");
     expect(response.operations_by_id.operation_contracts.arguments_by_name).toMatchObject({
+      index: {
+        name: "index",
+        type: "boolean",
+        required: false,
+        cli: { flag: "--index" },
+        mcp: { argument: "index" }
+      },
       operation: {
         name: "operation",
         type: "string",
@@ -294,6 +307,7 @@ describe("package smoke test", () => {
       }
     });
     expect(response.operations_by_id.operation_contracts.interfaces.mcp.arguments).toEqual({
+      index: true,
       operation: "<operation>",
       mcp_tool: "<tool>",
       cli_command: "<command>"

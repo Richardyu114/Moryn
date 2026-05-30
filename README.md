@@ -619,7 +619,9 @@ the compact operation index: `moryn contracts operations --index`,
 `operation_contracts` with `{"index":true}`, or package helper
 `getOperationContractIndex()`. The index is small enough for a first pass and
 maps operation ids, MCP tools, and display CLI commands to the single-operation
-lookup commands. When a host needs the full static directory, it can run
+lookup commands; its `selection_sources` names those compact index paths so
+hosts can cite or dereference the mapping without guessing field names. When a
+host needs the full static directory, it can run
 `moryn contracts operations` or call `operation_contracts` without filters. That
 full registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP
 interfaces, `operations_by_mcp_tool`, `operations_by_cli_command`,
@@ -692,9 +694,10 @@ contracts operations --mcp-tool agent_finish`, `moryn contracts operations
 --summary <summary>"}`, or package helpers `getOperationContract("agent_finish")`,
 `getOperationContractByMcpTool("agent_finish")`, and
 `getOperationContractByCliCommand("moryn agent finish --summary <summary>")`.
-The `operation_contracts` registry entry also declares those lookup arguments
-in `arguments_by_name` and `interfaces.mcp.arguments`, so hosts can discover the
-filters from the same contract payload instead of relying on docs.
+The `operation_contracts` registry entry also declares the `index` flag and
+single-operation lookup arguments in `arguments_by_name` and
+`interfaces.mcp.arguments`, so hosts can discover the filters from the same
+contract payload instead of relying on docs.
 That response contains one `operation`, its canonical `operation_source`, the
 lookup `matched_source`, and the top-level `selection_sources`, so agents can
 inspect one call shape without holding the full registry in context.

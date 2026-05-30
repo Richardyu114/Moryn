@@ -451,7 +451,8 @@ Use `--index`, `operation_contracts` with `{"index":true}`, or
 `getOperationContractIndex()` as the first discovery pass. That compact index
 lists operation ids, MCP tools, display CLI commands, readiness, and the exact
 next lookup commands without including full argument metadata or execution
-recipes. The full response lists `operations`, keyed `operations_by_id`, grouped
+recipes. It also carries a small `selection_sources` map for the index paths.
+The full response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, reverse indexes `operations_by_mcp_tool` and
 `operations_by_cli_command`, and selection sources for those keyed paths. Each
 operation carries CLI/MCP interfaces, action-local `selection_sources`,
@@ -637,9 +638,10 @@ self-describing outside the aggregate registry. After a runtime response returns
 the live project, sync, cursor, and handoff context.
 CLI and MCP hosts can pass an operation id, MCP tool name, or display CLI
 command to the static contract endpoint when they already know any one of those
-identifiers. The `operation_contracts` static operation declares those optional
-lookup inputs in `arguments_by_name` and `interfaces.mcp.arguments`, keeping the
-filter surface discoverable from the registry itself. The single-operation
+identifiers. The `operation_contracts` static operation declares `index` and
+those optional lookup inputs in `arguments_by_name` and
+`interfaces.mcp.arguments`, keeping the filter surface discoverable from the
+registry itself. The single-operation
 response carries one `operation`, its canonical `operation_source`, the reverse
 lookup `matched_source`, and the top-level `selection_sources`, keeping the
 payload and model context much smaller than the full operation directory.
