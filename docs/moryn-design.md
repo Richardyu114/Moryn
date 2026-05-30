@@ -435,6 +435,59 @@ The response shape is:
 Library hosts can also call `getSelectionSourceContracts()` or import
 `SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES` from the package entrypoint.
 
+Agents can also query the static operation directory:
+
+CLI:
+
+```bash
+moryn contracts operations
+```
+
+MCP tool: `operation_contracts`.
+
+The response lists `operations`, keyed `operations_by_id`, grouped
+`operations_by_category`, and selection sources for those keyed paths. Each
+operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
+and `required_fields`:
+
+```json
+{
+  "recommended_entrypoint": "agent_enter",
+  "operations_by_id": {
+    "agent_enter": {
+      "operation": "agent_enter",
+      "category": "lifecycle",
+      "safe_to_run": true,
+      "required_fields": [],
+      "interfaces": {
+        "cli": {
+          "command": "moryn agent enter"
+        },
+        "mcp": {
+          "tool": "agent_enter",
+          "arguments": {}
+        }
+      }
+    }
+  },
+  "selection_sources": {
+    "operation": "operations_by_id.<operation>",
+    "operation_id": "operations_by_id.<operation>.operation",
+    "category": "operations_by_category.<category>",
+    "category_operation": "operations_by_category.<category>.<operation>",
+    "cli_command": "operations_by_id.<operation>.interfaces.cli.command",
+    "mcp_tool": "operations_by_id.<operation>.interfaces.mcp.tool",
+    "ordered_operation": "operations[]"
+  }
+}
+```
+
+Library hosts can call `getOperationContracts()` or import
+`OPERATION_CONTRACTS_SELECTION_SOURCES` from the package entrypoint. The
+operation registry is static discovery metadata; after a runtime response
+returns `next.actions`, agents should prefer those returned actions because
+they include the live project, sync, cursor, and handoff context.
+
 ### `init`
 
 Used to initialize the local Moryn store.

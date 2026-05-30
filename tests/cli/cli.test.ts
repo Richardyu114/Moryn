@@ -108,6 +108,15 @@ const SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES = {
   contract: "contracts.<group>.<contract>",
   field: "contracts.<group>.<contract>.<field>"
 };
+const OPERATION_CONTRACTS_SELECTION_SOURCES = {
+  operation: "operations_by_id.<operation>",
+  operation_id: "operations_by_id.<operation>.operation",
+  category: "operations_by_category.<category>",
+  category_operation: "operations_by_category.<category>.<operation>",
+  cli_command: "operations_by_id.<operation>.interfaces.cli.command",
+  mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
+  ordered_operation: "operations[]"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -642,6 +651,58 @@ describe("moryn CLI", () => {
     expect(parsed.contracts.sync.result.pushed).toBe("pushed");
     expect(parsed.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
     expect(parsed.contracts.recovery.next_action.error_next_action).toBe("error.next_action");
+  });
+
+  it("returns operation contracts from the CLI", async () => {
+    const result = await exec("node", [
+      "--import", tsxLoader, cliPath,
+      "contracts", "operations"
+    ]);
+    const parsed = JSON.parse(result.stdout) as {
+      recommended_entrypoint: string;
+      operations: Array<{ operation: string }>;
+      operations_by_id: Record<string, {
+        operation: string;
+        category: string;
+        safe_to_run: boolean;
+        required_fields: string[];
+        interfaces: {
+          cli: { command: string };
+          mcp: { tool: string; arguments: Record<string, unknown> };
+        };
+      }>;
+      operations_by_category: Record<string, Record<string, { operation: string }>>;
+      selection_sources: Record<string, string>;
+    };
+
+    expect(parsed.recommended_entrypoint).toBe("agent_enter");
+    expect(parsed.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(parsed.operations_by_id.agent_enter).toMatchObject({
+      operation: "agent_enter",
+      category: "lifecycle",
+      safe_to_run: true,
+      required_fields: [],
+      interfaces: {
+        cli: { command: "moryn agent enter" },
+        mcp: { tool: "agent_enter", arguments: {} }
+      }
+    });
+    expect(parsed.operations_by_id.agent_finish).toMatchObject({
+      safe_to_run: false,
+      required_fields: ["summary"],
+      interfaces: {
+        cli: { command: "moryn agent finish --summary <summary>" },
+        mcp: { tool: "agent_finish", arguments: { summary: "<summary>" } }
+      }
+    });
+    expect(parsed.operations_by_id.write).toMatchObject({
+      safe_to_run: false,
+      required_fields: ["kind", "type", "scope", "text_or_content"]
+    });
+    expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
+    expect(parsed.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
+    expect(parsed.operations_by_category.lifecycle.agent_enter).toEqual(parsed.operations_by_id.agent_enter);
+    expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
   });
 
   it("returns machine-readable agent guide from the CLI", async () => {

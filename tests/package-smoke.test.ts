@@ -57,10 +57,11 @@ describe("published package smoke", () => {
         const boot = await exec(moryn, ["--store", store, "boot", "--project", project], { cwd: dir });
         const recall = await exec(moryn, ["--store", store, "recall", "--record-id", recordId, "--project", project], { cwd: dir });
         const contracts = await exec(moryn, ["contracts", "selection-sources"], { cwd: dir });
+        const operations = await exec(moryn, ["contracts", "operations"], { cwd: dir });
         const importCheck = await exec("node", [
           "--input-type=module",
           "-e",
-          "import { BOOT_SELECTION_SOURCES, GUIDE_SELECTION_SOURCES, NEXT_ACTION_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES, getSelectionSourceContracts, STORE_INIT_SELECTION_SOURCES, SYNC_RESULT_SELECTION_SOURCES } from '@richardyu114/moryn'; const response = getSelectionSourceContracts(); console.log(`${STORE_INIT_SELECTION_SOURCES.config_file}|${BOOT_SELECTION_SOURCES.skill}|${SYNC_RESULT_SELECTION_SOURCES.pushed}|${GUIDE_SELECTION_SOURCES.guardrail}|${NEXT_ACTION_SELECTION_SOURCES.error_next_action}|${SELECTION_SOURCE_CONTRACTS.lifecycle.guide.guardrail}|${SELECTION_SOURCE_CONTRACTS.sync.result.pushed}|${SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES.contract}|${response.contracts.setup.store_init.config_file}|${response.selection_sources.field}`);"
+          "import { BOOT_SELECTION_SOURCES, GUIDE_SELECTION_SOURCES, NEXT_ACTION_SELECTION_SOURCES, OPERATION_CONTRACTS_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES, getOperationContracts, getSelectionSourceContracts, STORE_INIT_SELECTION_SOURCES, SYNC_RESULT_SELECTION_SOURCES } from '@richardyu114/moryn'; const selectionResponse = getSelectionSourceContracts(); const operationResponse = getOperationContracts(); console.log(`${STORE_INIT_SELECTION_SOURCES.config_file}|${BOOT_SELECTION_SOURCES.skill}|${SYNC_RESULT_SELECTION_SOURCES.pushed}|${GUIDE_SELECTION_SOURCES.guardrail}|${NEXT_ACTION_SELECTION_SOURCES.error_next_action}|${SELECTION_SOURCE_CONTRACTS.lifecycle.guide.guardrail}|${SELECTION_SOURCE_CONTRACTS.sync.result.pushed}|${SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES.contract}|${selectionResponse.contracts.setup.store_init.config_file}|${selectionResponse.selection_sources.field}|${OPERATION_CONTRACTS_SELECTION_SOURCES.operation}|${operationResponse.operations_by_id.agent_enter.interfaces.mcp.tool}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.command}`);"
         ], { cwd: dir });
         const parsedContracts = JSON.parse(contracts.stdout) as {
           contracts: {
@@ -69,13 +70,23 @@ describe("published package smoke", () => {
           };
           selection_sources: { contract: string };
         };
+        const parsedOperations = JSON.parse(operations.stdout) as {
+          recommended_entrypoint: string;
+          operations_by_id: {
+            agent_enter: { interfaces: { cli: { command: string } } };
+            operation_contracts: { interfaces: { mcp: { tool: string } } };
+          };
+        };
 
         expect(boot.stdout).toContain("Release from packed CLI");
         expect(recall.stdout).toContain("Packed CLI can write memory");
         expect(parsedContracts.contracts.setup.store_init.config_file).toBe("artifacts.config");
         expect(parsedContracts.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
         expect(parsedContracts.selection_sources.contract).toBe("contracts.<group>.<contract>");
-        expect(importCheck.stdout.trim()).toBe("artifacts.config|skills_by_id.<record_id>|pushed|guardrails_by_id.<guardrail_id>|error.next_action|guardrails_by_id.<guardrail_id>|pushed|contracts.<group>.<contract>|artifacts.config|contracts.<group>.<contract>.<field>");
+        expect(parsedOperations.recommended_entrypoint).toBe("agent_enter");
+        expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");
+        expect(parsedOperations.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
+        expect(importCheck.stdout.trim()).toBe("artifacts.config|skills_by_id.<record_id>|pushed|guardrails_by_id.<guardrail_id>|error.next_action|guardrails_by_id.<guardrail_id>|pushed|contracts.<group>.<contract>|artifacts.config|contracts.<group>.<contract>.<field>|operations_by_id.<operation>|agent_enter|moryn contracts operations");
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });
       } finally {
         if (tarball) {

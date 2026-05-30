@@ -529,6 +529,15 @@ MCP tool. The response includes `selection_sources` for `contracts`,
 `contracts.<group>`, `contracts.<group>.<contract>`, and
 `contracts.<group>.<contract>.<field>`, so agents can dereference the registry
 without guessing its shape.
+Agents that need to discover available commands or MCP tools can run
+`moryn contracts operations` or call the `operation_contracts` MCP tool. That
+registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP
+interfaces, `safe_to_run`, `safety`, `required_when`, and `required_fields`.
+Library hosts can call `getOperationContracts()` and reuse
+`OPERATION_CONTRACTS_SELECTION_SOURCES`. Treat this as the static operation
+directory; after any runtime response returns `next.actions`, prefer those
+returned actions because they include the current project, sync, cursor, and
+handoff context.
 
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime

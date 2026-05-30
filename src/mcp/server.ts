@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { getSelectionSourceContracts } from "../index.js";
+import { getOperationContracts, getSelectionSourceContracts } from "../index.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
@@ -147,6 +147,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {}
     },
     async () => toolResult(async () => getSelectionSourceContracts())
+  );
+
+  server.registerTool(
+    "operation_contracts",
+    {
+      title: "Get Moryn Operation Contracts",
+      description: "Return stable CLI/MCP operation contracts, safety metadata, and required fields.",
+      inputSchema: {}
+    },
+    async () => toolResult(async () => getOperationContracts())
   );
 
   server.registerTool(

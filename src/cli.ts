@@ -3,7 +3,7 @@
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { Command, CommanderError } from "commander";
-import { getSelectionSourceContracts, version } from "./index.js";
+import { getOperationContracts, getSelectionSourceContracts, version } from "./index.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
@@ -476,6 +476,12 @@ contracts.command("selection-sources")
   .description("Print stable selection-source field-path contracts.")
   .action(() => {
     printJson(getSelectionSourceContracts());
+  });
+
+contracts.command("operations")
+  .description("Print stable CLI and MCP operation contracts.")
+  .action(() => {
+    printJson(getOperationContracts());
   });
 
 program.command("mcp").action(async () => {

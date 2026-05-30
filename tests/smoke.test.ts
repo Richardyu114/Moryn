@@ -22,12 +22,14 @@ import {
   REFRESH_SELECTION_SOURCES,
   REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES,
   SENSITIVE_REVISE_SELECTION_SOURCES,
+  OPERATION_CONTRACTS_SELECTION_SOURCES,
   SELECTION_SOURCE_CONTRACTS,
   SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES,
   STORE_INIT_SELECTION_SOURCES,
   SYNC_RESULT_SELECTION_SOURCES,
   SYNC_STATUS_SELECTION_SOURCES,
   WRITE_SELECTION_SOURCES,
+  getOperationContracts,
   getSelectionSourceContracts,
   version
 } from "../src/index.js";
@@ -93,5 +95,20 @@ describe("package smoke test", () => {
     });
     expect(response.contracts).toBe(SELECTION_SOURCE_CONTRACTS);
     expect(response.selection_sources).toBe(SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES);
+  });
+
+  it("exports self-describing operation contracts from the package entrypoint", () => {
+    const response = getOperationContracts();
+
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.operation).toBe("operations_by_id.<operation>");
+    expect(response.recommended_entrypoint).toBe("agent_enter");
+    expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(response.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");
+    expect(response.operations_by_id.agent_enter.interfaces.mcp.tool).toBe("agent_enter");
+    expect(response.operations_by_id.agent_finish.required_fields).toEqual(["summary"]);
+    expect(response.operations_by_id.write.required_fields).toEqual(["kind", "type", "scope", "text_or_content"]);
+    expect(response.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
+    expect(response.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
+    expect(response.operations_by_category.lifecycle.agent_enter).toBe(response.operations_by_id.agent_enter);
   });
 });

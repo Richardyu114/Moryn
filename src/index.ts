@@ -26,6 +26,11 @@ import {
   WRITE_SELECTION_SOURCES
 } from "./core/engine.js";
 import { NEXT_ACTION_SELECTION_SOURCES } from "./core/errors.js";
+export {
+  OPERATION_CONTRACTS,
+  OPERATION_CONTRACTS_SELECTION_SOURCES,
+  getOperationContracts
+} from "./operation-contracts.js";
 import { PROJECT_INIT_SELECTION_SOURCES } from "./core/project.js";
 export { parseRecord } from "./core/schema.js";
 import { SYNC_RESULT_SELECTION_SOURCES, SYNC_STATUS_SELECTION_SOURCES } from "./sync/git.js";
