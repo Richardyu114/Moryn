@@ -430,10 +430,11 @@ any enum or alternative choices, so hosts do not invent questions or argument
 mappings from prose. `collect.expected_value` describes the expected user value
 shape (`string`, `enum`, `json_object`, `string_list`, and related CLI
 encodings) so hosts can render and validate inputs without reverse-engineering
-argument metadata. When `collect.input_mode` is `"choose_one"`, hosts should ask
-for one value plus one `collect.choices[].option`, then apply only that choice's
+argument metadata. When `collect.input_mode` or
+`collect.apply_to.assignment_mode` is `"choose_one"`, hosts should ask for one
+value plus one `collect.choices[].option`, then apply only that choice's
 `apply_to` assignments and `expected_value`; this removes the need to parse
-`text|content` or guess whether both alternatives should be filled.
+`text|content` or guess whether all alternatives should be filled.
 `required_inputs_by_field` mirrors those entries by field name for hosts that
 already know which input they need. `required_inputs_by_argument_path` mirrors
 the same entries by each split argument path, so a host holding the CLI/MCP
@@ -633,7 +634,9 @@ and `value_encoding`. Use `collect.expected_value.kind` to decide whether the
 answer should be a string, enum value, JSON object, list, object field map, or
 path-value entries. For alternatives, prefer `collect.choices[]`: choose one
 option, then use that choice's own `expected_value` and `apply_to` instructions
-so only the selected MCP argument or CLI flag is populated. That
+so only the selected MCP argument or CLI flag is populated. A top-level
+`collect.apply_to.assignment_mode` of `"choose_one"` marks its aggregate
+assignments as informational, not a list to apply wholesale. That
 keeps hosts from needing to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.

@@ -627,6 +627,7 @@ describe("package smoke test", () => {
         input_key: "text_or_content",
         prompt: "Provide text or content.",
         apply_to: {
+          assignment_mode: "choose_one",
           mcp_argument_paths: ["text", "content"],
           mcp_assignments: [
             {
@@ -836,6 +837,7 @@ describe("package smoke test", () => {
           }
         ],
         apply_to: {
+          assignment_mode: "choose_one",
           mcp_assignments: [
             {
               argument: "text",

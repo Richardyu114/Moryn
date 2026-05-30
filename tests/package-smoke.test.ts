@@ -362,6 +362,7 @@ describe("published package smoke", () => {
             }
           ],
           apply_to: {
+            assignment_mode: "choose_one",
             mcp_argument_paths: ["text", "content"],
             mcp_assignments: [
               {

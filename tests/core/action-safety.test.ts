@@ -505,6 +505,7 @@ describe("action execution readiness", () => {
           input_key: "text_or_content",
           prompt: "Provide text or content.",
           apply_to: {
+            assignment_mode: "choose_one",
             mcp_argument_paths: ["text", "content"],
             mcp_assignments: [
               {
@@ -616,6 +617,7 @@ describe("action execution readiness", () => {
         input_key: "text_or_content",
         prompt: "Provide text or content.",
         apply_to: {
+          assignment_mode: "choose_one",
           mcp_argument_paths: ["text", "content"],
           mcp_assignments: [
             {

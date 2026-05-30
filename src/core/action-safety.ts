@@ -124,6 +124,7 @@ export interface ActionRequiredInputExpectedValue {
 }
 
 export interface ActionRequiredInputApplyTo {
+  assignment_mode?: ActionRequiredInputMode;
   mcp_argument_paths: string[];
   mcp_assignments?: ActionMcpAssignment[];
   cli_assignments?: ActionCliAssignment[];
@@ -386,8 +387,10 @@ function collectApplyTo(input: {
   mcp_assignments?: ActionMcpAssignment[];
   cli_assignments?: ActionCliAssignment[];
   cli_targets?: ActionCliTarget[];
+  assignment_mode?: ActionRequiredInputMode;
 }): ActionRequiredInputApplyTo {
   return {
+    ...(input.assignment_mode ? { assignment_mode: input.assignment_mode } : {}),
     mcp_argument_paths: input.paths,
     ...(input.mcp_assignments ? { mcp_assignments: input.mcp_assignments } : {}),
     ...(input.cli_assignments ? { cli_assignments: input.cli_assignments } : {}),
@@ -474,7 +477,10 @@ function collectRequiredInput(input: {
     source: "user",
     input_key: input.field,
     prompt: promptForRequiredInput(input.field),
-    apply_to: collectApplyTo(input),
+    apply_to: collectApplyTo({
+      ...input,
+      ...(input.choices ? { assignment_mode: "choose_one" as const } : {})
+    }),
     ...(input.argument_source ? { value_path: input.argument_source } : {}),
     ...(input.expected_value ? { expected_value: input.expected_value } : {}),
     ...(input.choices ? { input_mode: "choose_one" as const, choices: input.choices } : {}),
