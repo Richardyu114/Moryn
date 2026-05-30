@@ -451,11 +451,16 @@ operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
 `execution`, `required_fields`, `required_fields_by_name`,
 `arguments_by_name`, and `argument_sources`. `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
-`required_inputs`, and `requires_user_confirmation`, so hosts can decide
-whether to run, collect fields, ask for confirmation, or block automation
-without recomputing safety policy. `required_inputs[]` joins each missing field
-to its original `argument_path`, split `argument_paths`, argument source,
-placeholder/value, alternatives, and enum `allowed_values` when present.
+`required_inputs`, `required_inputs_by_field`, and
+`requires_user_confirmation`, so hosts can decide whether to run, collect
+fields, ask for confirmation, or block automation without recomputing safety
+policy. `required_inputs[]` joins each missing field to its original
+`argument_path`, split `argument_paths`, argument source, placeholder/value,
+alternatives, and enum `allowed_values` when present.
+`required_inputs_by_field` mirrors those entries by field name for direct host
+lookups.
+The operation selection source registry names that keyed input path as
+`operations_by_id.<operation>.execution.required_inputs_by_field.<field>`.
 `arguments_by_name` is the full parameter directory, including CLI flags or
 positionals, MCP arguments, types, defaults, repeatability, alternatives, and
 enum `allowed_values`:
@@ -1224,6 +1229,8 @@ and `required_fields` into a single `next_step`: `run`,
 next step is `collect_required_fields`, `execution.required_inputs[]` gives the
 exact field, source path, placeholder, alternatives, allowed values, and split
 argument paths to use for collecting input and filling the action.
+`execution.required_inputs_by_field` exposes the same metadata keyed by field
+name.
 
 CLI:
 

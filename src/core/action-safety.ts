@@ -32,6 +32,7 @@ export interface ActionExecution {
   next_step: ActionExecutionNextStep;
   missing_required_fields: string[];
   required_inputs: ActionRequiredInput[];
+  required_inputs_by_field: Record<string, ActionRequiredInput>;
   requires_user_confirmation: boolean;
   reason: string;
 }
@@ -88,12 +89,16 @@ export function actionExecution(input: {
       ...(metadata?.allowed_values ? { allowed_values: metadata.allowed_values } : {})
     };
   });
+  const requiredInputsByField = Object.fromEntries(
+    requiredInputs.map((requiredInput) => [requiredInput.field, requiredInput])
+  );
   if (input.required_fields.length > 0) {
     return {
       ready_to_run: false,
       next_step: "collect_required_fields",
       missing_required_fields: [...input.required_fields],
       required_inputs: requiredInputs,
+      required_inputs_by_field: requiredInputsByField,
       requires_user_confirmation: safety.requires_user_confirmation,
       reason: "Action requires authored input before it can run."
     };
@@ -105,6 +110,7 @@ export function actionExecution(input: {
       next_step: "confirm_with_user",
       missing_required_fields: [],
       required_inputs: [],
+      required_inputs_by_field: {},
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
     };
@@ -116,6 +122,7 @@ export function actionExecution(input: {
       next_step: "do_not_auto_run",
       missing_required_fields: [],
       required_inputs: [],
+      required_inputs_by_field: {},
       requires_user_confirmation: false,
       reason: "Action is not safe to auto-run."
     };
@@ -126,6 +133,7 @@ export function actionExecution(input: {
     next_step: "run",
     missing_required_fields: [],
     required_inputs: [],
+    required_inputs_by_field: {},
     requires_user_confirmation: false,
     reason: "Action is safe and all required fields are already filled."
   };

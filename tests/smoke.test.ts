@@ -133,6 +133,7 @@ describe("package smoke test", () => {
 
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.operation).toBe("operations_by_id.<operation>");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.argument).toBe("operations_by_id.<operation>.arguments_by_name.<argument>");
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.required_input).toBe("operations_by_id.<operation>.execution.required_inputs_by_field.<field>");
     expect(response.recommended_entrypoint).toBe("agent_enter");
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(response.operations_by_id.recall.execution).toEqual({
@@ -140,6 +141,7 @@ describe("package smoke test", () => {
       next_step: "run",
       missing_required_fields: [],
       required_inputs: [],
+      required_inputs_by_field: {},
       requires_user_confirmation: false,
       reason: "Action is safe and all required fields are already filled."
     });
@@ -155,6 +157,16 @@ describe("package smoke test", () => {
         placeholder: "<summary>",
         value: "<summary>"
       }],
+      required_inputs_by_field: {
+        summary: {
+          field: "summary",
+          argument_path: "summary",
+          argument_paths: ["summary"],
+          argument_source: "user_input.summary",
+          placeholder: "<summary>",
+          value: "<summary>"
+        }
+      },
       requires_user_confirmation: false
     });
     expect(response.operations_by_id.promote.execution).toMatchObject({
@@ -180,6 +192,25 @@ describe("package smoke test", () => {
           allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
         }
       ],
+      required_inputs_by_field: {
+        record_id: {
+          field: "record_id",
+          argument_path: "record_id",
+          argument_paths: ["record_id"],
+          argument_source: "user_input.record_id",
+          placeholder: "<record_id>",
+          value: "<record_id>"
+        },
+        target_state: {
+          field: "target_state",
+          argument_path: "target_state",
+          argument_paths: ["target_state"],
+          argument_source: "user_input.target_state",
+          placeholder: "<state>",
+          value: "<state>",
+          allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+        }
+      },
       requires_user_confirmation: false
     });
     expect(response.operations_by_id.project_init.execution).toMatchObject({
@@ -194,6 +225,16 @@ describe("package smoke test", () => {
         placeholder: "<path>",
         value: "<path>"
       }],
+      required_inputs_by_field: {
+        path: {
+          field: "path",
+          argument_path: "path",
+          argument_paths: ["path"],
+          argument_source: "user_input.path",
+          placeholder: "<path>",
+          value: "<path>"
+        }
+      },
       requires_user_confirmation: true
     });
     expect(response.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");
@@ -245,6 +286,11 @@ describe("package smoke test", () => {
       alternatives: ["text", "content"]
     });
     expect(response.operations_by_id.write.execution.required_inputs.find((input) => input.field === "text_or_content")).toMatchObject({
+      argument_path: "text|content",
+      argument_paths: ["text", "content"],
+      alternatives: ["text", "content"]
+    });
+    expect(response.operations_by_id.write.execution.required_inputs_by_field.text_or_content).toMatchObject({
       argument_path: "text|content",
       argument_paths: ["text", "content"],
       alternatives: ["text", "content"]

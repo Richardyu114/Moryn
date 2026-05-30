@@ -12,6 +12,7 @@ describe("action execution readiness", () => {
       next_step: "run",
       missing_required_fields: [],
       required_inputs: [],
+      required_inputs_by_field: {},
       requires_user_confirmation: false,
       reason: "Action is safe and all required fields are already filled."
     });
@@ -45,13 +46,23 @@ describe("action execution readiness", () => {
         placeholder: "<summary>",
         value: "<summary>"
       }],
+      required_inputs_by_field: {
+        summary: {
+          field: "summary",
+          argument_path: "summary",
+          argument_paths: ["summary"],
+          argument_source: "user_input.summary",
+          placeholder: "<summary>",
+          value: "<summary>"
+        }
+      },
       requires_user_confirmation: false,
       reason: "Action requires authored input before it can run."
     });
   });
 
   it("summarizes required field alternatives and allowed values for execution hosts", () => {
-    expect(actionExecution({
+    const execution = actionExecution({
       tool: "write",
       safe_to_run: false,
       required_fields: ["kind", "text_or_content"],
@@ -75,7 +86,8 @@ describe("action execution readiness", () => {
         kind: "user_input.kind",
         text_or_content: "user_input.text_or_content"
       }
-    }).required_inputs).toEqual([
+    });
+    expect(execution.required_inputs).toEqual([
       {
         field: "kind",
         argument_path: "kind",
@@ -95,6 +107,15 @@ describe("action execution readiness", () => {
         alternatives: ["text", "content"]
       }
     ]);
+    expect(execution.required_inputs_by_field.text_or_content).toEqual({
+      field: "text_or_content",
+      argument_path: "text|content",
+      argument_paths: ["text", "content"],
+      argument_source: "user_input.text_or_content",
+      placeholder: "<text_or_content>",
+      value: "<text_or_content>",
+      alternatives: ["text", "content"]
+    });
   });
 
   it("distinguishes confirmation-only actions from authored-input actions", () => {
@@ -107,6 +128,7 @@ describe("action execution readiness", () => {
       next_step: "confirm_with_user",
       missing_required_fields: [],
       required_inputs: [],
+      required_inputs_by_field: {},
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
     });
@@ -122,6 +144,7 @@ describe("action execution readiness", () => {
       next_step: "confirm_with_user",
       missing_required_fields: [],
       required_inputs: [],
+      required_inputs_by_field: {},
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
     });
