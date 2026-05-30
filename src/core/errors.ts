@@ -20,10 +20,12 @@ export interface NextActionSelectionSources {
   error_cli_executable: "error.next_action.interfaces.cli.executable";
   error_cli_argv: "error.next_action.interfaces.cli.argv[]";
   error_cli_args: "error.next_action.interfaces.cli.args[]";
+  error_cli_exec_file: "error.next_action.interfaces.cli.exec_file";
   error_cli_command_line: "error.next_action.interfaces.cli.command_line";
   warning_cli_executable: "warning.next_action.interfaces.cli.executable";
   warning_cli_argv: "warning.next_action.interfaces.cli.argv[]";
   warning_cli_args: "warning.next_action.interfaces.cli.args[]";
+  warning_cli_exec_file: "warning.next_action.interfaces.cli.exec_file";
   warning_cli_command_line: "warning.next_action.interfaces.cli.command_line";
   error_required_field: "error.next_action.required_fields_by_name.<field>";
   warning_required_field: "warning.next_action.required_fields_by_name.<field>";
@@ -112,10 +114,12 @@ export const NEXT_ACTION_SELECTION_SOURCES: NextActionSelectionSources = {
   error_cli_executable: "error.next_action.interfaces.cli.executable",
   error_cli_argv: "error.next_action.interfaces.cli.argv[]",
   error_cli_args: "error.next_action.interfaces.cli.args[]",
+  error_cli_exec_file: "error.next_action.interfaces.cli.exec_file",
   error_cli_command_line: "error.next_action.interfaces.cli.command_line",
   warning_cli_executable: "warning.next_action.interfaces.cli.executable",
   warning_cli_argv: "warning.next_action.interfaces.cli.argv[]",
   warning_cli_args: "warning.next_action.interfaces.cli.args[]",
+  warning_cli_exec_file: "warning.next_action.interfaces.cli.exec_file",
   warning_cli_command_line: "warning.next_action.interfaces.cli.command_line",
   error_required_field: "error.next_action.required_fields_by_name.<field>",
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",

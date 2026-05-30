@@ -8,6 +8,10 @@ type ActionInterfaces<TArguments> = {
     argv: string[];
     executable: string;
     args: string[];
+    exec_file: {
+      executable: string;
+      args: string[];
+    };
   };
   mcp: {
     tool: string;
@@ -146,7 +150,8 @@ export function actionInterfaces<TArguments extends Record<string, unknown>>(inp
       command_line: commandLineForCliInterface(executable, args),
       argv,
       executable,
-      args
+      args,
+      exec_file: { executable, args }
     },
     mcp: {
       tool: input.tool,

@@ -52,10 +52,12 @@ export type LifecycleActionSelectionSources = {
   cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable";
   cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]";
   cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]";
+  cli_exec_file: "next.actions_by_id.<action>.interfaces.cli.exec_file";
   cli_command_line: "next.actions_by_id.<action>.interfaces.cli.command_line";
   ordered_cli_executable: "next.actions[].interfaces.cli.executable";
   ordered_cli_argv: "next.actions[].interfaces.cli.argv[]";
   ordered_cli_args: "next.actions[].interfaces.cli.args[]";
+  ordered_cli_exec_file: "next.actions[].interfaces.cli.exec_file";
   ordered_cli_command_line: "next.actions[].interfaces.cli.command_line";
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>";
   ordered_argument: "next.actions[].arguments_by_name.<argument>";
@@ -73,10 +75,12 @@ export type LifecycleStepSelectionSources = {
   cli_executable: string;
   cli_argv: string;
   cli_args: string;
+  cli_exec_file: string;
   cli_command_line: string;
   ordered_cli_executable: string;
   ordered_cli_argv: string;
   ordered_cli_args: string;
+  ordered_cli_exec_file: string;
   ordered_cli_command_line: string;
   argument: string;
   ordered_argument: string;
@@ -93,10 +97,12 @@ export type GuideEntrypointSelectionSources = {
   startup_cli_executable: "startup.interfaces.cli.executable";
   startup_cli_argv: "startup.interfaces.cli.argv[]";
   startup_cli_args: "startup.interfaces.cli.args[]";
+  startup_cli_exec_file: "startup.interfaces.cli.exec_file";
   startup_cli_command_line: "startup.interfaces.cli.command_line";
   next_cli_executable: "next.interfaces.cli.executable";
   next_cli_argv: "next.interfaces.cli.argv[]";
   next_cli_args: "next.interfaces.cli.args[]";
+  next_cli_exec_file: "next.interfaces.cli.exec_file";
   next_cli_command_line: "next.interfaces.cli.command_line";
   startup_argument: "startup.arguments_by_name.<argument>";
   next_argument: "next.arguments_by_name.<argument>";
@@ -138,10 +144,12 @@ export type HandoffEntrySelectionSources = {
   cli_executable: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable";
   cli_argv: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.argv[]" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]";
   cli_args: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.args[]" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]";
+  cli_exec_file: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.exec_file" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file";
   cli_command_line: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line" | "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line";
   ordered_cli_executable: "handoff.inbox[].next_action.interfaces.cli.executable" | "handoff.active_sessions[].next_action.interfaces.cli.executable";
   ordered_cli_argv: "handoff.inbox[].next_action.interfaces.cli.argv[]" | "handoff.active_sessions[].next_action.interfaces.cli.argv[]";
   ordered_cli_args: "handoff.inbox[].next_action.interfaces.cli.args[]" | "handoff.active_sessions[].next_action.interfaces.cli.args[]";
+  ordered_cli_exec_file: "handoff.inbox[].next_action.interfaces.cli.exec_file" | "handoff.active_sessions[].next_action.interfaces.cli.exec_file";
   ordered_cli_command_line: "handoff.inbox[].next_action.interfaces.cli.command_line" | "handoff.active_sessions[].next_action.interfaces.cli.command_line";
   argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>";
   ordered_argument: "handoff.inbox[].next_action.arguments_by_name.<argument>" | "handoff.active_sessions[].next_action.arguments_by_name.<argument>";
@@ -220,11 +228,13 @@ export const DISCOVER_PROJECT_SELECTION_SOURCES = {
   next_cli_executable: "next.interfaces.cli.executable",
   next_cli_argv: "next.interfaces.cli.argv[]",
   next_cli_args: "next.interfaces.cli.args[]",
+  next_cli_exec_file: "next.interfaces.cli.exec_file",
   next_cli_command_line: "next.interfaces.cli.command_line",
   start_action: "next.actions_by_project_id.<project_id>",
   start_action_cli_executable: "next.actions_by_project_id.<project_id>.interfaces.cli.executable",
   start_action_cli_argv: "next.actions_by_project_id.<project_id>.interfaces.cli.argv[]",
   start_action_cli_args: "next.actions_by_project_id.<project_id>.interfaces.cli.args[]",
+  start_action_cli_exec_file: "next.actions_by_project_id.<project_id>.interfaces.cli.exec_file",
   start_action_cli_command_line: "next.actions_by_project_id.<project_id>.interfaces.cli.command_line",
   start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
   start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
@@ -239,6 +249,7 @@ export const HANDOFF_SELECTION_SOURCES = {
   inbox_next_action_cli_executable: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable",
   inbox_next_action_cli_argv: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
   inbox_next_action_cli_args: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+  inbox_next_action_cli_exec_file: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
   inbox_next_action_cli_command_line: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
   inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
   inbox_next_action_required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
@@ -250,6 +261,7 @@ export const HANDOFF_SELECTION_SOURCES = {
   active_session_next_action_cli_executable: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable",
   active_session_next_action_cli_argv: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
   active_session_next_action_cli_args: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+  active_session_next_action_cli_exec_file: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
   active_session_next_action_cli_command_line: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
   active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
   active_session_next_action_required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
@@ -262,6 +274,7 @@ export const LIFECYCLE_NEXT_SELECTION_SOURCES = {
   action_cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
   action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
   action_cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
+  action_cli_exec_file: "next.actions_by_id.<action>.interfaces.cli.exec_file",
   action_cli_command_line: "next.actions_by_id.<action>.interfaces.cli.command_line",
   action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
   action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
@@ -275,10 +288,12 @@ export const LIFECYCLE_ACTION_SELECTION_SOURCES: LifecycleActionSelectionSources
   cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
   cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
   cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
+  cli_exec_file: "next.actions_by_id.<action>.interfaces.cli.exec_file",
   cli_command_line: "next.actions_by_id.<action>.interfaces.cli.command_line",
   ordered_cli_executable: "next.actions[].interfaces.cli.executable",
   ordered_cli_argv: "next.actions[].interfaces.cli.argv[]",
   ordered_cli_args: "next.actions[].interfaces.cli.args[]",
+  ordered_cli_exec_file: "next.actions[].interfaces.cli.exec_file",
   ordered_cli_command_line: "next.actions[].interfaces.cli.command_line",
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
   ordered_argument: "next.actions[].arguments_by_name.<argument>",
@@ -296,6 +311,7 @@ export const DOCTOR_SELECTION_SOURCES = {
   next_cli_executable: "next.interfaces.cli.executable",
   next_cli_argv: "next.interfaces.cli.argv[]",
   next_cli_args: "next.interfaces.cli.args[]",
+  next_cli_exec_file: "next.interfaces.cli.exec_file",
   next_cli_command_line: "next.interfaces.cli.command_line",
   next_argument: "next.arguments_by_name.<argument>",
   next_required_field: "next.required_fields_by_name.<field>",
@@ -315,10 +331,12 @@ export const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   cli_executable: "lifecycle_by_step.<step>.interfaces.cli.executable",
   cli_argv: "lifecycle_by_step.<step>.interfaces.cli.argv[]",
   cli_args: "lifecycle_by_step.<step>.interfaces.cli.args[]",
+  cli_exec_file: "lifecycle_by_step.<step>.interfaces.cli.exec_file",
   cli_command_line: "lifecycle_by_step.<step>.interfaces.cli.command_line",
   ordered_cli_executable: "lifecycle[].interfaces.cli.executable",
   ordered_cli_argv: "lifecycle[].interfaces.cli.argv[]",
   ordered_cli_args: "lifecycle[].interfaces.cli.args[]",
+  ordered_cli_exec_file: "lifecycle[].interfaces.cli.exec_file",
   ordered_cli_command_line: "lifecycle[].interfaces.cli.command_line",
   argument: "lifecycle_by_step.<step>.arguments_by_name.<argument>",
   ordered_argument: "lifecycle[].arguments_by_name.<argument>",
@@ -335,10 +353,12 @@ export const GUIDE_ENTRYPOINT_SELECTION_SOURCES: GuideEntrypointSelectionSources
   startup_cli_executable: "startup.interfaces.cli.executable",
   startup_cli_argv: "startup.interfaces.cli.argv[]",
   startup_cli_args: "startup.interfaces.cli.args[]",
+  startup_cli_exec_file: "startup.interfaces.cli.exec_file",
   startup_cli_command_line: "startup.interfaces.cli.command_line",
   next_cli_executable: "next.interfaces.cli.executable",
   next_cli_argv: "next.interfaces.cli.argv[]",
   next_cli_args: "next.interfaces.cli.args[]",
+  next_cli_exec_file: "next.interfaces.cli.exec_file",
   next_cli_command_line: "next.interfaces.cli.command_line",
   startup_argument: "startup.arguments_by_name.<argument>",
   next_argument: "next.arguments_by_name.<argument>",
@@ -357,10 +377,12 @@ export const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
   cli_executable: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.interfaces.cli.executable",
   cli_argv: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.interfaces.cli.argv[]",
   cli_args: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.interfaces.cli.args[]",
+  cli_exec_file: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.interfaces.cli.exec_file",
   cli_command_line: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.interfaces.cli.command_line",
   ordered_cli_executable: "next.actions_by_project_id.<project_id>.lifecycle[].interfaces.cli.executable",
   ordered_cli_argv: "next.actions_by_project_id.<project_id>.lifecycle[].interfaces.cli.argv[]",
   ordered_cli_args: "next.actions_by_project_id.<project_id>.lifecycle[].interfaces.cli.args[]",
+  ordered_cli_exec_file: "next.actions_by_project_id.<project_id>.lifecycle[].interfaces.cli.exec_file",
   ordered_cli_command_line: "next.actions_by_project_id.<project_id>.lifecycle[].interfaces.cli.command_line",
   argument: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.arguments_by_name.<argument>",
   ordered_argument: "next.actions_by_project_id.<project_id>.lifecycle[].arguments_by_name.<argument>",
@@ -1606,10 +1628,12 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
         cli_executable: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable",
         cli_argv: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
         cli_args: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+        cli_exec_file: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
         cli_command_line: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
         ordered_cli_executable: "handoff.inbox[].next_action.interfaces.cli.executable",
         ordered_cli_argv: "handoff.inbox[].next_action.interfaces.cli.argv[]",
         ordered_cli_args: "handoff.inbox[].next_action.interfaces.cli.args[]",
+        ordered_cli_exec_file: "handoff.inbox[].next_action.interfaces.cli.exec_file",
         ordered_cli_command_line: "handoff.inbox[].next_action.interfaces.cli.command_line",
         argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
         ordered_argument: "handoff.inbox[].next_action.arguments_by_name.<argument>",
@@ -1628,10 +1652,12 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
         cli_executable: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable",
         cli_argv: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
         cli_args: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+        cli_exec_file: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
         cli_command_line: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
         ordered_cli_executable: "handoff.active_sessions[].next_action.interfaces.cli.executable",
         ordered_cli_argv: "handoff.active_sessions[].next_action.interfaces.cli.argv[]",
         ordered_cli_args: "handoff.active_sessions[].next_action.interfaces.cli.args[]",
+        ordered_cli_exec_file: "handoff.active_sessions[].next_action.interfaces.cli.exec_file",
         ordered_cli_command_line: "handoff.active_sessions[].next_action.interfaces.cli.command_line",
         argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
         ordered_argument: "handoff.active_sessions[].next_action.arguments_by_name.<argument>",

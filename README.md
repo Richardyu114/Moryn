@@ -443,11 +443,12 @@ project, project id, keyed next-action path, action metadata paths, and ordered
 fallback paths.
 Action templates also expose `interfaces.cli.command`,
 `interfaces.cli.command_line`, `interfaces.cli.executable`,
-`interfaces.cli.args`, `interfaces.cli.argv`, and
+`interfaces.cli.args`, `interfaces.cli.exec_file`, `interfaces.cli.argv`, and
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, derived from the same
 top-level fields. `command` is a display label. Agent hosts should prefer
-`execFile(executable, args)` for programmatic CLI execution; when a shell string
-is required, use the prequoted `command_line` instead of reconstructing one.
+`execFile(exec_file.executable, exec_file.args)` for programmatic CLI execution;
+when a shell string is required, use the prequoted `command_line` instead of
+reconstructing one.
 
 `agent start` is the low-friction startup command for agents. It resolves
 `.moryn.json`, creates the store if needed, initializes sync when
@@ -569,6 +570,8 @@ selection sources include `operations_by_mcp_tool.<tool>` and
 `operations_by_id.<operation>.interfaces.cli.executable`,
 `operations_by_id.<operation>.interfaces.cli.args[]`, and
 `operations_by_id.<operation>.interfaces.cli.argv[]` for direct CLI lookups,
+`operations_by_id.<operation>.interfaces.cli.exec_file` for the grouped
+`execFile` object,
 `operations_by_id.<operation>.interfaces.cli.command_line` for a prequoted shell
 command, plus
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` for
@@ -585,10 +588,11 @@ Each entry includes `selection_sources.required_input`, `mcp_targets`, and
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.
 Each static operation `interfaces.cli` entry includes a display `command`, a
-prequoted `command_line`, `executable`, `args`, and legacy `argv`. For Moryn subcommands,
-`executable` is `"moryn"` and `args` equals the subcommand `argv`, so
-programmatic hosts can call `execFile(executable, args)` without shell splitting
-or quote reconstruction. Hosts that must print or pass a shell command can use
+prequoted `command_line`, `executable`, `args`, grouped `exec_file`, and legacy
+`argv`. For Moryn subcommands, `exec_file.executable` is `"moryn"` and
+`exec_file.args` equals the subcommand `argv`, so programmatic hosts can call
+`execFile(exec_file.executable, exec_file.args)` without shell splitting or
+quote reconstruction. Hosts that must print or pass a shell command can use
 `command_line`; placeholders such as `<summary>` are single-quoted there so they
 remain one shell argument until replaced.
 `arguments_by_name` is the full parameter directory: each entry names the CLI
@@ -631,11 +635,12 @@ distinguish safe read-only inspection from user-confirmed setup writes without
 inferring from prose. `agent doctor.readiness.next_action_source` mirrors that
 selected top-level path.
 Runtime action `interfaces.cli.executable`, `interfaces.cli.args`,
-`interfaces.cli.argv`, and `interfaces.cli.command_line` fields are generated
-from operation metadata and filled with the live arguments returned in that
-response. Use
+`interfaces.cli.exec_file`, `interfaces.cli.argv`, and
+`interfaces.cli.command_line` fields are generated from operation metadata and
+filled with the live arguments returned in that response. Use
 `next.actions_by_id.<action>.interfaces.cli.executable` plus
-`next.actions_by_id.<action>.interfaces.cli.args[]`, or the equivalent
+`next.actions_by_id.<action>.interfaces.cli.args[]`, the grouped
+`next.actions_by_id.<action>.interfaces.cli.exec_file`, or the equivalent
 `startup.interfaces.cli.*`, `next.interfaces.cli.*`,
 `next.actions_by_project_id.<project_id>.interfaces.cli.*`,
 `project_list.projects_by_id.<project_id>.next.interfaces.cli.*`,
@@ -643,9 +648,10 @@ response. Use
 `error.next_action.interfaces.cli.*`, and `warning.next_action.interfaces.cli.*`
 paths when a host needs an executable CLI vector or the prequoted
 `interfaces.cli.command_line`. For Moryn subcommands,
-`executable` is `"moryn"` and `args` equals `argv`. For direct package bins such
-as `moryn-agent-smoke`, `executable` is the bin name, `args` excludes the bin,
-and `argv` keeps the full legacy vector with the bin as the first element.
+`exec_file.executable` is `"moryn"` and `exec_file.args` equals `argv`. For
+direct package bins such as `moryn-agent-smoke`, `exec_file.executable` is the
+bin name, `exec_file.args` excludes the bin, and `argv` keeps the full legacy
+vector with the bin as the first element.
 
 ## Current MVP Commands
 
@@ -812,8 +818,8 @@ When a recovery action still needs authored setup input, the same
 `user_input.path`, or `user_input.project_id`.
 `error.next_action.interfaces` and `warning.next_action.interfaces` use the same
 CLI/MCP shape as lifecycle action templates, including safe CLI
-`executable`/`args` pairs, prequoted `command_line`, and compatibility `argv`
-arrays.
+`exec_file` objects, `executable`/`args` pairs, prequoted `command_line`, and
+compatibility `argv` arrays.
 Most recovery actions have a single-step `workflow`; missing-record recovery is
 two-step so hosts run `list_recent`, choose a returned id, and retry the
 original tool with that id.

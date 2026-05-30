@@ -33,7 +33,18 @@ describe("action interfaces", () => {
         "--current-task", "fix Bob's parser",
         "--agent", "codex",
         "--session-id", "session 1"
-      ]
+      ],
+      exec_file: {
+        executable: "moryn",
+        args: [
+          "agent", "finish",
+          "--summary", "<summary>",
+          "--project", "/workspace/My Project",
+          "--current-task", "fix Bob's parser",
+          "--agent", "codex",
+          "--session-id", "session 1"
+        ]
+      }
     });
   });
 
@@ -49,6 +60,10 @@ describe("action interfaces", () => {
     expect(interfaces.cli).toMatchObject({
       executable: "moryn-agent-smoke",
       args: ["--remote", "git@github.com:you/moryn store.git"],
+      exec_file: {
+        executable: "moryn-agent-smoke",
+        args: ["--remote", "git@github.com:you/moryn store.git"]
+      },
       argv: ["moryn-agent-smoke", "--remote", "git@github.com:you/moryn store.git"],
       command_line: "moryn-agent-smoke --remote 'git@github.com:you/moryn store.git'"
     });

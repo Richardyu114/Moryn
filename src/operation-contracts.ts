@@ -18,6 +18,10 @@ type OperationInterfaces = {
     argv: string[];
     executable: string;
     args: string[];
+    exec_file: {
+      executable: string;
+      args: string[];
+    };
   };
   mcp: {
     tool: string;
@@ -108,6 +112,7 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   cli_argv: "operations_by_id.<operation>.interfaces.cli.argv[]",
   cli_executable: "operations_by_id.<operation>.interfaces.cli.executable",
   cli_args: "operations_by_id.<operation>.interfaces.cli.args[]",
+  cli_exec_file: "operations_by_id.<operation>.interfaces.cli.exec_file",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
   ordered_operation: "operations[]"
 } as const;
@@ -144,6 +149,10 @@ function operationContract(input: OperationContractInput): OperationContract {
       ...input.interfaces.cli,
       executable: "moryn",
       args: input.interfaces.cli.argv,
+      exec_file: {
+        executable: "moryn",
+        args: input.interfaces.cli.argv
+      },
       command_line: commandLineForCliInterface("moryn", input.interfaces.cli.argv)
     }
   };
