@@ -1244,6 +1244,22 @@ describe("MCP stdio server", () => {
                 preferred: false
               }
             ],
+            cli_assignments: [
+              {
+                flag: "--text",
+                value_path: "user_input.text_or_content",
+                type: "string",
+                required: false,
+                preferred: true
+              },
+              {
+                flag: "--content-json",
+                value_path: "user_input.text_or_content",
+                type: "object",
+                required: false,
+                preferred: false
+              }
+            ],
             mcp_targets: [
               {
                 argument: "text",

@@ -138,6 +138,13 @@ describe("action execution readiness", () => {
             value_path: "user_input.summary",
             preferred: true
           }],
+          cli_assignments: [{
+            flag: "--summary",
+            value_path: "user_input.summary",
+            type: "string",
+            required: true,
+            preferred: true
+          }],
           cli_targets: [{ flag: "--summary", type: "string", required: true, preferred: true }]
         },
         value_path: "user_input.summary",
@@ -347,6 +354,13 @@ describe("action execution readiness", () => {
               required: true,
               preferred: true
             }],
+            cli_assignments: [{
+              flag: "--kind",
+              value_path: "user_input.kind",
+              type: "string",
+              required: true,
+              preferred: true
+            }],
             cli_targets: [{
               flag: "--kind",
               type: "string",
@@ -406,6 +420,22 @@ describe("action execution readiness", () => {
               },
               {
                 argument: "content",
+                type: "object",
+                required: false,
+                preferred: false
+              }
+            ],
+            cli_assignments: [
+              {
+                flag: "--text",
+                value_path: "user_input.text_or_content",
+                type: "string",
+                required: false,
+                preferred: true
+              },
+              {
+                flag: "--content-json",
+                value_path: "user_input.text_or_content",
                 type: "object",
                 required: false,
                 preferred: false
@@ -495,6 +525,22 @@ describe("action execution readiness", () => {
             },
             {
               argument: "content",
+              type: "object",
+              required: false,
+              preferred: false
+            }
+          ],
+          cli_assignments: [
+            {
+              flag: "--text",
+              value_path: "user_input.text_or_content",
+              type: "string",
+              required: false,
+              preferred: true
+            },
+            {
+              flag: "--content-json",
+              value_path: "user_input.text_or_content",
               type: "object",
               required: false,
               preferred: false
@@ -594,6 +640,85 @@ describe("action execution readiness", () => {
       type: "string[]",
       required: false,
       repeatable: true,
+      preferred: true
+    }]);
+    expect(execution.required_inputs_by_field.derived_from.collect.apply_to.cli_assignments).toEqual([{
+      flag: "--derived-from",
+      value_path: "user_input.derived_from",
+      type: "string[]",
+      required: false,
+      repeatable: true,
+      preferred: true
+    }]);
+  });
+
+  it("maps positional CLI assignments for collected required inputs", () => {
+    const execution = actionExecution({
+      tool: "promote",
+      safe_to_run: false,
+      required_fields: ["record_id"],
+      required_fields_by_name: {
+        record_id: {
+          name: "record_id",
+          argument_path: "record_id",
+          placeholder: "<record_id>",
+          value: "<record_id>"
+        }
+      },
+      arguments_by_name: {
+        record_id: {
+          type: "string",
+          required: true,
+          cli: { positional: "record-id" },
+          mcp: { argument: "record_id" }
+        }
+      },
+      argument_sources: {
+        record_id: "user_input.record_id"
+      }
+    });
+
+    expect(execution.required_inputs_by_field.record_id.collect.apply_to.cli_assignments).toEqual([{
+      positional: "record-id",
+      value_path: "user_input.record_id",
+      type: "string",
+      required: true,
+      preferred: true
+    }]);
+  });
+
+  it("preserves CLI defaults in assignments for collected required inputs", () => {
+    const execution = actionExecution({
+      tool: "project_init",
+      safe_to_run: false,
+      required_fields: ["path"],
+      required_fields_by_name: {
+        path: {
+          name: "path",
+          argument_path: "path",
+          placeholder: "<path>",
+          value: "<path>"
+        }
+      },
+      arguments_by_name: {
+        path: {
+          type: "string",
+          required: true,
+          cli: { flag: "--path", default: "." },
+          mcp: { argument: "path" }
+        }
+      },
+      argument_sources: {
+        path: "user_input.path"
+      }
+    });
+
+    expect(execution.required_inputs_by_field.path.collect.apply_to.cli_assignments).toEqual([{
+      flag: "--path",
+      value_path: "user_input.path",
+      type: "string",
+      required: true,
+      default: ".",
       preferred: true
     }]);
   });

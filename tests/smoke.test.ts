@@ -640,6 +640,22 @@ describe("package smoke test", () => {
               preferred: false
             }
           ],
+          cli_assignments: [
+            {
+              flag: "--text",
+              value_path: "user_input.text_or_content",
+              type: "string",
+              required: false,
+              preferred: true
+            },
+            {
+              flag: "--content-json",
+              value_path: "user_input.text_or_content",
+              type: "object",
+              required: false,
+              preferred: false
+            }
+          ],
           mcp_targets: [
             {
               argument: "text",
@@ -719,6 +735,22 @@ describe("package smoke test", () => {
               value_path: "user_input.text_or_content",
               preferred: false
             }
+          ],
+          cli_assignments: [
+            {
+              flag: "--text",
+              value_path: "user_input.text_or_content",
+              type: "string",
+              required: false,
+              preferred: true
+            },
+            {
+              flag: "--content-json",
+              value_path: "user_input.text_or_content",
+              type: "object",
+              required: false,
+              preferred: false
+            }
           ]
         }
       },
@@ -767,6 +799,13 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.write.execution.required_inputs_by_field.kind.collect.apply_to.mcp_assignments).toEqual([{
       argument: "kind",
       value_path: "user_input.kind",
+      preferred: true
+    }]);
+    expect(response.operations_by_id.write.execution.required_inputs_by_field.kind.collect.apply_to.cli_assignments).toEqual([{
+      flag: "--kind",
+      value_path: "user_input.kind",
+      type: "string",
+      required: true,
       preferred: true
     }]);
     expect(response.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual([

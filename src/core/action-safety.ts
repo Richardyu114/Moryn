@@ -81,6 +81,18 @@ export interface ActionMcpAssignment {
   preferred: boolean;
 }
 
+export interface ActionCliAssignment {
+  flag?: string;
+  flags?: readonly string[];
+  positional?: string;
+  value_path: string;
+  type?: string;
+  required?: boolean;
+  repeatable?: boolean;
+  default?: unknown;
+  preferred: boolean;
+}
+
 export interface ActionRequiredInputCollect {
   source: "user";
   input_key: string;
@@ -88,6 +100,7 @@ export interface ActionRequiredInputCollect {
   apply_to: {
     mcp_argument_paths: string[];
     mcp_assignments?: ActionMcpAssignment[];
+    cli_assignments?: ActionCliAssignment[];
     mcp_targets?: ActionMcpTarget[];
     cli_targets?: ActionCliTarget[];
   };
@@ -216,6 +229,21 @@ function mcpAssignments(targets: ActionMcpTarget[] | undefined, valuePath: strin
   }));
 }
 
+function cliAssignments(targets: ActionCliTarget[] | undefined, valuePath: string): ActionCliAssignment[] | undefined {
+  if (!targets?.length) return undefined;
+  return targets.map((target) => ({
+    ...(target.flag ? { flag: target.flag } : {}),
+    ...(target.flags ? { flags: target.flags } : {}),
+    ...(target.positional ? { positional: target.positional } : {}),
+    value_path: valuePath,
+    ...(target.type ? { type: target.type } : {}),
+    ...(typeof target.required === "boolean" ? { required: target.required } : {}),
+    ...(typeof target.repeatable === "boolean" ? { repeatable: target.repeatable } : {}),
+    ...("default" in target ? { default: target.default } : {}),
+    preferred: target.preferred
+  }));
+}
+
 function promptForRequiredInput(field: string): string {
   return `Provide ${field.replace(/_/g, " ")}.`;
 }
@@ -225,6 +253,7 @@ function collectRequiredInput(input: {
   paths: string[];
   mcp_targets?: ActionMcpTarget[];
   mcp_assignments?: ActionMcpAssignment[];
+  cli_assignments?: ActionCliAssignment[];
   cli_targets?: ActionCliTarget[];
   argument_source?: string;
   placeholder?: string;
@@ -238,6 +267,7 @@ function collectRequiredInput(input: {
     apply_to: {
       mcp_argument_paths: input.paths,
       ...(input.mcp_assignments ? { mcp_assignments: input.mcp_assignments } : {}),
+      ...(input.cli_assignments ? { cli_assignments: input.cli_assignments } : {}),
       ...(input.mcp_targets ? { mcp_targets: input.mcp_targets } : {}),
       ...(input.cli_targets ? { cli_targets: input.cli_targets } : {})
     },
@@ -338,6 +368,7 @@ export function actionExecution(input: {
     const argumentSource = input.argument_sources?.[field] ?? `user_input.${field}`;
     const placeholder = metadata?.placeholder;
     const mcpAssignmentList = mcpAssignments(mcpTargetList, argumentSource);
+    const cliAssignmentList = cliAssignments(cliTargetList, argumentSource);
     return {
       field,
       argument_path: argumentPath,
@@ -347,6 +378,7 @@ export function actionExecution(input: {
         paths: splitArgumentPaths,
         ...(mcpTargetList ? { mcp_targets: mcpTargetList } : {}),
         ...(mcpAssignmentList ? { mcp_assignments: mcpAssignmentList } : {}),
+        ...(cliAssignmentList ? { cli_assignments: cliAssignmentList } : {}),
         ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
         ...(argumentSource ? { argument_source: argumentSource } : {}),
         ...(placeholder ? { placeholder } : {}),
