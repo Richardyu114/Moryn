@@ -3282,9 +3282,26 @@ describe("core engine", () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({ storePath });
 
-      await expect(engine.recall({ limit: 0 })).rejects.toThrow(/Invalid limit/);
-      await expect(engine.refresh({ limit: 101 })).rejects.toThrow(/Invalid limit/);
-      await expect(engine.listRecent(-1)).rejects.toThrow(/Invalid limit/);
+      async function expectInvalidLimit(action: () => Promise<unknown>, value: number): Promise<void> {
+        try {
+          await action();
+          throw new Error("Expected read to reject invalid limit");
+        } catch (error) {
+          const envelope = toErrorEnvelope(error);
+          expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+          expect(envelope.error.message).toContain("Invalid limit");
+          expect(envelope.error.recommended_action).toBe("retry read with a limit between 1 and 100");
+          expect(envelope.error.recovery_hint).toEqual({
+            rejected_argument: { argument: "limit", value },
+            expected: { kind: "integer_range", min: 1, max: 100, integer: true },
+            retry_with: { argument: "limit", value_placeholder: 10 }
+          });
+        }
+      }
+
+      await expectInvalidLimit(() => engine.recall({ limit: 0 }), 0);
+      await expectInvalidLimit(() => engine.refresh({ limit: 101 }), 101);
+      await expectInvalidLimit(() => engine.listRecent(-1), -1);
     });
   });
 
@@ -3303,22 +3320,84 @@ describe("core engine", () => {
         }
       }
 
+      async function expectInvalidReadShapeArgument(
+        action: () => Promise<unknown>,
+        message: string,
+        recommendedAction: string,
+        recoveryHint: unknown
+      ): Promise<void> {
+        try {
+          await action();
+          throw new Error("Expected read to reject invalid shape input");
+        } catch (error) {
+          const envelope = toErrorEnvelope(error);
+          expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+          expect(envelope.error.message).toContain(message);
+          expect(envelope.error.recommended_action).toBe(recommendedAction);
+          expect(envelope.error.recovery_hint).toEqual(recoveryHint);
+        }
+      }
+
       await expectInvalidArgument(() => engine.recall(null as never), "Invalid recall input");
-      await expectInvalidArgument(() => engine.recall({ project_id: "" }), "Invalid project_id");
-      await expectInvalidArgument(() => engine.recall({ query: 123 as never }), "Invalid query");
-      await expectInvalidArgument(() => engine.recall({ record_ids: ["rec_1", 123] as never }), "Invalid record_ids");
-      await expectInvalidArgument(() => engine.recall({ kinds: ["note"] as never }), "Invalid kinds");
-      await expectInvalidArgument(() => engine.recall({ scopes: ["repository"] as never }), "Invalid scopes");
-      await expectInvalidArgument(() => engine.recall({ states: ["published"] as never }), "Invalid states");
-      await expectInvalidArgument(() => engine.recall({ tags: "sync" as never }), "Invalid tags");
-      await expectInvalidArgument(() => engine.recall({ files: ["src/auth.ts", 123] as never }), "Invalid files");
+      await expectInvalidReadShapeArgument(() => engine.recall({ project_id: "" }), "Invalid project_id", "retry read with a non-empty project_id", {
+        rejected_argument: { argument: "project_id", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
+      });
+      await expectInvalidReadShapeArgument(() => engine.recall({ query: 123 as never }), "Invalid query", "retry read with a non-empty query", {
+        rejected_argument: { argument: "query", value: 123 },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "query", value_placeholder: "<query>" }
+      });
+      await expectInvalidReadShapeArgument(() => engine.recall({ record_ids: ["rec_1", 123] as never }), "Invalid record_ids", "retry read with record_ids as non-empty strings", {
+        rejected_argument: { argument: "record_ids", value: ["rec_1", 123] },
+        expected: { kind: "array_of_non_empty_strings" },
+        retry_with: { argument: "record_ids", value_placeholder: ["<record_id>"] }
+      });
+      await expectInvalidReadShapeArgument(() => engine.recall({ kinds: ["note"] as never }), "Invalid kinds", "retry read with supported kinds", {
+        rejected_argument: { argument: "kinds", value: ["note"] },
+        expected: { kind: "array_of_allowed_values", allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"] },
+        retry_with: { argument: "kinds", value_placeholder: ["memory"] }
+      });
+      await expectInvalidReadShapeArgument(() => engine.recall({ scopes: ["repository"] as never }), "Invalid scopes", "retry read with supported scopes", {
+        rejected_argument: { argument: "scopes", value: ["repository"] },
+        expected: { kind: "array_of_allowed_values", allowed_values: ["global", "project", "topic", "session", "artifact"] },
+        retry_with: { argument: "scopes", value_placeholder: ["project"] }
+      });
+      await expectInvalidReadShapeArgument(() => engine.recall({ states: ["published"] as never }), "Invalid states", "retry read with supported states", {
+        rejected_argument: { argument: "states", value: ["published"] },
+        expected: { kind: "array_of_allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
+        retry_with: { argument: "states", value_placeholder: ["canonical"] }
+      });
+      await expectInvalidReadShapeArgument(() => engine.recall({ tags: "sync" as never }), "Invalid tags", "retry read with tags as non-empty strings", {
+        rejected_argument: { argument: "tags", value: "sync" },
+        expected: { kind: "array_of_non_empty_strings" },
+        retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+      });
+      await expectInvalidReadShapeArgument(() => engine.recall({ files: ["src/auth.ts", 123] as never }), "Invalid files", "retry read with files as non-empty strings", {
+        rejected_argument: { argument: "files", value: ["src/auth.ts", 123] },
+        expected: { kind: "array_of_non_empty_strings" },
+        retry_with: { argument: "files", value_placeholder: ["<file>"] }
+      });
 
       await expectInvalidArgument(() => engine.boot(null as never), "Invalid boot input");
-      await expectInvalidArgument(() => engine.boot({ default_skills: ["release", 123] as never }), "Invalid default_skills");
-      await expectInvalidArgument(() => engine.boot({ current_task: 123 as never }), "Invalid current_task");
+      await expectInvalidReadShapeArgument(() => engine.boot({ default_skills: ["release", 123] as never }), "Invalid default_skills", "retry read with default_skills as non-empty strings", {
+        rejected_argument: { argument: "default_skills", value: ["release", 123] },
+        expected: { kind: "array_of_non_empty_strings" },
+        retry_with: { argument: "default_skills", value_placeholder: ["<default_skill>"] }
+      });
+      await expectInvalidReadShapeArgument(() => engine.boot({ current_task: 123 as never }), "Invalid current_task", "retry read with a non-empty current_task", {
+        rejected_argument: { argument: "current_task", value: 123 },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
+      });
 
       await expectInvalidArgument(() => engine.refresh(null as never), "Invalid refresh input");
-      await expectInvalidArgument(() => engine.refresh({ cursor: 123 as never }), "Invalid cursor");
+      await expectInvalidReadShapeArgument(() => engine.refresh({ cursor: 123 as never }), "Invalid cursor", "retry read with a non-empty cursor", {
+        rejected_argument: { argument: "cursor", value: 123 },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "cursor", value_placeholder: "<cursor>" }
+      });
       try {
         await engine.refresh({ cursor: "not-a-date" });
         throw new Error("Expected refresh to reject invalid cursor");
@@ -3341,7 +3420,11 @@ describe("core engine", () => {
           }
         });
       }
-      await expectInvalidArgument(() => engine.refresh({ current_task: 123 as never }), "Invalid current_task");
+      await expectInvalidReadShapeArgument(() => engine.refresh({ current_task: 123 as never }), "Invalid current_task", "retry read with a non-empty current_task", {
+        rejected_argument: { argument: "current_task", value: 123 },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
+      });
     });
   });
 

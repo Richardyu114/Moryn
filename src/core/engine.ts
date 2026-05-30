@@ -355,7 +355,7 @@ function searchableText(record: MorynRecord): string {
 function validateLimit(limit: number | undefined, fallback: number): number {
   const resolved = limit ?? fallback;
   if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
-    throw new Error("Invalid argument: Invalid limit; must be an integer between 1 and 100");
+    throw invalidReadLimitError(resolved);
   }
   return resolved;
 }
@@ -451,6 +451,98 @@ function invalidSourceClientError(source: unknown, recommendedAction: string): M
   );
 }
 
+type ReadArgumentRecoveryHint =
+  | {
+      rejected_argument: { argument: string; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      retry_with: { argument: string; value_placeholder: string };
+    }
+  | {
+      rejected_argument: { argument: string; value: unknown };
+      expected: { kind: "array_of_non_empty_strings" };
+      retry_with: { argument: string; value_placeholder: string[] };
+    }
+  | {
+      rejected_argument: { argument: string; value: unknown };
+      expected: { kind: "array_of_allowed_values"; allowed_values: string[] };
+      retry_with: { argument: string; value_placeholder: string[] };
+    }
+  | {
+      rejected_argument: { argument: "limit"; value: unknown };
+      expected: { kind: "integer_range"; min: 1; max: 100; integer: true };
+      retry_with: { argument: "limit"; value_placeholder: 10 };
+    };
+
+class ReadArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: ReadArgumentRecoveryHint;
+
+  constructor(message: string, recommendedAction: string, recoveryHint: ReadArgumentRecoveryHint) {
+    super(message);
+    this.name = "ReadArgumentError";
+    this.recommended_action = recommendedAction;
+    this.recovery_hint = recoveryHint;
+  }
+}
+
+function invalidReadLimitError(limit: unknown): ReadArgumentError {
+  return new ReadArgumentError(
+    "Invalid argument: Invalid limit; must be an integer between 1 and 100",
+    "retry read with a limit between 1 and 100",
+    {
+      rejected_argument: { argument: "limit", value: limit },
+      expected: { kind: "integer_range", min: 1, max: 100, integer: true },
+      retry_with: { argument: "limit", value_placeholder: 10 }
+    }
+  );
+}
+
+function readPlaceholder(name: string): string {
+  return `<${name}>`;
+}
+
+function invalidReadStringError(name: string, value: unknown): ReadArgumentError {
+  return new ReadArgumentError(
+    `Invalid argument: Invalid ${name}`,
+    `retry read with a non-empty ${name}`,
+    {
+      rejected_argument: { argument: name, value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: name, value_placeholder: readPlaceholder(name) }
+    }
+  );
+}
+
+function invalidReadStringArrayError(name: string, value: unknown): ReadArgumentError {
+  const singular = name.endsWith("s") ? name.slice(0, -1) : name;
+  return new ReadArgumentError(
+    `Invalid argument: Invalid ${name}`,
+    `retry read with ${name} as non-empty strings`,
+    {
+      rejected_argument: { argument: name, value },
+      expected: { kind: "array_of_non_empty_strings" },
+      retry_with: { argument: name, value_placeholder: [readPlaceholder(singular)] }
+    }
+  );
+}
+
+function invalidReadEnumArrayError<T extends string>(
+  name: string,
+  value: unknown,
+  allowedValues: readonly T[],
+  placeholder: T
+): ReadArgumentError {
+  return new ReadArgumentError(
+    `Invalid argument: Invalid ${name}`,
+    `retry read with supported ${name}`,
+    {
+      rejected_argument: { argument: name, value },
+      expected: { kind: "array_of_allowed_values", allowed_values: [...allowedValues] },
+      retry_with: { argument: name, value_placeholder: [placeholder] }
+    }
+  );
+}
+
 function validateRecordId(recordId: unknown, name: "record_id" | "linked_record_id" = "record_id"): void {
   if (typeof recordId !== "string" || !recordId.length) {
     throw invalidMutationStringError(name, recordId);
@@ -474,18 +566,24 @@ function validateOptionalConfirmed(confirmed: unknown): void {
 }
 
 function validateOptionalString(value: unknown, name: string): void {
-  if (value !== undefined && (typeof value !== "string" || !value.length)) throw new Error(`Invalid argument: Invalid ${name}`);
+  if (value !== undefined && (typeof value !== "string" || !value.length)) throw invalidReadStringError(name, value);
 }
 
 function validateOptionalStringArray(value: unknown, name: string): void {
   if (value !== undefined && (!Array.isArray(value) || !value.every((item) => typeof item === "string" && item.length > 0))) {
-    throw new Error(`Invalid argument: Invalid ${name}`);
+    throw invalidReadStringArrayError(name, value);
   }
 }
 
-function validateOptionalEnumArray<T extends string>(value: unknown, name: string, schema: { safeParse: (value: unknown) => { success: boolean } }): void {
+function validateOptionalEnumArray<T extends string>(
+  value: unknown,
+  name: string,
+  schema: { safeParse: (value: unknown) => { success: boolean } },
+  allowedValues: readonly T[],
+  placeholder: T
+): void {
   if (value !== undefined && (!Array.isArray(value) || !value.every((item): item is T => schema.safeParse(item).success))) {
-    throw new Error(`Invalid argument: Invalid ${name}`);
+    throw invalidReadEnumArrayError(name, value, allowedValues, placeholder);
   }
 }
 
@@ -963,10 +1061,10 @@ function validateRecallInput(input: RecallInput): void {
   validateOptionalStringArray(input.record_ids, "record_ids");
   validateOptionalString(input.query, "query");
   validateOptionalString(input.project_id, "project_id");
-  validateOptionalEnumArray<RecordKind>(input.kinds, "kinds", recordKindSchema);
-  validateOptionalEnumArray<RecordScope>(input.scopes, "scopes", recordScopeSchema);
+  validateOptionalEnumArray<RecordKind>(input.kinds, "kinds", recordKindSchema, RECORD_KINDS, "memory");
+  validateOptionalEnumArray<RecordScope>(input.scopes, "scopes", recordScopeSchema, RECORD_SCOPES, "project");
   validateOptionalStringArray(input.types, "types");
-  validateOptionalEnumArray<RecordState>(input.states, "states", recordStateSchema);
+  validateOptionalEnumArray<RecordState>(input.states, "states", recordStateSchema, RECORD_STATES, "canonical");
   validateOptionalStringArray(input.tags, "tags");
   validateOptionalStringArray(input.files, "files");
 }
