@@ -12,6 +12,8 @@ type ActionInterfaces<TArguments> = {
       executable: string;
       args: string[];
     };
+    placeholders: string[];
+    has_placeholders: boolean;
   };
   mcp: {
     tool: string;
@@ -102,6 +104,13 @@ function cliArgvPrefix(tool: string): string[] {
   return prefix;
 }
 
+function cliPlaceholders(argv: readonly string[]): string[] {
+  return Array.from(new Set(argv.flatMap((arg) => {
+    const match = /^<([^<>]+)>$/.exec(arg);
+    return match ? [match[1]!] : [];
+  })));
+}
+
 export function cliArgvForAction(tool: string, argumentsByName: Record<string, unknown>): string[] {
   const operationArguments = operationArgumentList(tool);
   const positionals = operationArguments
@@ -144,6 +153,7 @@ export function actionInterfaces<TArguments extends Record<string, unknown>>(inp
   const argv = cliArgvForAction(input.tool, input.arguments);
   const executable = DIRECT_CLI_EXECUTABLES.has(argv[0] ?? "") ? argv[0]! : "moryn";
   const args = executable === "moryn" ? argv : argv.slice(1);
+  const placeholders = cliPlaceholders(args);
   return {
     cli: {
       command: input.command,
@@ -151,7 +161,9 @@ export function actionInterfaces<TArguments extends Record<string, unknown>>(inp
       argv,
       executable,
       args,
-      exec_file: { executable, args }
+      exec_file: { executable, args },
+      placeholders,
+      has_placeholders: placeholders.length > 0
     },
     mcp: {
       tool: input.tool,

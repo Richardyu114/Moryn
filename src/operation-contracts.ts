@@ -22,6 +22,8 @@ type OperationInterfaces = {
       executable: string;
       args: string[];
     };
+    placeholders: string[];
+    has_placeholders: boolean;
   };
   mcp: {
     tool: string;
@@ -113,6 +115,7 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   cli_executable: "operations_by_id.<operation>.interfaces.cli.executable",
   cli_args: "operations_by_id.<operation>.interfaces.cli.args[]",
   cli_exec_file: "operations_by_id.<operation>.interfaces.cli.exec_file",
+  cli_placeholder: "operations_by_id.<operation>.interfaces.cli.placeholders[]",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
   ordered_operation: "operations[]"
 } as const;
@@ -140,9 +143,17 @@ function requiredInputSelectionSources(selectionSources: Record<string, string>)
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
+function cliPlaceholders(argv: readonly string[]): string[] {
+  return Array.from(new Set(argv.flatMap((arg) => {
+    const match = /^<([^<>]+)>$/.exec(arg);
+    return match ? [match[1]!] : [];
+  })));
+}
+
 function operationContract(input: OperationContractInput): OperationContract {
   const required_fields_by_name = operationRequiredFieldsByName(input);
   const arguments_by_name = operationArgumentsByName(input);
+  const placeholders = cliPlaceholders(input.interfaces.cli.argv);
   const interfaces = {
     ...input.interfaces,
     cli: {
@@ -153,6 +164,8 @@ function operationContract(input: OperationContractInput): OperationContract {
         executable: "moryn",
         args: input.interfaces.cli.argv
       },
+      placeholders,
+      has_placeholders: placeholders.length > 0,
       command_line: commandLineForCliInterface("moryn", input.interfaces.cli.argv)
     }
   };

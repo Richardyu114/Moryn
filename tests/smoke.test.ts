@@ -176,6 +176,7 @@ describe("package smoke test", () => {
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_executable).toBe("operations_by_id.<operation>.interfaces.cli.executable");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_args).toBe("operations_by_id.<operation>.interfaces.cli.args[]");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_exec_file).toBe("operations_by_id.<operation>.interfaces.cli.exec_file");
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_placeholder).toBe("operations_by_id.<operation>.interfaces.cli.placeholders[]");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_line).toBe("operations_by_id.<operation>.interfaces.cli.command_line");
     expect(response.recommended_entrypoint).toBe("agent_enter");
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
@@ -192,12 +193,18 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.agent_enter.interfaces.cli.executable).toBe("moryn");
     expect(response.operations_by_id.agent_enter.interfaces.cli.argv).toEqual(["agent", "enter"]);
     expect(response.operations_by_id.agent_enter.interfaces.cli.args).toEqual(["agent", "enter"]);
+    expect(response.operations_by_id.agent_enter.interfaces.cli.placeholders).toEqual([]);
+    expect(response.operations_by_id.agent_enter.interfaces.cli.has_placeholders).toBe(false);
     expect(response.operations_by_id.agent_enter.interfaces.cli.command_line).toBe("moryn agent enter");
     expect(response.operations_by_id.operation_contracts.interfaces.cli.executable).toBe("moryn");
     expect(response.operations_by_id.operation_contracts.interfaces.cli.argv).toEqual(["contracts", "operations"]);
     expect(response.operations_by_id.operation_contracts.interfaces.cli.args).toEqual(["contracts", "operations"]);
+    expect(response.operations_by_id.operation_contracts.interfaces.cli.placeholders).toEqual([]);
+    expect(response.operations_by_id.operation_contracts.interfaces.cli.has_placeholders).toBe(false);
     expect(response.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe("moryn contracts operations");
     expect(response.operations_by_id.project_init.interfaces.cli.argv).toEqual(["project", "init", "--path", "<path>"]);
+    expect(response.operations_by_id.project_init.interfaces.cli.placeholders).toEqual(["path"]);
+    expect(response.operations_by_id.project_init.interfaces.cli.has_placeholders).toBe(true);
     expect(response.operations_by_id.project_init.interfaces.cli.command_line).toBe("moryn project init --path '<path>'");
     expect(response.operations_by_id.write.interfaces.cli.argv).toEqual([
       "write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"
@@ -205,6 +212,8 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.write.interfaces.cli.args).toEqual([
       "write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"
     ]);
+    expect(response.operations_by_id.write.interfaces.cli.placeholders).toEqual(["kind", "type", "scope", "text"]);
+    expect(response.operations_by_id.write.interfaces.cli.has_placeholders).toBe(true);
     expect(response.operations_by_id.write.interfaces.cli.command_line).toBe("moryn write --kind '<kind>' --type '<type>' --scope '<scope>' --text '<text>'");
     expect(response.operations_by_id.recall.execution).toEqual({
       ready_to_run: true,

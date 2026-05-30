@@ -44,7 +44,9 @@ describe("action interfaces", () => {
           "--agent", "codex",
           "--session-id", "session 1"
         ]
-      }
+      },
+      placeholders: ["summary"],
+      has_placeholders: true
     });
   });
 
@@ -65,7 +67,9 @@ describe("action interfaces", () => {
         args: ["--remote", "git@github.com:you/moryn store.git"]
       },
       argv: ["moryn-agent-smoke", "--remote", "git@github.com:you/moryn store.git"],
-      command_line: "moryn-agent-smoke --remote 'git@github.com:you/moryn store.git'"
+      command_line: "moryn-agent-smoke --remote 'git@github.com:you/moryn store.git'",
+      placeholders: [],
+      has_placeholders: false
     });
   });
 });

@@ -49,7 +49,9 @@ function expectNextActionInterfaces(action: {
     exec_file: {
       executable: expect.any(String),
       args: expect.any(Array)
-    }
+    },
+    placeholders: expect.any(Array),
+    has_placeholders: expect.any(Boolean)
   });
   expect(action.interfaces?.mcp).toEqual({
     tool: action.tool,
@@ -287,11 +289,13 @@ function expectRefreshChangeRecallAction(action: {
       cli_argv: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
       cli_args: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
       cli_exec_file: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.exec_file",
+      cli_placeholder: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.placeholders[]",
       cli_command_line: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
       ordered_cli_executable: "refresh.changes[].next_action.interfaces.cli.executable",
       ordered_cli_argv: "refresh.changes[].next_action.interfaces.cli.argv[]",
       ordered_cli_args: "refresh.changes[].next_action.interfaces.cli.args[]",
       ordered_cli_exec_file: "refresh.changes[].next_action.interfaces.cli.exec_file",
+      ordered_cli_placeholder: "refresh.changes[].next_action.interfaces.cli.placeholders[]",
       ordered_cli_command_line: "refresh.changes[].next_action.interfaces.cli.command_line",
       argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
       ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>",
