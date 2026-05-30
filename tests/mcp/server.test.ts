@@ -1019,10 +1019,16 @@ describe("MCP stdio server", () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-operation-contracts-"));
     try {
       await withMcpClient(store, async (client) => {
-        const parsed = parseTextContent(await client.callTool({
+        const result = await client.callTool({
           name: "operation_contracts",
           arguments: {}
-        })) as {
+        });
+        const first = "content" in result ? result.content[0] : undefined;
+        if (!first || first.type !== "text") {
+          throw new Error("Expected text content from operation_contracts");
+        }
+        expect(Buffer.byteLength(first.text, "utf8")).toBeLessThan(1024 * 1024);
+        const parsed = JSON.parse(first.text) as {
           recommended_entrypoint: string;
           operations: Array<{ operation: string }>;
           operations_by_id: Record<string, {
@@ -1074,6 +1080,10 @@ describe("MCP stdio server", () => {
             next_step: "run",
             blocked_by: [],
             missing_required_fields: [],
+            runbook: {
+              next: "call_mcp",
+              steps: [expect.objectContaining({ step: "call_mcp" })]
+            },
             requires_user_confirmation: false,
             reason: "Action is safe and all required fields are already filled."
           },
@@ -1104,6 +1114,13 @@ describe("MCP stdio server", () => {
             next_step: "collect_required_fields",
             blocked_by: ["required_fields"],
             missing_required_fields: ["summary"],
+            runbook: {
+              next: "collect_required_inputs",
+              steps: [
+                expect.objectContaining({ step: "collect_required_inputs" }),
+                expect.objectContaining({ step: "call_mcp" })
+              ]
+            },
             requires_user_confirmation: false,
             reason: "Action requires authored input before it can run."
           },

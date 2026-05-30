@@ -43,8 +43,8 @@ function storePath(): string {
   return parseNonEmptyString(program.opts<{ store?: string }>().store, "--store") ?? join(homedir(), ".moryn");
 }
 
-function printJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+function printJson(value: unknown, options: { pretty?: boolean } = {}): void {
+  process.stdout.write(`${JSON.stringify(value, null, options.pretty === false ? undefined : 2)}\n`);
 }
 
 function printError(error: unknown, context?: MorynErrorContext): void {
@@ -487,7 +487,7 @@ contracts.command("selection-sources")
 contracts.command("operations")
   .description("Print stable CLI and MCP operation contracts.")
   .action(() => {
-    printJson(getOperationContracts());
+    printJson(getOperationContracts(), { pretty: false });
   });
 
 program.command("mcp").action(async () => {

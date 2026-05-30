@@ -405,13 +405,19 @@ read-only actions from agent-authored writes, local setup changes, and actions
 that need explicit user approval. They also include `execution`, a concise
 next-step summary with `ready_to_run`, `next_step`,
 `blocked_by`, `missing_required_fields`, `required_inputs`,
-`required_inputs_by_field`, `required_inputs_by_argument_path`, and
+`required_inputs_by_field`, `required_inputs_by_argument_path`, `runbook`, and
 `requires_user_confirmation`, so hosts can choose between running the action,
 collecting fields, asking for confirmation, or blocking automation without
 recomputing that policy. `blocked_by` is a
 machine-readable reason list: `required_fields`, `user_confirmation`, or
 `unsafe_action`. Agents should treat `execution.ready_to_run`, not
-`safe_to_run` alone, as the immediate run gate. Each `required_inputs[]` entry names the field,
+`safe_to_run` alone, as the immediate run gate. `execution.runbook.next` names
+the immediate host action, such as `collect_required_inputs`,
+`ask_user_confirmation`, `call_mcp`, or `do_not_run`, and
+`execution.runbook.steps[]` lists stable object paths such as
+`execution.required_inputs_by_argument_path`, `interfaces.mcp`, and
+`interfaces.cli.exec_file` in the order a host should follow. Each
+`required_inputs[]` entry names the field,
 original `argument_path`, split `argument_paths`, optional argument source,
 optional `selection_sources.required_input` and
 `selection_sources.required_input_argument_path`, placeholder/value,
@@ -597,7 +603,10 @@ without losing the registry paths.
 argument path, including alternatives such as `text` and `content`.
 `execution.blocked_by` names why the operation is not immediately runnable, so
 hosts can avoid running placeholder commands when `safe_to_run` is true but
-required user input is still missing.
+required user input is still missing. `execution.runbook` turns those blockers
+into ordered machine steps: collect required inputs from the `required_inputs`
+indexes, ask for user confirmation when required, then call the returned MCP
+interface or `exec_file` only after the blockers have been satisfied.
 Each entry includes `selection_sources.required_input`,
 `selection_sources.required_input_argument_path`, `mcp_targets`, and
 `cli_targets`, so hosts do not need to join
@@ -622,7 +631,10 @@ Library hosts can call `getOperationContracts()` and reuse
 `OPERATION_CONTRACTS_SELECTION_SOURCES`. Treat this as the static operation
 directory; after any runtime response returns `next.actions`, prefer those
 returned actions because they include the current project, sync, cursor, and
-handoff context.
+handoff context. The `moryn contracts operations` CLI command and the
+`operation_contracts` MCP tool emit compact JSON text for this large registry so
+default `execFile`-style hosts can read the full response without increasing
+stdout buffers; parse it as normal JSON.
 
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime

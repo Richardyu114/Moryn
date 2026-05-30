@@ -1,7 +1,117 @@
 import { describe, expect, it } from "vitest";
 import { actionExecution } from "../../src/core/action-safety.js";
 
+const callMcpStep = {
+  step: "call_mcp",
+  transport: "mcp",
+  guard: "execution.ready_to_run",
+  mcp: "interfaces.mcp",
+  mcp_tool: "interfaces.mcp.tool",
+  mcp_arguments: "interfaces.mcp.arguments",
+  cli_exec_file: "interfaces.cli.exec_file",
+  cli_command_line: "interfaces.cli.command_line",
+  cli_placeholders: "interfaces.cli.placeholders"
+};
+
+const collectRequiredInputsStep = {
+  step: "collect_required_inputs",
+  reason: "required_fields",
+  missing_required_fields: "execution.missing_required_fields",
+  required_inputs: "execution.required_inputs",
+  required_inputs_by_field: "execution.required_inputs_by_field",
+  required_inputs_by_argument_path: "execution.required_inputs_by_argument_path"
+};
+
+const askUserConfirmationStep = {
+  step: "ask_user_confirmation",
+  reason: "user_confirmation",
+  confirmation_required: "execution.requires_user_confirmation"
+};
+
 describe("action execution readiness", () => {
+  it("exposes a runbook that tells hosts exactly how to run ready actions", () => {
+    const execution = actionExecution({
+      tool: "recall",
+      safe_to_run: true,
+      required_fields: []
+    });
+
+    expect(execution.runbook).toEqual({
+      next: "call_mcp",
+      steps: [callMcpStep]
+    });
+  });
+
+  it("returns fresh runbook steps so caller mutation cannot affect later executions", () => {
+    const first = actionExecution({
+      tool: "recall",
+      safe_to_run: true,
+      required_fields: []
+    });
+
+    (first.runbook.steps[0] as { step: string }).step = "mutated_by_host";
+
+    const second = actionExecution({
+      tool: "recall",
+      safe_to_run: true,
+      required_fields: []
+    });
+
+    expect(second.runbook).toEqual({
+      next: "call_mcp",
+      steps: [callMcpStep]
+    });
+  });
+
+  it("exposes a runbook that blocks placeholder execution until required inputs are collected", () => {
+    const execution = actionExecution({
+      tool: "agent_finish",
+      safe_to_run: false,
+      required_fields: ["summary"],
+      required_fields_by_name: {
+        summary: {
+          name: "summary",
+          argument_path: "summary",
+          placeholder: "<summary>",
+          value: "<summary>"
+        }
+      }
+    });
+
+    expect(execution.runbook).toEqual({
+      next: "collect_required_inputs",
+      steps: [
+        collectRequiredInputsStep,
+        callMcpStep
+      ]
+    });
+  });
+
+  it("orders collection before confirmation for local config writes", () => {
+    const execution = actionExecution({
+      tool: "project_init",
+      safe_to_run: false,
+      required_fields: ["path"],
+      required_fields_by_name: {
+        path: {
+          name: "path",
+          argument_path: "path",
+          placeholder: "<path>",
+          value: "<path>"
+        }
+      }
+    });
+
+    expect(execution.runbook).toEqual({
+      next: "collect_required_inputs",
+      steps: [
+        collectRequiredInputsStep,
+        askUserConfirmationStep,
+        callMcpStep
+      ]
+    });
+  });
+
   it("marks safe actions without authored fields as ready to run", () => {
     expect(actionExecution({
       tool: "recall",
@@ -15,6 +125,10 @@ describe("action execution readiness", () => {
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      runbook: {
+        next: "call_mcp",
+        steps: [callMcpStep]
+      },
       requires_user_confirmation: false,
       reason: "Action is safe and all required fields are already filled."
     });
@@ -84,6 +198,13 @@ describe("action execution readiness", () => {
           placeholder: "<summary>",
           value: "<summary>"
         }
+      },
+      runbook: {
+        next: "collect_required_inputs",
+        steps: [
+          collectRequiredInputsStep,
+          callMcpStep
+        ]
       },
       requires_user_confirmation: false,
       reason: "Action requires authored input before it can run."
@@ -292,8 +413,37 @@ describe("action execution readiness", () => {
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      runbook: {
+        next: "ask_user_confirmation",
+        steps: [
+          askUserConfirmationStep,
+          callMcpStep
+        ]
+      },
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
+    });
+  });
+
+  it("keeps a call step after authored inputs are collected for agent-authored writes", () => {
+    expect(actionExecution({
+      tool: "revise",
+      safe_to_run: false,
+      required_fields: ["record_id"],
+      required_fields_by_name: {
+        record_id: {
+          name: "record_id",
+          argument_path: "record_id",
+          placeholder: "<record_id>",
+          value: "<record_id>"
+        }
+      }
+    }).runbook).toEqual({
+      next: "collect_required_inputs",
+      steps: [
+        collectRequiredInputsStep,
+        callMcpStep
+      ]
     });
   });
 
@@ -310,6 +460,13 @@ describe("action execution readiness", () => {
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      runbook: {
+        next: "ask_user_confirmation",
+        steps: [
+          askUserConfirmationStep,
+          callMcpStep
+        ]
+      },
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
     });

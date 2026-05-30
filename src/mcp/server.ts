@@ -50,12 +50,12 @@ async function resolveProjectInput(input: { project_id?: string; project_path?: 
   };
 }
 
-function jsonResult(value: unknown) {
+function jsonResult(value: unknown, options: { pretty?: boolean } = {}) {
   return {
     content: [
       {
         type: "text" as const,
-        text: JSON.stringify(value, null, 2)
+        text: JSON.stringify(value, null, options.pretty === false ? undefined : 2)
       }
     ]
   };
@@ -157,7 +157,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Return stable CLI/MCP operation contracts, safety metadata, and required fields.",
       inputSchema: {}
     },
-    async () => toolResult(async () => getOperationContracts())
+    async () => jsonResult(getOperationContracts(), { pretty: false })
   );
 
   server.registerTool(

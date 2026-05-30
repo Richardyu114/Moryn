@@ -1023,6 +1023,7 @@ describe("moryn CLI", () => {
       selection_sources: Record<string, string>;
     };
 
+    expect(Buffer.byteLength(result.stdout, "utf8")).toBeLessThan(1024 * 1024);
     expect(parsed.recommended_entrypoint).toBe("agent_enter");
     expect(parsed.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(parsed.operations_by_id.agent_enter).toMatchObject({
@@ -1035,6 +1036,10 @@ describe("moryn CLI", () => {
         next_step: "run",
         blocked_by: [],
         missing_required_fields: [],
+        runbook: {
+          next: "call_mcp",
+          steps: [expect.objectContaining({ step: "call_mcp" })]
+        },
         requires_user_confirmation: false,
         reason: "Action is safe and all required fields are already filled."
       },
@@ -1065,6 +1070,13 @@ describe("moryn CLI", () => {
         next_step: "collect_required_fields",
         blocked_by: ["required_fields"],
         missing_required_fields: ["summary"],
+        runbook: {
+          next: "collect_required_inputs",
+          steps: [
+            expect.objectContaining({ step: "collect_required_inputs" }),
+            expect.objectContaining({ step: "call_mcp" })
+          ]
+        },
         requires_user_confirmation: false,
         reason: "Action requires authored input before it can run."
       },

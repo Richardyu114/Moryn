@@ -181,7 +181,11 @@ describe("published package smoke", () => {
           blocked_by: [],
           required_inputs: [],
           required_inputs_by_field: {},
-          required_inputs_by_argument_path: {}
+          required_inputs_by_argument_path: {},
+          runbook: {
+            next: "call_mcp",
+            steps: [expect.objectContaining({ step: "call_mcp" })]
+          }
         });
         expect(parsedOperations.operations_by_id.agent_finish.required_fields_by_name.summary.placeholder).toBe("<summary>");
         expect(parsedOperations.operations_by_id.agent_finish.argument_sources?.summary).toBe("user_input.summary");
@@ -189,6 +193,13 @@ describe("published package smoke", () => {
           next_step: "collect_required_fields",
           blocked_by: ["required_fields"],
           missing_required_fields: ["summary"],
+          runbook: {
+            next: "collect_required_inputs",
+            steps: [
+              expect.objectContaining({ step: "collect_required_inputs" }),
+              expect.objectContaining({ step: "call_mcp" })
+            ]
+          },
           required_inputs: [{
             field: "summary",
             argument_path: "summary",

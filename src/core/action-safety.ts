@@ -8,6 +8,51 @@ export interface ActionSafety {
 
 export type ActionExecutionNextStep = "run" | "collect_required_fields" | "confirm_with_user" | "do_not_auto_run";
 export type ActionExecutionBlocker = "required_fields" | "user_confirmation" | "unsafe_action";
+export type ActionRunbookStepName = "collect_required_inputs" | "ask_user_confirmation" | "call_mcp" | "do_not_run";
+
+export interface ActionRunbookCollectRequiredInputsStep {
+  step: "collect_required_inputs";
+  reason: "required_fields";
+  missing_required_fields: "execution.missing_required_fields";
+  required_inputs: "execution.required_inputs";
+  required_inputs_by_field: "execution.required_inputs_by_field";
+  required_inputs_by_argument_path: "execution.required_inputs_by_argument_path";
+}
+
+export interface ActionRunbookAskUserConfirmationStep {
+  step: "ask_user_confirmation";
+  reason: "user_confirmation";
+  confirmation_required: "execution.requires_user_confirmation";
+}
+
+export interface ActionRunbookCallMcpStep {
+  step: "call_mcp";
+  transport: "mcp";
+  guard: "execution.ready_to_run";
+  mcp: "interfaces.mcp";
+  mcp_tool: "interfaces.mcp.tool";
+  mcp_arguments: "interfaces.mcp.arguments";
+  cli_exec_file: "interfaces.cli.exec_file";
+  cli_command_line: "interfaces.cli.command_line";
+  cli_placeholders: "interfaces.cli.placeholders";
+}
+
+export interface ActionRunbookDoNotRunStep {
+  step: "do_not_run";
+  reason: "unsafe_action";
+  blocked_by: "execution.blocked_by";
+}
+
+export type ActionRunbookStep =
+  | ActionRunbookCollectRequiredInputsStep
+  | ActionRunbookAskUserConfirmationStep
+  | ActionRunbookCallMcpStep
+  | ActionRunbookDoNotRunStep;
+
+export interface ActionRunbook {
+  next: ActionRunbookStepName;
+  steps: ActionRunbookStep[];
+}
 
 export interface ActionMcpTarget {
   argument: string;
@@ -75,6 +120,7 @@ export interface ActionExecution {
   required_inputs: ActionRequiredInput[];
   required_inputs_by_field: Record<string, ActionRequiredInput>;
   required_inputs_by_argument_path: Record<string, ActionRequiredInput>;
+  runbook: ActionRunbook;
   requires_user_confirmation: boolean;
   reason: string;
 }
@@ -133,6 +179,52 @@ function cliTargets(
   });
 
   return targets.length > 0 ? targets : undefined;
+}
+
+const COLLECT_REQUIRED_INPUTS_STEP: ActionRunbookCollectRequiredInputsStep = {
+  step: "collect_required_inputs",
+  reason: "required_fields",
+  missing_required_fields: "execution.missing_required_fields",
+  required_inputs: "execution.required_inputs",
+  required_inputs_by_field: "execution.required_inputs_by_field",
+  required_inputs_by_argument_path: "execution.required_inputs_by_argument_path"
+};
+
+const ASK_USER_CONFIRMATION_STEP: ActionRunbookAskUserConfirmationStep = {
+  step: "ask_user_confirmation",
+  reason: "user_confirmation",
+  confirmation_required: "execution.requires_user_confirmation"
+};
+
+const CALL_MCP_STEP: ActionRunbookCallMcpStep = {
+  step: "call_mcp",
+  transport: "mcp",
+  guard: "execution.ready_to_run",
+  mcp: "interfaces.mcp",
+  mcp_tool: "interfaces.mcp.tool",
+  mcp_arguments: "interfaces.mcp.arguments",
+  cli_exec_file: "interfaces.cli.exec_file",
+  cli_command_line: "interfaces.cli.command_line",
+  cli_placeholders: "interfaces.cli.placeholders"
+};
+
+const DO_NOT_RUN_STEP: ActionRunbookDoNotRunStep = {
+  step: "do_not_run",
+  reason: "unsafe_action",
+  blocked_by: "execution.blocked_by"
+};
+
+function actionRunbook(blockedBy: ActionExecutionBlocker[]): ActionRunbook {
+  const steps: ActionRunbookStep[] = [];
+  if (blockedBy.includes("required_fields")) steps.push({ ...COLLECT_REQUIRED_INPUTS_STEP });
+  if (blockedBy.includes("user_confirmation")) steps.push({ ...ASK_USER_CONFIRMATION_STEP });
+  if (blockedBy.includes("unsafe_action")) steps.push({ ...DO_NOT_RUN_STEP });
+  if (!blockedBy.includes("unsafe_action")) steps.push({ ...CALL_MCP_STEP });
+
+  return {
+    next: steps[0]?.step ?? "call_mcp",
+    steps
+  };
 }
 
 export function actionSafety(input: {
@@ -200,45 +292,51 @@ export function actionExecution(input: {
     )
   );
   if (input.required_fields.length > 0) {
+    const blocked_by: ActionExecutionBlocker[] = [
+      "required_fields",
+      ...(safety.requires_user_confirmation ? ["user_confirmation" as const] : [])
+    ];
     return {
       ready_to_run: false,
       next_step: "collect_required_fields",
-      blocked_by: [
-        "required_fields",
-        ...(safety.requires_user_confirmation ? ["user_confirmation" as const] : [])
-      ],
+      blocked_by,
       missing_required_fields: [...input.required_fields],
       required_inputs: requiredInputs,
       required_inputs_by_field: requiredInputsByField,
       required_inputs_by_argument_path: requiredInputsByArgumentPath,
+      runbook: actionRunbook(blocked_by),
       requires_user_confirmation: safety.requires_user_confirmation,
       reason: "Action requires authored input before it can run."
     };
   }
 
   if (safety.requires_user_confirmation) {
+    const blocked_by: ActionExecutionBlocker[] = ["user_confirmation"];
     return {
       ready_to_run: false,
       next_step: "confirm_with_user",
-      blocked_by: ["user_confirmation"],
+      blocked_by,
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      runbook: actionRunbook(blocked_by),
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
     };
   }
 
   if (!input.safe_to_run) {
+    const blocked_by: ActionExecutionBlocker[] = ["unsafe_action"];
     return {
       ready_to_run: false,
       next_step: "do_not_auto_run",
-      blocked_by: ["unsafe_action"],
+      blocked_by,
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      runbook: actionRunbook(blocked_by),
       requires_user_confirmation: false,
       reason: "Action is not safe to auto-run."
     };
@@ -252,6 +350,7 @@ export function actionExecution(input: {
     required_inputs: [],
     required_inputs_by_field: {},
     required_inputs_by_argument_path: {},
+    runbook: actionRunbook([]),
     requires_user_confirmation: false,
     reason: "Action is safe and all required fields are already filled."
   };

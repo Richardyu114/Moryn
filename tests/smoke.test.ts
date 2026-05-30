@@ -225,6 +225,20 @@ describe("package smoke test", () => {
       required_inputs: [],
       required_inputs_by_field: {},
       required_inputs_by_argument_path: {},
+      runbook: {
+        next: "call_mcp",
+        steps: [{
+          step: "call_mcp",
+          transport: "mcp",
+          guard: "execution.ready_to_run",
+          mcp: "interfaces.mcp",
+          mcp_tool: "interfaces.mcp.tool",
+          mcp_arguments: "interfaces.mcp.arguments",
+          cli_exec_file: "interfaces.cli.exec_file",
+          cli_command_line: "interfaces.cli.command_line",
+          cli_placeholders: "interfaces.cli.placeholders"
+        }]
+      },
       requires_user_confirmation: false,
       reason: "Action is safe and all required fields are already filled."
     });
@@ -240,6 +254,13 @@ describe("package smoke test", () => {
       ready_to_run: false,
       next_step: "collect_required_fields",
       blocked_by: ["required_fields"],
+      runbook: {
+        next: "collect_required_inputs",
+        steps: [
+          expect.objectContaining({ step: "collect_required_inputs" }),
+          expect.objectContaining({ step: "call_mcp" })
+        ]
+      },
       missing_required_fields: ["summary"],
       required_inputs: [{
         field: "summary",
