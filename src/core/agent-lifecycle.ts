@@ -343,6 +343,11 @@ function projectEnvelope(project: ProjectContext): {
   };
 }
 
+function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
+  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.endsWith("required_input")));
+  return Object.keys(sources).length > 0 ? sources : undefined;
+}
+
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown; safe_to_run: boolean; required_fields: string[] }>(
   action: T
 ): T & {
@@ -376,7 +381,30 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
       arguments_by_name: operationArgumentsByTool(action.tool),
       argument_sources: "argument_sources" in action && action.argument_sources && typeof action.argument_sources === "object"
         ? action.argument_sources as Record<string, string>
+        : undefined,
+      required_input_selection_sources: "selection_sources" in action && action.selection_sources && typeof action.selection_sources === "object"
+        ? requiredInputSelectionSources(action.selection_sources as Record<string, string>)
         : undefined
+    })
+  };
+}
+
+function withRequiredInputSelectionSources<T extends {
+  tool: string;
+  safe_to_run: boolean;
+  required_fields: string[];
+  required_fields_by_name: Record<string, RequiredFieldMetadata>;
+  arguments_by_name: Record<string, OperationArgumentMetadata>;
+  argument_sources?: Record<string, string>;
+  execution: ActionExecution;
+}>(action: T, selectionSources: Record<string, string>): T {
+  const inputSelectionSources = requiredInputSelectionSources(selectionSources);
+  if (!inputSelectionSources) return action;
+  return {
+    ...action,
+    execution: actionExecution({
+      ...action,
+      required_input_selection_sources: inputSelectionSources
     })
   };
 }
@@ -384,29 +412,53 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
 function withLifecycleActionSelectionSources<T extends LifecycleActionTemplate>(
   action: T
 ): T & { selection_sources: LifecycleActionSelectionSources } {
+  const actionWithExecutionSources = withRequiredInputSelectionSources(action, LIFECYCLE_ACTION_SELECTION_SOURCES);
   return {
-    ...action,
+    ...actionWithExecutionSources,
     selection_sources: LIFECYCLE_ACTION_SELECTION_SOURCES
   };
 }
 
 function withLifecycleStepSelectionSources<
-  T extends { step: string; tool: string; command: string; arguments: unknown; safe_to_run: boolean; required_fields: string[] }
+  T extends {
+    step: string;
+    tool: string;
+    command: string;
+    arguments: unknown;
+    safe_to_run: boolean;
+    required_fields: string[];
+    required_fields_by_name: Record<string, RequiredFieldMetadata>;
+    arguments_by_name: Record<string, OperationArgumentMetadata>;
+    argument_sources?: Record<string, string>;
+    execution: ActionExecution;
+  }
 >(
   action: T,
   selectionSources: LifecycleStepSelectionSources
 ): T & { selection_sources: LifecycleStepSelectionSources } {
+  const actionWithExecutionSources = withRequiredInputSelectionSources(action, selectionSources);
   return {
-    ...action,
+    ...actionWithExecutionSources,
     selection_sources: selectionSources
   };
 }
 
 function withGuideEntrypointSelectionSources<
-  T extends { tool: string; command: string; arguments: unknown; safe_to_run: boolean; required_fields: string[] }
+  T extends {
+    tool: string;
+    command: string;
+    arguments: unknown;
+    safe_to_run: boolean;
+    required_fields: string[];
+    required_fields_by_name: Record<string, RequiredFieldMetadata>;
+    arguments_by_name: Record<string, OperationArgumentMetadata>;
+    argument_sources?: Record<string, string>;
+    execution: ActionExecution;
+  }
 >(action: T): T & { selection_sources: GuideEntrypointSelectionSources } {
+  const actionWithExecutionSources = withRequiredInputSelectionSources(action, GUIDE_ENTRYPOINT_SELECTION_SOURCES);
   return {
-    ...action,
+    ...actionWithExecutionSources,
     selection_sources: GUIDE_ENTRYPOINT_SELECTION_SOURCES
   };
 }

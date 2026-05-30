@@ -33,6 +33,9 @@ describe("action execution readiness", () => {
       },
       argument_sources: {
         summary: "user_input.summary"
+      },
+      required_input_selection_sources: {
+        required_input: "next.execution.required_inputs_by_field.<field>"
       }
     })).toEqual({
       ready_to_run: false,
@@ -43,6 +46,9 @@ describe("action execution readiness", () => {
         argument_path: "summary",
         argument_paths: ["summary"],
         argument_source: "user_input.summary",
+        selection_sources: {
+          required_input: "next.execution.required_inputs_by_field.<field>"
+        },
         placeholder: "<summary>",
         value: "<summary>"
       }],
@@ -52,6 +58,9 @@ describe("action execution readiness", () => {
           argument_path: "summary",
           argument_paths: ["summary"],
           argument_source: "user_input.summary",
+          selection_sources: {
+            required_input: "next.execution.required_inputs_by_field.<field>"
+          },
           placeholder: "<summary>",
           value: "<summary>"
         }

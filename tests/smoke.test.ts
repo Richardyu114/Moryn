@@ -130,6 +130,9 @@ describe("package smoke test", () => {
 
   it("exports self-describing operation contracts from the package entrypoint", () => {
     const response = getOperationContracts();
+    const operationRequiredInputSources = {
+      required_input: OPERATION_CONTRACTS_SELECTION_SOURCES.required_input
+    };
 
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.operation).toBe("operations_by_id.<operation>");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.argument).toBe("operations_by_id.<operation>.arguments_by_name.<argument>");
@@ -145,6 +148,14 @@ describe("package smoke test", () => {
       requires_user_confirmation: false,
       reason: "Action is safe and all required fields are already filled."
     });
+    for (const operation of ["agent_finish", "write", "promote", "project_init"] as const) {
+      for (const input of response.operations_by_id[operation].execution.required_inputs) {
+        expect(input.selection_sources).toEqual(operationRequiredInputSources);
+        expect(response.operations_by_id[operation].execution.required_inputs_by_field[input.field]?.selection_sources).toEqual(
+          operationRequiredInputSources
+        );
+      }
+    }
     expect(response.operations_by_id.agent_finish.execution).toMatchObject({
       ready_to_run: false,
       next_step: "collect_required_fields",
@@ -154,6 +165,9 @@ describe("package smoke test", () => {
         argument_path: "summary",
         argument_paths: ["summary"],
         argument_source: "user_input.summary",
+        selection_sources: {
+          required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>"
+        },
         placeholder: "<summary>",
         value: "<summary>",
         mcp_targets: [{
@@ -175,6 +189,9 @@ describe("package smoke test", () => {
           argument_path: "summary",
           argument_paths: ["summary"],
           argument_source: "user_input.summary",
+          selection_sources: {
+            required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>"
+          },
           placeholder: "<summary>",
           value: "<summary>",
           mcp_targets: [{

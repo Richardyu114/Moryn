@@ -157,6 +157,11 @@ function actionArgumentSources(action: object): Record<string, string> | undefin
     : undefined;
 }
 
+function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
+  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.endsWith("required_input")));
+  return Object.keys(sources).length > 0 ? sources : undefined;
+}
+
 export function withNextActionMetadata<T extends {
   recommended_action: string;
   tool: string;
@@ -194,7 +199,8 @@ export function withNextActionMetadata<T extends {
       ...action,
       required_fields_by_name: actionWithRequiredFields.required_fields_by_name,
       arguments_by_name: operationArgumentsByTool(action.tool),
-      argument_sources: actionArgumentSources(action)
+      argument_sources: actionArgumentSources(action),
+      required_input_selection_sources: requiredInputSelectionSources({ ...NEXT_ACTION_SELECTION_SOURCES })
     }),
     selection_sources: NEXT_ACTION_SELECTION_SOURCES,
     workflow: withPhasesByName({

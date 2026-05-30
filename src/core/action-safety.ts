@@ -31,6 +31,7 @@ export interface ActionRequiredInput {
   field: string;
   argument_path: string;
   argument_paths: string[];
+  selection_sources?: Record<string, string>;
   mcp_targets?: ActionMcpTarget[];
   cli_targets?: ActionCliTarget[];
   argument_source?: string;
@@ -162,6 +163,7 @@ export function actionExecution(input: {
   required_fields_by_name?: Record<string, RequiredFieldInputMetadata>;
   arguments_by_name?: Record<string, ArgumentInputMetadata>;
   argument_sources?: Record<string, string>;
+  required_input_selection_sources?: Record<string, string>;
 }): ActionExecution {
   const safety = actionSafety(input);
   const requiredInputs = input.required_fields.map((field) => {
@@ -174,6 +176,9 @@ export function actionExecution(input: {
       field,
       argument_path: argumentPath,
       argument_paths: splitArgumentPaths,
+      ...(input.required_input_selection_sources && Object.keys(input.required_input_selection_sources).length > 0
+        ? { selection_sources: input.required_input_selection_sources }
+        : {}),
       ...(mcpTargetList ? { mcp_targets: mcpTargetList } : {}),
       ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
       ...(input.argument_sources?.[field] ? { argument_source: input.argument_sources[field] } : {}),

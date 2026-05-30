@@ -144,12 +144,13 @@ function expectActionExecution(action: {
   safe_to_run: boolean;
   required_fields: string[];
   required_fields_by_name: Record<string, { argument_path?: string }>;
+  selection_sources?: Record<string, string>;
   execution?: {
     ready_to_run?: boolean;
     next_step?: string;
     missing_required_fields?: string[];
-    required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
-    required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
+    required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
+    required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
     requires_user_confirmation?: boolean;
     reason?: string;
   };
@@ -175,6 +176,17 @@ function expectActionExecution(action: {
   expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.cli_targets)).toEqual(
     action.execution?.required_inputs?.map((input) => input.cli_targets)
   );
+  const expectedRequiredInputSelectionSources = Object.fromEntries(
+    Object.entries(action.selection_sources ?? {}).filter(([key]) => key.endsWith("required_input"))
+  );
+  if (action.required_fields.length > 0 && Object.keys(expectedRequiredInputSelectionSources).length > 0) {
+    expect(action.execution?.required_inputs?.map((input) => input.selection_sources)).toEqual(
+      action.required_fields.map(() => expectedRequiredInputSelectionSources)
+    );
+    expect(action.required_fields.map((field) => action.execution?.required_inputs_by_field?.[field]?.selection_sources)).toEqual(
+      action.required_fields.map(() => expectedRequiredInputSelectionSources)
+    );
+  }
   expect(action.execution?.requires_user_confirmation).toBe(Boolean(action.safety?.requires_user_confirmation));
   if (action.required_fields.length > 0) {
     expect(action.execution).toMatchObject({

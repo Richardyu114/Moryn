@@ -106,6 +106,11 @@ function operationArgumentsByName(input: OperationContractInput): Record<string,
   ]));
 }
 
+function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
+  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.endsWith("required_input")));
+  return Object.keys(sources).length > 0 ? sources : undefined;
+}
+
 function operationContract(input: OperationContractInput): OperationContract {
   const required_fields_by_name = operationRequiredFieldsByName(input);
   const arguments_by_name = operationArgumentsByName(input);
@@ -125,7 +130,8 @@ function operationContract(input: OperationContractInput): OperationContract {
       required_fields: input.required_fields,
       required_fields_by_name,
       arguments_by_name,
-      argument_sources: input.argument_sources
+      argument_sources: input.argument_sources,
+      required_input_selection_sources: requiredInputSelectionSources(OPERATION_CONTRACTS_SELECTION_SOURCES)
     })
   };
 }

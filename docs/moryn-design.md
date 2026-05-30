@@ -456,7 +456,8 @@ immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 fields, ask for confirmation, or block automation without recomputing safety
 policy. `required_inputs[]` joins each missing field to its original
 `argument_path`, split `argument_paths`, argument source, placeholder/value,
-`mcp_targets`, `cli_targets`, alternatives, and enum `allowed_values` when present.
+`selection_sources.required_input`, `mcp_targets`, `cli_targets`, alternatives,
+and enum `allowed_values` when present.
 `required_inputs_by_field` mirrors those entries by field name for direct host
 lookups. `mcp_targets` names the MCP argument, optional nested path, type,
 required flag, and preferred alternative for each fillable target.

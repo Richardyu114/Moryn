@@ -409,7 +409,8 @@ next-step summary with `ready_to_run`, `next_step`,
 collecting fields, asking for confirmation, or blocking automation without
 recomputing that policy. Each `required_inputs[]` entry names the field,
 original `argument_path`, split `argument_paths`, optional argument source,
-placeholder/value, `mcp_targets`, `cli_targets`, alternatives, and allowed values when present;
+optional `selection_sources.required_input`, placeholder/value, `mcp_targets`,
+`cli_targets`, alternatives, and allowed values when present;
 `required_inputs_by_field` mirrors those entries by field name for hosts that
 already know which input they need. `mcp_targets` tells MCP hosts which
 argument, nested path, type, and preferred alternative to fill; `cli_targets`
@@ -557,7 +558,8 @@ interfaces, `safe_to_run`, `safety`, `execution`, `required_when`,
 direct required-input lookups.
 `execution.required_inputs[]` mirrors required inputs in call-ready form, and
 `execution.required_inputs_by_field` indexes the same entries by field name.
-Each entry includes `mcp_targets` and `cli_targets`, so hosts do not need to join
+Each entry includes `selection_sources.required_input`, `mcp_targets`, and
+`cli_targets`, so hosts do not need to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.
 `arguments_by_name` is the full parameter directory: each entry names the CLI
