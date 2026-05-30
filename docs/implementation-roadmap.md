@@ -292,8 +292,10 @@ Deliverables:
   `arguments_by_name.<argument>` paths, so agents can find parameter metadata
   from the selected action instead of guessing from operation names.
 - Done: The same action-local selection-source maps now include
-  `required_fields_by_name.<field>` and `argument_sources.<field>` paths, so
-  agents can find authored-input requirements and existing argument provenance
+  `required_fields_by_name.<field>`,
+  `execution.required_inputs_by_field.<field>`, and
+  `argument_sources.<field>` paths, so agents can find authored-input
+  requirements, call-ready fill targets, and existing argument provenance
   without parsing command strings.
 - Done: Unknown-project and missing-context recovery workflows now add a
   `retry_original_tool_with_selected_project_id` phase sourced from
@@ -338,8 +340,8 @@ Deliverables:
   choose status, finish, or refresh without scanning `lifecycle[]`.
 - Done: `agent_guide.lifecycle[]` and discovered-project lifecycle templates
   now include action-local `selection_sources`, so selected static lifecycle
-  steps retain their keyed step, step-id, and ordered fallback paths when passed
-  around independently.
+  steps retain their keyed step, step-id, required-input, and ordered fallback
+  paths when passed around independently.
 - Done: `agent_guide.selection_sources` names the stable startup, lifecycle
   action, rule, and guardrail lookup paths so hosts do not infer guide paths
   from prose.

@@ -18,6 +18,8 @@ export interface NextActionSelectionSources {
   warning_next_action: "warning.next_action";
   error_required_field: "error.next_action.required_fields_by_name.<field>";
   warning_required_field: "warning.next_action.required_fields_by_name.<field>";
+  error_required_input: "error.next_action.execution.required_inputs_by_field.<field>";
+  warning_required_input: "warning.next_action.execution.required_inputs_by_field.<field>";
   error_argument: "error.next_action.arguments_by_name.<argument>";
   warning_argument: "warning.next_action.arguments_by_name.<argument>";
   error_argument_source: "error.next_action.argument_sources.<field>";
@@ -109,6 +111,8 @@ export const NEXT_ACTION_SELECTION_SOURCES: NextActionSelectionSources = {
   warning_next_action: "warning.next_action",
   error_required_field: "error.next_action.required_fields_by_name.<field>",
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
+  error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
+  warning_required_input: "warning.next_action.execution.required_inputs_by_field.<field>",
   error_argument: "error.next_action.arguments_by_name.<argument>",
   warning_argument: "warning.next_action.arguments_by_name.<argument>",
   error_argument_source: "error.next_action.argument_sources.<field>",

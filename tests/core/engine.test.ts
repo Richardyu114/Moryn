@@ -256,6 +256,8 @@ function expectRefreshChangeRecallAction(action: {
       ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>",
       required_field: "refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
       ordered_required_field: "refresh.changes[].next_action.required_fields_by_name.<field>",
+      required_input: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
+      ordered_required_input: "refresh.changes[].next_action.execution.required_inputs_by_field.<field>",
       argument_source: "refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>",
       ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
     }
@@ -432,6 +434,8 @@ describe("core engine", () => {
             ordered_argument: "project_list.projects[].next.arguments_by_name.<argument>",
             required_field: "project_list.projects_by_id.<project_id>.next.required_fields_by_name.<field>",
             ordered_required_field: "project_list.projects[].next.required_fields_by_name.<field>",
+            required_input: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_field.<field>",
+            ordered_required_input: "project_list.projects[].next.execution.required_inputs_by_field.<field>",
             argument_source: "project_list.projects_by_id.<project_id>.next.argument_sources.<field>",
             ordered_argument_source: "project_list.projects[].next.argument_sources.<field>"
           }

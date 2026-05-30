@@ -1205,8 +1205,9 @@ source; hosts can fetch `publish_status`, `finish_handoff`, or
 `refresh_context` directly instead of scanning the ordered lifecycle list. Each
 guide lifecycle template also includes action-local `selection_sources` for the
 keyed `lifecycle_by_step.<step>` entry, the step field, and ordered
-`lifecycle[]` fallback, so a selected step remains self-describing outside the
-full guide response.
+`lifecycle[]` fallback paths, including required-input lookups under
+`execution.required_inputs_by_field.<field>`, so a selected step remains
+self-describing outside the full guide response.
 Top-level `selection_sources` names the stable startup, keyed lifecycle action,
 keyed rule, and keyed guardrail lookup paths for hosts that should not derive
 those paths from prose. Library hosts can reuse the exported
@@ -1336,9 +1337,10 @@ maps placeholders such as `remote`, `path`, or `project_id` to
 `user_input.remote`, `user_input.path`, or `user_input.project_id`.
 `next_action.selection_sources` names both `error.next_action` and
 `warning.next_action` container paths plus keyed `required_fields_by_name`,
-`arguments_by_name`, `argument_sources`, and `workflow.phases_by_name` paths,
-so hosts can locate the recovery contract without inferring whether the action
-came from an error or a warning. `arguments_by_name` uses the same operation
+`execution.required_inputs_by_field`, `arguments_by_name`, `argument_sources`,
+and `workflow.phases_by_name` paths, so hosts can locate the recovery contract
+without inferring whether the action came from an error or a warning.
+`arguments_by_name` uses the same operation
 argument metadata as `operation_contracts`, so runtime recovery actions expose
 supported CLI/MCP arguments, defaults, repeatable flags, alternatives, and enum
 values without requiring hosts to join against the static registry. Library
@@ -1399,8 +1401,9 @@ action without scanning the array or reconstructing action names.
 Runtime lifecycle actions additionally carry action-local `selection_sources`
 for the keyed `next.actions_by_id.<action>` entry, the action-id field, and the
 `arguments_by_name.<argument>`, `required_fields_by_name.<field>`, and
-`argument_sources.<field>` metadata directories, plus ordered `next.actions[]`
-fallbacks. This lets a host pass a single action object between planning and
+`execution.required_inputs_by_field.<field>`, and `argument_sources.<field>`
+metadata directories, plus ordered `next.actions[]` fallbacks. This lets a host
+pass a single action object between planning and
 execution without losing the stable source path. Library
 hosts can reuse the exported `LIFECYCLE_NEXT_SELECTION_SOURCES`,
 `LIFECYCLE_ACTION_SELECTION_SOURCES`, `DISCOVER_PROJECT_SELECTION_SOURCES`, and
@@ -1454,8 +1457,9 @@ agents can read `checks_by_name.sync` or
 `selection_sources` names the keyed check, keyed blocking check, and selected
 `next` action paths explicitly. When the selected `next` object carries
 alternate `actions_by_id`, its own `selection_sources` names the keyed action
-and action-id paths as well; `readiness.next_selection_sources` mirrors those
-paths, or `{}` when the selected action has no keyed alternates. The same
+and action-id paths plus selected required-input lookups as well;
+`readiness.next_selection_sources` mirrors those paths, or `{}` when the
+selected action has no keyed alternates. The same
 selection source maps are exported as `DOCTOR_SELECTION_SOURCES` and
 `LIFECYCLE_NEXT_SELECTION_SOURCES` from the package entrypoint for library
 hosts that need canonical field paths. The readiness
@@ -1558,7 +1562,8 @@ ordered handoff arrays as `handoff.active_sessions_by_record_id` and
 names the keyed entry, record-id, and next-action paths for both inbox and
 active-session entries, including the nested
 `next_action.arguments_by_name.<argument>`,
-`next_action.required_fields_by_name.<field>`, and
+`next_action.required_fields_by_name.<field>`,
+`next_action.execution.required_inputs_by_field.<field>`, and
 `next_action.argument_sources.<field>` directories. Handoff entry workflows
 prefer those keyed paths and retain the ordered arrays as compatibility sources;
 each nested `next_action.selection_sources` repeats the selected path set for

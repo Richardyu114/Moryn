@@ -422,8 +422,9 @@ knows which lifecycle action it needs, and use
 `next.workflow.phases[].action_source` to find the exact keyed path.
 Each lifecycle action also carries action-local `selection_sources` naming its
 keyed `next.actions_by_id.<action>` source, action-id field,
-`arguments_by_name.<argument>`, `required_fields_by_name.<field>`, and
-`argument_sources.<field>` directories, plus ordered `next.actions[]`
+`arguments_by_name.<argument>`, `required_fields_by_name.<field>`,
+`execution.required_inputs_by_field.<field>`, and `argument_sources.<field>`
+directories, plus ordered `next.actions[]`
 fallbacks, so an agent can still recover the stable path if a host passes
 around only the selected action object.
 Direct `project_list` responses use the same pattern with top-level
@@ -458,7 +459,8 @@ the ordered handoff arrays for agents that already know a record id, and
 `handoff.selection_sources` names the keyed entry, record-id, and next-action
 paths for both inbox and active-session entries, including the nested
 `next_action.arguments_by_name.<argument>`,
-`next_action.required_fields_by_name.<field>`, and
+`next_action.required_fields_by_name.<field>`,
+`next_action.execution.required_inputs_by_field.<field>`, and
 `next_action.argument_sources.<field>` directories. Handoff entry workflows
 prefer those keyed paths while keeping the ordered arrays for display. Each
 handoff `next_action.selection_sources` repeats the selected entry, record-id,
@@ -495,7 +497,7 @@ includes a single-step `workflow`, so a host can execute
 `lifecycle_by_step.refresh_context` without scanning arrays or consulting the
 top-level decision track. Each lifecycle template also carries action-local
 `selection_sources` for the keyed `lifecycle_by_step.<step>` template, the
-step-id field, and the ordered `lifecycle[]` fallback, so selected templates
+step-id field, required-input lookup, and ordered `lifecycle[]` fallback, so selected templates
 remain self-describing when copied out of the guide. Top-level
 `workflow.phases[]` tells hosts the order and action source:
 call `startup`, then prefer `agent_enter.next.actions`, then use static
@@ -580,7 +582,7 @@ at the keyed finish and refresh templates; in
 the matching `next.actions_by_project_id.<project_id>` `agent_start` template
 or use the ordered action list as a display fallback. `next.selection_sources`
 names the selected project, `project_id`, start action, and lifecycle action
-map paths. This keeps the live
+map paths, including the selected start action's required-input lookup. This keeps the live
 response self-describing even when the host did not call `agent guide` first.
 Direct `agent start`, `agent status`, and `agent finish` responses also include
 `next.workflow`, derived from the returned action templates, so agents can follow
@@ -700,8 +702,8 @@ is the stable action source for a known project id; `selection_sources` names
 those keyed paths explicitly. The nested `next.selection_sources` repeats the
 fully qualified `project_list.projects_by_id.<project_id>.next` and
 `project_list.projects[].next` sources, plus their parameter, required-field,
-and argument-source directories, for hosts that only receive the selected
-action.
+required-input, and argument-source directories, for hosts that only receive the
+selected action.
 In
 `start_session` and `discover_projects` modes, `next.workflow` gives the
 ordered runtime action track and names which response fields are valid follow-up
@@ -764,8 +766,9 @@ single-step `workflow`; missing-record recovery is two-step so hosts run
 `list_recent`, choose a returned id, and retry the original tool with that id.
 `next_action.selection_sources` names both `error.next_action` and
 `warning.next_action` container paths plus keyed `required_fields_by_name`,
-`arguments_by_name`, `argument_sources`, and `workflow.phases_by_name` paths, so
-recovery hosts do not infer where a returned action lives.
+`execution.required_inputs_by_field`, `arguments_by_name`, `argument_sources`,
+and `workflow.phases_by_name` paths, so recovery hosts do not infer where a
+returned action lives.
 The retry phase and top-level `argument_sources` point replacement fields at
 `list_recent.records_by_id.<record_id>.id`; `list_recent.records[].id` remains
 available as the ordered view. `list_recent.selection_sources` names the same
@@ -927,8 +930,10 @@ workflow. `changes[]` remains the ordered display list, and
 `next_action.selection_sources` repeats the fully qualified keyed and ordered
 paths so agents that only receive the action can follow
 `refresh.changes_by_record_id.<record_id>.next_action` and fill `record_ids`
-from `next_action.argument_sources.record_ids` without scanning an array or
-synthesizing arguments from prose.
+from `next_action.argument_sources.record_ids`; if a refresh action later needs
+authored input, hosts can inspect
+`next_action.execution.required_inputs_by_field.<field>` without scanning an
+array or synthesizing arguments from prose.
 
 During meaningful long-running work:
 
