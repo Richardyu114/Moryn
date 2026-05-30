@@ -18,6 +18,7 @@ import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
 import {
+  commandForAgentEnterContext,
   commandForAgentFinishContext,
   commandForAgentStartContext,
   commandForAgentStatusContext,
@@ -26,7 +27,9 @@ import {
   commandForPromoteContext,
   commandForRecallContext,
   commandForQuarantineContext,
+  commandForRefreshContext,
   commandForReviseContext,
+  type MorynErrorEnvelope,
   type MorynErrorContext,
   toErrorEnvelope
 } from "./core/errors.js";
@@ -117,8 +120,54 @@ function printJson(value: unknown, options: { pretty?: boolean } = {}): void {
   process.stdout.write(`${JSON.stringify(value, null, options.pretty === false ? undefined : 2)}\n`);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function cliOptionForCoreArgument(argument: string, context?: MorynErrorContext): string | undefined {
+  if (argument === "cursor") {
+    return context?.arguments.refresh_since !== undefined ? "--refresh-since" : "--cursor";
+  }
+  if (argument === "refresh_since") {
+    return "--refresh-since";
+  }
+  return undefined;
+}
+
+function cliRecoveryHint(recoveryHint: unknown, context?: MorynErrorContext): unknown {
+  if (!isRecord(recoveryHint) || !isRecord(recoveryHint.rejected_argument) || !isRecord(recoveryHint.retry_with)) {
+    return recoveryHint;
+  }
+  const rejectedArgument = recoveryHint.rejected_argument;
+  const retryWith = recoveryHint.retry_with;
+  if (typeof rejectedArgument.argument !== "string" || retryWith.argument !== rejectedArgument.argument) {
+    return recoveryHint;
+  }
+  const option = cliOptionForCoreArgument(rejectedArgument.argument, context);
+  if (!option) return recoveryHint;
+  const { argument: _rejectedArgument, ...rejectedRest } = rejectedArgument;
+  const { argument: _retryArgument, ...retryRest } = retryWith;
+  return {
+    ...recoveryHint,
+    rejected_argument: { option, ...rejectedRest },
+    retry_with: { option, ...retryRest }
+  };
+}
+
+function cliErrorEnvelope(error: unknown, context?: MorynErrorContext): MorynErrorEnvelope {
+  const envelope = toErrorEnvelope(error, context);
+  if (envelope.error.recovery_hint === undefined) return envelope;
+  return {
+    ...envelope,
+    error: {
+      ...envelope.error,
+      recovery_hint: cliRecoveryHint(envelope.error.recovery_hint, context)
+    }
+  };
+}
+
 function printError(error: unknown, context?: MorynErrorContext): void {
-  process.stderr.write(`${JSON.stringify(toErrorEnvelope(error, context), null, 2)}\n`);
+  process.stderr.write(`${JSON.stringify(cliErrorEnvelope(error, context), null, 2)}\n`);
 }
 
 function cliRequiredOptionError(message: string): CliArgumentError | undefined {
@@ -639,12 +688,32 @@ program.command("refresh")
   .option("--limit <n>", "Change limit", "20")
   .action(async (options) => {
     const engine = createCliEngine();
-    printJson(await engine.refresh({
-      project_id: await resolveOptionalProject(options),
-      cursor: parseNonEmptyString(options.cursor, "--cursor"),
-      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
-      limit: parseLimit(options.limit)
-    }));
+    const projectId = await resolveOptionalProject(options);
+    const cursor = parseNonEmptyString(options.cursor, "--cursor");
+    const currentTask = parseNonEmptyString(options.currentTask, "--current-task");
+    const limit = parseLimit(options.limit);
+    const contextArguments = compactUndefined({
+      ...(projectId !== undefined ? { project_id: projectId } : {}),
+      cursor,
+      current_task: currentTask,
+      ...(options.limit !== "20" ? { limit } : {})
+    });
+    const context = {
+      tool: "refresh",
+      command: commandForRefreshContext(contextArguments),
+      arguments: contextArguments
+    };
+    try {
+      printJson(await engine.refresh({
+        project_id: projectId,
+        cursor,
+        current_task: currentTask,
+        limit
+      }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 program.command("rebuild").action(async () => {
@@ -747,17 +816,39 @@ agent.command("enter")
   .option("--model <model>")
   .option("--device-id <id>")
   .action(async (options) => {
-    printJson(await agentEnter({
-      storePath: storePath(),
-      projectPath: options.project,
-      projectId: options.projectId,
-      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
-      refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
-      limit: parseLimit(options.limit),
-      pull: parseBooleanDefault(options.pull, true),
-      agent: parseAgentOptions(options)
-    }));
+    const pull = parseBooleanDefault(options.pull, true);
+    const agentOptions = parseAgentOptions(options);
+    const contextArguments = compactUndefined({
+      project_id: parseNonEmptyString(options.projectId, "--project-id"),
+      project_path: parseNonEmptyString(options.project, "--project"),
+      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
+      refresh_since: parseNonEmptyString(options.refreshSince, "--refresh-since"),
+      ...(options.limit !== "20" ? { limit: parseLimit(options.limit) } : {}),
+      ...(pull === false ? { pull } : {}),
+      agent: agentOptions
+    });
+    const context = {
+      tool: "agent_enter",
+      command: commandForAgentEnterContext(contextArguments),
+      arguments: contextArguments
+    };
+    try {
+      printJson(await agentEnter({
+        storePath: storePath(),
+        projectPath: options.project,
+        projectId: options.projectId,
+        syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+        currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+        refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
+        limit: parseLimit(options.limit),
+        pull,
+        agent: agentOptions
+      }));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 agent.command("doctor")

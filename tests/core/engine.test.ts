@@ -3152,7 +3152,28 @@ describe("core engine", () => {
 
       await expectInvalidArgument(() => engine.refresh(null as never), "Invalid refresh input");
       await expectInvalidArgument(() => engine.refresh({ cursor: 123 as never }), "Invalid cursor");
-      await expectInvalidArgument(() => engine.refresh({ cursor: "not-a-date" }), "Invalid cursor");
+      try {
+        await engine.refresh({ cursor: "not-a-date" });
+        throw new Error("Expected refresh to reject invalid cursor");
+      } catch (error) {
+        const envelope = toErrorEnvelope(error);
+        expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+        expect(envelope.error.message).toContain("Invalid cursor");
+        expect(envelope.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
+        expect(envelope.error.recovery_hint).toEqual({
+          rejected_argument: { argument: "cursor", value: "not-a-date" },
+          expected: {
+            kind: "iso_datetime",
+            format: "RFC3339 timestamp with timezone",
+            source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+          },
+          retry_with: {
+            argument: "cursor",
+            value_source: "previous Moryn response cursor field",
+            value_placeholder: "<refresh cursor ISO datetime>"
+          }
+        });
+      }
       await expectInvalidArgument(() => engine.refresh({ current_task: 123 as never }), "Invalid current_task");
     });
   });

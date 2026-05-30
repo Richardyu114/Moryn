@@ -4,7 +4,7 @@ import { applyRecordPatch, replayEvents } from "./replay.js";
 import { isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
-import { commandForPromoteContext, PROMOTE_CANDIDATE_WHEN, withNextActionMetadata, type MorynErrorNextAction } from "./errors.js";
+import { commandForPromoteContext, InvalidRefreshCursorError, PROMOTE_CANDIDATE_WHEN, withNextActionMetadata, type MorynErrorNextAction } from "./errors.js";
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
@@ -522,8 +522,9 @@ function validateRefreshInput(input: RefreshInput): void {
   assertPlainObject(input, "refresh input");
   validateOptionalString(input.project_id, "project_id");
   validateOptionalString(input.cursor, "cursor");
-  if (input.cursor !== undefined && !isoDateTimeSchema.safeParse(input.cursor).success) {
-    throw new Error("Invalid argument: Invalid cursor");
+  const cursor = input.cursor;
+  if (typeof cursor === "string" && !isoDateTimeSchema.safeParse(cursor).success) {
+    throw new InvalidRefreshCursorError(cursor);
   }
   validateOptionalString(input.current_task, "current_task");
 }

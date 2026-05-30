@@ -92,6 +92,73 @@ export interface MorynErrorContext {
   arguments: Record<string, unknown>;
 }
 
+const REFRESH_CURSOR_SOURCE = "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor";
+const REFRESH_CURSOR_RECOMMENDED_ACTION = "retry with a refresh cursor returned by Moryn";
+
+export class InvalidRefreshCursorError extends Error {
+  readonly recommended_action = REFRESH_CURSOR_RECOMMENDED_ACTION;
+  readonly recovery_hint: {
+    rejected_argument: { argument: "cursor"; value: string };
+    expected: {
+      kind: "iso_datetime";
+      format: "RFC3339 timestamp with timezone";
+      source: typeof REFRESH_CURSOR_SOURCE;
+    };
+    retry_with: {
+      argument: "cursor";
+      value_source: "previous Moryn response cursor field";
+      value_placeholder: "<refresh cursor ISO datetime>";
+    };
+  };
+
+  constructor(value: string) {
+    super("Invalid argument: Invalid cursor");
+    this.name = "InvalidRefreshCursorError";
+    this.recovery_hint = {
+      rejected_argument: { argument: "cursor", value },
+      expected: {
+        kind: "iso_datetime",
+        format: "RFC3339 timestamp with timezone",
+        source: REFRESH_CURSOR_SOURCE
+      },
+      retry_with: {
+        argument: "cursor",
+        value_source: "previous Moryn response cursor field",
+        value_placeholder: "<refresh cursor ISO datetime>"
+      }
+    };
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function externalArgumentForCoreArgument(argument: string, context?: MorynErrorContext): string | undefined {
+  if (argument === "cursor" && context?.arguments.refresh_since !== undefined) {
+    return "refresh_since";
+  }
+  return undefined;
+}
+
+function contextRecoveryHint(recoveryHint: unknown, context?: MorynErrorContext): unknown {
+  if (!isRecord(recoveryHint) || !isRecord(recoveryHint.rejected_argument) || !isRecord(recoveryHint.retry_with)) {
+    return recoveryHint;
+  }
+  const rejectedArgument = recoveryHint.rejected_argument;
+  const retryWith = recoveryHint.retry_with;
+  if (typeof rejectedArgument.argument !== "string" || retryWith.argument !== rejectedArgument.argument) {
+    return recoveryHint;
+  }
+  const externalArgument = externalArgumentForCoreArgument(rejectedArgument.argument, context);
+  if (!externalArgument) return recoveryHint;
+  return {
+    ...recoveryHint,
+    rejected_argument: { ...rejectedArgument, argument: externalArgument },
+    retry_with: { ...retryWith, argument: externalArgument }
+  };
+}
+
 const INITIALIZE_STORE_WHEN = "Before retrying any Moryn command when the store is missing or uninitialized.";
 const REPAIR_STORE_CONFIG_WHEN = "Before retrying Moryn commands when local store config is invalid.";
 const REPAIR_PROJECT_CONFIG_WHEN = "Before starting lifecycle or project-scoped work when .moryn.json is invalid.";
@@ -567,6 +634,22 @@ export function commandForRecallContext(input: {
   return parts.join(" ");
 }
 
+export function commandForRefreshContext(input: {
+  project_id?: string;
+  project_path?: string;
+  cursor?: string;
+  current_task?: string;
+  limit?: number;
+}): string {
+  const parts = ["moryn", "refresh"];
+  appendCommandOption(parts, "--project-id", input.project_id);
+  appendCommandOption(parts, "--project", input.project_path);
+  appendCommandOption(parts, "--cursor", input.cursor);
+  appendCommandOption(parts, "--current-task", input.current_task);
+  appendCommandOption(parts, "--limit", input.limit);
+  return parts.join(" ");
+}
+
 export function commandForArchiveContext(input: { record_id: string; reason?: string }): string {
   const parts = ["moryn", "archive", shellQuote(input.record_id)];
   if (input.reason !== undefined) {
@@ -594,7 +677,7 @@ export function commandForLinkContext(input: { record_id: string; linked_record_
   ].join(" ");
 }
 
-export function commandForAgentStartContext(input: {
+type AgentStartContextInput = {
   project_id?: string;
   project_path?: string;
   sync_remote?: string;
@@ -608,8 +691,10 @@ export function commandForAgentStartContext(input: {
     model?: string;
     device_id?: string;
   };
-}): string {
-  const parts = ["moryn", "agent", "start"];
+};
+
+function commandForAgentSessionContext(command: "enter" | "start", input: AgentStartContextInput): string {
+  const parts = ["moryn", "agent", command];
   appendCommandOption(parts, "--project", input.project_path);
   appendCommandOption(parts, "--project-id", input.project_id);
   appendCommandOption(parts, "--sync-remote", input.sync_remote);
@@ -622,6 +707,14 @@ export function commandForAgentStartContext(input: {
   appendCommandOption(parts, "--model", input.agent?.model);
   appendCommandOption(parts, "--device-id", input.agent?.device_id);
   return parts.join(" ");
+}
+
+export function commandForAgentStartContext(input: AgentStartContextInput): string {
+  return commandForAgentSessionContext("start", input);
+}
+
+export function commandForAgentEnterContext(input: AgentStartContextInput): string {
+  return commandForAgentSessionContext("enter", input);
 }
 
 interface AgentLifecycleCommandContextInput {
@@ -864,6 +957,7 @@ export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): Mo
   const action = nextAction(code, message, context);
   const errorRecord = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
   const overrideRecommendedAction = typeof errorRecord.recommended_action === "string" ? errorRecord.recommended_action : undefined;
+  const recoveryHint = "recovery_hint" in errorRecord ? contextRecoveryHint(errorRecord.recovery_hint, context) : undefined;
   return {
     ok: false,
     error: {
@@ -871,7 +965,7 @@ export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): Mo
       message,
       recoverable: isRecoverable(code),
       recommended_action: overrideRecommendedAction ?? recommendedAction(code),
-      ...("recovery_hint" in errorRecord ? { recovery_hint: errorRecord.recovery_hint } : {}),
+      ...(recoveryHint !== undefined ? { recovery_hint: recoveryHint } : {}),
       ...(action ? { next_action: action } : {})
     }
   };

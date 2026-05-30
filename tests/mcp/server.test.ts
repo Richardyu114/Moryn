@@ -6126,10 +6126,89 @@ describe("MCP stdio server", () => {
         const invalidCursor = parseTextContent(await client.callTool({
           name: "refresh",
           arguments: { project_id: "moryn", cursor: "not-a-date" }
-        })) as { ok: boolean; error: { code: string; message: string } };
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: {
+              rejected_argument: { argument: string; value: string };
+              expected: { kind: string; format: string; source: string };
+              retry_with: { argument: string; value_source: string; value_placeholder: string };
+            };
+          };
+        };
         expect(invalidCursor.ok).toBe(false);
         expect(invalidCursor.error.code).toBe("INVALID_ARGUMENT");
         expect(invalidCursor.error.message).toContain("Invalid cursor");
+        expect(invalidCursor.error.recoverable).toBe(true);
+        expect(invalidCursor.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
+        expect(invalidCursor.error.recovery_hint).toEqual({
+          rejected_argument: { argument: "cursor", value: "not-a-date" },
+          expected: {
+            kind: "iso_datetime",
+            format: "RFC3339 timestamp with timezone",
+            source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+          },
+          retry_with: {
+            argument: "cursor",
+            value_source: "previous Moryn response cursor field",
+            value_placeholder: "<refresh cursor ISO datetime>"
+          }
+        });
+        const invalidAgentCursor = parseTextContent(await client.callTool({
+          name: "agent_start",
+          arguments: { project_id: "moryn", refresh_since: "not-a-date" }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recommended_action: string;
+            recovery_hint: {
+              rejected_argument: { argument: string; value: string };
+              expected: { kind: string; format: string; source: string };
+              retry_with: { argument: string; value_source: string; value_placeholder: string };
+            };
+          };
+        };
+        expect(invalidAgentCursor.ok).toBe(false);
+        expect(invalidAgentCursor.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidAgentCursor.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
+        expect(invalidAgentCursor.error.recovery_hint).toEqual({
+          rejected_argument: { argument: "refresh_since", value: "not-a-date" },
+          expected: {
+            kind: "iso_datetime",
+            format: "RFC3339 timestamp with timezone",
+            source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+          },
+          retry_with: {
+            argument: "refresh_since",
+            value_source: "previous Moryn response cursor field",
+            value_placeholder: "<refresh cursor ISO datetime>"
+          }
+        });
+        const invalidAgentEnterCursor = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: { project_id: "moryn", refresh_since: "not-a-date" }
+        })) as typeof invalidAgentCursor;
+        expect(invalidAgentEnterCursor.ok).toBe(false);
+        expect(invalidAgentEnterCursor.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidAgentEnterCursor.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
+        expect(invalidAgentEnterCursor.error.recovery_hint).toEqual({
+          rejected_argument: { argument: "refresh_since", value: "not-a-date" },
+          expected: {
+            kind: "iso_datetime",
+            format: "RFC3339 timestamp with timezone",
+            source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+          },
+          retry_with: {
+            argument: "refresh_since",
+            value_source: "previous Moryn response cursor field",
+            value_placeholder: "<refresh cursor ISO datetime>"
+          }
+        });
         await expectInvalidMcpArguments(
           () => client.callTool({
             name: "promote",

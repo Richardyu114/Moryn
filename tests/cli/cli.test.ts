@@ -5968,11 +5968,90 @@ describe("moryn CLI", () => {
         throw new Error("Expected moryn refresh to reject an invalid cursor");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
-        const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: {
+              rejected_argument: { option: string; value: string };
+              expected: { kind: string; format: string; source: string };
+              retry_with: { option: string; value_source: string; value_placeholder: string };
+            };
+          };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("INVALID_ARGUMENT");
         expect(parsed.error.message).toContain("Invalid cursor");
-        expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
+        expect(parsed.error.recovery_hint).toEqual({
+          rejected_argument: { option: "--cursor", value: "not-a-date" },
+          expected: {
+            kind: "iso_datetime",
+            format: "RFC3339 timestamp with timezone",
+            source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+          },
+          retry_with: {
+            option: "--cursor",
+            value_source: "previous Moryn response cursor field",
+            value_placeholder: "<refresh cursor ISO datetime>"
+          }
+        });
+      }
+    });
+  });
+
+  it("maps invalid agent refresh cursors to refresh-since recovery hints", async () => {
+    await withTempDir(async (dir) => {
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn"]);
+
+      for (const command of ["start", "enter"]) {
+        try {
+          await exec("node", [
+            "--import", "tsx", "src/cli.ts", "--store", dir,
+            "agent", command,
+            "--project", project,
+            "--current-task", "continue handoff",
+            "--refresh-since", "not-a-date"
+          ]);
+          throw new Error(`Expected moryn agent ${command} to reject an invalid refresh cursor`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              recommended_action: string;
+              recovery_hint: {
+                rejected_argument: { option: string; value: string };
+                expected: { kind: string; format: string; source: string };
+                retry_with: { option: string; value_source: string; value_placeholder: string };
+              };
+            };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
+          expect(parsed.error.recovery_hint).toEqual({
+            rejected_argument: { option: "--refresh-since", value: "not-a-date" },
+            expected: {
+              kind: "iso_datetime",
+              format: "RFC3339 timestamp with timezone",
+              source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+            },
+            retry_with: {
+              option: "--refresh-since",
+              value_source: "previous Moryn response cursor field",
+              value_placeholder: "<refresh cursor ISO datetime>"
+            }
+          });
+        }
       }
     });
   });

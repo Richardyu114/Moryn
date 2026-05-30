@@ -658,15 +658,16 @@ parsing prose. If a caller sends more than one lookup mode, the error envelope
 uses the same recovery channel to return
 `recovery_hint.rejected_lookup.provided` plus `accepted_lookup_modes`, letting
 agents remove the extra mode instead of guessing from the message text.
-CLI boundary validation errors for required options, non-empty strings, enum
-values, numeric ranges, JSON object inputs, choose-one input groups, and
-path-assignment inputs follow the same pattern:
+CLI and MCP boundary validation errors for required options, non-empty strings,
+enum values, numeric ranges, JSON object inputs, choose-one input groups,
+path-assignment inputs, and refresh cursor formats follow the same pattern:
 `error.recovery_hint.missing_argument` identifies omitted required options,
 `missing_one_of` identifies a missing alternative group, `rejected_argument`
 or `rejected_arguments` identifies invalid or conflicting values, `expected`
 exposes allowed values, non-empty constraints, bounds, JSON object
-expectations, choice rules, or path-assignment shape, and `retry_with` contains
-the option/value placeholder to use for the corrected retry.
+expectations, choice rules, path-assignment shape, or ISO datetime cursor
+requirements, and `retry_with` contains the option/argument value placeholder to
+use for the corrected retry.
 
 ### `init`
 
