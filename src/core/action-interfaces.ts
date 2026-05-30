@@ -4,12 +4,16 @@ type ActionInterfaces<TArguments> = {
   cli: {
     command: string;
     argv: string[];
+    executable: string;
+    args: string[];
   };
   mcp: {
     tool: string;
     arguments: TArguments;
   };
 };
+
+const DIRECT_CLI_EXECUTABLES = new Set(["moryn-agent-smoke"]);
 
 const POSITIONAL_ALIASES: Record<string, string> = {
   "record-id": "record_id",
@@ -131,10 +135,15 @@ export function actionInterfaces<TArguments extends Record<string, unknown>>(inp
   command: string;
   arguments: TArguments;
 }): ActionInterfaces<TArguments> {
+  const argv = cliArgvForAction(input.tool, input.arguments);
+  const executable = DIRECT_CLI_EXECUTABLES.has(argv[0] ?? "") ? argv[0]! : "moryn";
+  const args = executable === "moryn" ? argv : argv.slice(1);
   return {
     cli: {
       command: input.command,
-      argv: cliArgvForAction(input.tool, input.arguments)
+      argv,
+      executable,
+      args
     },
     mcp: {
       tool: input.tool,

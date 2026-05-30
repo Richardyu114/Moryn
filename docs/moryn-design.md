@@ -451,9 +451,10 @@ The response lists `operations`, keyed `operations_by_id`, grouped
 operation carries CLI/MCP interfaces, action-local `selection_sources`,
 `safe_to_run`, `safety`, `required_when`, `execution`, `required_fields`,
 `required_fields_by_name`, `arguments_by_name`, and `argument_sources`.
-Each `interfaces.cli` object includes both a display `command` and an `argv`
-array without the `moryn` binary prefix, so hosts can execute the CLI without
-parsing shell strings.
+Each `interfaces.cli` object includes a display `command`, an `executable`,
+`args`, and compatibility `argv`, so hosts can execute the CLI without parsing
+shell strings. For Moryn subcommands, `executable` is `"moryn"` and `args`
+equals the subcommand `argv`.
 `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, `required_inputs_by_field`, and
@@ -471,7 +472,9 @@ types, and preferred alternatives.
 The operation selection source registry names that keyed input path as
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` and
 the reverse lookup paths as `operations_by_mcp_tool.<tool>` and
-`operations_by_cli_command.<command>`. It also names CLI argv arrays as
+`operations_by_cli_command.<command>`. It also names CLI execution fields as
+`operations_by_id.<operation>.interfaces.cli.executable`,
+`operations_by_id.<operation>.interfaces.cli.args[]`, and
 `operations_by_id.<operation>.interfaces.cli.argv[]`.
 `arguments_by_name` is the full parameter directory, including CLI flags or
 positionals, MCP arguments, types, defaults, repeatability, alternatives, and
@@ -503,6 +506,8 @@ enum `allowed_values`:
       "interfaces": {
         "cli": {
           "command": "moryn agent enter",
+          "executable": "moryn",
+          "args": ["agent", "enter"],
           "argv": ["agent", "enter"]
         },
         "mcp": {
@@ -589,6 +594,8 @@ enum `allowed_values`:
     "argument_source": "operations_by_id.<operation>.argument_sources.<field>",
     "cli_command": "operations_by_id.<operation>.interfaces.cli.command",
     "cli_argv": "operations_by_id.<operation>.interfaces.cli.argv[]",
+    "cli_executable": "operations_by_id.<operation>.interfaces.cli.executable",
+    "cli_args": "operations_by_id.<operation>.interfaces.cli.args[]",
     "mcp_tool": "operations_by_id.<operation>.interfaces.mcp.tool",
     "ordered_operation": "operations[]"
   }
@@ -1234,9 +1241,10 @@ no project is provided, non-startup lifecycle templates require `project_id`
 and include `--project-id <project_id>` so agents must use the discovery result
 before writing status, finishing, or refreshing.
 Every action template also includes an `interfaces` object. `interfaces.cli`
-contains the exact command string for shell clients plus a safe argv array for
-programmatic CLI clients, while `interfaces.mcp` contains the tool name and
-JSON arguments for MCP hosts. These fields are derived from the existing
+contains the exact command string for shell clients plus a safe `executable` and
+`args` pair for programmatic CLI clients. It also keeps `argv` for compatibility.
+`interfaces.mcp` contains the tool name and JSON arguments for MCP hosts. These
+fields are derived from the existing
 `tool`, `command`, and `arguments` values so agents can choose their runtime
 interface without reverse-engineering one transport from the other. Action
 templates also include `safety`, a machine-readable
@@ -1417,10 +1425,11 @@ keyed `next.actions_by_id.<action>` or
 action without scanning the array or reconstructing action names.
 Runtime lifecycle actions additionally carry action-local `selection_sources`
 for the keyed `next.actions_by_id.<action>` entry, the action-id field, and the
-`interfaces.cli.argv[]`, `arguments_by_name.<argument>`,
+`interfaces.cli.executable`, `interfaces.cli.args[]`, `interfaces.cli.argv[]`,
+`arguments_by_name.<argument>`,
 `required_fields_by_name.<field>`, `execution.required_inputs_by_field.<field>`,
 and `argument_sources.<field>` metadata directories, plus ordered
-`next.actions[]` and `next.actions[].interfaces.cli.argv[]` fallbacks. This
+`next.actions[]` and `next.actions[].interfaces.cli.*` fallbacks. This
 lets a host pass a single action object between planning and
 execution without losing the stable source path. Library
 hosts can reuse the exported `LIFECYCLE_NEXT_SELECTION_SOURCES`,
@@ -1437,17 +1446,20 @@ action paths directly. Project-list workflow phases prefer
 paths, plus the selected action's parameter, required-field, and argument-source
 directories, for hosts that only receive the selected action.
 Discover-project responses also name
-`next.actions_by_project_id.<project_id>.interfaces.cli.argv[]`, so hosts can
+`next.actions_by_project_id.<project_id>.interfaces.cli.executable` and
+`next.actions_by_project_id.<project_id>.interfaces.cli.args[]`, so hosts can
 execute the selected start template without deriving argv from its display
 command.
 Lifecycle, guide, setup, project-discovery, error-recovery, and warning-recovery
-action templates also expose `interfaces.cli.command`, `interfaces.cli.argv`,
+action templates also expose `interfaces.cli.command`,
+`interfaces.cli.executable`, `interfaces.cli.args`, `interfaces.cli.argv`,
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, `safety`, `execution`, and
 single-step `workflow` metadata, so CLI and MCP hosts can execute the same
-recommendation without translating field names by memory. Runtime argv arrays
+recommendation without translating field names by memory. Runtime CLI vectors
 are filled from the returned action arguments, not parsed back out of command
-strings; they omit the `moryn` binary for moryn subcommands and include direct
-package bins such as `moryn-agent-smoke` when the action targets one.
+strings. For Moryn subcommands, `executable` is `"moryn"` and `args` equals
+`argv`; for direct package bins such as `moryn-agent-smoke`, `executable` is the
+bin and `args` excludes the bin.
 
 ### `agent_doctor`
 

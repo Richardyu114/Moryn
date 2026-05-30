@@ -436,9 +436,10 @@ includes action-local `selection_sources`, so agents that pass the action
 around independently still know the keyed project, project id, keyed next-action
 path, action metadata paths, and ordered fallback paths.
 Action templates also expose `interfaces.cli.command`,
-`interfaces.cli.argv`, and `interfaces.mcp.tool`/`interfaces.mcp.arguments`,
-derived from the same top-level fields. Agent hosts should prefer argv arrays
-for programmatic CLI execution instead of splitting display commands.
+`interfaces.cli.executable`, `interfaces.cli.args`, `interfaces.cli.argv`, and
+`interfaces.mcp.tool`/`interfaces.mcp.arguments`, derived from the same
+top-level fields. Agent hosts should prefer `executable` plus `args` for
+programmatic CLI execution instead of splitting display commands.
 
 `agent start` is the low-friction startup command for agents. It resolves
 `.moryn.json`, creates the store if needed, initializes sync when
@@ -556,8 +557,9 @@ interfaces, `operations_by_mcp_tool`, `operations_by_cli_command`,
 `required_fields_by_name`, `arguments_by_name`, and `argument_sources`. Its
 selection sources include `operations_by_mcp_tool.<tool>` and
 `operations_by_cli_command.<command>` for direct reverse lookups, plus
-`operations_by_id.<operation>.interfaces.cli.argv[]` for direct CLI argv
-lookups, plus
+`operations_by_id.<operation>.interfaces.cli.executable`,
+`operations_by_id.<operation>.interfaces.cli.args[]`, and
+`operations_by_id.<operation>.interfaces.cli.argv[]` for direct CLI lookups, plus
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` for
 direct required-input lookups. Each operation also repeats that
 `selection_sources` map locally, so a host can pass around one operation object
@@ -568,10 +570,11 @@ Each entry includes `selection_sources.required_input`, `mcp_targets`, and
 `cli_targets`, so hosts do not need to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.
-Each static operation `interfaces.cli` entry includes both a display `command`
-and a safe `argv` array without the `moryn` binary prefix, so programmatic
-hosts can call
-`execFile("moryn", argv)` without shell splitting or quote reconstruction.
+Each static operation `interfaces.cli` entry includes a display `command`,
+`executable`, `args`, and legacy `argv`. For Moryn subcommands,
+`executable` is `"moryn"` and `args` equals the subcommand `argv`, so
+programmatic hosts can call `execFile(executable, args)` without shell splitting
+or quote reconstruction.
 `arguments_by_name` is the full parameter directory: each entry names the CLI
 flag or positional argument, MCP argument, type, required flag, default,
 repeatability, alternatives, and enum `allowed_values` when applicable. This
@@ -608,17 +611,20 @@ Setup and diagnosis `next` actions from `agent doctor` and `agent enter`
 include the same top-level `required_when`, `required_fields`, and
 single-step `next.workflow` metadata, so hosts can distinguish safe read-only
 inspection from user-confirmed setup writes without inferring from prose.
-Runtime action `interfaces.cli.argv` arrays are generated from operation
-metadata and filled with the live arguments returned in that response. Use
-`next.actions_by_id.<action>.interfaces.cli.argv[]`,
-`startup.interfaces.cli.argv[]`, `next.interfaces.cli.argv[]`,
-`next.actions_by_project_id.<project_id>.interfaces.cli.argv[]`,
-`project_list.projects_by_id.<project_id>.next.interfaces.cli.argv[]`,
-`refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.argv[]`,
-or `error.next_action.interfaces.cli.argv[]`/`warning.next_action.interfaces.cli.argv[]`
-as the stable field paths when a host needs an executable CLI vector. Runtime
-argv arrays omit the `moryn` binary for moryn subcommands; direct package bins
-such as `moryn-agent-smoke` include the bin name as the first argv element.
+Runtime action `interfaces.cli.executable`, `interfaces.cli.args`, and
+`interfaces.cli.argv` fields are generated from operation metadata and filled
+with the live arguments returned in that response. Use
+`next.actions_by_id.<action>.interfaces.cli.executable` plus
+`next.actions_by_id.<action>.interfaces.cli.args[]`, or the equivalent
+`startup.interfaces.cli.*`, `next.interfaces.cli.*`,
+`next.actions_by_project_id.<project_id>.interfaces.cli.*`,
+`project_list.projects_by_id.<project_id>.next.interfaces.cli.*`,
+`refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.*`,
+`error.next_action.interfaces.cli.*`, and `warning.next_action.interfaces.cli.*`
+paths when a host needs an executable CLI vector. For Moryn subcommands,
+`executable` is `"moryn"` and `args` equals `argv`. For direct package bins such
+as `moryn-agent-smoke`, `executable` is the bin name, `args` excludes the bin,
+and `argv` keeps the full legacy vector with the bin as the first element.
 
 ## Current MVP Commands
 
@@ -784,7 +790,8 @@ When a recovery action still needs authored setup input, the same
 `argument_sources` map names that source, such as `user_input.remote`,
 `user_input.path`, or `user_input.project_id`.
 `error.next_action.interfaces` and `warning.next_action.interfaces` use the same
-CLI/MCP shape as lifecycle action templates, including safe CLI argv arrays.
+CLI/MCP shape as lifecycle action templates, including safe CLI
+`executable`/`args` pairs and compatibility `argv` arrays.
 Most recovery actions have a single-step `workflow`; missing-record recovery is
 two-step so hosts run `list_recent`, choose a returned id, and retry the
 original tool with that id.

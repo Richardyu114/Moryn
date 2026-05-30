@@ -4,8 +4,12 @@ import { toErrorEnvelope } from "../../src/core/errors.js";
 const NEXT_ACTION_SELECTION_SOURCES = {
   error_next_action: "error.next_action",
   warning_next_action: "warning.next_action",
+  error_cli_executable: "error.next_action.interfaces.cli.executable",
   error_cli_argv: "error.next_action.interfaces.cli.argv[]",
+  error_cli_args: "error.next_action.interfaces.cli.args[]",
+  warning_cli_executable: "warning.next_action.interfaces.cli.executable",
   warning_cli_argv: "warning.next_action.interfaces.cli.argv[]",
+  warning_cli_args: "warning.next_action.interfaces.cli.args[]",
   error_required_field: "error.next_action.required_fields_by_name.<field>",
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
@@ -30,11 +34,16 @@ function expectNextActionInterfaces(action: {
   command: string;
   arguments: Record<string, unknown>;
   interfaces?: {
-    cli?: { command?: string; argv?: string[] };
+    cli?: { command?: string; argv?: string[]; executable?: string; args?: string[] };
     mcp?: { tool?: string; arguments?: Record<string, unknown> };
   };
 }) {
-  expect(action.interfaces?.cli).toEqual({ command: action.command, argv: expect.any(Array) });
+  expect(action.interfaces?.cli).toEqual({
+    command: action.command,
+    argv: expect.any(Array),
+    executable: expect.any(String),
+    args: expect.any(Array)
+  });
   expect(action.interfaces?.mcp).toEqual({
     tool: action.tool,
     arguments: action.arguments

@@ -36,11 +36,16 @@ function expectNextActionInterfaces(action: {
   command: string;
   arguments: Record<string, unknown>;
   interfaces?: {
-    cli?: { command?: string; argv?: string[] };
+    cli?: { command?: string; argv?: string[]; executable?: string; args?: string[] };
     mcp?: { tool?: string; arguments?: Record<string, unknown> };
   };
 }) {
-  expect(action.interfaces?.cli).toEqual({ command: action.command, argv: expect.any(Array) });
+  expect(action.interfaces?.cli).toEqual({
+    command: action.command,
+    argv: expect.any(Array),
+    executable: expect.any(String),
+    args: expect.any(Array)
+  });
   expect(action.interfaces?.mcp).toEqual({
     tool: action.tool,
     arguments: action.arguments
@@ -264,6 +269,12 @@ function expectRefreshChangeRecallAction(action: {
       record_id: "refresh.changes_by_record_id.<record_id>.record_id",
       next_action: "refresh.changes_by_record_id.<record_id>.next_action",
       ordered_next_action: "refresh.changes[].next_action",
+      cli_executable: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.executable",
+      cli_argv: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
+      cli_args: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+      ordered_cli_executable: "refresh.changes[].next_action.interfaces.cli.executable",
+      ordered_cli_argv: "refresh.changes[].next_action.interfaces.cli.argv[]",
+      ordered_cli_args: "refresh.changes[].next_action.interfaces.cli.args[]",
       argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
       ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>",
       required_field: "refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",

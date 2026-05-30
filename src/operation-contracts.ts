@@ -14,6 +14,19 @@ type OperationInterfaces = {
   cli: {
     command: string;
     argv: string[];
+    executable: string;
+    args: string[];
+  };
+  mcp: {
+    tool: string;
+    arguments: Record<string, unknown>;
+  };
+};
+
+type OperationInterfacesInput = {
+  cli: {
+    command: string;
+    argv: string[];
   };
   mcp: {
     tool: string;
@@ -69,9 +82,10 @@ type OperationArgumentMetadataInput = Omit<OperationArgumentMetadata, "name"> & 
   name?: string;
 };
 
-type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "arguments_by_name" | "safety" | "execution" | "selection_sources"> & {
+type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "arguments_by_name" | "interfaces" | "safety" | "execution" | "selection_sources"> & {
   required_fields_by_name?: Record<string, OperationRequiredFieldMetadata>;
   arguments_by_name?: Record<string, OperationArgumentMetadataInput>;
+  interfaces: OperationInterfacesInput;
 };
 
 export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
@@ -89,6 +103,8 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
   cli_argv: "operations_by_id.<operation>.interfaces.cli.argv[]",
+  cli_executable: "operations_by_id.<operation>.interfaces.cli.executable",
+  cli_args: "operations_by_id.<operation>.interfaces.cli.args[]",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
   ordered_operation: "operations[]"
 } as const;
@@ -119,18 +135,27 @@ function requiredInputSelectionSources(selectionSources: Record<string, string>)
 function operationContract(input: OperationContractInput): OperationContract {
   const required_fields_by_name = operationRequiredFieldsByName(input);
   const arguments_by_name = operationArgumentsByName(input);
+  const interfaces = {
+    ...input.interfaces,
+    cli: {
+      ...input.interfaces.cli,
+      executable: "moryn",
+      args: input.interfaces.cli.argv
+    }
+  };
   return {
     ...input,
+    interfaces,
     required_fields_by_name,
     arguments_by_name,
     ...(input.argument_sources ? { argument_sources: input.argument_sources } : {}),
     safety: actionSafety({
-      tool: input.interfaces.mcp.tool,
+      tool: interfaces.mcp.tool,
       safe_to_run: input.safe_to_run,
       required_fields: input.required_fields
     }),
     execution: actionExecution({
-      tool: input.interfaces.mcp.tool,
+      tool: interfaces.mcp.tool,
       safe_to_run: input.safe_to_run,
       required_fields: input.required_fields,
       required_fields_by_name,

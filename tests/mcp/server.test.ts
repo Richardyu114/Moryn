@@ -19,8 +19,12 @@ const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync ope
 const NEXT_ACTION_SELECTION_SOURCES = {
   error_next_action: "error.next_action",
   warning_next_action: "warning.next_action",
+  error_cli_executable: "error.next_action.interfaces.cli.executable",
   error_cli_argv: "error.next_action.interfaces.cli.argv[]",
+  error_cli_args: "error.next_action.interfaces.cli.args[]",
+  warning_cli_executable: "warning.next_action.interfaces.cli.executable",
   warning_cli_argv: "warning.next_action.interfaces.cli.argv[]",
+  warning_cli_args: "warning.next_action.interfaces.cli.args[]",
   error_required_field: "error.next_action.required_fields_by_name.<field>",
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
@@ -36,8 +40,12 @@ const LIFECYCLE_ACTION_SELECTION_SOURCES = {
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action",
   ordered_action: "next.actions[]",
+  cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
   cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+  cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
+  ordered_cli_executable: "next.actions[].interfaces.cli.executable",
   ordered_cli_argv: "next.actions[].interfaces.cli.argv[]",
+  ordered_cli_args: "next.actions[].interfaces.cli.args[]",
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
   ordered_argument: "next.actions[].arguments_by_name.<argument>",
   required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
@@ -51,6 +59,12 @@ const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   lifecycle_action: "lifecycle_by_step.<step>",
   step: "lifecycle_by_step.<step>.step",
   ordered_lifecycle_action: "lifecycle[]",
+  cli_executable: "lifecycle_by_step.<step>.interfaces.cli.executable",
+  cli_argv: "lifecycle_by_step.<step>.interfaces.cli.argv[]",
+  cli_args: "lifecycle_by_step.<step>.interfaces.cli.args[]",
+  ordered_cli_executable: "lifecycle[].interfaces.cli.executable",
+  ordered_cli_argv: "lifecycle[].interfaces.cli.argv[]",
+  ordered_cli_args: "lifecycle[].interfaces.cli.args[]",
   argument: "lifecycle_by_step.<step>.arguments_by_name.<argument>",
   ordered_argument: "lifecycle[].arguments_by_name.<argument>",
   required_field: "lifecycle_by_step.<step>.required_fields_by_name.<field>",
@@ -63,8 +77,12 @@ const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
 const GUIDE_ENTRYPOINT_SELECTION_SOURCES = {
   startup_action: "startup",
   next_action: "next",
+  startup_cli_executable: "startup.interfaces.cli.executable",
   startup_cli_argv: "startup.interfaces.cli.argv[]",
+  startup_cli_args: "startup.interfaces.cli.args[]",
+  next_cli_executable: "next.interfaces.cli.executable",
   next_cli_argv: "next.interfaces.cli.argv[]",
+  next_cli_args: "next.interfaces.cli.args[]",
   startup_argument: "startup.arguments_by_name.<argument>",
   next_argument: "next.arguments_by_name.<argument>",
   startup_required_field: "startup.required_fields_by_name.<field>",
@@ -160,6 +178,8 @@ const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
   cli_argv: "operations_by_id.<operation>.interfaces.cli.argv[]",
+  cli_executable: "operations_by_id.<operation>.interfaces.cli.executable",
+  cli_args: "operations_by_id.<operation>.interfaces.cli.args[]",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
   ordered_operation: "operations[]"
 };
@@ -199,11 +219,16 @@ function expectActionInterfaces(action: {
   command: string;
   arguments: Record<string, unknown>;
   interfaces?: {
-    cli?: { command?: string; argv?: string[] };
+    cli?: { command?: string; argv?: string[]; executable?: string; args?: string[] };
     mcp?: { tool?: string; arguments?: Record<string, unknown> };
   };
 }) {
-  expect(action.interfaces?.cli).toEqual({ command: action.command, argv: expect.any(Array) });
+  expect(action.interfaces?.cli).toEqual({
+    command: action.command,
+    argv: expect.any(Array),
+    executable: expect.any(String),
+    args: expect.any(Array)
+  });
   expect(action.interfaces?.mcp).toEqual({
     tool: action.tool,
     arguments: action.arguments
@@ -663,8 +688,12 @@ function expectRefreshChangeNextAction(action: {
       record_id: "refresh.changes_by_record_id.<record_id>.record_id",
       next_action: "refresh.changes_by_record_id.<record_id>.next_action",
       ordered_next_action: "refresh.changes[].next_action",
+      cli_executable: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.executable",
       cli_argv: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
+      cli_args: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+      ordered_cli_executable: "refresh.changes[].next_action.interfaces.cli.executable",
       ordered_cli_argv: "refresh.changes[].next_action.interfaces.cli.argv[]",
+      ordered_cli_args: "refresh.changes[].next_action.interfaces.cli.args[]",
       argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
       ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>",
       required_field: "refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
@@ -1291,7 +1320,16 @@ describe("MCP stdio server", () => {
           command: "moryn agent enter --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-guide",
           interfaces: expect.objectContaining({
             cli: expect.objectContaining({
+              executable: "moryn",
               argv: [
+                "agent", "enter",
+                "--project", "/workspace/moryn",
+                "--sync-remote", "git@github.com:user/moryn-store.git",
+                "--current-task", "continue MCP handoff",
+                "--agent", "gemini",
+                "--session-id", "gemini-mcp-guide"
+              ],
+              args: [
                 "agent", "enter",
                 "--project", "/workspace/moryn",
                 "--sync-remote", "git@github.com:user/moryn-store.git",
@@ -1370,7 +1408,17 @@ describe("MCP stdio server", () => {
           command: "moryn agent start --project /workspace/moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-guide --refresh-since <refresh_since>",
           interfaces: expect.objectContaining({
             cli: expect.objectContaining({
+              executable: "moryn",
               argv: [
+                "agent", "start",
+                "--project", "/workspace/moryn",
+                "--sync-remote", "git@github.com:user/moryn-store.git",
+                "--current-task", "continue MCP handoff",
+                "--agent", "gemini",
+                "--session-id", "gemini-mcp-guide",
+                "--refresh-since", "<refresh_since>"
+              ],
+              args: [
                 "agent", "start",
                 "--project", "/workspace/moryn",
                 "--sync-remote", "git@github.com:user/moryn-store.git",
@@ -2202,7 +2250,9 @@ describe("MCP stdio server", () => {
           expect(finish.next.selection_sources).toEqual({
             action: "next.actions_by_id.<action>",
             action_id: "next.actions_by_id.<action>.action",
-        action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+            action_cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
+            action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+            action_cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
             action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
             action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
             action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -2322,6 +2372,9 @@ describe("MCP stdio server", () => {
             inbox_entry: "handoff.inbox_by_record_id.<record_id>",
             inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
             inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
+            inbox_next_action_cli_executable: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable",
+            inbox_next_action_cli_argv: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
+            inbox_next_action_cli_args: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
             inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
             inbox_next_action_required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
             inbox_next_action_required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
@@ -2329,6 +2382,9 @@ describe("MCP stdio server", () => {
             active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
             active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
             active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
+            active_session_next_action_cli_executable: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable",
+            active_session_next_action_cli_argv: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
+            active_session_next_action_cli_args: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
             active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
             active_session_next_action_required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
             active_session_next_action_required_input: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
@@ -2353,7 +2409,9 @@ describe("MCP stdio server", () => {
           expect(start.next.selection_sources).toEqual({
             action: "next.actions_by_id.<action>",
             action_id: "next.actions_by_id.<action>.action",
-        action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+            action_cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
+            action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+            action_cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
             action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
             action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
             action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -2779,7 +2837,9 @@ describe("MCP stdio server", () => {
           check: "checks_by_name.<check_name>",
           blocking_check: "readiness.blocking_checks_by_name.<check_name>",
           next_action: "next",
+          next_cli_executable: "next.interfaces.cli.executable",
           next_cli_argv: "next.interfaces.cli.argv[]",
+          next_cli_args: "next.interfaces.cli.args[]",
           next_argument: "next.arguments_by_name.<argument>",
           next_required_field: "next.required_fields_by_name.<field>",
           next_required_input: "next.execution.required_inputs_by_field.<field>",
@@ -2794,7 +2854,11 @@ describe("MCP stdio server", () => {
           tool: "moryn-agent-smoke",
           command: expect.stringContaining("moryn-agent-smoke"),
           interfaces: expect.objectContaining({
-            cli: expect.objectContaining({ argv: ["moryn-agent-smoke", "--remote", remote] })
+            cli: expect.objectContaining({
+              argv: ["moryn-agent-smoke", "--remote", remote],
+              executable: "moryn-agent-smoke",
+              args: ["--remote", remote]
+            })
           }),
           required_fields: [],
           arguments: expect.objectContaining({ remote })
@@ -2806,7 +2870,9 @@ describe("MCP stdio server", () => {
         expect(doctor.next.selection_sources).toEqual({
           action: "next.actions_by_id.<action>",
           action_id: "next.actions_by_id.<action>.action",
-        action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+          action_cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
+          action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+          action_cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
           action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
           action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
           action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -3152,7 +3218,9 @@ describe("MCP stdio server", () => {
         expect(doctor.next.selection_sources).toEqual({
           action: "next.actions_by_id.<action>",
           action_id: "next.actions_by_id.<action>.action",
-        action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+          action_cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
+          action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+          action_cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
           action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
           action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
           action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -3317,9 +3385,13 @@ describe("MCP stdio server", () => {
           selection_sources: {
             project: "projects.projects_by_id.<project_id>",
             project_id: "projects.projects_by_id.<project_id>.project_id",
+            next_cli_executable: "next.interfaces.cli.executable",
             next_cli_argv: "next.interfaces.cli.argv[]",
+            next_cli_args: "next.interfaces.cli.args[]",
             start_action: "next.actions_by_project_id.<project_id>",
+            start_action_cli_executable: "next.actions_by_project_id.<project_id>.interfaces.cli.executable",
             start_action_cli_argv: "next.actions_by_project_id.<project_id>.interfaces.cli.argv[]",
+            start_action_cli_args: "next.actions_by_project_id.<project_id>.interfaces.cli.args[]",
             start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
             start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
             start_action_required_input: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_field.<field>",
@@ -4222,8 +4294,12 @@ describe("MCP stdio server", () => {
               project_id: "project_list.projects_by_id.<project_id>.project_id",
               next_action: "project_list.projects_by_id.<project_id>.next",
               ordered_next_action: "project_list.projects[].next",
+              cli_executable: "project_list.projects_by_id.<project_id>.next.interfaces.cli.executable",
               cli_argv: "project_list.projects_by_id.<project_id>.next.interfaces.cli.argv[]",
+              cli_args: "project_list.projects_by_id.<project_id>.next.interfaces.cli.args[]",
+              ordered_cli_executable: "project_list.projects[].next.interfaces.cli.executable",
               ordered_cli_argv: "project_list.projects[].next.interfaces.cli.argv[]",
+              ordered_cli_args: "project_list.projects[].next.interfaces.cli.args[]",
               argument: "project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>",
               ordered_argument: "project_list.projects[].next.arguments_by_name.<argument>",
               required_field: "project_list.projects_by_id.<project_id>.next.required_fields_by_name.<field>",
