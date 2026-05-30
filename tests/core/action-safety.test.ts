@@ -19,6 +19,10 @@ const collectRequiredInputsStep = {
   missing_required_fields: "execution.missing_required_fields",
   required_inputs: "execution.required_inputs",
   required_input_collect: "execution.required_inputs[].collect",
+  required_input_expected_value: "execution.required_inputs[].collect.expected_value",
+  required_input_choices: "execution.required_inputs[].collect.choices[]",
+  required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
+  required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value",
   required_inputs_by_field: "execution.required_inputs_by_field",
   required_inputs_by_argument_path: "execution.required_inputs_by_argument_path"
 };

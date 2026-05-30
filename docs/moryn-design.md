@@ -1269,6 +1269,10 @@ contains `choices[]`, hosts pick exactly one choice and apply that choice's
 `collect.apply_to.assignment_mode` repeats that constraint for hosts that inspect
 assignments first, so they do not need to parse `text|content` or infer which
 alternative is intended.
+The collect runbook step also names the stable paths for `collect.expected_value`,
+`collect.choices[]`, each choice's `apply_to`, and each choice's
+`expected_value`, so a host can follow the recipe without discovering nested
+fields dynamically.
 `execution.required_inputs_by_field` exposes the same metadata keyed by field
 name.
 

@@ -416,6 +416,8 @@ the immediate host action, such as `collect_required_inputs`,
 `ask_user_confirmation`, `call_mcp`, or `do_not_run`, and
 `execution.runbook.steps[]` lists stable object paths such as
 `execution.required_inputs[].collect`,
+`execution.required_inputs[].collect.expected_value`,
+`execution.required_inputs[].collect.choices[].apply_to`,
 `execution.required_inputs_by_argument_path`, `interfaces.mcp`, and
 `interfaces.cli.exec_file` in the order a host should follow. Each
 `required_inputs[]` entry names the field,
@@ -624,7 +626,11 @@ hosts can avoid running placeholder commands when `safe_to_run` is true but
 required user input is still missing. `execution.runbook` turns those blockers
 into ordered machine steps: collect required inputs from the `required_inputs`
 indexes, ask for user confirmation when required, then call the returned MCP
-interface or `exec_file` only after the blockers have been satisfied.
+interface or `exec_file` only after the blockers have been satisfied. The
+collect step includes direct paths for `collect.expected_value`,
+`collect.choices[]`, each choice's `apply_to`, and each choice's
+`expected_value`, so hosts can follow the input recipe without exploring the
+response shape.
 Each entry includes `selection_sources.required_input`,
 `selection_sources.required_input_argument_path`, `collect`, `mcp_targets`, and
 `cli_targets`; hosts should prefer `required_inputs[].collect` when asking the

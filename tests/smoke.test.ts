@@ -257,7 +257,13 @@ describe("package smoke test", () => {
       runbook: {
         next: "collect_required_inputs",
         steps: [
-          expect.objectContaining({ step: "collect_required_inputs" }),
+          expect.objectContaining({
+            step: "collect_required_inputs",
+            required_input_expected_value: "execution.required_inputs[].collect.expected_value",
+            required_input_choices: "execution.required_inputs[].collect.choices[]",
+            required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
+            required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value"
+          }),
           expect.objectContaining({ step: "call_mcp" })
         ]
       },
