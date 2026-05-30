@@ -20,8 +20,11 @@ export interface ActionRunbookCollectRequiredInputsStep {
   required_input_assignment_mode: "execution.required_inputs[].collect.apply_to.assignment_mode";
   required_input_expected_value: "execution.required_inputs[].collect.expected_value";
   required_input_choices: "execution.required_inputs[].collect.choices[]";
+  required_input_choices_by_option: "execution.required_inputs[].collect.choices_by_option";
   required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to";
   required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value";
+  required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to";
+  required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value";
   required_inputs_by_field: "execution.required_inputs_by_field";
   required_inputs_by_argument_path: "execution.required_inputs_by_argument_path";
 }
@@ -159,6 +162,7 @@ export interface ActionRequiredInputCollect {
   expected_value?: ActionRequiredInputExpectedValue;
   input_mode?: ActionRequiredInputMode;
   choices?: ActionRequiredInputChoice[];
+  choices_by_option?: Record<string, ActionRequiredInputChoice>;
   placeholder?: string;
   alternatives?: readonly string[];
   allowed_values?: readonly string[];
@@ -461,6 +465,11 @@ function requiredInputChoices(input: {
   });
 }
 
+function choicesByOption(choices: ActionRequiredInputChoice[] | undefined): Record<string, ActionRequiredInputChoice> | undefined {
+  if (!choices?.length) return undefined;
+  return Object.fromEntries(choices.map((choice) => [choice.option, choice]));
+}
+
 function promptForRequiredInput(field: string): string {
   return `Provide ${field.replace(/_/g, " ")}.`;
 }
@@ -489,7 +498,11 @@ function collectRequiredInput(input: {
     }),
     ...(input.argument_source ? { value_path: input.argument_source } : {}),
     ...(input.expected_value ? { expected_value: input.expected_value } : {}),
-    ...(input.choices ? { input_mode: "choose_one" as const, choices: input.choices } : {}),
+    ...(input.choices ? {
+      input_mode: "choose_one" as const,
+      choices: input.choices,
+      choices_by_option: choicesByOption(input.choices)
+    } : {}),
     ...(input.placeholder ? { placeholder: input.placeholder } : {}),
     ...(input.alternatives ? { alternatives: input.alternatives } : {}),
     ...(input.allowed_values ? { allowed_values: input.allowed_values } : {})
@@ -506,8 +519,11 @@ const COLLECT_REQUIRED_INPUTS_STEP: ActionRunbookCollectRequiredInputsStep = {
   required_input_assignment_mode: "execution.required_inputs[].collect.apply_to.assignment_mode",
   required_input_expected_value: "execution.required_inputs[].collect.expected_value",
   required_input_choices: "execution.required_inputs[].collect.choices[]",
+  required_input_choices_by_option: "execution.required_inputs[].collect.choices_by_option",
   required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
   required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value",
+  required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
+  required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value",
   required_inputs_by_field: "execution.required_inputs_by_field",
   required_inputs_by_argument_path: "execution.required_inputs_by_argument_path"
 };

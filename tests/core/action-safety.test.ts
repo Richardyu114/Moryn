@@ -23,8 +23,11 @@ const collectRequiredInputsStep = {
   required_input_assignment_mode: "execution.required_inputs[].collect.apply_to.assignment_mode",
   required_input_expected_value: "execution.required_inputs[].collect.expected_value",
   required_input_choices: "execution.required_inputs[].collect.choices[]",
+  required_input_choices_by_option: "execution.required_inputs[].collect.choices_by_option",
   required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
   required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value",
+  required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
+  required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value",
   required_inputs_by_field: "execution.required_inputs_by_field",
   required_inputs_by_argument_path: "execution.required_inputs_by_argument_path"
 };
@@ -136,6 +139,11 @@ const textOrContentChoices = [
     }
   }
 ];
+
+const textOrContentChoicesByOption = {
+  text: textOrContentChoices[0],
+  content: textOrContentChoices[1]
+};
 
 describe("action execution readiness", () => {
   it("exposes a runbook that tells hosts exactly how to run ready actions", () => {
@@ -577,6 +585,7 @@ describe("action execution readiness", () => {
           value_path: "user_input.text_or_content",
           input_mode: "choose_one",
           choices: textOrContentChoices,
+          choices_by_option: textOrContentChoicesByOption,
           placeholder: "<text_or_content>",
           alternatives: ["text", "content"]
         },
@@ -689,6 +698,7 @@ describe("action execution readiness", () => {
         value_path: "user_input.text_or_content",
         input_mode: "choose_one",
         choices: textOrContentChoices,
+        choices_by_option: textOrContentChoicesByOption,
         placeholder: "<text_or_content>",
         alternatives: ["text", "content"]
       },

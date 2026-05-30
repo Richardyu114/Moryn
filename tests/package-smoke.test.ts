@@ -202,8 +202,11 @@ describe("published package smoke", () => {
                 required_input_assignment_mode: "execution.required_inputs[].collect.apply_to.assignment_mode",
                 required_input_expected_value: "execution.required_inputs[].collect.expected_value",
                 required_input_choices: "execution.required_inputs[].collect.choices[]",
+                required_input_choices_by_option: "execution.required_inputs[].collect.choices_by_option",
                 required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
-                required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value"
+                required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value",
+                required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
+                required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value"
               }),
               expect.objectContaining({ step: "call_mcp" })
             ]
@@ -369,6 +372,50 @@ describe("published package smoke", () => {
               }
             }
           ],
+          choices_by_option: {
+            text: {
+              option: "text",
+              argument_path: "text",
+              value_path: "user_input.text_or_content",
+              preferred: true,
+              expected_value: {
+                value_path: "user_input.text_or_content",
+                kind: "string",
+                value_encoding: "string"
+              },
+              apply_to: {
+                mcp_argument_paths: ["text"],
+                cli_assignments: [{
+                  flag: "--text",
+                  value_path: "user_input.text_or_content",
+                  argv_template: ["--text", "<user_input.text_or_content>"],
+                  value_encoding: "string",
+                  preferred: true
+                }]
+              }
+            },
+            content: {
+              option: "content",
+              argument_path: "content",
+              value_path: "user_input.text_or_content",
+              preferred: false,
+              expected_value: {
+                value_path: "user_input.text_or_content",
+                kind: "json_object",
+                value_encoding: "json"
+              },
+              apply_to: {
+                mcp_argument_paths: ["content"],
+                cli_assignments: [{
+                  flag: "--content-json",
+                  value_path: "user_input.text_or_content",
+                  argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                  value_encoding: "json",
+                  preferred: false
+                }]
+              }
+            }
+          },
           apply_to: {
             assignment_mode: "choose_one",
             mcp_argument_paths: ["text", "content"],
