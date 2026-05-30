@@ -6,6 +6,8 @@ const NEXT_ACTION_SELECTION_SOURCES = {
   warning_next_action: "warning.next_action",
   error_required_field: "error.next_action.required_fields_by_name.<field>",
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
+  error_argument: "error.next_action.arguments_by_name.<argument>",
+  warning_argument: "warning.next_action.arguments_by_name.<argument>",
   error_argument_source: "error.next_action.argument_sources.<field>",
   warning_argument_source: "warning.next_action.argument_sources.<field>",
   error_workflow_phase: "error.next_action.workflow.phases_by_name.<phase>",
@@ -151,6 +153,15 @@ describe("error envelopes", () => {
           tool: "sync_init",
           command: "moryn sync init <remote>",
           arguments: { remote: "<remote>" },
+          arguments_by_name: {
+            remote: {
+              name: "remote",
+              type: "string",
+              required: true,
+              cli: { positional: "remote" },
+              mcp: { argument: "remote" }
+            }
+          },
           required_fields: ["remote"],
           argument_sources: { remote: "user_input.remote" },
           safe_to_run: false
@@ -220,6 +231,14 @@ describe("error envelopes", () => {
       command: "moryn promote rec_123 --state canonical",
       arguments: { record_id: "rec_123", target_state: "canonical" }
     }).error.next_action!;
+    expect(confirmation.arguments_by_name.target_state).toMatchObject({
+      name: "target_state",
+      type: "string",
+      required: true,
+      cli: { flag: "--state" },
+      mcp: { argument: "target_state" },
+      allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+    });
     expectNextActionSafety(confirmation);
     expect(confirmation.safety).toMatchObject({
       safe_to_auto_run: false,

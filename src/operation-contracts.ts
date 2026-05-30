@@ -39,9 +39,9 @@ type OperationRequiredFieldMetadata = RequiredFieldMetadata & {
   allowed_values?: readonly string[];
 };
 
-type OperationArgumentType = "string" | "string[]" | "number" | "boolean" | "object";
+export type OperationArgumentType = "string" | "string[]" | "number" | "boolean" | "object";
 
-type OperationArgumentMetadata = {
+export type OperationArgumentMetadata = {
   name: string;
   type: OperationArgumentType;
   required: boolean;
@@ -997,6 +997,14 @@ export const OPERATION_CONTRACTS = [
 
 function operationsById(operations: readonly OperationContract[]): Record<string, OperationContract> {
   return Object.fromEntries(operations.map((operation) => [operation.operation, operation]));
+}
+
+const OPERATION_CONTRACTS_BY_TOOL = Object.fromEntries(
+  OPERATION_CONTRACTS.map((operation) => [operation.interfaces.mcp.tool, operation])
+) as Record<string, OperationContract>;
+
+export function operationArgumentsByTool(tool: string): Record<string, OperationArgumentMetadata> {
+  return OPERATION_CONTRACTS_BY_TOOL[tool]?.arguments_by_name ?? {};
 }
 
 function operationsByCategory(operations: readonly OperationContract[]): Record<string, Record<string, OperationContract>> {

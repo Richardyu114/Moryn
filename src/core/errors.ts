@@ -1,5 +1,6 @@
 import { actionSafety, type ActionSafety } from "./action-safety.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
+import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
 
 export interface MorynErrorEnvelope {
   ok: false;
@@ -17,6 +18,8 @@ export interface NextActionSelectionSources {
   warning_next_action: "warning.next_action";
   error_required_field: "error.next_action.required_fields_by_name.<field>";
   warning_required_field: "warning.next_action.required_fields_by_name.<field>";
+  error_argument: "error.next_action.arguments_by_name.<argument>";
+  warning_argument: "warning.next_action.arguments_by_name.<argument>";
   error_argument_source: "error.next_action.argument_sources.<field>";
   warning_argument_source: "warning.next_action.argument_sources.<field>";
   error_workflow_phase: "error.next_action.workflow.phases_by_name.<phase>";
@@ -32,6 +35,7 @@ export interface MorynErrorNextAction {
   required_when: string;
   required_fields: string[];
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
+  arguments_by_name: Record<string, OperationArgumentMetadata>;
   workflow: NextActionWorkflow;
   safety: ActionSafety;
   selection_sources: NextActionSelectionSources;
@@ -104,6 +108,8 @@ export const NEXT_ACTION_SELECTION_SOURCES: NextActionSelectionSources = {
   warning_next_action: "warning.next_action",
   error_required_field: "error.next_action.required_fields_by_name.<field>",
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
+  error_argument: "error.next_action.arguments_by_name.<argument>",
+  warning_argument: "warning.next_action.arguments_by_name.<argument>",
   error_argument_source: "error.next_action.argument_sources.<field>",
   warning_argument_source: "warning.next_action.argument_sources.<field>",
   error_workflow_phase: "error.next_action.workflow.phases_by_name.<phase>",
@@ -153,6 +159,7 @@ export function withNextActionMetadata<T extends {
 ): T & {
   interfaces: ActionInterfaces<T["arguments"]>;
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
+  arguments_by_name: Record<string, OperationArgumentMetadata>;
   safety: ActionSafety;
   selection_sources: NextActionSelectionSources;
   workflow: NextActionWorkflow;
@@ -160,6 +167,7 @@ export function withNextActionMetadata<T extends {
   const actionWithRequiredFields = withRequiredFieldsByName(action);
   return {
     ...actionWithRequiredFields,
+    arguments_by_name: operationArgumentsByTool(action.tool),
     interfaces: {
       cli: {
         command: action.command

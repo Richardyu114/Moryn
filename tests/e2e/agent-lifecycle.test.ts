@@ -123,6 +123,7 @@ function expectRefreshChangeNextAction(action: {
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
+  arguments_by_name?: Record<string, unknown>;
   selection_sources?: Record<string, string>;
   safe_to_run: boolean;
   required_when: string;
@@ -174,6 +175,13 @@ function expectRefreshChangeNextAction(action: {
       }
     ]
   }));
+  expect(action.arguments_by_name?.record_ids).toMatchObject({
+    name: "record_ids",
+    type: "string[]",
+    required: false,
+    cli: { flag: "--record-id", repeatable: true },
+    mcp: { argument: "record_ids" }
+  });
 }
 
 function expectHandoffEntryNextAction(action: {
@@ -181,6 +189,7 @@ function expectHandoffEntryNextAction(action: {
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
+  arguments_by_name?: Record<string, unknown>;
   argument_sources?: Record<string, string>;
   selection_sources?: Record<string, string>;
   safe_to_run: boolean;
@@ -279,6 +288,13 @@ function expectHandoffEntryNextAction(action: {
       }
     ]
   }));
+  expect(action.arguments_by_name?.record_ids).toMatchObject({
+    name: "record_ids",
+    type: "string[]",
+    required: false,
+    cli: { flag: "--record-id", repeatable: true },
+    mcp: { argument: "record_ids" }
+  });
 }
 
 function expectLifecycleActionSelectionSources(action: {

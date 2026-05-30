@@ -145,6 +145,7 @@ function expectRefreshChangeRecallAction(action: {
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
+  arguments_by_name?: Record<string, unknown>;
   argument_sources?: Record<string, string>;
   selection_sources?: Record<string, string>;
   safe_to_run: boolean;
@@ -199,6 +200,20 @@ function expectRefreshChangeRecallAction(action: {
     }
   });
   expectNextActionInterfaces(action);
+  expect(action.arguments_by_name?.record_ids).toMatchObject({
+    name: "record_ids",
+    type: "string[]",
+    required: false,
+    cli: { flag: "--record-id", repeatable: true },
+    mcp: { argument: "record_ids" }
+  });
+  expect(action.arguments_by_name?.project_id).toMatchObject({
+    name: "project_id",
+    type: "string",
+    required: false,
+    cli: { flag: "--project-id" },
+    mcp: { argument: "project_id" }
+  });
   expectActionSafety(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
   expect(action.workflow).toEqual(withPhasesByName({

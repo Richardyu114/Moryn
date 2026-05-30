@@ -63,6 +63,8 @@ describe("package smoke test", () => {
 
   it("exports lifecycle and recovery selection source contracts from the package entrypoint", () => {
     expect(NEXT_ACTION_SELECTION_SOURCES.error_next_action).toBe("error.next_action");
+    expect(NEXT_ACTION_SELECTION_SOURCES.error_argument).toBe("error.next_action.arguments_by_name.<argument>");
+    expect(NEXT_ACTION_SELECTION_SOURCES.warning_argument).toBe("warning.next_action.arguments_by_name.<argument>");
     expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action).toBe("next.actions_by_id.<action>");
     expect(LIFECYCLE_ACTION_SELECTION_SOURCES.ordered_action).toBe("next.actions[]");
     expect(GUIDE_SELECTION_SOURCES.guardrail).toBe("guardrails_by_id.<guardrail_id>");

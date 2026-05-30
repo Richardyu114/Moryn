@@ -212,8 +212,8 @@ Deliverables:
   candidate-action paths from other lifecycle responses.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `selection_sources` for their error/warning containers, keyed required
-  fields, keyed argument sources, and keyed workflow phases, so recovery hosts
-  do not infer where failure-recovery metadata lives.
+  fields, keyed argument metadata, keyed argument sources, and keyed workflow
+  phases, so recovery hosts do not infer where failure-recovery metadata lives.
 - Done: Lifecycle and recovery `selection_sources` maps are exported from the
   package entrypoint, so host integrations can reuse canonical guide, doctor,
   handoff, lifecycle, discovery, and error-action field paths instead of

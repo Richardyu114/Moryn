@@ -9,6 +9,7 @@ import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 import { actionSafety } from "./action-safety.js";
 import { withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
+import { operationArgumentsByTool } from "../operation-contracts.js";
 
 interface EngineDeps {
   storePath: string;
@@ -158,6 +159,7 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
         })
       : action),
     arguments: action.arguments,
+    arguments_by_name: operationArgumentsByTool(action.tool),
     interfaces: {
       cli: {
         command: action.command

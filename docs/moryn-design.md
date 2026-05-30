@@ -1311,9 +1311,13 @@ maps placeholders such as `remote`, `path`, or `project_id` to
 `user_input.remote`, `user_input.path`, or `user_input.project_id`.
 `next_action.selection_sources` names both `error.next_action` and
 `warning.next_action` container paths plus keyed `required_fields_by_name`,
-`argument_sources`, and `workflow.phases_by_name` paths, so hosts can locate
-the recovery contract without inferring whether the action came from an error
-or a warning. Library hosts can reuse the exported
+`arguments_by_name`, `argument_sources`, and `workflow.phases_by_name` paths,
+so hosts can locate the recovery contract without inferring whether the action
+came from an error or a warning. `arguments_by_name` uses the same operation
+argument metadata as `operation_contracts`, so runtime recovery actions expose
+supported CLI/MCP arguments, defaults, repeatable flags, alternatives, and enum
+values without requiring hosts to join against the static registry. Library
+hosts can reuse the exported
 `NEXT_ACTION_SELECTION_SOURCES` map from the package entrypoint as the
 canonical field-path contract.
 Most recovery actions are single-step workflows;

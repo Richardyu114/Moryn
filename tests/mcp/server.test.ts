@@ -21,6 +21,8 @@ const NEXT_ACTION_SELECTION_SOURCES = {
   warning_next_action: "warning.next_action",
   error_required_field: "error.next_action.required_fields_by_name.<field>",
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
+  error_argument: "error.next_action.arguments_by_name.<argument>",
+  warning_argument: "warning.next_action.arguments_by_name.<argument>",
   error_argument_source: "error.next_action.argument_sources.<field>",
   warning_argument_source: "warning.next_action.argument_sources.<field>",
   error_workflow_phase: "error.next_action.workflow.phases_by_name.<phase>",

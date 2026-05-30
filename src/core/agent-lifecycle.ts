@@ -8,6 +8,7 @@ import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, SYNC_STA
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
 import { actionSafety, type ActionSafety } from "./action-safety.js";
 import { requiredFieldsByName, withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
+import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
 
 interface AgentIdentity {
   client: string;
@@ -66,6 +67,7 @@ type LifecycleActionTemplate = {
   required_when: string;
   required_fields: string[];
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
+  arguments_by_name: Record<string, OperationArgumentMetadata>;
   arguments: Record<string, unknown>;
   argument_sources?: Record<string, string>;
   selection_sources?: LifecycleActionSelectionSources;
@@ -102,6 +104,7 @@ type HandoffEntryNextAction = {
   required_when: string;
   required_fields: [];
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
+  arguments_by_name: Record<string, OperationArgumentMetadata>;
   arguments: {
     record_ids: string[];
     project_id: string;
@@ -256,7 +259,12 @@ function projectEnvelope(project: ProjectContext): {
 
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown; safe_to_run: boolean; required_fields: string[] }>(
   action: T
-): T & { required_fields_by_name: Record<string, RequiredFieldMetadata>; interfaces: ActionInterfaces<T["arguments"]>; safety: ActionSafety } {
+): T & {
+  required_fields_by_name: Record<string, RequiredFieldMetadata>;
+  arguments_by_name: Record<string, OperationArgumentMetadata>;
+  interfaces: ActionInterfaces<T["arguments"]>;
+  safety: ActionSafety;
+} {
   const actionWithRequiredFields = withRequiredFieldsByName({
     ...action,
     arguments: action.arguments as Record<string, unknown>
@@ -264,6 +272,7 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
   return {
     ...actionWithRequiredFields,
     arguments: action.arguments,
+    arguments_by_name: operationArgumentsByTool(action.tool),
     interfaces: {
       cli: {
         command: action.command
