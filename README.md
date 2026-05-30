@@ -720,8 +720,8 @@ CLI and MCP required-option, option-dependency, non-empty string, enum,
 integer/number-range, JSON-object, read-filter, project-init, sync-argument,
 store-path, event-path-component, schema-validation, write-core-field,
 write-content, write-metadata, choose-one, path-assignment, revise-patch,
-replay-history, sensitive-content, and refresh cursor validation errors also
-include `recovery_hint`:
+replay-history, sensitive-content, index-stale, and refresh cursor validation
+errors also include `recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
 allowed values, non-empty constraints, integer or numeric bounds, JSON object,
 write `kind`/`type`/`scope`/`project_id`, write content, write metadata such as
@@ -739,6 +739,8 @@ replay history failures with the bad `event_id`, `event_op`, `record_id`, and
 safe rebuild inspection hint,
 sensitive-content failures that intentionally omit the detected secret value and
 return a redaction retry template,
+stale derived-view errors with safe rebuild and retry-after-original-read
+instructions,
 sync arguments such as `storePath`, `remoteUrl`, `options`, and `message`,
 dependency rules such as `--message`
 requiring `--push`, project-context requirements, path-assignment shape, revise

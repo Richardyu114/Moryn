@@ -198,6 +198,21 @@ function knownRecoveryHint(message: string): unknown {
       do_not: ["echo_secret_value", "write_unredacted_secret", "sync_unredacted_secret"]
     };
   }
+  if (message.startsWith("Index stale:")) {
+    return {
+      stale_artifacts: ["snapshots", "indexes"],
+      recover_with: {
+        tool: "rebuild",
+        command: "moryn rebuild",
+        arguments: {},
+        safe_to_run: true
+      },
+      retry_after: {
+        condition: "derived_views_rebuilt",
+        action: "retry_original_read"
+      }
+    };
+  }
   return undefined;
 }
 

@@ -234,6 +234,19 @@ describe("error envelopes", () => {
         code: "INDEX_STALE",
         recoverable: true,
         recommended_action: "run moryn rebuild",
+        recovery_hint: {
+          stale_artifacts: ["snapshots", "indexes"],
+          recover_with: {
+            tool: "rebuild",
+            command: "moryn rebuild",
+            arguments: {},
+            safe_to_run: true
+          },
+          retry_after: {
+            condition: "derived_views_rebuilt",
+            action: "retry_original_read"
+          }
+        },
         next_action: {
           recommended_action: "rebuild_derived_views",
           tool: "rebuild",

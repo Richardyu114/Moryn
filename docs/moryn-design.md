@@ -662,8 +662,9 @@ CLI and MCP boundary validation errors for required options, option dependencies
 non-empty strings, enum values, integer and number ranges, JSON object inputs,
 read filters, project init inputs, store path inputs, sync inputs, event path
 components, schema validation, replay history failures, sensitive-content
-failures, write core fields such as `kind`, `type`, `scope`, and `project_id`,
-write content payloads, write metadata such as `tags`, `source.client`,
+failures, stale derived views, write core fields such as `kind`, `type`,
+`scope`, and `project_id`, write content payloads, write metadata such as
+`tags`, `source.client`,
 `state`, `priority`, `confidence`, `confirmed`, and `provenance.*`, mutation
 arguments such as
 `record_id`, `linked_record_id`, `target_state`, `reason`, `confirmed`,
@@ -691,9 +692,10 @@ shape, revise patch rules, record/event schema validation issues with `path`,
 `path_string`, and messages, replay history failures with the bad `event_id`,
 `event_op`, `record_id`, and rebuild inspection hint, or ISO datetime cursor
 requirements, sensitive-content failures that omit the detected secret value and
-return a redaction retry template, `validation_issues` lists schema paths to
-repair, `discover_with` names safe lookup calls such as `project_list`, and
-`retry_with` contains the option/argument value placeholder to use for the
+return a redaction retry template, stale derived-view errors with safe rebuild
+and retry-after-original-read instructions, `validation_issues` lists schema
+paths to repair, `discover_with` names safe lookup calls such as `project_list`,
+and `retry_with` contains the option/argument value placeholder to use for the
 corrected retry.
 
 ### `init`
@@ -2511,6 +2513,19 @@ Rebuildable index errors return a safe derived-view rebuild action:
     "message": "Index stale: rebuild derived views before retrying",
     "recoverable": true,
     "recommended_action": "run moryn rebuild",
+    "recovery_hint": {
+      "stale_artifacts": ["snapshots", "indexes"],
+      "recover_with": {
+        "tool": "rebuild",
+        "command": "moryn rebuild",
+        "arguments": {},
+        "safe_to_run": true
+      },
+      "retry_after": {
+        "condition": "derived_views_rebuilt",
+        "action": "retry_original_read"
+      }
+    },
     "next_action": {
       "recommended_action": "rebuild_derived_views",
       "tool": "rebuild",
