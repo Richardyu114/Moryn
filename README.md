@@ -421,8 +421,9 @@ ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `start_next_session`. Automation should prefer the keyed map when it already
 knows which lifecycle action it needs, and use
 `next.workflow.phases[].action_source` to find the exact keyed path.
-Each lifecycle action also carries action-local `selection_sources` naming its
-keyed `next.actions_by_id.<action>` source, action-id field,
+Each lifecycle action also carries a resolved `action_source` such as
+`next.actions_by_id.finish_session`, plus action-local `selection_sources`
+naming its generic keyed `next.actions_by_id.<action>` source, action-id field,
 `arguments_by_name.<argument>`, `required_fields_by_name.<field>`,
 `execution.required_inputs_by_field.<field>`, and `argument_sources.<field>`
 directories, plus ordered `next.actions[]`
@@ -432,9 +433,11 @@ Direct `project_list` responses use the same pattern with top-level
 `projects_by_id`, keyed by `project_id`; each keyed record mirrors the ordered
 `projects[]` entry, and project-list workflow phases prefer
 `project_list.projects_by_id.<project_id>.next`. Each nested `next` action also
-includes action-local `selection_sources`, so agents that pass the action
-around independently still know the keyed project, project id, keyed next-action
-path, action metadata paths, and ordered fallback paths.
+includes a resolved `action_source` such as
+`project_list.projects_by_id.alpha.next` and action-local `selection_sources`,
+so agents that pass the action around independently still know the keyed
+project, project id, keyed next-action path, action metadata paths, and ordered
+fallback paths.
 Action templates also expose `interfaces.cli.command`,
 `interfaces.cli.executable`, `interfaces.cli.args`, `interfaces.cli.argv`, and
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, derived from the same
@@ -452,8 +455,8 @@ time-bounded and include `active_until`, so stale status records do not look
 like live work forever. Each handoff entry includes a safe `next_action` for the
 exact `recall` call that retrieves the full handoff or status record, including
 CLI/MCP interfaces, `safety`, `required_when`, `argument_sources`, action-local
-`selection_sources`, and workflow metadata. When a handoff exists, top-level
-`handoff.next_action` points to the
+`action_source`, `selection_sources`, and workflow metadata. When a handoff
+exists, top-level `handoff.next_action` points to the
 highest-priority entry action, preferring active sessions before inbox summaries,
 so agents can act on `handoff.recommended_action` without choosing a record from prose.
 `handoff.inbox_by_record_id` and `handoff.active_sessions_by_record_id` mirror
@@ -465,7 +468,8 @@ paths for both inbox and active-session entries, including the nested
 `next_action.execution.required_inputs_by_field.<field>`, and
 `next_action.argument_sources.<field>` directories. Handoff entry workflows
 prefer those keyed paths while keeping the ordered arrays for display. Each
-handoff `next_action.selection_sources` repeats the selected entry, record-id,
+handoff `next_action.action_source` contains the resolved keyed next-action
+path, and `next_action.selection_sources` repeats the selected entry, record-id,
 next-action, action metadata, and ordered fallback paths for agents that only
 receive that action. If startup,
 status, or finish can continue locally while
@@ -605,12 +609,15 @@ the same ordered action contract from any lifecycle entrypoint. Workflow phases
 prefer `next.actions_by_id.<action>` as the stable source and retain
 `next.actions` as an ordered compatibility list; `next.workflow.phases_by_name`
 mirrors those phases by name for direct lookup. Each lifecycle action repeats
-the keyed and ordered paths in action-local `selection_sources`, so selected
-actions remain self-describing after they are copied out of the response.
+the resolved keyed path in `action_source` plus keyed and ordered paths in
+action-local `selection_sources`, so selected actions remain self-describing
+after they are copied out of the response.
 Setup and diagnosis `next` actions from `agent doctor` and `agent enter`
-include the same top-level `required_when`, `required_fields`, and
-single-step `next.workflow` metadata, so hosts can distinguish safe read-only
-inspection from user-confirmed setup writes without inferring from prose.
+include `action_source: "next"` plus the same top-level `required_when`,
+`required_fields`, and single-step `next.workflow` metadata, so hosts can
+distinguish safe read-only inspection from user-confirmed setup writes without
+inferring from prose. `agent doctor.readiness.next_action_source` mirrors that
+selected top-level path.
 Runtime action `interfaces.cli.executable`, `interfaces.cli.args`, and
 `interfaces.cli.argv` fields are generated from operation metadata and filled
 with the live arguments returned in that response. Use
@@ -780,7 +787,7 @@ whether to initialize, list projects, or retry with corrected arguments. These
 error envelopes also include a machine-readable `error.next_action` with
 `tool`, `command`, `arguments`, `interfaces`, `required_when`,
 `required_fields`, `required_fields_by_name`, `arguments_by_name`,
-`argument_sources`,
+`argument_sources`, `action_source`,
 `selection_sources`, `workflow`, `safety`, `execution`, and `safe_to_run`, so
 agents can recover without parsing prose or guessing placeholder values.
 `arguments_by_name` uses the same operation argument metadata as
@@ -800,6 +807,9 @@ original tool with that id.
 `execution.required_inputs_by_field`, `arguments_by_name`, `argument_sources`,
 and `workflow.phases_by_name` paths, so recovery hosts do not infer where a
 returned action lives.
+`error.next_action.action_source` and `warning.next_action.action_source` are
+`"next_action"` for hosts that pass the nested action around without its
+envelope.
 The retry phase and top-level `argument_sources` point replacement fields at
 `list_recent.records_by_id.<record_id>.id`; `list_recent.records[].id` remains
 available as the ordered view. `list_recent.selection_sources` names the same
@@ -954,8 +964,8 @@ refresh(cursor, current_task)
 This reports new changes as `silent`, `notice`, or `interrupt`.
 Reportable non-raw changes also include `next_action` metadata for the exact
 safe `recall` call, with CLI/MCP interfaces, `required_when`, `safety`,
-`argument_sources`, action-local `selection_sources`, and a single-step
-workflow. `changes[]` remains the ordered display list, and
+`argument_sources`, resolved `action_source`, action-local `selection_sources`,
+and a single-step workflow. `changes[]` remains the ordered display list, and
 `changes_by_record_id` mirrors the returned changes by record id.
 `selection_sources` names the keyed change, record-id, and next-action paths;
 `next_action.selection_sources` repeats the fully qualified keyed and ordered

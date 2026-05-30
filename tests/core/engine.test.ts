@@ -212,6 +212,7 @@ function expectActionExecution(action: {
 }
 
 function expectRefreshChangeRecallAction(action: {
+  action_source?: string;
   recommended_action: string;
   tool: string;
   command: string;
@@ -250,6 +251,7 @@ function expectRefreshChangeRecallAction(action: {
 }, recordId: string, projectId?: string) {
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
+    action_source: `refresh.changes_by_record_id.${recordId}.next_action`,
     tool: "recall",
     safe_to_run: true,
     required_when: "After refresh reports this change and the agent needs the full record content.",
@@ -445,6 +447,7 @@ describe("core engine", () => {
         },
         next: {
           recommended_action: "call_agent_start",
+          action_source: "project_list.projects_by_id.alpha.next",
           tool: "agent_start",
           command: "moryn agent start --project-id alpha",
           arguments: { project_id: "alpha" },
@@ -500,6 +503,7 @@ describe("core engine", () => {
           }
         }
       });
+      expect(projects.projects_by_id.beta.next.action_source).toBe("project_list.projects_by_id.beta.next");
     });
   });
 

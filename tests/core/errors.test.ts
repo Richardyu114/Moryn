@@ -51,8 +51,10 @@ function expectNextActionInterfaces(action: {
 }
 
 function expectNextActionSelectionSources(action: {
+  action_source?: string;
   selection_sources?: Record<string, string>;
 }) {
+  expect(action.action_source).toBe("next_action");
   expect(action.selection_sources).toEqual(NEXT_ACTION_SELECTION_SOURCES);
 }
 

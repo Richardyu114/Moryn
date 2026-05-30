@@ -233,12 +233,16 @@ function expectActionInterfaces(action: {
 }
 
 function expectNextActionSelectionSources(action: {
+  action_source?: string;
   selection_sources?: Record<string, string>;
 }) {
+  expect(action.action_source).toBe("next_action");
   expect(action.selection_sources).toEqual(NEXT_ACTION_SELECTION_SOURCES);
 }
 
 function expectLifecycleActionSelectionSources(action: {
+  action?: string;
+  action_source?: string;
   selection_sources?: Record<string, string>;
   safe_to_run?: boolean;
   required_fields?: string[];
@@ -256,6 +260,9 @@ function expectLifecycleActionSelectionSources(action: {
     requires_user_confirmation?: boolean;
   };
 }) {
+  if (typeof action.action === "string") {
+    expect(action.action_source).toBe(`next.actions_by_id.${action.action}`);
+  }
   expect(action.selection_sources).toEqual(LIFECYCLE_ACTION_SELECTION_SOURCES);
   if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
     expectActionExecution({
@@ -269,6 +276,8 @@ function expectLifecycleActionSelectionSources(action: {
 }
 
 function expectGuideLifecycleStepSelectionSources(action: {
+  step?: string;
+  action_source?: string;
   selection_sources?: Record<string, string>;
   safe_to_run?: boolean;
   required_fields?: string[];
@@ -286,6 +295,9 @@ function expectGuideLifecycleStepSelectionSources(action: {
     requires_user_confirmation?: boolean;
   };
 }) {
+  if (typeof action.step === "string") {
+    expect(action.action_source).toBe(`lifecycle_by_step.${action.step}`);
+  }
   expect(action.selection_sources).toEqual(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES);
   if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
     expectActionExecution({
@@ -299,6 +311,7 @@ function expectGuideLifecycleStepSelectionSources(action: {
 }
 
 function expectGuideEntrypointSelectionSources(action: {
+  action_source?: string;
   selection_sources?: Record<string, string>;
   safe_to_run?: boolean;
   required_fields?: string[];
@@ -315,7 +328,8 @@ function expectGuideEntrypointSelectionSources(action: {
   safety?: {
     requires_user_confirmation?: boolean;
   };
-}) {
+}, expectedActionSource: "startup" | "next") {
+  expect(action.action_source).toBe(expectedActionSource);
   expect(action.selection_sources).toEqual(GUIDE_ENTRYPOINT_SELECTION_SOURCES);
   if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
     expectActionExecution({
@@ -630,6 +644,7 @@ function expectActionExecution(action: {
 }
 
 function expectRefreshChangeNextAction(action: {
+  action_source?: string;
   recommended_action: string;
   tool: string;
   command: string;
@@ -666,6 +681,7 @@ function expectRefreshChangeNextAction(action: {
 }, recordId: string, projectId?: string) {
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
+    action_source: `refresh.changes_by_record_id.${recordId}.next_action`,
     tool: "recall",
     safe_to_run: true,
     required_when: "After refresh reports this change and the agent needs the full record content.",
@@ -723,6 +739,7 @@ function expectRefreshChangeNextAction(action: {
 }
 
 function expectHandoffEntryNextAction(action: {
+  action_source?: string;
   recommended_action: string;
   tool: string;
   command: string;
@@ -760,11 +777,15 @@ function expectHandoffEntryNextAction(action: {
   const actionSource = source === "inbox"
     ? "handoff.inbox_by_record_id.<record_id>.next_action"
     : "handoff.active_sessions_by_record_id.<record_id>.next_action";
+  const resolvedActionSource = source === "inbox"
+    ? `handoff.inbox_by_record_id.${recordId}.next_action`
+    : `handoff.active_sessions_by_record_id.${recordId}.next_action`;
   const recordIdSource = source === "inbox"
     ? "handoff.inbox_by_record_id.<record_id>.record_id"
     : "handoff.active_sessions_by_record_id.<record_id>.record_id";
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
+    action_source: resolvedActionSource,
     tool: "recall",
     safe_to_run: true,
     required_when: "After reading this handoff entry and needing the full session record.",
@@ -1319,7 +1340,7 @@ describe("moryn CLI", () => {
         }
       });
       expectActionInterfaces(parsed.startup);
-      expectGuideEntrypointSelectionSources(parsed.startup);
+      expectGuideEntrypointSelectionSources(parsed.startup, "startup");
       expectGuideEntrypointWorkflow(parsed.startup);
       expect(parsed.lifecycle.map((step) => step.tool)).toEqual([
         "agent_enter",
@@ -1537,7 +1558,7 @@ describe("moryn CLI", () => {
         arguments: parsed.startup.arguments
       });
       expectActionInterfaces(parsed.next);
-      expectGuideEntrypointSelectionSources(parsed.next);
+      expectGuideEntrypointSelectionSources(parsed.next, "next");
       expectGuideNextWorkflow(parsed.next);
     });
   });
@@ -3792,6 +3813,7 @@ describe("moryn CLI", () => {
         blocking_checks: [],
         blocking_checks_by_name: {},
         recommended_action: "call_agent_start",
+        next_action_source: "next",
         next_tool: "agent_start",
         next_command: parsed.next.command,
         next_safe_to_run: true,
@@ -3835,6 +3857,7 @@ describe("moryn CLI", () => {
       expect(parsed.checks_by_name.project).toEqual(parsed.checks.find((check) => check.name === "project"));
       expect(parsed.checks_by_name.sync).toEqual(parsed.checks.find((check) => check.name === "sync"));
       expect(parsed.next.command).toContain("moryn agent start");
+      expect((parsed.next as { action_source?: string }).action_source).toBe("next");
       expect(parsed.next.command).toContain("--sync-remote");
       expect(parsed.next.actions).toContainEqual(expect.objectContaining({
         action: "run_lifecycle_smoke",
@@ -3960,6 +3983,7 @@ describe("moryn CLI", () => {
       });
       expect(parsedDoctor.next).toMatchObject({
         recommended_action: "resolve_sync_conflict_before_lifecycle",
+        action_source: "next",
         tool: "sync_status",
         safe_to_run: true,
         command: "moryn sync --status",
@@ -3996,6 +4020,7 @@ describe("moryn CLI", () => {
           sync: parsedDoctor.checks_by_name.sync
         },
         recommended_action: "resolve_sync_conflict_before_lifecycle",
+        next_action_source: "next",
         next_tool: "sync_status",
         next_command: "moryn sync --status",
         next_safe_to_run: true,
@@ -4173,6 +4198,7 @@ describe("moryn CLI", () => {
 
       expect(parsed.next).toMatchObject({
         recommended_action: "list_projects",
+        action_source: "next",
         tool: "project_list",
         safe_to_run: true,
         command: "moryn project list",
@@ -4337,6 +4363,7 @@ describe("moryn CLI", () => {
       expect(parsed.mode).toBe("discover_projects");
       expect(parsed.next).toMatchObject({
         recommended_action: "choose_project_and_call_agent_start",
+        action_source: "next",
         tool: "agent_start",
         safe_to_run: true,
         required_when: "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",
@@ -4757,6 +4784,7 @@ describe("moryn CLI", () => {
       expect(parsedDoctor.project.error).toContain("Project id is not known in this store");
       expect(parsedDoctor.next).toMatchObject({
         recommended_action: "list_projects",
+        action_source: "next",
         tool: "project_list",
         safe_to_run: true,
         command: "moryn project list",
@@ -4785,6 +4813,7 @@ describe("moryn CLI", () => {
         mode: "discover_projects",
         next: {
           recommended_action: "choose_project_and_call_agent_start",
+          action_source: "next",
           tool: "agent_start"
         }
       });

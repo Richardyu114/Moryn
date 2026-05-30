@@ -37,6 +37,7 @@ export interface NextActionSelectionSources {
 
 export interface MorynErrorNextAction {
   recommended_action: string;
+  action_source: string;
   tool: string;
   command: string;
   arguments: Record<string, unknown>;
@@ -176,6 +177,7 @@ export function withNextActionMetadata<T extends {
 }>(
   action: T
 ): T & {
+  action_source: "next_action";
   interfaces: ActionInterfaces<T["arguments"]>;
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
   arguments_by_name: Record<string, OperationArgumentMetadata>;
@@ -187,6 +189,7 @@ export function withNextActionMetadata<T extends {
   const actionWithRequiredFields = withRequiredFieldsByName(action);
   return {
     ...actionWithRequiredFields,
+    action_source: "next_action",
     arguments_by_name: operationArgumentsByTool(action.tool),
     interfaces: actionInterfaces(action),
     safety: actionSafety(action),

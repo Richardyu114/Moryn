@@ -104,6 +104,7 @@ export type GuideEntrypointSelectionSources = {
 };
 type LifecycleActionTemplate = {
   action: string;
+  action_source?: string;
   tool: string;
   safe_to_run: boolean;
   command: string;
@@ -146,6 +147,7 @@ export type HandoffEntrySelectionSources = {
 
 type HandoffEntryNextAction = {
   recommended_action: "call_recall_with_record_id";
+  action_source: string;
   tool: "recall";
   safe_to_run: true;
   command: string;
@@ -464,10 +466,11 @@ function withRequiredInputSelectionSources<T extends {
 
 function withLifecycleActionSelectionSources<T extends LifecycleActionTemplate>(
   action: T
-): T & { selection_sources: LifecycleActionSelectionSources } {
+): T & { action_source: string; selection_sources: LifecycleActionSelectionSources } {
   const actionWithExecutionSources = withRequiredInputSelectionSources(action, LIFECYCLE_ACTION_SELECTION_SOURCES);
   return {
     ...actionWithExecutionSources,
+    action_source: `next.actions_by_id.${action.action}`,
     selection_sources: LIFECYCLE_ACTION_SELECTION_SOURCES
   };
 }
@@ -487,11 +490,13 @@ function withLifecycleStepSelectionSources<
   }
 >(
   action: T,
-  selectionSources: LifecycleStepSelectionSources
-): T & { selection_sources: LifecycleStepSelectionSources } {
+  selectionSources: LifecycleStepSelectionSources,
+  actionSource = `lifecycle_by_step.${action.step}`
+): T & { action_source: string; selection_sources: LifecycleStepSelectionSources } {
   const actionWithExecutionSources = withRequiredInputSelectionSources(action, selectionSources);
   return {
     ...actionWithExecutionSources,
+    action_source: actionSource,
     selection_sources: selectionSources
   };
 }
@@ -508,11 +513,22 @@ function withGuideEntrypointSelectionSources<
     argument_sources?: Record<string, string>;
     execution: ActionExecution;
   }
->(action: T): T & { selection_sources: GuideEntrypointSelectionSources } {
+>(
+  action: T,
+  actionSource: "startup" | "next" = "startup"
+): T & { action_source: "startup" | "next"; selection_sources: GuideEntrypointSelectionSources } {
   const actionWithExecutionSources = withRequiredInputSelectionSources(action, GUIDE_ENTRYPOINT_SELECTION_SOURCES);
   return {
     ...actionWithExecutionSources,
+    action_source: actionSource,
     selection_sources: GUIDE_ENTRYPOINT_SELECTION_SOURCES
+  };
+}
+
+function withTopLevelNextActionSource<T>(action: T): T & { action_source: "next" } {
+  return {
+    ...action,
+    action_source: "next"
   };
 }
 
@@ -1165,6 +1181,7 @@ function doctorReadiness(
     blocking_checks: blockingChecks.map((check) => check.name),
     blocking_checks_by_name: Object.fromEntries(blockingChecks.map((check) => [check.name, check])),
     recommended_action: next.recommended_action,
+    next_action_source: "next",
     next_tool: next.tool,
     next_command: next.command,
     next_safe_to_run: next.safe_to_run,
@@ -1219,7 +1236,8 @@ function agentGuideLifecycle(input: AgentLifecycleInput, startTool = "agent_ente
 function agentGuideLifecycleWithSelectionSources(
   input: AgentLifecycleInput,
   startTool = "agent_enter",
-  selectionSources: LifecycleStepSelectionSources
+  selectionSources: LifecycleStepSelectionSources,
+  actionSourceForStep: (step: string) => string = (step) => `lifecycle_by_step.${step}`
 ) {
   const lifecycleInput = ensureGuideProjectIdentity(input);
   const lifecycleArguments = lifecycleActionArguments(lifecycleInput);
@@ -1243,7 +1261,7 @@ function agentGuideLifecycleWithSelectionSources(
       required_fields: startRequiredFields,
       workflow: lifecycleStepWorkflow("start_or_resume", startTool, START_OR_RESUME_WHEN, startRequiredFields),
       arguments: startArguments
-    }), selectionSources),
+    }), selectionSources, actionSourceForStep("start_or_resume")),
     withLifecycleStepSelectionSources(withActionInterfaces({
       step: "publish_status",
       tool: "agent_status",
@@ -1254,7 +1272,7 @@ function agentGuideLifecycleWithSelectionSources(
       workflow: lifecycleStepWorkflow("publish_status", "agent_status", PUBLISH_STATUS_WHEN, statusRequiredFields),
       arguments: { ...lifecycleArguments, status: "<status>" },
       argument_sources: userInputArgumentSources(statusRequiredFields)
-    }), selectionSources),
+    }), selectionSources, actionSourceForStep("publish_status")),
     withLifecycleStepSelectionSources(withActionInterfaces({
       step: "finish_handoff",
       tool: "agent_finish",
@@ -1265,7 +1283,7 @@ function agentGuideLifecycleWithSelectionSources(
       workflow: lifecycleStepWorkflow("finish_handoff", "agent_finish", FINISH_HANDOFF_WHEN, finishRequiredFields),
       arguments: { ...lifecycleArguments, summary: "<summary>" },
       argument_sources: userInputArgumentSources(finishRequiredFields)
-    }), selectionSources),
+    }), selectionSources, actionSourceForStep("finish_handoff")),
     withLifecycleStepSelectionSources(withActionInterfaces({
       step: "refresh_context",
       tool: "agent_start",
@@ -1276,7 +1294,7 @@ function agentGuideLifecycleWithSelectionSources(
       workflow: lifecycleStepWorkflow("refresh_context", "agent_start", REFRESH_CONTEXT_WHEN, refreshRequiredFields),
       arguments: { ...lifecycleArguments, refresh_since: "<refresh_since>" },
       argument_sources: userInputArgumentSources(refreshRequiredFields)
-    }), selectionSources)
+    }), selectionSources, actionSourceForStep("refresh_context"))
   ];
 }
 
@@ -1494,7 +1512,7 @@ function discoverProjectsNextAction(input: AgentLifecycleInput, actions: Array<{
   arguments: Record<string, unknown>;
 }>) {
   const requiredFields = ["project_id"];
-  return withActionInterfaces({
+  return withTopLevelNextActionSource(withActionInterfaces({
     recommended_action: "choose_project_and_call_agent_start",
     tool: "agent_start",
     safe_to_run: true,
@@ -1509,7 +1527,7 @@ function discoverProjectsNextAction(input: AgentLifecycleInput, actions: Array<{
       project_id: "next.actions_by_project_id.<project_id>.project_id"
     },
     selection_sources: DISCOVER_PROJECT_SELECTION_SOURCES
-  });
+  }));
 }
 
 async function hasKnownProjects(input: AgentLifecycleInput, storeInitialized: boolean): Promise<boolean> {
@@ -1551,6 +1569,12 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
   const recordIdSource: HandoffRecordIdArgumentSource = source === "inbox"
     ? "handoff.inbox_by_record_id.<record_id>.record_id"
     : "handoff.active_sessions_by_record_id.<record_id>.record_id";
+  const actionSource = source === "inbox"
+    ? "handoff.inbox_by_record_id.<record_id>.next_action"
+    : "handoff.active_sessions_by_record_id.<record_id>.next_action";
+  const resolvedActionSource = source === "inbox"
+    ? `handoff.inbox_by_record_id.${record.id}.next_action`
+    : `handoff.active_sessions_by_record_id.${record.id}.next_action`;
   const selectionSources: HandoffEntrySelectionSources = source === "inbox"
     ? {
         entry: "handoff.inbox_by_record_id.<record_id>",
@@ -1609,6 +1633,7 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
   });
   return {
     ...action,
+    action_source: resolvedActionSource,
     selection_sources: selectionSources,
     workflow: withPhasesByName({
       version: 1,
@@ -1623,9 +1648,7 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
         {
           phase: action.recommended_action,
           order: 1,
-          action_source: source === "inbox"
-            ? "handoff.inbox_by_record_id.<record_id>.next_action"
-            : "handoff.active_sessions_by_record_id.<record_id>.next_action",
+          action_source: actionSource,
           tool: action.tool,
           required_when: action.required_when,
           required_fields: action.required_fields
@@ -1833,7 +1856,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
   const setupRequiredFields = setupInput.projectPath ? [] : ["path"];
   const doctorActions = doctorNextActions(input);
   const listProjectActions = projectListNextActions();
-  const next = syncConflict
+  const next = withTopLevelNextActionSource(syncConflict
     ? syncConflictNextAction()
     : discoverProjects
     ? withActionInterfaces({
@@ -1879,7 +1902,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
         workflow: singleNextWorkflow("fix_project_config", "project_init", FIX_PROJECT_CONFIG_WHEN, setupRequiredFields),
         arguments: projectInitArguments(setupInput, setupRequiredFields),
         argument_sources: userInputArgumentSources(setupRequiredFields)
-      });
+      }));
 
   return {
     ok: true,
@@ -1919,10 +1942,12 @@ export async function agentEnter(input: AgentEnterInput) {
       const lifecycle = agentGuideLifecycleWithSelectionSources(
         { ...input, projectId: project.project_id },
         "agent_start",
-        DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES
+        DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES,
+        (step) => `next.actions_by_project_id.${project.project_id}.lifecycle_by_step.${step}`
       );
       return {
         action: "start_session",
+        action_source: `next.actions_by_project_id.${project.project_id}`,
         project_id: project.project_id,
         tool: project.next.tool,
         safe_to_run: true,
@@ -2007,6 +2032,7 @@ export function agentGuide(input: AgentGuideInput) {
     next: {
       recommended_action: "call_agent_enter",
       ...startup,
+      action_source: "next",
       workflow: singleNextWorkflow("call_agent_enter", "agent_enter", startup.required_when, startup.required_fields)
     }
   };

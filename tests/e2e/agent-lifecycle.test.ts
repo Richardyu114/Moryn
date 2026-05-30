@@ -147,6 +147,7 @@ function expectLifecycleWorkflow(action: {
 }
 
 function expectRefreshChangeNextAction(action: {
+  action_source?: string;
   recommended_action: string;
   tool: string;
   command: string;
@@ -172,6 +173,7 @@ function expectRefreshChangeNextAction(action: {
 }, recordId: string, projectId: string) {
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
+    action_source: `refresh.changes_by_record_id.${recordId}.next_action`,
     tool: "recall",
     safe_to_run: true,
     required_when: "After refresh reports this change and the agent needs the full record content.",
@@ -228,6 +230,7 @@ function expectRefreshChangeNextAction(action: {
 }
 
 function expectHandoffEntryNextAction(action: {
+  action_source?: string;
   recommended_action: string;
   tool: string;
   command: string;
@@ -266,11 +269,15 @@ function expectHandoffEntryNextAction(action: {
   const actionSource = source === "inbox"
     ? "handoff.inbox_by_record_id.<record_id>.next_action"
     : "handoff.active_sessions_by_record_id.<record_id>.next_action";
+  const resolvedActionSource = source === "inbox"
+    ? `handoff.inbox_by_record_id.${recordId}.next_action`
+    : `handoff.active_sessions_by_record_id.${recordId}.next_action`;
   const recordIdSource = source === "inbox"
     ? "handoff.inbox_by_record_id.<record_id>.record_id"
     : "handoff.active_sessions_by_record_id.<record_id>.record_id";
   expect(action).toMatchObject({
     recommended_action: "call_recall_with_record_id",
+    action_source: resolvedActionSource,
     tool: "recall",
     safe_to_run: true,
     required_when: "After reading this handoff entry and needing the full session record.",
@@ -363,6 +370,8 @@ function expectHandoffEntryNextAction(action: {
 }
 
 function expectLifecycleActionSelectionSources(action: {
+  action?: string;
+  action_source?: string;
   selection_sources?: Record<string, string>;
   safe_to_run?: boolean;
   required_fields?: string[];
@@ -380,6 +389,9 @@ function expectLifecycleActionSelectionSources(action: {
     requires_user_confirmation?: boolean;
   };
 }) {
+  if (typeof action.action === "string") {
+    expect(action.action_source).toBe(`next.actions_by_id.${action.action}`);
+  }
   expect(action.selection_sources).toEqual(LIFECYCLE_ACTION_SELECTION_SOURCES);
   if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
     expectActionExecution({
@@ -460,6 +472,10 @@ function expectActionExecution(action: {
 }
 
 function expectDiscoveredLifecycleStepSelectionSources(action: {
+  step?: string;
+  action_source?: string;
+  project_id?: string;
+  arguments?: { project_id?: unknown };
   selection_sources?: Record<string, string>;
   safe_to_run?: boolean;
   required_fields?: string[];
@@ -477,6 +493,14 @@ function expectDiscoveredLifecycleStepSelectionSources(action: {
     requires_user_confirmation?: boolean;
   };
 }) {
+  const projectId = typeof action.project_id === "string"
+    ? action.project_id
+    : typeof action.arguments?.project_id === "string"
+      ? action.arguments.project_id
+      : "<project_id>";
+  if (typeof action.step === "string") {
+    expect(action.action_source).toBe(`next.actions_by_project_id.${projectId}.lifecycle_by_step.${action.step}`);
+  }
   expect(action.selection_sources).toEqual(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES);
   if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
     expectActionExecution({
@@ -1096,6 +1120,7 @@ describe("agent lifecycle", () => {
         blocking_checks: [],
         blocking_checks_by_name: {},
         recommended_action: "call_agent_start",
+        next_action_source: "next",
         next_tool: "agent_start",
         next_command: doctor.next.command,
         next_safe_to_run: true,
@@ -1121,6 +1146,7 @@ describe("agent lifecycle", () => {
           agent: { client: "gemini", session_id: "gemini-doctor" }
         }
       });
+      expect((doctor.next as { action_source?: string }).action_source).toBe("next");
       expect(doctor.checks).toContainEqual(expect.objectContaining({
         name: "store",
         ok: false,
@@ -1285,6 +1311,7 @@ describe("agent lifecycle", () => {
       }));
       expect(doctor.next).toMatchObject({
         recommended_action: "resolve_sync_conflict_before_lifecycle",
+        action_source: "next",
         tool: "sync_status",
         safe_to_run: true,
         command: "moryn sync --status",
@@ -1297,6 +1324,7 @@ describe("agent lifecycle", () => {
           sync: doctor.checks_by_name.sync
         },
         recommended_action: "resolve_sync_conflict_before_lifecycle",
+        next_action_source: "next",
         next_tool: "sync_status",
         next_command: "moryn sync --status",
         next_safe_to_run: true,
@@ -1390,6 +1418,7 @@ describe("agent lifecycle", () => {
 
       expect(doctor.next).toMatchObject({
         recommended_action: "list_projects",
+        action_source: "next",
         tool: "project_list",
         safe_to_run: true,
         command: "moryn project list"
@@ -1399,6 +1428,7 @@ describe("agent lifecycle", () => {
         blocking_checks: [],
         blocking_checks_by_name: {},
         recommended_action: "list_projects",
+        next_action_source: "next",
         next_tool: "project_list",
         next_command: "moryn project list",
         next_safe_to_run: true,
@@ -1468,6 +1498,7 @@ describe("agent lifecycle", () => {
         mode: "discover_projects",
         next: {
           recommended_action: "choose_project_and_call_agent_start",
+          action_source: "next",
           tool: "agent_start",
           safe_to_run: true,
           required_when: "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",
@@ -1680,6 +1711,7 @@ describe("agent lifecycle", () => {
         },
         next: {
           recommended_action: "choose_project_and_call_agent_start",
+          action_source: "next",
           tool: "agent_start",
           safe_to_run: true,
           required_when: "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",
@@ -1902,6 +1934,7 @@ describe("agent lifecycle", () => {
       expect(doctor.project).toMatchObject({ ok: true, source: "git_root" });
       expect(doctor.next).toMatchObject({
         recommended_action: "list_projects",
+        action_source: "next",
         tool: "project_list",
         safe_to_run: true,
         command: "moryn project list"
@@ -2091,6 +2124,7 @@ describe("agent lifecycle", () => {
       });
       expect(doctor.next).toMatchObject({
         recommended_action: "list_projects",
+        action_source: "next",
         tool: "project_list",
         safe_to_run: true,
         command: "moryn project list"
@@ -2108,6 +2142,7 @@ describe("agent lifecycle", () => {
         mode: "discover_projects",
         next: {
           recommended_action: "choose_project_and_call_agent_start",
+          action_source: "next",
           tool: "agent_start",
           safe_to_run: true,
           required_when: "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",

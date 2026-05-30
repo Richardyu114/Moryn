@@ -224,8 +224,10 @@ function withProjectListNextMetadata<T extends {
   action: T
 ) {
   const actionWithInterfaces = withActionInterfaces(action);
+  const projectId = typeof action.arguments.project_id === "string" ? action.arguments.project_id : "<project_id>";
   return {
     ...actionWithInterfaces,
+    action_source: `project_list.projects_by_id.${projectId}.next`,
     selection_sources: PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES,
     safety: actionSafety(action),
     execution: actionExecution({
@@ -265,8 +267,11 @@ function withRefreshChangeNextActionMetadata<T extends {
   action: T
 ) {
   const actionWithInterfaces = withActionInterfaces(action);
+  const recordIds = action.arguments.record_ids;
+  const recordId = Array.isArray(recordIds) && typeof recordIds[0] === "string" ? recordIds[0] : "<record_id>";
   return {
     ...actionWithInterfaces,
+    action_source: `refresh.changes_by_record_id.${recordId}.next_action`,
     selection_sources: REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES,
     safety: actionSafety(action),
     execution: actionExecution({
