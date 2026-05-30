@@ -312,7 +312,9 @@ describe("event store", () => {
 
   it("rejects unredacted sensitive events before appending", async () => {
     await withInitializedTempStore(async (storePath) => {
-      await expect(appendEvent(storePath, {
+      let caught: unknown;
+      try {
+        await appendEvent(storePath, {
         event_id: "evt_secret",
         op: "upsert_record",
         created_at: "2026-05-27T00:00:00.000Z",
@@ -336,7 +338,22 @@ describe("event store", () => {
           updated_at: "2026-05-27T00:00:00.000Z",
           source: { client: "test" }
         }
-      })).rejects.toThrow(/Sensitive content detected/);
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      if (!caught) {
+        throw new Error("Expected sensitive content rejection");
+      }
+
+      const envelope = toErrorEnvelope(caught);
+      expect(envelope.error.code).toBe("SENSITIVE_CONTENT_DETECTED");
+      expect(envelope.error.recovery_hint).toMatchObject({
+        rejected_content: { sensitive: true, value_included: false },
+        expected: { kind: "redacted_content", redaction_token: "[REDACTED_SECRET]" }
+      });
+      expect(JSON.stringify(envelope.error.recovery_hint)).not.toContain("abcdef1234567890");
 
       expect(await readEvents(storePath)).toHaveLength(0);
     });

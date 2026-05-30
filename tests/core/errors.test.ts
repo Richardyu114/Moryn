@@ -210,7 +210,17 @@ describe("error envelopes", () => {
       error: {
         code: "SENSITIVE_CONTENT_DETECTED",
         recoverable: true,
-        recommended_action: "remove or redact sensitive content before retrying"
+        recommended_action: "remove or redact sensitive content before retrying",
+        recovery_hint: {
+          rejected_content: { sensitive: true, value_included: false },
+          expected: { kind: "redacted_content", redaction_token: "[REDACTED_SECRET]" },
+          retry_with: {
+            action: "redact_sensitive_content_and_retry_original_write",
+            argument: "content",
+            value_placeholder: "<redacted content>"
+          },
+          do_not: ["echo_secret_value", "write_unredacted_secret", "sync_unredacted_secret"]
+        }
       }
     });
   });

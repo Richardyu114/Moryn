@@ -170,21 +170,35 @@ function knownRecommendedAction(message: string): string | undefined {
 }
 
 function knownRecoveryHint(message: string): unknown {
-  if (message !== PROJECT_SCOPE_CONTEXT_REQUIRED_MESSAGE) return undefined;
-  return {
-    rejected_argument: { argument: "scope", value: "project" },
-    expected: { kind: "project_context", required: true },
-    discover_with: {
-      tool: "project_list",
-      command: "moryn project list",
-      arguments: {}
-    },
-    retry_with: {
-      argument: "project_id",
-      value_source: PROJECT_CONTEXT_PROJECT_ID_SOURCE,
-      value_placeholder: "<project_id>"
-    }
-  };
+  if (message === PROJECT_SCOPE_CONTEXT_REQUIRED_MESSAGE) {
+    return {
+      rejected_argument: { argument: "scope", value: "project" },
+      expected: { kind: "project_context", required: true },
+      discover_with: {
+        tool: "project_list",
+        command: "moryn project list",
+        arguments: {}
+      },
+      retry_with: {
+        argument: "project_id",
+        value_source: PROJECT_CONTEXT_PROJECT_ID_SOURCE,
+        value_placeholder: "<project_id>"
+      }
+    };
+  }
+  if (message.startsWith("Sensitive content detected:")) {
+    return {
+      rejected_content: { sensitive: true, value_included: false },
+      expected: { kind: "redacted_content", redaction_token: "[REDACTED_SECRET]" },
+      retry_with: {
+        action: "redact_sensitive_content_and_retry_original_write",
+        argument: "content",
+        value_placeholder: "<redacted content>"
+      },
+      do_not: ["echo_secret_value", "write_unredacted_secret", "sync_unredacted_secret"]
+    };
+  }
+  return undefined;
 }
 
 const INITIALIZE_STORE_WHEN = "Before retrying any Moryn command when the store is missing or uninitialized.";

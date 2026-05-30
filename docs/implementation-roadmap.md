@@ -267,7 +267,8 @@ Deliverables:
   integer/number-range, JSON-object, read-filter, project-init, sync-argument,
   store-path, event-path-component, schema-validation, write-core-field,
   write-content, write-metadata, choose-one, path-assignment, refresh cursor,
-  replay-history, and revise-patch validation errors now return structured
+  replay-history, sensitive-content, and revise-patch validation errors now
+  return structured
   `error.recovery_hint` metadata with `missing_argument`, `missing_one_of`,
   `rejected_argument`, `rejected_arguments`, `rejected_patch`,
   machine-readable `expected` rules, `discover_with`, and `retry_with`, so
@@ -283,7 +284,8 @@ Deliverables:
   `sync.mode`/`repair`, invalid local store `storePath`, invalid event path
   components such as `event_id`/`source.device_id`, invalid record/event schema
   paths reported as `validation_issues`, invalid replay history with bad
-  `event_id`/`event_op`/`record_id`, invalid sync
+  `event_id`/`event_op`/`record_id`, sensitive-content rejections that omit the
+  detected secret value, invalid sync
   `storePath`/`remoteUrl`/`options`/`message`, empty
   placeholders such as `--text ""`, malformed `--content-json`, malformed
   `--set path=value` assignments, managed-field revise attempts, invalid revise
