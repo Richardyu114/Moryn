@@ -29,7 +29,7 @@ describe("event store", () => {
     });
   }
 
-  async function expectInvalidEventPathComponent(action: () => Promise<unknown>, componentName: string): Promise<void> {
+  async function expectInvalidEventPathComponent(action: () => Promise<unknown>, componentName: string, value: string): Promise<void> {
     let caught: unknown;
     try {
       await action();
@@ -44,6 +44,16 @@ describe("event store", () => {
     const envelope = toErrorEnvelope(caught);
     expect(envelope.error.code).toBe("INVALID_ARGUMENT");
     expect(envelope.error.message).toContain(`Invalid event path component: ${componentName}`);
+    expect(envelope.error.recommended_action).toBe("retry with safe event path components");
+    expect(envelope.error.recovery_hint).toEqual({
+      rejected_argument: { argument: componentName, value },
+      expected: {
+        kind: "safe_path_component",
+        disallowed_values: [".", ".."],
+        disallowed_characters: ["/", "\\", "\\0"]
+      },
+      retry_with: { argument: componentName, value_placeholder: `<${componentName}>` }
+    });
   }
 
   it("requires store initialization before reading or appending events", async () => {
@@ -248,8 +258,9 @@ describe("event store", () => {
       await withTempStore(async (root) => {
         const outsidePath = join(root, "evt_escape.json");
 
+        const unsafeEventId = `..${outsidePath}`;
         await expectInvalidEventPathComponent(() => appendEvent(storePath, {
-          event_id: `..${outsidePath}`,
+          event_id: unsafeEventId,
           op: "upsert_record",
           created_at: "2026-05-27T00:00:00.000Z",
           source: { client: "test", device_id: "device_a" },
@@ -268,13 +279,14 @@ describe("event store", () => {
             updated_at: "2026-05-27T00:00:00.000Z",
             source: { client: "test" }
           }
-        }), "event_id");
+        }), "event_id", unsafeEventId);
 
+        const unsafeDeviceId = "../device_escape";
         await expectInvalidEventPathComponent(() => appendEvent(storePath, {
           event_id: "evt_unsafe_device",
           op: "upsert_record",
           created_at: "2026-05-27T00:00:00.000Z",
-          source: { client: "test", device_id: "../device_escape" },
+          source: { client: "test", device_id: unsafeDeviceId },
           record: {
             id: "rec_unsafe_device",
             kind: "memory",
@@ -290,7 +302,7 @@ describe("event store", () => {
             updated_at: "2026-05-27T00:00:00.000Z",
             source: { client: "test" }
           }
-        }), "source.device_id");
+        }), "source.device_id", unsafeDeviceId);
 
         await expect(readFile(outsidePath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
         expect(await readEvents(storePath)).toHaveLength(0);

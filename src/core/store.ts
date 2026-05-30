@@ -13,9 +13,36 @@ function deviceFromEvent(event: MorynEvent): string {
   return event.source.device_id ?? "device_default";
 }
 
+class EventPathComponentArgumentError extends Error {
+  readonly recommended_action = "retry with safe event path components";
+  readonly recovery_hint: {
+    rejected_argument: { argument: string; value: string };
+    expected: {
+      kind: "safe_path_component";
+      disallowed_values: [".", ".."];
+      disallowed_characters: ["/", "\\", "\\0"];
+    };
+    retry_with: { argument: string; value_placeholder: string };
+  };
+
+  constructor(name: string, value: string) {
+    super(`Invalid argument: Invalid event path component: ${name}`);
+    this.name = "EventPathComponentArgumentError";
+    this.recovery_hint = {
+      rejected_argument: { argument: name, value },
+      expected: {
+        kind: "safe_path_component",
+        disallowed_values: [".", ".."],
+        disallowed_characters: ["/", "\\", "\\0"]
+      },
+      retry_with: { argument: name, value_placeholder: `<${name}>` }
+    };
+  }
+}
+
 function assertSafeEventPathComponent(value: string, name: string): void {
   if (value === "." || value === ".." || /[/\\\0]/.test(value)) {
-    throw new Error(`Invalid argument: Invalid event path component: ${name}`);
+    throw new EventPathComponentArgumentError(name, value);
   }
 }
 
