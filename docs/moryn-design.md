@@ -661,10 +661,10 @@ agents remove the extra mode instead of guessing from the message text.
 CLI and MCP boundary validation errors for required options, option dependencies,
 non-empty strings, enum values, integer and number ranges, JSON object inputs,
 read filters, project init inputs, store path inputs, sync inputs, event path
-components, schema validation, write core fields such as `kind`, `type`,
-`scope`, and `project_id`, write content payloads, write metadata such as
-`tags`, `source.client`, `state`, `priority`, `confidence`, `confirmed`, and
-`provenance.*`, mutation arguments such as
+components, schema validation, replay history failures, write core fields such
+as `kind`, `type`, `scope`, and `project_id`, write content payloads, write
+metadata such as `tags`, `source.client`, `state`, `priority`, `confidence`,
+`confirmed`, and `provenance.*`, mutation arguments such as
 `record_id`, `linked_record_id`, `target_state`, `reason`, `confirmed`,
 `source.client`, and `link_type`, choose-one input groups, path-assignment
 inputs, revise patches, and refresh cursor formats follow the same pattern:
@@ -687,9 +687,10 @@ rules, MCP argument requirements such as write `type` and
 `scope`, option requirements such as `--message` requiring `--push`,
 project-context requirements, path-assignment
 shape, revise patch rules, record/event schema validation issues with `path`,
-`path_string`, and messages, or ISO datetime cursor requirements,
-`validation_issues` lists schema paths to repair, `discover_with` names safe
-lookup calls such as `project_list`, and `retry_with` contains the
+`path_string`, and messages, replay history failures with the bad `event_id`,
+`event_op`, `record_id`, and rebuild inspection hint, or ISO datetime cursor
+requirements, `validation_issues` lists schema paths to repair, `discover_with`
+names safe lookup calls such as `project_list`, and `retry_with` contains the
 option/argument value placeholder to use for the corrected retry.
 
 ### `init`

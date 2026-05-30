@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { toErrorEnvelope } from "../../src/core/errors.js";
 import { replayEvents } from "../../src/core/replay.js";
 
 describe("event replay", () => {
@@ -17,6 +18,24 @@ describe("event replay", () => {
     updated_at: "2026-05-27T00:00:00.000Z",
     source: { client: "test" }
   } as const;
+
+  function expectReplayRecoveryHint(action: () => unknown, expectedHint: Record<string, unknown>): void {
+    let caught: unknown;
+    try {
+      action();
+    } catch (error) {
+      caught = error;
+    }
+
+    if (!caught) {
+      throw new Error("Expected replay failure");
+    }
+
+    const envelope = toErrorEnvelope(caught);
+    expect(envelope.error.code).toBe("INVALID_RECORD");
+    expect(envelope.error.recommended_action).toBe("inspect the reported event or record and rebuild from valid history");
+    expect(envelope.error.recovery_hint).toEqual(expect.objectContaining(expectedHint));
+  }
 
   it("applies upsert, revise, and promote events", () => {
     const records = replayEvents([
@@ -83,7 +102,7 @@ describe("event replay", () => {
   });
 
   it("rejects replayed revisions that would make records invalid", () => {
-    expect(() => replayEvents([
+    expectReplayRecoveryHint(() => replayEvents([
       {
         event_id: "evt_1",
         op: "upsert_record",
@@ -99,7 +118,16 @@ describe("event replay", () => {
         created_at: "2026-05-27T00:01:00.000Z",
         source: { client: "test" }
       }
-    ])).toThrow(/Invalid replay result for event evt_2/);
+    ]), {
+      failure: "invalid_replay_result",
+      event_id: "evt_2",
+      event_op: "revise_record",
+      record_id: "rec_1",
+      inspect: {
+        event_source: "events.<device>.<month>.evt_2.json",
+        rebuild_with: "moryn rebuild"
+      }
+    });
   });
 
   it("rejects replayed state events that use invalid state transitions", () => {
@@ -148,7 +176,7 @@ describe("event replay", () => {
   });
 
   it("rejects replayed mutation events that target missing records", () => {
-    expect(() => replayEvents([
+    expectReplayRecoveryHint(() => replayEvents([
       {
         event_id: "evt_missing_revision",
         op: "revise_record",
@@ -157,7 +185,17 @@ describe("event replay", () => {
         created_at: "2026-05-27T00:01:00.000Z",
         source: { client: "test" }
       }
-    ])).toThrow(/Invalid replay target for event evt_missing_revision: Record not found: rec_missing/);
+    ]), {
+      failure: "missing_replay_target",
+      event_id: "evt_missing_revision",
+      event_op: "revise_record",
+      record_id: "rec_missing",
+      label: "Record",
+      inspect: {
+        event_source: "events.<device>.<month>.evt_missing_revision.json",
+        rebuild_with: "moryn rebuild"
+      }
+    });
 
     expect(() => replayEvents([
       {
