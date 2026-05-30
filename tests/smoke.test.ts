@@ -259,6 +259,8 @@ describe("package smoke test", () => {
         steps: [
           expect.objectContaining({
             step: "collect_required_inputs",
+            required_input_apply_to: "execution.required_inputs[].collect.apply_to",
+            required_input_assignment_mode: "execution.required_inputs[].collect.apply_to.assignment_mode",
             required_input_expected_value: "execution.required_inputs[].collect.expected_value",
             required_input_choices: "execution.required_inputs[].collect.choices[]",
             required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",

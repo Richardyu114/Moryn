@@ -416,6 +416,8 @@ the immediate host action, such as `collect_required_inputs`,
 `ask_user_confirmation`, `call_mcp`, or `do_not_run`, and
 `execution.runbook.steps[]` lists stable object paths such as
 `execution.required_inputs[].collect`,
+`execution.required_inputs[].collect.apply_to`,
+`execution.required_inputs[].collect.apply_to.assignment_mode`,
 `execution.required_inputs[].collect.expected_value`,
 `execution.required_inputs[].collect.choices[].apply_to`,
 `execution.required_inputs_by_argument_path`, `interfaces.mcp`, and
@@ -437,6 +439,9 @@ argument metadata. When `collect.input_mode` or
 value plus one `collect.choices[].option`, then apply only that choice's
 `apply_to` assignments and `expected_value`; this removes the need to parse
 `text|content` or guess whether all alternatives should be filled.
+The collect runbook step also names the aggregate
+`collect.apply_to.assignment_mode` path, so hosts that start from assignments
+can detect `"choose_one"` before applying any MCP or CLI writes.
 `required_inputs_by_field` mirrors those entries by field name for hosts that
 already know which input they need. `required_inputs_by_argument_path` mirrors
 the same entries by each split argument path, so a host holding the CLI/MCP

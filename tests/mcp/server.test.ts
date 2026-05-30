@@ -1120,6 +1120,8 @@ describe("MCP stdio server", () => {
                 expect.objectContaining({
                   step: "collect_required_inputs",
                   required_input_collect: "execution.required_inputs[].collect",
+                  required_input_apply_to: "execution.required_inputs[].collect.apply_to",
+                  required_input_assignment_mode: "execution.required_inputs[].collect.apply_to.assignment_mode",
                   required_input_expected_value: "execution.required_inputs[].collect.expected_value",
                   required_input_choices: "execution.required_inputs[].collect.choices[]",
                   required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
