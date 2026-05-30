@@ -451,6 +451,9 @@ The response lists `operations`, keyed `operations_by_id`, grouped
 operation carries CLI/MCP interfaces, action-local `selection_sources`,
 `safe_to_run`, `safety`, `required_when`, `execution`, `required_fields`,
 `required_fields_by_name`, `arguments_by_name`, and `argument_sources`.
+Each `interfaces.cli` object includes both a display `command` and an `argv`
+array without the `moryn` binary prefix, so hosts can execute the CLI without
+parsing shell strings.
 `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, `required_inputs_by_field`, and
@@ -468,7 +471,8 @@ types, and preferred alternatives.
 The operation selection source registry names that keyed input path as
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` and
 the reverse lookup paths as `operations_by_mcp_tool.<tool>` and
-`operations_by_cli_command.<command>`.
+`operations_by_cli_command.<command>`. It also names CLI argv arrays as
+`operations_by_id.<operation>.interfaces.cli.argv[]`.
 `arguments_by_name` is the full parameter directory, including CLI flags or
 positionals, MCP arguments, types, defaults, repeatability, alternatives, and
 enum `allowed_values`:
@@ -498,7 +502,8 @@ enum `allowed_values`:
       },
       "interfaces": {
         "cli": {
-          "command": "moryn agent enter"
+          "command": "moryn agent enter",
+          "argv": ["agent", "enter"]
         },
         "mcp": {
           "tool": "agent_enter",
@@ -583,6 +588,7 @@ enum `allowed_values`:
     "argument_allowed_value": "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
     "argument_source": "operations_by_id.<operation>.argument_sources.<field>",
     "cli_command": "operations_by_id.<operation>.interfaces.cli.command",
+    "cli_argv": "operations_by_id.<operation>.interfaces.cli.argv[]",
     "mcp_tool": "operations_by_id.<operation>.interfaces.mcp.tool",
     "ordered_operation": "operations[]"
   }

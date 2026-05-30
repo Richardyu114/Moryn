@@ -13,6 +13,7 @@ type OperationCategory = "setup" | "core" | "sync" | "lifecycle" | "contracts" |
 type OperationInterfaces = {
   cli: {
     command: string;
+    argv: string[];
   };
   mcp: {
     tool: string;
@@ -87,6 +88,7 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   argument_allowed_value: "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
+  cli_argv: "operations_by_id.<operation>.interfaces.cli.argv[]",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
   ordered_operation: "operations[]"
 } as const;
@@ -226,7 +228,7 @@ export const OPERATION_CONTRACTS = [
     required_fields: [],
     arguments_by_name: startSessionArguments,
     interfaces: {
-      cli: { command: "moryn agent enter" },
+      cli: { command: "moryn agent enter", argv: ["agent", "enter"] },
       mcp: { tool: "agent_enter", arguments: {} }
     }
   }),
@@ -239,7 +241,7 @@ export const OPERATION_CONTRACTS = [
     required_fields: [],
     arguments_by_name: lifecycleContextArguments,
     interfaces: {
-      cli: { command: "moryn agent guide" },
+      cli: { command: "moryn agent guide", argv: ["agent", "guide"] },
       mcp: { tool: "agent_guide", arguments: {} }
     }
   }),
@@ -252,7 +254,7 @@ export const OPERATION_CONTRACTS = [
     required_fields: [],
     arguments_by_name: lifecycleContextArguments,
     interfaces: {
-      cli: { command: "moryn agent doctor" },
+      cli: { command: "moryn agent doctor", argv: ["agent", "doctor"] },
       mcp: { tool: "agent_doctor", arguments: {} }
     }
   }),
@@ -265,7 +267,7 @@ export const OPERATION_CONTRACTS = [
     required_fields: [],
     arguments_by_name: startSessionArguments,
     interfaces: {
-      cli: { command: "moryn agent start" },
+      cli: { command: "moryn agent start", argv: ["agent", "start"] },
       mcp: { tool: "agent_start", arguments: {} }
     }
   }),
@@ -287,7 +289,7 @@ export const OPERATION_CONTRACTS = [
       ...publishSessionArguments
     },
     interfaces: {
-      cli: { command: "moryn agent status --status <status>" },
+      cli: { command: "moryn agent status --status <status>", argv: ["agent", "status", "--status", "<status>"] },
       mcp: { tool: "agent_status", arguments: { status: "<status>" } }
     }
   }),
@@ -309,7 +311,7 @@ export const OPERATION_CONTRACTS = [
       ...publishSessionArguments
     },
     interfaces: {
-      cli: { command: "moryn agent finish --summary <summary>" },
+      cli: { command: "moryn agent finish --summary <summary>", argv: ["agent", "finish", "--summary", "<summary>"] },
       mcp: { tool: "agent_finish", arguments: { summary: "<summary>" } }
     }
   }),
@@ -321,7 +323,7 @@ export const OPERATION_CONTRACTS = [
     required_when: "When an agent needs canonical JSON paths instead of guessing response field names.",
     required_fields: [],
     interfaces: {
-      cli: { command: "moryn contracts selection-sources" },
+      cli: { command: "moryn contracts selection-sources", argv: ["contracts", "selection-sources"] },
       mcp: { tool: "selection_source_contracts", arguments: {} }
     }
   }),
@@ -333,7 +335,7 @@ export const OPERATION_CONTRACTS = [
     required_when: "When an agent needs to discover available Moryn operations without reading docs.",
     required_fields: [],
     interfaces: {
-      cli: { command: "moryn contracts operations" },
+      cli: { command: "moryn contracts operations", argv: ["contracts", "operations"] },
       mcp: { tool: "operation_contracts", arguments: {} }
     }
   }),
@@ -353,7 +355,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn init" },
+      cli: { command: "moryn init", argv: ["init"] },
       mcp: { tool: "init", arguments: {} }
     }
   }),
@@ -412,7 +414,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn project init --path <path>" },
+      cli: { command: "moryn project init --path <path>", argv: ["project", "init", "--path", "<path>"] },
       mcp: { tool: "project_init", arguments: { path: "<path>" } }
     }
   }),
@@ -446,7 +448,7 @@ export const OPERATION_CONTRACTS = [
       ...agentSourceArgument
     },
     interfaces: {
-      cli: { command: "moryn project list" },
+      cli: { command: "moryn project list", argv: ["project", "list"] },
       mcp: { tool: "project_list", arguments: {} }
     }
   }),
@@ -477,7 +479,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn boot" },
+      cli: { command: "moryn boot", argv: ["boot"] },
       mcp: { tool: "boot", arguments: {} }
     }
   }),
@@ -550,7 +552,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn recall" },
+      cli: { command: "moryn recall", argv: ["recall"] },
       mcp: { tool: "recall", arguments: {} }
     }
   }),
@@ -676,7 +678,10 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn write --kind <kind> --type <type> --scope <scope> --text <text>" },
+      cli: {
+        command: "moryn write --kind <kind> --type <type> --scope <scope> --text <text>",
+        argv: ["write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"]
+      },
       mcp: { tool: "write", arguments: { kind: "<kind>", type: "<type>", scope: "<scope>", text: "<text>" } }
     }
   }),
@@ -720,7 +725,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn revise <record_id> --set <path=value>" },
+      cli: { command: "moryn revise <record_id> --set <path=value>", argv: ["revise", "<record_id>", "--set", "<path=value>"] },
       mcp: { tool: "revise", arguments: { record_id: "<record_id>", patch: { "<path>": "<value>" } } }
     }
   }),
@@ -774,7 +779,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn promote <record_id> --state <state>" },
+      cli: { command: "moryn promote <record_id> --state <state>", argv: ["promote", "<record_id>", "--state", "<state>"] },
       mcp: { tool: "promote", arguments: { record_id: "<record_id>", target_state: "<state>" } }
     }
   }),
@@ -806,7 +811,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn archive <record_id>" },
+      cli: { command: "moryn archive <record_id>", argv: ["archive", "<record_id>"] },
       mcp: { tool: "archive", arguments: { record_id: "<record_id>" } }
     }
   }),
@@ -838,7 +843,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn quarantine <record_id>" },
+      cli: { command: "moryn quarantine <record_id>", argv: ["quarantine", "<record_id>"] },
       mcp: { tool: "quarantine", arguments: { record_id: "<record_id>" } }
     }
   }),
@@ -876,7 +881,10 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn link <record_id> <linked_record_id> --type <type>" },
+      cli: {
+        command: "moryn link <record_id> <linked_record_id> --type <type>",
+        argv: ["link", "<record_id>", "<linked_record_id>", "--type", "<type>"]
+      },
       mcp: { tool: "link", arguments: { record_id: "<record_id>", linked_record_id: "<linked_record_id>", link_type: "<type>" } }
     }
   }),
@@ -897,7 +905,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn list-recent" },
+      cli: { command: "moryn list-recent", argv: ["list-recent"] },
       mcp: { tool: "list_recent", arguments: {} }
     }
   }),
@@ -931,7 +939,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn refresh" },
+      cli: { command: "moryn refresh", argv: ["refresh"] },
       mcp: { tool: "refresh", arguments: {} }
     }
   }),
@@ -952,7 +960,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn sync init <remote>" },
+      cli: { command: "moryn sync init <remote>", argv: ["sync", "init", "<remote>"] },
       mcp: { tool: "sync_init", arguments: { remote: "<remote>" } }
     }
   }),
@@ -965,7 +973,7 @@ export const OPERATION_CONTRACTS = [
     required_fields: [],
     arguments_by_name: {},
     interfaces: {
-      cli: { command: "moryn sync --status" },
+      cli: { command: "moryn sync --status", argv: ["sync", "--status"] },
       mcp: { tool: "sync_status", arguments: {} }
     }
   }),
@@ -978,7 +986,7 @@ export const OPERATION_CONTRACTS = [
     required_fields: [],
     arguments_by_name: {},
     interfaces: {
-      cli: { command: "moryn sync --pull" },
+      cli: { command: "moryn sync --pull", argv: ["sync", "--pull"] },
       mcp: { tool: "sync_pull", arguments: {} }
     }
   }),
@@ -998,7 +1006,7 @@ export const OPERATION_CONTRACTS = [
       }
     },
     interfaces: {
-      cli: { command: "moryn sync --push" },
+      cli: { command: "moryn sync --push", argv: ["sync", "--push"] },
       mcp: { tool: "sync_push", arguments: {} }
     }
   }),
@@ -1011,7 +1019,7 @@ export const OPERATION_CONTRACTS = [
     required_fields: [],
     arguments_by_name: {},
     interfaces: {
-      cli: { command: "moryn rebuild" },
+      cli: { command: "moryn rebuild", argv: ["rebuild"] },
       mcp: { tool: "rebuild", arguments: {} }
     }
   })

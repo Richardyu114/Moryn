@@ -139,6 +139,7 @@ describe("package smoke test", () => {
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation).toBe("operations_by_cli_command.<command>");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.argument).toBe("operations_by_id.<operation>.arguments_by_name.<argument>");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.required_input).toBe("operations_by_id.<operation>.execution.required_inputs_by_field.<field>");
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_argv).toBe("operations_by_id.<operation>.interfaces.cli.argv[]");
     expect(response.recommended_entrypoint).toBe("agent_enter");
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(response.operations_by_mcp_tool.agent_enter).toBe(response.operations_by_id.agent_enter);
@@ -151,6 +152,12 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.write.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(response.operations_by_mcp_tool.write.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(response.operations_by_cli_command["moryn write --kind <kind> --type <type> --scope <scope> --text <text>"].selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(response.operations_by_id.agent_enter.interfaces.cli.argv).toEqual(["agent", "enter"]);
+    expect(response.operations_by_id.operation_contracts.interfaces.cli.argv).toEqual(["contracts", "operations"]);
+    expect(response.operations_by_id.project_init.interfaces.cli.argv).toEqual(["project", "init", "--path", "<path>"]);
+    expect(response.operations_by_id.write.interfaces.cli.argv).toEqual([
+      "write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"
+    ]);
     expect(response.operations_by_id.recall.execution).toEqual({
       ready_to_run: true,
       next_step: "run",

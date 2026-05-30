@@ -556,6 +556,8 @@ interfaces, `operations_by_mcp_tool`, `operations_by_cli_command`,
 `required_fields_by_name`, `arguments_by_name`, and `argument_sources`. Its
 selection sources include `operations_by_mcp_tool.<tool>` and
 `operations_by_cli_command.<command>` for direct reverse lookups, plus
+`operations_by_id.<operation>.interfaces.cli.argv[]` for direct CLI argv
+lookups, plus
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` for
 direct required-input lookups. Each operation also repeats that
 `selection_sources` map locally, so a host can pass around one operation object
@@ -566,6 +568,9 @@ Each entry includes `selection_sources.required_input`, `mcp_targets`, and
 `cli_targets`, so hosts do not need to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.
+Each `interfaces.cli` entry includes both a display `command` and a safe `argv`
+array without the `moryn` binary prefix, so programmatic hosts can call
+`execFile("moryn", argv)` without shell splitting or quote reconstruction.
 `arguments_by_name` is the full parameter directory: each entry names the CLI
 flag or positional argument, MCP argument, type, required flag, default,
 repeatability, alternatives, and enum `allowed_values` when applicable. This

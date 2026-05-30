@@ -153,6 +153,7 @@ const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   argument_allowed_value: "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
+  cli_argv: "operations_by_id.<operation>.interfaces.cli.argv[]",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
   ordered_operation: "operations[]"
 };
@@ -927,7 +928,7 @@ describe("MCP stdio server", () => {
             }>;
             argument_sources?: Record<string, string>;
             interfaces: {
-              cli: { command: string };
+              cli: { command: string; argv: string[] };
               mcp: { tool: string; arguments: Record<string, unknown> };
             };
           }>;
@@ -952,7 +953,7 @@ describe("MCP stdio server", () => {
             reason: "Action is safe and all required fields are already filled."
           },
           interfaces: {
-            cli: { command: "moryn agent enter" },
+            cli: { command: "moryn agent enter", argv: ["agent", "enter"] },
             mcp: { tool: "agent_enter", arguments: {} }
           }
         });
@@ -986,7 +987,7 @@ describe("MCP stdio server", () => {
             summary: "user_input.summary"
           },
           interfaces: {
-            cli: { command: "moryn agent finish --summary <summary>" },
+            cli: { command: "moryn agent finish --summary <summary>", argv: ["agent", "finish", "--summary", "<summary>"] },
             mcp: { tool: "agent_finish", arguments: { summary: "<summary>" } }
           }
         });
@@ -1030,6 +1031,12 @@ describe("MCP stdio server", () => {
             type: "user_input.type",
             scope: "user_input.scope",
             text_or_content: "user_input.text_or_content"
+          },
+          interfaces: {
+            cli: {
+              command: "moryn write --kind <kind> --type <type> --scope <scope> --text <text>",
+              argv: ["write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"]
+            }
           }
         });
         expect(parsed.operations_by_id.promote).toMatchObject({
@@ -1065,6 +1072,12 @@ describe("MCP stdio server", () => {
           },
           argument_sources: {
             path: "user_input.path"
+          },
+          interfaces: {
+            cli: {
+              command: "moryn project init --path <path>",
+              argv: ["project", "init", "--path", "<path>"]
+            }
           }
         });
         expect(parsed.operations_by_id.recall.arguments_by_name).toMatchObject({
@@ -1086,6 +1099,8 @@ describe("MCP stdio server", () => {
           }
         });
         expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
+        expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.argv).toEqual(["contracts", "selection-sources"]);
+        expect(parsed.operations_by_id.operation_contracts.interfaces.cli.argv).toEqual(["contracts", "operations"]);
         expect(parsed.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
         expect(parsed.operations_by_category.lifecycle.agent_enter).toEqual(parsed.operations_by_id.agent_enter);
         expect(parsed.operations_by_mcp_tool.agent_enter).toEqual(parsed.operations_by_id.agent_enter);

@@ -233,6 +233,9 @@ Deliverables:
   reverse lookup maps keyed by MCP tool and CLI command, so agents can discover
   how to call Moryn without hallucinating command names, placeholders, optional
   arguments, defaults, enum values, operation ids, or argument shapes.
+- Done: Static operation CLI interfaces expose safe `argv` arrays alongside
+  display command strings, with `cli_argv` selection sources, so programmatic
+  hosts can call `moryn` without shell splitting or quote reconstruction.
 - Done: Each static operation contract now repeats operation-level
   `selection_sources`, so hosts can hand a single `operations_by_id`,
   `operations_by_mcp_tool`, or `operations_by_cli_command` entry to an agent
