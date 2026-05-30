@@ -1475,6 +1475,32 @@ describe("moryn CLI", () => {
     expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
   });
 
+  it("returns one operation contract from the CLI", async () => {
+    const result = await exec("node", [
+      "--import", tsxLoader, cliPath,
+      "contracts", "operations",
+      "--operation", "agent_finish"
+    ]);
+    const parsed = JSON.parse(result.stdout) as {
+      operation_source: string;
+      operation: {
+        operation: string;
+        execution: {
+          next_step: string;
+          required_input_paths_by_value_path: Record<string, string>;
+        };
+      };
+      selection_sources: Record<string, string>;
+    };
+
+    expect(Buffer.byteLength(result.stdout, "utf8")).toBeLessThan(128 * 1024);
+    expect(parsed.operation_source).toBe("operations_by_id.agent_finish");
+    expect(parsed.operation.operation).toBe("agent_finish");
+    expect(parsed.operation.execution.next_step).toBe("collect_required_fields");
+    expect(parsed.operation.execution.required_input_paths_by_value_path["user_input.summary"]).toBe("execution.required_inputs_by_field.summary");
+    expect(parsed.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
+  });
+
   it("returns machine-readable agent guide from the CLI", async () => {
     await withTempDir(async (dir) => {
       const guide = await exec("node", [

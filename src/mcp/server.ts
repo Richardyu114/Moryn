@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { getOperationContracts, getSelectionSourceContracts } from "../index.js";
+import { getOperationContract, getOperationContracts, getSelectionSourceContracts } from "../index.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
@@ -155,9 +155,23 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Get Moryn Operation Contracts",
       description: "Return stable CLI/MCP operation contracts, safety metadata, and required fields.",
-      inputSchema: {}
+      inputSchema: {
+        operation: nonEmptyStringSchema.optional()
+      }
     },
-    async () => jsonResult(getOperationContracts(), { pretty: false })
+    async ({ operation }) => {
+      if (operation) {
+        const contract = getOperationContract(operation);
+        if (!contract) {
+          return {
+            ...jsonResult(toErrorEnvelope(new Error(`Invalid argument: Unknown operation: ${operation}`))),
+            isError: true
+          };
+        }
+        return jsonResult(contract, { pretty: false });
+      }
+      return jsonResult(getOperationContracts(), { pretty: false });
+    }
   );
 
   server.registerTool(

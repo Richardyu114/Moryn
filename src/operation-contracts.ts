@@ -96,6 +96,12 @@ type OperationContractInput = Omit<OperationContract, "required_fields_by_name" 
   interfaces: OperationInterfacesInput;
 };
 
+export type SingleOperationContractResponse = {
+  operation: OperationContract;
+  operation_source: string;
+  selection_sources: typeof OPERATION_CONTRACTS_SELECTION_SOURCES;
+};
+
 export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   operation: "operations_by_id.<operation>",
   operation_id: "operations_by_id.<operation>.operation",
@@ -1088,6 +1094,8 @@ function operationsById(operations: readonly OperationContract[]): Record<string
   return Object.fromEntries(operations.map((operation) => [operation.operation, operation]));
 }
 
+const OPERATION_CONTRACTS_BY_ID = operationsById(OPERATION_CONTRACTS);
+
 const OPERATION_CONTRACTS_BY_TOOL = Object.fromEntries(
   OPERATION_CONTRACTS.map((operation) => [operation.interfaces.mcp.tool, operation])
 ) as Record<string, OperationContract>;
@@ -1098,6 +1106,16 @@ export function operationArgumentsByTool(tool: string): Record<string, Operation
 
 export function operationCliArgvByTool(tool: string): readonly string[] {
   return OPERATION_CONTRACTS_BY_TOOL[tool]?.interfaces.cli.argv ?? tool.split("_");
+}
+
+export function getOperationContract(operation: string): SingleOperationContractResponse | undefined {
+  const contract = OPERATION_CONTRACTS_BY_ID[operation];
+  if (!contract) return undefined;
+  return {
+    operation: contract,
+    operation_source: `operations_by_id.${operation}`,
+    selection_sources: OPERATION_CONTRACTS_SELECTION_SOURCES
+  };
 }
 
 function operationsByCategory(operations: readonly OperationContract[]): Record<string, Record<string, OperationContract>> {
@@ -1121,7 +1139,7 @@ export function getOperationContracts() {
   return {
     recommended_entrypoint: "agent_enter",
     operations: OPERATION_CONTRACTS,
-    operations_by_id: operationsById(OPERATION_CONTRACTS),
+    operations_by_id: OPERATION_CONTRACTS_BY_ID,
     operations_by_category: operationsByCategory(OPERATION_CONTRACTS),
     operations_by_mcp_tool: operationsByMcpTool(OPERATION_CONTRACTS),
     operations_by_cli_command: operationsByCliCommand(OPERATION_CONTRACTS),

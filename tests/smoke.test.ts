@@ -29,6 +29,7 @@ import {
   SYNC_RESULT_SELECTION_SOURCES,
   SYNC_STATUS_SELECTION_SOURCES,
   WRITE_SELECTION_SOURCES,
+  getOperationContract,
   getOperationContracts,
   getSelectionSourceContracts,
   version
@@ -163,6 +164,7 @@ describe("package smoke test", () => {
 
   it("exports self-describing operation contracts from the package entrypoint", () => {
     const response = getOperationContracts();
+    const agentFinishContract = getOperationContract("agent_finish");
     const operationRequiredInputSources = {
       required_input: OPERATION_CONTRACTS_SELECTION_SOURCES.required_input,
       required_input_argument_path: OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_argument_path
@@ -183,6 +185,10 @@ describe("package smoke test", () => {
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_line).toBe("operations_by_id.<operation>.interfaces.cli.command_line");
     expect(response.recommended_entrypoint).toBe("agent_enter");
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(agentFinishContract?.operation).toBe(response.operations_by_id.agent_finish);
+    expect(agentFinishContract?.operation_source).toBe("operations_by_id.agent_finish");
+    expect(agentFinishContract?.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(getOperationContract("missing_operation")).toBeUndefined();
     expect(response.operations_by_mcp_tool.agent_enter).toBe(response.operations_by_id.agent_enter);
     expect(response.operations_by_mcp_tool.operation_contracts).toBe(response.operations_by_id.operation_contracts);
     expect(response.operations_by_mcp_tool.write).toBe(response.operations_by_id.write);

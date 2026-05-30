@@ -677,6 +677,13 @@ assignments as informational, not a list to apply wholesale. That
 keeps hosts from needing to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.
+When the host already knows the operation id, use the narrow operation contract
+entrypoint instead of reading the full static directory: `moryn contracts
+operations --operation agent_finish`, `operation_contracts` with
+`{"operation":"agent_finish"}`, or `getOperationContract("agent_finish")`.
+That response contains one `operation`, its canonical `operation_source`, and
+the top-level `selection_sources`, so agents can inspect one call shape without
+holding the full registry in context.
 Each static operation `interfaces.cli` entry includes a display `command`, a
 prequoted `command_line`, `executable`, `args`, grouped `exec_file`, legacy
 `argv`, `placeholders`, and `has_placeholders`. For Moryn subcommands,
@@ -692,14 +699,14 @@ flag or positional argument, MCP argument, type, required flag, default,
 repeatability, alternatives, and enum `allowed_values` when applicable. This
 lets hosts fill optional arguments as well as required placeholders without
 parsing command strings.
-Library hosts can call `getOperationContracts()` and reuse
-`OPERATION_CONTRACTS_SELECTION_SOURCES`. Treat this as the static operation
-directory; after any runtime response returns `next.actions`, prefer those
+Library hosts can call `getOperationContracts()` for the directory,
+`getOperationContract(operation)` for one operation, and reuse
+`OPERATION_CONTRACTS_SELECTION_SOURCES`. Treat this as static operation
+metadata; after any runtime response returns `next.actions`, prefer those
 returned actions because they include the current project, sync, cursor, and
 handoff context. The `moryn contracts operations` CLI command and the
-`operation_contracts` MCP tool emit compact JSON text for this large registry so
-default `execFile`-style hosts can read the full response without increasing
-stdout buffers; parse it as normal JSON.
+`operation_contracts` MCP tool emit compact JSON text for this large registry,
+and both support the same single-operation filter for smaller host payloads.
 
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime

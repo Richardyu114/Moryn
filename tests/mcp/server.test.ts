@@ -1523,6 +1523,42 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns one operation contract through MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-operation-contract-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const result = await client.callTool({
+          name: "operation_contracts",
+          arguments: { operation: "agent_finish" }
+        });
+        const first = "content" in result ? result.content[0] : undefined;
+        if (!first || first.type !== "text") {
+          throw new Error("Expected text content from operation_contracts");
+        }
+        const parsed = JSON.parse(first.text) as {
+          operation_source: string;
+          operation: {
+            operation: string;
+            execution: {
+              next_step: string;
+              required_input_paths_by_value_path: Record<string, string>;
+            };
+          };
+          selection_sources: Record<string, string>;
+        };
+
+        expect(Buffer.byteLength(first.text, "utf8")).toBeLessThan(128 * 1024);
+        expect(parsed.operation_source).toBe("operations_by_id.agent_finish");
+        expect(parsed.operation.operation).toBe("agent_finish");
+        expect(parsed.operation.execution.next_step).toBe("collect_required_fields");
+        expect(parsed.operation.execution.required_input_paths_by_value_path["user_input.summary"]).toBe("execution.required_inputs_by_field.summary");
+        expect(parsed.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("returns machine-readable agent guide through MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-guide-"));
     try {

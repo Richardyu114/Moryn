@@ -441,6 +441,7 @@ CLI:
 
 ```bash
 moryn contracts operations
+moryn contracts operations --operation agent_finish
 ```
 
 MCP tool: `operation_contracts`.
@@ -619,13 +620,19 @@ enum `allowed_values`:
 }
 ```
 
-Library hosts can call `getOperationContracts()` or import
+Library hosts can call `getOperationContracts()`, call
+`getOperationContract(operation)` for one operation, or import
 `OPERATION_CONTRACTS_SELECTION_SOURCES` from the package entrypoint. The
 operation registry is static discovery metadata. Each operation repeats the
 registry selection source map locally so selected operation entries remain
 self-describing outside the aggregate registry. After a runtime response returns
 `next.actions`, agents should prefer those returned actions because they include
 the live project, sync, cursor, and handoff context.
+CLI and MCP hosts can pass an operation id to the static contract endpoint when
+they already know which call they need. The single-operation response carries
+one `operation`, its canonical `operation_source`, and the top-level
+`selection_sources`, keeping the payload and model context much smaller than the
+full operation directory.
 
 ### `init`
 

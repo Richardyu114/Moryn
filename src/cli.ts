@@ -3,7 +3,7 @@
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { Command, CommanderError } from "commander";
-import { getOperationContracts, getSelectionSourceContracts, version } from "./index.js";
+import { getOperationContract, getOperationContracts, getSelectionSourceContracts, version } from "./index.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
@@ -486,7 +486,15 @@ contracts.command("selection-sources")
 
 contracts.command("operations")
   .description("Print stable CLI and MCP operation contracts.")
-  .action(() => {
+  .option("--operation <id>", "Print one operation contract by id")
+  .action((options: { operation?: string }) => {
+    const operation = parseNonEmptyString(options.operation, "--operation");
+    if (operation) {
+      const contract = getOperationContract(operation);
+      if (!contract) throw new Error(`Invalid argument: Unknown operation: ${operation}`);
+      printJson(contract, { pretty: false });
+      return;
+    }
     printJson(getOperationContracts(), { pretty: false });
   });
 
