@@ -2725,11 +2725,30 @@ describe("moryn CLI", () => {
           throw new Error(`Expected moryn write to reject --confidence ${confidence}`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
-          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recoverable: boolean;
+              recommended_action: string;
+              recovery_hint: {
+                rejected_argument: { option: string; value: string };
+                expected: { kind: string; min: number; max: number; inclusive: boolean };
+                retry_with: { option: string; value_placeholder: string };
+              };
+            };
+          };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain("Invalid --confidence");
-          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+          expect(parsed.error.recoverable).toBe(true);
+          expect(parsed.error.recommended_action).toBe("retry with a valid --confidence value");
+          expect(parsed.error.recovery_hint).toEqual({
+            rejected_argument: { option: "--confidence", value: confidence },
+            expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+            retry_with: { option: "--confidence", value_placeholder: "<number 0-1>" }
+          });
         }
       }
     });

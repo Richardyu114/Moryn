@@ -61,6 +61,11 @@ type CliArgumentRecoveryHint =
     }
   | {
       rejected_argument: { option: string; value: string };
+      expected: { kind: "number_range"; min: number; max: number; inclusive: true };
+      retry_with: { option: string; value_placeholder: string };
+    }
+  | {
+      rejected_argument: { option: string; value: string };
       expected: { kind: "allowed_values"; allowed_values: string[] };
       retry_with: { option: string; value_placeholder: string };
     }
@@ -328,7 +333,15 @@ function parseConfidence(value: string | undefined, option = "--confidence"): nu
   if (value === undefined) return undefined;
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
-    throw new Error(`Invalid argument: Invalid ${option}; must be a number between 0 and 1`);
+    throw new CliArgumentError(
+      `Invalid argument: Invalid ${option}; must be a number between 0 and 1`,
+      `${CLI_ARGUMENT_RECOVERY_ACTION_PREFIX} ${option} value`,
+      {
+        rejected_argument: { option, value },
+        expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+        retry_with: { option, value_placeholder: "<number 0-1>" }
+      }
+    );
   }
   return parsed;
 }
