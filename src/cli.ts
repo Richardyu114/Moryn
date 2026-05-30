@@ -65,6 +65,11 @@ type CliArgumentRecoveryHint =
       missing_argument: { option: string; placeholder: string };
       expected: { kind: "required_option"; required: true };
       retry_with: { option: string; value_placeholder: string };
+    }
+  | {
+      rejected_argument: { option: string; value: string };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      retry_with: { option: string; value_placeholder: string };
     };
 
 class CliArgumentError extends Error {
@@ -107,6 +112,18 @@ function requiredCliOptionError(option: string, placeholder: string, message?: s
       missing_argument: { option, placeholder },
       expected: { kind: "required_option", required: true },
       retry_with: { option, value_placeholder: placeholder }
+    }
+  );
+}
+
+function nonEmptyCliArgumentError(option: string): CliArgumentError {
+  return new CliArgumentError(
+    `Invalid argument: Invalid ${option}; must not be empty`,
+    `retry with a non-empty ${option} value`,
+    {
+      rejected_argument: { option, value: "" },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { option, value_placeholder: `<non-empty ${option.replace(/^--/, "")}>` }
     }
   );
 }
@@ -214,7 +231,7 @@ function parseEnumList<T extends string>(values: string[], allowed: readonly T[]
 function parseNonEmptyString(value: string | undefined, option: string): string | undefined {
   if (value === undefined) return undefined;
   if (value.length === 0) {
-    throw new Error(`Invalid argument: Invalid ${option}; must not be empty`);
+    throw nonEmptyCliArgumentError(option);
   }
   return value;
 }
@@ -222,7 +239,7 @@ function parseNonEmptyString(value: string | undefined, option: string): string 
 function collectNonEmptyOption(option: string) {
   return (value: string, previous: string[] = []): string[] => {
     if (value.length === 0) {
-      throw new Error(`Invalid argument: Invalid ${option}; must not be empty`);
+      throw nonEmptyCliArgumentError(option);
     }
     return [...previous, value];
   };

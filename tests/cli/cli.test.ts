@@ -2796,11 +2796,28 @@ describe("moryn CLI", () => {
       throw new Error("Expected moryn init to reject an empty --store path");
     } catch (error) {
       if (!("stderr" in (error as object))) throw error;
-      const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+      const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+        ok: boolean;
+        error: {
+          code: string;
+          message: string;
+          recommended_action: string;
+          recovery_hint: {
+            rejected_argument: { option: string; value: string };
+            expected: { kind: string; min_length: number };
+            retry_with: { option: string; value_placeholder: string };
+          };
+        };
+      };
       expect(parsed.ok).toBe(false);
       expect(parsed.error.code).toBe("INVALID_ARGUMENT");
       expect(parsed.error.message).toContain("Invalid --store");
-      expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+      expect(parsed.error.recommended_action).toBe("retry with a non-empty --store value");
+      expect(parsed.error.recovery_hint).toEqual({
+        rejected_argument: { option: "--store", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { option: "--store", value_placeholder: "<non-empty store>" }
+      });
     }
   });
 
@@ -2974,26 +2991,31 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
-      for (const { args, message } of [
+      for (const { args, message, option } of [
         {
           args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", ""],
-          message: "Invalid --text"
+          message: "Invalid --text",
+          option: "--text"
         },
         {
           args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", "Valid text", "--tag", ""],
-          message: "Invalid --tag"
+          message: "Invalid --tag",
+          option: "--tag"
         },
         {
           args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", "Valid text", "--derived-from", ""],
-          message: "Invalid --derived-from"
+          message: "Invalid --derived-from",
+          option: "--derived-from"
         },
         {
           args: ["refresh", "--project-id", "moryn", "--cursor", ""],
-          message: "Invalid --cursor"
+          message: "Invalid --cursor",
+          option: "--cursor"
         },
         {
           args: ["sync", "--push", "--message", ""],
-          message: "Invalid --message"
+          message: "Invalid --message",
+          option: "--message"
         }
       ]) {
         try {
@@ -3001,11 +3023,28 @@ describe("moryn CLI", () => {
           throw new Error(`Expected moryn ${args.join(" ")} to reject an empty string option`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
-          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recommended_action: string;
+              recovery_hint: {
+                rejected_argument: { option: string; value: string };
+                expected: { kind: string; min_length: number };
+                retry_with: { option: string; value_placeholder: string };
+              };
+            };
+          };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain(message);
-          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+          expect(parsed.error.recommended_action).toBe(`retry with a non-empty ${option} value`);
+          expect(parsed.error.recovery_hint).toEqual({
+            rejected_argument: { option, value: "" },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            retry_with: { option, value_placeholder: `<non-empty ${option.slice(2)}>` }
+          });
         }
       }
 
