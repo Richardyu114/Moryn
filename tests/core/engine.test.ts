@@ -759,6 +759,24 @@ describe("core engine", () => {
         }
       }
 
+      async function expectInvalidWriteShapeArgument(
+        input: Parameters<typeof engine.write>[0],
+        message: string,
+        recommendedAction: string,
+        recoveryHint: unknown
+      ): Promise<void> {
+        try {
+          await engine.write(input);
+          throw new Error("Expected write to reject invalid shape input");
+        } catch (error) {
+          const envelope = toErrorEnvelope(error);
+          expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+          expect(envelope.error.message).toContain(message);
+          expect(envelope.error.recommended_action).toBe(recommendedAction);
+          expect(envelope.error.recovery_hint).toEqual(recoveryHint);
+        }
+      }
+
       await expectInvalidArgument(null as never, "Invalid write input");
       await expectInvalidArgument({
         kind: "note" as never,
@@ -783,7 +801,7 @@ describe("core engine", () => {
         confidence: 2,
         source: { client: "test" }
       }, "Invalid confidence");
-      await expectInvalidArgument({
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
@@ -791,8 +809,12 @@ describe("core engine", () => {
         tags: ["valid", 123] as never,
         content: { text: "Invalid tags.", format: "text" },
         source: { client: "test" }
-      }, "Invalid tags");
-      await expectInvalidArgument({
+      }, "Invalid tags", "retry write with valid tags", {
+        rejected_argument: { argument: "tags", value: ["valid", 123] },
+        expected: { kind: "array_of_non_empty_strings" },
+        retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+      });
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
@@ -800,7 +822,11 @@ describe("core engine", () => {
         tags: [""],
         content: { text: "Empty tag.", format: "text" },
         source: { client: "test" }
-      }, "Invalid tags");
+      }, "Invalid tags", "retry write with valid tags", {
+        rejected_argument: { argument: "tags", value: [""] },
+        expected: { kind: "array_of_non_empty_strings" },
+        retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+      });
       await expectInvalidContentArgument({
         kind: "memory",
         type: "decision",
@@ -849,14 +875,18 @@ describe("core engine", () => {
         expected: { kind: "allowed_values", allowed_values: ["text", "json"] },
         retry_with: { argument: "content.format", value_placeholder: "text" }
       });
-      await expectInvalidArgument({
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
         project_id: "moryn",
         content: { text: "Invalid source.", format: "text" },
         source: { client: "" }
-      }, "Invalid source.client");
+      }, "Invalid source.client", "retry write with a valid source client", {
+        rejected_argument: { argument: "source.client", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "source.client", value_placeholder: "<client>" }
+      });
       await expectInvalidArgument({
         kind: "memory",
         type: "decision",

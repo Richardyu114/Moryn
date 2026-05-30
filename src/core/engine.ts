@@ -459,6 +459,51 @@ function invalidWriteContentFormatError(format: unknown): WriteContentError {
   );
 }
 
+type WriteTagsRecoveryHint = {
+  rejected_argument: { argument: "tags"; value: unknown };
+  expected: { kind: "array_of_non_empty_strings" };
+  retry_with: { argument: "tags"; value_placeholder: ["<tag>"] };
+};
+
+class WriteTagsError extends Error {
+  readonly recommended_action = "retry write with valid tags";
+  readonly recovery_hint: WriteTagsRecoveryHint;
+
+  constructor(tags: unknown) {
+    super("Invalid argument: Invalid tags");
+    this.name = "WriteTagsError";
+    this.recovery_hint = {
+      rejected_argument: { argument: "tags", value: tags },
+      expected: { kind: "array_of_non_empty_strings" },
+      retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+    };
+  }
+}
+
+type WriteSourceRecoveryHint = {
+  rejected_argument: { argument: "source.client"; value: unknown };
+  expected: { kind: "non_empty_string"; min_length: 1 };
+  retry_with: { argument: "source.client"; value_placeholder: "<client>" };
+};
+
+class WriteSourceError extends Error {
+  readonly recommended_action = "retry write with a valid source client";
+  readonly recovery_hint: WriteSourceRecoveryHint;
+
+  constructor(source: unknown) {
+    super("Invalid argument: Invalid source.client");
+    this.name = "WriteSourceError";
+    const client = typeof source === "object" && source !== null && "client" in source
+      ? (source as { client?: unknown }).client
+      : undefined;
+    this.recovery_hint = {
+      rejected_argument: { argument: "source.client", value: client },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: "source.client", value_placeholder: "<client>" }
+    };
+  }
+}
+
 function validateWriteInput(input: WriteInput): void {
   assertPlainObject(input, "write input");
   if (!recordKindSchema.safeParse(input.kind).success) throw new Error("Invalid argument: Invalid kind");
@@ -471,7 +516,7 @@ function validateWriteInput(input: WriteInput): void {
     throw new Error("Invalid argument: project_id is required for project scope");
   }
   if (input.tags !== undefined && (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === "string" && tag.length > 0))) {
-    throw new Error("Invalid argument: Invalid tags");
+    throw new WriteTagsError(input.tags);
   }
   if (typeof input.content !== "object" || input.content === null || Array.isArray(input.content)) {
     throw invalidWriteContentError(input.content, "content_object");
@@ -490,7 +535,7 @@ function validateWriteInput(input: WriteInput): void {
     throw new Error("Invalid argument: Invalid confidence");
   }
   if (input.priority !== undefined && !recordPrioritySchema.safeParse(input.priority).success) throw new Error("Invalid argument: Invalid priority");
-  if (!recordSourceSchema.safeParse(input.source).success) throw new Error("Invalid argument: Invalid source.client");
+  if (!recordSourceSchema.safeParse(input.source).success) throw new WriteSourceError(input.source);
   validateOptionalConfirmed(input.confirmed);
   if (input.provenance !== undefined) {
     if (typeof input.provenance !== "object" || input.provenance === null || Array.isArray(input.provenance)) {
