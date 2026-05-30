@@ -717,11 +717,11 @@ for example `--index` plus `--operation` or `operation` plus `mcp_tool`, the
 same envelope includes `recovery_hint.rejected_lookup.provided` and
 `accepted_lookup_modes` so the agent can keep exactly one mode and retry.
 CLI and MCP required-option, option-dependency, non-empty string, enum,
-integer/number-range, JSON-object, choose-one, path-assignment, revise-patch,
-and refresh cursor validation errors also include `recovery_hint`:
+integer/number-range, JSON-object, write-content, choose-one, path-assignment,
+revise-patch, and refresh cursor validation errors also include `recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
 allowed values, non-empty constraints, integer or numeric bounds, JSON object
-expectations, MCP argument requirements such as `type`/`scope`, dependency rules
+and write content expectations, MCP argument requirements such as `type`/`scope`, dependency rules
 such as `--message` requiring `--push`, project-context requirements,
 path-assignment shape, revise patch rules, or ISO datetime cursor requirements,
 `missing_argument` or `missing_one_of` names omitted inputs, `rejected_patch`

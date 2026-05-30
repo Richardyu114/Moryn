@@ -398,6 +398,67 @@ function validateOptionalEnumArray<T extends string>(value: unknown, name: strin
   }
 }
 
+type WriteContentRecoveryHint =
+  | {
+      rejected_argument: { argument: "content"; value: unknown };
+      expected: { kind: "content_object" | "non_empty_content_object"; required: true };
+      retry_with: { argument: "content"; value_placeholder: { text: "<text>"; format: "text" } };
+    }
+  | {
+      rejected_argument: { argument: "content.text"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      retry_with: { argument: "content.text"; value_placeholder: "<non-empty text>" };
+    }
+  | {
+      rejected_argument: { argument: "content.format"; value: unknown };
+      expected: { kind: "allowed_values"; allowed_values: ["text", "json"] };
+      retry_with: { argument: "content.format"; value_placeholder: "text" };
+    };
+
+class WriteContentError extends Error {
+  readonly recommended_action = "retry write with valid content";
+  readonly recovery_hint: WriteContentRecoveryHint;
+
+  constructor(message: string, recoveryHint: WriteContentRecoveryHint) {
+    super(message);
+    this.name = "WriteContentError";
+    this.recovery_hint = recoveryHint;
+  }
+}
+
+function invalidWriteContentError(content: unknown, expectedKind: "content_object" | "non_empty_content_object"): WriteContentError {
+  return new WriteContentError(
+    "Invalid argument: Invalid content",
+    {
+      rejected_argument: { argument: "content", value: content },
+      expected: { kind: expectedKind, required: true },
+      retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
+    }
+  );
+}
+
+function invalidWriteContentTextError(text: unknown): WriteContentError {
+  return new WriteContentError(
+    "Invalid argument: Invalid content.text",
+    {
+      rejected_argument: { argument: "content.text", value: text },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
+    }
+  );
+}
+
+function invalidWriteContentFormatError(format: unknown): WriteContentError {
+  return new WriteContentError(
+    "Invalid argument: Invalid content.format",
+    {
+      rejected_argument: { argument: "content.format", value: format },
+      expected: { kind: "allowed_values", allowed_values: ["text", "json"] },
+      retry_with: { argument: "content.format", value_placeholder: "text" }
+    }
+  );
+}
+
 function validateWriteInput(input: WriteInput): void {
   assertPlainObject(input, "write input");
   if (!recordKindSchema.safeParse(input.kind).success) throw new Error("Invalid argument: Invalid kind");
@@ -412,14 +473,17 @@ function validateWriteInput(input: WriteInput): void {
   if (input.tags !== undefined && (!Array.isArray(input.tags) || !input.tags.every((tag) => typeof tag === "string" && tag.length > 0))) {
     throw new Error("Invalid argument: Invalid tags");
   }
-  if (typeof input.content !== "object" || input.content === null || Array.isArray(input.content) || Object.keys(input.content).length === 0) {
-    throw new Error("Invalid argument: Invalid content");
+  if (typeof input.content !== "object" || input.content === null || Array.isArray(input.content)) {
+    throw invalidWriteContentError(input.content, "content_object");
+  }
+  if (Object.keys(input.content).length === 0) {
+    throw invalidWriteContentError(input.content, "non_empty_content_object");
   }
   if (input.content.text !== undefined && (typeof input.content.text !== "string" || !input.content.text.length)) {
-    throw new Error("Invalid argument: Invalid content.text");
+    throw invalidWriteContentTextError(input.content.text);
   }
   if (input.content.format !== undefined && input.content.format !== "text" && input.content.format !== "json") {
-    throw new Error("Invalid argument: Invalid content.format");
+    throw invalidWriteContentFormatError(input.content.format);
   }
   if (input.state !== undefined && !recordStateSchema.safeParse(input.state).success) throw new Error("Invalid argument: Invalid state");
   if (input.confidence !== undefined && (!Number.isFinite(input.confidence) || input.confidence < 0 || input.confidence > 1)) {

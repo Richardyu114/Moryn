@@ -742,6 +742,23 @@ describe("core engine", () => {
         }
       }
 
+      async function expectInvalidContentArgument(
+        input: Parameters<typeof engine.write>[0],
+        message: string,
+        recoveryHint: unknown
+      ): Promise<void> {
+        try {
+          await engine.write(input);
+          throw new Error("Expected write to reject invalid content input");
+        } catch (error) {
+          const envelope = toErrorEnvelope(error);
+          expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+          expect(envelope.error.message).toContain(message);
+          expect(envelope.error.recommended_action).toBe("retry write with valid content");
+          expect(envelope.error.recovery_hint).toEqual(recoveryHint);
+        }
+      }
+
       await expectInvalidArgument(null as never, "Invalid write input");
       await expectInvalidArgument({
         kind: "note" as never,
@@ -784,38 +801,54 @@ describe("core engine", () => {
         content: { text: "Empty tag.", format: "text" },
         source: { client: "test" }
       }, "Invalid tags");
-      await expectInvalidArgument({
+      await expectInvalidContentArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
         project_id: "moryn",
         content: "Invalid content." as never,
         source: { client: "test" }
-      }, "Invalid content");
-      await expectInvalidArgument({
+      }, "Invalid content", {
+        rejected_argument: { argument: "content", value: "Invalid content." },
+        expected: { kind: "content_object", required: true },
+        retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
+      });
+      await expectInvalidContentArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
         project_id: "moryn",
         content: {},
         source: { client: "test" }
-      }, "Invalid content");
-      await expectInvalidArgument({
+      }, "Invalid content", {
+        rejected_argument: { argument: "content", value: {} },
+        expected: { kind: "non_empty_content_object", required: true },
+        retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
+      });
+      await expectInvalidContentArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
         project_id: "moryn",
         content: { text: "", format: "text" },
         source: { client: "test" }
-      }, "Invalid content.text");
-      await expectInvalidArgument({
+      }, "Invalid content.text", {
+        rejected_argument: { argument: "content.text", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
+      });
+      await expectInvalidContentArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
         project_id: "moryn",
         content: { text: "Invalid format.", format: "markdown" as never },
         source: { client: "test" }
-      }, "Invalid content.format");
+      }, "Invalid content.format", {
+        rejected_argument: { argument: "content.format", value: "markdown" },
+        expected: { kind: "allowed_values", allowed_values: ["text", "json"] },
+        retry_with: { argument: "content.format", value_placeholder: "text" }
+      });
       await expectInvalidArgument({
         kind: "memory",
         type: "decision",

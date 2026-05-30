@@ -660,19 +660,20 @@ uses the same recovery channel to return
 agents remove the extra mode instead of guessing from the message text.
 CLI and MCP boundary validation errors for required options, option dependencies,
 non-empty strings, enum values, integer and number ranges, JSON object inputs,
-choose-one input groups, path-assignment inputs, revise patches, and refresh
-cursor formats follow the same pattern:
+write content payloads, choose-one input groups, path-assignment inputs, revise
+patches, and refresh cursor formats follow the same pattern:
 `error.recovery_hint.missing_argument` identifies omitted required options,
 `missing_one_of` identifies a missing alternative group, `rejected_argument`
 or `rejected_arguments` identifies invalid or conflicting values,
 `rejected_patch` identifies invalid revise paths or patch payloads, `expected`
 exposes allowed values, non-empty constraints, integer or numeric bounds, JSON
-object expectations, choice rules, MCP argument requirements such as write
-`type` and `scope`, option requirements such as `--message` requiring `--push`,
-project-context requirements, path-assignment shape, revise patch rules, or ISO
-datetime cursor requirements, `discover_with` names safe lookup calls such as
-`project_list`, and `retry_with` contains the option/argument value placeholder
-to use for the corrected retry.
+object expectations, write content object/text/format requirements, choice
+rules, MCP argument requirements such as write `type` and `scope`, option
+requirements such as `--message` requiring `--push`, project-context
+requirements, path-assignment shape, revise patch rules, or ISO datetime cursor
+requirements, `discover_with` names safe lookup calls such as `project_list`,
+and `retry_with` contains the option/argument value placeholder to use for the
+corrected retry.
 
 ### `init`
 

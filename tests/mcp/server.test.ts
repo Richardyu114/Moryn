@@ -5936,10 +5936,16 @@ describe("MCP stdio server", () => {
             content: {},
             source: { client: "mcp-test" }
           }
-        })) as { ok: boolean; error: { code: string; message: string } };
+        })) as { ok: boolean; error: { code: string; message: string; recommended_action: string; recovery_hint: unknown } };
         expect(emptyContent.ok).toBe(false);
         expect(emptyContent.error.code).toBe("INVALID_ARGUMENT");
         expect(emptyContent.error.message).toContain("Invalid content");
+        expect(emptyContent.error.recommended_action).toBe("retry write with valid content");
+        expect(emptyContent.error.recovery_hint).toEqual({
+          rejected_argument: { argument: "content", value: {} },
+          expected: { kind: "non_empty_content_object", required: true },
+          retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
+        });
 
         const emptyStructuredText = parseTextContent(await client.callTool({
           name: "write",
@@ -5951,10 +5957,16 @@ describe("MCP stdio server", () => {
             content: { text: "", format: "json" },
             source: { client: "mcp-test" }
           }
-        })) as { ok: boolean; error: { code: string; message: string } };
+        })) as { ok: boolean; error: { code: string; message: string; recommended_action: string; recovery_hint: unknown } };
         expect(emptyStructuredText.ok).toBe(false);
         expect(emptyStructuredText.error.code).toBe("INVALID_ARGUMENT");
         expect(emptyStructuredText.error.message).toContain("Invalid content.text");
+        expect(emptyStructuredText.error.recommended_action).toBe("retry write with valid content");
+        expect(emptyStructuredText.error.recovery_hint).toEqual({
+          rejected_argument: { argument: "content.text", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
+        });
 
         const missingProject = parseTextContent(await client.callTool({
           name: "write",

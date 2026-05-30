@@ -264,14 +264,15 @@ Deliverables:
   `accepted_lookup_modes`, so agents can drop the extra lookup mode and retry
   without parsing prose.
 - Done: CLI and MCP required-option, option-dependency, non-empty string, enum,
-  integer/number-range, JSON-object, choose-one, path-assignment, and refresh
-  cursor and revise-patch validation errors now return structured
+  integer/number-range, JSON-object, write-content, choose-one,
+  path-assignment, refresh cursor, and revise-patch validation errors now return structured
   `error.recovery_hint` metadata with `missing_argument`, `missing_one_of`,
   `rejected_argument`, `rejected_arguments`, `rejected_patch`,
   machine-readable `expected` rules, `discover_with`, and `retry_with`, so
   agents can recover from omitted `--kind`/`--type` values, missing MCP write
-  `type`/`scope`, omitted project context for project-scoped writes, empty
-  placeholders such as `--text ""`, malformed `--content-json`, malformed
+  `type`/`scope`, omitted project context for project-scoped writes, empty or
+  malformed write `content`, empty placeholders such as `--text ""`, malformed
+  `--content-json`, malformed
   `--set path=value` assignments, managed-field revise attempts, invalid revise
   patches, conflicting write content or sync operation inputs, invalid sync
   option dependencies such as `--message` without `--push`, invalid refresh
