@@ -724,9 +724,11 @@ validation errors also include `recovery_hint`:
 allowed values, non-empty constraints, integer or numeric bounds, JSON object,
 write `kind`/`type`/`scope`/`project_id`, write content, write metadata such as
 `tags`, `source.client`, `state`, `priority`, `confidence`, `confirmed`, and
-`provenance.*`, MCP argument requirements such as `type`/`scope`, dependency
-rules such as `--message` requiring `--push`, project-context requirements,
-path-assignment shape, revise patch rules, or ISO datetime cursor requirements,
+`provenance.*`, mutation arguments such as `record_id`, `linked_record_id`,
+`target_state`, `reason`, `confirmed`, `source.client`, and `link_type`, MCP
+argument requirements such as `type`/`scope`, dependency rules such as
+`--message` requiring `--push`, project-context requirements, path-assignment
+shape, revise patch rules, or ISO datetime cursor requirements,
 `missing_argument` or `missing_one_of` names omitted inputs, `rejected_patch`
 names invalid patch paths or patch payloads, `rejected_arguments` lists
 conflicting inputs, `discover_with` names safe lookup calls, and `retry_with`

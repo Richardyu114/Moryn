@@ -274,7 +274,8 @@ Deliverables:
   `project_id`, missing MCP write `type`/`scope`, omitted project context for
   project-scoped writes, empty or malformed write `content`, invalid write
   `tags`/`source.client`, `state`/`priority`/`confidence`/`confirmed`, invalid
-  `provenance.*`, empty
+  `provenance.*`, invalid mutation `record_id`/`target_state`/`reason`/
+  `source.client`/`confirmed`/`link_type`, empty
   placeholders such as `--text ""`, malformed `--content-json`, malformed
   `--set path=value` assignments, managed-field revise attempts, invalid revise
   patches, conflicting write content or sync operation inputs, invalid sync

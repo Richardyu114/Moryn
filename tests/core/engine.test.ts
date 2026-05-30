@@ -3431,6 +3431,25 @@ describe("core engine", () => {
         expect(await readEvents(storePath)).toHaveLength(originalEvents.length);
       }
 
+      async function expectInvalidMutationShapeArgument(
+        action: () => Promise<unknown>,
+        message: string,
+        recommendedAction: string,
+        recoveryHint: unknown
+      ): Promise<void> {
+        try {
+          await action();
+          throw new Error("Expected mutation to reject invalid shape input");
+        } catch (error) {
+          const envelope = toErrorEnvelope(error);
+          expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+          expect(envelope.error.message).toContain(message);
+          expect(envelope.error.recommended_action).toBe(recommendedAction);
+          expect(envelope.error.recovery_hint).toEqual(recoveryHint);
+        }
+        expect(await readEvents(storePath)).toHaveLength(originalEvents.length);
+      }
+
       await expectInvalidArgument(() => engine.write({
         kind: "memory",
         type: "decision",
@@ -3439,11 +3458,15 @@ describe("core engine", () => {
         source: { client: "test" }
       }), "project_id is required for project scope");
       await expectInvalidArgument(() => engine.revise(null as never), "Invalid revise input");
-      await expectInvalidArgument(() => engine.revise({
+      await expectInvalidMutationShapeArgument(() => engine.revise({
         record_id: "",
         patch: { "content.text": "No-op" },
         source: { client: "test" }
-      }), "Invalid record_id");
+      }), "Invalid record_id", "retry mutation with a valid record_id", {
+        rejected_argument: { argument: "record_id", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
+      });
       await expectInvalidArgument(() => engine.revise({
         record_id: existing.record.id,
         patch: [] as never,
@@ -3466,77 +3489,125 @@ describe("core engine", () => {
           source: { client: "test" }
         }), "Invalid patch");
       }
-      await expectInvalidArgument(() => engine.revise({
+      await expectInvalidMutationShapeArgument(() => engine.revise({
         record_id: existing.record.id,
         patch: { "content.text": "No-op" },
         source: { client: "" }
-      }), "Invalid source.client");
-      await expectInvalidArgument(() => engine.revise({
+      }), "Invalid source.client", "retry mutation with a valid source client", {
+        rejected_argument: { argument: "source.client", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "source.client", value_placeholder: "<client>" }
+      });
+      await expectInvalidMutationShapeArgument(() => engine.revise({
         record_id: existing.record.id,
         patch: { "content.text": "No-op" },
         reason: "",
         source: { client: "test" }
-      }), "Invalid reason");
+      }), "Invalid reason", "retry mutation with a non-empty reason", {
+        rejected_argument: { argument: "reason", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "reason", value_placeholder: "<reason>" }
+      });
 
       await expectInvalidArgument(() => engine.promote(null as never), "Invalid promote input");
-      await expectInvalidArgument(() => engine.promote({
+      await expectInvalidMutationShapeArgument(() => engine.promote({
         record_id: existing.record.id,
         target_state: "published" as never,
         source: { client: "test" }
-      }), "Invalid target_state");
-      await expectInvalidArgument(() => engine.promote({
+      }), "Invalid target_state", "retry mutation with a supported target_state", {
+        rejected_argument: { argument: "target_state", value: "published" },
+        expected: { kind: "allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
+        retry_with: { argument: "target_state", value_placeholder: "canonical" }
+      });
+      await expectInvalidMutationShapeArgument(() => engine.promote({
         record_id: existing.record.id,
         target_state: "canonical",
         confirmed: "yes" as never,
         source: { client: "test" }
-      }), "Invalid confirmed");
-      await expectInvalidArgument(() => engine.promote({
+      }), "Invalid confirmed", "retry mutation with a boolean confirmed value", {
+        rejected_argument: { argument: "confirmed", value: "yes" },
+        expected: { kind: "boolean" },
+        retry_with: { argument: "confirmed", value_placeholder: true }
+      });
+      await expectInvalidMutationShapeArgument(() => engine.promote({
         record_id: existing.record.id,
         target_state: "canonical",
         reason: "",
         source: { client: "test" }
-      }), "Invalid reason");
+      }), "Invalid reason", "retry mutation with a non-empty reason", {
+        rejected_argument: { argument: "reason", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "reason", value_placeholder: "<reason>" }
+      });
 
       await expectInvalidArgument(() => engine.archive(null as never), "Invalid archive input");
-      await expectInvalidArgument(() => engine.archive({
+      await expectInvalidMutationShapeArgument(() => engine.archive({
         record_id: "",
         source: { client: "test" }
-      }), "Invalid record_id");
-      await expectInvalidArgument(() => engine.archive({
+      }), "Invalid record_id", "retry mutation with a valid record_id", {
+        rejected_argument: { argument: "record_id", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
+      });
+      await expectInvalidMutationShapeArgument(() => engine.archive({
         record_id: existing.record.id,
         reason: "",
         source: { client: "test" }
-      }), "Invalid reason");
+      }), "Invalid reason", "retry mutation with a non-empty reason", {
+        rejected_argument: { argument: "reason", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "reason", value_placeholder: "<reason>" }
+      });
       await expectInvalidArgument(() => engine.quarantine(null as never), "Invalid quarantine input");
-      await expectInvalidArgument(() => engine.quarantine({
+      await expectInvalidMutationShapeArgument(() => engine.quarantine({
         record_id: existing.record.id,
         reason: 123 as never,
         source: { client: "test" }
-      }), "Invalid reason");
-      await expectInvalidArgument(() => engine.quarantine({
+      }), "Invalid reason", "retry mutation with a non-empty reason", {
+        rejected_argument: { argument: "reason", value: 123 },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "reason", value_placeholder: "<reason>" }
+      });
+      await expectInvalidMutationShapeArgument(() => engine.quarantine({
         record_id: existing.record.id,
         reason: "",
         source: { client: "test" }
-      }), "Invalid reason");
+      }), "Invalid reason", "retry mutation with a non-empty reason", {
+        rejected_argument: { argument: "reason", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "reason", value_placeholder: "<reason>" }
+      });
 
-      await expectInvalidArgument(() => engine.link({
+      await expectInvalidMutationShapeArgument(() => engine.link({
         record_id: existing.record.id,
         linked_record_id: "",
         link_type: "supersedes",
         source: { client: "test" }
-      }), "Invalid linked_record_id");
-      await expectInvalidArgument(() => engine.link({
+      }), "Invalid linked_record_id", "retry mutation with a valid linked_record_id", {
+        rejected_argument: { argument: "linked_record_id", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "linked_record_id", value_placeholder: "<linked_record_id>" }
+      });
+      await expectInvalidMutationShapeArgument(() => engine.link({
         record_id: existing.record.id,
         linked_record_id: linked.record.id,
         link_type: "",
         source: { client: "test" }
-      }), "Invalid link_type");
-      await expectInvalidArgument(() => engine.link({
+      }), "Invalid link_type", "retry link with a non-empty link_type", {
+        rejected_argument: { argument: "link_type", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "link_type", value_placeholder: "<link_type>" }
+      });
+      await expectInvalidMutationShapeArgument(() => engine.link({
         record_id: existing.record.id,
         linked_record_id: linked.record.id,
         link_type: "supersedes",
         source: { client: "" }
-      }), "Invalid source.client");
+      }), "Invalid source.client", "retry mutation with a valid source client", {
+        rejected_argument: { argument: "source.client", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "source.client", value_placeholder: "<client>" }
+      });
     });
   });
 });

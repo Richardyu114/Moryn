@@ -366,20 +366,111 @@ function assertPlainObject(value: unknown, name: string): asserts value is Recor
   }
 }
 
-function validateRecordId(recordId: unknown, name = "record_id"): void {
-  if (typeof recordId !== "string" || !recordId.length) throw new Error(`Invalid argument: Invalid ${name}`);
+type MutationArgumentRecoveryHint =
+  | {
+      rejected_argument: { argument: "record_id" | "linked_record_id" | "reason" | "source.client" | "link_type"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      retry_with: { argument: "record_id" | "linked_record_id" | "reason" | "source.client" | "link_type"; value_placeholder: string };
+    }
+  | {
+      rejected_argument: { argument: "confirmed"; value: unknown };
+      expected: { kind: "boolean" };
+      retry_with: { argument: "confirmed"; value_placeholder: true };
+    }
+  | {
+      rejected_argument: { argument: "target_state"; value: unknown };
+      expected: { kind: "allowed_values"; allowed_values: string[] };
+      retry_with: { argument: "target_state"; value_placeholder: "canonical" };
+    };
+
+class MutationArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: MutationArgumentRecoveryHint;
+
+  constructor(message: string, recommendedAction: string, recoveryHint: MutationArgumentRecoveryHint) {
+    super(message);
+    this.name = "MutationArgumentError";
+    this.recommended_action = recommendedAction;
+    this.recovery_hint = recoveryHint;
+  }
+}
+
+function invalidMutationStringError(argument: "record_id" | "linked_record_id" | "reason" | "link_type", value: unknown): MutationArgumentError {
+  const action = argument === "link_type"
+    ? "retry link with a non-empty link_type"
+    : argument === "reason"
+      ? "retry mutation with a non-empty reason"
+      : `retry mutation with a valid ${argument}`;
+  return new MutationArgumentError(
+    `Invalid argument: Invalid ${argument}`,
+    action,
+    {
+      rejected_argument: { argument, value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument, value_placeholder: `<${argument}>` }
+    }
+  );
+}
+
+function invalidMutationConfirmedError(confirmed: unknown): MutationArgumentError {
+  return new MutationArgumentError(
+    "Invalid argument: Invalid confirmed",
+    "retry mutation with a boolean confirmed value",
+    {
+      rejected_argument: { argument: "confirmed", value: confirmed },
+      expected: { kind: "boolean" },
+      retry_with: { argument: "confirmed", value_placeholder: true }
+    }
+  );
+}
+
+function invalidMutationTargetStateError(targetState: unknown): MutationArgumentError {
+  return new MutationArgumentError(
+    "Invalid argument: Invalid target_state",
+    "retry mutation with a supported target_state",
+    {
+      rejected_argument: { argument: "target_state", value: targetState },
+      expected: { kind: "allowed_values", allowed_values: [...RECORD_STATES] },
+      retry_with: { argument: "target_state", value_placeholder: "canonical" }
+    }
+  );
+}
+
+function invalidSourceClientError(source: unknown, recommendedAction: string): MutationArgumentError {
+  const client = typeof source === "object" && source !== null && "client" in source
+    ? (source as { client?: unknown }).client
+    : undefined;
+  return new MutationArgumentError(
+    "Invalid argument: Invalid source.client",
+    recommendedAction,
+    {
+      rejected_argument: { argument: "source.client", value: client },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: "source.client", value_placeholder: "<client>" }
+    }
+  );
+}
+
+function validateRecordId(recordId: unknown, name: "record_id" | "linked_record_id" = "record_id"): void {
+  if (typeof recordId !== "string" || !recordId.length) {
+    throw invalidMutationStringError(name, recordId);
+  }
 }
 
 function validateOptionalReason(reason: unknown): void {
-  if (reason !== undefined && (typeof reason !== "string" || !reason.length)) throw new Error("Invalid argument: Invalid reason");
+  if (reason !== undefined && (typeof reason !== "string" || !reason.length)) {
+    throw invalidMutationStringError("reason", reason);
+  }
 }
 
-function validateOptionalSource(source: unknown): void {
-  if (source !== undefined && !recordSourceSchema.safeParse(source).success) throw new Error("Invalid argument: Invalid source.client");
+function validateOptionalSource(source: unknown, recommendedAction = "retry with a valid source client"): void {
+  if (source !== undefined && !recordSourceSchema.safeParse(source).success) {
+    throw invalidSourceClientError(source, recommendedAction);
+  }
 }
 
 function validateOptionalConfirmed(confirmed: unknown): void {
-  if (confirmed !== undefined && typeof confirmed !== "boolean") throw new Error("Invalid argument: Invalid confirmed");
+  if (confirmed !== undefined && typeof confirmed !== "boolean") throw invalidMutationConfirmedError(confirmed);
 }
 
 function validateOptionalString(value: unknown, name: string): void {
@@ -839,16 +930,16 @@ function validateRevisionInput(input: RevisionInput): void {
     throw invalidRevisionPatchPathError(invalidPath, input.patch[invalidPath]);
   }
   validateOptionalReason(input.reason);
-  validateOptionalSource(input.source);
+  validateOptionalSource(input.source, "retry mutation with a valid source client");
   validateOptionalConfirmed(input.confirmed);
 }
 
 function validatePromoteInput(input: PromoteInput): void {
   assertPlainObject(input, "promote input");
   validateRecordId(input.record_id);
-  if (!recordStateSchema.safeParse(input.target_state).success) throw new Error("Invalid argument: Invalid target_state");
+  if (!recordStateSchema.safeParse(input.target_state).success) throw invalidMutationTargetStateError(input.target_state);
   validateOptionalReason(input.reason);
-  validateOptionalSource(input.source);
+  validateOptionalSource(input.source, "retry mutation with a valid source client");
   validateOptionalConfirmed(input.confirmed);
 }
 
@@ -856,15 +947,15 @@ function validateStateChangeInput(input: StateChangeInput, name: string): void {
   assertPlainObject(input, name);
   validateRecordId(input.record_id);
   validateOptionalReason(input.reason);
-  validateOptionalSource(input.source);
+  validateOptionalSource(input.source, "retry mutation with a valid source client");
 }
 
 function validateLinkInput(input: LinkInput): void {
   assertPlainObject(input, "link input");
   validateRecordId(input.record_id);
   validateRecordId(input.linked_record_id, "linked_record_id");
-  if (typeof input.link_type !== "string" || !input.link_type.length) throw new Error("Invalid argument: Invalid link_type");
-  validateOptionalSource(input.source);
+  if (typeof input.link_type !== "string" || !input.link_type.length) throw invalidMutationStringError("link_type", input.link_type);
+  validateOptionalSource(input.source, "retry mutation with a valid source client");
 }
 
 function validateRecallInput(input: RecallInput): void {
