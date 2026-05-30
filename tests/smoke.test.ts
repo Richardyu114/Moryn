@@ -164,7 +164,8 @@ describe("package smoke test", () => {
   it("exports self-describing operation contracts from the package entrypoint", () => {
     const response = getOperationContracts();
     const operationRequiredInputSources = {
-      required_input: OPERATION_CONTRACTS_SELECTION_SOURCES.required_input
+      required_input: OPERATION_CONTRACTS_SELECTION_SOURCES.required_input,
+      required_input_argument_path: OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_argument_path
     };
 
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.operation).toBe("operations_by_id.<operation>");
@@ -172,6 +173,7 @@ describe("package smoke test", () => {
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation).toBe("operations_by_cli_command.<command>");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.argument).toBe("operations_by_id.<operation>.arguments_by_name.<argument>");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.required_input).toBe("operations_by_id.<operation>.execution.required_inputs_by_field.<field>");
+    expect(OPERATION_CONTRACTS_SELECTION_SOURCES.required_input_argument_path).toBe("operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_argv).toBe("operations_by_id.<operation>.interfaces.cli.argv[]");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_executable).toBe("operations_by_id.<operation>.interfaces.cli.executable");
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_args).toBe("operations_by_id.<operation>.interfaces.cli.args[]");
@@ -222,6 +224,7 @@ describe("package smoke test", () => {
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
+      required_inputs_by_argument_path: {},
       requires_user_confirmation: false,
       reason: "Action is safe and all required fields are already filled."
     });
@@ -244,7 +247,8 @@ describe("package smoke test", () => {
         argument_paths: ["summary"],
         argument_source: "user_input.summary",
         selection_sources: {
-          required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>"
+          required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
+          required_input_argument_path: "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>"
         },
         placeholder: "<summary>",
         value: "<summary>",
@@ -268,7 +272,8 @@ describe("package smoke test", () => {
           argument_paths: ["summary"],
           argument_source: "user_input.summary",
           selection_sources: {
-            required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>"
+            required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
+            required_input_argument_path: "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>"
           },
           placeholder: "<summary>",
           value: "<summary>",
@@ -545,6 +550,19 @@ describe("package smoke test", () => {
           preferred: false
         }
       ]
+    });
+    expect(response.operations_by_id.write.execution.required_inputs_by_argument_path.text).toMatchObject({
+      field: "text_or_content",
+      argument_path: "text|content",
+      argument_paths: ["text", "content"]
+    });
+    expect(response.operations_by_id.write.execution.required_inputs_by_argument_path.content).toBe(
+      response.operations_by_id.write.execution.required_inputs_by_argument_path.text
+    );
+    expect(response.operations_by_id.write.execution.required_inputs_by_argument_path.kind).toMatchObject({
+      field: "kind",
+      argument_path: "kind",
+      argument_paths: ["kind"]
     });
     expect(response.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual([
       "raw", "candidate", "canonical", "archived", "quarantined"

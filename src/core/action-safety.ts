@@ -74,6 +74,7 @@ export interface ActionExecution {
   missing_required_fields: string[];
   required_inputs: ActionRequiredInput[];
   required_inputs_by_field: Record<string, ActionRequiredInput>;
+  required_inputs_by_argument_path: Record<string, ActionRequiredInput>;
   requires_user_confirmation: boolean;
   reason: string;
 }
@@ -193,6 +194,11 @@ export function actionExecution(input: {
   const requiredInputsByField = Object.fromEntries(
     requiredInputs.map((requiredInput) => [requiredInput.field, requiredInput])
   );
+  const requiredInputsByArgumentPath = Object.fromEntries(
+    requiredInputs.flatMap((requiredInput) =>
+      requiredInput.argument_paths.map((argumentPath) => [argumentPath, requiredInput])
+    )
+  );
   if (input.required_fields.length > 0) {
     return {
       ready_to_run: false,
@@ -204,6 +210,7 @@ export function actionExecution(input: {
       missing_required_fields: [...input.required_fields],
       required_inputs: requiredInputs,
       required_inputs_by_field: requiredInputsByField,
+      required_inputs_by_argument_path: requiredInputsByArgumentPath,
       requires_user_confirmation: safety.requires_user_confirmation,
       reason: "Action requires authored input before it can run."
     };
@@ -217,6 +224,7 @@ export function actionExecution(input: {
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
+      required_inputs_by_argument_path: {},
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
     };
@@ -230,6 +238,7 @@ export function actionExecution(input: {
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
+      required_inputs_by_argument_path: {},
       requires_user_confirmation: false,
       reason: "Action is not safe to auto-run."
     };
@@ -242,6 +251,7 @@ export function actionExecution(input: {
     missing_required_fields: [],
     required_inputs: [],
     required_inputs_by_field: {},
+    required_inputs_by_argument_path: {},
     requires_user_confirmation: false,
     reason: "Action is safe and all required fields are already filled."
   };

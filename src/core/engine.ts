@@ -129,6 +129,8 @@ export const PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES = {
   ordered_required_field: "project_list.projects[].next.required_fields_by_name.<field>",
   required_input: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_field.<field>",
   ordered_required_input: "project_list.projects[].next.execution.required_inputs_by_field.<field>",
+  required_input_argument_path: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_argument_path.<argument_path>",
+  ordered_required_input_argument_path: "project_list.projects[].next.execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "project_list.projects_by_id.<project_id>.next.argument_sources.<field>",
   ordered_argument_source: "project_list.projects[].next.argument_sources.<field>"
 };
@@ -186,6 +188,8 @@ export const REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES = {
   ordered_required_field: "refresh.changes[].next_action.required_fields_by_name.<field>",
   required_input: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
   ordered_required_input: "refresh.changes[].next_action.execution.required_inputs_by_field.<field>",
+  required_input_argument_path: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  ordered_required_input_argument_path: "refresh.changes[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>",
   ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
 };
@@ -220,7 +224,7 @@ function actionArgumentSources(action: object): Record<string, string> | undefin
 }
 
 function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
-  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.endsWith("required_input")));
+  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.includes("required_input")));
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 

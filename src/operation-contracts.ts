@@ -106,6 +106,7 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
   allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
   required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
+  required_input_argument_path: "operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>",
   argument: "operations_by_id.<operation>.arguments_by_name.<argument>",
   argument_allowed_value: "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
@@ -139,7 +140,7 @@ function operationArgumentsByName(input: OperationContractInput): Record<string,
 }
 
 function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
-  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.endsWith("required_input")));
+  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.includes("required_input")));
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 

@@ -67,6 +67,8 @@ export type LifecycleActionSelectionSources = {
   ordered_required_field: "next.actions[].required_fields_by_name.<field>";
   required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>";
   ordered_required_input: "next.actions[].execution.required_inputs_by_field.<field>";
+  required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>";
+  ordered_required_input_argument_path: "next.actions[].execution.required_inputs_by_argument_path.<argument_path>";
   argument_source: "next.actions_by_id.<action>.argument_sources.<field>";
   ordered_argument_source: "next.actions[].argument_sources.<field>";
 };
@@ -92,6 +94,8 @@ export type LifecycleStepSelectionSources = {
   ordered_required_field: string;
   required_input: string;
   ordered_required_input: string;
+  required_input_argument_path: string;
+  ordered_required_input_argument_path: string;
   argument_source: string;
   ordered_argument_source: string;
 };
@@ -116,6 +120,8 @@ export type GuideEntrypointSelectionSources = {
   next_required_field: "next.required_fields_by_name.<field>";
   startup_required_input: "startup.execution.required_inputs_by_field.<field>";
   next_required_input: "next.execution.required_inputs_by_field.<field>";
+  startup_required_input_argument_path: "startup.execution.required_inputs_by_argument_path.<argument_path>";
+  next_required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>";
   startup_argument_source: "startup.argument_sources.<field>";
   next_argument_source: "next.argument_sources.<field>";
   workflow_phase: "workflow.phases_by_name.start_or_resume";
@@ -165,6 +171,8 @@ export type HandoffEntrySelectionSources = {
   ordered_required_field: "handoff.inbox[].next_action.required_fields_by_name.<field>" | "handoff.active_sessions[].next_action.required_fields_by_name.<field>";
   required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>";
   ordered_required_input: "handoff.inbox[].next_action.execution.required_inputs_by_field.<field>" | "handoff.active_sessions[].next_action.execution.required_inputs_by_field.<field>";
+  required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>";
+  ordered_required_input_argument_path: "handoff.inbox[].next_action.execution.required_inputs_by_argument_path.<argument_path>" | "handoff.active_sessions[].next_action.execution.required_inputs_by_argument_path.<argument_path>";
   argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>" | "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>";
   ordered_argument_source: "handoff.inbox[].next_action.argument_sources.<field>" | "handoff.active_sessions[].next_action.argument_sources.<field>";
 };
@@ -249,6 +257,7 @@ export const DISCOVER_PROJECT_SELECTION_SOURCES = {
   start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
   start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
   start_action_required_input: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_field.<field>",
+  start_action_required_input_argument_path: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_argument_path.<argument_path>",
   start_action_argument_source: "next.actions_by_project_id.<project_id>.argument_sources.<field>",
   lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
 };
@@ -265,6 +274,7 @@ export const HANDOFF_SELECTION_SOURCES = {
   inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
   inbox_next_action_required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
   inbox_next_action_required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
+  inbox_next_action_required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
   inbox_next_action_argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
   active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
   active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
@@ -278,6 +288,7 @@ export const HANDOFF_SELECTION_SOURCES = {
   active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
   active_session_next_action_required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
   active_session_next_action_required_input: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
+  active_session_next_action_required_input_argument_path: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
   active_session_next_action_argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>"
 };
 export const LIFECYCLE_NEXT_SELECTION_SOURCES = {
@@ -292,6 +303,7 @@ export const LIFECYCLE_NEXT_SELECTION_SOURCES = {
   action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
   action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
   action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
+  action_required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
   action_argument_source: "next.actions_by_id.<action>.argument_sources.<field>"
 };
 export const LIFECYCLE_ACTION_SELECTION_SOURCES: LifecycleActionSelectionSources = {
@@ -316,6 +328,8 @@ export const LIFECYCLE_ACTION_SELECTION_SOURCES: LifecycleActionSelectionSources
   ordered_required_field: "next.actions[].required_fields_by_name.<field>",
   required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
   ordered_required_input: "next.actions[].execution.required_inputs_by_field.<field>",
+  required_input_argument_path: "next.actions_by_id.<action>.execution.required_inputs_by_argument_path.<argument_path>",
+  ordered_required_input_argument_path: "next.actions[].execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "next.actions_by_id.<action>.argument_sources.<field>",
   ordered_argument_source: "next.actions[].argument_sources.<field>"
 };
@@ -332,6 +346,7 @@ export const DOCTOR_SELECTION_SOURCES = {
   next_argument: "next.arguments_by_name.<argument>",
   next_required_field: "next.required_fields_by_name.<field>",
   next_required_input: "next.execution.required_inputs_by_field.<field>",
+  next_required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>",
   next_argument_source: "next.argument_sources.<field>"
 };
 export const GUIDE_SELECTION_SOURCES = {
@@ -362,6 +377,8 @@ export const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   ordered_required_field: "lifecycle[].required_fields_by_name.<field>",
   required_input: "lifecycle_by_step.<step>.execution.required_inputs_by_field.<field>",
   ordered_required_input: "lifecycle[].execution.required_inputs_by_field.<field>",
+  required_input_argument_path: "lifecycle_by_step.<step>.execution.required_inputs_by_argument_path.<argument_path>",
+  ordered_required_input_argument_path: "lifecycle[].execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "lifecycle_by_step.<step>.argument_sources.<field>",
   ordered_argument_source: "lifecycle[].argument_sources.<field>"
 } satisfies LifecycleStepSelectionSources;
@@ -386,6 +403,8 @@ export const GUIDE_ENTRYPOINT_SELECTION_SOURCES: GuideEntrypointSelectionSources
   next_required_field: "next.required_fields_by_name.<field>",
   startup_required_input: "startup.execution.required_inputs_by_field.<field>",
   next_required_input: "next.execution.required_inputs_by_field.<field>",
+  startup_required_input_argument_path: "startup.execution.required_inputs_by_argument_path.<argument_path>",
+  next_required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>",
   startup_argument_source: "startup.argument_sources.<field>",
   next_argument_source: "next.argument_sources.<field>",
   workflow_phase: "workflow.phases_by_name.start_or_resume"
@@ -412,6 +431,8 @@ export const DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES = {
   ordered_required_field: "next.actions_by_project_id.<project_id>.lifecycle[].required_fields_by_name.<field>",
   required_input: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.execution.required_inputs_by_field.<field>",
   ordered_required_input: "next.actions_by_project_id.<project_id>.lifecycle[].execution.required_inputs_by_field.<field>",
+  required_input_argument_path: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.execution.required_inputs_by_argument_path.<argument_path>",
+  ordered_required_input_argument_path: "next.actions_by_project_id.<project_id>.lifecycle[].execution.required_inputs_by_argument_path.<argument_path>",
   argument_source: "next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.argument_sources.<field>",
   ordered_argument_source: "next.actions_by_project_id.<project_id>.lifecycle[].argument_sources.<field>"
 } satisfies LifecycleStepSelectionSources;
@@ -469,7 +490,7 @@ function projectEnvelope(project: ProjectContext): {
 }
 
 function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
-  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.endsWith("required_input")));
+  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.includes("required_input")));
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
@@ -1665,6 +1686,8 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
         ordered_required_field: "handoff.inbox[].next_action.required_fields_by_name.<field>",
         required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
         ordered_required_input: "handoff.inbox[].next_action.execution.required_inputs_by_field.<field>",
+        required_input_argument_path: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+        ordered_required_input_argument_path: "handoff.inbox[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
         argument_source: "handoff.inbox_by_record_id.<record_id>.next_action.argument_sources.<field>",
         ordered_argument_source: "handoff.inbox[].next_action.argument_sources.<field>"
       }
@@ -1691,6 +1714,8 @@ function handoffEntryNextAction(record: MorynRecord, projectId: string, source: 
         ordered_required_field: "handoff.active_sessions[].next_action.required_fields_by_name.<field>",
         required_input: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
         ordered_required_input: "handoff.active_sessions[].next_action.execution.required_inputs_by_field.<field>",
+        required_input_argument_path: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+        ordered_required_input_argument_path: "handoff.active_sessions[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
         argument_source: "handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>",
         ordered_argument_source: "handoff.active_sessions[].next_action.argument_sources.<field>"
       };

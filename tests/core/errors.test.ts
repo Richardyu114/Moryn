@@ -20,6 +20,8 @@ const NEXT_ACTION_SELECTION_SOURCES = {
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
   warning_required_input: "warning.next_action.execution.required_inputs_by_field.<field>",
+  error_required_input_argument_path: "error.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  warning_required_input_argument_path: "warning.next_action.execution.required_inputs_by_argument_path.<argument_path>",
   error_argument: "error.next_action.arguments_by_name.<argument>",
   warning_argument: "warning.next_action.arguments_by_name.<argument>",
   error_argument_source: "error.next_action.argument_sources.<field>",
@@ -170,7 +172,7 @@ function expectNextActionExecution(action: {
     action.execution?.required_inputs?.map((input) => input.cli_targets)
   );
   const expectedRequiredInputSelectionSources = Object.fromEntries(
-    Object.entries(action.selection_sources ?? {}).filter(([key]) => key.endsWith("required_input"))
+    Object.entries(action.selection_sources ?? {}).filter(([key]) => key.includes("required_input"))
   );
   if (action.required_fields.length > 0 && Object.keys(expectedRequiredInputSelectionSources).length > 0) {
     expect(action.execution?.required_inputs?.map((input) => input.selection_sources)).toEqual(

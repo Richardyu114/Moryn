@@ -33,6 +33,8 @@ export interface NextActionSelectionSources {
   warning_required_field: "warning.next_action.required_fields_by_name.<field>";
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>";
   warning_required_input: "warning.next_action.execution.required_inputs_by_field.<field>";
+  error_required_input_argument_path: "error.next_action.execution.required_inputs_by_argument_path.<argument_path>";
+  warning_required_input_argument_path: "warning.next_action.execution.required_inputs_by_argument_path.<argument_path>";
   error_argument: "error.next_action.arguments_by_name.<argument>";
   warning_argument: "warning.next_action.arguments_by_name.<argument>";
   error_argument_source: "error.next_action.argument_sources.<field>";
@@ -129,6 +131,8 @@ export const NEXT_ACTION_SELECTION_SOURCES: NextActionSelectionSources = {
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
   warning_required_input: "warning.next_action.execution.required_inputs_by_field.<field>",
+  error_required_input_argument_path: "error.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  warning_required_input_argument_path: "warning.next_action.execution.required_inputs_by_argument_path.<argument_path>",
   error_argument: "error.next_action.arguments_by_name.<argument>",
   warning_argument: "warning.next_action.arguments_by_name.<argument>",
   error_argument_source: "error.next_action.argument_sources.<field>",
@@ -174,7 +178,7 @@ function actionArgumentSources(action: object): Record<string, string> | undefin
 }
 
 function requiredInputSelectionSources(selectionSources: Record<string, string>): Record<string, string> | undefined {
-  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.endsWith("required_input")));
+  const sources = Object.fromEntries(Object.entries(selectionSources).filter(([key]) => key.includes("required_input")));
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 

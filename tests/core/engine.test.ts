@@ -190,7 +190,7 @@ function expectActionExecution(action: {
     action.execution?.required_inputs?.map((input) => input.cli_targets)
   );
   const expectedRequiredInputSelectionSources = Object.fromEntries(
-    Object.entries(action.selection_sources ?? {}).filter(([key]) => key.endsWith("required_input"))
+    Object.entries(action.selection_sources ?? {}).filter(([key]) => key.includes("required_input"))
   );
   if (action.required_fields.length > 0 && Object.keys(expectedRequiredInputSelectionSources).length > 0) {
     expect(action.execution?.required_inputs?.map((input) => input.selection_sources)).toEqual(
@@ -303,6 +303,8 @@ function expectRefreshChangeRecallAction(action: {
       ordered_required_field: "refresh.changes[].next_action.required_fields_by_name.<field>",
       required_input: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
       ordered_required_input: "refresh.changes[].next_action.execution.required_inputs_by_field.<field>",
+      required_input_argument_path: "refresh.changes_by_record_id.<record_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+      ordered_required_input_argument_path: "refresh.changes[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
       argument_source: "refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>",
       ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
     }
@@ -482,6 +484,8 @@ describe("core engine", () => {
             ordered_required_field: "project_list.projects[].next.required_fields_by_name.<field>",
             required_input: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_field.<field>",
             ordered_required_input: "project_list.projects[].next.execution.required_inputs_by_field.<field>",
+            required_input_argument_path: "project_list.projects_by_id.<project_id>.next.execution.required_inputs_by_argument_path.<argument_path>",
+            ordered_required_input_argument_path: "project_list.projects[].next.execution.required_inputs_by_argument_path.<argument_path>",
             argument_source: "project_list.projects_by_id.<project_id>.next.argument_sources.<field>",
             ordered_argument_source: "project_list.projects[].next.argument_sources.<field>"
           }

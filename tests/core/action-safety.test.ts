@@ -14,6 +14,7 @@ describe("action execution readiness", () => {
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
+      required_inputs_by_argument_path: {},
       requires_user_confirmation: false,
       reason: "Action is safe and all required fields are already filled."
     });
@@ -36,7 +37,8 @@ describe("action execution readiness", () => {
         summary: "user_input.summary"
       },
       required_input_selection_sources: {
-        required_input: "next.execution.required_inputs_by_field.<field>"
+        required_input: "next.execution.required_inputs_by_field.<field>",
+        required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>"
       }
     })).toEqual({
       ready_to_run: false,
@@ -49,7 +51,8 @@ describe("action execution readiness", () => {
         argument_paths: ["summary"],
         argument_source: "user_input.summary",
         selection_sources: {
-          required_input: "next.execution.required_inputs_by_field.<field>"
+          required_input: "next.execution.required_inputs_by_field.<field>",
+          required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>"
         },
         placeholder: "<summary>",
         value: "<summary>"
@@ -61,7 +64,22 @@ describe("action execution readiness", () => {
           argument_paths: ["summary"],
           argument_source: "user_input.summary",
           selection_sources: {
-            required_input: "next.execution.required_inputs_by_field.<field>"
+            required_input: "next.execution.required_inputs_by_field.<field>",
+            required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>"
+          },
+          placeholder: "<summary>",
+          value: "<summary>"
+        }
+      },
+      required_inputs_by_argument_path: {
+        summary: {
+          field: "summary",
+          argument_path: "summary",
+          argument_paths: ["summary"],
+          argument_source: "user_input.summary",
+          selection_sources: {
+            required_input: "next.execution.required_inputs_by_field.<field>",
+            required_input_argument_path: "next.execution.required_inputs_by_argument_path.<argument_path>"
           },
           placeholder: "<summary>",
           value: "<summary>"
@@ -217,6 +235,9 @@ describe("action execution readiness", () => {
         }
       ]
     });
+    expect(execution.required_inputs_by_argument_path.text).toBe(execution.required_inputs_by_field.text_or_content);
+    expect(execution.required_inputs_by_argument_path.content).toBe(execution.required_inputs_by_field.text_or_content);
+    expect(execution.required_inputs_by_argument_path.kind).toBe(execution.required_inputs_by_field.kind);
   });
 
   it("maps nested MCP and repeatable CLI argument paths for required inputs", () => {
@@ -270,6 +291,7 @@ describe("action execution readiness", () => {
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
+      required_inputs_by_argument_path: {},
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
     });
@@ -287,6 +309,7 @@ describe("action execution readiness", () => {
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
+      required_inputs_by_argument_path: {},
       requires_user_confirmation: true,
       reason: "Action requires explicit user confirmation before it can run."
     });

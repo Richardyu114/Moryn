@@ -405,19 +405,24 @@ read-only actions from agent-authored writes, local setup changes, and actions
 that need explicit user approval. They also include `execution`, a concise
 next-step summary with `ready_to_run`, `next_step`,
 `blocked_by`, `missing_required_fields`, `required_inputs`,
-`required_inputs_by_field`, and `requires_user_confirmation`, so hosts can
-choose between running the action, collecting fields, asking for confirmation,
-or blocking automation without recomputing that policy. `blocked_by` is a
+`required_inputs_by_field`, `required_inputs_by_argument_path`, and
+`requires_user_confirmation`, so hosts can choose between running the action,
+collecting fields, asking for confirmation, or blocking automation without
+recomputing that policy. `blocked_by` is a
 machine-readable reason list: `required_fields`, `user_confirmation`, or
 `unsafe_action`. Agents should treat `execution.ready_to_run`, not
 `safe_to_run` alone, as the immediate run gate. Each `required_inputs[]` entry names the field,
 original `argument_path`, split `argument_paths`, optional argument source,
-optional `selection_sources.required_input`, placeholder/value, `mcp_targets`,
-`cli_targets`, alternatives, and allowed values when present;
+optional `selection_sources.required_input` and
+`selection_sources.required_input_argument_path`, placeholder/value,
+`mcp_targets`, `cli_targets`, alternatives, and allowed values when present;
 `required_inputs_by_field` mirrors those entries by field name for hosts that
-already know which input they need. `mcp_targets` tells MCP hosts which
-argument, nested path, type, and preferred alternative to fill; `cli_targets`
-does the same for flags, positionals, repeatable arguments, and defaults.
+already know which input they need. `required_inputs_by_argument_path` mirrors
+the same entries by each split argument path, so a host holding the CLI/MCP
+argument name, such as `text`, can directly find the broader required field,
+such as `text_or_content`. `mcp_targets` tells MCP hosts which argument, nested
+path, type, and preferred alternative to fill; `cli_targets` does the same for
+flags, positionals, repeatable arguments, and defaults.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
@@ -428,8 +433,9 @@ Each lifecycle action also carries a resolved `action_source` such as
 `next.actions_by_id.finish_session`, plus action-local `selection_sources`
 naming its generic keyed `next.actions_by_id.<action>` source, action-id field,
 `arguments_by_name.<argument>`, `required_fields_by_name.<field>`,
-`execution.required_inputs_by_field.<field>`, and `argument_sources.<field>`
-directories, plus ordered `next.actions[]`
+`execution.required_inputs_by_field.<field>`,
+`execution.required_inputs_by_argument_path.<argument_path>`, and
+`argument_sources.<field>` directories, plus ordered `next.actions[]`
 fallbacks, so an agent can still recover the stable path if a host passes
 around only the selected action object.
 Direct `project_list` responses use the same pattern with top-level
@@ -580,15 +586,20 @@ placeholder names,
 `operations_by_id.<operation>.interfaces.cli.command_line` for a prequoted shell
 command, plus
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` for
-direct required-input lookups. Each operation also repeats that
+field-keyed required-input lookups and
+`operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>`
+for direct argument-path lookups. Each operation also repeats that
 `selection_sources` map locally, so a host can pass around one operation object
 without losing the registry paths.
 `execution.required_inputs[]` mirrors required inputs in call-ready form, and
 `execution.required_inputs_by_field` indexes the same entries by field name.
+`execution.required_inputs_by_argument_path` indexes them by every split
+argument path, including alternatives such as `text` and `content`.
 `execution.blocked_by` names why the operation is not immediately runnable, so
 hosts can avoid running placeholder commands when `safe_to_run` is true but
 required user input is still missing.
-Each entry includes `selection_sources.required_input`, `mcp_targets`, and
+Each entry includes `selection_sources.required_input`,
+`selection_sources.required_input_argument_path`, `mcp_targets`, and
 `cli_targets`, so hosts do not need to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.
@@ -836,9 +847,10 @@ two-step so hosts run `list_recent`, choose a returned id, and retry the
 original tool with that id.
 `next_action.selection_sources` names both `error.next_action` and
 `warning.next_action` container paths plus keyed `required_fields_by_name`,
-`execution.required_inputs_by_field`, `arguments_by_name`, `argument_sources`,
-and `workflow.phases_by_name` paths, so recovery hosts do not infer where a
-returned action lives.
+`execution.required_inputs_by_field`,
+`execution.required_inputs_by_argument_path`, `arguments_by_name`,
+`argument_sources`, and `workflow.phases_by_name` paths, so recovery hosts do
+not infer where a returned action lives.
 `error.next_action.action_source` and `warning.next_action.action_source` are
 `"next_action"` for hosts that pass the nested action around without its
 envelope.
@@ -1005,8 +1017,9 @@ paths so agents that only receive the action can follow
 `refresh.changes_by_record_id.<record_id>.next_action` and fill `record_ids`
 from `next_action.argument_sources.record_ids`; if a refresh action later needs
 authored input, hosts can inspect
-`next_action.execution.required_inputs_by_field.<field>` without scanning an
-array or synthesizing arguments from prose.
+`next_action.execution.required_inputs_by_field.<field>` or
+`next_action.execution.required_inputs_by_argument_path.<argument_path>` without
+scanning an array or synthesizing arguments from prose.
 
 During meaningful long-running work:
 
