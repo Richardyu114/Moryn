@@ -349,7 +349,13 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
       }
     },
     safety: actionSafety(action),
-    execution: actionExecution(action)
+    execution: actionExecution({
+      ...action,
+      required_fields_by_name: actionWithRequiredFields.required_fields_by_name,
+      argument_sources: "argument_sources" in action && action.argument_sources && typeof action.argument_sources === "object"
+        ? action.argument_sources as Record<string, string>
+        : undefined
+    })
   };
 }
 

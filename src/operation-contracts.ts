@@ -106,9 +106,10 @@ function operationArgumentsByName(input: OperationContractInput): Record<string,
 }
 
 function operationContract(input: OperationContractInput): OperationContract {
+  const required_fields_by_name = operationRequiredFieldsByName(input);
   return {
     ...input,
-    required_fields_by_name: operationRequiredFieldsByName(input),
+    required_fields_by_name,
     arguments_by_name: operationArgumentsByName(input),
     ...(input.argument_sources ? { argument_sources: input.argument_sources } : {}),
     safety: actionSafety({
@@ -119,7 +120,9 @@ function operationContract(input: OperationContractInput): OperationContract {
     execution: actionExecution({
       tool: input.interfaces.mcp.tool,
       safe_to_run: input.safe_to_run,
-      required_fields: input.required_fields
+      required_fields: input.required_fields,
+      required_fields_by_name,
+      argument_sources: input.argument_sources
     })
   };
 }

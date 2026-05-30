@@ -8,7 +8,7 @@ import { commandForPromoteContext, PROMOTE_CANDIDATE_WHEN, withNextActionMetadat
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
-import { withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
+import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool } from "../operation-contracts.js";
 
 interface EngineDeps {
@@ -161,15 +161,22 @@ export const REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES = {
   ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
 };
 
-function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {
+function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown; required_fields: string[] }>(
+  action: T
+): T & {
+  required_fields_by_name: Record<string, RequiredFieldMetadata>;
+  arguments_by_name: ReturnType<typeof operationArgumentsByTool>;
+  interfaces: {
+    cli: { command: string };
+    mcp: { tool: string; arguments: T["arguments"] };
+  };
+} {
+  const actionWithRequiredFields = withRequiredFieldsByName({
+    ...action,
+    arguments: action.arguments as Record<string, unknown>
+  });
   return {
-    ...("required_fields" in action && Array.isArray(action.required_fields)
-      ? withRequiredFieldsByName({
-          ...action,
-          required_fields: action.required_fields,
-          arguments: action.arguments as Record<string, unknown>
-        })
-      : action),
+    ...actionWithRequiredFields,
     arguments: action.arguments,
     arguments_by_name: operationArgumentsByTool(action.tool),
     interfaces: {
@@ -184,6 +191,12 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
   };
 }
 
+function actionArgumentSources(action: object): Record<string, string> | undefined {
+  return "argument_sources" in action && action.argument_sources && typeof action.argument_sources === "object"
+    ? action.argument_sources as Record<string, string>
+    : undefined;
+}
+
 function withProjectListNextMetadata<T extends {
   recommended_action: string;
   tool: string;
@@ -195,11 +208,16 @@ function withProjectListNextMetadata<T extends {
 }>(
   action: T
 ) {
+  const actionWithInterfaces = withActionInterfaces(action);
   return {
-    ...withActionInterfaces(action),
+    ...actionWithInterfaces,
     selection_sources: PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES,
     safety: actionSafety(action),
-    execution: actionExecution(action),
+    execution: actionExecution({
+      ...action,
+      required_fields_by_name: actionWithInterfaces.required_fields_by_name,
+      argument_sources: actionArgumentSources(action)
+    }),
     workflow: withPhasesByName({
       version: 1,
       start: "next",
@@ -229,11 +247,16 @@ function withRefreshChangeNextActionMetadata<T extends {
 }>(
   action: T
 ) {
+  const actionWithInterfaces = withActionInterfaces(action);
   return {
-    ...withActionInterfaces(action),
+    ...actionWithInterfaces,
     selection_sources: REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES,
     safety: actionSafety(action),
-    execution: actionExecution(action),
+    execution: actionExecution({
+      ...action,
+      required_fields_by_name: actionWithInterfaces.required_fields_by_name,
+      argument_sources: actionArgumentSources(action)
+    }),
     workflow: withPhasesByName({
       version: 1,
       start: "next_action",

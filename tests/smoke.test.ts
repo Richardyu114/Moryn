@@ -139,6 +139,7 @@ describe("package smoke test", () => {
       ready_to_run: true,
       next_step: "run",
       missing_required_fields: [],
+      required_inputs: [],
       requires_user_confirmation: false,
       reason: "Action is safe and all required fields are already filled."
     });
@@ -146,18 +147,49 @@ describe("package smoke test", () => {
       ready_to_run: false,
       next_step: "collect_required_fields",
       missing_required_fields: ["summary"],
+      required_inputs: [{
+        field: "summary",
+        argument_path: "summary",
+        argument_source: "user_input.summary",
+        placeholder: "<summary>",
+        value: "<summary>"
+      }],
       requires_user_confirmation: false
     });
     expect(response.operations_by_id.promote.execution).toMatchObject({
       ready_to_run: false,
       next_step: "collect_required_fields",
       missing_required_fields: ["record_id", "target_state"],
+      required_inputs: [
+        {
+          field: "record_id",
+          argument_path: "record_id",
+          argument_source: "user_input.record_id",
+          placeholder: "<record_id>",
+          value: "<record_id>"
+        },
+        {
+          field: "target_state",
+          argument_path: "target_state",
+          argument_source: "user_input.target_state",
+          placeholder: "<state>",
+          value: "<state>",
+          allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+        }
+      ],
       requires_user_confirmation: false
     });
     expect(response.operations_by_id.project_init.execution).toMatchObject({
       ready_to_run: false,
       next_step: "collect_required_fields",
       missing_required_fields: ["path"],
+      required_inputs: [{
+        field: "path",
+        argument_path: "path",
+        argument_source: "user_input.path",
+        placeholder: "<path>",
+        value: "<path>"
+      }],
       requires_user_confirmation: true
     });
     expect(response.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");

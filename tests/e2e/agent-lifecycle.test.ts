@@ -333,10 +333,12 @@ function expectLifecycleActionSelectionSources(action: {
   selection_sources?: Record<string, string>;
   safe_to_run?: boolean;
   required_fields?: string[];
+  required_fields_by_name?: Record<string, { argument_path?: string }>;
   execution?: {
     ready_to_run?: boolean;
     next_step?: string;
     missing_required_fields?: string[];
+    required_inputs?: Array<{ field?: string; argument_path?: string }>;
     requires_user_confirmation?: boolean;
     reason?: string;
   };
@@ -349,6 +351,7 @@ function expectLifecycleActionSelectionSources(action: {
     expectActionExecution({
       safe_to_run: action.safe_to_run,
       required_fields: action.required_fields,
+      required_fields_by_name: action.required_fields_by_name ?? {},
       execution: action.execution,
       safety: action.safety
     });
@@ -358,10 +361,12 @@ function expectLifecycleActionSelectionSources(action: {
 function expectActionExecution(action: {
   safe_to_run: boolean;
   required_fields: string[];
+  required_fields_by_name: Record<string, { argument_path?: string }>;
   execution?: {
     ready_to_run?: boolean;
     next_step?: string;
     missing_required_fields?: string[];
+    required_inputs?: Array<{ field?: string; argument_path?: string }>;
     requires_user_confirmation?: boolean;
     reason?: string;
   };
@@ -370,6 +375,10 @@ function expectActionExecution(action: {
   };
 }) {
   expect(action.execution?.missing_required_fields).toEqual(action.required_fields);
+  expect(action.execution?.required_inputs?.map((input) => input.field)).toEqual(action.required_fields);
+  expect(action.execution?.required_inputs?.map((input) => input.argument_path)).toEqual(
+    action.required_fields.map((field) => action.required_fields_by_name[field]?.argument_path ?? field)
+  );
   expect(action.execution?.requires_user_confirmation).toBe(Boolean(action.safety?.requires_user_confirmation));
   if (action.required_fields.length > 0) {
     expect(action.execution).toMatchObject({
@@ -394,10 +403,12 @@ function expectDiscoveredLifecycleStepSelectionSources(action: {
   selection_sources?: Record<string, string>;
   safe_to_run?: boolean;
   required_fields?: string[];
+  required_fields_by_name?: Record<string, { argument_path?: string }>;
   execution?: {
     ready_to_run?: boolean;
     next_step?: string;
     missing_required_fields?: string[];
+    required_inputs?: Array<{ field?: string; argument_path?: string }>;
     requires_user_confirmation?: boolean;
     reason?: string;
   };
@@ -410,6 +421,7 @@ function expectDiscoveredLifecycleStepSelectionSources(action: {
     expectActionExecution({
       safe_to_run: action.safe_to_run,
       required_fields: action.required_fields,
+      required_fields_by_name: action.required_fields_by_name ?? {},
       execution: action.execution,
       safety: action.safety
     });

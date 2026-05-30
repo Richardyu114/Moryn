@@ -404,9 +404,12 @@ inferring intent from array order or action names. Action templates include a
 read-only actions from agent-authored writes, local setup changes, and actions
 that need explicit user approval. They also include `execution`, a concise
 next-step summary with `ready_to_run`, `next_step`,
-`missing_required_fields`, and `requires_user_confirmation`, so hosts can
-choose between running the action, collecting fields, asking for confirmation,
-or blocking automation without recomputing that policy.
+`missing_required_fields`, `required_inputs`, and
+`requires_user_confirmation`, so hosts can choose between running the action,
+collecting fields, asking for confirmation, or blocking automation without
+recomputing that policy. Each `required_inputs[]` entry names the field,
+argument path, optional argument source, placeholder/value, alternatives, and
+allowed values when present.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
@@ -544,6 +547,8 @@ registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP
 interfaces, `safe_to_run`, `safety`, `execution`, `required_when`,
 `required_fields`, `required_fields_by_name`, `arguments_by_name`, and
 `argument_sources`.
+`execution.required_inputs[]` mirrors required inputs in call-ready form so
+hosts do not need to join `required_fields_by_name` with `argument_sources`.
 `arguments_by_name` is the full parameter directory: each entry names the CLI
 flag or positional argument, MCP argument, type, required flag, default,
 repeatability, alternatives, and enum `allowed_values` when applicable. This

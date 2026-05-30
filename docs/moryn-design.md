@@ -451,11 +451,13 @@ operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
 `execution`, `required_fields`, `required_fields_by_name`,
 `arguments_by_name`, and `argument_sources`. `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
-and `requires_user_confirmation`, so hosts can decide whether to run, collect
-fields, ask for confirmation, or block automation without recomputing safety
-policy. `arguments_by_name` is the full parameter directory, including CLI
-flags or positionals, MCP arguments, types, defaults, repeatability,
-alternatives, and enum `allowed_values`:
+`required_inputs`, and `requires_user_confirmation`, so hosts can decide
+whether to run, collect fields, ask for confirmation, or block automation
+without recomputing safety policy. `required_inputs[]` joins each missing field
+to its argument path, argument source, placeholder/value, alternatives, and enum
+`allowed_values` when present. `arguments_by_name` is the full parameter
+directory, including CLI flags or positionals, MCP arguments, types, defaults,
+repeatability, alternatives, and enum `allowed_values`:
 
 ```json
 {
@@ -1217,7 +1219,10 @@ and stable `reasons`. This lets hosts block local setup writes, high-risk
 promotions, or authored lifecycle updates with the right approval path instead
 of guessing from prose. The adjacent `execution` object collapses those fields
 and `required_fields` into a single `next_step`: `run`,
-`collect_required_fields`, `confirm_with_user`, or `do_not_auto_run`.
+`collect_required_fields`, `confirm_with_user`, or `do_not_auto_run`. When the
+next step is `collect_required_fields`, `execution.required_inputs[]` gives the
+exact field, argument path, source path, placeholder, alternatives, and allowed
+values to use for collecting input and filling the action.
 
 CLI:
 

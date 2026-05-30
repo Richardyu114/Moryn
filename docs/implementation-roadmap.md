@@ -234,9 +234,13 @@ Deliverables:
   placeholders, optional arguments, defaults, enum values, or argument shapes.
 - Done: Operation contracts and runtime action templates now expose
   `execution` readiness summaries with `ready_to_run`, `next_step`,
-  missing required fields, and confirmation requirements, so agents can choose
-  between running, collecting input, asking for approval, or blocking
-  automation without recomputing policy from several fields.
+  missing required fields, `required_inputs`, and confirmation requirements, so
+  agents can choose between running, collecting input, asking for approval, or
+  blocking automation without recomputing policy from several fields.
+- Done: `execution.required_inputs[]` joins required field names to argument
+  paths, argument sources, placeholders, alternatives, and enum allowed values,
+  so hosts can collect user input and fill MCP arguments without joining
+  `required_fields_by_name`, `argument_sources`, and operation metadata.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

@@ -147,6 +147,12 @@ function userInputArgumentSources(requiredFields: string[]): Record<string, stri
   return Object.keys(sources).length > 0 ? sources : undefined;
 }
 
+function actionArgumentSources(action: object): Record<string, string> | undefined {
+  return "argument_sources" in action && action.argument_sources && typeof action.argument_sources === "object"
+    ? action.argument_sources as Record<string, string>
+    : undefined;
+}
+
 export function withNextActionMetadata<T extends {
   recommended_action: string;
   tool: string;
@@ -180,7 +186,11 @@ export function withNextActionMetadata<T extends {
       }
     },
     safety: actionSafety(action),
-    execution: actionExecution(action),
+    execution: actionExecution({
+      ...action,
+      required_fields_by_name: actionWithRequiredFields.required_fields_by_name,
+      argument_sources: actionArgumentSources(action)
+    }),
     selection_sources: NEXT_ACTION_SELECTION_SOURCES,
     workflow: withPhasesByName({
       version: 1,
