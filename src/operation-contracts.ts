@@ -103,6 +103,46 @@ export type SingleOperationContractResponse = {
   selection_sources: typeof OPERATION_CONTRACTS_SELECTION_SOURCES;
 };
 
+export type OperationContractIndexEntry = {
+  operation: string;
+  category: OperationCategory;
+  summary: string;
+  safe_to_run: boolean;
+  ready_to_run: boolean;
+  next_step: string;
+  mcp_tool: string;
+  cli_command: string;
+  required_fields: string[];
+  missing_required_fields: string[];
+};
+
+export type OperationContractIndexResponse = {
+  recommended_entrypoint: string;
+  index_use: string;
+  next_lookup: {
+    package_helpers: {
+      by_operation: string;
+      by_mcp_tool: string;
+      by_cli_command: string;
+    };
+    cli: {
+      by_operation: string;
+      by_mcp_tool: string;
+      by_cli_command: string;
+    };
+    mcp: {
+      tool: string;
+      by_operation_arguments: { operation: string };
+      by_mcp_tool_arguments: { mcp_tool: string };
+      by_cli_command_arguments: { cli_command: string };
+    };
+  };
+  operations: OperationContractIndexEntry[];
+  operations_by_id: Record<string, OperationContractIndexEntry>;
+  operations_by_mcp_tool: Record<string, string>;
+  operations_by_cli_command: Record<string, string>;
+};
+
 export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   operation: "operations_by_id.<operation>",
   operation_id: "operations_by_id.<operation>.operation",
@@ -1153,6 +1193,59 @@ function singleOperationContractResponse(contract: OperationContract, matchedSou
     operation_source: `operations_by_id.${contract.operation}`,
     matched_source: matchedSource,
     selection_sources: OPERATION_CONTRACTS_SELECTION_SOURCES
+  };
+}
+
+function operationContractIndexEntry(operation: OperationContract): OperationContractIndexEntry {
+  return {
+    operation: operation.operation,
+    category: operation.category,
+    summary: operation.summary,
+    safe_to_run: operation.safe_to_run,
+    ready_to_run: operation.execution.ready_to_run,
+    next_step: operation.execution.next_step,
+    mcp_tool: operation.interfaces.mcp.tool,
+    cli_command: operation.interfaces.cli.command,
+    required_fields: operation.required_fields,
+    missing_required_fields: operation.execution.missing_required_fields
+  };
+}
+
+function operationsByMcpToolId(operations: readonly OperationContract[]): Record<string, string> {
+  return Object.fromEntries(operations.map((operation) => [operation.interfaces.mcp.tool, operation.operation]));
+}
+
+function operationsByCliCommandId(operations: readonly OperationContract[]): Record<string, string> {
+  return Object.fromEntries(operations.map((operation) => [operation.interfaces.cli.command, operation.operation]));
+}
+
+export function getOperationContractIndex(): OperationContractIndexResponse {
+  const operations = OPERATION_CONTRACTS.map(operationContractIndexEntry);
+  return {
+    recommended_entrypoint: "agent_enter",
+    index_use: "Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.",
+    next_lookup: {
+      package_helpers: {
+        by_operation: "getOperationContract(operation)",
+        by_mcp_tool: "getOperationContractByMcpTool(tool)",
+        by_cli_command: "getOperationContractByCliCommand(command)"
+      },
+      cli: {
+        by_operation: "moryn contracts operations --operation <operation>",
+        by_mcp_tool: "moryn contracts operations --mcp-tool <tool>",
+        by_cli_command: "moryn contracts operations --cli-command <command>"
+      },
+      mcp: {
+        tool: "operation_contracts",
+        by_operation_arguments: { operation: "<operation>" },
+        by_mcp_tool_arguments: { mcp_tool: "<tool>" },
+        by_cli_command_arguments: { cli_command: "<command>" }
+      }
+    },
+    operations,
+    operations_by_id: Object.fromEntries(operations.map((operation) => [operation.operation, operation])),
+    operations_by_mcp_tool: operationsByMcpToolId(OPERATION_CONTRACTS),
+    operations_by_cli_command: operationsByCliCommandId(OPERATION_CONTRACTS)
   };
 }
 

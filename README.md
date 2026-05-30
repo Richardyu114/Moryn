@@ -614,9 +614,14 @@ MCP tool. The response includes `selection_sources` for `contracts`,
 `contracts.<group>`, `contracts.<group>.<contract>`, and
 `contracts.<group>.<contract>.<field>`, so agents can dereference the registry
 without guessing its shape.
-Agents that need to discover available commands or MCP tools can run
-`moryn contracts operations` or call the `operation_contracts` MCP tool. That
-registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP
+Agents that need to discover available commands or MCP tools should start with
+the compact operation index: `moryn contracts operations --index`,
+`operation_contracts` with `{"index":true}`, or package helper
+`getOperationContractIndex()`. The index is small enough for a first pass and
+maps operation ids, MCP tools, and display CLI commands to the single-operation
+lookup commands. When a host needs the full static directory, it can run
+`moryn contracts operations` or call `operation_contracts` without filters. That
+full registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP
 interfaces, `operations_by_mcp_tool`, `operations_by_cli_command`,
 `safe_to_run`, `safety`, `execution`, `required_when`, `required_fields`,
 `required_fields_by_name`, `arguments_by_name`, and `argument_sources`. Its
@@ -708,15 +713,16 @@ flag or positional argument, MCP argument, type, required flag, default,
 repeatability, alternatives, and enum `allowed_values` when applicable. This
 lets hosts fill optional arguments as well as required placeholders without
 parsing command strings.
-Library hosts can call `getOperationContracts()` for the directory,
-`getOperationContract(operation)`, `getOperationContractByMcpTool(tool)`, or
-`getOperationContractByCliCommand(command)` for one operation, and reuse
-`OPERATION_CONTRACTS_SELECTION_SOURCES`. Treat this as static operation
-metadata; after any runtime response returns `next.actions`, prefer those
-returned actions because they include the current project, sync, cursor, and
-handoff context. The `moryn contracts operations` CLI command and the
-`operation_contracts` MCP tool emit compact JSON text for this large registry,
-and both support the same single-operation filters for smaller host payloads.
+Library hosts can call `getOperationContractIndex()` for discovery,
+`getOperationContracts()` for the full directory, `getOperationContract(operation)`,
+`getOperationContractByMcpTool(tool)`, or `getOperationContractByCliCommand(command)`
+for one operation, and reuse `OPERATION_CONTRACTS_SELECTION_SOURCES`. Treat this
+as static operation metadata; after any runtime response returns `next.actions`,
+prefer those returned actions because they include the current project, sync,
+cursor, and handoff context. The `moryn contracts operations` CLI command and
+the `operation_contracts` MCP tool emit compact JSON text for this large
+registry, and both support the same index and single-operation filters for
+smaller host payloads.
 
 `agent enter` runtime responses also include `next.workflow` when they return
 `start_session` or `discover_projects`. Hosts should follow that runtime

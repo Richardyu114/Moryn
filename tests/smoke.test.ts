@@ -32,6 +32,7 @@ import {
   getOperationContract,
   getOperationContractByCliCommand,
   getOperationContractByMcpTool,
+  getOperationContractIndex,
   getOperationContracts,
   getSelectionSourceContracts,
   version
@@ -166,6 +167,7 @@ describe("package smoke test", () => {
 
   it("exports self-describing operation contracts from the package entrypoint", () => {
     const response = getOperationContracts();
+    const index = getOperationContractIndex();
     const agentFinishContract = getOperationContract("agent_finish");
     const agentFinishByMcpTool = getOperationContractByMcpTool("agent_finish");
     const agentFinishByCliCommand = getOperationContractByCliCommand("moryn agent finish --summary <summary>");
@@ -189,6 +191,43 @@ describe("package smoke test", () => {
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_line).toBe("operations_by_id.<operation>.interfaces.cli.command_line");
     expect(response.recommended_entrypoint).toBe("agent_enter");
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(Buffer.byteLength(JSON.stringify(index), "utf8")).toBeLessThan(64 * 1024);
+    expect(index.recommended_entrypoint).toBe("agent_enter");
+    expect(index.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
+    expect(index.next_lookup).toEqual({
+      package_helpers: {
+        by_operation: "getOperationContract(operation)",
+        by_mcp_tool: "getOperationContractByMcpTool(tool)",
+        by_cli_command: "getOperationContractByCliCommand(command)"
+      },
+      cli: {
+        by_operation: "moryn contracts operations --operation <operation>",
+        by_mcp_tool: "moryn contracts operations --mcp-tool <tool>",
+        by_cli_command: "moryn contracts operations --cli-command <command>"
+      },
+      mcp: {
+        tool: "operation_contracts",
+        by_operation_arguments: { operation: "<operation>" },
+        by_mcp_tool_arguments: { mcp_tool: "<tool>" },
+        by_cli_command_arguments: { cli_command: "<command>" }
+      }
+    });
+    expect(index.operations_by_id.agent_finish).toEqual({
+      operation: "agent_finish",
+      category: "lifecycle",
+      summary: "Write a final session summary and push sync when appropriate.",
+      safe_to_run: false,
+      ready_to_run: false,
+      next_step: "collect_required_fields",
+      mcp_tool: "agent_finish",
+      cli_command: "moryn agent finish --summary <summary>",
+      required_fields: ["summary"],
+      missing_required_fields: ["summary"]
+    });
+    expect(index.operations_by_mcp_tool.agent_finish).toBe("agent_finish");
+    expect(index.operations_by_cli_command["moryn agent finish --summary <summary>"]).toBe("agent_finish");
+    expect(index.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
+    expect(index.operations_by_id.agent_finish).not.toHaveProperty("execution");
     expect(agentFinishContract?.operation).toBe(response.operations_by_id.agent_finish);
     expect(agentFinishContract?.operation_source).toBe("operations_by_id.agent_finish");
     expect(agentFinishContract?.matched_source).toBe("operations_by_id.agent_finish");

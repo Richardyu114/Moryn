@@ -32,6 +32,7 @@ export {
   getOperationContract,
   getOperationContractByCliCommand,
   getOperationContractByMcpTool,
+  getOperationContractIndex,
   getOperationContracts
 } from "./operation-contracts.js";
 import { PROJECT_INIT_SELECTION_SOURCES } from "./core/project.js";

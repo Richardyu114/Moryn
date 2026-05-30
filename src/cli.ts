@@ -7,6 +7,7 @@ import {
   getOperationContract,
   getOperationContractByCliCommand,
   getOperationContractByMcpTool,
+  getOperationContractIndex,
   getOperationContracts,
   getSelectionSourceContracts,
   version
@@ -493,16 +494,21 @@ contracts.command("selection-sources")
 
 contracts.command("operations")
   .description("Print stable CLI and MCP operation contracts.")
+  .option("--index", "Print a compact operation lookup index")
   .option("--operation <id>", "Print one operation contract by id")
   .option("--mcp-tool <tool>", "Print one operation contract by MCP tool name")
   .option("--cli-command <command>", "Print one operation contract by display CLI command")
-  .action((options: { operation?: string; mcpTool?: string; cliCommand?: string }) => {
+  .action((options: { index?: boolean; operation?: string; mcpTool?: string; cliCommand?: string }) => {
     const operation = parseNonEmptyString(options.operation, "--operation");
     const mcpTool = parseNonEmptyString(options.mcpTool, "--mcp-tool");
     const cliCommand = parseNonEmptyString(options.cliCommand, "--cli-command");
-    const lookupCount = [operation, mcpTool, cliCommand].filter(Boolean).length;
+    const lookupCount = [options.index, operation, mcpTool, cliCommand].filter(Boolean).length;
     if (lookupCount > 1) {
-      throw new Error("Invalid argument: Use only one operation contract lookup option: --operation, --mcp-tool, or --cli-command");
+      throw new Error("Invalid argument: Use only one operation contract lookup option: --index, --operation, --mcp-tool, or --cli-command");
+    }
+    if (options.index) {
+      printJson(getOperationContractIndex(), { pretty: false });
+      return;
     }
     if (operation) {
       const contract = getOperationContract(operation);

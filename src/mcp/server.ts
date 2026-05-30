@@ -5,6 +5,7 @@ import {
   getOperationContract,
   getOperationContractByCliCommand,
   getOperationContractByMcpTool,
+  getOperationContractIndex,
   getOperationContracts,
   getSelectionSourceContracts
 } from "../index.js";
@@ -162,18 +163,22 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Get Moryn Operation Contracts",
       description: "Return stable CLI/MCP operation contracts, safety metadata, and required fields.",
       inputSchema: {
+        index: z.boolean().optional(),
         operation: nonEmptyStringSchema.optional(),
         mcp_tool: nonEmptyStringSchema.optional(),
         cli_command: nonEmptyStringSchema.optional()
       }
     },
-    async ({ operation, mcp_tool, cli_command }) => {
-      const lookupCount = [operation, mcp_tool, cli_command].filter(Boolean).length;
+    async ({ index, operation, mcp_tool, cli_command }) => {
+      const lookupCount = [index, operation, mcp_tool, cli_command].filter(Boolean).length;
       if (lookupCount > 1) {
         return {
-          ...jsonResult(toErrorEnvelope(new Error("Invalid argument: Use only one operation contract lookup option: operation, mcp_tool, or cli_command"))),
+          ...jsonResult(toErrorEnvelope(new Error("Invalid argument: Use only one operation contract lookup option: index, operation, mcp_tool, or cli_command"))),
           isError: true
         };
+      }
+      if (index) {
+        return jsonResult(getOperationContractIndex(), { pretty: false });
       }
       if (operation) {
         const contract = getOperationContract(operation);

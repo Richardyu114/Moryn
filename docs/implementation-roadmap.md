@@ -233,6 +233,12 @@ Deliverables:
   reverse lookup maps keyed by MCP tool and CLI command, so agents can discover
   how to call Moryn without hallucinating command names, placeholders, optional
   arguments, defaults, enum values, operation ids, or argument shapes.
+- Done: `moryn contracts operations --index`, `operation_contracts` with
+  `{"index":true}`, and package helper `getOperationContractIndex()` expose a
+  compact first-pass operation index with ids, categories, summaries, readiness,
+  MCP tools, CLI commands, and exact next lookup recipes, so agents can discover
+  which single operation contract to fetch without loading the full static
+  directory.
 - Done: `moryn contracts operations --operation <id>`,
   `moryn contracts operations --mcp-tool <tool>`,
   `moryn contracts operations --cli-command <command>`, `operation_contracts`

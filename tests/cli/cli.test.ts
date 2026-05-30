@@ -1508,6 +1508,59 @@ describe("moryn CLI", () => {
     expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
   });
 
+  it("returns a compact operation contract index from the CLI", async () => {
+    const result = await exec("node", [
+      "--import", tsxLoader, cliPath,
+      "contracts", "operations",
+      "--index"
+    ]);
+    const parsed = JSON.parse(result.stdout) as {
+      recommended_entrypoint: string;
+      index_use: string;
+      next_lookup: {
+        cli: { by_operation: string; by_mcp_tool: string; by_cli_command: string };
+        mcp: {
+          tool: string;
+          by_operation_arguments: { operation: string };
+          by_mcp_tool_arguments: { mcp_tool: string };
+          by_cli_command_arguments: { cli_command: string };
+        };
+      };
+      operations: Array<{ operation: string; mcp_tool: string; cli_command: string; next_step: string }>;
+      operations_by_id: Record<string, { operation: string; mcp_tool: string; cli_command: string; required_fields: string[]; missing_required_fields: string[] }>;
+      operations_by_mcp_tool: Record<string, string>;
+      operations_by_cli_command: Record<string, string>;
+    };
+
+    expect(Buffer.byteLength(result.stdout, "utf8")).toBeLessThan(64 * 1024);
+    expect(parsed.recommended_entrypoint).toBe("agent_enter");
+    expect(parsed.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
+    expect(parsed.next_lookup.cli.by_operation).toBe("moryn contracts operations --operation <operation>");
+    expect(parsed.next_lookup.mcp).toEqual({
+      tool: "operation_contracts",
+      by_operation_arguments: { operation: "<operation>" },
+      by_mcp_tool_arguments: { mcp_tool: "<tool>" },
+      by_cli_command_arguments: { cli_command: "<command>" }
+    });
+    expect(parsed.operations_by_id.agent_finish).toEqual({
+      operation: "agent_finish",
+      category: "lifecycle",
+      summary: "Write a final session summary and push sync when appropriate.",
+      safe_to_run: false,
+      ready_to_run: false,
+      next_step: "collect_required_fields",
+      mcp_tool: "agent_finish",
+      cli_command: "moryn agent finish --summary <summary>",
+      required_fields: ["summary"],
+      missing_required_fields: ["summary"]
+    });
+    expect(parsed.operations_by_mcp_tool.agent_finish).toBe("agent_finish");
+    expect(parsed.operations_by_cli_command["moryn agent finish --summary <summary>"]).toBe("agent_finish");
+    expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
+    expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
+    expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("execution");
+  });
+
   it("returns one operation contract from the CLI", async () => {
     const result = await exec("node", [
       "--import", tsxLoader, cliPath,

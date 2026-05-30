@@ -441,12 +441,17 @@ CLI:
 
 ```bash
 moryn contracts operations
+moryn contracts operations --index
 moryn contracts operations --operation agent_finish
 ```
 
 MCP tool: `operation_contracts`.
 
-The response lists `operations`, keyed `operations_by_id`, grouped
+Use `--index`, `operation_contracts` with `{"index":true}`, or
+`getOperationContractIndex()` as the first discovery pass. That compact index
+lists operation ids, MCP tools, display CLI commands, readiness, and the exact
+next lookup commands without including full argument metadata or execution
+recipes. The full response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, reverse indexes `operations_by_mcp_tool` and
 `operations_by_cli_command`, and selection sources for those keyed paths. Each
 operation carries CLI/MCP interfaces, action-local `selection_sources`,
@@ -620,10 +625,11 @@ enum `allowed_values`:
 }
 ```
 
-Library hosts can call `getOperationContracts()`, call
-`getOperationContract(operation)`, `getOperationContractByMcpTool(tool)`, or
-`getOperationContractByCliCommand(command)` for one operation, or import
-`OPERATION_CONTRACTS_SELECTION_SOURCES` from the package entrypoint. The
+Library hosts can call `getOperationContractIndex()` for discovery,
+`getOperationContracts()` for the full directory, call `getOperationContract(operation)`,
+`getOperationContractByMcpTool(tool)`, or `getOperationContractByCliCommand(command)`
+for one operation, or import `OPERATION_CONTRACTS_SELECTION_SOURCES` from the
+package entrypoint. The
 operation registry is static discovery metadata. Each operation repeats the
 registry selection source map locally so selected operation entries remain
 self-describing outside the aggregate registry. After a runtime response returns
