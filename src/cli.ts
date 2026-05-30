@@ -12,7 +12,7 @@ import {
   getSelectionSourceContracts,
   version
 } from "./index.js";
-import { OperationContractLookupError } from "./operation-contracts.js";
+import { OperationContractLookupConflictError, OperationContractLookupError, type OperationContractLookupOption } from "./operation-contracts.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
@@ -503,9 +503,14 @@ contracts.command("operations")
     const operation = parseNonEmptyString(options.operation, "--operation");
     const mcpTool = parseNonEmptyString(options.mcpTool, "--mcp-tool");
     const cliCommand = parseNonEmptyString(options.cliCommand, "--cli-command");
-    const lookupCount = [options.index, operation, mcpTool, cliCommand].filter(Boolean).length;
-    if (lookupCount > 1) {
-      throw new Error("Invalid argument: Use only one operation contract lookup option: --index, --operation, --mcp-tool, or --cli-command");
+    const lookupOptions: OperationContractLookupOption[] = [
+      ...(options.index ? [{ mode: "index" as const, option: "--index" }] : []),
+      ...(operation ? [{ mode: "operation" as const, option: "--operation" }] : []),
+      ...(mcpTool ? [{ mode: "mcp_tool" as const, option: "--mcp-tool" }] : []),
+      ...(cliCommand ? [{ mode: "cli_command" as const, option: "--cli-command" }] : [])
+    ];
+    if (lookupOptions.length > 1) {
+      throw new OperationContractLookupConflictError(lookupOptions, "--index, --operation, --mcp-tool, or --cli-command");
     }
     if (options.index) {
       printJson(getOperationContractIndex(), { pretty: false });

@@ -9,7 +9,7 @@ import {
   getOperationContracts,
   getSelectionSourceContracts
 } from "../index.js";
-import { OperationContractLookupError } from "../operation-contracts.js";
+import { OperationContractLookupConflictError, OperationContractLookupError, type OperationContractLookupOption } from "../operation-contracts.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
@@ -171,10 +171,15 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       }
     },
     async ({ index, operation, mcp_tool, cli_command }) => {
-      const lookupCount = [index, operation, mcp_tool, cli_command].filter(Boolean).length;
-      if (lookupCount > 1) {
+      const lookupOptions: OperationContractLookupOption[] = [
+        ...(index ? [{ mode: "index" as const, option: "index" }] : []),
+        ...(operation ? [{ mode: "operation" as const, option: "operation" }] : []),
+        ...(mcp_tool ? [{ mode: "mcp_tool" as const, option: "mcp_tool" }] : []),
+        ...(cli_command ? [{ mode: "cli_command" as const, option: "cli_command" }] : [])
+      ];
+      if (lookupOptions.length > 1) {
         return {
-          ...jsonResult(toErrorEnvelope(new Error("Invalid argument: Use only one operation contract lookup option: index, operation, mcp_tool, or cli_command"))),
+          ...jsonResult(toErrorEnvelope(new OperationContractLookupConflictError(lookupOptions, "index, operation, mcp_tool, or cli_command"))),
           isError: true
         };
       }

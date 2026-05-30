@@ -104,6 +104,11 @@ export type SingleOperationContractResponse = {
 };
 
 export type OperationContractLookupKind = "operation" | "mcp_tool" | "cli_command";
+export type OperationContractLookupMode = "index" | OperationContractLookupKind;
+export type OperationContractLookupOption = {
+  mode: OperationContractLookupMode;
+  option: string;
+};
 
 export type OperationContractLookupRecoveryHint = {
   rejected_lookup: {
@@ -135,8 +140,53 @@ export type OperationContractLookupRecoveryHint = {
   selection_sources: typeof OPERATION_CONTRACT_INDEX_SELECTION_SOURCES;
 };
 
+export type OperationContractLookupConflictRecoveryHint = {
+  rejected_lookup: {
+    kind: "multiple_lookup_options";
+    provided: OperationContractLookupOption[];
+  };
+  recommended_action: typeof OPERATION_CONTRACT_LOOKUP_CONFLICT_ACTION;
+  accepted_lookup_modes: {
+    index: {
+      cli: {
+        command: "moryn contracts operations --index";
+        args: ["contracts", "operations", "--index"];
+      };
+      mcp: {
+        tool: "operation_contracts";
+        arguments: { index: true };
+      };
+    };
+    operation: {
+      cli: "moryn contracts operations --operation <operation>";
+      mcp: {
+        tool: "operation_contracts";
+        arguments: { operation: "<operation>" };
+      };
+    };
+    mcp_tool: {
+      cli: "moryn contracts operations --mcp-tool <tool>";
+      mcp: {
+        tool: "operation_contracts";
+        arguments: { mcp_tool: "<mcp_tool>" };
+      };
+    };
+    cli_command: {
+      cli: "moryn contracts operations --cli-command <command>";
+      mcp: {
+        tool: "operation_contracts";
+        arguments: { cli_command: "<cli_command>" };
+      };
+    };
+  };
+  selection_sources: typeof OPERATION_CONTRACT_INDEX_SELECTION_SOURCES;
+};
+
 export const OPERATION_CONTRACT_LOOKUP_RECOVERY_ACTION =
   "fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command" as const;
+
+export const OPERATION_CONTRACT_LOOKUP_CONFLICT_ACTION =
+  "choose exactly one operation contract lookup mode and retry" as const;
 
 export class OperationContractLookupError extends Error {
   readonly recommended_action = OPERATION_CONTRACT_LOOKUP_RECOVERY_ACTION;
@@ -146,6 +196,17 @@ export class OperationContractLookupError extends Error {
     super(`Invalid argument: Unknown ${operationLookupKindLabel(kind)}: ${value}`);
     this.name = "OperationContractLookupError";
     this.recovery_hint = operationContractLookupRecoveryHint(kind, value);
+  }
+}
+
+export class OperationContractLookupConflictError extends Error {
+  readonly recommended_action = OPERATION_CONTRACT_LOOKUP_CONFLICT_ACTION;
+  readonly recovery_hint: OperationContractLookupConflictRecoveryHint;
+
+  constructor(provided: OperationContractLookupOption[], optionsLabel: string) {
+    super(`Invalid argument: Use only one operation contract lookup option: ${optionsLabel}`);
+    this.name = "OperationContractLookupConflictError";
+    this.recovery_hint = operationContractLookupConflictRecoveryHint(provided);
   }
 }
 
@@ -288,6 +349,50 @@ function operationContractLookupRecoveryHint(kind: OperationContractLookupKind, 
       mcp: {
         tool: "operation_contracts",
         arguments: { operation: "<operation>" }
+      }
+    },
+    selection_sources: OPERATION_CONTRACT_INDEX_SELECTION_SOURCES
+  };
+}
+
+function operationContractLookupConflictRecoveryHint(provided: OperationContractLookupOption[]): OperationContractLookupConflictRecoveryHint {
+  return {
+    rejected_lookup: {
+      kind: "multiple_lookup_options",
+      provided
+    },
+    recommended_action: OPERATION_CONTRACT_LOOKUP_CONFLICT_ACTION,
+    accepted_lookup_modes: {
+      index: {
+        cli: {
+          command: "moryn contracts operations --index",
+          args: ["contracts", "operations", "--index"]
+        },
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { index: true }
+        }
+      },
+      operation: {
+        cli: "moryn contracts operations --operation <operation>",
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { operation: "<operation>" }
+        }
+      },
+      mcp_tool: {
+        cli: "moryn contracts operations --mcp-tool <tool>",
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { mcp_tool: "<mcp_tool>" }
+        }
+      },
+      cli_command: {
+        cli: "moryn contracts operations --cli-command <command>",
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { cli_command: "<cli_command>" }
+        }
       }
     },
     selection_sources: OPERATION_CONTRACT_INDEX_SELECTION_SOURCES

@@ -1749,6 +1749,74 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns recovery hints for ambiguous operation contract MCP lookups", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-operation-contract-ambiguous-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const result = await client.callTool({
+          name: "operation_contracts",
+          arguments: { index: true, operation: "agent_finish" }
+        });
+        const first = "content" in result ? result.content[0] : undefined;
+        if (!first || first.type !== "text") {
+          throw new Error("Expected text content from operation_contracts");
+        }
+        const parsed = JSON.parse(first.text) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: {
+              rejected_lookup: {
+                kind: string;
+                provided: Array<{ mode: string; option: string }>;
+              };
+              accepted_lookup_modes: {
+                index: { cli: { command: string; args: string[] }; mcp: { tool: string; arguments: { index: boolean } } };
+                operation: { cli: string; mcp: { tool: string; arguments: { operation: string } } };
+                mcp_tool: { cli: string; mcp: { tool: string; arguments: { mcp_tool: string } } };
+                cli_command: { cli: string; mcp: { tool: string; arguments: { cli_command: string } } };
+              };
+              selection_sources: Record<string, string>;
+            };
+          };
+        };
+
+        expect(result.isError).toBe(true);
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.message).toBe("Invalid argument: Use only one operation contract lookup option: index, operation, mcp_tool, or cli_command");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("choose exactly one operation contract lookup mode and retry");
+        expect(parsed.error.recovery_hint.rejected_lookup).toEqual({
+          kind: "multiple_lookup_options",
+          provided: [
+            { mode: "index", option: "index" },
+            { mode: "operation", option: "operation" }
+          ]
+        });
+        expect(parsed.error.recovery_hint.accepted_lookup_modes.index).toEqual({
+          cli: {
+            command: "moryn contracts operations --index",
+            args: ["contracts", "operations", "--index"]
+          },
+          mcp: {
+            tool: "operation_contracts",
+            arguments: { index: true }
+          }
+        });
+        expect(parsed.error.recovery_hint.accepted_lookup_modes.operation.cli).toBe("moryn contracts operations --operation <operation>");
+        expect(parsed.error.recovery_hint.accepted_lookup_modes.mcp_tool.mcp.arguments).toEqual({ mcp_tool: "<mcp_tool>" });
+        expect(parsed.error.recovery_hint.accepted_lookup_modes.cli_command.mcp.arguments).toEqual({ cli_command: "<cli_command>" });
+        expect(parsed.error.recovery_hint.selection_sources.operation).toBe("operations_by_id.<operation>");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("returns recovery hints for unknown operation contract MCP lookups", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-operation-contract-unknown-"));
     try {

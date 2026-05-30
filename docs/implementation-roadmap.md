@@ -259,7 +259,10 @@ Deliverables:
   loading the full operation directory into context. Unknown operation ids, MCP
   tools, or CLI commands now return `error.recovery_hint` with the rejected
   lookup, available operation ids, compact index lookup calls, and retry
-  templates.
+  templates. Ambiguous lookup calls that provide more than one filter now
+  return `error.recovery_hint.rejected_lookup.provided` plus
+  `accepted_lookup_modes`, so agents can drop the extra lookup mode and retry
+  without parsing prose.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

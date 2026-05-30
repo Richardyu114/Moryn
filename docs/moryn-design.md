@@ -654,7 +654,10 @@ payload and model context much smaller than the full operation directory. If
 the lookup value is unknown, CLI and MCP error envelopes include
 `error.recovery_hint` with the rejected lookup, available operation ids,
 compact index lookup calls, and retry templates, so agents can recover without
-parsing prose.
+parsing prose. If a caller sends more than one lookup mode, the error envelope
+uses the same recovery channel to return
+`recovery_hint.rejected_lookup.provided` plus `accepted_lookup_modes`, letting
+agents remove the extra mode instead of guessing from the message text.
 
 ### `init`
 

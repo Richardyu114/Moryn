@@ -712,7 +712,10 @@ inspect one call shape without holding the full registry in context. If a host
 passes an unknown operation id, MCP tool, or CLI command, the CLI and MCP error
 envelope includes `recovery_hint` with the rejected lookup, available operation
 ids, the compact index lookup call, and a retry template, so agents can recover
-without parsing the error message.
+without parsing the error message. If a host accidentally mixes lookup modes,
+for example `--index` plus `--operation` or `operation` plus `mcp_tool`, the
+same envelope includes `recovery_hint.rejected_lookup.provided` and
+`accepted_lookup_modes` so the agent can keep exactly one mode and retry.
 Each static operation `interfaces.cli` entry includes a display `command`, a
 prequoted `command_line`, `executable`, `args`, grouped `exec_file`, legacy
 `argv`, `placeholders`, and `has_placeholders`. For Moryn subcommands,
