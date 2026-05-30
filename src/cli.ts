@@ -70,6 +70,11 @@ type CliArgumentRecoveryHint =
       rejected_argument: { option: string; value: string };
       expected: { kind: "non_empty_string"; min_length: 1 };
       retry_with: { option: string; value_placeholder: string };
+    }
+  | {
+      rejected_argument: { option: "--content-json"; value: string };
+      expected: { kind: "valid_json_object" | "json_object" };
+      retry_with: { option: "--content-json"; value_placeholder: "<json object>" };
     };
 
 class CliArgumentError extends Error {
@@ -128,6 +133,18 @@ function nonEmptyCliArgumentError(option: string): CliArgumentError {
   );
 }
 
+function contentJsonCliArgumentError(value: string, expectedKind: "valid_json_object" | "json_object", detail?: string): CliArgumentError {
+  return new CliArgumentError(
+    `Invalid argument: Invalid --content-json${detail ? `; ${detail}` : ""}`,
+    "retry with a valid --content-json JSON object",
+    {
+      rejected_argument: { option: "--content-json", value },
+      expected: { kind: expectedKind },
+      retry_with: { option: "--content-json", value_placeholder: "<json object>" }
+    }
+  );
+}
+
 function createCliEngine() {
   const path = storePath();
   return createEngine({
@@ -175,10 +192,10 @@ function parseContentJson(value: string | undefined): Record<string, unknown> | 
     parsed = JSON.parse(value) as unknown;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid argument: Invalid --content-json; ${message}`);
+    throw contentJsonCliArgumentError(value, "valid_json_object", message);
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("Invalid argument: Invalid --content-json; expected a JSON object");
+    throw contentJsonCliArgumentError(value, "json_object", "expected a JSON object");
   }
   return parsed as Record<string, unknown>;
 }

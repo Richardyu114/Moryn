@@ -716,13 +716,14 @@ without parsing the error message. If a host accidentally mixes lookup modes,
 for example `--index` plus `--operation` or `operation` plus `mcp_tool`, the
 same envelope includes `recovery_hint.rejected_lookup.provided` and
 `accepted_lookup_modes` so the agent can keep exactly one mode and retry.
-CLI required-option, non-empty string, enum, and numeric-range validation errors
-also include `recovery_hint`:
+CLI required-option, non-empty string, enum, numeric-range, and JSON-object
+validation errors also include `recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
-allowed values, non-empty constraints, or numeric bounds, `missing_argument`
-names a required option that was omitted, and `retry_with` gives the exact
-option plus a placeholder for the corrected value. Agents should use those
-fields instead of splitting the human-readable error message.
+allowed values, non-empty constraints, numeric bounds, or JSON object
+expectations, `missing_argument` names a required option that was omitted, and
+`retry_with` gives the exact option plus a placeholder for the corrected value.
+Agents should use those fields instead of splitting the human-readable error
+message.
 Each static operation `interfaces.cli` entry includes a display `command`, a
 prequoted `command_line`, `executable`, `args`, grouped `exec_file`, legacy
 `argv`, `placeholders`, and `has_placeholders`. For Moryn subcommands,

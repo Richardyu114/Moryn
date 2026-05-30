@@ -2960,9 +2960,49 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
+      for (const { args, expectedKind } of [
+        { args: ["--content-json", "["], expectedKind: "valid_json_object" },
+        { args: ["--content-json", "[]"], expectedKind: "json_object" }
+      ]) {
+        try {
+          await exec("node", [
+            "--import", "tsx", "src/cli.ts", "--store", dir,
+            "write",
+            "--kind", "memory",
+            "--type", "decision",
+            "--scope", "project",
+            "--project-id", "moryn",
+            ...args
+          ]);
+          throw new Error(`Expected moryn write ${args.join(" ")} to reject invalid content options`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recommended_action: string;
+              recovery_hint: {
+                rejected_argument: { option: string; value: string };
+                expected: { kind: string };
+                retry_with: { option: string; value_placeholder: string };
+              };
+            };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain("Invalid --content-json");
+          expect(parsed.error.recommended_action).toBe("retry with a valid --content-json JSON object");
+          expect(parsed.error.recovery_hint).toEqual({
+            rejected_argument: { option: "--content-json", value: args[1]! },
+            expected: { kind: expectedKind },
+            retry_with: { option: "--content-json", value_placeholder: "<json object>" }
+          });
+        }
+      }
+
       for (const args of [
-        ["--content-json", "["],
-        ["--content-json", "{}"],
         ["--content-json", "{\"text\":\"\",\"format\":\"json\"}"],
         ["--text", "Plain text", "--content-json", "{\"text\":\"Structured\"}"]
       ]) {
@@ -2979,7 +3019,7 @@ describe("moryn CLI", () => {
           throw new Error(`Expected moryn write ${args.join(" ")} to reject invalid content options`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
-          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string } };
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string } };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
         }

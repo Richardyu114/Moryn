@@ -659,11 +659,12 @@ uses the same recovery channel to return
 `recovery_hint.rejected_lookup.provided` plus `accepted_lookup_modes`, letting
 agents remove the extra mode instead of guessing from the message text.
 CLI boundary validation errors for required options, non-empty strings, enum
-values, and numeric ranges follow the same pattern:
+values, numeric ranges, and JSON object inputs follow the same pattern:
 `error.recovery_hint.missing_argument` identifies omitted required options,
 `rejected_argument` identifies invalid values, `expected` exposes allowed
-values, non-empty constraints, or bounds, and `retry_with` contains the
-option/value placeholder to use for the corrected retry.
+values, non-empty constraints, bounds, or JSON object expectations, and
+`retry_with` contains the option/value placeholder to use for the corrected
+retry.
 
 ### `init`
 
