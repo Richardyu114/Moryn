@@ -532,7 +532,9 @@ without guessing its shape.
 Agents that need to discover available commands or MCP tools can run
 `moryn contracts operations` or call the `operation_contracts` MCP tool. That
 registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP
-interfaces, `safe_to_run`, `safety`, `required_when`, and `required_fields`.
+interfaces, `safe_to_run`, `safety`, `required_when`, `required_fields`,
+`required_fields_by_name`, and `argument_sources`, so hosts can fill named
+placeholders without parsing command strings.
 Library hosts can call `getOperationContracts()` and reuse
 `OPERATION_CONTRACTS_SELECTION_SOURCES`. Treat this as the static operation
 directory; after any runtime response returns `next.actions`, prefer those

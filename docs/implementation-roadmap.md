@@ -228,8 +228,9 @@ Deliverables:
 - Done: The CLI command `moryn contracts operations`, MCP tool
   `operation_contracts`, and package helper `getOperationContracts` expose a
   static operation directory with CLI/MCP interfaces, safety metadata,
-  required usage conditions, and required fields, so agents can discover how to
-  call Moryn without hallucinating command names or argument shapes.
+  required usage conditions, required fields, keyed required-field metadata,
+  and argument sources, so agents can discover how to call Moryn without
+  hallucinating command names, placeholders, or argument shapes.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

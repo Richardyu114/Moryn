@@ -116,6 +116,8 @@ const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   operation_id: "operations_by_id.<operation>.operation",
   category: "operations_by_category.<category>",
   category_operation: "operations_by_category.<category>.<operation>",
+  required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
+  argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
   ordered_operation: "operations[]"
@@ -705,6 +707,8 @@ describe("MCP stdio server", () => {
             category: string;
             safe_to_run: boolean;
             required_fields: string[];
+            required_fields_by_name: Record<string, { name: string; argument_path: string; placeholder?: string; value?: unknown; alternatives?: string[] }>;
+            argument_sources?: Record<string, string>;
             interfaces: {
               cli: { command: string };
               mcp: { tool: string; arguments: Record<string, unknown> };
@@ -729,6 +733,17 @@ describe("MCP stdio server", () => {
         expect(parsed.operations_by_id.agent_finish).toMatchObject({
           safe_to_run: false,
           required_fields: ["summary"],
+          required_fields_by_name: {
+            summary: {
+              name: "summary",
+              argument_path: "summary",
+              placeholder: "<summary>",
+              value: "<summary>"
+            }
+          },
+          argument_sources: {
+            summary: "user_input.summary"
+          },
           interfaces: {
             cli: { command: "moryn agent finish --summary <summary>" },
             mcp: { tool: "agent_finish", arguments: { summary: "<summary>" } }
@@ -736,7 +751,34 @@ describe("MCP stdio server", () => {
         });
         expect(parsed.operations_by_id.write).toMatchObject({
           safe_to_run: false,
-          required_fields: ["kind", "type", "scope", "text_or_content"]
+          required_fields: ["kind", "type", "scope", "text_or_content"],
+          required_fields_by_name: {
+            text_or_content: {
+              name: "text_or_content",
+              argument_path: "text|content",
+              placeholder: "<text_or_content>",
+              alternatives: ["text", "content"]
+            }
+          },
+          argument_sources: {
+            kind: "user_input.kind",
+            type: "user_input.type",
+            scope: "user_input.scope",
+            text_or_content: "user_input.text_or_content"
+          }
+        });
+        expect(parsed.operations_by_id.project_init).toMatchObject({
+          required_fields_by_name: {
+            path: {
+              name: "path",
+              argument_path: "path",
+              placeholder: "<path>",
+              value: "<path>"
+            }
+          },
+          argument_sources: {
+            path: "user_input.path"
+          }
         });
         expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
         expect(parsed.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");

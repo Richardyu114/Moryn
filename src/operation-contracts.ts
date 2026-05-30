@@ -1,4 +1,5 @@
 import { actionSafety, type ActionSafety } from "./core/action-safety.js";
+import { requiredFieldsByName, type RequiredFieldMetadata } from "./core/workflow.js";
 
 type OperationCategory = "setup" | "core" | "sync" | "lifecycle" | "contracts" | "maintenance";
 
@@ -19,8 +20,18 @@ export type OperationContract = {
   safe_to_run: boolean;
   required_when: string;
   required_fields: string[];
+  required_fields_by_name: Record<string, OperationRequiredFieldMetadata>;
+  argument_sources?: Record<string, string>;
   interfaces: OperationInterfaces;
   safety: ActionSafety;
+};
+
+type OperationRequiredFieldMetadata = RequiredFieldMetadata & {
+  alternatives?: string[];
+};
+
+type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "safety"> & {
+  required_fields_by_name?: Record<string, OperationRequiredFieldMetadata>;
 };
 
 export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
@@ -28,14 +39,29 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   operation_id: "operations_by_id.<operation>.operation",
   category: "operations_by_category.<category>",
   category_operation: "operations_by_category.<category>.<operation>",
+  required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
+  argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
   ordered_operation: "operations[]"
 } as const;
 
-function operationContract(input: Omit<OperationContract, "safety">): OperationContract {
+function userInputSources(fields: readonly string[]): Record<string, string> | undefined {
+  return fields.length ? Object.fromEntries(fields.map((field) => [field, `user_input.${field}`])) : undefined;
+}
+
+function operationRequiredFieldsByName(input: OperationContractInput): Record<string, OperationRequiredFieldMetadata> {
+  return {
+    ...requiredFieldsByName(input.required_fields, input.interfaces.mcp.arguments),
+    ...input.required_fields_by_name
+  };
+}
+
+function operationContract(input: OperationContractInput): OperationContract {
   return {
     ...input,
+    required_fields_by_name: operationRequiredFieldsByName(input),
+    ...(input.argument_sources ? { argument_sources: input.argument_sources } : {}),
     safety: actionSafety({
       tool: input.interfaces.mcp.tool,
       safe_to_run: input.safe_to_run,
@@ -100,6 +126,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "During meaningful long-running work, before interruption, or when another agent may need coordination.",
     required_fields: ["status"],
+    argument_sources: userInputSources(["status"]),
     interfaces: {
       cli: { command: "moryn agent status --status <status>" },
       mcp: { tool: "agent_status", arguments: { status: "<status>" } }
@@ -112,6 +139,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "At the end of meaningful work, before stopping, or before handing off to another agent.",
     required_fields: ["summary"],
+    argument_sources: userInputSources(["summary"]),
     interfaces: {
       cli: { command: "moryn agent finish --summary <summary>" },
       mcp: { tool: "agent_finish", arguments: { summary: "<summary>" } }
@@ -160,6 +188,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When a project path has no Moryn config or the project config needs explicit repair.",
     required_fields: ["path"],
+    argument_sources: userInputSources(["path"]),
     interfaces: {
       cli: { command: "moryn project init --path <path>" },
       mcp: { tool: "project_init", arguments: { path: "<path>" } }
@@ -208,6 +237,15 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When the agent has authored record content and the target kind/type/scope are known.",
     required_fields: ["kind", "type", "scope", "text_or_content"],
+    argument_sources: userInputSources(["kind", "type", "scope", "text_or_content"]),
+    required_fields_by_name: {
+      text_or_content: {
+        name: "text_or_content",
+        argument_path: "text|content",
+        placeholder: "<text_or_content>",
+        alternatives: ["text", "content"]
+      }
+    },
     interfaces: {
       cli: { command: "moryn write --kind <kind> --type <type> --scope <scope> --text <text>" },
       mcp: { tool: "write", arguments: { kind: "<kind>", type: "<type>", scope: "<scope>", text: "<text>" } }
@@ -220,6 +258,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When an existing record needs a targeted patch and the patch is already known.",
     required_fields: ["record_id", "patch"],
+    argument_sources: userInputSources(["record_id", "patch"]),
     interfaces: {
       cli: { command: "moryn revise <record_id> --set <path=value>" },
       mcp: { tool: "revise", arguments: { record_id: "<record_id>", patch: { "<path>": "<value>" } } }
@@ -232,6 +271,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When a candidate, archived, or quarantined record should move to a target state.",
     required_fields: ["record_id", "target_state"],
+    argument_sources: userInputSources(["record_id", "target_state"]),
     interfaces: {
       cli: { command: "moryn promote <record_id> --state <state>" },
       mcp: { tool: "promote", arguments: { record_id: "<record_id>", target_state: "<state>" } }
@@ -244,6 +284,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When a record should be removed from normal retrieval without deleting history.",
     required_fields: ["record_id"],
+    argument_sources: userInputSources(["record_id"]),
     interfaces: {
       cli: { command: "moryn archive <record_id>" },
       mcp: { tool: "archive", arguments: { record_id: "<record_id>" } }
@@ -256,6 +297,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When a record should stop appearing in normal agent context because it is unsafe or sensitive.",
     required_fields: ["record_id"],
+    argument_sources: userInputSources(["record_id"]),
     interfaces: {
       cli: { command: "moryn quarantine <record_id>" },
       mcp: { tool: "quarantine", arguments: { record_id: "<record_id>" } }
@@ -268,6 +310,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When two existing records should be connected by a known relationship type.",
     required_fields: ["record_id", "linked_record_id", "link_type"],
+    argument_sources: userInputSources(["record_id", "linked_record_id", "link_type"]),
     interfaces: {
       cli: { command: "moryn link <record_id> <linked_record_id> --type <type>" },
       mcp: { tool: "link", arguments: { record_id: "<record_id>", linked_record_id: "<linked_record_id>", link_type: "<type>" } }
@@ -304,6 +347,7 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When cross-device sync is needed and the target remote is known.",
     required_fields: ["remote"],
+    argument_sources: userInputSources(["remote"]),
     interfaces: {
       cli: { command: "moryn sync init <remote>" },
       mcp: { tool: "sync_init", arguments: { remote: "<remote>" } }

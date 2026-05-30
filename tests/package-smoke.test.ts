@@ -74,6 +74,10 @@ describe("published package smoke", () => {
           recommended_entrypoint: string;
           operations_by_id: {
             agent_enter: { interfaces: { cli: { command: string } } };
+            agent_finish: {
+              argument_sources?: Record<string, string>;
+              required_fields_by_name: { summary: { placeholder?: string } };
+            };
             operation_contracts: { interfaces: { mcp: { tool: string } } };
           };
         };
@@ -85,6 +89,8 @@ describe("published package smoke", () => {
         expect(parsedContracts.selection_sources.contract).toBe("contracts.<group>.<contract>");
         expect(parsedOperations.recommended_entrypoint).toBe("agent_enter");
         expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");
+        expect(parsedOperations.operations_by_id.agent_finish.required_fields_by_name.summary.placeholder).toBe("<summary>");
+        expect(parsedOperations.operations_by_id.agent_finish.argument_sources?.summary).toBe("user_input.summary");
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
         expect(importCheck.stdout.trim()).toBe("artifacts.config|skills_by_id.<record_id>|pushed|guardrails_by_id.<guardrail_id>|error.next_action|guardrails_by_id.<guardrail_id>|pushed|contracts.<group>.<contract>|artifacts.config|contracts.<group>.<contract>.<field>|operations_by_id.<operation>|agent_enter|moryn contracts operations");
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });

@@ -448,7 +448,7 @@ MCP tool: `operation_contracts`.
 The response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, and selection sources for those keyed paths. Each
 operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
-and `required_fields`:
+`required_fields`, `required_fields_by_name`, and `argument_sources`:
 
 ```json
 {
@@ -468,6 +468,23 @@ and `required_fields`:
           "arguments": {}
         }
       }
+    },
+    "agent_finish": {
+      "operation": "agent_finish",
+      "category": "lifecycle",
+      "safe_to_run": false,
+      "required_fields": ["summary"],
+      "required_fields_by_name": {
+        "summary": {
+          "name": "summary",
+          "argument_path": "summary",
+          "value": "<summary>",
+          "placeholder": "<summary>"
+        }
+      },
+      "argument_sources": {
+        "summary": "user_input.summary"
+      }
     }
   },
   "selection_sources": {
@@ -475,6 +492,8 @@ and `required_fields`:
     "operation_id": "operations_by_id.<operation>.operation",
     "category": "operations_by_category.<category>",
     "category_operation": "operations_by_category.<category>.<operation>",
+    "required_field": "operations_by_id.<operation>.required_fields_by_name.<field>",
+    "argument_source": "operations_by_id.<operation>.argument_sources.<field>",
     "cli_command": "operations_by_id.<operation>.interfaces.cli.command",
     "mcp_tool": "operations_by_id.<operation>.interfaces.mcp.tool",
     "ordered_operation": "operations[]"

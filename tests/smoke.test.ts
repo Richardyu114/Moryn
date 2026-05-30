@@ -106,7 +106,18 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");
     expect(response.operations_by_id.agent_enter.interfaces.mcp.tool).toBe("agent_enter");
     expect(response.operations_by_id.agent_finish.required_fields).toEqual(["summary"]);
+    expect(response.operations_by_id.agent_finish.required_fields_by_name.summary).toMatchObject({
+      argument_path: "summary",
+      placeholder: "<summary>"
+    });
+    expect(response.operations_by_id.agent_finish.argument_sources).toEqual({
+      summary: "user_input.summary"
+    });
     expect(response.operations_by_id.write.required_fields).toEqual(["kind", "type", "scope", "text_or_content"]);
+    expect(response.operations_by_id.write.required_fields_by_name.text_or_content).toMatchObject({
+      argument_path: "text|content",
+      alternatives: ["text", "content"]
+    });
     expect(response.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
     expect(response.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
     expect(response.operations_by_category.lifecycle.agent_enter).toBe(response.operations_by_id.agent_enter);
