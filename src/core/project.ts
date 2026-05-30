@@ -65,36 +65,125 @@ interface ProjectConfigFile {
   directory: string;
 }
 
+type ProjectArgumentRecoveryHint =
+  | {
+      rejected_argument: { argument: "project_id" | "projectId" | "projectPath"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      retry_with: { argument: "project_id" | "projectId" | "projectPath"; value_placeholder: string };
+    }
+  | {
+      rejected_argument: { argument: "tags" | "default_skills"; value: unknown };
+      expected: { kind: "array_of_non_empty_strings" };
+      retry_with: { argument: "tags" | "default_skills"; value_placeholder: string[] };
+    }
+  | {
+      rejected_argument: { argument: "repair"; value: unknown };
+      expected: { kind: "boolean" };
+      retry_with: { argument: "repair"; value_placeholder: true };
+    }
+  | {
+      rejected_argument: { argument: "sync.mode"; value: unknown };
+      expected: { kind: "allowed_values"; allowed_values: string[] };
+      retry_with: { argument: "sync.mode"; value_placeholder: "session" };
+    };
+
+class ProjectArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: ProjectArgumentRecoveryHint;
+
+  constructor(message: string, recommendedAction: string, recoveryHint: ProjectArgumentRecoveryHint) {
+    super(message);
+    this.name = "ProjectArgumentError";
+    this.recommended_action = recommendedAction;
+    this.recovery_hint = recoveryHint;
+  }
+}
+
+function projectStringAction(name: "project_id" | "projectId" | "projectPath"): string {
+  return name === "project_id"
+    ? "retry project init with a non-empty project_id"
+    : `retry project operation with a non-empty ${name}`;
+}
+
+function invalidProjectStringError(name: "project_id" | "projectId" | "projectPath", value: unknown): ProjectArgumentError {
+  return new ProjectArgumentError(
+    `Invalid argument: Invalid ${name}`,
+    projectStringAction(name),
+    {
+      rejected_argument: { argument: name, value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: name, value_placeholder: `<${name}>` }
+    }
+  );
+}
+
+function invalidProjectStringArrayError(name: "tags" | "default_skills", value: unknown): ProjectArgumentError {
+  const singular = name === "default_skills" ? "default_skill" : "tag";
+  return new ProjectArgumentError(
+    `Invalid argument: Invalid ${name}`,
+    `retry project init with ${name} as non-empty strings`,
+    {
+      rejected_argument: { argument: name, value },
+      expected: { kind: "array_of_non_empty_strings" },
+      retry_with: { argument: name, value_placeholder: [`<${singular}>`] }
+    }
+  );
+}
+
+function invalidProjectBooleanError(name: "repair", value: unknown): ProjectArgumentError {
+  return new ProjectArgumentError(
+    `Invalid argument: Invalid ${name}`,
+    "retry project init with a boolean repair value",
+    {
+      rejected_argument: { argument: name, value },
+      expected: { kind: "boolean" },
+      retry_with: { argument: name, value_placeholder: true }
+    }
+  );
+}
+
+function invalidProjectSyncModeError(value: unknown): ProjectArgumentError {
+  return new ProjectArgumentError(
+    "Invalid argument: Invalid sync.mode",
+    "retry project init with a supported sync.mode",
+    {
+      rejected_argument: { argument: "sync.mode", value },
+      expected: { kind: "allowed_values", allowed_values: [...SYNC_MODES, "auto"] },
+      retry_with: { argument: "sync.mode", value_placeholder: "session" }
+    }
+  );
+}
+
 function assertPlainObject(value: unknown, name: string): asserts value is Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`Invalid argument: Invalid ${name}`);
   }
 }
 
-function validateOptionalString(value: unknown, name: string): void {
+function validateOptionalString(value: unknown, name: "project_id" | "projectId" | "projectPath"): void {
   if (value === undefined) return;
   if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Invalid argument: Invalid ${name}`);
+    throw invalidProjectStringError(name, value);
   }
 }
 
-function validateRequiredString(value: unknown, name: string): asserts value is string {
+function validateRequiredString(value: unknown, name: "projectPath"): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Invalid argument: Invalid ${name}`);
+    throw invalidProjectStringError(name, value);
   }
 }
 
-function validateOptionalStringArray(value: unknown, name: string): void {
+function validateOptionalStringArray(value: unknown, name: "tags" | "default_skills"): void {
   if (value === undefined) return;
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.length === 0)) {
-    throw new Error(`Invalid argument: Invalid ${name}`);
+    throw invalidProjectStringArrayError(name, value);
   }
 }
 
-function validateOptionalBoolean(value: unknown, name: string): void {
+function validateOptionalBoolean(value: unknown, name: "repair"): void {
   if (value === undefined) return;
   if (typeof value !== "boolean") {
-    throw new Error(`Invalid argument: Invalid ${name}`);
+    throw invalidProjectBooleanError(name, value);
   }
 }
 
@@ -114,7 +203,7 @@ function validateInitializeProjectConfigInput(input: unknown): asserts input is 
       input.sync.mode !== "interval" &&
       input.sync.mode !== "auto"
     ) {
-      throw new Error("Invalid argument: Invalid sync.mode");
+      throw invalidProjectSyncModeError(input.sync.mode);
     }
   }
 }

@@ -35,6 +35,30 @@ async function expectInvalidArgument(action: () => Promise<unknown>, expectedMes
   expect(envelope.error.message).toMatch(expectedMessage);
 }
 
+async function expectInvalidProjectArgument(
+  action: () => Promise<unknown>,
+  expectedMessage: RegExp,
+  recommendedAction: string,
+  recoveryHint: unknown
+): Promise<void> {
+  let caught: unknown;
+  try {
+    await action();
+  } catch (error) {
+    caught = error;
+  }
+
+  if (!caught) {
+    throw new Error("Expected invalid project argument");
+  }
+
+  const envelope = toErrorEnvelope(caught);
+  expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+  expect(envelope.error.message).toMatch(expectedMessage);
+  expect(envelope.error.recommended_action).toBe(recommendedAction);
+  expect(envelope.error.recovery_hint).toEqual(recoveryHint);
+}
+
 async function withCwd<T>(directory: string, action: () => Promise<T>): Promise<T> {
   const previous = process.cwd();
   process.chdir(directory);
@@ -86,21 +110,55 @@ describe("project config", () => {
 
   it("rejects invalid project config initialization input before writing", async () => {
     await withTempStore(async (projectPath) => {
-      await expectInvalidArgument(
+      await expectInvalidProjectArgument(
         () => initializeProjectConfig(projectPath, { project_id: "" }),
-        /Invalid project_id/
+        /Invalid project_id/,
+        "retry project init with a non-empty project_id",
+        {
+          rejected_argument: { argument: "project_id", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
+        }
       );
-      await expectInvalidArgument(
+      await expectInvalidProjectArgument(
         () => initializeProjectConfig(projectPath, { tags: ["typescript", ""] }),
-        /Invalid tags/
+        /Invalid tags/,
+        "retry project init with tags as non-empty strings",
+        {
+          rejected_argument: { argument: "tags", value: ["typescript", ""] },
+          expected: { kind: "array_of_non_empty_strings" },
+          retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+        }
       );
-      await expectInvalidArgument(
+      await expectInvalidProjectArgument(
         () => initializeProjectConfig(projectPath, { default_skills: ["release", 123 as unknown as string] }),
-        /Invalid default_skills/
+        /Invalid default_skills/,
+        "retry project init with default_skills as non-empty strings",
+        {
+          rejected_argument: { argument: "default_skills", value: ["release", 123] },
+          expected: { kind: "array_of_non_empty_strings" },
+          retry_with: { argument: "default_skills", value_placeholder: ["<default_skill>"] }
+        }
       );
-      await expectInvalidArgument(
+      await expectInvalidProjectArgument(
         () => initializeProjectConfig(projectPath, { sync: { mode: "always" as never } }),
-        /Invalid sync\.mode/
+        /Invalid sync\.mode/,
+        "retry project init with a supported sync.mode",
+        {
+          rejected_argument: { argument: "sync.mode", value: "always" },
+          expected: { kind: "allowed_values", allowed_values: ["manual", "session", "interval", "auto"] },
+          retry_with: { argument: "sync.mode", value_placeholder: "session" }
+        }
+      );
+      await expectInvalidProjectArgument(
+        () => initializeProjectConfig(projectPath, { repair: "yes" as never }),
+        /Invalid repair/,
+        "retry project init with a boolean repair value",
+        {
+          rejected_argument: { argument: "repair", value: "yes" },
+          expected: { kind: "boolean" },
+          retry_with: { argument: "repair", value_placeholder: true }
+        }
       );
 
       await expect(access(join(projectPath, ".moryn.json"))).rejects.toMatchObject({ code: "ENOENT" });
@@ -131,21 +189,45 @@ describe("project config", () => {
   it("rejects invalid project path arguments before writing config", async () => {
     await withTempStore(async (projectPath) => {
       await withCwd(projectPath, async () => {
-        await expectInvalidArgument(
+        await expectInvalidProjectArgument(
           () => initializeProjectConfig("", { project_id: "moryn" }),
-          /Invalid projectPath/
+          /Invalid projectPath/,
+          "retry project operation with a non-empty projectPath",
+          {
+            rejected_argument: { argument: "projectPath", value: "" },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            retry_with: { argument: "projectPath", value_placeholder: "<projectPath>" }
+          }
         );
-        await expectInvalidArgument(
+        await expectInvalidProjectArgument(
           () => initializeProjectConfig(null as never, { project_id: "moryn" }),
-          /Invalid projectPath/
+          /Invalid projectPath/,
+          "retry project operation with a non-empty projectPath",
+          {
+            rejected_argument: { argument: "projectPath", value: null },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            retry_with: { argument: "projectPath", value_placeholder: "<projectPath>" }
+          }
         );
-        await expectInvalidArgument(
+        await expectInvalidProjectArgument(
           () => readProjectConfig(""),
-          /Invalid projectPath/
+          /Invalid projectPath/,
+          "retry project operation with a non-empty projectPath",
+          {
+            rejected_argument: { argument: "projectPath", value: "" },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            retry_with: { argument: "projectPath", value_placeholder: "<projectPath>" }
+          }
         );
-        await expectInvalidArgument(
+        await expectInvalidProjectArgument(
           () => readProjectConfig(123 as never),
-          /Invalid projectPath/
+          /Invalid projectPath/,
+          "retry project operation with a non-empty projectPath",
+          {
+            rejected_argument: { argument: "projectPath", value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            retry_with: { argument: "projectPath", value_placeholder: "<projectPath>" }
+          }
         );
 
         await expect(access(join(projectPath, ".moryn.json"))).rejects.toMatchObject({ code: "ENOENT" });

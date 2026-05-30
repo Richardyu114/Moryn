@@ -660,9 +660,9 @@ uses the same recovery channel to return
 agents remove the extra mode instead of guessing from the message text.
 CLI and MCP boundary validation errors for required options, option dependencies,
 non-empty strings, enum values, integer and number ranges, JSON object inputs,
-read filters, write core fields such as `kind`, `type`, `scope`, and
-`project_id`, write content payloads, write metadata such as `tags`,
-`source.client`, `state`, `priority`, `confidence`, `confirmed`, and
+read filters, project init inputs, write core fields such as `kind`, `type`,
+`scope`, and `project_id`, write content payloads, write metadata such as
+`tags`, `source.client`, `state`, `priority`, `confidence`, `confirmed`, and
 `provenance.*`, mutation arguments such as `record_id`, `linked_record_id`,
 `target_state`, `reason`, `confirmed`, `source.client`, and `link_type`,
 choose-one input groups, path-assignment inputs, revise patches, and refresh
@@ -677,9 +677,11 @@ shape, source client requirements, write core field requirements, write metadata
 requirements, mutation record id/state/reason/confirmation/link requirements,
 read filter requirements such as `query`, `record_ids`, `kinds`, `scopes`,
 `states`, `tags`, `files`, and `limit`, boot/refresh read inputs such as
-`current_task`, `default_skills`, and `cursor`, choice rules, MCP argument
-requirements such as write `type` and `scope`, option requirements such as
-`--message` requiring `--push`, project-context requirements, path-assignment
+`current_task`, `default_skills`, and `cursor`, project init requirements such
+as `projectPath`, `project_id`, `tags`, `default_skills`, `sync.mode`, and
+`repair`, choice rules, MCP argument requirements such as write `type` and
+`scope`, option requirements such as `--message` requiring `--push`,
+project-context requirements, path-assignment
 shape, revise patch rules, or ISO datetime cursor requirements, `discover_with`
 names safe lookup calls such as `project_list`, and `retry_with` contains the
 option/argument value placeholder to use for the corrected retry.

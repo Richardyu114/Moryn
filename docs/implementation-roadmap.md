@@ -264,7 +264,7 @@ Deliverables:
   `accepted_lookup_modes`, so agents can drop the extra lookup mode and retry
   without parsing prose.
 - Done: CLI and MCP required-option, option-dependency, non-empty string, enum,
-  integer/number-range, JSON-object, read-filter, write-core-field,
+  integer/number-range, JSON-object, read-filter, project-init, write-core-field,
   write-content, write-metadata, choose-one, path-assignment, refresh cursor,
   and revise-patch validation errors now return structured
   `error.recovery_hint` metadata with `missing_argument`, `missing_one_of`,
@@ -277,7 +277,9 @@ Deliverables:
   `provenance.*`, invalid mutation `record_id`/`target_state`/`reason`/
   `source.client`/`confirmed`/`link_type`, invalid read filters such as
   `query`/`record_ids`/`kinds`/`scopes`/`states`/`tags`/`files`/`limit`,
-  invalid boot/refresh `current_task`/`default_skills`/`cursor`, empty
+  invalid boot/refresh `current_task`/`default_skills`/`cursor`, invalid or
+  empty project init `projectPath`/`project_id`/`tags`/`default_skills`/
+  `sync.mode`/`repair`, empty
   placeholders such as `--text ""`, malformed `--content-json`, malformed
   `--set path=value` assignments, managed-field revise attempts, invalid revise
   patches, conflicting write content or sync operation inputs, invalid sync

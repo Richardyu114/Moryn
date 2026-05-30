@@ -717,7 +717,7 @@ for example `--index` plus `--operation` or `operation` plus `mcp_tool`, the
 same envelope includes `recovery_hint.rejected_lookup.provided` and
 `accepted_lookup_modes` so the agent can keep exactly one mode and retry.
 CLI and MCP required-option, option-dependency, non-empty string, enum,
-integer/number-range, JSON-object, read-filter, write-core-field,
+integer/number-range, JSON-object, read-filter, project-init, write-core-field,
 write-content, write-metadata, choose-one, path-assignment, revise-patch, and
 refresh cursor validation errors also include `recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
@@ -729,9 +729,10 @@ write `kind`/`type`/`scope`/`project_id`, write content, write metadata such as
 argument requirements such as `type`/`scope`, read filters such as `query`,
 `record_ids`, `kinds`, `scopes`, `states`, `tags`, `files`, and `limit`,
 boot/refresh read inputs such as `current_task`, `default_skills`, and
-`cursor`, dependency rules such as `--message` requiring `--push`,
-project-context requirements, path-assignment shape, revise patch rules, or ISO
-datetime cursor requirements,
+`cursor`, project init arguments such as `projectPath`, `project_id`, `tags`,
+`default_skills`, `sync.mode`, and `repair`, dependency rules such as
+`--message` requiring `--push`, project-context requirements, path-assignment
+shape, revise patch rules, or ISO datetime cursor requirements,
 `missing_argument` or `missing_one_of` names omitted inputs, `rejected_patch`
 names invalid patch paths or patch payloads, `rejected_arguments` lists
 conflicting inputs, `discover_with` names safe lookup calls, and `retry_with`
