@@ -3294,12 +3294,35 @@ describe("moryn CLI", () => {
           throw new Error("Expected moryn revise to reject malformed --set assignment");
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
-          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recoverable: boolean; recommended_action: string } };
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recoverable: boolean;
+              recommended_action: string;
+              recovery_hint: {
+                rejected_argument: { option: string; value: string };
+                expected: { kind: string; key_path: string; separator: string; value: string };
+                retry_with: { option: string; value_placeholder: string };
+              };
+            };
+          };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain("Invalid --set assignment");
           expect(parsed.error.recoverable).toBe(true);
-          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+          expect(parsed.error.recommended_action).toBe("retry with a valid --set path assignment");
+          expect(parsed.error.recovery_hint).toEqual({
+            rejected_argument: { option: "--set", value: assignment },
+            expected: {
+              kind: "path_assignment",
+              key_path: "dot-separated patch path",
+              separator: "=",
+              value: "JSON scalar/object/array or string"
+            },
+            retry_with: { option: "--set", value_placeholder: "<path>=<json-or-string>" }
+          });
         }
       }
     });

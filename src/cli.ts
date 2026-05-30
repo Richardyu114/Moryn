@@ -85,6 +85,16 @@ type CliArgumentRecoveryHint =
       rejected_arguments: Array<{ option: "--text" | "--content-json"; value: string }>;
       expected: { kind: "choose_one"; options: ["--text", "--content-json"] };
       retry_with: Array<{ option: "--text" | "--content-json"; value_placeholder: string }>;
+    }
+  | {
+      rejected_argument: { option: "--set"; value: string };
+      expected: {
+        kind: "path_assignment";
+        key_path: "dot-separated patch path";
+        separator: "=";
+        value: "JSON scalar/object/array or string";
+      };
+      retry_with: { option: "--set"; value_placeholder: "<path>=<json-or-string>" };
     };
 
 class CliArgumentError extends Error {
@@ -177,6 +187,23 @@ function writeContentChoiceCliArgumentError(
   );
 }
 
+function setAssignmentCliArgumentError(assignment: string): CliArgumentError {
+  return new CliArgumentError(
+    `Invalid argument: Invalid --set assignment: ${assignment}`,
+    "retry with a valid --set path assignment",
+    {
+      rejected_argument: { option: "--set", value: assignment },
+      expected: {
+        kind: "path_assignment",
+        key_path: "dot-separated patch path",
+        separator: "=",
+        value: "JSON scalar/object/array or string"
+      },
+      retry_with: { option: "--set", value_placeholder: "<path>=<json-or-string>" }
+    }
+  );
+}
+
 function createCliEngine() {
   const path = storePath();
   return createEngine({
@@ -211,7 +238,7 @@ function parseAssignments(assignments: string[]): Record<string, unknown> {
   return Object.fromEntries(assignments.map((assignment) => {
     const [key, ...rest] = assignment.split("=");
     if (!key || !isValidPatchPath(key) || !rest.length) {
-      throw new Error(`Invalid argument: Invalid --set assignment: ${assignment}`);
+      throw setAssignmentCliArgumentError(assignment);
     }
     return [key, parseAssignmentValue(rest.join("="))];
   }));
