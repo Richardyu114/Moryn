@@ -216,6 +216,7 @@ function withProjectListNextMetadata<T extends {
     execution: actionExecution({
       ...action,
       required_fields_by_name: actionWithInterfaces.required_fields_by_name,
+      arguments_by_name: actionWithInterfaces.arguments_by_name,
       argument_sources: actionArgumentSources(action)
     }),
     workflow: withPhasesByName({
@@ -255,6 +256,7 @@ function withRefreshChangeNextActionMetadata<T extends {
     execution: actionExecution({
       ...action,
       required_fields_by_name: actionWithInterfaces.required_fields_by_name,
+      arguments_by_name: actionWithInterfaces.arguments_by_name,
       argument_sources: actionArgumentSources(action)
     }),
     workflow: withPhasesByName({

@@ -352,6 +352,7 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
     execution: actionExecution({
       ...action,
       required_fields_by_name: actionWithRequiredFields.required_fields_by_name,
+      arguments_by_name: operationArgumentsByTool(action.tool),
       argument_sources: "argument_sources" in action && action.argument_sources && typeof action.argument_sources === "object"
         ? action.argument_sources as Record<string, string>
         : undefined

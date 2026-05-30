@@ -155,7 +155,13 @@ describe("package smoke test", () => {
         argument_paths: ["summary"],
         argument_source: "user_input.summary",
         placeholder: "<summary>",
-        value: "<summary>"
+        value: "<summary>",
+        mcp_targets: [{
+          argument: "summary",
+          type: "string",
+          required: true,
+          preferred: true
+        }]
       }],
       required_inputs_by_field: {
         summary: {
@@ -164,7 +170,13 @@ describe("package smoke test", () => {
           argument_paths: ["summary"],
           argument_source: "user_input.summary",
           placeholder: "<summary>",
-          value: "<summary>"
+          value: "<summary>",
+          mcp_targets: [{
+            argument: "summary",
+            type: "string",
+            required: true,
+            preferred: true
+          }]
         }
       },
       requires_user_confirmation: false
@@ -180,7 +192,13 @@ describe("package smoke test", () => {
           argument_paths: ["record_id"],
           argument_source: "user_input.record_id",
           placeholder: "<record_id>",
-          value: "<record_id>"
+          value: "<record_id>",
+          mcp_targets: [{
+            argument: "record_id",
+            type: "string",
+            required: true,
+            preferred: true
+          }]
         },
         {
           field: "target_state",
@@ -189,7 +207,13 @@ describe("package smoke test", () => {
           argument_source: "user_input.target_state",
           placeholder: "<state>",
           value: "<state>",
-          allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+          allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
+          mcp_targets: [{
+            argument: "target_state",
+            type: "string",
+            required: true,
+            preferred: true
+          }]
         }
       ],
       required_inputs_by_field: {
@@ -199,7 +223,13 @@ describe("package smoke test", () => {
           argument_paths: ["record_id"],
           argument_source: "user_input.record_id",
           placeholder: "<record_id>",
-          value: "<record_id>"
+          value: "<record_id>",
+          mcp_targets: [{
+            argument: "record_id",
+            type: "string",
+            required: true,
+            preferred: true
+          }]
         },
         target_state: {
           field: "target_state",
@@ -208,7 +238,13 @@ describe("package smoke test", () => {
           argument_source: "user_input.target_state",
           placeholder: "<state>",
           value: "<state>",
-          allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+          allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
+          mcp_targets: [{
+            argument: "target_state",
+            type: "string",
+            required: true,
+            preferred: true
+          }]
         }
       },
       requires_user_confirmation: false
@@ -223,7 +259,13 @@ describe("package smoke test", () => {
         argument_paths: ["path"],
         argument_source: "user_input.path",
         placeholder: "<path>",
-        value: "<path>"
+        value: "<path>",
+        mcp_targets: [{
+          argument: "path",
+          type: "string",
+          required: true,
+          preferred: true
+        }]
       }],
       required_inputs_by_field: {
         path: {
@@ -232,7 +274,13 @@ describe("package smoke test", () => {
           argument_paths: ["path"],
           argument_source: "user_input.path",
           placeholder: "<path>",
-          value: "<path>"
+          value: "<path>",
+          mcp_targets: [{
+            argument: "path",
+            type: "string",
+            required: true,
+            preferred: true
+          }]
         }
       },
       requires_user_confirmation: true
@@ -288,12 +336,40 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.write.execution.required_inputs.find((input) => input.field === "text_or_content")).toMatchObject({
       argument_path: "text|content",
       argument_paths: ["text", "content"],
-      alternatives: ["text", "content"]
+      alternatives: ["text", "content"],
+      mcp_targets: [
+        {
+          argument: "text",
+          type: "string",
+          required: false,
+          preferred: true
+        },
+        {
+          argument: "content",
+          type: "object",
+          required: false,
+          preferred: false
+        }
+      ]
     });
     expect(response.operations_by_id.write.execution.required_inputs_by_field.text_or_content).toMatchObject({
       argument_path: "text|content",
       argument_paths: ["text", "content"],
-      alternatives: ["text", "content"]
+      alternatives: ["text", "content"],
+      mcp_targets: [
+        {
+          argument: "text",
+          type: "string",
+          required: false,
+          preferred: true
+        },
+        {
+          argument: "content",
+          type: "object",
+          required: false,
+          preferred: false
+        }
+      ]
     });
     expect(response.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual([
       "raw", "candidate", "canonical", "archived", "quarantined"

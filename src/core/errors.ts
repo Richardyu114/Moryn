@@ -189,6 +189,7 @@ export function withNextActionMetadata<T extends {
     execution: actionExecution({
       ...action,
       required_fields_by_name: actionWithRequiredFields.required_fields_by_name,
+      arguments_by_name: operationArgumentsByTool(action.tool),
       argument_sources: actionArgumentSources(action)
     }),
     selection_sources: NEXT_ACTION_SELECTION_SOURCES,

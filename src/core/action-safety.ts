@@ -8,10 +8,19 @@ export interface ActionSafety {
 
 export type ActionExecutionNextStep = "run" | "collect_required_fields" | "confirm_with_user" | "do_not_auto_run";
 
+export interface ActionMcpTarget {
+  argument: string;
+  path?: string;
+  type?: string;
+  required?: boolean;
+  preferred: boolean;
+}
+
 export interface ActionRequiredInput {
   field: string;
   argument_path: string;
   argument_paths: string[];
+  mcp_targets?: ActionMcpTarget[];
   argument_source?: string;
   value?: unknown;
   placeholder?: string;
@@ -25,6 +34,15 @@ type RequiredFieldInputMetadata = {
   placeholder?: string;
   alternatives?: readonly string[];
   allowed_values?: readonly string[];
+};
+
+type ArgumentInputMetadata = {
+  type?: string;
+  required?: boolean;
+  mcp?: {
+    argument: string;
+    path?: string;
+  };
 };
 
 export interface ActionExecution {
@@ -41,6 +59,29 @@ const LOCAL_CONFIG_TOOLS = new Set(["init", "project_init", "sync_init"]);
 
 function argumentPaths(argumentPath: string): string[] {
   return argumentPath.split("|").map((path) => path.trim()).filter(Boolean);
+}
+
+function mcpTargets(
+  paths: string[],
+  argumentsByName?: Record<string, ArgumentInputMetadata>
+): ActionMcpTarget[] | undefined {
+  if (!argumentsByName) return undefined;
+
+  const targets = paths.flatMap((argumentPath, index) => {
+    const directMetadata = argumentsByName[argumentPath];
+    const nestedMetadata = Object.values(argumentsByName).find((metadata) => metadata.mcp?.path === argumentPath);
+    const metadata = directMetadata ?? nestedMetadata;
+    if (!metadata?.mcp) return [];
+    return [{
+      argument: metadata.mcp.argument,
+      ...(metadata.mcp.path ? { path: metadata.mcp.path } : {}),
+      ...(metadata.type ? { type: metadata.type } : {}),
+      ...(typeof metadata.required === "boolean" ? { required: metadata.required } : {}),
+      preferred: index === 0
+    }];
+  });
+
+  return targets.length > 0 ? targets : undefined;
 }
 
 export function actionSafety(input: {
@@ -72,16 +113,20 @@ export function actionExecution(input: {
   safe_to_run: boolean;
   required_fields: string[];
   required_fields_by_name?: Record<string, RequiredFieldInputMetadata>;
+  arguments_by_name?: Record<string, ArgumentInputMetadata>;
   argument_sources?: Record<string, string>;
 }): ActionExecution {
   const safety = actionSafety(input);
   const requiredInputs = input.required_fields.map((field) => {
     const metadata = input.required_fields_by_name?.[field];
     const argumentPath = metadata?.argument_path ?? field;
+    const splitArgumentPaths = argumentPaths(argumentPath);
+    const targets = mcpTargets(splitArgumentPaths, input.arguments_by_name);
     return {
       field,
       argument_path: argumentPath,
-      argument_paths: argumentPaths(argumentPath),
+      argument_paths: splitArgumentPaths,
+      ...(targets ? { mcp_targets: targets } : {}),
       ...(input.argument_sources?.[field] ? { argument_source: input.argument_sources[field] } : {}),
       ...(metadata && "value" in metadata ? { value: metadata.value } : {}),
       ...(metadata?.placeholder ? { placeholder: metadata.placeholder } : {}),

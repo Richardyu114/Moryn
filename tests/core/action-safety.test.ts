@@ -85,6 +85,25 @@ describe("action execution readiness", () => {
       argument_sources: {
         kind: "user_input.kind",
         text_or_content: "user_input.text_or_content"
+      },
+      arguments_by_name: {
+        kind: {
+          type: "string",
+          required: true,
+          mcp: { argument: "kind" }
+        },
+        text: {
+          type: "string",
+          required: false,
+          mcp: { argument: "text" },
+          alternatives: ["content"]
+        },
+        content: {
+          type: "object",
+          required: false,
+          mcp: { argument: "content" },
+          alternatives: ["text"]
+        }
       }
     });
     expect(execution.required_inputs).toEqual([
@@ -95,7 +114,13 @@ describe("action execution readiness", () => {
         argument_source: "user_input.kind",
         placeholder: "<kind>",
         value: "<kind>",
-        allowed_values: ["memory", "skill"]
+        allowed_values: ["memory", "skill"],
+        mcp_targets: [{
+          argument: "kind",
+          type: "string",
+          required: true,
+          preferred: true
+        }]
       },
       {
         field: "text_or_content",
@@ -104,7 +129,21 @@ describe("action execution readiness", () => {
         argument_source: "user_input.text_or_content",
         placeholder: "<text_or_content>",
         value: "<text_or_content>",
-        alternatives: ["text", "content"]
+        alternatives: ["text", "content"],
+        mcp_targets: [
+          {
+            argument: "text",
+            type: "string",
+            required: false,
+            preferred: true
+          },
+          {
+            argument: "content",
+            type: "object",
+            required: false,
+            preferred: false
+          }
+        ]
       }
     ]);
     expect(execution.required_inputs_by_field.text_or_content).toEqual({
@@ -114,8 +153,53 @@ describe("action execution readiness", () => {
       argument_source: "user_input.text_or_content",
       placeholder: "<text_or_content>",
       value: "<text_or_content>",
-      alternatives: ["text", "content"]
+      alternatives: ["text", "content"],
+      mcp_targets: [
+        {
+          argument: "text",
+          type: "string",
+          required: false,
+          preferred: true
+        },
+        {
+          argument: "content",
+          type: "object",
+          required: false,
+          preferred: false
+        }
+      ]
     });
+  });
+
+  it("maps nested MCP argument paths for required inputs", () => {
+    const execution = actionExecution({
+      tool: "write",
+      safe_to_run: false,
+      required_fields: ["derived_from"],
+      required_fields_by_name: {
+        derived_from: {
+          name: "derived_from",
+          argument_path: "provenance.derived_from",
+          placeholder: "<record_id>",
+          value: "<record_id>"
+        }
+      },
+      arguments_by_name: {
+        derived_from: {
+          type: "string[]",
+          required: false,
+          mcp: { argument: "provenance", path: "provenance.derived_from" }
+        }
+      }
+    });
+
+    expect(execution.required_inputs_by_field.derived_from.mcp_targets).toEqual([{
+      argument: "provenance",
+      path: "provenance.derived_from",
+      type: "string[]",
+      required: false,
+      preferred: true
+    }]);
   });
 
   it("distinguishes confirmation-only actions from authored-input actions", () => {

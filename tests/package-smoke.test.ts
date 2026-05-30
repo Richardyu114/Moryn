@@ -79,15 +79,15 @@ describe("published package smoke", () => {
               execution: {
                 next_step: string;
                 missing_required_fields: string[];
-                required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; argument_source?: string; placeholder?: string }>;
-                required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; argument_source?: string; placeholder?: string }>;
+                required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; argument_source?: string; placeholder?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>;
+                required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; argument_source?: string; placeholder?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>;
               };
               required_fields_by_name: { summary: { placeholder?: string } };
             };
             recall: { execution: { next_step: string; ready_to_run: boolean; required_inputs: unknown[]; required_inputs_by_field: Record<string, unknown> } };
-            write: { execution: { required_inputs: Array<{ field: string; argument_paths: string[] }>; required_inputs_by_field: Record<string, { argument_paths: string[] }> }; required_fields_by_name: { kind: { allowed_values?: string[] } }; arguments_by_name: { kind: { allowed_values?: string[] } } };
-            promote: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; allowed_values?: string[] }>; required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; allowed_values?: string[] }> }; required_fields_by_name: { target_state: { allowed_values?: string[] } } };
-            project_init: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_source?: string }>; required_inputs_by_field: Record<string, { field: string; argument_source?: string }>; requires_user_confirmation: boolean } };
+            write: { execution: { required_inputs: Array<{ field: string; argument_paths: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>; required_inputs_by_field: Record<string, { argument_paths: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }> }; required_fields_by_name: { kind: { allowed_values?: string[] } }; arguments_by_name: { kind: { allowed_values?: string[] } } };
+            promote: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; allowed_values?: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>; required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; allowed_values?: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }> }; required_fields_by_name: { target_state: { allowed_values?: string[] } } };
+            project_init: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_source?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>; required_inputs_by_field: Record<string, { field: string; argument_source?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>; requires_user_confirmation: boolean } };
             operation_contracts: { interfaces: { mcp: { tool: string } } };
           };
         };
@@ -115,7 +115,13 @@ describe("published package smoke", () => {
             argument_path: "summary",
             argument_paths: ["summary"],
             argument_source: "user_input.summary",
-            placeholder: "<summary>"
+            placeholder: "<summary>",
+            mcp_targets: [{
+              argument: "summary",
+              type: "string",
+              required: true,
+              preferred: true
+            }]
           }],
           required_inputs_by_field: {
             summary: {
@@ -123,42 +129,114 @@ describe("published package smoke", () => {
               argument_path: "summary",
               argument_paths: ["summary"],
               argument_source: "user_input.summary",
-              placeholder: "<summary>"
+              placeholder: "<summary>",
+              mcp_targets: [{
+                argument: "summary",
+                type: "string",
+                required: true,
+                preferred: true
+              }]
             }
           }
         });
         expect(parsedOperations.operations_by_id.write.required_fields_by_name.kind.allowed_values).toEqual(["memory", "skill", "soul", "session_summary", "agent_note"]);
         expect(parsedOperations.operations_by_id.write.execution.required_inputs.find((input) => input.field === "text_or_content")?.argument_paths).toEqual(["text", "content"]);
         expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.argument_paths).toEqual(["text", "content"]);
+        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.mcp_targets).toEqual([
+          {
+            argument: "text",
+            type: "string",
+            required: false,
+            preferred: true
+          },
+          {
+            argument: "content",
+            type: "object",
+            required: false,
+            preferred: false
+          }
+        ]);
         expect(parsedOperations.operations_by_id.write.arguments_by_name.kind.allowed_values).toEqual(["memory", "skill", "soul", "session_summary", "agent_note"]);
         expect(parsedOperations.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual(["raw", "candidate", "canonical", "archived", "quarantined"]);
         expect(parsedOperations.operations_by_id.promote.execution).toMatchObject({
           next_step: "collect_required_fields",
           missing_required_fields: ["record_id", "target_state"],
           required_inputs: [
-            { field: "record_id", argument_path: "record_id", argument_paths: ["record_id"] },
+            {
+              field: "record_id",
+              argument_path: "record_id",
+              argument_paths: ["record_id"],
+              mcp_targets: [{
+                argument: "record_id",
+                type: "string",
+                required: true,
+                preferred: true
+              }]
+            },
             {
               field: "target_state",
               argument_path: "target_state",
               argument_paths: ["target_state"],
-              allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+              allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
+              mcp_targets: [{
+                argument: "target_state",
+                type: "string",
+                required: true,
+                preferred: true
+              }]
             }
           ],
           required_inputs_by_field: {
-            record_id: { field: "record_id", argument_path: "record_id", argument_paths: ["record_id"] },
+            record_id: {
+              field: "record_id",
+              argument_path: "record_id",
+              argument_paths: ["record_id"],
+              mcp_targets: [{
+                argument: "record_id",
+                type: "string",
+                required: true,
+                preferred: true
+              }]
+            },
             target_state: {
               field: "target_state",
               argument_path: "target_state",
               argument_paths: ["target_state"],
-              allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+              allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
+              mcp_targets: [{
+                argument: "target_state",
+                type: "string",
+                required: true,
+                preferred: true
+              }]
             }
           }
         });
         expect(parsedOperations.operations_by_id.project_init.execution).toMatchObject({
           next_step: "collect_required_fields",
           missing_required_fields: ["path"],
-          required_inputs: [{ field: "path", argument_source: "user_input.path" }],
-          required_inputs_by_field: { path: { field: "path", argument_source: "user_input.path" } },
+          required_inputs: [{
+            field: "path",
+            argument_source: "user_input.path",
+            mcp_targets: [{
+              argument: "path",
+              type: "string",
+              required: true,
+              preferred: true
+            }]
+          }],
+          required_inputs_by_field: {
+            path: {
+              field: "path",
+              argument_source: "user_input.path",
+              mcp_targets: [{
+                argument: "path",
+                type: "string",
+                required: true,
+                preferred: true
+              }]
+            }
+          },
           requires_user_confirmation: true
         });
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
