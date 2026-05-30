@@ -778,20 +778,51 @@ describe("core engine", () => {
       }
 
       await expectInvalidArgument(null as never, "Invalid write input");
-      await expectInvalidArgument({
+      await expectInvalidWriteShapeArgument({
         kind: "note" as never,
         type: "decision",
         scope: "project",
         content: { text: "Invalid kind.", format: "text" },
         source: { client: "test" }
-      }, "Invalid kind");
-      await expectInvalidArgument({
+      }, "Invalid kind", "retry write with a supported kind", {
+        rejected_argument: { argument: "kind", value: "note" },
+        expected: { kind: "allowed_values", allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"] },
+        retry_with: { argument: "kind", value_placeholder: "memory" }
+      });
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "",
         scope: "project",
         content: { text: "Invalid type.", format: "text" },
         source: { client: "test" }
-      }, "Invalid type");
+      }, "Invalid type", "retry write with a non-empty type", {
+        rejected_argument: { argument: "type", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "type", value_placeholder: "<record type>" }
+      });
+      await expectInvalidWriteShapeArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "workspace" as never,
+        content: { text: "Invalid scope.", format: "text" },
+        source: { client: "test" }
+      }, "Invalid scope", "retry write with a supported scope", {
+        rejected_argument: { argument: "scope", value: "workspace" },
+        expected: { kind: "allowed_values", allowed_values: ["global", "project", "topic", "session", "artifact"] },
+        retry_with: { argument: "scope", value_placeholder: "project" }
+      });
+      await expectInvalidWriteShapeArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "",
+        content: { text: "Invalid project id.", format: "text" },
+        source: { client: "test" }
+      }, "Invalid project_id", "retry write with a valid project_id", {
+        rejected_argument: { argument: "project_id", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
+      });
       await expectInvalidArgument({
         kind: "memory",
         type: "decision",

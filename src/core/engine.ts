@@ -1,7 +1,7 @@
 import { appendEvent, readEvents } from "./store.js";
 import { rebuildDerivedViews } from "./derived.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
-import { isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
+import { RECORD_KINDS, RECORD_SCOPES, isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { commandForPromoteContext, InvalidRefreshCursorError, PROMOTE_CANDIDATE_WHEN, withNextActionMetadata, type MorynErrorNextAction } from "./errors.js";
@@ -459,6 +459,83 @@ function invalidWriteContentFormatError(format: unknown): WriteContentError {
   );
 }
 
+type WriteCoreFieldRecoveryHint =
+  | {
+      rejected_argument: { argument: "kind"; value: unknown };
+      expected: { kind: "allowed_values"; allowed_values: string[] };
+      retry_with: { argument: "kind"; value_placeholder: "memory" };
+    }
+  | {
+      rejected_argument: { argument: "scope"; value: unknown };
+      expected: { kind: "allowed_values"; allowed_values: string[] };
+      retry_with: { argument: "scope"; value_placeholder: "project" };
+    }
+  | {
+      rejected_argument: { argument: "type" | "project_id"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      retry_with: { argument: "type" | "project_id"; value_placeholder: string };
+    };
+
+class WriteCoreFieldError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: WriteCoreFieldRecoveryHint;
+
+  constructor(message: string, recommendedAction: string, recoveryHint: WriteCoreFieldRecoveryHint) {
+    super(message);
+    this.name = "WriteCoreFieldError";
+    this.recommended_action = recommendedAction;
+    this.recovery_hint = recoveryHint;
+  }
+}
+
+function invalidWriteKindError(kind: unknown): WriteCoreFieldError {
+  return new WriteCoreFieldError(
+    "Invalid argument: Invalid kind",
+    "retry write with a supported kind",
+    {
+      rejected_argument: { argument: "kind", value: kind },
+      expected: { kind: "allowed_values", allowed_values: [...RECORD_KINDS] },
+      retry_with: { argument: "kind", value_placeholder: "memory" }
+    }
+  );
+}
+
+function invalidWriteTypeError(type: unknown): WriteCoreFieldError {
+  return new WriteCoreFieldError(
+    "Invalid argument: Invalid type",
+    "retry write with a non-empty type",
+    {
+      rejected_argument: { argument: "type", value: type },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: "type", value_placeholder: "<record type>" }
+    }
+  );
+}
+
+function invalidWriteScopeError(scope: unknown): WriteCoreFieldError {
+  return new WriteCoreFieldError(
+    "Invalid argument: Invalid scope",
+    "retry write with a supported scope",
+    {
+      rejected_argument: { argument: "scope", value: scope },
+      expected: { kind: "allowed_values", allowed_values: [...RECORD_SCOPES] },
+      retry_with: { argument: "scope", value_placeholder: "project" }
+    }
+  );
+}
+
+function invalidWriteProjectIdError(projectId: unknown): WriteCoreFieldError {
+  return new WriteCoreFieldError(
+    "Invalid argument: Invalid project_id",
+    "retry write with a valid project_id",
+    {
+      rejected_argument: { argument: "project_id", value: projectId },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
+    }
+  );
+}
+
 type WriteTagsRecoveryHint = {
   rejected_argument: { argument: "tags"; value: unknown };
   expected: { kind: "array_of_non_empty_strings" };
@@ -506,11 +583,11 @@ class WriteSourceError extends Error {
 
 function validateWriteInput(input: WriteInput): void {
   assertPlainObject(input, "write input");
-  if (!recordKindSchema.safeParse(input.kind).success) throw new Error("Invalid argument: Invalid kind");
-  if (typeof input.type !== "string" || !input.type.length) throw new Error("Invalid argument: Invalid type");
-  if (!recordScopeSchema.safeParse(input.scope).success) throw new Error("Invalid argument: Invalid scope");
+  if (!recordKindSchema.safeParse(input.kind).success) throw invalidWriteKindError(input.kind);
+  if (typeof input.type !== "string" || !input.type.length) throw invalidWriteTypeError(input.type);
+  if (!recordScopeSchema.safeParse(input.scope).success) throw invalidWriteScopeError(input.scope);
   if (input.project_id !== undefined && (typeof input.project_id !== "string" || !input.project_id.length)) {
-    throw new Error("Invalid argument: Invalid project_id");
+    throw invalidWriteProjectIdError(input.project_id);
   }
   if (input.scope === "project" && input.project_id === undefined) {
     throw new Error("Invalid argument: project_id is required for project scope");
