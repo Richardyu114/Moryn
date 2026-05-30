@@ -103,6 +103,26 @@ export interface ActionCliAssignment {
   preferred: boolean;
 }
 
+export type ActionRequiredInputValueKind =
+  | "string"
+  | "number"
+  | "boolean"
+  | "string_list"
+  | "json_object"
+  | "path_value_entries"
+  | "object_fields"
+  | "enum";
+
+export interface ActionRequiredInputExpectedValue {
+  value_path: string;
+  kind: ActionRequiredInputValueKind;
+  value_encoding?: ActionCliValueEncoding;
+  type?: string;
+  repeatable?: boolean;
+  allowed_values?: readonly string[];
+  flag_value_paths?: ActionCliFlagValuePath[];
+}
+
 export interface ActionRequiredInputApplyTo {
   mcp_argument_paths: string[];
   mcp_assignments?: ActionMcpAssignment[];
@@ -119,6 +139,7 @@ export interface ActionRequiredInputChoice {
   value_path: string;
   preferred: boolean;
   type?: string;
+  expected_value?: ActionRequiredInputExpectedValue;
   apply_to: ActionRequiredInputApplyTo;
 }
 
@@ -128,6 +149,7 @@ export interface ActionRequiredInputCollect {
   prompt: string;
   apply_to: ActionRequiredInputApplyTo;
   value_path?: string;
+  expected_value?: ActionRequiredInputExpectedValue;
   input_mode?: ActionRequiredInputMode;
   choices?: ActionRequiredInputChoice[];
   placeholder?: string;
@@ -161,6 +183,7 @@ type RequiredFieldInputMetadata = {
 type ArgumentInputMetadata = {
   type?: string;
   required?: boolean;
+  allowed_values?: readonly string[];
   cli?: {
     flag?: string;
     flags?: readonly string[];
@@ -314,6 +337,49 @@ function cliAssignments(targets: ActionCliTarget[] | undefined, valuePath: strin
   });
 }
 
+function valueKind(input: {
+  type?: string;
+  value_encoding?: ActionCliValueEncoding;
+  allowed_values?: readonly string[];
+}): ActionRequiredInputValueKind {
+  if (input.allowed_values?.length) return "enum";
+  if (input.value_encoding === "json") return "json_object";
+  if (input.value_encoding === "repeat_values") return "string_list";
+  if (input.value_encoding === "path_value_entries") return "path_value_entries";
+  if (input.value_encoding === "object_fields") return "object_fields";
+  if (input.type === "object") return "json_object";
+  if (input.type === "string[]") return "string_list";
+  if (input.type === "number") return "number";
+  if (input.type === "boolean") return "boolean";
+  return "string";
+}
+
+function expectedValue(input: {
+  value_path: string;
+  mcp_targets?: ActionMcpTarget[];
+  cli_assignments?: ActionCliAssignment[];
+  cli_targets?: ActionCliTarget[];
+  allowed_values?: readonly string[];
+}): ActionRequiredInputExpectedValue {
+  const cliAssignment = input.cli_assignments?.[0];
+  const cliTarget = input.cli_targets?.[0];
+  const mcpTarget = input.mcp_targets?.[0];
+  const type = cliAssignment?.type ?? cliTarget?.type ?? mcpTarget?.type;
+  const repeatable = cliAssignment?.repeatable ?? cliTarget?.repeatable;
+  const value_encoding = cliAssignment?.value_encoding;
+  const flag_value_paths = cliAssignment?.flag_value_paths;
+
+  return {
+    value_path: input.value_path,
+    kind: valueKind({ type, value_encoding, allowed_values: input.allowed_values }),
+    ...(value_encoding ? { value_encoding } : {}),
+    ...(type ? { type } : {}),
+    ...(typeof repeatable === "boolean" ? { repeatable } : {}),
+    ...(input.allowed_values ? { allowed_values: input.allowed_values } : {}),
+    ...(flag_value_paths ? { flag_value_paths } : {})
+  };
+}
+
 function collectApplyTo(input: {
   paths: string[];
   mcp_targets?: ActionMcpTarget[];
@@ -360,6 +426,7 @@ function requiredInputChoices(input: {
     const choiceMcpAssignments = mcpAssignments(choiceMcpTargets, input.value_path);
     const choiceCliAssignments = cliAssignments(choiceCliTargets, input.value_path);
     const type = targetType(choiceMcpTargets, choiceCliTargets);
+    const metadata = input.arguments_by_name?.[argumentPath];
 
     return {
       option: argumentPath,
@@ -367,6 +434,13 @@ function requiredInputChoices(input: {
       value_path: input.value_path,
       preferred,
       ...(type ? { type } : {}),
+      expected_value: expectedValue({
+        value_path: input.value_path,
+        ...(choiceMcpTargets ? { mcp_targets: choiceMcpTargets } : {}),
+        ...(choiceCliAssignments ? { cli_assignments: choiceCliAssignments } : {}),
+        ...(choiceCliTargets ? { cli_targets: choiceCliTargets } : {}),
+        ...(metadata?.allowed_values ? { allowed_values: metadata.allowed_values } : {})
+      }),
       apply_to: collectApplyTo({
         paths: [argumentPath],
         ...(choiceMcpTargets ? { mcp_targets: choiceMcpTargets } : {}),
@@ -390,6 +464,7 @@ function collectRequiredInput(input: {
   cli_assignments?: ActionCliAssignment[];
   cli_targets?: ActionCliTarget[];
   argument_source?: string;
+  expected_value?: ActionRequiredInputExpectedValue;
   choices?: ActionRequiredInputChoice[];
   placeholder?: string;
   alternatives?: readonly string[];
@@ -401,6 +476,7 @@ function collectRequiredInput(input: {
     prompt: promptForRequiredInput(input.field),
     apply_to: collectApplyTo(input),
     ...(input.argument_source ? { value_path: input.argument_source } : {}),
+    ...(input.expected_value ? { expected_value: input.expected_value } : {}),
     ...(input.choices ? { input_mode: "choose_one" as const, choices: input.choices } : {}),
     ...(input.placeholder ? { placeholder: input.placeholder } : {}),
     ...(input.alternatives ? { alternatives: input.alternatives } : {}),
@@ -505,6 +581,15 @@ export function actionExecution(input: {
       arguments_by_name: input.arguments_by_name,
       value_path: argumentSource
     });
+    const collectExpectedValue = choices
+      ? undefined
+      : expectedValue({
+        value_path: argumentSource,
+        ...(mcpTargetList ? { mcp_targets: mcpTargetList } : {}),
+        ...(cliAssignmentList ? { cli_assignments: cliAssignmentList } : {}),
+        ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
+        ...(metadata?.allowed_values ? { allowed_values: metadata.allowed_values } : {})
+      });
     return {
       field,
       argument_path: argumentPath,
@@ -517,6 +602,7 @@ export function actionExecution(input: {
         ...(cliAssignmentList ? { cli_assignments: cliAssignmentList } : {}),
         ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
         ...(argumentSource ? { argument_source: argumentSource } : {}),
+        ...(collectExpectedValue ? { expected_value: collectExpectedValue } : {}),
         ...(choices ? { choices } : {}),
         ...(placeholder ? { placeholder } : {}),
         ...(metadata?.alternatives ? { alternatives: metadata.alternatives } : {}),

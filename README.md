@@ -427,9 +427,12 @@ object when present. `collect` is the host-facing input recipe: it gives a
 stable `input_key`, a short user prompt, where to apply the answer in MCP and
 CLI arguments, the `value_path` such as `user_input.summary`, placeholder, and
 any enum or alternative choices, so hosts do not invent questions or argument
-mappings from prose. When `collect.input_mode` is `"choose_one"`, hosts should
-ask for one value plus one `collect.choices[].option`, then apply only that
-choice's `apply_to` assignments; this removes the need to parse
+mappings from prose. `collect.expected_value` describes the expected user value
+shape (`string`, `enum`, `json_object`, `string_list`, and related CLI
+encodings) so hosts can render and validate inputs without reverse-engineering
+argument metadata. When `collect.input_mode` is `"choose_one"`, hosts should ask
+for one value plus one `collect.choices[].option`, then apply only that choice's
+`apply_to` assignments and `expected_value`; this removes the need to parse
 `text|content` or guess whether both alternatives should be filled.
 `required_inputs_by_field` mirrors those entries by field name for hosts that
 already know which input they need. `required_inputs_by_argument_path` mirrors
@@ -626,9 +629,11 @@ Each entry includes `selection_sources.required_input`,
 `cli_targets`; hosts should prefer `required_inputs[].collect` when asking the
 user and then use `collect.apply_to.mcp_assignments` to patch MCP arguments or
 `collect.apply_to.cli_assignments` to construct CLI args from `argv_template`
-and `value_encoding`. For alternatives, prefer `collect.choices[]`: choose one
-option, then use that choice's own `apply_to` instructions so only the selected
-MCP argument or CLI flag is populated. That
+and `value_encoding`. Use `collect.expected_value.kind` to decide whether the
+answer should be a string, enum value, JSON object, list, object field map, or
+path-value entries. For alternatives, prefer `collect.choices[]`: choose one
+option, then use that choice's own `expected_value` and `apply_to` instructions
+so only the selected MCP argument or CLI flag is populated. That
 keeps hosts from needing to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.

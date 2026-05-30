@@ -37,6 +37,10 @@ const summaryCollect = {
     mcp_argument_paths: ["summary"]
   },
   value_path: "user_input.summary",
+  expected_value: {
+    value_path: "user_input.summary",
+    kind: "string"
+  },
   placeholder: "<summary>"
 };
 
@@ -47,6 +51,12 @@ const textOrContentChoices = [
     value_path: "user_input.text_or_content",
     preferred: true,
     type: "string",
+    expected_value: {
+      value_path: "user_input.text_or_content",
+      kind: "string",
+      value_encoding: "string",
+      type: "string"
+    },
     apply_to: {
       mcp_argument_paths: ["text"],
       mcp_assignments: [{
@@ -83,6 +93,12 @@ const textOrContentChoices = [
     value_path: "user_input.text_or_content",
     preferred: false,
     type: "object",
+    expected_value: {
+      value_path: "user_input.text_or_content",
+      kind: "json_object",
+      value_encoding: "json",
+      type: "object"
+    },
     apply_to: {
       mcp_argument_paths: ["content"],
       mcp_assignments: [{
@@ -225,6 +241,11 @@ describe("action execution readiness", () => {
           cli_targets: [{ flag: "--summary", type: "string", required: true, preferred: true }]
         },
         value_path: "user_input.summary",
+        expected_value: {
+          value_path: "user_input.summary",
+          kind: "string",
+          value_encoding: "string"
+        },
         placeholder: "<summary>"
       }
     });
@@ -448,6 +469,13 @@ describe("action execution readiness", () => {
             }]
           },
           value_path: "user_input.kind",
+          expected_value: {
+            value_path: "user_input.kind",
+            kind: "enum",
+            value_encoding: "string",
+            type: "string",
+            allowed_values: ["memory", "skill"]
+          },
           placeholder: "<kind>",
           allowed_values: ["memory", "skill"]
         },

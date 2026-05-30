@@ -698,6 +698,12 @@ describe("package smoke test", () => {
             value_path: "user_input.text_or_content",
             preferred: true,
             type: "string",
+            expected_value: {
+              value_path: "user_input.text_or_content",
+              kind: "string",
+              value_encoding: "string",
+              type: "string"
+            },
             apply_to: {
               mcp_argument_paths: ["text"],
               mcp_assignments: [{
@@ -722,6 +728,12 @@ describe("package smoke test", () => {
             value_path: "user_input.text_or_content",
             preferred: false,
             type: "object",
+            expected_value: {
+              value_path: "user_input.text_or_content",
+              kind: "json_object",
+              value_encoding: "json",
+              type: "object"
+            },
             apply_to: {
               mcp_argument_paths: ["content"],
               mcp_assignments: [{
@@ -785,6 +797,11 @@ describe("package smoke test", () => {
             argument_path: "text",
             value_path: "user_input.text_or_content",
             preferred: true,
+            expected_value: {
+              value_path: "user_input.text_or_content",
+              kind: "string",
+              value_encoding: "string"
+            },
             apply_to: {
               mcp_argument_paths: ["text"],
               cli_assignments: [{
@@ -801,6 +818,11 @@ describe("package smoke test", () => {
             argument_path: "content",
             value_path: "user_input.text_or_content",
             preferred: false,
+            expected_value: {
+              value_path: "user_input.text_or_content",
+              kind: "json_object",
+              value_encoding: "json"
+            },
             apply_to: {
               mcp_argument_paths: ["content"],
               cli_assignments: [{

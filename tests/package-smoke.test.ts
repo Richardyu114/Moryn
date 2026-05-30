@@ -323,6 +323,11 @@ describe("published package smoke", () => {
               argument_path: "text",
               value_path: "user_input.text_or_content",
               preferred: true,
+              expected_value: {
+                value_path: "user_input.text_or_content",
+                kind: "string",
+                value_encoding: "string"
+              },
               apply_to: {
                 mcp_argument_paths: ["text"],
                 cli_assignments: [{
@@ -339,6 +344,11 @@ describe("published package smoke", () => {
               argument_path: "content",
               value_path: "user_input.text_or_content",
               preferred: false,
+              expected_value: {
+                value_path: "user_input.text_or_content",
+                kind: "json_object",
+                value_encoding: "json"
+              },
               apply_to: {
                 mcp_argument_paths: ["content"],
                 cli_assignments: [{
