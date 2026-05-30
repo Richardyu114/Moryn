@@ -109,7 +109,9 @@ export const PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES = {
   project: "project_list.projects_by_id.<project_id>",
   project_id: "project_list.projects_by_id.<project_id>.project_id",
   next_action: "project_list.projects_by_id.<project_id>.next",
-  ordered_next_action: "project_list.projects[].next"
+  ordered_next_action: "project_list.projects[].next",
+  argument: "project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>",
+  ordered_argument: "project_list.projects[].next.arguments_by_name.<argument>"
 };
 
 export const LIST_RECENT_SELECTION_SOURCES = {
@@ -146,7 +148,9 @@ export const REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES = {
   change: "refresh.changes_by_record_id.<record_id>",
   record_id: "refresh.changes_by_record_id.<record_id>.record_id",
   next_action: "refresh.changes_by_record_id.<record_id>.next_action",
-  ordered_next_action: "refresh.changes[].next_action"
+  ordered_next_action: "refresh.changes[].next_action",
+  argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+  ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>"
 };
 
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown }>(action: T) {

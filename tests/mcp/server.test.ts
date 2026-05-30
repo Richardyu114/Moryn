@@ -31,16 +31,22 @@ const NEXT_ACTION_SELECTION_SOURCES = {
 const LIFECYCLE_ACTION_SELECTION_SOURCES = {
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action",
-  ordered_action: "next.actions[]"
+  ordered_action: "next.actions[]",
+  argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
+  ordered_argument: "next.actions[].arguments_by_name.<argument>"
 };
 const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   lifecycle_action: "lifecycle_by_step.<step>",
   step: "lifecycle_by_step.<step>.step",
-  ordered_lifecycle_action: "lifecycle[]"
+  ordered_lifecycle_action: "lifecycle[]",
+  argument: "lifecycle_by_step.<step>.arguments_by_name.<argument>",
+  ordered_argument: "lifecycle[].arguments_by_name.<argument>"
 };
 const GUIDE_ENTRYPOINT_SELECTION_SOURCES = {
   startup_action: "startup",
   next_action: "next",
+  startup_argument: "startup.arguments_by_name.<argument>",
+  next_argument: "next.arguments_by_name.<argument>",
   workflow_phase: "workflow.phases_by_name.start_or_resume"
 };
 const WRITE_SELECTION_SOURCES = {
@@ -487,7 +493,9 @@ function expectRefreshChangeNextAction(action: {
       change: "refresh.changes_by_record_id.<record_id>",
       record_id: "refresh.changes_by_record_id.<record_id>.record_id",
       next_action: "refresh.changes_by_record_id.<record_id>.next_action",
-      ordered_next_action: "refresh.changes[].next_action"
+      ordered_next_action: "refresh.changes[].next_action",
+      argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
+      ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>"
     }
   });
   expectActionInterfaces(action);
@@ -573,7 +581,11 @@ function expectHandoffEntryNextAction(action: {
       next_action: actionSource,
       ordered_next_action: source === "inbox"
         ? "handoff.inbox[].next_action"
-        : "handoff.active_sessions[].next_action"
+        : "handoff.active_sessions[].next_action",
+      argument: `${actionSource}.arguments_by_name.<argument>`,
+      ordered_argument: source === "inbox"
+        ? "handoff.inbox[].next_action.arguments_by_name.<argument>"
+        : "handoff.active_sessions[].next_action.arguments_by_name.<argument>"
     }
   });
   expectActionInterfaces(action);
@@ -1915,7 +1927,8 @@ describe("MCP stdio server", () => {
           expect(finish.next.recommended_start_action_source).toBe("next.actions_by_id.start_next_session");
           expect(finish.next.selection_sources).toEqual({
             action: "next.actions_by_id.<action>",
-            action_id: "next.actions_by_id.<action>.action"
+            action_id: "next.actions_by_id.<action>.action",
+            action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
           });
           expect(finish.next.actions).toContainEqual(expect.objectContaining({
             action: "start_next_session",
@@ -2031,9 +2044,11 @@ describe("MCP stdio server", () => {
             inbox_entry: "handoff.inbox_by_record_id.<record_id>",
             inbox_record_id: "handoff.inbox_by_record_id.<record_id>.record_id",
             inbox_next_action: "handoff.inbox_by_record_id.<record_id>.next_action",
+            inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
             active_session_entry: "handoff.active_sessions_by_record_id.<record_id>",
             active_session_record_id: "handoff.active_sessions_by_record_id.<record_id>.record_id",
-            active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action"
+            active_session_next_action: "handoff.active_sessions_by_record_id.<record_id>.next_action",
+            active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>"
           });
           expectHandoffEntryNextAction(start.handoff.inbox[0]!.next_action, start.handoff.inbox[0]!.record_id, "moryn");
           expect(start.handoff.inbox_by_record_id[start.handoff.inbox[0]!.record_id]!.next_action.workflow).toEqual(start.handoff.inbox[0]!.next_action.workflow);
@@ -2053,7 +2068,8 @@ describe("MCP stdio server", () => {
           expect(start.next.recommended_refresh_action_source).toBe("next.actions_by_id.refresh_context");
           expect(start.next.selection_sources).toEqual({
             action: "next.actions_by_id.<action>",
-            action_id: "next.actions_by_id.<action>.action"
+            action_id: "next.actions_by_id.<action>.action",
+            action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
           });
           expect(start.next.actions_by_id[start.next.required_end_action_id]).toEqual(start.next.actions_by_id.finish_session);
           expect(start.next.actions_by_id[start.next.recommended_refresh_action_id]).toEqual(start.next.actions_by_id.refresh_context);
@@ -2474,7 +2490,8 @@ describe("MCP stdio server", () => {
         expect(doctor.selection_sources).toEqual({
           check: "checks_by_name.<check_name>",
           blocking_check: "readiness.blocking_checks_by_name.<check_name>",
-          next_action: "next"
+          next_action: "next",
+          next_argument: "next.arguments_by_name.<argument>"
         });
         expect(doctor.checks_by_name.store).toEqual(doctor.checks.find((check) => check.name === "store"));
         expect(doctor.checks_by_name.project).toEqual(doctor.checks.find((check) => check.name === "project"));
@@ -2493,7 +2510,8 @@ describe("MCP stdio server", () => {
         expectLifecycleActionSelectionSources(doctor.next.actions_by_id.run_lifecycle_smoke);
         expect(doctor.next.selection_sources).toEqual({
           action: "next.actions_by_id.<action>",
-          action_id: "next.actions_by_id.<action>.action"
+          action_id: "next.actions_by_id.<action>.action",
+          action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
         });
         expect(doctor.next.arguments).toMatchObject({
           project_path: project,
@@ -2834,7 +2852,8 @@ describe("MCP stdio server", () => {
         expectLifecycleActionSelectionSources(doctor.next.actions_by_id.list_projects);
         expect(doctor.next.selection_sources).toEqual({
           action: "next.actions_by_id.<action>",
-          action_id: "next.actions_by_id.<action>.action"
+          action_id: "next.actions_by_id.<action>.action",
+          action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>"
         });
       }, store);
     } finally {
@@ -2996,6 +3015,7 @@ describe("MCP stdio server", () => {
             project: "projects.projects_by_id.<project_id>",
             project_id: "projects.projects_by_id.<project_id>.project_id",
             start_action: "next.actions_by_project_id.<project_id>",
+            start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
             lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
           },
           arguments: { project_id: "<project_id>" },
@@ -3888,7 +3908,9 @@ describe("MCP stdio server", () => {
               project: "project_list.projects_by_id.<project_id>",
               project_id: "project_list.projects_by_id.<project_id>.project_id",
               next_action: "project_list.projects_by_id.<project_id>.next",
-              ordered_next_action: "project_list.projects[].next"
+              ordered_next_action: "project_list.projects[].next",
+              argument: "project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>",
+              ordered_argument: "project_list.projects[].next.arguments_by_name.<argument>"
             }
           }
         });

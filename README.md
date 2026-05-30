@@ -410,16 +410,17 @@ ordered display and also expose `next.actions_by_id`, keyed by ids such as
 knows which lifecycle action it needs, and use
 `next.workflow.phases[].action_source` to find the exact keyed path.
 Each lifecycle action also carries action-local `selection_sources` naming its
-keyed `next.actions_by_id.<action>` source, action-id field, and ordered
-`next.actions[]` fallback, so an agent can still recover the stable path if a
-host passes around only the selected action object.
+keyed `next.actions_by_id.<action>` source, action-id field,
+`arguments_by_name.<argument>` directory, and ordered `next.actions[]` fallback,
+so an agent can still recover the stable path if a host passes around only the
+selected action object.
 Direct `project_list` responses use the same pattern with top-level
 `projects_by_id`, keyed by `project_id`; each keyed record mirrors the ordered
 `projects[]` entry, and project-list workflow phases prefer
 `project_list.projects_by_id.<project_id>.next`. Each nested `next` action also
 includes action-local `selection_sources`, so agents that pass the action
 around independently still know the keyed project, project id, keyed next-action
-path, and ordered fallback path.
+path, action argument metadata path, and ordered fallback path.
 Action templates also expose `interfaces.cli.command` and
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, derived from the same
 top-level fields. Agent hosts should use the interface matching their runtime
@@ -443,11 +444,12 @@ so agents can act on `handoff.recommended_action` without choosing a record from
 `handoff.inbox_by_record_id` and `handoff.active_sessions_by_record_id` mirror
 the ordered handoff arrays for agents that already know a record id, and
 `handoff.selection_sources` names the keyed entry, record-id, and next-action
-paths for both inbox and active-session entries. Handoff entry workflows prefer
-those keyed paths while keeping the ordered arrays for display. Each handoff
-`next_action.selection_sources` repeats the selected entry, record-id,
-next-action, and ordered fallback paths for agents that only receive that
-action. If startup,
+paths for both inbox and active-session entries, including the nested
+`next_action.arguments_by_name.<argument>` directories. Handoff entry workflows
+prefer those keyed paths while keeping the ordered arrays for display. Each
+handoff `next_action.selection_sources` repeats the selected entry, record-id,
+next-action, action argument metadata, and ordered fallback paths for agents
+that only receive that action. If startup,
 status, or finish can continue locally while
 sync is unavailable, their `sync.*_error` strings are paired with
 `sync.*_error_details` objects containing `code`, `recommended_action`, and
@@ -668,14 +670,15 @@ top-level `next` declares `project_id` as the only required field and carries a
 placeholder `agent_start` command plus CLI/MCP interfaces; after choosing, the
 stable executable source is `next.actions_by_project_id.<project_id>`.
 `next.selection_sources` also points at the selected project, selected
-`project_id`, start action, and selected lifecycle templates. In direct
+`project_id`, start action, start-action argument metadata, and selected
+lifecycle templates. In direct
 `project_list`, the top-level `projects_by_id` map serves the same purpose:
 `projects[]` stays ordered for display, while `projects_by_id.<project_id>.next`
 is the stable action source for a known project id; `selection_sources` names
 those keyed paths explicitly. The nested `next.selection_sources` repeats the
 fully qualified `project_list.projects_by_id.<project_id>.next` and
-`project_list.projects[].next` sources for hosts that only receive the selected
-action.
+`project_list.projects[].next` sources, plus their `arguments_by_name`
+directories, for hosts that only receive the selected action.
 In
 `start_session` and `discover_projects` modes, `next.workflow` gives the
 ordered runtime action track and names which response fields are valid follow-up

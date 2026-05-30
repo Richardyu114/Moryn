@@ -271,8 +271,12 @@ Deliverables:
   the ordered project array.
 - Done: Each `project_list.projects[].next` action now exposes action-local
   `selection_sources`, so selected start actions keep their keyed project,
-  project-id, keyed next-action, and ordered fallback paths when passed around
-  independently.
+  project-id, keyed next-action, action argument metadata, and ordered fallback
+  paths when passed around independently.
+- Done: Runtime lifecycle, refresh, handoff, doctor, guide, and project
+  discovery action selection-source maps now include local
+  `arguments_by_name.<argument>` paths, so agents can find parameter metadata
+  from the selected action instead of guessing from operation names.
 - Done: Unknown-project and missing-context recovery workflows now add a
   `retry_original_tool_with_selected_project_id` phase sourced from
   `project_list.projects_by_id`; direct `agent_start`, `agent_status`, and

@@ -55,10 +55,12 @@ describe("package smoke test", () => {
     expect(LIST_RECENT_SELECTION_SOURCES.record).toBe("records_by_id.<record_id>");
     expect(PROJECT_LIST_SELECTION_SOURCES.project).toBe("projects_by_id.<project_id>");
     expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.next_action).toBe("project_list.projects_by_id.<project_id>.next");
+    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.argument).toBe("project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>");
     expect(MUTATION_EVENT_SELECTION_SOURCES.event_id).toBe("event.event_id");
     expect(LINK_EVENT_SELECTION_SOURCES.linked_record_id).toBe("event.linked_record_id");
     expect(SENSITIVE_REVISE_SELECTION_SOURCES.quarantine_event_id).toBe("quarantine_event.event_id");
     expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.ordered_next_action).toBe("refresh.changes[].next_action");
+    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.argument).toBe("refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>");
   });
 
   it("exports lifecycle and recovery selection source contracts from the package entrypoint", () => {
@@ -66,14 +68,22 @@ describe("package smoke test", () => {
     expect(NEXT_ACTION_SELECTION_SOURCES.error_argument).toBe("error.next_action.arguments_by_name.<argument>");
     expect(NEXT_ACTION_SELECTION_SOURCES.warning_argument).toBe("warning.next_action.arguments_by_name.<argument>");
     expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action).toBe("next.actions_by_id.<action>");
+    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_argument).toBe("next.actions_by_id.<action>.arguments_by_name.<argument>");
     expect(LIFECYCLE_ACTION_SELECTION_SOURCES.ordered_action).toBe("next.actions[]");
+    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.argument).toBe("next.actions_by_id.<action>.arguments_by_name.<argument>");
     expect(GUIDE_SELECTION_SOURCES.guardrail).toBe("guardrails_by_id.<guardrail_id>");
     expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.step).toBe("lifecycle_by_step.<step>.step");
+    expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.argument).toBe("lifecycle_by_step.<step>.arguments_by_name.<argument>");
     expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.workflow_phase).toBe("workflow.phases_by_name.start_or_resume");
+    expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.startup_argument).toBe("startup.arguments_by_name.<argument>");
     expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action).toBe("next.actions_by_project_id.<project_id>");
+    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_argument).toBe("next.actions_by_project_id.<project_id>.arguments_by_name.<argument>");
     expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.lifecycle_action).toBe("next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>");
+    expect(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES.argument).toBe("next.actions_by_project_id.<project_id>.lifecycle_by_step.<step>.arguments_by_name.<argument>");
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action");
+    expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>");
     expect(DOCTOR_SELECTION_SOURCES.blocking_check).toBe("readiness.blocking_checks_by_name.<check_name>");
+    expect(DOCTOR_SELECTION_SOURCES.next_argument).toBe("next.arguments_by_name.<argument>");
   });
 
   it("exports grouped selection source contracts from the package entrypoint", () => {
