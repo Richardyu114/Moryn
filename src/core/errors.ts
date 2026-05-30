@@ -236,6 +236,49 @@ function knownRecoveryHint(code: string, message: string, context?: MorynErrorCo
       do_not: ["invent_record_id", "retry_with_same_missing_record_id"]
     };
   }
+  if (code === "PROJECT_ID_NOT_FOUND") {
+    const { rejectedProjectId, candidateProjectIds } = unknownProjectIdFromMessage(message);
+    return {
+      rejected_argument: {
+        argument: "project_id",
+        ...(rejectedProjectId ? { value: rejectedProjectId } : {})
+      },
+      ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
+      discover_with: {
+        tool: "project_list",
+        command: "moryn project list",
+        arguments: {},
+        safe_to_run: true
+      },
+      retry_with: {
+        argument: "project_id",
+        value_source: PROJECT_LIST_SELECTED_PROJECT_ID_SOURCE,
+        value_placeholder: "<project_id_from_project_list>"
+      },
+      fallback_value_source: PROJECT_LIST_ORDERED_PROJECT_ID_SOURCE,
+      do_not: ["invent_project_id", "retry_with_same_unknown_project_id"]
+    };
+  }
+  if (code === "PROJECT_CONTEXT_REQUIRED") {
+    const candidateProjectIds = knownProjectIdsFromContextMessage(message);
+    return {
+      missing_argument: { argument: "project_id", placeholder: "<project_id_from_project_list>" },
+      ...(candidateProjectIds ? { candidate_project_ids: candidateProjectIds } : {}),
+      discover_with: {
+        tool: "project_list",
+        command: "moryn project list",
+        arguments: {},
+        safe_to_run: true
+      },
+      retry_with: {
+        argument: "project_id",
+        value_source: PROJECT_LIST_SELECTED_PROJECT_ID_SOURCE,
+        value_placeholder: "<project_id_from_project_list>"
+      },
+      fallback_value_source: PROJECT_LIST_ORDERED_PROJECT_ID_SOURCE,
+      do_not: ["invent_project_id", "start_without_project_context"]
+    };
+  }
   if (code === "SYNC_NOT_CONFIGURED") {
     return {
       missing_argument: { argument: "remote", placeholder: "<remote>" },

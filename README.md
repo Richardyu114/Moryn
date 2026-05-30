@@ -721,7 +721,7 @@ integer/number-range, JSON-object, read-filter, project-init, sync-argument,
 store-path, event-path-component, schema-validation, write-core-field,
 write-content, write-metadata, choose-one, path-assignment, revise-patch,
 replay-history, sensitive-content, index-stale, missing-record, sync runtime,
-and refresh cursor failures also include `recovery_hint`:
+project-selection, and refresh cursor failures also include `recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
 allowed values, non-empty constraints, integer or numeric bounds, JSON object,
 write `kind`/`type`/`scope`/`project_id`, write content, write metadata such as
@@ -743,6 +743,8 @@ stale derived-view errors with safe rebuild and retry-after-original-read
 instructions,
 missing-record failures with safe `list_recent` discovery, selected-id and
 ordered fallback sources, and guardrails against inventing ids,
+project-selection failures with safe `project_list` discovery, selected-id and
+ordered fallback sources, and guardrails against inventing project ids,
 sync runtime failures such as missing remotes, unavailable remotes, Git
 conflicts, and permission or authentication failures with safe status
 inspection, local-store continuity, retry conditions, and `do_not` guardrails,
@@ -983,7 +985,8 @@ projects. Direct lifecycle calls return recoverable structured errors for
 explicit project mistakes: `PROJECT_PATH_NOT_FOUND` for missing paths and
 `PROJECT_ID_NOT_FOUND` for unknown ids, with `recommended_action` telling agents
 whether to initialize, list projects, or retry with corrected arguments. These
-error envelopes also include a machine-readable `error.next_action` with
+error envelopes also include machine-readable `error.recovery_hint` and
+`error.next_action` fields with
 `tool`, `command`, `arguments`, `interfaces`, `required_when`,
 `required_fields`, `required_fields_by_name`, `arguments_by_name`,
 `argument_sources`, `action_source`,
@@ -1066,11 +1069,15 @@ next action and keep `scope: project` in `next_action.rejected_arguments`, so
 agents discover the project instead of guessing `project_id`.
 When the missing project path is known, `next_action.arguments` contains the
 exact path instead of a placeholder. For unknown project ids,
-`next_action.rejected_arguments.project_id` records the rejected id and
-`next_action.candidate_project_ids` carries known choices while keeping
-`next_action.arguments` valid for `project_list`. Missing-context errors also
-carry `candidate_project_ids` when the populated store can name the known
-projects. Unknown-project and missing-context workflows then add a
+`recovery_hint.rejected_argument` and
+`next_action.rejected_arguments.project_id` record the rejected id, while
+`candidate_project_ids` carries known choices and `next_action.arguments` stays
+valid for `project_list`. Missing-context errors also carry
+`candidate_project_ids` when the populated store can name the known projects.
+The hint names `project_list.projects_by_id.<project_id>.project_id` as the
+selected retry source and `project_list.projects[].project_id` as the ordered
+fallback, with guardrails against inventing project ids. Unknown-project and
+missing-context workflows then add a
 `retry_original_tool_with_selected_project_id` phase. That phase uses
 `project_list.projects_by_id.<project_id>.project_id` as the replacement source
 and mirrors it in `next_action.argument_sources.project_id`; it includes the

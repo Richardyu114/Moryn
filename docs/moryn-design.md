@@ -1504,14 +1504,17 @@ source, so agents promote the candidate returned by the original write instead
 of repeating the write or guessing an id. For
 `PROJECT_PATH_NOT_FOUND`, the `next_action.arguments.path` value is the exact
 missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
-`next_action.rejected_arguments.project_id` preserves the rejected id and
-`next_action.candidate_project_ids` lists known choices while
-`next_action.arguments` remains valid for the target recovery tool.
-`PROJECT_CONTEXT_REQUIRED` also includes `candidate_project_ids` when the
-populated store can name known projects. Both project-selection recovery
-workflows include a second `retry_original_tool_with_selected_project_id`
-phase sourced from `project_list.projects_by_id.<project_id>.project_id`;
-the same source is mirrored as `next_action.argument_sources.project_id`.
+`error.recovery_hint.rejected_argument` and
+`next_action.rejected_arguments.project_id` preserve the rejected id, and
+`candidate_project_ids` lists known choices while `next_action.arguments`
+remains valid for the target recovery tool. `PROJECT_CONTEXT_REQUIRED` also
+includes `candidate_project_ids` when the populated store can name known
+projects. A compact `error.recovery_hint` mirrors the selected
+`project_list.projects_by_id.<project_id>.project_id` source and ordered
+fallback for simple hosts. Both project-selection recovery workflows include a
+second `retry_original_tool_with_selected_project_id` phase sourced from
+`project_list.projects_by_id.<project_id>.project_id`; the same source is
+mirrored as `next_action.argument_sources.project_id`.
 `project_list.projects[].project_id` remains an ordered fallback source. Direct
 `agent_start`, `agent_status`, and `agent_finish` CLI/MCP wrappers pass their
 original tool, command, and JSON arguments into that retry phase so agents can
@@ -2880,6 +2883,31 @@ rejected id plus known choices in metadata:
     "message": "Project id is not known in this store: morym. Run project_list and choose one of: moryn.",
     "recoverable": true,
     "recommended_action": "run moryn project list or moryn agent enter, then retry with a known --project-id",
+    "recovery_hint": {
+      "rejected_argument": {
+        "argument": "project_id",
+        "value": "morym"
+      },
+      "candidate_project_ids": [
+        "moryn"
+      ],
+      "discover_with": {
+        "tool": "project_list",
+        "command": "moryn project list",
+        "arguments": {},
+        "safe_to_run": true
+      },
+      "retry_with": {
+        "argument": "project_id",
+        "value_source": "project_list.projects_by_id.<project_id>.project_id",
+        "value_placeholder": "<project_id_from_project_list>"
+      },
+      "fallback_value_source": "project_list.projects[].project_id",
+      "do_not": [
+        "invent_project_id",
+        "retry_with_same_unknown_project_id"
+      ]
+    },
     "next_action": {
       "recommended_action": "list_projects_and_retry_with_known_project_id",
       "tool": "project_list",

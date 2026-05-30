@@ -790,6 +790,23 @@ describe("error envelopes", () => {
       ok: false,
       error: {
         code: "PROJECT_ID_NOT_FOUND",
+        recovery_hint: {
+          rejected_argument: { argument: "project_id", value: "morym" },
+          candidate_project_ids: ["moryn"],
+          discover_with: {
+            tool: "project_list",
+            command: "moryn project list",
+            arguments: {},
+            safe_to_run: true
+          },
+          retry_with: {
+            argument: "project_id",
+            value_source: "project_list.projects_by_id.<project_id>.project_id",
+            value_placeholder: "<project_id_from_project_list>"
+          },
+          fallback_value_source: "project_list.projects[].project_id",
+          do_not: ["invent_project_id", "retry_with_same_unknown_project_id"]
+        },
         next_action: {
           recommended_action: "list_projects_and_retry_with_known_project_id",
           tool: "project_list",
@@ -882,6 +899,23 @@ describe("error envelopes", () => {
       ok: false,
       error: {
         code: "PROJECT_CONTEXT_REQUIRED",
+        recovery_hint: {
+          missing_argument: { argument: "project_id", placeholder: "<project_id_from_project_list>" },
+          candidate_project_ids: ["moryn"],
+          discover_with: {
+            tool: "project_list",
+            command: "moryn project list",
+            arguments: {},
+            safe_to_run: true
+          },
+          retry_with: {
+            argument: "project_id",
+            value_source: "project_list.projects_by_id.<project_id>.project_id",
+            value_placeholder: "<project_id_from_project_list>"
+          },
+          fallback_value_source: "project_list.projects[].project_id",
+          do_not: ["invent_project_id", "start_without_project_context"]
+        },
         next_action: {
           recommended_action: "discover_projects_before_lifecycle_write",
           tool: "project_list",
