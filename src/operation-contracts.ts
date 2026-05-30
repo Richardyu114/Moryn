@@ -168,10 +168,7 @@ export type OperationContractIndexResponse = {
   operations_by_id: Record<string, OperationContractIndexEntry>;
   operations_by_mcp_tool: Record<string, string>;
   operations_by_cli_command: Record<string, string>;
-  selection_sources: Pick<
-    typeof OPERATION_CONTRACTS_SELECTION_SOURCES,
-    "operation" | "mcp_tool_operation" | "cli_command_operation" | "ordered_operation"
-  >;
+  selection_sources: typeof OPERATION_CONTRACT_INDEX_SELECTION_SOURCES;
 };
 
 export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
@@ -198,6 +195,17 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   cli_placeholder: "operations_by_id.<operation>.interfaces.cli.placeholders[]",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
   ordered_operation: "operations[]"
+} as const;
+
+export const OPERATION_CONTRACT_INDEX_SELECTION_SOURCES = {
+  operation: OPERATION_CONTRACTS_SELECTION_SOURCES.operation,
+  mcp_tool_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.mcp_tool_operation,
+  cli_command_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation,
+  ordered_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.ordered_operation,
+  execution_hint: "operations_by_id.<operation>.execution_hint",
+  full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
+  full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
+  full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
 } as const;
 
 const OPERATION_LOCAL_SELECTION_SOURCES = Object.fromEntries(
@@ -1316,12 +1324,7 @@ export function getOperationContractIndex(): OperationContractIndexResponse {
     operations_by_id: Object.fromEntries(operations.map((operation) => [operation.operation, operation])),
     operations_by_mcp_tool: operationsByMcpToolId(OPERATION_CONTRACTS),
     operations_by_cli_command: operationsByCliCommandId(OPERATION_CONTRACTS),
-    selection_sources: {
-      operation: OPERATION_CONTRACTS_SELECTION_SOURCES.operation,
-      mcp_tool_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.mcp_tool_operation,
-      cli_command_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation,
-      ordered_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.ordered_operation
-    }
+    selection_sources: OPERATION_CONTRACT_INDEX_SELECTION_SOURCES
   };
 }
 

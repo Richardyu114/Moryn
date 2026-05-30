@@ -625,9 +625,10 @@ required-input paths, so agents can decide whether to fetch details, collect
 inputs, or call the operation without recombining fields. Each entry's
 `full_contract_lookup` gives concrete package, CLI, and MCP calls for that
 operation, so agents do not need to substitute placeholders in the top-level
-lookup templates. Its
-`selection_sources` names those compact index paths so hosts can cite or
-dereference the mapping without guessing field names. When a
+lookup templates. Its `selection_sources` names the compact index paths,
+including `execution_hint` and `full_contract_lookup`; package users can import
+`OPERATION_CONTRACT_INDEX_SELECTION_SOURCES` for the same index-specific map.
+When a
 host needs the full static directory, it can run
 `moryn contracts operations` or call `operation_contracts` without filters. That
 full registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP

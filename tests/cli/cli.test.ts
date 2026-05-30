@@ -1548,7 +1548,11 @@ describe("moryn CLI", () => {
       operation: "operations_by_id.<operation>",
       mcp_tool_operation: "operations_by_mcp_tool.<tool>",
       cli_command_operation: "operations_by_cli_command.<command>",
-      ordered_operation: "operations[]"
+      ordered_operation: "operations[]",
+      execution_hint: "operations_by_id.<operation>.execution_hint",
+      full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
+      full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
+      full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
     });
     expect(parsed.next_lookup.cli.by_operation).toBe("moryn contracts operations --operation <operation>");
     expect(parsed.next_lookup.mcp).toEqual({

@@ -455,7 +455,9 @@ recipes. Each entry also includes a compact `execution_hint` with the
 `execution.ready_to_run` guard, next step, missing required fields, and keyed
 required-input paths, plus `full_contract_lookup` with concrete package, CLI,
 and MCP calls for fetching that operation's full contract. It also carries a
-small `selection_sources` map for the index paths.
+small `selection_sources` map for the index paths, including
+`execution_hint` and `full_contract_lookup`; package users can import
+`OPERATION_CONTRACT_INDEX_SELECTION_SOURCES` for the same compact map.
 The full response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, reverse indexes `operations_by_mcp_tool` and
 `operations_by_cli_command`, and selection sources for those keyed paths. Each

@@ -241,9 +241,11 @@ Deliverables:
   directory. Each entry carries an `execution_hint` with the ready-to-run guard,
   next step, missing fields, and keyed required-input paths, plus concrete
   `full_contract_lookup` package, CLI, and MCP calls for that operation. The
-  index response carries its own compact `selection_sources`, and
-  `operation_contracts` declares `index` in `arguments_by_name` and
-  `interfaces.mcp.arguments` so the first-pass filter is machine-discoverable.
+  index response carries its own compact `selection_sources` for those
+  index-only fields, package users can import
+  `OPERATION_CONTRACT_INDEX_SELECTION_SOURCES`, and `operation_contracts`
+  declares `index` in `arguments_by_name` and `interfaces.mcp.arguments` so the
+  first-pass filter is machine-discoverable.
 - Done: `moryn contracts operations --operation <id>`,
   `moryn contracts operations --mcp-tool <tool>`,
   `moryn contracts operations --cli-command <command>`, `operation_contracts`

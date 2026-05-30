@@ -22,6 +22,7 @@ import {
   REFRESH_SELECTION_SOURCES,
   REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES,
   SENSITIVE_REVISE_SELECTION_SOURCES,
+  OPERATION_CONTRACT_INDEX_SELECTION_SOURCES,
   OPERATION_CONTRACTS_SELECTION_SOURCES,
   SELECTION_SOURCE_CONTRACTS,
   SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES,
@@ -198,8 +199,13 @@ describe("package smoke test", () => {
       operation: "operations_by_id.<operation>",
       mcp_tool_operation: "operations_by_mcp_tool.<tool>",
       cli_command_operation: "operations_by_cli_command.<command>",
-      ordered_operation: "operations[]"
+      ordered_operation: "operations[]",
+      execution_hint: "operations_by_id.<operation>.execution_hint",
+      full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
+      full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
+      full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
     });
+    expect(index.selection_sources).toBe(OPERATION_CONTRACT_INDEX_SELECTION_SOURCES);
     expect(index.next_lookup).toEqual({
       package_helpers: {
         by_operation: "getOperationContract(operation)",
