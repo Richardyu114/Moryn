@@ -263,13 +263,14 @@ Deliverables:
   return `error.recovery_hint.rejected_lookup.provided` plus
   `accepted_lookup_modes`, so agents can drop the extra lookup mode and retry
   without parsing prose.
-- Done: CLI required-option, non-empty string, enum, numeric-range, and
-  JSON-object validation errors now return structured `error.recovery_hint`
-  metadata with `missing_argument`, `rejected_argument`, machine-readable
-  `expected` values or bounds, and `retry_with`, so shell-based agents can
-  recover from omitted `--kind`/`--type` values, empty placeholders such as
-  `--text ""`, malformed `--content-json`, or hallucinated flags such as
-  invalid `--state` and `--limit` without parsing English error text.
+- Done: CLI required-option, non-empty string, enum, numeric-range, JSON-object,
+  and choose-one validation errors now return structured `error.recovery_hint`
+  metadata with `missing_argument`, `missing_one_of`, `rejected_argument`,
+  `rejected_arguments`, machine-readable `expected` rules, and `retry_with`, so
+  shell-based agents can recover from omitted `--kind`/`--type` values, empty
+  placeholders such as `--text ""`, malformed `--content-json`, conflicting
+  write content inputs, or hallucinated flags such as invalid `--state` and
+  `--limit` without parsing English error text.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

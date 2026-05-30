@@ -3002,9 +3002,39 @@ describe("moryn CLI", () => {
         }
       }
 
-      for (const args of [
-        ["--content-json", "{\"text\":\"\",\"format\":\"json\"}"],
-        ["--text", "Plain text", "--content-json", "{\"text\":\"Structured\"}"]
+      for (const { args, recoveryHint } of [
+        {
+          args: ["--content-json", "{\"text\":\"\",\"format\":\"json\"}"],
+          recoveryHint: undefined
+        },
+        {
+          args: ["--text", "Plain text", "--content-json", "{\"text\":\"Structured\"}"],
+          recoveryHint: {
+            rejected_arguments: [
+              { option: "--text", value: "Plain text" },
+              { option: "--content-json", value: "{\"text\":\"Structured\"}" }
+            ],
+            expected: { kind: "choose_one", options: ["--text", "--content-json"] },
+            retry_with: [
+              { option: "--text", value_placeholder: "<text>" },
+              { option: "--content-json", value_placeholder: "<json object>" }
+            ]
+          }
+        },
+        {
+          args: [],
+          recoveryHint: {
+            missing_one_of: [
+              { option: "--text", value_placeholder: "<text>" },
+              { option: "--content-json", value_placeholder: "<json object>" }
+            ],
+            expected: { kind: "choose_one", options: ["--text", "--content-json"] },
+            retry_with: [
+              { option: "--text", value_placeholder: "<text>" },
+              { option: "--content-json", value_placeholder: "<json object>" }
+            ]
+          }
+        }
       ]) {
         try {
           await exec("node", [
@@ -3019,9 +3049,16 @@ describe("moryn CLI", () => {
           throw new Error(`Expected moryn write ${args.join(" ")} to reject invalid content options`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
-          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string } };
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: { code: string; recommended_action?: string; recovery_hint?: unknown };
+          };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          if (recoveryHint) {
+            expect(parsed.error.recommended_action).toBe("retry with exactly one write content input");
+            expect(parsed.error.recovery_hint).toEqual(recoveryHint);
+          }
         }
       }
     });

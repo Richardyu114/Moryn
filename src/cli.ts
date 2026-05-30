@@ -75,6 +75,16 @@ type CliArgumentRecoveryHint =
       rejected_argument: { option: "--content-json"; value: string };
       expected: { kind: "valid_json_object" | "json_object" };
       retry_with: { option: "--content-json"; value_placeholder: "<json object>" };
+    }
+  | {
+      missing_one_of: Array<{ option: "--text" | "--content-json"; value_placeholder: string }>;
+      expected: { kind: "choose_one"; options: ["--text", "--content-json"] };
+      retry_with: Array<{ option: "--text" | "--content-json"; value_placeholder: string }>;
+    }
+  | {
+      rejected_arguments: Array<{ option: "--text" | "--content-json"; value: string }>;
+      expected: { kind: "choose_one"; options: ["--text", "--content-json"] };
+      retry_with: Array<{ option: "--text" | "--content-json"; value_placeholder: string }>;
     };
 
 class CliArgumentError extends Error {
@@ -141,6 +151,28 @@ function contentJsonCliArgumentError(value: string, expectedKind: "valid_json_ob
       rejected_argument: { option: "--content-json", value },
       expected: { kind: expectedKind },
       retry_with: { option: "--content-json", value_placeholder: "<json object>" }
+    }
+  );
+}
+
+const WRITE_CONTENT_RETRY_OPTIONS = [
+  { option: "--text", value_placeholder: "<text>" },
+  { option: "--content-json", value_placeholder: "<json object>" }
+] as const;
+
+function writeContentChoiceCliArgumentError(
+  message: string,
+  rejectedArguments?: Array<{ option: "--text" | "--content-json"; value: string }>
+): CliArgumentError {
+  return new CliArgumentError(
+    `Invalid argument: ${message}`,
+    "retry with exactly one write content input",
+    {
+      ...(rejectedArguments
+        ? { rejected_arguments: rejectedArguments }
+        : { missing_one_of: [...WRITE_CONTENT_RETRY_OPTIONS] }),
+      expected: { kind: "choose_one", options: ["--text", "--content-json"] },
+      retry_with: [...WRITE_CONTENT_RETRY_OPTIONS]
     }
   );
 }
@@ -332,10 +364,16 @@ program.command("write")
     const text = parseNonEmptyString(options.text, "--text");
     const reason = parseNonEmptyString(options.reason, "--reason");
     if (content && text !== undefined) {
-      throw new Error("Invalid argument: use either --text or --content-json, not both");
+      throw writeContentChoiceCliArgumentError(
+        "use either --text or --content-json, not both",
+        [
+          { option: "--text", value: text },
+          { option: "--content-json", value: options.contentJson }
+        ]
+      );
     }
     if (!content && text === undefined) {
-      throw new Error("Invalid argument: required option '--text <text>' or '--content-json <json>' not specified");
+      throw writeContentChoiceCliArgumentError("required option '--text <text>' or '--content-json <json>' not specified");
     }
     const result = await engine.write({
       kind: parseEnum(options.kind, recordKinds, "--kind")!,
