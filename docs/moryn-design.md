@@ -1261,12 +1261,15 @@ of guessing from prose. The adjacent `execution` object collapses those fields
 and `required_fields` into a single `next_step`: `run`,
 `collect_required_fields`, `confirm_with_user`, or `do_not_auto_run`.
 `execution.runbook.current_step` gives the immediate runbook step name and the
-canonical path to its full descriptor, so hosts can execute the immediate action
-without guessing from prose or duplicating the step payload. When the next step
-is `collect_required_fields`, `execution.required_inputs[]` gives the exact
-field, source path, placeholder, alternatives, allowed values, and split
-argument paths to use for collecting input and filling the action. Each entry
-also includes `collect`, `mcp_targets`, and `cli_targets`; when `collect`
+canonical path to its full descriptor, while
+`execution.runbook.step_paths_by_step` indexes every available runbook step by
+name. This lets hosts jump to a later `call_mcp` or `ask_user_confirmation`
+descriptor without guessing from prose, relying on array order, or duplicating
+the step payload. When the next step is `collect_required_fields`,
+`execution.required_inputs[]` gives the exact field, source path, placeholder,
+alternatives, allowed values, and split argument paths to use for collecting
+input and filling the action. Each entry also includes `collect`, `mcp_targets`,
+and `cli_targets`; when `collect`
 contains `choices[]`, hosts pick exactly one choice from `choice_options`, use
 `preferred_choice` as the default, and apply that choice's `expected_value` plus
 MCP/CLI assignments. `collect.choices_by_option` mirrors the same choices by

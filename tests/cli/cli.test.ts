@@ -1042,6 +1042,9 @@ describe("moryn CLI", () => {
             step: "call_mcp",
             step_path: "execution.runbook.steps[0]"
           },
+          step_paths_by_step: {
+            call_mcp: "execution.runbook.steps[0]"
+          },
           steps: [expect.objectContaining({ step: "call_mcp" })]
         },
         requires_user_confirmation: false,
@@ -1079,6 +1082,10 @@ describe("moryn CLI", () => {
           current_step: {
             step: "collect_required_inputs",
             step_path: "execution.runbook.steps[0]"
+          },
+          step_paths_by_step: {
+            collect_required_inputs: "execution.runbook.steps[0]",
+            call_mcp: "execution.runbook.steps[1]"
           },
           steps: [
             expect.objectContaining({

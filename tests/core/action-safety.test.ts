@@ -55,6 +55,26 @@ const askUserConfirmationCurrentStep = {
   step_path: "execution.runbook.steps[0]"
 };
 
+const callMcpStepPaths = {
+  call_mcp: "execution.runbook.steps[0]"
+};
+
+const collectThenCallStepPaths = {
+  collect_required_inputs: "execution.runbook.steps[0]",
+  call_mcp: "execution.runbook.steps[1]"
+};
+
+const collectConfirmThenCallStepPaths = {
+  collect_required_inputs: "execution.runbook.steps[0]",
+  ask_user_confirmation: "execution.runbook.steps[1]",
+  call_mcp: "execution.runbook.steps[2]"
+};
+
+const confirmThenCallStepPaths = {
+  ask_user_confirmation: "execution.runbook.steps[0]",
+  call_mcp: "execution.runbook.steps[1]"
+};
+
 const summaryCollect = {
   source: "user",
   input_key: "summary",
@@ -173,6 +193,7 @@ describe("action execution readiness", () => {
     expect(execution.runbook).toEqual({
       next: "call_mcp",
       current_step: callMcpCurrentStep,
+      step_paths_by_step: callMcpStepPaths,
       steps: [callMcpStep]
     });
   });
@@ -195,6 +216,7 @@ describe("action execution readiness", () => {
     expect(second.runbook).toEqual({
       next: "call_mcp",
       current_step: callMcpCurrentStep,
+      step_paths_by_step: callMcpStepPaths,
       steps: [callMcpStep]
     });
   });
@@ -217,6 +239,7 @@ describe("action execution readiness", () => {
     expect(execution.runbook).toEqual({
       next: "collect_required_inputs",
       current_step: collectRequiredInputsCurrentStep,
+      step_paths_by_step: collectThenCallStepPaths,
       steps: [
         collectRequiredInputsStep,
         callMcpStep
@@ -303,6 +326,7 @@ describe("action execution readiness", () => {
     expect(execution.runbook).toEqual({
       next: "collect_required_inputs",
       current_step: collectRequiredInputsCurrentStep,
+      step_paths_by_step: collectConfirmThenCallStepPaths,
       steps: [
         collectRequiredInputsStep,
         askUserConfirmationStep,
@@ -327,6 +351,7 @@ describe("action execution readiness", () => {
       runbook: {
         next: "call_mcp",
         current_step: callMcpCurrentStep,
+        step_paths_by_step: callMcpStepPaths,
         steps: [callMcpStep]
       },
       requires_user_confirmation: false,
@@ -405,6 +430,7 @@ describe("action execution readiness", () => {
       runbook: {
         next: "collect_required_inputs",
         current_step: collectRequiredInputsCurrentStep,
+        step_paths_by_step: collectThenCallStepPaths,
         steps: [
           collectRequiredInputsStep,
           callMcpStep
@@ -994,6 +1020,7 @@ describe("action execution readiness", () => {
       runbook: {
         next: "ask_user_confirmation",
         current_step: askUserConfirmationCurrentStep,
+        step_paths_by_step: confirmThenCallStepPaths,
         steps: [
           askUserConfirmationStep,
           callMcpStep
@@ -1020,6 +1047,7 @@ describe("action execution readiness", () => {
     }).runbook).toEqual({
       next: "collect_required_inputs",
       current_step: collectRequiredInputsCurrentStep,
+      step_paths_by_step: collectThenCallStepPaths,
       steps: [
         collectRequiredInputsStep,
         callMcpStep
@@ -1043,6 +1071,7 @@ describe("action execution readiness", () => {
       runbook: {
         next: "ask_user_confirmation",
         current_step: askUserConfirmationCurrentStep,
+        step_paths_by_step: confirmThenCallStepPaths,
         steps: [
           askUserConfirmationStep,
           callMcpStep

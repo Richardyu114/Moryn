@@ -66,9 +66,12 @@ export interface ActionRunbookCurrentStep {
   step_path: "execution.runbook.steps[0]";
 }
 
+export type ActionRunbookStepPathsByStep = Partial<Record<ActionRunbookStepName, string>>;
+
 export interface ActionRunbook {
   next: ActionRunbookStepName;
   current_step: ActionRunbookCurrentStep;
+  step_paths_by_step: ActionRunbookStepPathsByStep;
   steps: ActionRunbookStep[];
 }
 
@@ -576,6 +579,12 @@ const DO_NOT_RUN_STEP: ActionRunbookDoNotRunStep = {
   blocked_by: "execution.blocked_by"
 };
 
+function stepPathsByStep(steps: ActionRunbookStep[]): ActionRunbookStepPathsByStep {
+  return Object.fromEntries(
+    steps.map((step, index) => [step.step, `execution.runbook.steps[${index}]`])
+  );
+}
+
 function actionRunbook(blockedBy: ActionExecutionBlocker[]): ActionRunbook {
   const steps: ActionRunbookStep[] = [];
   if (blockedBy.includes("required_fields")) steps.push({ ...COLLECT_REQUIRED_INPUTS_STEP });
@@ -590,6 +599,7 @@ function actionRunbook(blockedBy: ActionExecutionBlocker[]): ActionRunbook {
       step: currentStep.step,
       step_path: "execution.runbook.steps[0]"
     },
+    step_paths_by_step: stepPathsByStep(steps),
     steps
   };
 }

@@ -231,6 +231,9 @@ describe("package smoke test", () => {
           step: "call_mcp",
           step_path: "execution.runbook.steps[0]"
         },
+        step_paths_by_step: {
+          call_mcp: "execution.runbook.steps[0]"
+        },
         steps: [{
           step: "call_mcp",
           transport: "mcp",
@@ -263,6 +266,10 @@ describe("package smoke test", () => {
         current_step: {
           step: "collect_required_inputs",
           step_path: "execution.runbook.steps[0]"
+        },
+        step_paths_by_step: {
+          collect_required_inputs: "execution.runbook.steps[0]",
+          call_mcp: "execution.runbook.steps[1]"
         },
         steps: [
           expect.objectContaining({

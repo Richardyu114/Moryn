@@ -253,6 +253,10 @@ Deliverables:
   confirmation requirements, so agents can choose between running, collecting
   input, asking for approval, or blocking automation without recomputing policy
   from several fields.
+- Done: `execution.runbook.step_paths_by_step` indexes ordered runbook steps by
+  step name, so agents can jump to later descriptors such as `call_mcp` or
+  `ask_user_confirmation` without inferring array positions or duplicating step
+  payloads.
 - Done: `execution.required_inputs[]` joins required field names to argument
   paths, split alternative argument paths, argument sources, placeholders,
   required-input selection sources, MCP target argument/path/type hints, CLI
