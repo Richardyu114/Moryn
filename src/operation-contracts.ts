@@ -1037,6 +1037,10 @@ export function operationArgumentsByTool(tool: string): Record<string, Operation
   return OPERATION_CONTRACTS_BY_TOOL[tool]?.arguments_by_name ?? {};
 }
 
+export function operationCliArgvByTool(tool: string): readonly string[] {
+  return OPERATION_CONTRACTS_BY_TOOL[tool]?.interfaces.cli.argv ?? tool.split("_");
+}
+
 function operationsByCategory(operations: readonly OperationContract[]): Record<string, Record<string, OperationContract>> {
   const categories: Record<string, Record<string, OperationContract>> = {};
   for (const operation of operations) {

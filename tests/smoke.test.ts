@@ -55,6 +55,7 @@ describe("package smoke test", () => {
     expect(LIST_RECENT_SELECTION_SOURCES.record).toBe("records_by_id.<record_id>");
     expect(PROJECT_LIST_SELECTION_SOURCES.project).toBe("projects_by_id.<project_id>");
     expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.next_action).toBe("project_list.projects_by_id.<project_id>.next");
+    expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.cli_argv).toBe("project_list.projects_by_id.<project_id>.next.interfaces.cli.argv[]");
     expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.argument).toBe("project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>");
     expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.required_field).toBe("project_list.projects_by_id.<project_id>.next.required_fields_by_name.<field>");
     expect(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES.argument_source).toBe("project_list.projects_by_id.<project_id>.next.argument_sources.<field>");
@@ -62,6 +63,7 @@ describe("package smoke test", () => {
     expect(LINK_EVENT_SELECTION_SOURCES.linked_record_id).toBe("event.linked_record_id");
     expect(SENSITIVE_REVISE_SELECTION_SOURCES.quarantine_event_id).toBe("quarantine_event.event_id");
     expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.ordered_next_action).toBe("refresh.changes[].next_action");
+    expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.cli_argv).toBe("refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.argv[]");
     expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.argument).toBe("refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>");
     expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.required_field).toBe("refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>");
     expect(REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES.argument_source).toBe("refresh.changes_by_record_id.<record_id>.next_action.argument_sources.<field>");
@@ -69,13 +71,16 @@ describe("package smoke test", () => {
 
   it("exports lifecycle and recovery selection source contracts from the package entrypoint", () => {
     expect(NEXT_ACTION_SELECTION_SOURCES.error_next_action).toBe("error.next_action");
+    expect(NEXT_ACTION_SELECTION_SOURCES.error_cli_argv).toBe("error.next_action.interfaces.cli.argv[]");
     expect(NEXT_ACTION_SELECTION_SOURCES.error_argument).toBe("error.next_action.arguments_by_name.<argument>");
     expect(NEXT_ACTION_SELECTION_SOURCES.warning_argument).toBe("warning.next_action.arguments_by_name.<argument>");
     expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action).toBe("next.actions_by_id.<action>");
+    expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_cli_argv).toBe("next.actions_by_id.<action>.interfaces.cli.argv[]");
     expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_argument).toBe("next.actions_by_id.<action>.arguments_by_name.<argument>");
     expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_required_field).toBe("next.actions_by_id.<action>.required_fields_by_name.<field>");
     expect(LIFECYCLE_NEXT_SELECTION_SOURCES.action_argument_source).toBe("next.actions_by_id.<action>.argument_sources.<field>");
     expect(LIFECYCLE_ACTION_SELECTION_SOURCES.ordered_action).toBe("next.actions[]");
+    expect(LIFECYCLE_ACTION_SELECTION_SOURCES.cli_argv).toBe("next.actions_by_id.<action>.interfaces.cli.argv[]");
     expect(LIFECYCLE_ACTION_SELECTION_SOURCES.argument).toBe("next.actions_by_id.<action>.arguments_by_name.<argument>");
     expect(LIFECYCLE_ACTION_SELECTION_SOURCES.required_field).toBe("next.actions_by_id.<action>.required_fields_by_name.<field>");
     expect(LIFECYCLE_ACTION_SELECTION_SOURCES.argument_source).toBe("next.actions_by_id.<action>.argument_sources.<field>");
@@ -85,10 +90,13 @@ describe("package smoke test", () => {
     expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.required_field).toBe("lifecycle_by_step.<step>.required_fields_by_name.<field>");
     expect(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES.argument_source).toBe("lifecycle_by_step.<step>.argument_sources.<field>");
     expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.workflow_phase).toBe("workflow.phases_by_name.start_or_resume");
+    expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.startup_cli_argv).toBe("startup.interfaces.cli.argv[]");
     expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.startup_argument).toBe("startup.arguments_by_name.<argument>");
     expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.startup_required_field).toBe("startup.required_fields_by_name.<field>");
     expect(GUIDE_ENTRYPOINT_SELECTION_SOURCES.next_argument_source).toBe("next.argument_sources.<field>");
+    expect(DISCOVER_PROJECT_SELECTION_SOURCES.next_cli_argv).toBe("next.interfaces.cli.argv[]");
     expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action).toBe("next.actions_by_project_id.<project_id>");
+    expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_cli_argv).toBe("next.actions_by_project_id.<project_id>.interfaces.cli.argv[]");
     expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_argument).toBe("next.actions_by_project_id.<project_id>.arguments_by_name.<argument>");
     expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_required_field).toBe("next.actions_by_project_id.<project_id>.required_fields_by_name.<field>");
     expect(DISCOVER_PROJECT_SELECTION_SOURCES.start_action_argument_source).toBe("next.actions_by_project_id.<project_id>.argument_sources.<field>");
@@ -100,6 +108,7 @@ describe("package smoke test", () => {
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>");
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument_source).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>");
     expect(DOCTOR_SELECTION_SOURCES.blocking_check).toBe("readiness.blocking_checks_by_name.<check_name>");
+    expect(DOCTOR_SELECTION_SOURCES.next_cli_argv).toBe("next.interfaces.cli.argv[]");
     expect(DOCTOR_SELECTION_SOURCES.next_argument).toBe("next.arguments_by_name.<argument>");
     expect(DOCTOR_SELECTION_SOURCES.next_required_field).toBe("next.required_fields_by_name.<field>");
     expect(DOCTOR_SELECTION_SOURCES.next_argument_source).toBe("next.argument_sources.<field>");

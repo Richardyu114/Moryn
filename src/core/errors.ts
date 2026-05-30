@@ -1,4 +1,5 @@
 import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./action-safety.js";
+import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
 
@@ -16,6 +17,8 @@ export interface MorynErrorEnvelope {
 export interface NextActionSelectionSources {
   error_next_action: "error.next_action";
   warning_next_action: "warning.next_action";
+  error_cli_argv: "error.next_action.interfaces.cli.argv[]";
+  warning_cli_argv: "warning.next_action.interfaces.cli.argv[]";
   error_required_field: "error.next_action.required_fields_by_name.<field>";
   warning_required_field: "warning.next_action.required_fields_by_name.<field>";
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>";
@@ -47,16 +50,6 @@ export interface MorynErrorNextAction {
   candidate_record_id?: string;
   argument_sources?: Record<string, string>;
   safe_to_run: boolean;
-}
-
-interface ActionInterfaces<TArguments> {
-  cli: {
-    command: string;
-  };
-  mcp: {
-    tool: string;
-    arguments: TArguments;
-  };
 }
 
 interface NextActionWorkflow {
@@ -109,6 +102,8 @@ export const PROMOTE_CANDIDATE_WHEN = "After the user explicitly confirms that t
 export const NEXT_ACTION_SELECTION_SOURCES: NextActionSelectionSources = {
   error_next_action: "error.next_action",
   warning_next_action: "warning.next_action",
+  error_cli_argv: "error.next_action.interfaces.cli.argv[]",
+  warning_cli_argv: "warning.next_action.interfaces.cli.argv[]",
   error_required_field: "error.next_action.required_fields_by_name.<field>",
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
@@ -185,15 +180,7 @@ export function withNextActionMetadata<T extends {
   return {
     ...actionWithRequiredFields,
     arguments_by_name: operationArgumentsByTool(action.tool),
-    interfaces: {
-      cli: {
-        command: action.command
-      },
-      mcp: {
-        tool: action.tool,
-        arguments: action.arguments
-      }
-    },
+    interfaces: actionInterfaces(action),
     safety: actionSafety(action),
     execution: actionExecution({
       ...action,

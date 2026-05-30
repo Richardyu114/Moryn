@@ -36,11 +36,11 @@ function expectNextActionInterfaces(action: {
   command: string;
   arguments: Record<string, unknown>;
   interfaces?: {
-    cli?: { command?: string };
+    cli?: { command?: string; argv?: string[] };
     mcp?: { tool?: string; arguments?: Record<string, unknown> };
   };
 }) {
-  expect(action.interfaces?.cli).toEqual({ command: action.command });
+  expect(action.interfaces?.cli).toEqual({ command: action.command, argv: expect.any(Array) });
   expect(action.interfaces?.mcp).toEqual({
     tool: action.tool,
     arguments: action.arguments

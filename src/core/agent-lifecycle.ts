@@ -7,6 +7,7 @@ import type { MorynRecord, RecordSource } from "./types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, SYNC_STATUS_SELECTION_SOURCES, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
 import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./action-safety.js";
+import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { requiredFieldsByName, withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
 
@@ -48,6 +49,8 @@ export type LifecycleActionSelectionSources = {
   action: "next.actions_by_id.<action>";
   action_id: "next.actions_by_id.<action>.action";
   ordered_action: "next.actions[]";
+  cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]";
+  ordered_cli_argv: "next.actions[].interfaces.cli.argv[]";
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>";
   ordered_argument: "next.actions[].arguments_by_name.<argument>";
   required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>";
@@ -73,6 +76,8 @@ export type LifecycleStepSelectionSources = {
 export type GuideEntrypointSelectionSources = {
   startup_action: "startup";
   next_action: "next";
+  startup_cli_argv: "startup.interfaces.cli.argv[]";
+  next_cli_argv: "next.interfaces.cli.argv[]";
   startup_argument: "startup.arguments_by_name.<argument>";
   next_argument: "next.arguments_by_name.<argument>";
   startup_required_field: "startup.required_fields_by_name.<field>";
@@ -98,16 +103,6 @@ type LifecycleActionTemplate = {
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ActionSafety;
   execution: ActionExecution;
-};
-
-type ActionInterfaces<TArguments> = {
-  cli: {
-    command: string;
-  };
-  mcp: {
-    tool: string;
-    arguments: TArguments;
-  };
 };
 
 type HandoffRecordIdArgumentSource =
@@ -192,7 +187,9 @@ const CHOOSE_DISCOVERED_PROJECT_WHEN = "After choosing this project from discove
 export const DISCOVER_PROJECT_SELECTION_SOURCES = {
   project: "projects.projects_by_id.<project_id>",
   project_id: "projects.projects_by_id.<project_id>.project_id",
+  next_cli_argv: "next.interfaces.cli.argv[]",
   start_action: "next.actions_by_project_id.<project_id>",
+  start_action_cli_argv: "next.actions_by_project_id.<project_id>.interfaces.cli.argv[]",
   start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
   start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
   start_action_required_input: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_field.<field>",
@@ -218,6 +215,7 @@ export const HANDOFF_SELECTION_SOURCES = {
 export const LIFECYCLE_NEXT_SELECTION_SOURCES = {
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action",
+  action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
   action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
   action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
   action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -227,6 +225,8 @@ export const LIFECYCLE_ACTION_SELECTION_SOURCES: LifecycleActionSelectionSources
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action",
   ordered_action: "next.actions[]",
+  cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+  ordered_cli_argv: "next.actions[].interfaces.cli.argv[]",
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
   ordered_argument: "next.actions[].arguments_by_name.<argument>",
   required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
@@ -240,6 +240,7 @@ export const DOCTOR_SELECTION_SOURCES = {
   check: "checks_by_name.<check_name>",
   blocking_check: "readiness.blocking_checks_by_name.<check_name>",
   next_action: "next",
+  next_cli_argv: "next.interfaces.cli.argv[]",
   next_argument: "next.arguments_by_name.<argument>",
   next_required_field: "next.required_fields_by_name.<field>",
   next_required_input: "next.execution.required_inputs_by_field.<field>",
@@ -267,6 +268,8 @@ export const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
 export const GUIDE_ENTRYPOINT_SELECTION_SOURCES: GuideEntrypointSelectionSources = {
   startup_action: "startup",
   next_action: "next",
+  startup_cli_argv: "startup.interfaces.cli.argv[]",
+  next_cli_argv: "next.interfaces.cli.argv[]",
   startup_argument: "startup.arguments_by_name.<argument>",
   next_argument: "next.arguments_by_name.<argument>",
   startup_required_field: "startup.required_fields_by_name.<field>",
@@ -365,15 +368,11 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
     ...actionWithRequiredFields,
     arguments: action.arguments,
     arguments_by_name: operationArgumentsByTool(action.tool),
-    interfaces: {
-      cli: {
-        command: action.command
-      },
-      mcp: {
-        tool: action.tool,
-        arguments: action.arguments
-      }
-    },
+    interfaces: actionInterfaces({
+      tool: action.tool,
+      command: action.command,
+      arguments: action.arguments as T["arguments"] & Record<string, unknown>
+    }),
     safety: actionSafety(action),
     execution: actionExecution({
       ...action,
@@ -1451,9 +1450,7 @@ function discoverProjectsNextAction(input: AgentLifecycleInput, actions: Array<{
     workflow: discoverProjectsWorkflow(),
     actions,
     actions_by_project_id: actionsByProjectId(actions),
-    arguments: {
-      project_id: "<project_id>"
-    },
+    arguments: agentStartActionArguments({ ...input, projectId: "<project_id>" }),
     argument_sources: {
       project_id: "next.actions_by_project_id.<project_id>.project_id"
     },

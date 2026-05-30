@@ -236,6 +236,10 @@ Deliverables:
 - Done: Static operation CLI interfaces expose safe `argv` arrays alongside
   display command strings, with `cli_argv` selection sources, so programmatic
   hosts can call `moryn` without shell splitting or quote reconstruction.
+- Done: Runtime action templates now expose safe CLI `argv` arrays and argv
+  selection sources for lifecycle, guide, doctor, project-list, refresh,
+  handoff, error, and warning next actions, so agents can execute returned
+  recommendations without parsing command strings.
 - Done: Each static operation contract now repeats operation-level
   `selection_sources`, so hosts can hand a single `operations_by_id`,
   `operations_by_mcp_tool`, or `operations_by_cli_command` entry to an agent

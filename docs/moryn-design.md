@@ -1234,11 +1234,12 @@ no project is provided, non-startup lifecycle templates require `project_id`
 and include `--project-id <project_id>` so agents must use the discovery result
 before writing status, finishing, or refreshing.
 Every action template also includes an `interfaces` object. `interfaces.cli`
-contains the exact command string for shell clients, while `interfaces.mcp`
-contains the tool name and JSON arguments for MCP hosts. These fields are
-derived from the existing `tool`, `command`, and `arguments` values so agents
-can choose their runtime interface without reverse-engineering one transport
-from the other. Action templates also include `safety`, a machine-readable
+contains the exact command string for shell clients plus a safe argv array for
+programmatic CLI clients, while `interfaces.mcp` contains the tool name and
+JSON arguments for MCP hosts. These fields are derived from the existing
+`tool`, `command`, and `arguments` values so agents can choose their runtime
+interface without reverse-engineering one transport from the other. Action
+templates also include `safety`, a machine-readable
 explanation of `safe_to_run` with `safe_to_auto_run`,
 `requires_user_confirmation`, `requires_authored_input`, `writes_local_config`,
 and stable `reasons`. This lets hosts block local setup writes, high-risk
@@ -1416,10 +1417,11 @@ keyed `next.actions_by_id.<action>` or
 action without scanning the array or reconstructing action names.
 Runtime lifecycle actions additionally carry action-local `selection_sources`
 for the keyed `next.actions_by_id.<action>` entry, the action-id field, and the
-`arguments_by_name.<argument>`, `required_fields_by_name.<field>`, and
-`execution.required_inputs_by_field.<field>`, and `argument_sources.<field>`
-metadata directories, plus ordered `next.actions[]` fallbacks. This lets a host
-pass a single action object between planning and
+`interfaces.cli.argv[]`, `arguments_by_name.<argument>`,
+`required_fields_by_name.<field>`, `execution.required_inputs_by_field.<field>`,
+and `argument_sources.<field>` metadata directories, plus ordered
+`next.actions[]` and `next.actions[].interfaces.cli.argv[]` fallbacks. This
+lets a host pass a single action object between planning and
 execution without losing the stable source path. Library
 hosts can reuse the exported `LIFECYCLE_NEXT_SELECTION_SOURCES`,
 `LIFECYCLE_ACTION_SELECTION_SOURCES`, `DISCOVER_PROJECT_SELECTION_SOURCES`, and
@@ -1434,11 +1436,18 @@ action paths directly. Project-list workflow phases prefer
 `next.selection_sources` repeats those fully qualified keyed and ordered action
 paths, plus the selected action's parameter, required-field, and argument-source
 directories, for hosts that only receive the selected action.
+Discover-project responses also name
+`next.actions_by_project_id.<project_id>.interfaces.cli.argv[]`, so hosts can
+execute the selected start template without deriving argv from its display
+command.
 Lifecycle, guide, setup, project-discovery, error-recovery, and warning-recovery
-action templates also expose `interfaces.cli.command`,
+action templates also expose `interfaces.cli.command`, `interfaces.cli.argv`,
 `interfaces.mcp.tool`/`interfaces.mcp.arguments`, `safety`, `execution`, and
 single-step `workflow` metadata, so CLI and MCP hosts can execute the same
-recommendation without translating field names by memory.
+recommendation without translating field names by memory. Runtime argv arrays
+are filled from the returned action arguments, not parsed back out of command
+strings; they omit the `moryn` binary for moryn subcommands and include direct
+package bins such as `moryn-agent-smoke` when the action targets one.
 
 ### `agent_doctor`
 

@@ -15,6 +15,8 @@ const LIFECYCLE_ACTION_SELECTION_SOURCES = {
   action: "next.actions_by_id.<action>",
   action_id: "next.actions_by_id.<action>.action",
   ordered_action: "next.actions[]",
+  cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
+  ordered_cli_argv: "next.actions[].interfaces.cli.argv[]",
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
   ordered_argument: "next.actions[].arguments_by_name.<argument>",
   required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
@@ -174,6 +176,8 @@ function expectRefreshChangeNextAction(action: {
       record_id: "refresh.changes_by_record_id.<record_id>.record_id",
       next_action: "refresh.changes_by_record_id.<record_id>.next_action",
       ordered_next_action: "refresh.changes[].next_action",
+      cli_argv: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
+      ordered_cli_argv: "refresh.changes[].next_action.interfaces.cli.argv[]",
       argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
       ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>",
       required_field: "refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
@@ -292,7 +296,7 @@ function expectHandoffEntryNextAction(action: {
         : "handoff.active_sessions[].next_action.argument_sources.<field>"
     },
     interfaces: {
-      cli: { command: `moryn recall --record-id ${recordId} --project-id ${projectId}` },
+      cli: { command: `moryn recall --record-id ${recordId} --project-id ${projectId}`, argv: ["recall", "--record-id", recordId, "--project-id", projectId] },
       mcp: {
         tool: "recall",
         arguments: {
@@ -502,6 +506,7 @@ describe("agent lifecycle", () => {
       expect(codexFinish.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
+        action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -613,6 +618,7 @@ describe("agent lifecycle", () => {
       expect(geminiStart.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
+        action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -1097,6 +1103,7 @@ describe("agent lifecycle", () => {
         check: "checks_by_name.<check_name>",
         blocking_check: "readiness.blocking_checks_by_name.<check_name>",
         next_action: "next",
+        next_cli_argv: "next.interfaces.cli.argv[]",
         next_argument: "next.arguments_by_name.<argument>",
         next_required_field: "next.required_fields_by_name.<field>",
         next_required_input: "next.execution.required_inputs_by_field.<field>",
@@ -1112,6 +1119,9 @@ describe("agent lifecycle", () => {
         tool: "moryn-agent-smoke",
         safe_to_run: true,
         command: expect.stringContaining("moryn-agent-smoke"),
+        interfaces: expect.objectContaining({
+          cli: expect.objectContaining({ argv: ["moryn-agent-smoke", "--remote", remote] })
+        }),
         required_when: "Before trusting lifecycle sync on a new machine or remote.",
         required_fields: [],
         arguments: expect.objectContaining({
@@ -1121,6 +1131,7 @@ describe("agent lifecycle", () => {
       expect(doctor.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
+        action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -1167,6 +1178,9 @@ describe("agent lifecycle", () => {
         tool: "moryn-agent-smoke",
         safe_to_run: true,
         command: "moryn-agent-smoke --remote <remote>",
+        interfaces: expect.objectContaining({
+          cli: expect.objectContaining({ argv: ["moryn-agent-smoke", "--remote", "<remote>"] })
+        }),
         required_when: "Before trusting lifecycle sync on a new machine or remote.",
         required_fields: ["remote"],
         argument_sources: {
@@ -1368,6 +1382,7 @@ describe("agent lifecycle", () => {
       expect(doctor.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
+        action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -1426,14 +1441,21 @@ describe("agent lifecycle", () => {
           selection_sources: {
             project: "projects.projects_by_id.<project_id>",
             project_id: "projects.projects_by_id.<project_id>.project_id",
+            next_cli_argv: "next.interfaces.cli.argv[]",
             start_action: "next.actions_by_project_id.<project_id>",
+            start_action_cli_argv: "next.actions_by_project_id.<project_id>.interfaces.cli.argv[]",
             start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
             start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
             start_action_required_input: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_field.<field>",
             start_action_argument_source: "next.actions_by_project_id.<project_id>.argument_sources.<field>",
             lifecycle_actions: "next.actions_by_project_id.<project_id>.lifecycle_by_step"
           },
-          arguments: { project_id: "<project_id>" },
+          arguments: {
+            project_id: "<project_id>",
+            sync_remote: "git@github.com:user/moryn-store.git",
+            current_task: "find project to continue",
+            agent: { client: "gemini", session_id: "gemini-enter-project-list" }
+          },
           safety: {
             safe_to_auto_run: true,
             requires_user_confirmation: false,
@@ -1445,10 +1467,25 @@ describe("agent lifecycle", () => {
       });
       expect(entered.next.command).toBe("moryn agent start --project-id <project_id> --sync-remote git@github.com:user/moryn-store.git --current-task 'find project to continue' --agent gemini --session-id gemini-enter-project-list");
       expect(entered.next.interfaces).toEqual({
-        cli: { command: entered.next.command },
+        cli: {
+          command: entered.next.command,
+          argv: [
+            "agent", "start",
+            "--project-id", "<project_id>",
+            "--sync-remote", "git@github.com:user/moryn-store.git",
+            "--current-task", "find project to continue",
+            "--agent", "gemini",
+            "--session-id", "gemini-enter-project-list"
+          ]
+        },
         mcp: {
           tool: "agent_start",
-          arguments: { project_id: "<project_id>" }
+          arguments: {
+            project_id: "<project_id>",
+            sync_remote: "git@github.com:user/moryn-store.git",
+            current_task: "find project to continue",
+            agent: { client: "gemini", session_id: "gemini-enter-project-list" }
+          }
         }
       });
       expect(entered.doctor.next).toMatchObject({ tool: "project_list" });
@@ -1597,11 +1634,18 @@ describe("agent lifecycle", () => {
               placeholder: "<project_id>"
             }
           },
-          arguments: { project_id: "<project_id>" },
+          arguments: {
+            project_id: "<project_id>",
+            sync_remote: remote,
+            current_task: "find synced project",
+            agent: { client: "gemini", session_id: "gemini-enter-sync" }
+          },
           selection_sources: {
             project: "projects.projects_by_id.<project_id>",
             project_id: "projects.projects_by_id.<project_id>.project_id",
+            next_cli_argv: "next.interfaces.cli.argv[]",
             start_action: "next.actions_by_project_id.<project_id>",
+            start_action_cli_argv: "next.actions_by_project_id.<project_id>.interfaces.cli.argv[]",
             start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
             start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
             start_action_required_input: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_field.<field>",
@@ -1682,6 +1726,7 @@ describe("agent lifecycle", () => {
       expect(entered.next.selection_sources).toEqual({
         action: "next.actions_by_id.<action>",
         action_id: "next.actions_by_id.<action>.action",
+        action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -2003,7 +2048,11 @@ describe("agent lifecycle", () => {
           safe_to_run: true,
           required_when: "When agent_enter returns discover_projects mode, choose one returned project_id before calling agent_start.",
           required_fields: ["project_id"],
-          arguments: { project_id: "<project_id>" }
+          arguments: {
+            project_id: "<project_id>",
+            current_task: "avoid typo id",
+            agent: { client: "codex" }
+          }
         }
       });
       expect(entered.projects.projects[0]).toMatchObject({

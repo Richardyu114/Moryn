@@ -8,6 +8,7 @@ import { commandForPromoteContext, PROMOTE_CANDIDATE_WHEN, withNextActionMetadat
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
+import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool } from "../operation-contracts.js";
 
@@ -110,6 +111,8 @@ export const PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES = {
   project_id: "project_list.projects_by_id.<project_id>.project_id",
   next_action: "project_list.projects_by_id.<project_id>.next",
   ordered_next_action: "project_list.projects[].next",
+  cli_argv: "project_list.projects_by_id.<project_id>.next.interfaces.cli.argv[]",
+  ordered_cli_argv: "project_list.projects[].next.interfaces.cli.argv[]",
   argument: "project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>",
   ordered_argument: "project_list.projects[].next.arguments_by_name.<argument>",
   required_field: "project_list.projects_by_id.<project_id>.next.required_fields_by_name.<field>",
@@ -155,6 +158,8 @@ export const REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES = {
   record_id: "refresh.changes_by_record_id.<record_id>.record_id",
   next_action: "refresh.changes_by_record_id.<record_id>.next_action",
   ordered_next_action: "refresh.changes[].next_action",
+  cli_argv: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
+  ordered_cli_argv: "refresh.changes[].next_action.interfaces.cli.argv[]",
   argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
   ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>",
   required_field: "refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
@@ -170,10 +175,7 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
 ): T & {
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
   arguments_by_name: ReturnType<typeof operationArgumentsByTool>;
-  interfaces: {
-    cli: { command: string };
-    mcp: { tool: string; arguments: T["arguments"] };
-  };
+  interfaces: ActionInterfaces<T["arguments"] & Record<string, unknown>>;
 } {
   const actionWithRequiredFields = withRequiredFieldsByName({
     ...action,
@@ -183,15 +185,11 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
     ...actionWithRequiredFields,
     arguments: action.arguments,
     arguments_by_name: operationArgumentsByTool(action.tool),
-    interfaces: {
-      cli: {
-        command: action.command
-      },
-      mcp: {
-        tool: action.tool,
-        arguments: action.arguments
-      }
-    }
+    interfaces: actionInterfaces({
+      tool: action.tool,
+      command: action.command,
+      arguments: action.arguments as T["arguments"] & Record<string, unknown>
+    })
   };
 }
 
