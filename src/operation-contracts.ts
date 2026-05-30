@@ -1,4 +1,5 @@
 import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./core/action-safety.js";
+import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { SYNC_MODES } from "./core/project.js";
 import {
   RECORD_KINDS,
@@ -13,6 +14,7 @@ type OperationCategory = "setup" | "core" | "sync" | "lifecycle" | "contracts" |
 type OperationInterfaces = {
   cli: {
     command: string;
+    command_line: string;
     argv: string[];
     executable: string;
     args: string[];
@@ -102,6 +104,7 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   argument_allowed_value: "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
+  cli_command_line: "operations_by_id.<operation>.interfaces.cli.command_line",
   cli_argv: "operations_by_id.<operation>.interfaces.cli.argv[]",
   cli_executable: "operations_by_id.<operation>.interfaces.cli.executable",
   cli_args: "operations_by_id.<operation>.interfaces.cli.args[]",
@@ -140,7 +143,8 @@ function operationContract(input: OperationContractInput): OperationContract {
     cli: {
       ...input.interfaces.cli,
       executable: "moryn",
-      args: input.interfaces.cli.argv
+      args: input.interfaces.cli.argv,
+      command_line: commandLineForCliInterface("moryn", input.interfaces.cli.argv)
     }
   };
   return {

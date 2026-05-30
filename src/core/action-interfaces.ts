@@ -1,8 +1,10 @@
 import { operationArgumentsByTool, operationCliArgvByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
+import { commandLineForCliInterface } from "./cli-command-line.js";
 
 type ActionInterfaces<TArguments> = {
   cli: {
     command: string;
+    command_line: string;
     argv: string[];
     executable: string;
     args: string[];
@@ -141,6 +143,7 @@ export function actionInterfaces<TArguments extends Record<string, unknown>>(inp
   return {
     cli: {
       command: input.command,
+      command_line: commandLineForCliInterface(executable, args),
       argv,
       executable,
       args

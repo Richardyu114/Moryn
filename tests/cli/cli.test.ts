@@ -19,9 +19,11 @@ const NEXT_ACTION_SELECTION_SOURCES = {
   error_cli_executable: "error.next_action.interfaces.cli.executable",
   error_cli_argv: "error.next_action.interfaces.cli.argv[]",
   error_cli_args: "error.next_action.interfaces.cli.args[]",
+  error_cli_command_line: "error.next_action.interfaces.cli.command_line",
   warning_cli_executable: "warning.next_action.interfaces.cli.executable",
   warning_cli_argv: "warning.next_action.interfaces.cli.argv[]",
   warning_cli_args: "warning.next_action.interfaces.cli.args[]",
+  warning_cli_command_line: "warning.next_action.interfaces.cli.command_line",
   error_required_field: "error.next_action.required_fields_by_name.<field>",
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
@@ -40,9 +42,11 @@ const LIFECYCLE_ACTION_SELECTION_SOURCES = {
   cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
   cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
   cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
+  cli_command_line: "next.actions_by_id.<action>.interfaces.cli.command_line",
   ordered_cli_executable: "next.actions[].interfaces.cli.executable",
   ordered_cli_argv: "next.actions[].interfaces.cli.argv[]",
   ordered_cli_args: "next.actions[].interfaces.cli.args[]",
+  ordered_cli_command_line: "next.actions[].interfaces.cli.command_line",
   argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
   ordered_argument: "next.actions[].arguments_by_name.<argument>",
   required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
@@ -59,9 +63,11 @@ const GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES = {
   cli_executable: "lifecycle_by_step.<step>.interfaces.cli.executable",
   cli_argv: "lifecycle_by_step.<step>.interfaces.cli.argv[]",
   cli_args: "lifecycle_by_step.<step>.interfaces.cli.args[]",
+  cli_command_line: "lifecycle_by_step.<step>.interfaces.cli.command_line",
   ordered_cli_executable: "lifecycle[].interfaces.cli.executable",
   ordered_cli_argv: "lifecycle[].interfaces.cli.argv[]",
   ordered_cli_args: "lifecycle[].interfaces.cli.args[]",
+  ordered_cli_command_line: "lifecycle[].interfaces.cli.command_line",
   argument: "lifecycle_by_step.<step>.arguments_by_name.<argument>",
   ordered_argument: "lifecycle[].arguments_by_name.<argument>",
   required_field: "lifecycle_by_step.<step>.required_fields_by_name.<field>",
@@ -77,9 +83,11 @@ const GUIDE_ENTRYPOINT_SELECTION_SOURCES = {
   startup_cli_executable: "startup.interfaces.cli.executable",
   startup_cli_argv: "startup.interfaces.cli.argv[]",
   startup_cli_args: "startup.interfaces.cli.args[]",
+  startup_cli_command_line: "startup.interfaces.cli.command_line",
   next_cli_executable: "next.interfaces.cli.executable",
   next_cli_argv: "next.interfaces.cli.argv[]",
   next_cli_args: "next.interfaces.cli.args[]",
+  next_cli_command_line: "next.interfaces.cli.command_line",
   startup_argument: "startup.arguments_by_name.<argument>",
   next_argument: "next.arguments_by_name.<argument>",
   startup_required_field: "startup.required_fields_by_name.<field>",
@@ -177,6 +185,7 @@ const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   cli_argv: "operations_by_id.<operation>.interfaces.cli.argv[]",
   cli_executable: "operations_by_id.<operation>.interfaces.cli.executable",
   cli_args: "operations_by_id.<operation>.interfaces.cli.args[]",
+  cli_command_line: "operations_by_id.<operation>.interfaces.cli.command_line",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
   ordered_operation: "operations[]"
 };
@@ -216,12 +225,13 @@ function expectActionInterfaces(action: {
   command: string;
   arguments: Record<string, unknown>;
   interfaces?: {
-    cli?: { command?: string; argv?: string[]; executable?: string; args?: string[] };
+    cli?: { command?: string; command_line?: string; argv?: string[]; executable?: string; args?: string[] };
     mcp?: { tool?: string; arguments?: Record<string, unknown> };
   };
 }) {
   expect(action.interfaces?.cli).toEqual({
     command: action.command,
+    command_line: expect.any(String),
     argv: expect.any(Array),
     executable: expect.any(String),
     args: expect.any(Array)
@@ -704,9 +714,11 @@ function expectRefreshChangeNextAction(action: {
       cli_executable: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.executable",
       cli_argv: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
       cli_args: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+      cli_command_line: "refresh.changes_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
       ordered_cli_executable: "refresh.changes[].next_action.interfaces.cli.executable",
       ordered_cli_argv: "refresh.changes[].next_action.interfaces.cli.argv[]",
       ordered_cli_args: "refresh.changes[].next_action.interfaces.cli.args[]",
+      ordered_cli_command_line: "refresh.changes[].next_action.interfaces.cli.command_line",
       argument: "refresh.changes_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
       ordered_argument: "refresh.changes[].next_action.arguments_by_name.<argument>",
       required_field: "refresh.changes_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
@@ -947,7 +959,7 @@ describe("moryn CLI", () => {
         }>;
         argument_sources?: Record<string, string>;
         interfaces: {
-          cli: { command: string; argv: string[] };
+          cli: { command: string; argv: string[]; command_line: string };
           mcp: { tool: string; arguments: Record<string, unknown> };
         };
       }>;
@@ -972,7 +984,7 @@ describe("moryn CLI", () => {
         reason: "Action is safe and all required fields are already filled."
       },
       interfaces: {
-        cli: { command: "moryn agent enter", argv: ["agent", "enter"] },
+        cli: { command: "moryn agent enter", argv: ["agent", "enter"], command_line: "moryn agent enter" },
         mcp: { tool: "agent_enter", arguments: {} }
       }
     });
@@ -1006,7 +1018,11 @@ describe("moryn CLI", () => {
         summary: "user_input.summary"
       },
       interfaces: {
-        cli: { command: "moryn agent finish --summary <summary>", argv: ["agent", "finish", "--summary", "<summary>"] },
+        cli: {
+          command: "moryn agent finish --summary <summary>",
+          argv: ["agent", "finish", "--summary", "<summary>"],
+          command_line: "moryn agent finish --summary '<summary>'"
+        },
         mcp: { tool: "agent_finish", arguments: { summary: "<summary>" } }
       }
     });
@@ -1054,7 +1070,8 @@ describe("moryn CLI", () => {
       interfaces: {
         cli: {
           command: "moryn write --kind <kind> --type <type> --scope <scope> --text <text>",
-          argv: ["write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"]
+          argv: ["write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"],
+          command_line: "moryn write --kind '<kind>' --type '<type>' --scope '<scope>' --text '<text>'"
         }
       }
     });
@@ -1095,7 +1112,8 @@ describe("moryn CLI", () => {
       interfaces: {
         cli: {
           command: "moryn project init --path <path>",
-          argv: ["project", "init", "--path", "<path>"]
+          argv: ["project", "init", "--path", "<path>"],
+          command_line: "moryn project init --path '<path>'"
         }
       }
     });
@@ -1119,7 +1137,9 @@ describe("moryn CLI", () => {
     });
     expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
     expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.argv).toEqual(["contracts", "selection-sources"]);
+    expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command_line).toBe("moryn contracts selection-sources");
     expect(parsed.operations_by_id.operation_contracts.interfaces.cli.argv).toEqual(["contracts", "operations"]);
+    expect(parsed.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe("moryn contracts operations");
     expect(parsed.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
     expect(parsed.operations_by_category.lifecycle.agent_enter).toEqual(parsed.operations_by_id.agent_enter);
     expect(parsed.operations_by_mcp_tool.agent_enter).toEqual(parsed.operations_by_id.agent_enter);
@@ -3135,9 +3155,11 @@ describe("moryn CLI", () => {
             cli_executable: "project_list.projects_by_id.<project_id>.next.interfaces.cli.executable",
             cli_argv: "project_list.projects_by_id.<project_id>.next.interfaces.cli.argv[]",
             cli_args: "project_list.projects_by_id.<project_id>.next.interfaces.cli.args[]",
+            cli_command_line: "project_list.projects_by_id.<project_id>.next.interfaces.cli.command_line",
             ordered_cli_executable: "project_list.projects[].next.interfaces.cli.executable",
             ordered_cli_argv: "project_list.projects[].next.interfaces.cli.argv[]",
             ordered_cli_args: "project_list.projects[].next.interfaces.cli.args[]",
+            ordered_cli_command_line: "project_list.projects[].next.interfaces.cli.command_line",
             argument: "project_list.projects_by_id.<project_id>.next.arguments_by_name.<argument>",
             ordered_argument: "project_list.projects[].next.arguments_by_name.<argument>",
             required_field: "project_list.projects_by_id.<project_id>.next.required_fields_by_name.<field>",
@@ -3235,6 +3257,7 @@ describe("moryn CLI", () => {
         action_cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
         action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
         action_cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
+        action_cli_command_line: "next.actions_by_id.<action>.interfaces.cli.command_line",
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -3381,6 +3404,7 @@ describe("moryn CLI", () => {
         action_cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
         action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
         action_cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
+        action_cli_command_line: "next.actions_by_id.<action>.interfaces.cli.command_line",
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -3604,6 +3628,7 @@ describe("moryn CLI", () => {
         action_cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
         action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
         action_cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
+        action_cli_command_line: "next.actions_by_id.<action>.interfaces.cli.command_line",
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -3704,6 +3729,7 @@ describe("moryn CLI", () => {
         inbox_next_action_cli_executable: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.executable",
         inbox_next_action_cli_argv: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
         inbox_next_action_cli_args: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+        inbox_next_action_cli_command_line: "handoff.inbox_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
         inbox_next_action_argument: "handoff.inbox_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
         inbox_next_action_required_field: "handoff.inbox_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
         inbox_next_action_required_input: "handoff.inbox_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
@@ -3714,6 +3740,7 @@ describe("moryn CLI", () => {
         active_session_next_action_cli_executable: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.executable",
         active_session_next_action_cli_argv: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.argv[]",
         active_session_next_action_cli_args: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]",
+        active_session_next_action_cli_command_line: "handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.command_line",
         active_session_next_action_argument: "handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>",
         active_session_next_action_required_field: "handoff.active_sessions_by_record_id.<record_id>.next_action.required_fields_by_name.<field>",
         active_session_next_action_required_input: "handoff.active_sessions_by_record_id.<record_id>.next_action.execution.required_inputs_by_field.<field>",
@@ -3848,6 +3875,7 @@ describe("moryn CLI", () => {
         next_cli_executable: "next.interfaces.cli.executable",
         next_cli_argv: "next.interfaces.cli.argv[]",
         next_cli_args: "next.interfaces.cli.args[]",
+        next_cli_command_line: "next.interfaces.cli.command_line",
         next_argument: "next.arguments_by_name.<argument>",
         next_required_field: "next.required_fields_by_name.<field>",
         next_required_input: "next.execution.required_inputs_by_field.<field>",
@@ -3884,6 +3912,7 @@ describe("moryn CLI", () => {
         action_cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
         action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
         action_cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
+        action_cli_command_line: "next.actions_by_id.<action>.interfaces.cli.command_line",
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -4225,6 +4254,7 @@ describe("moryn CLI", () => {
         action_cli_executable: "next.actions_by_id.<action>.interfaces.cli.executable",
         action_cli_argv: "next.actions_by_id.<action>.interfaces.cli.argv[]",
         action_cli_args: "next.actions_by_id.<action>.interfaces.cli.args[]",
+        action_cli_command_line: "next.actions_by_id.<action>.interfaces.cli.command_line",
         action_argument: "next.actions_by_id.<action>.arguments_by_name.<argument>",
         action_required_field: "next.actions_by_id.<action>.required_fields_by_name.<field>",
         action_required_input: "next.actions_by_id.<action>.execution.required_inputs_by_field.<field>",
@@ -4379,17 +4409,19 @@ describe("moryn CLI", () => {
         argument_sources: {
           project_id: "next.actions_by_project_id.<project_id>.project_id"
         },
-          selection_sources: {
-            project: "projects.projects_by_id.<project_id>",
-            project_id: "projects.projects_by_id.<project_id>.project_id",
-            next_cli_executable: "next.interfaces.cli.executable",
-            next_cli_argv: "next.interfaces.cli.argv[]",
-            next_cli_args: "next.interfaces.cli.args[]",
-            start_action: "next.actions_by_project_id.<project_id>",
-            start_action_cli_executable: "next.actions_by_project_id.<project_id>.interfaces.cli.executable",
-            start_action_cli_argv: "next.actions_by_project_id.<project_id>.interfaces.cli.argv[]",
-            start_action_cli_args: "next.actions_by_project_id.<project_id>.interfaces.cli.args[]",
-            start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
+        selection_sources: {
+          project: "projects.projects_by_id.<project_id>",
+          project_id: "projects.projects_by_id.<project_id>.project_id",
+          next_cli_executable: "next.interfaces.cli.executable",
+          next_cli_argv: "next.interfaces.cli.argv[]",
+          next_cli_args: "next.interfaces.cli.args[]",
+          next_cli_command_line: "next.interfaces.cli.command_line",
+          start_action: "next.actions_by_project_id.<project_id>",
+          start_action_cli_executable: "next.actions_by_project_id.<project_id>.interfaces.cli.executable",
+          start_action_cli_argv: "next.actions_by_project_id.<project_id>.interfaces.cli.argv[]",
+          start_action_cli_args: "next.actions_by_project_id.<project_id>.interfaces.cli.args[]",
+          start_action_cli_command_line: "next.actions_by_project_id.<project_id>.interfaces.cli.command_line",
+          start_action_argument: "next.actions_by_project_id.<project_id>.arguments_by_name.<argument>",
           start_action_required_field: "next.actions_by_project_id.<project_id>.required_fields_by_name.<field>",
           start_action_required_input: "next.actions_by_project_id.<project_id>.execution.required_inputs_by_field.<field>",
           start_action_argument_source: "next.actions_by_project_id.<project_id>.argument_sources.<field>",

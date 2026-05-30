@@ -7,9 +7,11 @@ const NEXT_ACTION_SELECTION_SOURCES = {
   error_cli_executable: "error.next_action.interfaces.cli.executable",
   error_cli_argv: "error.next_action.interfaces.cli.argv[]",
   error_cli_args: "error.next_action.interfaces.cli.args[]",
+  error_cli_command_line: "error.next_action.interfaces.cli.command_line",
   warning_cli_executable: "warning.next_action.interfaces.cli.executable",
   warning_cli_argv: "warning.next_action.interfaces.cli.argv[]",
   warning_cli_args: "warning.next_action.interfaces.cli.args[]",
+  warning_cli_command_line: "warning.next_action.interfaces.cli.command_line",
   error_required_field: "error.next_action.required_fields_by_name.<field>",
   warning_required_field: "warning.next_action.required_fields_by_name.<field>",
   error_required_input: "error.next_action.execution.required_inputs_by_field.<field>",
@@ -34,12 +36,13 @@ function expectNextActionInterfaces(action: {
   command: string;
   arguments: Record<string, unknown>;
   interfaces?: {
-    cli?: { command?: string; argv?: string[]; executable?: string; args?: string[] };
+    cli?: { command?: string; command_line?: string; argv?: string[]; executable?: string; args?: string[] };
     mcp?: { tool?: string; arguments?: Record<string, unknown> };
   };
 }) {
   expect(action.interfaces?.cli).toEqual({
     command: action.command,
+    command_line: expect.any(String),
     argv: expect.any(Array),
     executable: expect.any(String),
     args: expect.any(Array)
