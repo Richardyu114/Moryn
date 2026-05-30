@@ -130,7 +130,14 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
 } as const;
 
 const OPERATION_LOCAL_SELECTION_SOURCES = Object.fromEntries(
-  Object.entries(OPERATION_CONTRACTS_SELECTION_SOURCES).filter(([key]) => key !== "required_input_path_by_value_path")
+  Object.entries(OPERATION_CONTRACTS_SELECTION_SOURCES).filter(([key]) => ![
+    "category",
+    "category_operation",
+    "mcp_tool_operation",
+    "cli_command_operation",
+    "required_input_path_by_value_path",
+    "ordered_operation"
+  ].includes(key))
 ) as Omit<typeof OPERATION_CONTRACTS_SELECTION_SOURCES, "required_input_path_by_value_path">;
 
 function userInputSources(fields: readonly string[]): Record<string, string> | undefined {
@@ -400,9 +407,36 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: true,
     required_when: "When an agent needs to discover available Moryn operations without reading docs.",
     required_fields: [],
+    arguments_by_name: {
+      operation: {
+        type: "string",
+        required: false,
+        cli: { flag: "--operation" },
+        mcp: { argument: "operation" }
+      },
+      mcp_tool: {
+        type: "string",
+        required: false,
+        cli: { flag: "--mcp-tool" },
+        mcp: { argument: "mcp_tool" }
+      },
+      cli_command: {
+        type: "string",
+        required: false,
+        cli: { flag: "--cli-command" },
+        mcp: { argument: "cli_command" }
+      }
+    },
     interfaces: {
       cli: { command: "moryn contracts operations", argv: ["contracts", "operations"] },
-      mcp: { tool: "operation_contracts", arguments: {} }
+      mcp: {
+        tool: "operation_contracts",
+        arguments: {
+          operation: "<operation>",
+          mcp_tool: "<tool>",
+          cli_command: "<command>"
+        }
+      }
     }
   }),
   operationContract({

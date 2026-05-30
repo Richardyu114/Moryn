@@ -240,7 +240,9 @@ Deliverables:
   `getOperationContract(<id>)`, `getOperationContractByMcpTool(<tool>)`, and
   `getOperationContractByCliCommand(<command>)` return a single operation
   contract with its canonical source path, matched lookup source, and
-  selection-source registry, so agents can inspect one call shape without
+  selection-source registry. The static `operation_contracts` contract also
+  declares those lookup inputs in `arguments_by_name` and
+  `interfaces.mcp.arguments`, so agents can discover the compact filters before
   loading the full operation directory into context.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
@@ -252,10 +254,12 @@ Deliverables:
   project-list, refresh, handoff, error, and warning next actions, so agents can
   execute returned recommendations without parsing command strings or guessing
   whether the action is a Moryn subcommand or a direct package bin.
-- Done: Each static operation contract now repeats operation-level
+- Done: Each static operation contract now repeats operation-local
   `selection_sources`, so hosts can hand a single `operations_by_id`,
   `operations_by_mcp_tool`, or `operations_by_cli_command` entry to an agent
-  without losing the stable registry paths.
+  without losing the stable in-operation paths. Registry-only reverse/group/list
+  lookup paths remain in the top-level selection-source registry to keep the
+  aggregate payload under the host budget.
 - Done: Operation contracts and runtime action templates now expose
   `execution` readiness summaries with `ready_to_run`, `next_step`,
   missing required fields, `required_inputs`, `required_inputs_by_field`, and
@@ -278,8 +282,8 @@ Deliverables:
   paths, including multi-flag object subpaths, to canonical
   `execution.required_inputs_by_field.<field>` entries. The full registry path
   is exposed in the top-level operation selection sources, while operation-local
-  selection sources omit the repeated long key to stay under the 1 MB host
-  payload budget.
+  selection sources omit registry-only lookup paths and the repeated long key to
+  stay under the 1 MB host payload budget.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

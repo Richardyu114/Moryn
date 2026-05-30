@@ -211,6 +211,11 @@ describe("package smoke test", () => {
     expect(response.operations_by_cli_command["moryn contracts operations"]).toBe(response.operations_by_id.operation_contracts);
     expect(response.operations_by_cli_command["moryn write --kind <kind> --type <type> --scope <scope> --text <text>"]).toBe(response.operations_by_id.write);
     expect(response.operations_by_id.agent_enter.selection_sources.required_input_path_by_value_path).toBeUndefined();
+    expect(response.operations_by_id.agent_enter.selection_sources.category).toBeUndefined();
+    expect(response.operations_by_id.agent_enter.selection_sources.category_operation).toBeUndefined();
+    expect(response.operations_by_id.agent_enter.selection_sources.mcp_tool_operation).toBeUndefined();
+    expect(response.operations_by_id.agent_enter.selection_sources.cli_command_operation).toBeUndefined();
+    expect(response.operations_by_id.agent_enter.selection_sources.ordered_operation).toBeUndefined();
     expect(response.operations_by_id.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
     expect(response.operations_by_mcp_tool.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
     expect(response.operations_by_cli_command["moryn write --kind <kind> --type <type> --scope <scope> --text <text>"].selection_sources.required_input_path_by_value_path).toBeUndefined();
@@ -226,6 +231,34 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.operation_contracts.interfaces.cli.placeholders).toEqual([]);
     expect(response.operations_by_id.operation_contracts.interfaces.cli.has_placeholders).toBe(false);
     expect(response.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe("moryn contracts operations");
+    expect(response.operations_by_id.operation_contracts.arguments_by_name).toMatchObject({
+      operation: {
+        name: "operation",
+        type: "string",
+        required: false,
+        cli: { flag: "--operation" },
+        mcp: { argument: "operation" }
+      },
+      mcp_tool: {
+        name: "mcp_tool",
+        type: "string",
+        required: false,
+        cli: { flag: "--mcp-tool" },
+        mcp: { argument: "mcp_tool" }
+      },
+      cli_command: {
+        name: "cli_command",
+        type: "string",
+        required: false,
+        cli: { flag: "--cli-command" },
+        mcp: { argument: "cli_command" }
+      }
+    });
+    expect(response.operations_by_id.operation_contracts.interfaces.mcp.arguments).toEqual({
+      operation: "<operation>",
+      mcp_tool: "<tool>",
+      cli_command: "<command>"
+    });
     expect(response.operations_by_id.project_init.interfaces.cli.argv).toEqual(["project", "init", "--path", "<path>"]);
     expect(response.operations_by_id.project_init.interfaces.cli.placeholders).toEqual(["path"]);
     expect(response.operations_by_id.project_init.interfaces.cli.has_placeholders).toBe(true);

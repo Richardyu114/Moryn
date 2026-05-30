@@ -636,10 +636,10 @@ field-keyed required-input lookups and
 `operations_by_id.<operation>.execution.required_inputs_by_argument_path.<argument_path>`
 for direct argument-path lookups. The top-level registry also names
 `operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>`.
-Operation-local `selection_sources` omit that long value-path entry to keep the
-contracts response under the 1 MB host payload budget; use the top-level
-registry path with the operation-local `execution.required_input_paths_by_value_path`
-map.
+Operation-local `selection_sources` omit registry-only reverse/group/list paths
+and that long value-path entry to keep the contracts response under the 1 MB
+host payload budget; use the top-level registry paths with operation-local
+fields such as `execution.required_input_paths_by_value_path`.
 `execution.required_inputs[]` mirrors required inputs in call-ready form, and
 `execution.required_inputs_by_field` indexes the same entries by field name.
 `execution.required_inputs_by_argument_path` indexes them by every split
@@ -687,6 +687,9 @@ contracts operations --mcp-tool agent_finish`, `moryn contracts operations
 --summary <summary>"}`, or package helpers `getOperationContract("agent_finish")`,
 `getOperationContractByMcpTool("agent_finish")`, and
 `getOperationContractByCliCommand("moryn agent finish --summary <summary>")`.
+The `operation_contracts` registry entry also declares those lookup arguments
+in `arguments_by_name` and `interfaces.mcp.arguments`, so hosts can discover the
+filters from the same contract payload instead of relying on docs.
 That response contains one `operation`, its canonical `operation_source`, the
 lookup `matched_source`, and the top-level `selection_sources`, so agents can
 inspect one call shape without holding the full registry in context.

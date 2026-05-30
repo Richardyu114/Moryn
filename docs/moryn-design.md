@@ -484,10 +484,10 @@ The operation selection source registry names that keyed input path as
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` and
 the value-path index as
 `operations_by_id.<operation>.execution.required_input_paths_by_value_path.<value_path>`.
-Operation-local `selection_sources` intentionally omit that long value-path
-registry entry to keep operation contracts below the 1 MB payload budget; hosts
-should read it from the top-level registry and the operation-local execution
-index.
+Operation-local `selection_sources` intentionally omit registry-only
+reverse/group/list paths and that long value-path registry entry to keep
+operation contracts below the 1 MB payload budget; hosts should read those paths
+from the top-level registry and combine them with operation-local indexes.
 It also names
 the reverse lookup paths as `operations_by_mcp_tool.<tool>` and
 `operations_by_cli_command.<command>`. It also names CLI execution fields as
@@ -631,10 +631,12 @@ self-describing outside the aggregate registry. After a runtime response returns
 the live project, sync, cursor, and handoff context.
 CLI and MCP hosts can pass an operation id, MCP tool name, or display CLI
 command to the static contract endpoint when they already know any one of those
-identifiers. The single-operation response carries one `operation`, its
-canonical `operation_source`, the reverse lookup `matched_source`, and the
-top-level `selection_sources`, keeping the payload and model context much
-smaller than the full operation directory.
+identifiers. The `operation_contracts` static operation declares those optional
+lookup inputs in `arguments_by_name` and `interfaces.mcp.arguments`, keeping the
+filter surface discoverable from the registry itself. The single-operation
+response carries one `operation`, its canonical `operation_source`, the reverse
+lookup `matched_source`, and the top-level `selection_sources`, keeping the
+payload and model context much smaller than the full operation directory.
 
 ### `init`
 

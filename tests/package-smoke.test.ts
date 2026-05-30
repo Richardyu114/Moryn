@@ -103,7 +103,13 @@ describe("published package smoke", () => {
             recall: { execution: { next_step: string; blocked_by: string[]; ready_to_run: boolean; required_inputs: unknown[]; required_inputs_by_field: Record<string, unknown>; required_inputs_by_argument_path: Record<string, unknown>; required_input_paths_by_value_path: Record<string, string> } };
             promote: { execution: { next_step: string; blocked_by: string[]; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; selection_sources?: Record<string, string>; allowed_values?: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; selection_sources?: Record<string, string>; allowed_values?: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_argument_path: Record<string, { field: string; argument_path: string; argument_paths: string[]; selection_sources?: Record<string, string>; allowed_values?: string[] }>; required_input_paths_by_value_path: Record<string, string> }; required_fields_by_name: { target_state: { allowed_values?: string[] } } };
             project_init: { execution: { next_step: string; blocked_by: string[]; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_source?: string; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_field: Record<string, { field: string; argument_source?: string; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_argument_path: Record<string, { field: string; argument_source?: string; selection_sources?: Record<string, string> }>; required_input_paths_by_value_path: Record<string, string>; requires_user_confirmation: boolean } };
-            operation_contracts: { interfaces: { cli: { executable: string; argv: string[]; args: string[]; exec_file: { executable: string; args: string[] }; placeholders: string[]; has_placeholders: boolean; command_line: string }; mcp: { tool: string } } };
+            operation_contracts: {
+              arguments_by_name: Record<string, { name: string; type: string; required: boolean; cli?: { flag?: string }; mcp?: { argument: string } }>;
+              interfaces: {
+                cli: { executable: string; argv: string[]; args: string[]; exec_file: { executable: string; args: string[] }; placeholders: string[]; has_placeholders: boolean; command_line: string };
+                mcp: { tool: string; arguments: Record<string, unknown> };
+              };
+            };
           };
         };
 
@@ -138,6 +144,34 @@ describe("published package smoke", () => {
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.placeholders).toEqual([]);
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.has_placeholders).toBe(false);
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.cli.command_line).toBe("moryn contracts operations");
+        expect(parsedOperations.operations_by_id.operation_contracts.arguments_by_name).toMatchObject({
+          operation: {
+            name: "operation",
+            type: "string",
+            required: false,
+            cli: { flag: "--operation" },
+            mcp: { argument: "operation" }
+          },
+          mcp_tool: {
+            name: "mcp_tool",
+            type: "string",
+            required: false,
+            cli: { flag: "--mcp-tool" },
+            mcp: { argument: "mcp_tool" }
+          },
+          cli_command: {
+            name: "cli_command",
+            type: "string",
+            required: false,
+            cli: { flag: "--cli-command" },
+            mcp: { argument: "cli_command" }
+          }
+        });
+        expect(parsedOperations.operations_by_id.operation_contracts.interfaces.mcp.arguments).toEqual({
+          operation: "<operation>",
+          mcp_tool: "<tool>",
+          cli_command: "<command>"
+        });
         expect(parsedOperations.operations_by_id.write.interfaces.cli.executable).toBe("moryn");
         expect(parsedOperations.operations_by_id.write.interfaces.cli.argv).toEqual([
           "write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"
@@ -155,10 +189,6 @@ describe("published package smoke", () => {
         expect(parsedOperations.operations_by_id.write.selection_sources).toEqual({
           operation: "operations_by_id.<operation>",
           operation_id: "operations_by_id.<operation>.operation",
-          category: "operations_by_category.<category>",
-          category_operation: "operations_by_category.<category>.<operation>",
-          mcp_tool_operation: "operations_by_mcp_tool.<tool>",
-          cli_command_operation: "operations_by_cli_command.<command>",
           required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
           allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
           required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
@@ -173,8 +203,7 @@ describe("published package smoke", () => {
           cli_exec_file: "operations_by_id.<operation>.interfaces.cli.exec_file",
           cli_placeholder: "operations_by_id.<operation>.interfaces.cli.placeholders[]",
           cli_command_line: "operations_by_id.<operation>.interfaces.cli.command_line",
-          mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
-          ordered_operation: "operations[]"
+          mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool"
         });
         expect(parsedOperations.operations_by_id.recall.execution).toMatchObject({
           next_step: "run",
