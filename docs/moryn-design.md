@@ -446,10 +446,11 @@ moryn contracts operations
 MCP tool: `operation_contracts`.
 
 The response lists `operations`, keyed `operations_by_id`, grouped
-`operations_by_category`, and selection sources for those keyed paths. Each
+`operations_by_category`, reverse indexes `operations_by_mcp_tool` and
+`operations_by_cli_command`, and selection sources for those keyed paths. Each
 operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
-`execution`, `required_fields`, `required_fields_by_name`,
-`arguments_by_name`, and `argument_sources`. `execution` summarizes the
+`execution`, `required_fields`, `required_fields_by_name`, `arguments_by_name`,
+and `argument_sources`. `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, `required_inputs_by_field`, and
 `requires_user_confirmation`, so hosts can decide whether to run, collect
@@ -464,7 +465,9 @@ required flag, and preferred alternative for each fillable target.
 `cli_targets` names equivalent CLI flags, positionals, repeatability, defaults,
 types, and preferred alternatives.
 The operation selection source registry names that keyed input path as
-`operations_by_id.<operation>.execution.required_inputs_by_field.<field>`.
+`operations_by_id.<operation>.execution.required_inputs_by_field.<field>` and
+the reverse lookup paths as `operations_by_mcp_tool.<tool>` and
+`operations_by_cli_command.<command>`.
 `arguments_by_name` is the full parameter directory, including CLI flags or
 positionals, MCP arguments, types, defaults, repeatability, alternatives, and
 enum `allowed_values`:
@@ -570,8 +573,11 @@ enum `allowed_values`:
     "operation_id": "operations_by_id.<operation>.operation",
     "category": "operations_by_category.<category>",
     "category_operation": "operations_by_category.<category>.<operation>",
+    "mcp_tool_operation": "operations_by_mcp_tool.<tool>",
+    "cli_command_operation": "operations_by_cli_command.<command>",
     "required_field": "operations_by_id.<operation>.required_fields_by_name.<field>",
     "allowed_value": "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
+    "required_input": "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
     "argument": "operations_by_id.<operation>.arguments_by_name.<argument>",
     "argument_allowed_value": "operations_by_id.<operation>.arguments_by_name.<argument>.allowed_values[]",
     "argument_source": "operations_by_id.<operation>.argument_sources.<field>",

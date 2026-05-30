@@ -551,9 +551,11 @@ without guessing its shape.
 Agents that need to discover available commands or MCP tools can run
 `moryn contracts operations` or call the `operation_contracts` MCP tool. That
 registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP
-interfaces, `safe_to_run`, `safety`, `execution`, `required_when`,
-`required_fields`, `required_fields_by_name`, `arguments_by_name`, and
-`argument_sources`. Its selection sources include
+interfaces, `operations_by_mcp_tool`, `operations_by_cli_command`,
+`safe_to_run`, `safety`, `execution`, `required_when`, `required_fields`,
+`required_fields_by_name`, `arguments_by_name`, and `argument_sources`. Its
+selection sources include `operations_by_mcp_tool.<tool>` and
+`operations_by_cli_command.<command>` for direct reverse lookups, plus
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` for
 direct required-input lookups.
 `execution.required_inputs[]` mirrors required inputs in call-ready form, and

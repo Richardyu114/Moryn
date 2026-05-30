@@ -141,6 +141,8 @@ const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   operation_id: "operations_by_id.<operation>.operation",
   category: "operations_by_category.<category>",
   category_operation: "operations_by_category.<category>.<operation>",
+  mcp_tool_operation: "operations_by_mcp_tool.<tool>",
+  cli_command_operation: "operations_by_cli_command.<command>",
   required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
   allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
   required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
@@ -890,6 +892,8 @@ describe("moryn CLI", () => {
         };
       }>;
       operations_by_category: Record<string, Record<string, { operation: string }>>;
+      operations_by_mcp_tool: Record<string, { operation: string }>;
+      operations_by_cli_command: Record<string, { operation: string }>;
       selection_sources: Record<string, string>;
     };
 
@@ -1044,6 +1048,10 @@ describe("moryn CLI", () => {
     expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
     expect(parsed.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
     expect(parsed.operations_by_category.lifecycle.agent_enter).toEqual(parsed.operations_by_id.agent_enter);
+    expect(parsed.operations_by_mcp_tool.agent_enter).toEqual(parsed.operations_by_id.agent_enter);
+    expect(parsed.operations_by_mcp_tool.operation_contracts).toEqual(parsed.operations_by_id.operation_contracts);
+    expect(parsed.operations_by_cli_command["moryn agent enter"]).toEqual(parsed.operations_by_id.agent_enter);
+    expect(parsed.operations_by_cli_command["moryn contracts operations"]).toEqual(parsed.operations_by_id.operation_contracts);
     expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
   });
 

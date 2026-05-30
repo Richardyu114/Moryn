@@ -77,6 +77,8 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   operation_id: "operations_by_id.<operation>.operation",
   category: "operations_by_category.<category>",
   category_operation: "operations_by_category.<category>.<operation>",
+  mcp_tool_operation: "operations_by_mcp_tool.<tool>",
+  cli_command_operation: "operations_by_cli_command.<command>",
   required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
   allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
   required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>",
@@ -1034,12 +1036,22 @@ function operationsByCategory(operations: readonly OperationContract[]): Record<
   return categories;
 }
 
+function operationsByMcpTool(operations: readonly OperationContract[]): Record<string, OperationContract> {
+  return Object.fromEntries(operations.map((operation) => [operation.interfaces.mcp.tool, operation]));
+}
+
+function operationsByCliCommand(operations: readonly OperationContract[]): Record<string, OperationContract> {
+  return Object.fromEntries(operations.map((operation) => [operation.interfaces.cli.command, operation]));
+}
+
 export function getOperationContracts() {
   return {
     recommended_entrypoint: "agent_enter",
     operations: OPERATION_CONTRACTS,
     operations_by_id: operationsById(OPERATION_CONTRACTS),
     operations_by_category: operationsByCategory(OPERATION_CONTRACTS),
+    operations_by_mcp_tool: operationsByMcpTool(OPERATION_CONTRACTS),
+    operations_by_cli_command: operationsByCliCommand(OPERATION_CONTRACTS),
     selection_sources: OPERATION_CONTRACTS_SELECTION_SOURCES
   };
 }

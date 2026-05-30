@@ -61,7 +61,7 @@ describe("published package smoke", () => {
         const importCheck = await exec("node", [
           "--input-type=module",
           "-e",
-          "import { BOOT_SELECTION_SOURCES, GUIDE_SELECTION_SOURCES, NEXT_ACTION_SELECTION_SOURCES, OPERATION_CONTRACTS_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES, getOperationContracts, getSelectionSourceContracts, STORE_INIT_SELECTION_SOURCES, SYNC_RESULT_SELECTION_SOURCES } from '@richardyu114/moryn'; const selectionResponse = getSelectionSourceContracts(); const operationResponse = getOperationContracts(); console.log(`${STORE_INIT_SELECTION_SOURCES.config_file}|${BOOT_SELECTION_SOURCES.skill}|${SYNC_RESULT_SELECTION_SOURCES.pushed}|${GUIDE_SELECTION_SOURCES.guardrail}|${NEXT_ACTION_SELECTION_SOURCES.error_next_action}|${NEXT_ACTION_SELECTION_SOURCES.error_argument}|${SELECTION_SOURCE_CONTRACTS.lifecycle.guide.guardrail}|${SELECTION_SOURCE_CONTRACTS.sync.result.pushed}|${SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES.contract}|${selectionResponse.contracts.setup.store_init.config_file}|${selectionResponse.selection_sources.field}|${OPERATION_CONTRACTS_SELECTION_SOURCES.operation}|${OPERATION_CONTRACTS_SELECTION_SOURCES.allowed_value}|${OPERATION_CONTRACTS_SELECTION_SOURCES.required_input}|${OPERATION_CONTRACTS_SELECTION_SOURCES.argument}|${operationResponse.operations_by_id.agent_enter.interfaces.mcp.tool}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.command}|${operationResponse.operations_by_id.write.arguments_by_name.kind.allowed_values.join(',')}|${operationResponse.operations_by_id.recall.execution.next_step}|${operationResponse.operations_by_id.agent_finish.execution.next_step}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs[0].argument_source}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.argument_source}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.selection_sources.required_input}`);"
+          "import { BOOT_SELECTION_SOURCES, GUIDE_SELECTION_SOURCES, NEXT_ACTION_SELECTION_SOURCES, OPERATION_CONTRACTS_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES, getOperationContracts, getSelectionSourceContracts, STORE_INIT_SELECTION_SOURCES, SYNC_RESULT_SELECTION_SOURCES } from '@richardyu114/moryn'; const selectionResponse = getSelectionSourceContracts(); const operationResponse = getOperationContracts(); console.log(`${STORE_INIT_SELECTION_SOURCES.config_file}|${BOOT_SELECTION_SOURCES.skill}|${SYNC_RESULT_SELECTION_SOURCES.pushed}|${GUIDE_SELECTION_SOURCES.guardrail}|${NEXT_ACTION_SELECTION_SOURCES.error_next_action}|${NEXT_ACTION_SELECTION_SOURCES.error_argument}|${SELECTION_SOURCE_CONTRACTS.lifecycle.guide.guardrail}|${SELECTION_SOURCE_CONTRACTS.sync.result.pushed}|${SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES.contract}|${selectionResponse.contracts.setup.store_init.config_file}|${selectionResponse.selection_sources.field}|${OPERATION_CONTRACTS_SELECTION_SOURCES.operation}|${OPERATION_CONTRACTS_SELECTION_SOURCES.mcp_tool_operation}|${OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation}|${OPERATION_CONTRACTS_SELECTION_SOURCES.allowed_value}|${OPERATION_CONTRACTS_SELECTION_SOURCES.required_input}|${OPERATION_CONTRACTS_SELECTION_SOURCES.argument}|${operationResponse.operations_by_id.agent_enter.interfaces.mcp.tool}|${operationResponse.operations_by_mcp_tool.agent_enter.operation}|${operationResponse.operations_by_cli_command['moryn agent enter'].operation}|${operationResponse.operations_by_id.operation_contracts.interfaces.cli.command}|${operationResponse.operations_by_id.write.arguments_by_name.kind.allowed_values.join(',')}|${operationResponse.operations_by_id.recall.execution.next_step}|${operationResponse.operations_by_id.agent_finish.execution.next_step}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs[0].argument_source}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.argument_source}|${operationResponse.operations_by_id.agent_finish.execution.required_inputs_by_field.summary.selection_sources.required_input}`);"
         ], { cwd: dir });
         const operationRequiredInputSources = {
           required_input: "operations_by_id.<operation>.execution.required_inputs_by_field.<field>"
@@ -75,6 +75,14 @@ describe("published package smoke", () => {
         };
         const parsedOperations = JSON.parse(operations.stdout) as {
           recommended_entrypoint: string;
+          operations_by_mcp_tool: {
+            agent_enter: { operation: string };
+            operation_contracts: { operation: string };
+          };
+          operations_by_cli_command: {
+            "moryn agent enter": { operation: string };
+            "moryn contracts operations": { operation: string };
+          };
           operations_by_id: {
             agent_enter: { interfaces: { cli: { command: string } } };
             agent_finish: {
@@ -101,6 +109,10 @@ describe("published package smoke", () => {
         expect(parsedContracts.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
         expect(parsedContracts.selection_sources.contract).toBe("contracts.<group>.<contract>");
         expect(parsedOperations.recommended_entrypoint).toBe("agent_enter");
+        expect(parsedOperations.operations_by_mcp_tool.agent_enter.operation).toBe("agent_enter");
+        expect(parsedOperations.operations_by_mcp_tool.operation_contracts.operation).toBe("operation_contracts");
+        expect(parsedOperations.operations_by_cli_command["moryn agent enter"].operation).toBe("agent_enter");
+        expect(parsedOperations.operations_by_cli_command["moryn contracts operations"].operation).toBe("operation_contracts");
         expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");
         expect(parsedOperations.operations_by_id.recall.execution).toMatchObject({
           next_step: "run",
@@ -323,7 +335,7 @@ describe("published package smoke", () => {
         expect(parsedOperations.operations_by_id.project_init.execution.required_inputs[0]?.selection_sources).toEqual(operationRequiredInputSources);
         expect(parsedOperations.operations_by_id.project_init.execution.required_inputs_by_field.path.selection_sources).toEqual(operationRequiredInputSources);
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
-        expect(importCheck.stdout.trim()).toBe("artifacts.config|skills_by_id.<record_id>|pushed|guardrails_by_id.<guardrail_id>|error.next_action|error.next_action.arguments_by_name.<argument>|guardrails_by_id.<guardrail_id>|pushed|contracts.<group>.<contract>|artifacts.config|contracts.<group>.<contract>.<field>|operations_by_id.<operation>|operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]|operations_by_id.<operation>.execution.required_inputs_by_field.<field>|operations_by_id.<operation>.arguments_by_name.<argument>|agent_enter|moryn contracts operations|memory,skill,soul,session_summary,agent_note|run|collect_required_fields|user_input.summary|user_input.summary|operations_by_id.<operation>.execution.required_inputs_by_field.<field>");
+        expect(importCheck.stdout.trim()).toBe("artifacts.config|skills_by_id.<record_id>|pushed|guardrails_by_id.<guardrail_id>|error.next_action|error.next_action.arguments_by_name.<argument>|guardrails_by_id.<guardrail_id>|pushed|contracts.<group>.<contract>|artifacts.config|contracts.<group>.<contract>.<field>|operations_by_id.<operation>|operations_by_mcp_tool.<tool>|operations_by_cli_command.<command>|operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]|operations_by_id.<operation>.execution.required_inputs_by_field.<field>|operations_by_id.<operation>.arguments_by_name.<argument>|agent_enter|agent_enter|agent_enter|moryn contracts operations|memory,skill,soul,session_summary,agent_note|run|collect_required_fields|user_input.summary|user_input.summary|operations_by_id.<operation>.execution.required_inputs_by_field.<field>");
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });
       } finally {
         if (tarball) {
