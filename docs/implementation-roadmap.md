@@ -265,9 +265,9 @@ Deliverables:
   without parsing prose.
 - Done: CLI and MCP required-option, option-dependency, non-empty string, enum,
   integer/number-range, JSON-object, read-filter, project-init, sync-argument,
-  store-path, event-path-component, write-core-field, write-content,
-  write-metadata, choose-one, path-assignment, refresh cursor, and revise-patch
-  validation errors now return structured
+  store-path, event-path-component, schema-validation, write-core-field,
+  write-content, write-metadata, choose-one, path-assignment, refresh cursor,
+  and revise-patch validation errors now return structured
   `error.recovery_hint` metadata with `missing_argument`, `missing_one_of`,
   `rejected_argument`, `rejected_arguments`, `rejected_patch`,
   machine-readable `expected` rules, `discover_with`, and `retry_with`, so
@@ -281,7 +281,8 @@ Deliverables:
   invalid boot/refresh `current_task`/`default_skills`/`cursor`, invalid or
   empty project init `projectPath`/`project_id`/`tags`/`default_skills`/
   `sync.mode`/`repair`, invalid local store `storePath`, invalid event path
-  components such as `event_id`/`source.device_id`, invalid sync
+  components such as `event_id`/`source.device_id`, invalid record/event schema
+  paths reported as `validation_issues`, invalid sync
   `storePath`/`remoteUrl`/`options`/`message`, empty
   placeholders such as `--text ""`, malformed `--content-json`, malformed
   `--set path=value` assignments, managed-field revise attempts, invalid revise

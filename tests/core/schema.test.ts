@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { toErrorEnvelope } from "../../src/core/errors.js";
 import { parseEvent, parseRecord } from "../../src/core/schema.js";
 
 describe("record schema", () => {
@@ -19,6 +20,36 @@ describe("record schema", () => {
     source: { client: "codex", session_id: "sess_1", model: "gpt-5" }
   };
 
+  function expectInvalidSchema(action: () => unknown, schema: "record" | "event", pathString: string): void {
+    let caught: unknown;
+    try {
+      action();
+    } catch (error) {
+      caught = error;
+    }
+
+    if (!caught) {
+      throw new Error(`Expected invalid ${schema}`);
+    }
+
+    const envelope = toErrorEnvelope(caught);
+    expect(envelope.error.code).toBe("INVALID_RECORD");
+    expect(envelope.error.recommended_action).toBe(`retry with a valid Moryn ${schema} schema`);
+    expect(envelope.error.recovery_hint).toMatchObject({
+      rejected_schema: schema,
+      expected: { kind: `moryn_${schema}_schema` },
+      retry_with: {
+        argument: schema,
+        value_placeholder: `<valid Moryn ${schema}>`
+      }
+    });
+    expect(envelope.error.recovery_hint).toEqual(expect.objectContaining({
+      validation_issues: expect.arrayContaining([
+        expect.objectContaining({ path_string: pathString })
+      ])
+    }));
+  }
+
   it("accepts a valid memory record", () => {
     const record = parseRecord(validRecord);
 
@@ -26,7 +57,7 @@ describe("record schema", () => {
   });
 
   it("rejects invalid state values", () => {
-    expect(() =>
+    expectInvalidSchema(() =>
       parseRecord({
         id: "rec_test",
         kind: "memory",
@@ -35,8 +66,10 @@ describe("record schema", () => {
         content: { text: "Bad state", format: "text" },
         state: "published",
         source: { client: "codex" }
-      })
-    ).toThrow(/Invalid record/);
+      }),
+      "record",
+      "state"
+    );
   });
 
   it("rejects empty record content text", () => {
@@ -70,7 +103,7 @@ describe("record schema", () => {
       source: { client: "codex" }
     };
 
-    expect(() => parseEvent({ ...baseEvent, reason: "" })).toThrow(/Invalid event/);
+    expectInvalidSchema(() => parseEvent({ ...baseEvent, reason: "" }), "event", "reason");
     expect(() => parseEvent({
       event_id: "evt_promote",
       op: "promote_record",

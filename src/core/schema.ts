@@ -148,10 +148,56 @@ export const eventSchema = z.discriminatedUnion("op", [
 
 export type ParsedEvent = z.infer<typeof eventSchema>;
 
+interface SchemaValidationIssue {
+  code: string;
+  path: Array<string | number>;
+  path_string: string;
+  message: string;
+  expected?: unknown;
+}
+
+function pathString(path: Array<string | number | symbol>): string {
+  return path.map((part) => String(part)).join(".");
+}
+
+function validationIssue(issue: z.core.$ZodIssue): SchemaValidationIssue {
+  const output: SchemaValidationIssue = {
+    code: issue.code,
+    path: issue.path.map((part) => typeof part === "symbol" ? String(part) : part),
+    path_string: pathString(issue.path),
+    message: issue.message
+  };
+  if ("values" in issue) output.expected = { values: issue.values };
+  if ("minimum" in issue) output.expected = { minimum: issue.minimum };
+  return output;
+}
+
+class MorynSchemaValidationError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: {
+    rejected_schema: "record" | "event";
+    validation_issues: SchemaValidationIssue[];
+    expected: { kind: "moryn_record_schema" | "moryn_event_schema" };
+    retry_with: { argument: "record" | "event"; value_placeholder: string };
+  };
+
+  constructor(schema: "record" | "event", error: z.ZodError) {
+    super(`Invalid ${schema}: ${z.prettifyError(error)}`);
+    this.name = "MorynSchemaValidationError";
+    this.recommended_action = `retry with a valid Moryn ${schema} schema`;
+    this.recovery_hint = {
+      rejected_schema: schema,
+      validation_issues: error.issues.map(validationIssue),
+      expected: { kind: `moryn_${schema}_schema` },
+      retry_with: { argument: schema, value_placeholder: `<valid Moryn ${schema}>` }
+    };
+  }
+}
+
 export function parseRecord(input: unknown): ParsedRecord {
   const result = recordSchema.safeParse(input);
   if (!result.success) {
-    throw new Error(`Invalid record: ${z.prettifyError(result.error)}`);
+    throw new MorynSchemaValidationError("record", result.error);
   }
   return result.data;
 }
@@ -159,7 +205,7 @@ export function parseRecord(input: unknown): ParsedRecord {
 export function parseEvent(input: unknown): MorynEvent {
   const result = eventSchema.safeParse(input);
   if (!result.success) {
-    throw new Error(`Invalid event: ${z.prettifyError(result.error)}`);
+    throw new MorynSchemaValidationError("event", result.error);
   }
   return result.data as MorynEvent;
 }
