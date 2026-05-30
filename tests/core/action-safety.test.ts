@@ -141,6 +141,8 @@ describe("action execution readiness", () => {
           cli_assignments: [{
             flag: "--summary",
             value_path: "user_input.summary",
+            argv_template: ["--summary", "<user_input.summary>"],
+            value_encoding: "string",
             type: "string",
             required: true,
             preferred: true
@@ -357,6 +359,8 @@ describe("action execution readiness", () => {
             cli_assignments: [{
               flag: "--kind",
               value_path: "user_input.kind",
+              argv_template: ["--kind", "<user_input.kind>"],
+              value_encoding: "string",
               type: "string",
               required: true,
               preferred: true
@@ -429,6 +433,8 @@ describe("action execution readiness", () => {
               {
                 flag: "--text",
                 value_path: "user_input.text_or_content",
+                argv_template: ["--text", "<user_input.text_or_content>"],
+                value_encoding: "string",
                 type: "string",
                 required: false,
                 preferred: true
@@ -436,6 +442,8 @@ describe("action execution readiness", () => {
               {
                 flag: "--content-json",
                 value_path: "user_input.text_or_content",
+                argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                value_encoding: "json",
                 type: "object",
                 required: false,
                 preferred: false
@@ -534,6 +542,8 @@ describe("action execution readiness", () => {
             {
               flag: "--text",
               value_path: "user_input.text_or_content",
+              argv_template: ["--text", "<user_input.text_or_content>"],
+              value_encoding: "string",
               type: "string",
               required: false,
               preferred: true
@@ -541,6 +551,8 @@ describe("action execution readiness", () => {
             {
               flag: "--content-json",
               value_path: "user_input.text_or_content",
+              argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+              value_encoding: "json",
               type: "object",
               required: false,
               preferred: false
@@ -645,6 +657,8 @@ describe("action execution readiness", () => {
     expect(execution.required_inputs_by_field.derived_from.collect.apply_to.cli_assignments).toEqual([{
       flag: "--derived-from",
       value_path: "user_input.derived_from",
+      argv_template: ["--derived-from", "<user_input.derived_from[]>"],
+      value_encoding: "repeat_values",
       type: "string[]",
       required: false,
       repeatable: true,
@@ -681,6 +695,8 @@ describe("action execution readiness", () => {
     expect(execution.required_inputs_by_field.record_id.collect.apply_to.cli_assignments).toEqual([{
       positional: "record-id",
       value_path: "user_input.record_id",
+      argv_template: ["<user_input.record_id>"],
+      value_encoding: "string",
       type: "string",
       required: true,
       preferred: true
@@ -716,9 +732,96 @@ describe("action execution readiness", () => {
     expect(execution.required_inputs_by_field.path.collect.apply_to.cli_assignments).toEqual([{
       flag: "--path",
       value_path: "user_input.path",
+      argv_template: ["--path", "<user_input.path>"],
+      value_encoding: "string",
       type: "string",
       required: true,
       default: ".",
+      preferred: true
+    }]);
+  });
+
+  it("describes path=value CLI assignments for collected patch objects", () => {
+    const execution = actionExecution({
+      tool: "revise",
+      safe_to_run: false,
+      required_fields: ["patch"],
+      required_fields_by_name: {
+        patch: {
+          name: "patch",
+          argument_path: "patch",
+          placeholder: "<path=value>",
+          value: "<path=value>"
+        }
+      },
+      arguments_by_name: {
+        patch: {
+          type: "object",
+          required: true,
+          cli: { flag: "--set", repeatable: true },
+          mcp: { argument: "patch" }
+        }
+      },
+      argument_sources: {
+        patch: "user_input.patch"
+      }
+    });
+
+    expect(execution.required_inputs_by_field.patch.collect.apply_to.cli_assignments).toEqual([{
+      flag: "--set",
+      value_path: "user_input.patch",
+      argv_template: ["--set", "<user_input.patch{path=value}[]>"],
+      value_encoding: "path_value_entries",
+      type: "object",
+      required: true,
+      repeatable: true,
+      preferred: true
+    }]);
+  });
+
+  it("describes multi-flag object CLI assignments with per-flag value paths", () => {
+    const execution = actionExecution({
+      tool: "agent_start",
+      safe_to_run: false,
+      required_fields: ["agent"],
+      required_fields_by_name: {
+        agent: {
+          name: "agent",
+          argument_path: "agent",
+          placeholder: "<agent>"
+        }
+      },
+      arguments_by_name: {
+        agent: {
+          type: "object",
+          required: false,
+          cli: { flags: ["--agent", "--session-id", "--model", "--device-id"] },
+          mcp: { argument: "agent" }
+        }
+      },
+      argument_sources: {
+        agent: "user_input.agent"
+      }
+    });
+
+    expect(execution.required_inputs_by_field.agent.collect.apply_to.cli_assignments).toEqual([{
+      flags: ["--agent", "--session-id", "--model", "--device-id"],
+      value_path: "user_input.agent",
+      argv_template: [
+        "--agent", "<user_input.agent.client>",
+        "--session-id", "<user_input.agent.session_id>",
+        "--model", "<user_input.agent.model>",
+        "--device-id", "<user_input.agent.device_id>"
+      ],
+      value_encoding: "object_fields",
+      flag_value_paths: [
+        { flag: "--agent", value_path: "user_input.agent.client" },
+        { flag: "--session-id", value_path: "user_input.agent.session_id" },
+        { flag: "--model", value_path: "user_input.agent.model" },
+        { flag: "--device-id", value_path: "user_input.agent.device_id" }
+      ],
+      type: "object",
+      required: false,
       preferred: true
     }]);
   });

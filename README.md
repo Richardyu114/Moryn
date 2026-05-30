@@ -438,7 +438,8 @@ turns those targets into direct write-back instructions with `argument`,
 optional nested `path`, `value_path`, and preferred flag. `cli_targets` tells CLI
 hosts which flag or positional to fill; `collect.apply_to.cli_assignments` turns
 those targets into direct write-back instructions with flag or positional,
-`value_path`, type, repeatable/default metadata, and preferred flag.
+`value_path`, `argv_template`, `value_encoding`, type, repeatable/default
+metadata, and preferred flag.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
@@ -621,7 +622,8 @@ Each entry includes `selection_sources.required_input`,
 `selection_sources.required_input_argument_path`, `collect`, `mcp_targets`, and
 `cli_targets`; hosts should prefer `required_inputs[].collect` when asking the
 user and then use `collect.apply_to.mcp_assignments` to patch MCP arguments or
-`collect.apply_to.cli_assignments` to construct CLI args. That
+`collect.apply_to.cli_assignments` to construct CLI args from `argv_template`
+and `value_encoding`. That
 keeps hosts from needing to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.

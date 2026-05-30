@@ -1204,6 +1204,8 @@ describe("moryn CLI", () => {
           {
             flag: "--text",
             value_path: "user_input.text_or_content",
+            argv_template: ["--text", "<user_input.text_or_content>"],
+            value_encoding: "string",
             type: "string",
             required: false,
             preferred: true
@@ -1211,6 +1213,8 @@ describe("moryn CLI", () => {
           {
             flag: "--content-json",
             value_path: "user_input.text_or_content",
+            argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+            value_encoding: "json",
             type: "object",
             required: false,
             preferred: false

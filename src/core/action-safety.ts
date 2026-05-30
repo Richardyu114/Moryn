@@ -81,11 +81,21 @@ export interface ActionMcpAssignment {
   preferred: boolean;
 }
 
+export type ActionCliValueEncoding = "string" | "json" | "repeat_values" | "path_value_entries" | "object_fields";
+
+export interface ActionCliFlagValuePath {
+  flag: string;
+  value_path: string;
+}
+
 export interface ActionCliAssignment {
   flag?: string;
   flags?: readonly string[];
   positional?: string;
   value_path: string;
+  argv_template: string[];
+  value_encoding: ActionCliValueEncoding;
+  flag_value_paths?: ActionCliFlagValuePath[];
   type?: string;
   required?: boolean;
   repeatable?: boolean;
@@ -229,19 +239,64 @@ function mcpAssignments(targets: ActionMcpTarget[] | undefined, valuePath: strin
   }));
 }
 
+const CLI_FLAG_OBJECT_KEYS: Record<string, string[]> = {
+  agent: ["client", "session_id", "model", "device_id"]
+};
+
+function valuePlaceholder(valuePath: string, encoding: ActionCliValueEncoding): string {
+  if (encoding === "json") return `<json:${valuePath}>`;
+  if (encoding === "repeat_values") return `<${valuePath}[]>`;
+  if (encoding === "path_value_entries") return `<${valuePath}{path=value}[]>`;
+  return `<${valuePath}>`;
+}
+
+function cliValueEncoding(target: ActionCliTarget): ActionCliValueEncoding {
+  if (target.flags?.length) return "object_fields";
+  if (target.type === "object" && target.repeatable) return "path_value_entries";
+  if (target.type === "object") return "json";
+  if (target.repeatable) return "repeat_values";
+  return "string";
+}
+
+function cliFlagValuePaths(flags: readonly string[], valuePath: string): ActionCliFlagValuePath[] {
+  const objectPath = valuePath.replace(/^user_input\./, "");
+  const keys = CLI_FLAG_OBJECT_KEYS[objectPath] ?? flags.map((flag) => flag.replace(/^--/, "").replace(/-/g, "_"));
+  return flags.map((flag, index) => ({
+    flag,
+    value_path: `${valuePath}.${keys[index] ?? flag.replace(/^--/, "").replace(/-/g, "_")}`
+  }));
+}
+
+function cliArgvTemplate(target: ActionCliTarget, valuePath: string, encoding: ActionCliValueEncoding): string[] {
+  if (target.flags?.length) {
+    return cliFlagValuePaths(target.flags, valuePath).flatMap((entry) => [entry.flag, `<${entry.value_path}>`]);
+  }
+  const placeholder = valuePlaceholder(valuePath, encoding);
+  if (target.positional) return [placeholder];
+  if (target.flag) return [target.flag, placeholder];
+  return [placeholder];
+}
+
 function cliAssignments(targets: ActionCliTarget[] | undefined, valuePath: string): ActionCliAssignment[] | undefined {
   if (!targets?.length) return undefined;
-  return targets.map((target) => ({
-    ...(target.flag ? { flag: target.flag } : {}),
-    ...(target.flags ? { flags: target.flags } : {}),
-    ...(target.positional ? { positional: target.positional } : {}),
-    value_path: valuePath,
-    ...(target.type ? { type: target.type } : {}),
-    ...(typeof target.required === "boolean" ? { required: target.required } : {}),
-    ...(typeof target.repeatable === "boolean" ? { repeatable: target.repeatable } : {}),
-    ...("default" in target ? { default: target.default } : {}),
-    preferred: target.preferred
-  }));
+  return targets.map((target) => {
+    const value_encoding = cliValueEncoding(target);
+    const flag_value_paths = target.flags?.length ? cliFlagValuePaths(target.flags, valuePath) : undefined;
+    return {
+      ...(target.flag ? { flag: target.flag } : {}),
+      ...(target.flags ? { flags: target.flags } : {}),
+      ...(target.positional ? { positional: target.positional } : {}),
+      value_path: valuePath,
+      argv_template: cliArgvTemplate(target, valuePath, value_encoding),
+      value_encoding,
+      ...(flag_value_paths ? { flag_value_paths } : {}),
+      ...(target.type ? { type: target.type } : {}),
+      ...(typeof target.required === "boolean" ? { required: target.required } : {}),
+      ...(typeof target.repeatable === "boolean" ? { repeatable: target.repeatable } : {}),
+      ...("default" in target ? { default: target.default } : {}),
+      preferred: target.preferred
+    };
+  });
 }
 
 function promptForRequiredInput(field: string): string {
