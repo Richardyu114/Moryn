@@ -79,15 +79,15 @@ describe("published package smoke", () => {
               execution: {
                 next_step: string;
                 missing_required_fields: string[];
-                required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; argument_source?: string; placeholder?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>;
-                required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; argument_source?: string; placeholder?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>;
+                required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; argument_source?: string; placeholder?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>;
+                required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; argument_source?: string; placeholder?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>;
               };
               required_fields_by_name: { summary: { placeholder?: string } };
             };
             recall: { execution: { next_step: string; ready_to_run: boolean; required_inputs: unknown[]; required_inputs_by_field: Record<string, unknown> } };
-            write: { execution: { required_inputs: Array<{ field: string; argument_paths: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>; required_inputs_by_field: Record<string, { argument_paths: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }> }; required_fields_by_name: { kind: { allowed_values?: string[] } }; arguments_by_name: { kind: { allowed_values?: string[] } } };
-            promote: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; allowed_values?: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>; required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; allowed_values?: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }> }; required_fields_by_name: { target_state: { allowed_values?: string[] } } };
-            project_init: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_source?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>; required_inputs_by_field: Record<string, { field: string; argument_source?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }> }>; requires_user_confirmation: boolean } };
+            write: { execution: { required_inputs: Array<{ field: string; argument_paths: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_field: Record<string, { argument_paths: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }> }; required_fields_by_name: { kind: { allowed_values?: string[] } }; arguments_by_name: { kind: { allowed_values?: string[] } } };
+            promote: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; allowed_values?: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_field: Record<string, { field: string; argument_path: string; argument_paths: string[]; allowed_values?: string[]; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }> }; required_fields_by_name: { target_state: { allowed_values?: string[] } } };
+            project_init: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_source?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; required_inputs_by_field: Record<string, { field: string; argument_source?: string; mcp_targets?: Array<{ argument: string; type?: string; required?: boolean; preferred: boolean }>; cli_targets?: Array<{ flag?: string; positional?: string; type?: string; required?: boolean; repeatable?: boolean; default?: unknown; preferred: boolean }> }>; requires_user_confirmation: boolean } };
             operation_contracts: { interfaces: { mcp: { tool: string } } };
           };
         };
@@ -121,6 +121,12 @@ describe("published package smoke", () => {
               type: "string",
               required: true,
               preferred: true
+            }],
+            cli_targets: [{
+              flag: "--summary",
+              type: "string",
+              required: true,
+              preferred: true
             }]
           }],
           required_inputs_by_field: {
@@ -132,6 +138,12 @@ describe("published package smoke", () => {
               placeholder: "<summary>",
               mcp_targets: [{
                 argument: "summary",
+                type: "string",
+                required: true,
+                preferred: true
+              }],
+              cli_targets: [{
+                flag: "--summary",
                 type: "string",
                 required: true,
                 preferred: true
@@ -156,6 +168,20 @@ describe("published package smoke", () => {
             preferred: false
           }
         ]);
+        expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.cli_targets).toEqual([
+          {
+            flag: "--text",
+            type: "string",
+            required: false,
+            preferred: true
+          },
+          {
+            flag: "--content-json",
+            type: "object",
+            required: false,
+            preferred: false
+          }
+        ]);
         expect(parsedOperations.operations_by_id.write.arguments_by_name.kind.allowed_values).toEqual(["memory", "skill", "soul", "session_summary", "agent_note"]);
         expect(parsedOperations.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual(["raw", "candidate", "canonical", "archived", "quarantined"]);
         expect(parsedOperations.operations_by_id.promote.execution).toMatchObject({
@@ -171,6 +197,12 @@ describe("published package smoke", () => {
                 type: "string",
                 required: true,
                 preferred: true
+              }],
+              cli_targets: [{
+                positional: "record-id",
+                type: "string",
+                required: true,
+                preferred: true
               }]
             },
             {
@@ -180,6 +212,12 @@ describe("published package smoke", () => {
               allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
               mcp_targets: [{
                 argument: "target_state",
+                type: "string",
+                required: true,
+                preferred: true
+              }],
+              cli_targets: [{
+                flag: "--state",
                 type: "string",
                 required: true,
                 preferred: true
@@ -196,6 +234,12 @@ describe("published package smoke", () => {
                 type: "string",
                 required: true,
                 preferred: true
+              }],
+              cli_targets: [{
+                positional: "record-id",
+                type: "string",
+                required: true,
+                preferred: true
               }]
             },
             target_state: {
@@ -205,6 +249,12 @@ describe("published package smoke", () => {
               allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
               mcp_targets: [{
                 argument: "target_state",
+                type: "string",
+                required: true,
+                preferred: true
+              }],
+              cli_targets: [{
+                flag: "--state",
                 type: "string",
                 required: true,
                 preferred: true
@@ -223,6 +273,13 @@ describe("published package smoke", () => {
               type: "string",
               required: true,
               preferred: true
+            }],
+            cli_targets: [{
+              flag: "--path",
+              type: "string",
+              required: true,
+              default: ".",
+              preferred: true
             }]
           }],
           required_inputs_by_field: {
@@ -233,6 +290,13 @@ describe("published package smoke", () => {
                 argument: "path",
                 type: "string",
                 required: true,
+                preferred: true
+              }],
+              cli_targets: [{
+                flag: "--path",
+                type: "string",
+                required: true,
+                default: ".",
                 preferred: true
               }]
             }

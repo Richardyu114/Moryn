@@ -240,11 +240,12 @@ Deliverables:
   from several fields.
 - Done: `execution.required_inputs[]` joins required field names to argument
   paths, split alternative argument paths, argument sources, placeholders,
-  MCP target argument/path/type hints, alternatives, and enum allowed values,
-  while `execution.required_inputs_by_field` mirrors those entries by field
-  name, so hosts can collect user input and fill MCP arguments without joining
-  `required_fields_by_name`, `arguments_by_name`, `argument_sources`, and
-  operation metadata or parsing `text|content` strings.
+  MCP target argument/path/type hints, CLI flag/positional/repeatable/default
+  hints, alternatives, and enum allowed values, while
+  `execution.required_inputs_by_field` mirrors those entries by field name, so
+  hosts can collect user input and fill MCP arguments or shell commands without
+  joining `required_fields_by_name`, `arguments_by_name`, `argument_sources`,
+  and operation metadata or parsing `text|content` strings.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

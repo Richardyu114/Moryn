@@ -90,17 +90,20 @@ describe("action execution readiness", () => {
         kind: {
           type: "string",
           required: true,
+          cli: { flag: "--kind" },
           mcp: { argument: "kind" }
         },
         text: {
           type: "string",
           required: false,
+          cli: { flag: "--text" },
           mcp: { argument: "text" },
           alternatives: ["content"]
         },
         content: {
           type: "object",
           required: false,
+          cli: { flag: "--content-json" },
           mcp: { argument: "content" },
           alternatives: ["text"]
         }
@@ -117,6 +120,12 @@ describe("action execution readiness", () => {
         allowed_values: ["memory", "skill"],
         mcp_targets: [{
           argument: "kind",
+          type: "string",
+          required: true,
+          preferred: true
+        }],
+        cli_targets: [{
+          flag: "--kind",
           type: "string",
           required: true,
           preferred: true
@@ -139,6 +148,20 @@ describe("action execution readiness", () => {
           },
           {
             argument: "content",
+            type: "object",
+            required: false,
+            preferred: false
+          }
+        ],
+        cli_targets: [
+          {
+            flag: "--text",
+            type: "string",
+            required: false,
+            preferred: true
+          },
+          {
+            flag: "--content-json",
             type: "object",
             required: false,
             preferred: false
@@ -167,11 +190,25 @@ describe("action execution readiness", () => {
           required: false,
           preferred: false
         }
+      ],
+      cli_targets: [
+        {
+          flag: "--text",
+          type: "string",
+          required: false,
+          preferred: true
+        },
+        {
+          flag: "--content-json",
+          type: "object",
+          required: false,
+          preferred: false
+        }
       ]
     });
   });
 
-  it("maps nested MCP argument paths for required inputs", () => {
+  it("maps nested MCP and repeatable CLI argument paths for required inputs", () => {
     const execution = actionExecution({
       tool: "write",
       safe_to_run: false,
@@ -188,6 +225,7 @@ describe("action execution readiness", () => {
         derived_from: {
           type: "string[]",
           required: false,
+          cli: { flag: "--derived-from", repeatable: true },
           mcp: { argument: "provenance", path: "provenance.derived_from" }
         }
       }
@@ -198,6 +236,13 @@ describe("action execution readiness", () => {
       path: "provenance.derived_from",
       type: "string[]",
       required: false,
+      preferred: true
+    }]);
+    expect(execution.required_inputs_by_field.derived_from.cli_targets).toEqual([{
+      flag: "--derived-from",
+      type: "string[]",
+      required: false,
+      repeatable: true,
       preferred: true
     }]);
   });

@@ -16,11 +16,23 @@ export interface ActionMcpTarget {
   preferred: boolean;
 }
 
+export interface ActionCliTarget {
+  flag?: string;
+  flags?: readonly string[];
+  positional?: string;
+  type?: string;
+  required?: boolean;
+  repeatable?: boolean;
+  default?: unknown;
+  preferred: boolean;
+}
+
 export interface ActionRequiredInput {
   field: string;
   argument_path: string;
   argument_paths: string[];
   mcp_targets?: ActionMcpTarget[];
+  cli_targets?: ActionCliTarget[];
   argument_source?: string;
   value?: unknown;
   placeholder?: string;
@@ -39,6 +51,14 @@ type RequiredFieldInputMetadata = {
 type ArgumentInputMetadata = {
   type?: string;
   required?: boolean;
+  cli?: {
+    flag?: string;
+    flags?: readonly string[];
+    positional?: string;
+    repeatable?: boolean;
+    default?: unknown;
+    negative_flag?: string;
+  };
   mcp?: {
     argument: string;
     path?: string;
@@ -84,6 +104,33 @@ function mcpTargets(
   return targets.length > 0 ? targets : undefined;
 }
 
+function cliTargets(
+  paths: string[],
+  argumentsByName?: Record<string, ArgumentInputMetadata>,
+  field?: string
+): ActionCliTarget[] | undefined {
+  if (!argumentsByName) return undefined;
+
+  const targets = paths.flatMap((argumentPath, index) => {
+    const directMetadata = argumentsByName[argumentPath];
+    const fieldMetadata = field ? argumentsByName[field] : undefined;
+    const metadata = directMetadata ?? fieldMetadata;
+    if (!metadata?.cli) return [];
+    return [{
+      ...(metadata.cli.flag ? { flag: metadata.cli.flag } : {}),
+      ...(metadata.cli.flags ? { flags: metadata.cli.flags } : {}),
+      ...(metadata.cli.positional ? { positional: metadata.cli.positional } : {}),
+      ...(metadata.type ? { type: metadata.type } : {}),
+      ...(typeof metadata.required === "boolean" ? { required: metadata.required } : {}),
+      ...(typeof metadata.cli.repeatable === "boolean" ? { repeatable: metadata.cli.repeatable } : {}),
+      ...("default" in metadata.cli ? { default: metadata.cli.default } : {}),
+      preferred: index === 0
+    }];
+  });
+
+  return targets.length > 0 ? targets : undefined;
+}
+
 export function actionSafety(input: {
   tool: string;
   safe_to_run: boolean;
@@ -121,12 +168,14 @@ export function actionExecution(input: {
     const metadata = input.required_fields_by_name?.[field];
     const argumentPath = metadata?.argument_path ?? field;
     const splitArgumentPaths = argumentPaths(argumentPath);
-    const targets = mcpTargets(splitArgumentPaths, input.arguments_by_name);
+    const mcpTargetList = mcpTargets(splitArgumentPaths, input.arguments_by_name);
+    const cliTargetList = cliTargets(splitArgumentPaths, input.arguments_by_name, field);
     return {
       field,
       argument_path: argumentPath,
       argument_paths: splitArgumentPaths,
-      ...(targets ? { mcp_targets: targets } : {}),
+      ...(mcpTargetList ? { mcp_targets: mcpTargetList } : {}),
+      ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
       ...(input.argument_sources?.[field] ? { argument_source: input.argument_sources[field] } : {}),
       ...(metadata && "value" in metadata ? { value: metadata.value } : {}),
       ...(metadata?.placeholder ? { placeholder: metadata.placeholder } : {}),

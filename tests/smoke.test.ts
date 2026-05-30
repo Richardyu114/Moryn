@@ -161,6 +161,12 @@ describe("package smoke test", () => {
           type: "string",
           required: true,
           preferred: true
+        }],
+        cli_targets: [{
+          flag: "--summary",
+          type: "string",
+          required: true,
+          preferred: true
         }]
       }],
       required_inputs_by_field: {
@@ -173,6 +179,12 @@ describe("package smoke test", () => {
           value: "<summary>",
           mcp_targets: [{
             argument: "summary",
+            type: "string",
+            required: true,
+            preferred: true
+          }],
+          cli_targets: [{
+            flag: "--summary",
             type: "string",
             required: true,
             preferred: true
@@ -198,6 +210,12 @@ describe("package smoke test", () => {
             type: "string",
             required: true,
             preferred: true
+          }],
+          cli_targets: [{
+            positional: "record-id",
+            type: "string",
+            required: true,
+            preferred: true
           }]
         },
         {
@@ -210,6 +228,12 @@ describe("package smoke test", () => {
           allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
           mcp_targets: [{
             argument: "target_state",
+            type: "string",
+            required: true,
+            preferred: true
+          }],
+          cli_targets: [{
+            flag: "--state",
             type: "string",
             required: true,
             preferred: true
@@ -229,6 +253,12 @@ describe("package smoke test", () => {
             type: "string",
             required: true,
             preferred: true
+          }],
+          cli_targets: [{
+            positional: "record-id",
+            type: "string",
+            required: true,
+            preferred: true
           }]
         },
         target_state: {
@@ -241,6 +271,12 @@ describe("package smoke test", () => {
           allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"],
           mcp_targets: [{
             argument: "target_state",
+            type: "string",
+            required: true,
+            preferred: true
+          }],
+          cli_targets: [{
+            flag: "--state",
             type: "string",
             required: true,
             preferred: true
@@ -265,6 +301,13 @@ describe("package smoke test", () => {
           type: "string",
           required: true,
           preferred: true
+        }],
+        cli_targets: [{
+          flag: "--path",
+          type: "string",
+          required: true,
+          default: ".",
+          preferred: true
         }]
       }],
       required_inputs_by_field: {
@@ -279,6 +322,13 @@ describe("package smoke test", () => {
             argument: "path",
             type: "string",
             required: true,
+            preferred: true
+          }],
+          cli_targets: [{
+            flag: "--path",
+            type: "string",
+            required: true,
+            default: ".",
             preferred: true
           }]
         }
@@ -350,6 +400,20 @@ describe("package smoke test", () => {
           required: false,
           preferred: false
         }
+      ],
+      cli_targets: [
+        {
+          flag: "--text",
+          type: "string",
+          required: false,
+          preferred: true
+        },
+        {
+          flag: "--content-json",
+          type: "object",
+          required: false,
+          preferred: false
+        }
       ]
     });
     expect(response.operations_by_id.write.execution.required_inputs_by_field.text_or_content).toMatchObject({
@@ -365,6 +429,20 @@ describe("package smoke test", () => {
         },
         {
           argument: "content",
+          type: "object",
+          required: false,
+          preferred: false
+        }
+      ],
+      cli_targets: [
+        {
+          flag: "--text",
+          type: "string",
+          required: false,
+          preferred: true
+        },
+        {
+          flag: "--content-json",
           type: "object",
           required: false,
           preferred: false
