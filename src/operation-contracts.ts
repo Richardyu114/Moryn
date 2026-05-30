@@ -114,6 +114,17 @@ export type OperationContractIndexEntry = {
   cli_command: string;
   required_fields: string[];
   missing_required_fields: string[];
+  execution_hint: {
+    guard: "execution.ready_to_run";
+    ready_to_run: boolean;
+    next_step: ActionExecution["next_step"];
+    required_fields: string[];
+    missing_required_fields: string[];
+    required_input_sources: {
+      by_field: "execution.required_inputs_by_field.<field>";
+      by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>";
+    };
+  };
 };
 
 export type OperationContractIndexResponse = {
@@ -1218,7 +1229,18 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
     mcp_tool: operation.interfaces.mcp.tool,
     cli_command: operation.interfaces.cli.command,
     required_fields: operation.required_fields,
-    missing_required_fields: operation.execution.missing_required_fields
+    missing_required_fields: operation.execution.missing_required_fields,
+    execution_hint: {
+      guard: "execution.ready_to_run",
+      ready_to_run: operation.execution.ready_to_run,
+      next_step: operation.execution.next_step,
+      required_fields: operation.required_fields,
+      missing_required_fields: operation.execution.missing_required_fields,
+      required_input_sources: {
+        by_field: "execution.required_inputs_by_field.<field>",
+        by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>"
+      }
+    }
   };
 }
 

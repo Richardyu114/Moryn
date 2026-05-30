@@ -619,8 +619,12 @@ the compact operation index: `moryn contracts operations --index`,
 `operation_contracts` with `{"index":true}`, or package helper
 `getOperationContractIndex()`. The index is small enough for a first pass and
 maps operation ids, MCP tools, and display CLI commands to the single-operation
-lookup commands; its `selection_sources` names those compact index paths so
-hosts can cite or dereference the mapping without guessing field names. When a
+lookup commands. Each compact entry also carries an `execution_hint` with the
+`execution.ready_to_run` guard, next step, missing required fields, and keyed
+required-input paths, so agents can decide whether to fetch details, collect
+inputs, or call the operation without recombining fields. Its
+`selection_sources` names those compact index paths so hosts can cite or
+dereference the mapping without guessing field names. When a
 host needs the full static directory, it can run
 `moryn contracts operations` or call `operation_contracts` without filters. That
 full registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP

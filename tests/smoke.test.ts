@@ -228,7 +228,18 @@ describe("package smoke test", () => {
       mcp_tool: "agent_finish",
       cli_command: "moryn agent finish --summary <summary>",
       required_fields: ["summary"],
-      missing_required_fields: ["summary"]
+      missing_required_fields: ["summary"],
+      execution_hint: {
+        guard: "execution.ready_to_run",
+        ready_to_run: false,
+        next_step: "collect_required_fields",
+        required_fields: ["summary"],
+        missing_required_fields: ["summary"],
+        required_input_sources: {
+          by_field: "execution.required_inputs_by_field.<field>",
+          by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>"
+        }
+      }
     });
     expect(index.operations_by_mcp_tool.agent_finish).toBe("agent_finish");
     expect(index.operations_by_cli_command["moryn agent finish --summary <summary>"]).toBe("agent_finish");

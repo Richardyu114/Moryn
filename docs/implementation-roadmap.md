@@ -238,9 +238,11 @@ Deliverables:
   compact first-pass operation index with ids, categories, summaries, readiness,
   MCP tools, CLI commands, and exact next lookup recipes, so agents can discover
   which single operation contract to fetch without loading the full static
-  directory. The index response carries its own compact `selection_sources`, and
-  `operation_contracts` declares `index` in `arguments_by_name` and
-  `interfaces.mcp.arguments` so the first-pass filter is machine-discoverable.
+  directory. Each entry carries an `execution_hint` with the ready-to-run guard,
+  next step, missing fields, and keyed required-input paths. The index response
+  carries its own compact `selection_sources`, and `operation_contracts`
+  declares `index` in `arguments_by_name` and `interfaces.mcp.arguments` so the
+  first-pass filter is machine-discoverable.
 - Done: `moryn contracts operations --operation <id>`,
   `moryn contracts operations --mcp-tool <tool>`,
   `moryn contracts operations --cli-command <command>`, `operation_contracts`

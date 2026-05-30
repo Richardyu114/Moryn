@@ -451,7 +451,10 @@ Use `--index`, `operation_contracts` with `{"index":true}`, or
 `getOperationContractIndex()` as the first discovery pass. That compact index
 lists operation ids, MCP tools, display CLI commands, readiness, and the exact
 next lookup commands without including full argument metadata or execution
-recipes. It also carries a small `selection_sources` map for the index paths.
+recipes. Each entry also includes a compact `execution_hint` with the
+`execution.ready_to_run` guard, next step, missing required fields, and keyed
+required-input paths. It also carries a small `selection_sources` map for the
+index paths.
 The full response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, reverse indexes `operations_by_mcp_tool` and
 `operations_by_cli_command`, and selection sources for those keyed paths. Each
