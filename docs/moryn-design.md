@@ -658,10 +658,11 @@ parsing prose. If a caller sends more than one lookup mode, the error envelope
 uses the same recovery channel to return
 `recovery_hint.rejected_lookup.provided` plus `accepted_lookup_modes`, letting
 agents remove the extra mode instead of guessing from the message text.
-CLI boundary validation errors for enum values and numeric ranges follow the
-same pattern: `error.recovery_hint.rejected_argument` identifies the option and
-bad value, `expected` exposes allowed values or bounds, and `retry_with`
-contains the option/value placeholder to use for the corrected retry.
+CLI boundary validation errors for required options, enum values, and numeric
+ranges follow the same pattern: `error.recovery_hint.missing_argument`
+identifies omitted required options, `rejected_argument` identifies invalid
+values, `expected` exposes allowed values or bounds, and `retry_with` contains
+the option/value placeholder to use for the corrected retry.
 
 ### `init`
 

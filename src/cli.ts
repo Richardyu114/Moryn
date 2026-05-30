@@ -60,6 +60,11 @@ type CliArgumentRecoveryHint =
       rejected_argument: { option: string; value: string };
       expected: { kind: "allowed_values"; allowed_values: string[] };
       retry_with: { option: string; value_placeholder: string };
+    }
+  | {
+      missing_argument: { option: string; placeholder: string };
+      expected: { kind: "required_option"; required: true };
+      retry_with: { option: string; value_placeholder: string };
     };
 
 class CliArgumentError extends Error {
@@ -84,6 +89,26 @@ function printJson(value: unknown, options: { pretty?: boolean } = {}): void {
 
 function printError(error: unknown, context?: MorynErrorContext): void {
   process.stderr.write(`${JSON.stringify(toErrorEnvelope(error, context), null, 2)}\n`);
+}
+
+function cliRequiredOptionError(message: string): CliArgumentError | undefined {
+  const match = /^required option '([^ ]+) ([^']+)' not specified$/.exec(message);
+  if (!match) return undefined;
+  const [, option, placeholder] = match;
+  if (!option || !placeholder) return undefined;
+  return requiredCliOptionError(option, placeholder, message);
+}
+
+function requiredCliOptionError(option: string, placeholder: string, message?: string): CliArgumentError {
+  return new CliArgumentError(
+    `Invalid argument: ${message ?? `required option '${option} ${placeholder}' not specified`}`,
+    `retry with required ${option}`,
+    {
+      missing_argument: { option, placeholder },
+      expected: { kind: "required_option", required: true },
+      retry_with: { option, value_placeholder: placeholder }
+    }
+  );
 }
 
 function createCliEngine() {
@@ -267,8 +292,8 @@ program.command("write")
     const project = options.project ? await resolveProjectContext({ projectPath: options.project, projectId: options.projectId }) : undefined;
     const type = options.type ?? (options.kind === "session_summary" ? "summary" : undefined);
     const scope = options.scope ?? (options.kind === "session_summary" ? "project" : undefined);
-    if (!type) throw new Error("Invalid argument: required option '--type <type>' not specified");
-    if (!scope) throw new Error("Invalid argument: required option '--scope <scope>' not specified");
+    if (!type) throw requiredCliOptionError("--type", "<type>");
+    if (!scope) throw requiredCliOptionError("--scope", "<scope>");
     const content = parseContentJson(options.contentJson);
     const text = parseNonEmptyString(options.text, "--text");
     const reason = parseNonEmptyString(options.reason, "--reason");
@@ -876,7 +901,7 @@ program.parseAsync().catch((error: unknown) => {
 
   if (error instanceof CommanderError) {
     const message = error.message.startsWith("error: ") ? error.message.slice("error: ".length) : error.message;
-    printError(new Error(`Invalid argument: ${message}`));
+    printError(cliRequiredOptionError(message) ?? new Error(`Invalid argument: ${message}`));
     process.exitCode = error.exitCode;
     return;
   }

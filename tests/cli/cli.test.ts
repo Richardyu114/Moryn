@@ -5910,14 +5910,18 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
-      for (const { args, message } of [
+      for (const { args, message, option, placeholder } of [
         {
           args: ["write", "--scope", "project", "--type", "decision", "--text", "Parser errors should still be structured."],
-          message: "required option '--kind <kind>'"
+          message: "required option '--kind <kind>'",
+          option: "--kind",
+          placeholder: "<kind>"
         },
         {
           args: ["write", "--kind", "memory", "--scope", "project", "--text", "Parser errors should still be structured."],
-          message: "required option '--type <type>'"
+          message: "required option '--type <type>'",
+          option: "--type",
+          placeholder: "<type>"
         }
       ]) {
         try {
@@ -5925,12 +5929,30 @@ describe("moryn CLI", () => {
           throw new Error(`Expected moryn ${args.join(" ")} to reject missing input`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
-          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recoverable: boolean; recommended_action: string } };
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recoverable: boolean;
+              recommended_action: string;
+              recovery_hint: {
+                missing_argument: { option: string; placeholder: string };
+                expected: { kind: string; required: boolean };
+                retry_with: { option: string; value_placeholder: string };
+              };
+            };
+          };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain(message);
           expect(parsed.error.recoverable).toBe(true);
-          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+          expect(parsed.error.recommended_action).toBe(`retry with required ${option}`);
+          expect(parsed.error.recovery_hint).toEqual({
+            missing_argument: { option, placeholder },
+            expected: { kind: "required_option", required: true },
+            retry_with: { option, value_placeholder: placeholder }
+          });
         }
       }
     });
