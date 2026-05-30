@@ -133,6 +133,11 @@ describe("action execution readiness", () => {
         prompt: "Provide summary.",
         apply_to: {
           mcp_argument_paths: ["summary"],
+          mcp_assignments: [{
+            argument: "summary",
+            value_path: "user_input.summary",
+            preferred: true
+          }],
           cli_targets: [{ flag: "--summary", type: "string", required: true, preferred: true }]
         },
         value_path: "user_input.summary",
@@ -331,6 +336,11 @@ describe("action execution readiness", () => {
           prompt: "Provide kind.",
           apply_to: {
             mcp_argument_paths: ["kind"],
+            mcp_assignments: [{
+              argument: "kind",
+              value_path: "user_input.kind",
+              preferred: true
+            }],
             mcp_targets: [{
               argument: "kind",
               type: "string",
@@ -375,6 +385,18 @@ describe("action execution readiness", () => {
           prompt: "Provide text or content.",
           apply_to: {
             mcp_argument_paths: ["text", "content"],
+            mcp_assignments: [
+              {
+                argument: "text",
+                value_path: "user_input.text_or_content",
+                preferred: true
+              },
+              {
+                argument: "content",
+                value_path: "user_input.text_or_content",
+                preferred: false
+              }
+            ],
             mcp_targets: [
               {
                 argument: "text",
@@ -452,6 +474,18 @@ describe("action execution readiness", () => {
         prompt: "Provide text or content.",
         apply_to: {
           mcp_argument_paths: ["text", "content"],
+          mcp_assignments: [
+            {
+              argument: "text",
+              value_path: "user_input.text_or_content",
+              preferred: true
+            },
+            {
+              argument: "content",
+              value_path: "user_input.text_or_content",
+              preferred: false
+            }
+          ],
           mcp_targets: [
             {
               argument: "text",
@@ -547,6 +581,12 @@ describe("action execution readiness", () => {
       path: "provenance.derived_from",
       type: "string[]",
       required: false,
+      preferred: true
+    }]);
+    expect(execution.required_inputs_by_field.derived_from.collect.apply_to.mcp_assignments).toEqual([{
+      argument: "provenance",
+      path: "provenance.derived_from",
+      value_path: "user_input.derived_from",
       preferred: true
     }]);
     expect(execution.required_inputs_by_field.derived_from.cli_targets).toEqual([{

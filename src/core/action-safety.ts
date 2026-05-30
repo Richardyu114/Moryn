@@ -74,12 +74,20 @@ export interface ActionCliTarget {
   preferred: boolean;
 }
 
+export interface ActionMcpAssignment {
+  argument: string;
+  path?: string;
+  value_path: string;
+  preferred: boolean;
+}
+
 export interface ActionRequiredInputCollect {
   source: "user";
   input_key: string;
   prompt: string;
   apply_to: {
     mcp_argument_paths: string[];
+    mcp_assignments?: ActionMcpAssignment[];
     mcp_targets?: ActionMcpTarget[];
     cli_targets?: ActionCliTarget[];
   };
@@ -198,6 +206,16 @@ function cliTargets(
   return targets.length > 0 ? targets : undefined;
 }
 
+function mcpAssignments(targets: ActionMcpTarget[] | undefined, valuePath: string): ActionMcpAssignment[] | undefined {
+  if (!targets?.length) return undefined;
+  return targets.map((target) => ({
+    argument: target.argument,
+    ...(target.path ? { path: target.path } : {}),
+    value_path: valuePath,
+    preferred: target.preferred
+  }));
+}
+
 function promptForRequiredInput(field: string): string {
   return `Provide ${field.replace(/_/g, " ")}.`;
 }
@@ -206,6 +224,7 @@ function collectRequiredInput(input: {
   field: string;
   paths: string[];
   mcp_targets?: ActionMcpTarget[];
+  mcp_assignments?: ActionMcpAssignment[];
   cli_targets?: ActionCliTarget[];
   argument_source?: string;
   placeholder?: string;
@@ -218,6 +237,7 @@ function collectRequiredInput(input: {
     prompt: promptForRequiredInput(input.field),
     apply_to: {
       mcp_argument_paths: input.paths,
+      ...(input.mcp_assignments ? { mcp_assignments: input.mcp_assignments } : {}),
       ...(input.mcp_targets ? { mcp_targets: input.mcp_targets } : {}),
       ...(input.cli_targets ? { cli_targets: input.cli_targets } : {})
     },
@@ -315,8 +335,9 @@ export function actionExecution(input: {
     const splitArgumentPaths = argumentPaths(argumentPath);
     const mcpTargetList = mcpTargets(splitArgumentPaths, input.arguments_by_name);
     const cliTargetList = cliTargets(splitArgumentPaths, input.arguments_by_name, field);
-    const argumentSource = input.argument_sources?.[field];
+    const argumentSource = input.argument_sources?.[field] ?? `user_input.${field}`;
     const placeholder = metadata?.placeholder;
+    const mcpAssignmentList = mcpAssignments(mcpTargetList, argumentSource);
     return {
       field,
       argument_path: argumentPath,
@@ -325,6 +346,7 @@ export function actionExecution(input: {
         field,
         paths: splitArgumentPaths,
         ...(mcpTargetList ? { mcp_targets: mcpTargetList } : {}),
+        ...(mcpAssignmentList ? { mcp_assignments: mcpAssignmentList } : {}),
         ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
         ...(argumentSource ? { argument_source: argumentSource } : {}),
         ...(placeholder ? { placeholder } : {}),
@@ -336,7 +358,7 @@ export function actionExecution(input: {
         : {}),
       ...(mcpTargetList ? { mcp_targets: mcpTargetList } : {}),
       ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
-      ...(argumentSource ? { argument_source: argumentSource } : {}),
+      ...(input.argument_sources?.[field] ? { argument_source: input.argument_sources[field] } : {}),
       ...(metadata && "value" in metadata ? { value: metadata.value } : {}),
       ...(placeholder ? { placeholder } : {}),
       ...(metadata?.alternatives ? { alternatives: metadata.alternatives } : {}),

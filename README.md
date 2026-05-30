@@ -433,7 +433,9 @@ already know which input they need. `required_inputs_by_argument_path` mirrors
 the same entries by each split argument path, so a host holding the CLI/MCP
 argument name, such as `text`, can directly find the broader required field,
 such as `text_or_content`. `mcp_targets` tells MCP hosts which argument, nested
-path, type, and preferred alternative to fill; `cli_targets` does the same for
+path, type, and preferred alternative to fill; `collect.apply_to.mcp_assignments`
+turns those targets into direct write-back instructions with `argument`,
+optional nested `path`, `value_path`, and preferred flag. `cli_targets` does the same for
 flags, positionals, repeatable arguments, and defaults.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
@@ -616,7 +618,8 @@ interface or `exec_file` only after the blockers have been satisfied.
 Each entry includes `selection_sources.required_input`,
 `selection_sources.required_input_argument_path`, `collect`, `mcp_targets`, and
 `cli_targets`; hosts should prefer `required_inputs[].collect` when asking the
-user and then use `collect.apply_to` to patch MCP arguments or CLI args. That
+user and then use `collect.apply_to.mcp_assignments` to patch MCP arguments or
+`collect.apply_to.cli_targets` to construct CLI args. That
 keeps hosts from needing to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or
 parse `text|content`-style alternative argument paths.

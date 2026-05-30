@@ -628,6 +628,18 @@ describe("package smoke test", () => {
         prompt: "Provide text or content.",
         apply_to: {
           mcp_argument_paths: ["text", "content"],
+          mcp_assignments: [
+            {
+              argument: "text",
+              value_path: "user_input.text_or_content",
+              preferred: true
+            },
+            {
+              argument: "content",
+              value_path: "user_input.text_or_content",
+              preferred: false
+            }
+          ],
           mcp_targets: [
             {
               argument: "text",
@@ -694,6 +706,22 @@ describe("package smoke test", () => {
       argument_path: "text|content",
       argument_paths: ["text", "content"],
       alternatives: ["text", "content"],
+      collect: {
+        apply_to: {
+          mcp_assignments: [
+            {
+              argument: "text",
+              value_path: "user_input.text_or_content",
+              preferred: true
+            },
+            {
+              argument: "content",
+              value_path: "user_input.text_or_content",
+              preferred: false
+            }
+          ]
+        }
+      },
       mcp_targets: [
         {
           argument: "text",
@@ -736,6 +764,11 @@ describe("package smoke test", () => {
       argument_path: "kind",
       argument_paths: ["kind"]
     });
+    expect(response.operations_by_id.write.execution.required_inputs_by_field.kind.collect.apply_to.mcp_assignments).toEqual([{
+      argument: "kind",
+      value_path: "user_input.kind",
+      preferred: true
+    }]);
     expect(response.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual([
       "raw", "candidate", "canonical", "archived", "quarantined"
     ]);

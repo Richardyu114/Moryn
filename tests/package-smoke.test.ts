@@ -317,7 +317,19 @@ describe("published package smoke", () => {
         expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.collect).toMatchObject({
           prompt: "Provide text or content.",
           apply_to: {
-            mcp_argument_paths: ["text", "content"]
+            mcp_argument_paths: ["text", "content"],
+            mcp_assignments: [
+              {
+                argument: "text",
+                value_path: "user_input.text_or_content",
+                preferred: true
+              },
+              {
+                argument: "content",
+                value_path: "user_input.text_or_content",
+                preferred: false
+              }
+            ]
           },
           alternatives: ["text", "content"]
         });

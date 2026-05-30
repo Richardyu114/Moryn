@@ -1188,6 +1188,18 @@ describe("moryn CLI", () => {
       prompt: "Provide text or content.",
       apply_to: {
         mcp_argument_paths: ["text", "content"],
+        mcp_assignments: [
+          {
+            argument: "text",
+            value_path: "user_input.text_or_content",
+            preferred: true
+          },
+          {
+            argument: "content",
+            value_path: "user_input.text_or_content",
+            preferred: false
+          }
+        ],
         mcp_targets: [
           {
             argument: "text",
