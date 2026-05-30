@@ -169,7 +169,7 @@ function knownRecommendedAction(message: string): string | undefined {
   return undefined;
 }
 
-function knownRecoveryHint(code: string, message: string): unknown {
+function knownRecoveryHint(code: string, message: string, context?: MorynErrorContext): unknown {
   if (message === PROJECT_SCOPE_CONTEXT_REQUIRED_MESSAGE) {
     return {
       rejected_argument: { argument: "scope", value: "project" },
@@ -211,6 +211,29 @@ function knownRecoveryHint(code: string, message: string): unknown {
         condition: "derived_views_rebuilt",
         action: "retry_original_read"
       }
+    };
+  }
+  if (code === "RECORD_NOT_FOUND") {
+    const recordId = missingRecordIdFromMessage(message);
+    const argument = missingRecordArgumentKey(context, recordId);
+    return {
+      rejected_argument: {
+        argument,
+        ...(recordId ? { value: recordId } : {})
+      },
+      discover_with: {
+        tool: "list_recent",
+        command: "moryn list-recent",
+        arguments: {},
+        safe_to_run: true
+      },
+      retry_with: {
+        argument,
+        value_source: LIST_RECENT_SELECTED_RECORD_ID_SOURCE,
+        value_placeholder: "<record_id_from_list_recent>"
+      },
+      fallback_value_source: LIST_RECENT_ORDERED_RECORD_ID_SOURCE,
+      do_not: ["invent_record_id", "retry_with_same_missing_record_id"]
     };
   }
   if (code === "SYNC_NOT_CONFIGURED") {
@@ -1082,7 +1105,7 @@ export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): Mo
   const action = nextAction(code, message, context);
   const errorRecord = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
   const overrideRecommendedAction = typeof errorRecord.recommended_action === "string" ? errorRecord.recommended_action : undefined;
-  const baseRecoveryHint = "recovery_hint" in errorRecord ? errorRecord.recovery_hint : knownRecoveryHint(code, message);
+  const baseRecoveryHint = "recovery_hint" in errorRecord ? errorRecord.recovery_hint : knownRecoveryHint(code, message, context);
   const recoveryHint = baseRecoveryHint !== undefined ? contextRecoveryHint(baseRecoveryHint, context) : undefined;
   return {
     ok: false,

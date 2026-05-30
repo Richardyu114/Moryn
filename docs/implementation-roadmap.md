@@ -102,9 +102,10 @@ Deliverables:
   `selection_sources`, so agents that receive only the nested action still see
   the stable keyed change, record-id, keyed next-action, and ordered fallback
   paths.
-- Done: Missing-record recovery now exposes a two-step workflow: run safe
-  `list_recent`, then retry the original CLI/MCP tool with the selected returned
-  record id from `records_by_id` instead of guessing a mutation shape.
+- Done: Missing-record recovery now exposes both a compact `recovery_hint` and
+  a two-step workflow: run safe `list_recent`, select the returned record id
+  from `records_by_id`, and retry the original CLI/MCP tool instead of guessing
+  a mutation shape or retrying the hallucinated id.
 - Done: `current_task` narrows refresh interrupts to related blockers, warnings,
   conflicts, and high-priority changes.
 - Done: Agents can request explicit refresh through CLI or MCP.
@@ -267,8 +268,8 @@ Deliverables:
   integer/number-range, JSON-object, read-filter, project-init, sync-argument,
   store-path, event-path-component, schema-validation, write-core-field,
   write-content, write-metadata, choose-one, path-assignment, refresh cursor,
-  replay-history, sensitive-content, index-stale, sync runtime, and
-  revise-patch failures now return structured
+  replay-history, sensitive-content, index-stale, missing-record, sync runtime,
+  and revise-patch failures now return structured
   `error.recovery_hint` metadata with `missing_argument`, `missing_one_of`,
   `rejected_argument`, `rejected_arguments`, `rejected_patch`,
   machine-readable `expected` rules, `discover_with`, and `retry_with`, so
@@ -286,9 +287,11 @@ Deliverables:
   paths reported as `validation_issues`, invalid replay history with bad
   `event_id`/`event_op`/`record_id`, sensitive-content rejections that omit the
   detected secret value, stale derived views that should run `moryn rebuild`
-  before retrying the original read, sync runtime failures that should inspect
-  `moryn sync --status`, preserve local events, wait for conflicts or
-  credentials to be fixed, and avoid unsafe retry loops, invalid sync
+  before retrying the original read, missing record ids that should run
+  `moryn list-recent`, select `list_recent.records_by_id.<record_id>.id`, and
+  avoid inventing ids, sync runtime failures that should inspect `moryn sync
+  --status`, preserve local events, wait for conflicts or credentials to be
+  fixed, and avoid unsafe retry loops, invalid sync
   `storePath`/`remoteUrl`/`options`/`message`, empty
   placeholders such as `--text ""`, malformed `--content-json`, malformed
   `--set path=value` assignments, managed-field revise attempts, invalid revise

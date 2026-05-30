@@ -720,8 +720,8 @@ CLI and MCP required-option, option-dependency, non-empty string, enum,
 integer/number-range, JSON-object, read-filter, project-init, sync-argument,
 store-path, event-path-component, schema-validation, write-core-field,
 write-content, write-metadata, choose-one, path-assignment, revise-patch,
-replay-history, sensitive-content, index-stale, sync runtime, and refresh cursor
-failures also include `recovery_hint`:
+replay-history, sensitive-content, index-stale, missing-record, sync runtime,
+and refresh cursor failures also include `recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
 allowed values, non-empty constraints, integer or numeric bounds, JSON object,
 write `kind`/`type`/`scope`/`project_id`, write content, write metadata such as
@@ -741,6 +741,8 @@ sensitive-content failures that intentionally omit the detected secret value and
 return a redaction retry template,
 stale derived-view errors with safe rebuild and retry-after-original-read
 instructions,
+missing-record failures with safe `list_recent` discovery, selected-id and
+ordered fallback sources, and guardrails against inventing ids,
 sync runtime failures such as missing remotes, unavailable remotes, Git
 conflicts, and permission or authentication failures with safe status
 inspection, local-store continuity, retry conditions, and `do_not` guardrails,
@@ -1044,8 +1046,10 @@ Invalid `.moryn.json` errors return a guarded `project_init --repair` next
 action with the failing project path prefilled. The action is not safe to run
 automatically because it replaces project config and should use a user-approved
 project id.
-Missing record errors return a safe `list_recent` next action and keep the bad
-id in `next_action.rejected_arguments.record_id`. Their workflow then adds a
+Missing record errors return a safe `list_recent` next action and a compact
+`recovery_hint` with the rejected argument, selected-id source, ordered fallback
+source, and `do_not` guardrails against inventing ids or retrying the same bad
+id. The workflow then adds a
 `retry_original_tool_with_selected_record_id` phase with the original tool,
 command, and JSON arguments when the failing entrypoint supplied context, so
 agents discover a real id and retry without inventing the mutation shape.

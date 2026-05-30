@@ -594,6 +594,22 @@ describe("error envelopes", () => {
       error: {
         code: "RECORD_NOT_FOUND",
         recommended_action: "check the record id or call recall/list-recent to find it",
+        recovery_hint: {
+          rejected_argument: { argument: "record_id", value: "rec_missing" },
+          discover_with: {
+            tool: "list_recent",
+            command: "moryn list-recent",
+            arguments: {},
+            safe_to_run: true
+          },
+          retry_with: {
+            argument: "record_id",
+            value_source: "list_recent.records_by_id.<record_id>.id",
+            value_placeholder: "<record_id_from_list_recent>"
+          },
+          fallback_value_source: "list_recent.records[].id",
+          do_not: ["invent_record_id", "retry_with_same_missing_record_id"]
+        },
         next_action: {
           recommended_action: "list_recent_records_and_retry_with_known_record_id",
           tool: "list_recent",
@@ -698,6 +714,22 @@ describe("error envelopes", () => {
       arguments: { query: "rec_missing", record_ids: ["<record_id_from_list_recent>"] },
       replace_arguments: { record_ids: "list_recent.records_by_id.<record_id>.id" },
       required_fields: ["record_ids"]
+    });
+    expect(envelope.error.recovery_hint).toEqual({
+      rejected_argument: { argument: "record_ids", value: "rec_missing" },
+      discover_with: {
+        tool: "list_recent",
+        command: "moryn list-recent",
+        arguments: {},
+        safe_to_run: true
+      },
+      retry_with: {
+        argument: "record_ids",
+        value_source: "list_recent.records_by_id.<record_id>.id",
+        value_placeholder: "<record_id_from_list_recent>"
+      },
+      fallback_value_source: "list_recent.records[].id",
+      do_not: ["invent_record_id", "retry_with_same_missing_record_id"]
     });
     expect(envelope.error.next_action?.argument_sources).toEqual({
       record_ids: "list_recent.records_by_id.<record_id>.id"

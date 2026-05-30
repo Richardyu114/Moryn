@@ -662,9 +662,9 @@ CLI and MCP boundary validation errors for required options, option dependencies
 non-empty strings, enum values, integer and number ranges, JSON object inputs,
 read filters, project init inputs, store path inputs, sync inputs, event path
 components, schema validation, replay history failures, sensitive-content
-failures, stale derived views, sync runtime failures, write core fields such as
-`kind`, `type`, `scope`, and `project_id`, write content payloads, write
-metadata such as `tags`, `source.client`,
+failures, stale derived views, missing-record failures, sync runtime failures,
+write core fields such as `kind`, `type`, `scope`, and `project_id`, write
+content payloads, write metadata such as `tags`, `source.client`,
 `state`, `priority`, `confidence`, `confirmed`, and `provenance.*`, mutation
 arguments such as
 `record_id`, `linked_record_id`, `target_state`, `reason`, `confirmed`,
@@ -693,10 +693,12 @@ shape, revise patch rules, record/event schema validation issues with `path`,
 `event_op`, `record_id`, and rebuild inspection hint, or ISO datetime cursor
 requirements, sensitive-content failures that omit the detected secret value and
 return a redaction retry template, stale derived-view errors with safe rebuild
-and retry-after-original-read instructions, sync runtime failures with safe
-status inspection, local-store continuity, retry conditions, and `do_not`
-guardrails, `validation_issues` lists schema paths to repair, `discover_with`
-names safe lookup calls such as `project_list`, and `retry_with` contains the
+and retry-after-original-read instructions, missing-record errors with safe
+`list_recent` discovery, selected-id and ordered fallback sources, and
+guardrails against inventing ids, sync runtime failures with safe status
+inspection, local-store continuity, retry conditions, and `do_not` guardrails,
+`validation_issues` lists schema paths to repair, `discover_with` names safe
+lookup calls such as `project_list`, and `retry_with` contains the
 option/argument value placeholder to use for the corrected retry.
 
 ### `init`
@@ -1484,10 +1486,12 @@ canonical field-path contract.
 Most recovery actions are single-step workflows;
 `RECORD_NOT_FOUND` uses a two-step workflow so agents first run the safe
 `list_recent` action and then retry the original tool with the selected returned
-id from `list_recent.records_by_id.<record_id>.id`. `argument_sources` mirrors
-the retry replacement map at the top level so hosts can fill selected arguments
-without scanning workflow phases. The ordered
-`list_recent.records[].id` path remains available for display and fallback.
+id from `list_recent.records_by_id.<record_id>.id`. A compact
+`error.recovery_hint` mirrors the rejected argument and selected-id source for
+simple hosts that do not need the full workflow. `argument_sources` mirrors the
+retry replacement map at the top level so hosts can fill selected arguments
+without scanning workflow phases. The ordered `list_recent.records[].id` path
+remains available for display and fallback.
 Normal `list_recent` responses also expose `selection_sources` for the keyed
 record and record-id paths.
 Warning recovery actions use the same `warning.next_action.interfaces`
@@ -2719,6 +2723,28 @@ and arguments with only the rejected record id replaced by
     "message": "Record not found: rec_missing",
     "recoverable": true,
     "recommended_action": "check the record id or call recall/list-recent to find it",
+    "recovery_hint": {
+      "rejected_argument": {
+        "argument": "record_id",
+        "value": "rec_missing"
+      },
+      "discover_with": {
+        "tool": "list_recent",
+        "command": "moryn list-recent",
+        "arguments": {},
+        "safe_to_run": true
+      },
+      "retry_with": {
+        "argument": "record_id",
+        "value_source": "list_recent.records_by_id.<record_id>.id",
+        "value_placeholder": "<record_id_from_list_recent>"
+      },
+      "fallback_value_source": "list_recent.records[].id",
+      "do_not": [
+        "invent_record_id",
+        "retry_with_same_missing_record_id"
+      ]
+    },
     "next_action": {
       "recommended_action": "list_recent_records_and_retry_with_known_record_id",
       "tool": "list_recent",
