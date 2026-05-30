@@ -48,6 +48,32 @@ const recordStates = RECORD_STATES;
 const recordPriorities = RECORD_PRIORITIES;
 const syncModes = SYNC_MODES;
 
+const CLI_ARGUMENT_RECOVERY_ACTION_PREFIX = "retry with a valid" as const;
+
+type CliArgumentRecoveryHint =
+  | {
+      rejected_argument: { option: string; value: string };
+      expected: { kind: "integer_range"; min: number; max: number; integer: true };
+      retry_with: { option: string; value_placeholder: string };
+    }
+  | {
+      rejected_argument: { option: string; value: string };
+      expected: { kind: "allowed_values"; allowed_values: string[] };
+      retry_with: { option: string; value_placeholder: string };
+    };
+
+class CliArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: CliArgumentRecoveryHint;
+
+  constructor(message: string, recommendedAction: string, recoveryHint: CliArgumentRecoveryHint) {
+    super(message);
+    this.name = "CliArgumentError";
+    this.recommended_action = recommendedAction;
+    this.recovery_hint = recoveryHint;
+  }
+}
+
 function storePath(): string {
   return parseNonEmptyString(program.opts<{ store?: string }>().store, "--store") ?? join(homedir(), ".moryn");
 }
@@ -118,7 +144,15 @@ function parseContentJson(value: string | undefined): Record<string, unknown> | 
 function parseLimit(value: string, option = "--limit"): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
-    throw new Error(`Invalid argument: Invalid ${option}; must be an integer between 1 and 100`);
+    throw new CliArgumentError(
+      `Invalid argument: Invalid ${option}; must be an integer between 1 and 100`,
+      `${CLI_ARGUMENT_RECOVERY_ACTION_PREFIX} ${option} value`,
+      {
+        rejected_argument: { option, value },
+        expected: { kind: "integer_range", min: 1, max: 100, integer: true },
+        retry_with: { option, value_placeholder: "<integer 1-100>" }
+      }
+    );
   }
   return parsed;
 }
@@ -135,7 +169,15 @@ function parseConfidence(value: string | undefined, option = "--confidence"): nu
 function parseEnum<T extends string>(value: string | undefined, allowed: readonly T[], option: string): T | undefined {
   if (value === undefined) return undefined;
   if (!allowed.includes(value as T)) {
-    throw new Error(`Invalid argument: Invalid ${option}; expected one of ${allowed.join(", ")}`);
+    throw new CliArgumentError(
+      `Invalid argument: Invalid ${option}; expected one of ${allowed.join(", ")}`,
+      `retry with a supported ${option} value`,
+      {
+        rejected_argument: { option, value },
+        expected: { kind: "allowed_values", allowed_values: [...allowed] },
+        retry_with: { option, value_placeholder: `<${option.slice(2)} from allowed_values>` }
+      }
+    );
   }
   return value as T;
 }

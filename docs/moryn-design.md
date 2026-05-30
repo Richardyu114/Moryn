@@ -658,6 +658,10 @@ parsing prose. If a caller sends more than one lookup mode, the error envelope
 uses the same recovery channel to return
 `recovery_hint.rejected_lookup.provided` plus `accepted_lookup_modes`, letting
 agents remove the extra mode instead of guessing from the message text.
+CLI boundary validation errors for enum values and numeric ranges follow the
+same pattern: `error.recovery_hint.rejected_argument` identifies the option and
+bad value, `expected` exposes allowed values or bounds, and `retry_with`
+contains the option/value placeholder to use for the corrected retry.
 
 ### `init`
 
@@ -1920,10 +1924,11 @@ Agents should follow this contract:
 14. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.recommended_start_action_source` to the next agent or device.
 15. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
 16. When a canonical write returns `warning.next_action.recommended_action: "ask_user_then_promote_candidate"`, take the candidate id from `write.record.id` or `warning.next_action.candidate_record_id`, ask the user, then run the returned promote action with confirmation instead of repeating the write.
-17. Write raw notes as `agent_note`, not canonical memory.
-18. Do not promote long-term preferences, soul records, or global skills without user confirmation.
-19. Treat sync `interrupt` results as a reason to pause and inspect related records.
-20. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
+17. When a CLI call fails with `error.recovery_hint`, prefer its structured `rejected_argument`, `expected`, and `retry_with` fields over parsing `error.message`.
+18. Write raw notes as `agent_note`, not canonical memory.
+19. Do not promote long-term preferences, soul records, or global skills without user confirmation.
+20. Treat sync `interrupt` results as a reason to pause and inspect related records.
+21. Run `npm run smoke:agent-lifecycle` before trusting a new machine or sync repo; set `MORYN_AGENT_LIFECYCLE_REMOTE` to validate an actual private Git remote.
 
 Cross-agent handoff depends on the lifecycle commands, not agent awareness of
 each other. Codex, Gemini, and other agents can run on separate machines if they

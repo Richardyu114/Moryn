@@ -5786,12 +5786,31 @@ describe("moryn CLI", () => {
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
           const stderr = (error as { stderr: string }).stderr;
-          const parsed = JSON.parse(stderr) as { ok: boolean; error: { code: string; message: string; recoverable: boolean; recommended_action: string } };
+          const parsed = JSON.parse(stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recoverable: boolean;
+              recommended_action: string;
+              recovery_hint: {
+                rejected_argument: { option: string; value: string };
+                expected: { kind: string; min: number; max: number; integer: boolean };
+                retry_with: { option: string; value_placeholder: string };
+              };
+            };
+          };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain("Invalid --limit");
           expect(parsed.error.recoverable).toBe(true);
-          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+          expect(parsed.error.recommended_action).toBe("retry with a valid --limit value");
+          const rejectedLimit = args[args.length - 1]!;
+          expect(parsed.error.recovery_hint).toEqual({
+            rejected_argument: { option: "--limit", value: rejectedLimit },
+            expected: { kind: "integer_range", min: 1, max: 100, integer: true },
+            retry_with: { option: "--limit", value_placeholder: "<integer 1-100>" }
+          });
         }
       }
     });
@@ -5823,23 +5842,65 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
-      for (const args of [
-        ["write", "--kind", "nonsense", "--type", "decision", "--scope", "project", "--text", "Invalid kind."],
-        ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--priority", "urgent", "--text", "Invalid priority."],
-        ["recall", "--kind", "nonsense"],
-        ["promote", "rec_missing", "--state", "nonsense"],
-        ["project", "init", "--path", dir, "--sync-mode", "sometimes"]
+      for (const { args, option, value, allowedValues } of [
+        {
+          args: ["write", "--kind", "nonsense", "--type", "decision", "--scope", "project", "--text", "Invalid kind."],
+          option: "--kind",
+          value: "nonsense",
+          allowedValues: ["memory", "skill", "soul", "session_summary", "agent_note"]
+        },
+        {
+          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--priority", "urgent", "--text", "Invalid priority."],
+          option: "--priority",
+          value: "urgent",
+          allowedValues: ["low", "normal", "high"]
+        },
+        {
+          args: ["recall", "--kind", "nonsense"],
+          option: "--kind",
+          value: "nonsense",
+          allowedValues: ["memory", "skill", "soul", "session_summary", "agent_note"]
+        },
+        {
+          args: ["promote", "rec_missing", "--state", "nonsense"],
+          option: "--state",
+          value: "nonsense",
+          allowedValues: ["raw", "candidate", "canonical", "archived", "quarantined"]
+        },
+        {
+          args: ["project", "init", "--path", dir, "--sync-mode", "sometimes"],
+          option: "--sync-mode",
+          value: "sometimes",
+          allowedValues: ["manual", "session", "interval"]
+        }
       ]) {
         try {
           await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
           throw new Error(`Expected moryn ${args.join(" ")} to reject an invalid enum option`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
-          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recommended_action: string;
+              recovery_hint: {
+                rejected_argument: { option: string; value: string };
+                expected: { kind: string; allowed_values: string[] };
+                retry_with: { option: string; value_placeholder: string };
+              };
+            };
+          };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain("Invalid --");
-          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+          expect(parsed.error.recommended_action).toContain("retry with a supported ");
+          expect(parsed.error.recovery_hint.rejected_argument).toEqual({ option, value });
+          expect(parsed.error.recovery_hint.expected.kind).toBe("allowed_values");
+          expect(parsed.error.recovery_hint.expected.allowed_values).toEqual(allowedValues);
+          expect(parsed.error.recovery_hint.retry_with.option).toBe(parsed.error.recovery_hint.rejected_argument.option);
+          expect(parsed.error.recovery_hint.retry_with.value_placeholder).toBe(`<${parsed.error.recovery_hint.rejected_argument.option.slice(2)} from allowed_values>`);
         }
       }
     });
