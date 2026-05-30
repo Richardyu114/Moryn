@@ -454,10 +454,11 @@ immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, and `requires_user_confirmation`, so hosts can decide
 whether to run, collect fields, ask for confirmation, or block automation
 without recomputing safety policy. `required_inputs[]` joins each missing field
-to its argument path, argument source, placeholder/value, alternatives, and enum
-`allowed_values` when present. `arguments_by_name` is the full parameter
-directory, including CLI flags or positionals, MCP arguments, types, defaults,
-repeatability, alternatives, and enum `allowed_values`:
+to its original `argument_path`, split `argument_paths`, argument source,
+placeholder/value, alternatives, and enum `allowed_values` when present.
+`arguments_by_name` is the full parameter directory, including CLI flags or
+positionals, MCP arguments, types, defaults, repeatability, alternatives, and
+enum `allowed_values`:
 
 ```json
 {
@@ -1221,8 +1222,8 @@ of guessing from prose. The adjacent `execution` object collapses those fields
 and `required_fields` into a single `next_step`: `run`,
 `collect_required_fields`, `confirm_with_user`, or `do_not_auto_run`. When the
 next step is `collect_required_fields`, `execution.required_inputs[]` gives the
-exact field, argument path, source path, placeholder, alternatives, and allowed
-values to use for collecting input and filling the action.
+exact field, source path, placeholder, alternatives, allowed values, and split
+argument paths to use for collecting input and filling the action.
 
 CLI:
 

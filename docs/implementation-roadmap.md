@@ -238,9 +238,10 @@ Deliverables:
   agents can choose between running, collecting input, asking for approval, or
   blocking automation without recomputing policy from several fields.
 - Done: `execution.required_inputs[]` joins required field names to argument
-  paths, argument sources, placeholders, alternatives, and enum allowed values,
-  so hosts can collect user input and fill MCP arguments without joining
-  `required_fields_by_name`, `argument_sources`, and operation metadata.
+  paths, split alternative argument paths, argument sources, placeholders,
+  alternatives, and enum allowed values, so hosts can collect user input and
+  fill MCP arguments without joining `required_fields_by_name`,
+  `argument_sources`, and operation metadata or parsing `text|content` strings.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

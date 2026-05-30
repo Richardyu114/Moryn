@@ -150,6 +150,7 @@ describe("package smoke test", () => {
       required_inputs: [{
         field: "summary",
         argument_path: "summary",
+        argument_paths: ["summary"],
         argument_source: "user_input.summary",
         placeholder: "<summary>",
         value: "<summary>"
@@ -164,6 +165,7 @@ describe("package smoke test", () => {
         {
           field: "record_id",
           argument_path: "record_id",
+          argument_paths: ["record_id"],
           argument_source: "user_input.record_id",
           placeholder: "<record_id>",
           value: "<record_id>"
@@ -171,6 +173,7 @@ describe("package smoke test", () => {
         {
           field: "target_state",
           argument_path: "target_state",
+          argument_paths: ["target_state"],
           argument_source: "user_input.target_state",
           placeholder: "<state>",
           value: "<state>",
@@ -186,6 +189,7 @@ describe("package smoke test", () => {
       required_inputs: [{
         field: "path",
         argument_path: "path",
+        argument_paths: ["path"],
         argument_source: "user_input.path",
         placeholder: "<path>",
         value: "<path>"
@@ -238,6 +242,11 @@ describe("package smoke test", () => {
     ]);
     expect(response.operations_by_id.write.required_fields_by_name.text_or_content).toMatchObject({
       argument_path: "text|content",
+      alternatives: ["text", "content"]
+    });
+    expect(response.operations_by_id.write.execution.required_inputs.find((input) => input.field === "text_or_content")).toMatchObject({
+      argument_path: "text|content",
+      argument_paths: ["text", "content"],
       alternatives: ["text", "content"]
     });
     expect(response.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual([

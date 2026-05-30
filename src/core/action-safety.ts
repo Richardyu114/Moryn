@@ -11,6 +11,7 @@ export type ActionExecutionNextStep = "run" | "collect_required_fields" | "confi
 export interface ActionRequiredInput {
   field: string;
   argument_path: string;
+  argument_paths: string[];
   argument_source?: string;
   value?: unknown;
   placeholder?: string;
@@ -36,6 +37,10 @@ export interface ActionExecution {
 }
 
 const LOCAL_CONFIG_TOOLS = new Set(["init", "project_init", "sync_init"]);
+
+function argumentPaths(argumentPath: string): string[] {
+  return argumentPath.split("|").map((path) => path.trim()).filter(Boolean);
+}
 
 export function actionSafety(input: {
   tool: string;
@@ -71,9 +76,11 @@ export function actionExecution(input: {
   const safety = actionSafety(input);
   const requiredInputs = input.required_fields.map((field) => {
     const metadata = input.required_fields_by_name?.[field];
+    const argumentPath = metadata?.argument_path ?? field;
     return {
       field,
-      argument_path: metadata?.argument_path ?? field,
+      argument_path: argumentPath,
+      argument_paths: argumentPaths(argumentPath),
       ...(input.argument_sources?.[field] ? { argument_source: input.argument_sources[field] } : {}),
       ...(metadata && "value" in metadata ? { value: metadata.value } : {}),
       ...(metadata?.placeholder ? { placeholder: metadata.placeholder } : {}),

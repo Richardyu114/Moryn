@@ -79,13 +79,13 @@ describe("published package smoke", () => {
               execution: {
                 next_step: string;
                 missing_required_fields: string[];
-                required_inputs: Array<{ field: string; argument_path: string; argument_source?: string; placeholder?: string }>;
+                required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; argument_source?: string; placeholder?: string }>;
               };
               required_fields_by_name: { summary: { placeholder?: string } };
             };
             recall: { execution: { next_step: string; ready_to_run: boolean; required_inputs: unknown[] } };
-            write: { required_fields_by_name: { kind: { allowed_values?: string[] } }; arguments_by_name: { kind: { allowed_values?: string[] } } };
-            promote: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_path: string; allowed_values?: string[] }> }; required_fields_by_name: { target_state: { allowed_values?: string[] } } };
+            write: { execution: { required_inputs: Array<{ field: string; argument_paths: string[] }> }; required_fields_by_name: { kind: { allowed_values?: string[] } }; arguments_by_name: { kind: { allowed_values?: string[] } } };
+            promote: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_path: string; argument_paths: string[]; allowed_values?: string[] }> }; required_fields_by_name: { target_state: { allowed_values?: string[] } } };
             project_init: { execution: { next_step: string; missing_required_fields: string[]; required_inputs: Array<{ field: string; argument_source?: string }>; requires_user_confirmation: boolean } };
             operation_contracts: { interfaces: { mcp: { tool: string } } };
           };
@@ -111,21 +111,24 @@ describe("published package smoke", () => {
           required_inputs: [{
             field: "summary",
             argument_path: "summary",
+            argument_paths: ["summary"],
             argument_source: "user_input.summary",
             placeholder: "<summary>"
           }]
         });
         expect(parsedOperations.operations_by_id.write.required_fields_by_name.kind.allowed_values).toEqual(["memory", "skill", "soul", "session_summary", "agent_note"]);
+        expect(parsedOperations.operations_by_id.write.execution.required_inputs.find((input) => input.field === "text_or_content")?.argument_paths).toEqual(["text", "content"]);
         expect(parsedOperations.operations_by_id.write.arguments_by_name.kind.allowed_values).toEqual(["memory", "skill", "soul", "session_summary", "agent_note"]);
         expect(parsedOperations.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual(["raw", "candidate", "canonical", "archived", "quarantined"]);
         expect(parsedOperations.operations_by_id.promote.execution).toMatchObject({
           next_step: "collect_required_fields",
           missing_required_fields: ["record_id", "target_state"],
           required_inputs: [
-            { field: "record_id", argument_path: "record_id" },
+            { field: "record_id", argument_path: "record_id", argument_paths: ["record_id"] },
             {
               field: "target_state",
               argument_path: "target_state",
+              argument_paths: ["target_state"],
               allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
             }
           ]

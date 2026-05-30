@@ -40,6 +40,7 @@ describe("action execution readiness", () => {
       required_inputs: [{
         field: "summary",
         argument_path: "summary",
+        argument_paths: ["summary"],
         argument_source: "user_input.summary",
         placeholder: "<summary>",
         value: "<summary>"
@@ -78,6 +79,7 @@ describe("action execution readiness", () => {
       {
         field: "kind",
         argument_path: "kind",
+        argument_paths: ["kind"],
         argument_source: "user_input.kind",
         placeholder: "<kind>",
         value: "<kind>",
@@ -86,6 +88,7 @@ describe("action execution readiness", () => {
       {
         field: "text_or_content",
         argument_path: "text|content",
+        argument_paths: ["text", "content"],
         argument_source: "user_input.text_or_content",
         placeholder: "<text_or_content>",
         value: "<text_or_content>",
