@@ -413,8 +413,10 @@ machine-readable reason list: `required_fields`, `user_confirmation`, or
 `unsafe_action`. Agents should treat `execution.ready_to_run`, not
 `safe_to_run` alone, as the immediate run gate. `execution.runbook.next` names
 the immediate host action, such as `collect_required_inputs`,
-`ask_user_confirmation`, `call_mcp`, or `do_not_run`, and
-`execution.runbook.steps[]` lists stable object paths such as
+`ask_user_confirmation`, `call_mcp`, or `do_not_run`,
+`execution.runbook.current_step` gives the same step name plus its canonical
+path in `steps[]`, and `execution.runbook.steps[]` lists the full ordered
+recipe with stable object paths such as
 `execution.required_inputs[].collect`,
 `execution.required_inputs[].collect.apply_to`,
 `execution.required_inputs[].collect.apply_to.assignment_mode`,
@@ -634,10 +636,12 @@ argument path, including alternatives such as `text` and `content`.
 `execution.blocked_by` names why the operation is not immediately runnable, so
 hosts can avoid running placeholder commands when `safe_to_run` is true but
 required user input is still missing. `execution.runbook` turns those blockers
-into ordered machine steps: collect required inputs from the `required_inputs`
-indexes, ask for user confirmation when required, then call the returned MCP
-interface or `exec_file` only after the blockers have been satisfied. The
-collect step includes direct paths for `collect.expected_value`,
+into ordered machine steps: read `current_step.step` for the immediate action
+and `current_step.step_path` for the full step descriptor, collect required
+inputs from the `required_inputs` indexes, ask for user confirmation when
+required, then call the returned MCP interface or `exec_file` only after the
+blockers have been satisfied. The collect step includes direct paths for
+`collect.expected_value`,
 `collect.choice_options[]`, `collect.preferred_choice`, `collect.choices[]`,
 keyed `collect.choices_by_option`, each choice's `apply_to`, and each choice's
 `expected_value`, so hosts can follow the input recipe without exploring the

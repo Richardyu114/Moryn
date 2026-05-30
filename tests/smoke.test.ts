@@ -227,6 +227,10 @@ describe("package smoke test", () => {
       required_inputs_by_argument_path: {},
       runbook: {
         next: "call_mcp",
+        current_step: {
+          step: "call_mcp",
+          step_path: "execution.runbook.steps[0]"
+        },
         steps: [{
           step: "call_mcp",
           transport: "mcp",
@@ -256,6 +260,10 @@ describe("package smoke test", () => {
       blocked_by: ["required_fields"],
       runbook: {
         next: "collect_required_inputs",
+        current_step: {
+          step: "collect_required_inputs",
+          step_path: "execution.runbook.steps[0]"
+        },
         steps: [
           expect.objectContaining({
             step: "collect_required_inputs",

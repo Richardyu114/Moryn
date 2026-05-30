@@ -184,6 +184,10 @@ describe("published package smoke", () => {
           required_inputs_by_argument_path: {},
           runbook: {
             next: "call_mcp",
+            current_step: {
+              step: "call_mcp",
+              step_path: "execution.runbook.steps[0]"
+            },
             steps: [expect.objectContaining({ step: "call_mcp" })]
           }
         });
@@ -195,6 +199,10 @@ describe("published package smoke", () => {
           missing_required_fields: ["summary"],
           runbook: {
             next: "collect_required_inputs",
+            current_step: {
+              step: "collect_required_inputs",
+              step_path: "execution.runbook.steps[0]"
+            },
             steps: [
               expect.objectContaining({
                 step: "collect_required_inputs",

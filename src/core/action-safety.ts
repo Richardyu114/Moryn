@@ -61,8 +61,14 @@ export type ActionRunbookStep =
   | ActionRunbookCallMcpStep
   | ActionRunbookDoNotRunStep;
 
+export interface ActionRunbookCurrentStep {
+  step: ActionRunbookStepName;
+  step_path: "execution.runbook.steps[0]";
+}
+
 export interface ActionRunbook {
   next: ActionRunbookStepName;
+  current_step: ActionRunbookCurrentStep;
   steps: ActionRunbookStep[];
 }
 
@@ -576,9 +582,14 @@ function actionRunbook(blockedBy: ActionExecutionBlocker[]): ActionRunbook {
   if (blockedBy.includes("user_confirmation")) steps.push({ ...ASK_USER_CONFIRMATION_STEP });
   if (blockedBy.includes("unsafe_action")) steps.push({ ...DO_NOT_RUN_STEP });
   if (!blockedBy.includes("unsafe_action")) steps.push({ ...CALL_MCP_STEP });
+  const currentStep = steps[0] ?? { ...CALL_MCP_STEP };
 
   return {
-    next: steps[0]?.step ?? "call_mcp",
+    next: currentStep.step,
+    current_step: {
+      step: currentStep.step,
+      step_path: "execution.runbook.steps[0]"
+    },
     steps
   };
 }

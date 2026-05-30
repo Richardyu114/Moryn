@@ -1259,9 +1259,12 @@ and stable `reasons`. This lets hosts block local setup writes, high-risk
 promotions, or authored lifecycle updates with the right approval path instead
 of guessing from prose. The adjacent `execution` object collapses those fields
 and `required_fields` into a single `next_step`: `run`,
-`collect_required_fields`, `confirm_with_user`, or `do_not_auto_run`. When the
-next step is `collect_required_fields`, `execution.required_inputs[]` gives the
-exact field, source path, placeholder, alternatives, allowed values, and split
+`collect_required_fields`, `confirm_with_user`, or `do_not_auto_run`.
+`execution.runbook.current_step` gives the immediate runbook step name and the
+canonical path to its full descriptor, so hosts can execute the immediate action
+without guessing from prose or duplicating the step payload. When the next step
+is `collect_required_fields`, `execution.required_inputs[]` gives the exact
+field, source path, placeholder, alternatives, allowed values, and split
 argument paths to use for collecting input and filling the action. Each entry
 also includes `collect`, `mcp_targets`, and `cli_targets`; when `collect`
 contains `choices[]`, hosts pick exactly one choice from `choice_options`, use
