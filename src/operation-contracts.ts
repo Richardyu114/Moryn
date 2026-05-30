@@ -103,6 +103,52 @@ export type SingleOperationContractResponse = {
   selection_sources: typeof OPERATION_CONTRACTS_SELECTION_SOURCES;
 };
 
+export type OperationContractLookupKind = "operation" | "mcp_tool" | "cli_command";
+
+export type OperationContractLookupRecoveryHint = {
+  rejected_lookup: {
+    kind: OperationContractLookupKind;
+    value: string;
+  };
+  recommended_action: typeof OPERATION_CONTRACT_LOOKUP_RECOVERY_ACTION;
+  available_operations: string[];
+  available_mcp_tools: string[];
+  available_cli_commands: string[];
+  index_lookup: {
+    package_helper: "getOperationContractIndex()";
+    cli: {
+      command: "moryn contracts operations --index";
+      args: ["contracts", "operations", "--index"];
+    };
+    mcp: {
+      tool: "operation_contracts";
+      arguments: { index: true };
+    };
+  };
+  retry_with_operation: {
+    cli: "moryn contracts operations --operation <operation>";
+    mcp: {
+      tool: "operation_contracts";
+      arguments: { operation: "<operation>" };
+    };
+  };
+  selection_sources: typeof OPERATION_CONTRACT_INDEX_SELECTION_SOURCES;
+};
+
+export const OPERATION_CONTRACT_LOOKUP_RECOVERY_ACTION =
+  "fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command" as const;
+
+export class OperationContractLookupError extends Error {
+  readonly recommended_action = OPERATION_CONTRACT_LOOKUP_RECOVERY_ACTION;
+  readonly recovery_hint: OperationContractLookupRecoveryHint;
+
+  constructor(kind: OperationContractLookupKind, value: string) {
+    super(`Invalid argument: Unknown ${operationLookupKindLabel(kind)}: ${value}`);
+    this.name = "OperationContractLookupError";
+    this.recovery_hint = operationContractLookupRecoveryHint(kind, value);
+  }
+}
+
 export type OperationContractIndexEntry = {
   operation: string;
   category: OperationCategory;
@@ -207,6 +253,46 @@ export const OPERATION_CONTRACT_INDEX_SELECTION_SOURCES = {
   full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
   full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
 } as const;
+
+function operationLookupKindLabel(kind: OperationContractLookupKind): string {
+  switch (kind) {
+    case "mcp_tool":
+      return "MCP tool";
+    case "cli_command":
+      return "CLI command";
+    default:
+      return "operation";
+  }
+}
+
+function operationContractLookupRecoveryHint(kind: OperationContractLookupKind, value: string): OperationContractLookupRecoveryHint {
+  return {
+    rejected_lookup: { kind, value },
+    recommended_action: OPERATION_CONTRACT_LOOKUP_RECOVERY_ACTION,
+    available_operations: OPERATION_CONTRACTS.map((operation) => operation.operation),
+    available_mcp_tools: OPERATION_CONTRACTS.map((operation) => operation.interfaces.mcp.tool),
+    available_cli_commands: OPERATION_CONTRACTS.map((operation) => operation.interfaces.cli.command),
+    index_lookup: {
+      package_helper: "getOperationContractIndex()",
+      cli: {
+        command: "moryn contracts operations --index",
+        args: ["contracts", "operations", "--index"]
+      },
+      mcp: {
+        tool: "operation_contracts",
+        arguments: { index: true }
+      }
+    },
+    retry_with_operation: {
+      cli: "moryn contracts operations --operation <operation>",
+      mcp: {
+        tool: "operation_contracts",
+        arguments: { operation: "<operation>" }
+      }
+    },
+    selection_sources: OPERATION_CONTRACT_INDEX_SELECTION_SOURCES
+  };
+}
 
 const OPERATION_LOCAL_SELECTION_SOURCES = Object.fromEntries(
   Object.entries(OPERATION_CONTRACTS_SELECTION_SOURCES).filter(([key]) => ![

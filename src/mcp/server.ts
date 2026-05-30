@@ -9,6 +9,7 @@ import {
   getOperationContracts,
   getSelectionSourceContracts
 } from "../index.js";
+import { OperationContractLookupError } from "../operation-contracts.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
@@ -184,7 +185,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         const contract = getOperationContract(operation);
         if (!contract) {
           return {
-            ...jsonResult(toErrorEnvelope(new Error(`Invalid argument: Unknown operation: ${operation}`))),
+            ...jsonResult(toErrorEnvelope(new OperationContractLookupError("operation", operation))),
             isError: true
           };
         }
@@ -194,7 +195,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         const contract = getOperationContractByMcpTool(mcp_tool);
         if (!contract) {
           return {
-            ...jsonResult(toErrorEnvelope(new Error(`Invalid argument: Unknown MCP tool: ${mcp_tool}`))),
+            ...jsonResult(toErrorEnvelope(new OperationContractLookupError("mcp_tool", mcp_tool))),
             isError: true
           };
         }
@@ -204,7 +205,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         const contract = getOperationContractByCliCommand(cli_command);
         if (!contract) {
           return {
-            ...jsonResult(toErrorEnvelope(new Error(`Invalid argument: Unknown CLI command: ${cli_command}`))),
+            ...jsonResult(toErrorEnvelope(new OperationContractLookupError("cli_command", cli_command))),
             isError: true
           };
         }

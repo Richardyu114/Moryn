@@ -650,7 +650,11 @@ those optional lookup inputs in `arguments_by_name` and
 registry itself. The single-operation
 response carries one `operation`, its canonical `operation_source`, the reverse
 lookup `matched_source`, and the top-level `selection_sources`, keeping the
-payload and model context much smaller than the full operation directory.
+payload and model context much smaller than the full operation directory. If
+the lookup value is unknown, CLI and MCP error envelopes include
+`error.recovery_hint` with the rejected lookup, available operation ids,
+compact index lookup calls, and retry templates, so agents can recover without
+parsing prose.
 
 ### `init`
 

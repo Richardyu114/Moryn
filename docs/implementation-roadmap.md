@@ -256,7 +256,10 @@ Deliverables:
   selection-source registry. The static `operation_contracts` contract also
   declares those lookup inputs in `arguments_by_name` and
   `interfaces.mcp.arguments`, so agents can discover the compact filters before
-  loading the full operation directory into context.
+  loading the full operation directory into context. Unknown operation ids, MCP
+  tools, or CLI commands now return `error.recovery_hint` with the rejected
+  lookup, available operation ids, compact index lookup calls, and retry
+  templates.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

@@ -1749,6 +1749,73 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns recovery hints for unknown operation contract MCP lookups", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-operation-contract-unknown-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const result = await client.callTool({
+          name: "operation_contracts",
+          arguments: { mcp_tool: "missing_tool" }
+        });
+        const first = "content" in result ? result.content[0] : undefined;
+        if (!first || first.type !== "text") {
+          throw new Error("Expected text content from operation_contracts");
+        }
+        const parsed = JSON.parse(first.text) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: {
+              rejected_lookup: { kind: string; value: string };
+              available_operations: string[];
+              index_lookup: {
+                package_helper: string;
+                cli: { command: string; args: string[] };
+                mcp: { tool: string; arguments: { index: boolean } };
+              };
+              retry_with_operation: {
+                cli: string;
+                mcp: { tool: string; arguments: { operation: string } };
+              };
+              selection_sources: Record<string, string>;
+            };
+          };
+        };
+
+        expect(result.isError).toBe(true);
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command");
+        expect(parsed.error.recovery_hint.rejected_lookup).toEqual({ kind: "mcp_tool", value: "missing_tool" });
+        expect(parsed.error.recovery_hint.available_operations).toContain("agent_finish");
+        expect(parsed.error.recovery_hint.index_lookup).toEqual({
+          package_helper: "getOperationContractIndex()",
+          cli: {
+            command: "moryn contracts operations --index",
+            args: ["contracts", "operations", "--index"]
+          },
+          mcp: {
+            tool: "operation_contracts",
+            arguments: { index: true }
+          }
+        });
+        expect(parsed.error.recovery_hint.retry_with_operation).toEqual({
+          cli: "moryn contracts operations --operation <operation>",
+          mcp: {
+            tool: "operation_contracts",
+            arguments: { operation: "<operation>" }
+          }
+        });
+        expect(parsed.error.recovery_hint.selection_sources.operation).toBe("operations_by_id.<operation>");
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("returns machine-readable agent guide through MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-guide-"));
     try {

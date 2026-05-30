@@ -708,7 +708,11 @@ single-operation lookup arguments in `arguments_by_name` and
 contract payload instead of relying on docs.
 That response contains one `operation`, its canonical `operation_source`, the
 lookup `matched_source`, and the top-level `selection_sources`, so agents can
-inspect one call shape without holding the full registry in context.
+inspect one call shape without holding the full registry in context. If a host
+passes an unknown operation id, MCP tool, or CLI command, the CLI and MCP error
+envelope includes `recovery_hint` with the rejected lookup, available operation
+ids, the compact index lookup call, and a retry template, so agents can recover
+without parsing the error message.
 Each static operation `interfaces.cli` entry includes a display `command`, a
 prequoted `command_line`, `executable`, `args`, grouped `exec_file`, legacy
 `argv`, `placeholders`, and `has_placeholders`. For Moryn subcommands,

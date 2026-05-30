@@ -10,6 +10,7 @@ export interface MorynErrorEnvelope {
     message: string;
     recoverable: boolean;
     recommended_action: string;
+    recovery_hint?: unknown;
     next_action?: MorynErrorNextAction;
   };
 }
@@ -861,13 +862,16 @@ export function toErrorEnvelope(error: unknown, context?: MorynErrorContext): Mo
   const message = error instanceof Error ? error.message : String(error);
   const code = errorCode(message);
   const action = nextAction(code, message, context);
+  const errorRecord = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
+  const overrideRecommendedAction = typeof errorRecord.recommended_action === "string" ? errorRecord.recommended_action : undefined;
   return {
     ok: false,
     error: {
       code,
       message,
       recoverable: isRecoverable(code),
-      recommended_action: recommendedAction(code),
+      recommended_action: overrideRecommendedAction ?? recommendedAction(code),
+      ...("recovery_hint" in errorRecord ? { recovery_hint: errorRecord.recovery_hint } : {}),
       ...(action ? { next_action: action } : {})
     }
   };

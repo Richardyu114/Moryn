@@ -12,6 +12,7 @@ import {
   getSelectionSourceContracts,
   version
 } from "./index.js";
+import { OperationContractLookupError } from "./operation-contracts.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
@@ -512,19 +513,19 @@ contracts.command("operations")
     }
     if (operation) {
       const contract = getOperationContract(operation);
-      if (!contract) throw new Error(`Invalid argument: Unknown operation: ${operation}`);
+      if (!contract) throw new OperationContractLookupError("operation", operation);
       printJson(contract, { pretty: false });
       return;
     }
     if (mcpTool) {
       const contract = getOperationContractByMcpTool(mcpTool);
-      if (!contract) throw new Error(`Invalid argument: Unknown MCP tool: ${mcpTool}`);
+      if (!contract) throw new OperationContractLookupError("mcp_tool", mcpTool);
       printJson(contract, { pretty: false });
       return;
     }
     if (cliCommand) {
       const contract = getOperationContractByCliCommand(cliCommand);
-      if (!contract) throw new Error(`Invalid argument: Unknown CLI command: ${cliCommand}`);
+      if (!contract) throw new OperationContractLookupError("cli_command", cliCommand);
       printJson(contract, { pretty: false });
       return;
     }

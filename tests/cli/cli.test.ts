@@ -1682,6 +1682,68 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("returns recovery hints for unknown operation contract CLI lookups", async () => {
+    try {
+      await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "contracts", "operations",
+        "--operation", "missing_operation"
+      ]);
+      throw new Error("Expected unknown operation lookup to fail");
+    } catch (error) {
+      const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+        ok: boolean;
+        error: {
+          code: string;
+          message: string;
+          recoverable: boolean;
+          recommended_action: string;
+          recovery_hint: {
+            rejected_lookup: { kind: string; value: string };
+            available_operations: string[];
+            index_lookup: {
+              package_helper: string;
+              cli: { command: string; args: string[] };
+              mcp: { tool: string; arguments: { index: boolean } };
+            };
+            retry_with_operation: {
+              cli: string;
+              mcp: { tool: string; arguments: { operation: string } };
+            };
+            selection_sources: Record<string, string>;
+          };
+        };
+      };
+
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+      expect(parsed.error.message).toBe("Invalid argument: Unknown operation: missing_operation");
+      expect(parsed.error.recoverable).toBe(true);
+      expect(parsed.error.recommended_action).toBe("fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command");
+      expect(parsed.error.recovery_hint.rejected_lookup).toEqual({ kind: "operation", value: "missing_operation" });
+      expect(parsed.error.recovery_hint.available_operations).toContain("agent_finish");
+      expect(parsed.error.recovery_hint.index_lookup).toEqual({
+        package_helper: "getOperationContractIndex()",
+        cli: {
+          command: "moryn contracts operations --index",
+          args: ["contracts", "operations", "--index"]
+        },
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { index: true }
+        }
+      });
+      expect(parsed.error.recovery_hint.retry_with_operation).toEqual({
+        cli: "moryn contracts operations --operation <operation>",
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { operation: "<operation>" }
+        }
+      });
+      expect(parsed.error.recovery_hint.selection_sources.operation).toBe("operations_by_id.<operation>");
+    }
+  });
+
   it("returns machine-readable agent guide from the CLI", async () => {
     await withTempDir(async (dir) => {
       const guide = await exec("node", [
