@@ -560,6 +560,25 @@ describe("error envelopes", () => {
       error: {
         code: "CONFIRMATION_REQUIRED",
         recommended_action: "ask the user to confirm before retrying with confirmed=true or --confirm",
+        recovery_hint: {
+          requires_user_confirmation: true,
+          rejected_action: {
+            tool: "promote",
+            command: "moryn promote rec_123 --state canonical",
+            arguments: { record_id: "rec_123", target_state: "canonical" }
+          },
+          ask_user: {
+            prompt: "Confirm the high-risk or conflicting canonical change before retrying.",
+            required: true
+          },
+          retry_with: {
+            tool: "promote",
+            command: "moryn promote rec_123 --state canonical --confirm",
+            arguments: { record_id: "rec_123", target_state: "canonical", confirmed: true },
+            safe_to_run: false
+          },
+          do_not: ["auto_confirm", "retry_without_user_confirmation", "invent_user_approval"]
+        },
         next_action: {
           recommended_action: "ask_user_then_retry_with_confirmation",
           tool: "promote",

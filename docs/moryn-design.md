@@ -663,8 +663,9 @@ non-empty strings, enum values, integer and number ranges, JSON object inputs,
 read filters, project init inputs, store path inputs, sync inputs, event path
 components, schema validation, replay history failures, sensitive-content
 failures, stale derived views, missing-record failures, sync runtime failures,
-write core fields such as `kind`, `type`, `scope`, and `project_id`, write
-content payloads, write metadata such as `tags`, `source.client`,
+confirmation-required failures, write core fields such as `kind`, `type`,
+`scope`, and `project_id`, write content payloads, write metadata such as
+`tags`, `source.client`,
 `state`, `priority`, `confidence`, `confirmed`, and `provenance.*`, mutation
 arguments such as
 `record_id`, `linked_record_id`, `target_state`, `reason`, `confirmed`,
@@ -695,11 +696,13 @@ requirements, sensitive-content failures that omit the detected secret value and
 return a redaction retry template, stale derived-view errors with safe rebuild
 and retry-after-original-read instructions, missing-record errors with safe
 `list_recent` discovery, selected-id and ordered fallback sources, and
-guardrails against inventing ids, sync runtime failures with safe status
-inspection, local-store continuity, retry conditions, and `do_not` guardrails,
-`validation_issues` lists schema paths to repair, `discover_with` names safe
-lookup calls such as `project_list`, and `retry_with` contains the
-option/argument value placeholder to use for the corrected retry.
+guardrails against inventing ids, confirmation-required failures with explicit
+user-confirmation requirements and guardrails against auto-confirming, sync
+runtime failures with safe status inspection, local-store continuity, retry
+conditions, and `do_not` guardrails, `validation_issues` lists schema paths to
+repair, `discover_with` names safe lookup calls such as `project_list`, and
+`retry_with` contains the option/argument value placeholder to use for the
+corrected retry.
 
 ### `init`
 
@@ -2413,8 +2416,8 @@ configuration and needs a user-approved project id:
 Confirmation-required errors carry a retry template only when the failing CLI or
 MCP wrapper can pass the original tool context into the error envelope. The
 retry action includes `confirmed: true` in arguments and `--confirm` in the CLI
-command, but remains `safe_to_run: false` because a user must approve the
-promotion or revision first:
+command. The adjacent `recovery_hint` repeats that a user must approve the
+promotion or revision first and forbids auto-confirming:
 
 ```json
 {
@@ -2424,6 +2427,36 @@ promotion or revision first:
     "message": "Confirmation required: canonical state requires explicit user confirmation",
     "recoverable": true,
     "recommended_action": "ask the user to confirm before retrying with confirmed=true or --confirm",
+    "recovery_hint": {
+      "requires_user_confirmation": true,
+      "rejected_action": {
+        "tool": "promote",
+        "command": "moryn promote rec_123 --state canonical",
+        "arguments": {
+          "record_id": "rec_123",
+          "target_state": "canonical"
+        }
+      },
+      "ask_user": {
+        "prompt": "Confirm the high-risk or conflicting canonical change before retrying.",
+        "required": true
+      },
+      "retry_with": {
+        "tool": "promote",
+        "command": "moryn promote rec_123 --state canonical --confirm",
+        "arguments": {
+          "record_id": "rec_123",
+          "target_state": "canonical",
+          "confirmed": true
+        },
+        "safe_to_run": false
+      },
+      "do_not": [
+        "auto_confirm",
+        "retry_without_user_confirmation",
+        "invent_user_approval"
+      ]
+    },
     "next_action": {
       "recommended_action": "ask_user_then_retry_with_confirmation",
       "tool": "promote",

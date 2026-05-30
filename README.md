@@ -721,7 +721,8 @@ integer/number-range, JSON-object, read-filter, project-init, sync-argument,
 store-path, event-path-component, schema-validation, write-core-field,
 write-content, write-metadata, choose-one, path-assignment, revise-patch,
 replay-history, sensitive-content, index-stale, missing-record, sync runtime,
-project-selection, and refresh cursor failures also include `recovery_hint`:
+project-selection, confirmation-required, and refresh cursor failures also
+include `recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
 allowed values, non-empty constraints, integer or numeric bounds, JSON object,
 write `kind`/`type`/`scope`/`project_id`, write content, write metadata such as
@@ -745,6 +746,8 @@ missing-record failures with safe `list_recent` discovery, selected-id and
 ordered fallback sources, and guardrails against inventing ids,
 project-selection failures with safe `project_list` discovery, selected-id and
 ordered fallback sources, and guardrails against inventing project ids,
+confirmation-required failures with explicit user-confirmation requirements,
+retry templates, and guardrails against auto-confirming,
 sync runtime failures such as missing remotes, unavailable remotes, Git
 conflicts, and permission or authentication failures with safe status
 inspection, local-store continuity, retry conditions, and `do_not` guardrails,
@@ -1025,7 +1028,8 @@ confirmation, needs authored arguments, or writes local configuration. Uninitial
 store errors return an `init` next action with
 `safe_to_run: false`, because it creates local store files. Confirmation errors
 from `promote` and `revise` return a retry action with `confirmed: true` and
-`--confirm`, but also keep `safe_to_run: false` so the agent asks the user first.
+`--confirm`, plus a `recovery_hint` that marks user confirmation as required.
+They also keep `safe_to_run: false` so the agent asks the user first.
 The adjacent `execution.next_step` gives the immediate branch (`run`,
 `collect_required_fields`, `confirm_with_user`, or `do_not_auto_run`) for hosts
 that should not merge safety flags and required-field lists manually.

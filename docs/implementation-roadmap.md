@@ -269,7 +269,8 @@ Deliverables:
   store-path, event-path-component, schema-validation, write-core-field,
   write-content, write-metadata, choose-one, path-assignment, refresh cursor,
   replay-history, sensitive-content, index-stale, missing-record,
-  project-selection, sync runtime, and revise-patch failures now return structured
+  project-selection, confirmation-required, sync runtime, and revise-patch
+  failures now return structured
   `error.recovery_hint` metadata with `missing_argument`, `missing_one_of`,
   `rejected_argument`, `rejected_arguments`, `rejected_patch`,
   machine-readable `expected` rules, `discover_with`, and `retry_with`, so
@@ -292,9 +293,11 @@ Deliverables:
   avoid inventing ids, unknown or missing project context that should run
   `moryn project list`, select
   `project_list.projects_by_id.<project_id>.project_id`, and avoid inventing
-  project ids, sync runtime failures that should inspect `moryn sync --status`,
-  preserve local events, wait for conflicts or credentials to be fixed, and
-  avoid unsafe retry loops, invalid sync
+  project ids, high-risk confirmation failures that should ask the user before
+  retrying with `confirmed: true` or `--confirm` and should never auto-confirm,
+  sync runtime failures that should inspect `moryn sync --status`, preserve
+  local events, wait for conflicts or credentials to be fixed, and avoid unsafe
+  retry loops, invalid sync
   `storePath`/`remoteUrl`/`options`/`message`, empty
   placeholders such as `--text ""`, malformed `--content-json`, malformed
   `--set path=value` assignments, managed-field revise attempts, invalid revise

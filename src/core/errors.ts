@@ -186,6 +186,31 @@ function knownRecoveryHint(code: string, message: string, context?: MorynErrorCo
       }
     };
   }
+  if (code === "CONFIRMATION_REQUIRED") {
+    const retryCommand = context ? appendConfirmFlag(context.command) : "<retry_original_command_with_confirmation>";
+    const retryArguments = context ? { ...context.arguments, confirmed: true } : { confirmed: true };
+    return {
+      requires_user_confirmation: true,
+      ...(context ? {
+        rejected_action: {
+          tool: context.tool,
+          command: context.command,
+          arguments: context.arguments
+        }
+      } : {}),
+      ask_user: {
+        prompt: "Confirm the high-risk or conflicting canonical change before retrying.",
+        required: true
+      },
+      retry_with: {
+        tool: context?.tool ?? "original_tool",
+        command: retryCommand,
+        arguments: retryArguments,
+        safe_to_run: false
+      },
+      do_not: ["auto_confirm", "retry_without_user_confirmation", "invent_user_approval"]
+    };
+  }
   if (message.startsWith("Sensitive content detected:")) {
     return {
       rejected_content: { sensitive: true, value_included: false },
