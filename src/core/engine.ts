@@ -7,7 +7,7 @@ import type { MorynEvent, MorynRecord, RecordKind, RecordProvenance, RecordScope
 import { commandForPromoteContext, PROMOTE_CANDIDATE_WHEN, withNextActionMetadata, type MorynErrorNextAction } from "./errors.js";
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
-import { actionSafety } from "./action-safety.js";
+import { actionExecution, actionSafety } from "./action-safety.js";
 import { withPhasesByName, withRequiredFieldsByName } from "./workflow.js";
 import { operationArgumentsByTool } from "../operation-contracts.js";
 
@@ -199,6 +199,7 @@ function withProjectListNextMetadata<T extends {
     ...withActionInterfaces(action),
     selection_sources: PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES,
     safety: actionSafety(action),
+    execution: actionExecution(action),
     workflow: withPhasesByName({
       version: 1,
       start: "next",
@@ -232,6 +233,7 @@ function withRefreshChangeNextActionMetadata<T extends {
     ...withActionInterfaces(action),
     selection_sources: REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES,
     safety: actionSafety(action),
+    execution: actionExecution(action),
     workflow: withPhasesByName({
       version: 1,
       start: "next_action",

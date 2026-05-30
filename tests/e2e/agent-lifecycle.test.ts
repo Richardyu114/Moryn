@@ -200,6 +200,7 @@ function expectRefreshChangeNextAction(action: {
     cli: { flag: "--record-id", repeatable: true },
     mcp: { argument: "record_ids" }
   });
+  expectActionExecution(action);
 }
 
 function expectHandoffEntryNextAction(action: {
@@ -325,18 +326,94 @@ function expectHandoffEntryNextAction(action: {
     cli: { flag: "--record-id", repeatable: true },
     mcp: { argument: "record_ids" }
   });
+  expectActionExecution(action);
 }
 
 function expectLifecycleActionSelectionSources(action: {
   selection_sources?: Record<string, string>;
+  safe_to_run?: boolean;
+  required_fields?: string[];
+  execution?: {
+    ready_to_run?: boolean;
+    next_step?: string;
+    missing_required_fields?: string[];
+    requires_user_confirmation?: boolean;
+    reason?: string;
+  };
+  safety?: {
+    requires_user_confirmation?: boolean;
+  };
 }) {
   expect(action.selection_sources).toEqual(LIFECYCLE_ACTION_SELECTION_SOURCES);
+  if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
+    expectActionExecution({
+      safe_to_run: action.safe_to_run,
+      required_fields: action.required_fields,
+      execution: action.execution,
+      safety: action.safety
+    });
+  }
+}
+
+function expectActionExecution(action: {
+  safe_to_run: boolean;
+  required_fields: string[];
+  execution?: {
+    ready_to_run?: boolean;
+    next_step?: string;
+    missing_required_fields?: string[];
+    requires_user_confirmation?: boolean;
+    reason?: string;
+  };
+  safety?: {
+    requires_user_confirmation?: boolean;
+  };
+}) {
+  expect(action.execution?.missing_required_fields).toEqual(action.required_fields);
+  expect(action.execution?.requires_user_confirmation).toBe(Boolean(action.safety?.requires_user_confirmation));
+  if (action.required_fields.length > 0) {
+    expect(action.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "collect_required_fields"
+    });
+  } else if (action.safety?.requires_user_confirmation) {
+    expect(action.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "confirm_with_user"
+    });
+  } else {
+    expect(action.execution).toMatchObject({
+      ready_to_run: action.safe_to_run,
+      next_step: action.safe_to_run ? "run" : "do_not_auto_run"
+    });
+  }
+  expect(action.execution?.reason).toEqual(expect.any(String));
 }
 
 function expectDiscoveredLifecycleStepSelectionSources(action: {
   selection_sources?: Record<string, string>;
+  safe_to_run?: boolean;
+  required_fields?: string[];
+  execution?: {
+    ready_to_run?: boolean;
+    next_step?: string;
+    missing_required_fields?: string[];
+    requires_user_confirmation?: boolean;
+    reason?: string;
+  };
+  safety?: {
+    requires_user_confirmation?: boolean;
+  };
 }) {
   expect(action.selection_sources).toEqual(DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES);
+  if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
+    expectActionExecution({
+      safe_to_run: action.safe_to_run,
+      required_fields: action.required_fields,
+      execution: action.execution,
+      safety: action.safety
+    });
+  }
 }
 
 describe("agent lifecycle", () => {

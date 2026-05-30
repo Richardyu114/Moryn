@@ -402,7 +402,11 @@ inferring intent from array order or action names. Action templates include a
 `safe_to_auto_run`, `requires_user_confirmation`, `requires_authored_input`,
 `writes_local_config`, and stable `reasons`, so hosts can distinguish safe
 read-only actions from agent-authored writes, local setup changes, and actions
-that need explicit user approval.
+that need explicit user approval. They also include `execution`, a concise
+next-step summary with `ready_to_run`, `next_step`,
+`missing_required_fields`, and `requires_user_confirmation`, so hosts can
+choose between running the action, collecting fields, asking for confirmation,
+or blocking automation without recomputing that policy.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
@@ -537,8 +541,9 @@ without guessing its shape.
 Agents that need to discover available commands or MCP tools can run
 `moryn contracts operations` or call the `operation_contracts` MCP tool. That
 registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP
-interfaces, `safe_to_run`, `safety`, `required_when`, `required_fields`,
-`required_fields_by_name`, `arguments_by_name`, and `argument_sources`.
+interfaces, `safe_to_run`, `safety`, `execution`, `required_when`,
+`required_fields`, `required_fields_by_name`, `arguments_by_name`, and
+`argument_sources`.
 `arguments_by_name` is the full parameter directory: each entry names the CLI
 flag or positional argument, MCP argument, type, required flag, default,
 repeatability, alternatives, and enum `allowed_values` when applicable. This
@@ -731,8 +736,8 @@ error envelopes also include a machine-readable `error.next_action` with
 `tool`, `command`, `arguments`, `interfaces`, `required_when`,
 `required_fields`, `required_fields_by_name`, `arguments_by_name`,
 `argument_sources`,
-`selection_sources`, `workflow`, `safety`, and `safe_to_run`, so agents can
-recover without parsing prose or guessing placeholder values.
+`selection_sources`, `workflow`, `safety`, `execution`, and `safe_to_run`, so
+agents can recover without parsing prose or guessing placeholder values.
 `arguments_by_name` uses the same operation argument metadata as
 `moryn contracts operations`, so recovery actions also expose supported CLI/MCP
 arguments, defaults, repeatable flags, alternatives, and enum values.
@@ -758,6 +763,9 @@ store errors return an `init` next action with
 `safe_to_run: false`, because it creates local store files. Confirmation errors
 from `promote` and `revise` return a retry action with `confirmed: true` and
 `--confirm`, but also keep `safe_to_run: false` so the agent asks the user first.
+The adjacent `execution.next_step` gives the immediate branch (`run`,
+`collect_required_fields`, `confirm_with_user`, or `do_not_auto_run`) for hosts
+that should not merge safety flags and required-field lists manually.
 High-risk canonical `write` calls are stored as candidates and return
 `warning.next_action` for promoting the candidate after user confirmation, so
 agents should not repeat the write or assume it is already canonical. That

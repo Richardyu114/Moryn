@@ -6,7 +6,7 @@ import { displayRecordText } from "./content-text.js";
 import type { MorynRecord, RecordSource } from "./types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync, SYNC_STATUS_SELECTION_SOURCES, type GitSyncResult, type GitSyncStatus } from "../sync/git.js";
 import { toErrorEnvelope, type MorynErrorEnvelope } from "./errors.js";
-import { actionSafety, type ActionSafety } from "./action-safety.js";
+import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./action-safety.js";
 import { requiredFieldsByName, withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
 
@@ -91,6 +91,7 @@ type LifecycleActionTemplate = {
   selection_sources?: LifecycleActionSelectionSources;
   interfaces: ActionInterfaces<Record<string, unknown>>;
   safety: ActionSafety;
+  execution: ActionExecution;
 };
 
 type ActionInterfaces<TArguments> = {
@@ -142,6 +143,7 @@ type HandoffEntryNextAction = {
     project_id: string;
   }>;
   safety: ActionSafety;
+  execution: ActionExecution;
   workflow: {
     version: 1;
     start: "next_action";
@@ -327,6 +329,7 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
   arguments_by_name: Record<string, OperationArgumentMetadata>;
   interfaces: ActionInterfaces<T["arguments"]>;
   safety: ActionSafety;
+  execution: ActionExecution;
 } {
   const actionWithRequiredFields = withRequiredFieldsByName({
     ...action,
@@ -345,7 +348,8 @@ function withActionInterfaces<T extends { tool: string; command: string; argumen
         arguments: action.arguments
       }
     },
-    safety: actionSafety(action)
+    safety: actionSafety(action),
+    execution: actionExecution(action)
   };
 }
 

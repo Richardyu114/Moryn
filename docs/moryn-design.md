@@ -448,10 +448,14 @@ MCP tool: `operation_contracts`.
 The response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, and selection sources for those keyed paths. Each
 operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
-`required_fields`, `required_fields_by_name`, `arguments_by_name`, and
-`argument_sources`. `arguments_by_name` is the full parameter directory,
-including CLI flags or positionals, MCP arguments, types, defaults,
-repeatability, alternatives, and enum `allowed_values`:
+`execution`, `required_fields`, `required_fields_by_name`,
+`arguments_by_name`, and `argument_sources`. `execution` summarizes the
+immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
+and `requires_user_confirmation`, so hosts can decide whether to run, collect
+fields, ask for confirmation, or block automation without recomputing safety
+policy. `arguments_by_name` is the full parameter directory, including CLI
+flags or positionals, MCP arguments, types, defaults, repeatability,
+alternatives, and enum `allowed_values`:
 
 ```json
 {
@@ -1211,7 +1215,9 @@ explanation of `safe_to_run` with `safe_to_auto_run`,
 `requires_user_confirmation`, `requires_authored_input`, `writes_local_config`,
 and stable `reasons`. This lets hosts block local setup writes, high-risk
 promotions, or authored lifecycle updates with the right approval path instead
-of guessing from prose.
+of guessing from prose. The adjacent `execution` object collapses those fields
+and `required_fields` into a single `next_step`: `run`,
+`collect_required_fields`, `confirm_with_user`, or `do_not_auto_run`.
 
 CLI:
 
@@ -1303,9 +1309,9 @@ store. Their `recommended_action` values point agents to project initialization,
 project listing, or corrected retry arguments. These error envelopes also carry
 `error.next_action` with `tool`, `command`, `arguments`, `interfaces`,
 `required_when`, `required_fields`, `required_fields_by_name`,
-`argument_sources`, `selection_sources`, `workflow`, `safety`, and
-`safe_to_run`, so agents can recover from the envelope without parsing prose or
-guessing placeholder values.
+`argument_sources`, `selection_sources`, `workflow`, `safety`, `execution`,
+and `safe_to_run`, so agents can recover from the envelope without parsing
+prose or guessing placeholder values.
 When a recovery action still needs authored setup input, `argument_sources`
 maps placeholders such as `remote`, `path`, or `project_id` to
 `user_input.remote`, `user_input.path`, or `user_input.project_id`.
@@ -1392,9 +1398,9 @@ paths, plus the selected action's parameter, required-field, and argument-source
 directories, for hosts that only receive the selected action.
 Lifecycle, guide, setup, project-discovery, error-recovery, and warning-recovery
 action templates also expose `interfaces.cli.command`,
-`interfaces.mcp.tool`/`interfaces.mcp.arguments`, `safety`, and single-step
-`workflow` metadata, so CLI and MCP hosts can execute the same recommendation
-without translating field names by memory.
+`interfaces.mcp.tool`/`interfaces.mcp.arguments`, `safety`, `execution`, and
+single-step `workflow` metadata, so CLI and MCP hosts can execute the same
+recommendation without translating field names by memory.
 
 ### `agent_doctor`
 

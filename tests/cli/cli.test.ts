@@ -197,20 +197,80 @@ function expectNextActionSelectionSources(action: {
 
 function expectLifecycleActionSelectionSources(action: {
   selection_sources?: Record<string, string>;
+  safe_to_run?: boolean;
+  required_fields?: string[];
+  execution?: {
+    ready_to_run?: boolean;
+    next_step?: string;
+    missing_required_fields?: string[];
+    requires_user_confirmation?: boolean;
+    reason?: string;
+  };
+  safety?: {
+    requires_user_confirmation?: boolean;
+  };
 }) {
   expect(action.selection_sources).toEqual(LIFECYCLE_ACTION_SELECTION_SOURCES);
+  if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
+    expectActionExecution({
+      safe_to_run: action.safe_to_run,
+      required_fields: action.required_fields,
+      execution: action.execution,
+      safety: action.safety
+    });
+  }
 }
 
 function expectGuideLifecycleStepSelectionSources(action: {
   selection_sources?: Record<string, string>;
+  safe_to_run?: boolean;
+  required_fields?: string[];
+  execution?: {
+    ready_to_run?: boolean;
+    next_step?: string;
+    missing_required_fields?: string[];
+    requires_user_confirmation?: boolean;
+    reason?: string;
+  };
+  safety?: {
+    requires_user_confirmation?: boolean;
+  };
 }) {
   expect(action.selection_sources).toEqual(GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES);
+  if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
+    expectActionExecution({
+      safe_to_run: action.safe_to_run,
+      required_fields: action.required_fields,
+      execution: action.execution,
+      safety: action.safety
+    });
+  }
 }
 
 function expectGuideEntrypointSelectionSources(action: {
   selection_sources?: Record<string, string>;
+  safe_to_run?: boolean;
+  required_fields?: string[];
+  execution?: {
+    ready_to_run?: boolean;
+    next_step?: string;
+    missing_required_fields?: string[];
+    requires_user_confirmation?: boolean;
+    reason?: string;
+  };
+  safety?: {
+    requires_user_confirmation?: boolean;
+  };
 }) {
   expect(action.selection_sources).toEqual(GUIDE_ENTRYPOINT_SELECTION_SOURCES);
+  if (typeof action.safe_to_run === "boolean" && Array.isArray(action.required_fields)) {
+    expectActionExecution({
+      safe_to_run: action.safe_to_run,
+      required_fields: action.required_fields,
+      execution: action.execution,
+      safety: action.safety
+    });
+  }
 }
 
 function expectRecoveryWorkflow(action: {
@@ -447,6 +507,41 @@ function expectActionSafety(action: {
   expect(action.safety?.reasons?.length).toBeGreaterThan(0);
 }
 
+function expectActionExecution(action: {
+  safe_to_run: boolean;
+  required_fields: string[];
+  execution?: {
+    ready_to_run?: boolean;
+    next_step?: string;
+    missing_required_fields?: string[];
+    requires_user_confirmation?: boolean;
+    reason?: string;
+  };
+  safety?: {
+    requires_user_confirmation?: boolean;
+  };
+}) {
+  expect(action.execution?.missing_required_fields).toEqual(action.required_fields);
+  expect(action.execution?.requires_user_confirmation).toBe(Boolean(action.safety?.requires_user_confirmation));
+  if (action.required_fields.length > 0) {
+    expect(action.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "collect_required_fields"
+    });
+  } else if (action.safety?.requires_user_confirmation) {
+    expect(action.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "confirm_with_user"
+    });
+  } else {
+    expect(action.execution).toMatchObject({
+      ready_to_run: action.safe_to_run,
+      next_step: action.safe_to_run ? "run" : "do_not_auto_run"
+    });
+  }
+  expect(action.execution?.reason).toEqual(expect.any(String));
+}
+
 function expectRefreshChangeNextAction(action: {
   recommended_action: string;
   tool: string;
@@ -513,6 +608,7 @@ function expectRefreshChangeNextAction(action: {
   });
   expectActionInterfaces(action);
   expectActionSafety(action);
+  expectActionExecution(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
   expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
@@ -611,6 +707,7 @@ function expectHandoffEntryNextAction(action: {
   });
   expectActionInterfaces(action);
   expectActionSafety(action);
+  expectActionExecution(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
   expect(action.workflow).toEqual(withPhasesByName({
     version: 1,
@@ -709,6 +806,13 @@ describe("moryn CLI", () => {
         category: string;
         safe_to_run: boolean;
         required_fields: string[];
+        execution: {
+          ready_to_run: boolean;
+          next_step: string;
+          missing_required_fields: string[];
+          requires_user_confirmation: boolean;
+          reason: string;
+        };
         required_fields_by_name: Record<string, { name: string; argument_path: string; placeholder?: string; value?: unknown; alternatives?: string[]; allowed_values?: string[] }>;
         arguments_by_name: Record<string, {
           name: string;
@@ -737,6 +841,13 @@ describe("moryn CLI", () => {
       category: "lifecycle",
       safe_to_run: true,
       required_fields: [],
+      execution: {
+        ready_to_run: true,
+        next_step: "run",
+        missing_required_fields: [],
+        requires_user_confirmation: false,
+        reason: "Action is safe and all required fields are already filled."
+      },
       interfaces: {
         cli: { command: "moryn agent enter" },
         mcp: { tool: "agent_enter", arguments: {} }
@@ -753,6 +864,13 @@ describe("moryn CLI", () => {
     expect(parsed.operations_by_id.agent_finish).toMatchObject({
       safe_to_run: false,
       required_fields: ["summary"],
+      execution: {
+        ready_to_run: false,
+        next_step: "collect_required_fields",
+        missing_required_fields: ["summary"],
+        requires_user_confirmation: false,
+        reason: "Action requires authored input before it can run."
+      },
       required_fields_by_name: {
         summary: {
           name: "summary",
@@ -812,6 +930,12 @@ describe("moryn CLI", () => {
       }
     });
     expect(parsed.operations_by_id.promote).toMatchObject({
+      execution: {
+        ready_to_run: false,
+        next_step: "collect_required_fields",
+        missing_required_fields: ["record_id", "target_state"],
+        requires_user_confirmation: false
+      },
       required_fields_by_name: {
         target_state: {
           allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
@@ -819,6 +943,12 @@ describe("moryn CLI", () => {
       }
     });
     expect(parsed.operations_by_id.project_init).toMatchObject({
+      execution: {
+        ready_to_run: false,
+        next_step: "collect_required_fields",
+        missing_required_fields: ["path"],
+        requires_user_confirmation: true
+      },
       required_fields_by_name: {
         path: {
           name: "path",

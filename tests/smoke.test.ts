@@ -135,6 +135,31 @@ describe("package smoke test", () => {
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.argument).toBe("operations_by_id.<operation>.arguments_by_name.<argument>");
     expect(response.recommended_entrypoint).toBe("agent_enter");
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(response.operations_by_id.recall.execution).toEqual({
+      ready_to_run: true,
+      next_step: "run",
+      missing_required_fields: [],
+      requires_user_confirmation: false,
+      reason: "Action is safe and all required fields are already filled."
+    });
+    expect(response.operations_by_id.agent_finish.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "collect_required_fields",
+      missing_required_fields: ["summary"],
+      requires_user_confirmation: false
+    });
+    expect(response.operations_by_id.promote.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "collect_required_fields",
+      missing_required_fields: ["record_id", "target_state"],
+      requires_user_confirmation: false
+    });
+    expect(response.operations_by_id.project_init.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "collect_required_fields",
+      missing_required_fields: ["path"],
+      requires_user_confirmation: true
+    });
     expect(response.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");
     expect(response.operations_by_id.agent_enter.interfaces.mcp.tool).toBe("agent_enter");
     expect(response.operations_by_id.agent_enter.arguments_by_name.pull).toMatchObject({

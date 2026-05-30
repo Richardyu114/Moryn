@@ -1,4 +1,4 @@
-import { actionSafety, type ActionSafety } from "./action-safety.js";
+import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./action-safety.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool, type OperationArgumentMetadata } from "../operation-contracts.js";
 
@@ -38,6 +38,7 @@ export interface MorynErrorNextAction {
   arguments_by_name: Record<string, OperationArgumentMetadata>;
   workflow: NextActionWorkflow;
   safety: ActionSafety;
+  execution: ActionExecution;
   selection_sources: NextActionSelectionSources;
   rejected_arguments?: Record<string, unknown>;
   candidate_project_ids?: string[];
@@ -161,6 +162,7 @@ export function withNextActionMetadata<T extends {
   required_fields_by_name: Record<string, RequiredFieldMetadata>;
   arguments_by_name: Record<string, OperationArgumentMetadata>;
   safety: ActionSafety;
+  execution: ActionExecution;
   selection_sources: NextActionSelectionSources;
   workflow: NextActionWorkflow;
 } {
@@ -178,6 +180,7 @@ export function withNextActionMetadata<T extends {
       }
     },
     safety: actionSafety(action),
+    execution: actionExecution(action),
     selection_sources: NEXT_ACTION_SELECTION_SOURCES,
     workflow: withPhasesByName({
       version: 1,

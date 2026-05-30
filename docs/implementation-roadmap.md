@@ -232,6 +232,11 @@ Deliverables:
   full keyed argument metadata, enum allowed values, and argument sources, so
   agents can discover how to call Moryn without hallucinating command names,
   placeholders, optional arguments, defaults, enum values, or argument shapes.
+- Done: Operation contracts and runtime action templates now expose
+  `execution` readiness summaries with `ready_to_run`, `next_step`,
+  missing required fields, and confirmation requirements, so agents can choose
+  between running, collecting input, asking for approval, or blocking
+  automation without recomputing policy from several fields.
 - Done: Structured `error.next_action` and warning `next_action` payloads expose
   `required_fields` so recovery commands no longer rely on agents parsing
   placeholders from prose.

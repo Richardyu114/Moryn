@@ -140,6 +140,40 @@ function expectActionSafety(action: {
   expect(action.safety?.reasons?.length).toBeGreaterThan(0);
 }
 
+function expectActionExecution(action: {
+  safe_to_run: boolean;
+  required_fields: string[];
+  execution?: {
+    ready_to_run?: boolean;
+    next_step?: string;
+    missing_required_fields?: string[];
+    requires_user_confirmation?: boolean;
+    reason?: string;
+  };
+  safety?: {
+    requires_user_confirmation?: boolean;
+  };
+}) {
+  expect(action.execution?.missing_required_fields).toEqual(action.required_fields);
+  expect(action.execution?.requires_user_confirmation).toBe(Boolean(action.safety?.requires_user_confirmation));
+  if (action.required_fields.length > 0) {
+    expect(action.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "collect_required_fields"
+    });
+  } else if (action.safety?.requires_user_confirmation) {
+    expect(action.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "confirm_with_user"
+    });
+  } else {
+    expect(action.execution).toMatchObject({
+      ready_to_run: action.safe_to_run,
+      next_step: action.safe_to_run ? "run" : "do_not_auto_run"
+    });
+  }
+}
+
 function expectRefreshChangeRecallAction(action: {
   recommended_action: string;
   tool: string;
@@ -162,6 +196,7 @@ function expectRefreshChangeRecallAction(action: {
     writes_local_config?: boolean;
     reasons?: string[];
   };
+  execution?: Record<string, unknown>;
   workflow?: {
     version?: number;
     start?: string;
@@ -221,6 +256,7 @@ function expectRefreshChangeRecallAction(action: {
     mcp: { argument: "project_id" }
   });
   expectActionSafety(action);
+  expectActionExecution(action);
   expect(action.safety?.reasons).toEqual(["safe_read_or_status_check"]);
   expect(action.workflow).toEqual(withPhasesByName({
     version: 1,

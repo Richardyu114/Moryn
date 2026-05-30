@@ -1,4 +1,4 @@
-import { actionSafety, type ActionSafety } from "./core/action-safety.js";
+import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./core/action-safety.js";
 import { SYNC_MODES } from "./core/project.js";
 import {
   RECORD_KINDS,
@@ -32,6 +32,7 @@ export type OperationContract = {
   argument_sources?: Record<string, string>;
   interfaces: OperationInterfaces;
   safety: ActionSafety;
+  execution: ActionExecution;
 };
 
 type OperationRequiredFieldMetadata = RequiredFieldMetadata & {
@@ -66,7 +67,7 @@ type OperationArgumentMetadataInput = Omit<OperationArgumentMetadata, "name"> & 
   name?: string;
 };
 
-type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "arguments_by_name" | "safety"> & {
+type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "arguments_by_name" | "safety" | "execution"> & {
   required_fields_by_name?: Record<string, OperationRequiredFieldMetadata>;
   arguments_by_name?: Record<string, OperationArgumentMetadataInput>;
 };
@@ -111,6 +112,11 @@ function operationContract(input: OperationContractInput): OperationContract {
     arguments_by_name: operationArgumentsByName(input),
     ...(input.argument_sources ? { argument_sources: input.argument_sources } : {}),
     safety: actionSafety({
+      tool: input.interfaces.mcp.tool,
+      safe_to_run: input.safe_to_run,
+      required_fields: input.required_fields
+    }),
+    execution: actionExecution({
       tool: input.interfaces.mcp.tool,
       safe_to_run: input.safe_to_run,
       required_fields: input.required_fields

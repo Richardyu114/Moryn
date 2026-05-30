@@ -105,6 +105,40 @@ function expectNextActionSafety(action: {
   }
 }
 
+function expectNextActionExecution(action: {
+  safe_to_run: boolean;
+  required_fields: string[];
+  execution?: {
+    ready_to_run?: boolean;
+    next_step?: string;
+    missing_required_fields?: string[];
+    requires_user_confirmation?: boolean;
+    reason?: string;
+  };
+  safety?: {
+    requires_user_confirmation?: boolean;
+  };
+}) {
+  expect(action.execution?.missing_required_fields).toEqual(action.required_fields);
+  expect(action.execution?.requires_user_confirmation).toBe(Boolean(action.safety?.requires_user_confirmation));
+  if (action.required_fields.length > 0) {
+    expect(action.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "collect_required_fields"
+    });
+  } else if (action.safety?.requires_user_confirmation) {
+    expect(action.execution).toMatchObject({
+      ready_to_run: false,
+      next_step: "confirm_with_user"
+    });
+  } else {
+    expect(action.execution).toMatchObject({
+      ready_to_run: action.safe_to_run,
+      next_step: action.safe_to_run ? "run" : "do_not_auto_run"
+    });
+  }
+}
+
 describe("error envelopes", () => {
   it("classifies sensitive content failures with the documented error code", () => {
     const envelope = toErrorEnvelope(new Error("Sensitive content detected: event must be redacted before append"));
@@ -171,6 +205,7 @@ describe("error envelopes", () => {
     expectNextActionInterfaces(envelope.error.next_action!);
     expectNextActionWorkflow(envelope.error.next_action!);
     expectNextActionSelectionSources(envelope.error.next_action!);
+    expectNextActionExecution(envelope.error.next_action!);
   });
 
   it("points authored recovery placeholders at user input sources", () => {
@@ -207,6 +242,7 @@ describe("error envelopes", () => {
   it("explains recovery action safety beyond safe_to_run", () => {
     const syncSetup = toErrorEnvelope(new Error("Sync not configured")).error.next_action!;
     expectNextActionSafety(syncSetup);
+    expectNextActionExecution(syncSetup);
     expect(syncSetup.safety).toMatchObject({
       safe_to_auto_run: false,
       requires_user_confirmation: true,
@@ -218,6 +254,7 @@ describe("error envelopes", () => {
 
     const statusCheck = toErrorEnvelope(new Error("fatal: 'origin' does not appear to be a git repository")).error.next_action!;
     expectNextActionSafety(statusCheck);
+    expectNextActionExecution(statusCheck);
     expect(statusCheck.safety).toMatchObject({
       safe_to_auto_run: true,
       requires_user_confirmation: false,
@@ -240,6 +277,7 @@ describe("error envelopes", () => {
       allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
     });
     expectNextActionSafety(confirmation);
+    expectNextActionExecution(confirmation);
     expect(confirmation.safety).toMatchObject({
       safe_to_auto_run: false,
       requires_user_confirmation: true,
