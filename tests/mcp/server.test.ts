@@ -6032,6 +6032,15 @@ describe("MCP stdio server", () => {
             source: { client: string };
           };
         };
+        type McpWriteInvalidArgument = {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
 
         expect(write.record).toMatchObject({
           kind: "session_summary",
@@ -6051,10 +6060,16 @@ describe("MCP stdio server", () => {
             project_id: "moryn",
             text: "Ordinary MCP memories still need a type."
           }
-        })) as { ok: boolean; error: { code: string; message: string } };
+        })) as McpWriteInvalidArgument;
         expect(missingType.ok).toBe(false);
         expect(missingType.error.code).toBe("INVALID_ARGUMENT");
         expect(missingType.error.message).toContain("write requires type");
+        expect(missingType.error.recommended_action).toBe("retry write with required type");
+        expect(missingType.error.recovery_hint).toEqual({
+          missing_argument: { argument: "type" },
+          expected: { kind: "required_argument", required: true },
+          retry_with: { argument: "type", value_placeholder: "<record type>" }
+        });
 
         const missingScope = parseTextContent(await client.callTool({
           name: "write",
@@ -6064,10 +6079,68 @@ describe("MCP stdio server", () => {
             project_id: "moryn",
             text: "Ordinary MCP memories still need a scope."
           }
-        })) as { ok: boolean; error: { code: string; message: string } };
+        })) as McpWriteInvalidArgument;
         expect(missingScope.ok).toBe(false);
         expect(missingScope.error.code).toBe("INVALID_ARGUMENT");
         expect(missingScope.error.message).toContain("write requires scope");
+        expect(missingScope.error.recommended_action).toBe("retry write with required scope");
+        expect(missingScope.error.recovery_hint).toEqual({
+          missing_argument: { argument: "scope" },
+          expected: { kind: "required_argument", required: true },
+          retry_with: { argument: "scope", value_placeholder: "<record scope>" }
+        });
+
+        const missingContent = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn"
+          }
+        })) as McpWriteInvalidArgument;
+        expect(missingContent.ok).toBe(false);
+        expect(missingContent.error.code).toBe("INVALID_ARGUMENT");
+        expect(missingContent.error.message).toContain("write requires text or content");
+        expect(missingContent.error.recommended_action).toBe("retry write with exactly one content input");
+        expect(missingContent.error.recovery_hint).toEqual({
+          missing_one_of: [
+            { argument: "text", value_placeholder: "<text>" },
+            { argument: "content", value_placeholder: "<content object>" }
+          ],
+          expected: { kind: "choose_one", arguments: ["text", "content"] },
+          retry_with: [
+            { argument: "text", value_placeholder: "<text>" },
+            { argument: "content", value_placeholder: "<content object>" }
+          ]
+        });
+
+        const conflictingContent = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Plain text",
+            content: { text: "Structured text", format: "text" }
+          }
+        })) as McpWriteInvalidArgument;
+        expect(conflictingContent.ok).toBe(false);
+        expect(conflictingContent.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingContent.error.message).toContain("use either text or content");
+        expect(conflictingContent.error.recommended_action).toBe("retry write with exactly one content input");
+        expect(conflictingContent.error.recovery_hint).toEqual({
+          rejected_arguments: [
+            { argument: "text", value: "Plain text" },
+            { argument: "content", value: { text: "Structured text", format: "text" } }
+          ],
+          expected: { kind: "choose_one", arguments: ["text", "content"] },
+          retry_with: [
+            { argument: "text", value_placeholder: "<text>" },
+            { argument: "content", value_placeholder: "<content object>" }
+          ]
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });

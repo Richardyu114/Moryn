@@ -39,6 +39,73 @@ const recordKindSchema = z.enum(RECORD_KINDS);
 const recordScopeSchema = z.enum(RECORD_SCOPES);
 const recordStateSchema = z.enum(RECORD_STATES);
 const nonEmptyStringSchema = z.string().min(1);
+const WRITE_CONTENT_RETRY_ARGUMENTS = [
+  { argument: "text", value_placeholder: "<text>" },
+  { argument: "content", value_placeholder: "<content object>" }
+] as const;
+
+type McpArgumentRecoveryHint =
+  | {
+      missing_argument: { argument: "type" | "scope" };
+      expected: { kind: "required_argument"; required: true };
+      retry_with: { argument: "type" | "scope"; value_placeholder: string };
+    }
+  | {
+      missing_one_of: Array<{ argument: "text" | "content"; value_placeholder: string }>;
+      expected: { kind: "choose_one"; arguments: ["text", "content"] };
+      retry_with: Array<{ argument: "text" | "content"; value_placeholder: string }>;
+    }
+  | {
+      rejected_arguments: Array<
+        | { argument: "text"; value: string }
+        | { argument: "content"; value: Record<string, unknown> }
+      >;
+      expected: { kind: "choose_one"; arguments: ["text", "content"] };
+      retry_with: Array<{ argument: "text" | "content"; value_placeholder: string }>;
+    };
+
+class McpArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: McpArgumentRecoveryHint;
+
+  constructor(message: string, recommendedAction: string, recoveryHint: McpArgumentRecoveryHint) {
+    super(message);
+    this.name = "McpArgumentError";
+    this.recommended_action = recommendedAction;
+    this.recovery_hint = recoveryHint;
+  }
+}
+
+function writeRequiredArgumentError(argument: "type" | "scope"): McpArgumentError {
+  return new McpArgumentError(
+    `Invalid argument: write requires ${argument}`,
+    `retry write with required ${argument}`,
+    {
+      missing_argument: { argument },
+      expected: { kind: "required_argument", required: true },
+      retry_with: { argument, value_placeholder: `<record ${argument}>` }
+    }
+  );
+}
+
+function writeContentChoiceError(rejectedArguments?: Array<
+  | { argument: "text"; value: string }
+  | { argument: "content"; value: Record<string, unknown> }
+>): McpArgumentError {
+  return new McpArgumentError(
+    rejectedArguments
+      ? "Invalid argument: use either text or content, not both"
+      : "Invalid argument: write requires text or content",
+    "retry write with exactly one content input",
+    {
+      ...(rejectedArguments
+        ? { rejected_arguments: rejectedArguments }
+        : { missing_one_of: [...WRITE_CONTENT_RETRY_ARGUMENTS] }),
+      expected: { kind: "choose_one", arguments: ["text", "content"] },
+      retry_with: [...WRITE_CONTENT_RETRY_ARGUMENTS]
+    }
+  );
+}
 
 const sourceSchema = z.object({
   client: nonEmptyStringSchema.default("mcp"),
@@ -335,20 +402,23 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     },
     async (input) => toolResult(async () => {
       if (input.content && input.text !== undefined) {
-        throw new Error("Invalid argument: use either text or content, not both");
+        throw writeContentChoiceError([
+          { argument: "text", value: input.text },
+          { argument: "content", value: input.content as Record<string, unknown> }
+        ]);
       }
       if (!input.content && input.text === undefined) {
-        throw new Error("Invalid argument: write requires text or content");
+        throw writeContentChoiceError();
       }
       const content = input.content ?? { text: input.text ?? "", format: "text" as const };
       const project = await resolveProjectInput({ project_id: input.project_id, project_path: input.project_path });
       const type = input.type ?? (input.kind === "session_summary" ? "summary" : undefined);
       const scope = input.scope ?? (input.kind === "session_summary" ? "project" : undefined);
       if (!type) {
-        throw new Error("Invalid argument: write requires type");
+        throw writeRequiredArgumentError("type");
       }
       if (!scope) {
-        throw new Error("Invalid argument: write requires scope");
+        throw writeRequiredArgumentError("scope");
       }
       return engine.write({
         kind: input.kind as RecordKind,

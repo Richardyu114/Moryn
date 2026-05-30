@@ -666,10 +666,10 @@ follow the same pattern:
 `missing_one_of` identifies a missing alternative group, `rejected_argument`
 or `rejected_arguments` identifies invalid or conflicting values, `expected`
 exposes allowed values, non-empty constraints, integer or numeric bounds, JSON object
-expectations, choice rules, option requirements such as `--message` requiring
-`--push`, path-assignment shape, or ISO datetime cursor requirements, and
-`retry_with` contains the option/argument value placeholder to use for the
-corrected retry.
+expectations, choice rules, MCP argument requirements such as write `type` and
+`scope`, option requirements such as `--message` requiring `--push`,
+path-assignment shape, or ISO datetime cursor requirements, and `retry_with`
+contains the option/argument value placeholder to use for the corrected retry.
 
 ### `init`
 

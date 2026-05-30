@@ -721,9 +721,9 @@ integer/number-range, JSON-object, choose-one, path-assignment, and refresh
 cursor validation errors also include `recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
 allowed values, non-empty constraints, integer or numeric bounds, JSON object
-expectations, dependency rules such as `--message` requiring `--push`,
-path-assignment shape, or ISO datetime cursor requirements,
-`missing_argument` or `missing_one_of` names omitted inputs,
+expectations, MCP argument requirements such as `type`/`scope`, dependency rules
+such as `--message` requiring `--push`, path-assignment shape, or ISO datetime
+cursor requirements, `missing_argument` or `missing_one_of` names omitted inputs,
 `rejected_arguments` lists conflicting inputs, and `retry_with` gives exact
 options/arguments plus placeholders for corrected values. Agents should use
 those fields instead of splitting the human-readable error message.
