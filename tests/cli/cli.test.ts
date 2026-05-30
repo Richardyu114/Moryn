@@ -1250,6 +1250,41 @@ describe("moryn CLI", () => {
         ]
       },
       value_path: "user_input.text_or_content",
+      input_mode: "choose_one",
+      choices: [
+        {
+          option: "text",
+          argument_path: "text",
+          value_path: "user_input.text_or_content",
+          preferred: true,
+          apply_to: {
+            mcp_argument_paths: ["text"],
+            cli_assignments: [{
+              flag: "--text",
+              value_path: "user_input.text_or_content",
+              argv_template: ["--text", "<user_input.text_or_content>"],
+              value_encoding: "string",
+              preferred: true
+            }]
+          }
+        },
+        {
+          option: "content",
+          argument_path: "content",
+          value_path: "user_input.text_or_content",
+          preferred: false,
+          apply_to: {
+            mcp_argument_paths: ["content"],
+            cli_assignments: [{
+              flag: "--content-json",
+              value_path: "user_input.text_or_content",
+              argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+              value_encoding: "json",
+              preferred: false
+            }]
+          }
+        }
+      ],
       placeholder: "<text_or_content>",
       alternatives: ["text", "content"]
     });

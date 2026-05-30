@@ -690,6 +690,57 @@ describe("package smoke test", () => {
           ]
         },
         value_path: "user_input.text_or_content",
+        input_mode: "choose_one",
+        choices: [
+          {
+            option: "text",
+            argument_path: "text",
+            value_path: "user_input.text_or_content",
+            preferred: true,
+            type: "string",
+            apply_to: {
+              mcp_argument_paths: ["text"],
+              mcp_assignments: [{
+                argument: "text",
+                value_path: "user_input.text_or_content",
+                preferred: true
+              }],
+              cli_assignments: [{
+                flag: "--text",
+                value_path: "user_input.text_or_content",
+                argv_template: ["--text", "<user_input.text_or_content>"],
+                value_encoding: "string",
+                type: "string",
+                required: false,
+                preferred: true
+              }]
+            }
+          },
+          {
+            option: "content",
+            argument_path: "content",
+            value_path: "user_input.text_or_content",
+            preferred: false,
+            type: "object",
+            apply_to: {
+              mcp_argument_paths: ["content"],
+              mcp_assignments: [{
+                argument: "content",
+                value_path: "user_input.text_or_content",
+                preferred: false
+              }],
+              cli_assignments: [{
+                flag: "--content-json",
+                value_path: "user_input.text_or_content",
+                argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                value_encoding: "json",
+                type: "object",
+                required: false,
+                preferred: false
+              }]
+            }
+          }
+        ],
         placeholder: "<text_or_content>",
         alternatives: ["text", "content"]
       },
@@ -727,6 +778,41 @@ describe("package smoke test", () => {
       argument_paths: ["text", "content"],
       alternatives: ["text", "content"],
       collect: {
+        input_mode: "choose_one",
+        choices: [
+          {
+            option: "text",
+            argument_path: "text",
+            value_path: "user_input.text_or_content",
+            preferred: true,
+            apply_to: {
+              mcp_argument_paths: ["text"],
+              cli_assignments: [{
+                flag: "--text",
+                value_path: "user_input.text_or_content",
+                argv_template: ["--text", "<user_input.text_or_content>"],
+                value_encoding: "string",
+                preferred: true
+              }]
+            }
+          },
+          {
+            option: "content",
+            argument_path: "content",
+            value_path: "user_input.text_or_content",
+            preferred: false,
+            apply_to: {
+              mcp_argument_paths: ["content"],
+              cli_assignments: [{
+                flag: "--content-json",
+                value_path: "user_input.text_or_content",
+                argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                value_encoding: "json",
+                preferred: false
+              }]
+            }
+          }
+        ],
         apply_to: {
           mcp_assignments: [
             {

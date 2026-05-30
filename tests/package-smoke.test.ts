@@ -316,6 +316,41 @@ describe("published package smoke", () => {
         expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.selection_sources).toEqual(operationRequiredInputSources);
         expect(parsedOperations.operations_by_id.write.execution.required_inputs_by_field.text_or_content.collect).toMatchObject({
           prompt: "Provide text or content.",
+          input_mode: "choose_one",
+          choices: [
+            {
+              option: "text",
+              argument_path: "text",
+              value_path: "user_input.text_or_content",
+              preferred: true,
+              apply_to: {
+                mcp_argument_paths: ["text"],
+                cli_assignments: [{
+                  flag: "--text",
+                  value_path: "user_input.text_or_content",
+                  argv_template: ["--text", "<user_input.text_or_content>"],
+                  value_encoding: "string",
+                  preferred: true
+                }]
+              }
+            },
+            {
+              option: "content",
+              argument_path: "content",
+              value_path: "user_input.text_or_content",
+              preferred: false,
+              apply_to: {
+                mcp_argument_paths: ["content"],
+                cli_assignments: [{
+                  flag: "--content-json",
+                  value_path: "user_input.text_or_content",
+                  argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+                  value_encoding: "json",
+                  preferred: false
+                }]
+              }
+            }
+          ],
           apply_to: {
             mcp_argument_paths: ["text", "content"],
             mcp_assignments: [

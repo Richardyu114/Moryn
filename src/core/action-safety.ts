@@ -103,18 +103,33 @@ export interface ActionCliAssignment {
   preferred: boolean;
 }
 
+export interface ActionRequiredInputApplyTo {
+  mcp_argument_paths: string[];
+  mcp_assignments?: ActionMcpAssignment[];
+  cli_assignments?: ActionCliAssignment[];
+  mcp_targets?: ActionMcpTarget[];
+  cli_targets?: ActionCliTarget[];
+}
+
+export type ActionRequiredInputMode = "choose_one";
+
+export interface ActionRequiredInputChoice {
+  option: string;
+  argument_path: string;
+  value_path: string;
+  preferred: boolean;
+  type?: string;
+  apply_to: ActionRequiredInputApplyTo;
+}
+
 export interface ActionRequiredInputCollect {
   source: "user";
   input_key: string;
   prompt: string;
-  apply_to: {
-    mcp_argument_paths: string[];
-    mcp_assignments?: ActionMcpAssignment[];
-    cli_assignments?: ActionCliAssignment[];
-    mcp_targets?: ActionMcpTarget[];
-    cli_targets?: ActionCliTarget[];
-  };
+  apply_to: ActionRequiredInputApplyTo;
   value_path?: string;
+  input_mode?: ActionRequiredInputMode;
+  choices?: ActionRequiredInputChoice[];
   placeholder?: string;
   alternatives?: readonly string[];
   allowed_values?: readonly string[];
@@ -299,6 +314,70 @@ function cliAssignments(targets: ActionCliTarget[] | undefined, valuePath: strin
   });
 }
 
+function collectApplyTo(input: {
+  paths: string[];
+  mcp_targets?: ActionMcpTarget[];
+  mcp_assignments?: ActionMcpAssignment[];
+  cli_assignments?: ActionCliAssignment[];
+  cli_targets?: ActionCliTarget[];
+}): ActionRequiredInputApplyTo {
+  return {
+    mcp_argument_paths: input.paths,
+    ...(input.mcp_assignments ? { mcp_assignments: input.mcp_assignments } : {}),
+    ...(input.cli_assignments ? { cli_assignments: input.cli_assignments } : {}),
+    ...(input.mcp_targets ? { mcp_targets: input.mcp_targets } : {}),
+    ...(input.cli_targets ? { cli_targets: input.cli_targets } : {})
+  };
+}
+
+function markMcpPreferred(targets: ActionMcpTarget[] | undefined, preferred: boolean): ActionMcpTarget[] | undefined {
+  return targets?.map((target) => ({ ...target, preferred }));
+}
+
+function markCliPreferred(targets: ActionCliTarget[] | undefined, preferred: boolean): ActionCliTarget[] | undefined {
+  return targets?.map((target) => ({ ...target, preferred }));
+}
+
+function targetType(
+  mcp_targets: ActionMcpTarget[] | undefined,
+  cli_targets: ActionCliTarget[] | undefined
+): string | undefined {
+  return cli_targets?.[0]?.type ?? mcp_targets?.[0]?.type;
+}
+
+function requiredInputChoices(input: {
+  field: string;
+  paths: string[];
+  arguments_by_name?: Record<string, ArgumentInputMetadata>;
+  value_path: string;
+}): ActionRequiredInputChoice[] | undefined {
+  if (input.paths.length < 2) return undefined;
+
+  return input.paths.map((argumentPath, index) => {
+    const preferred = index === 0;
+    const choiceMcpTargets = markMcpPreferred(mcpTargets([argumentPath], input.arguments_by_name), preferred);
+    const choiceCliTargets = markCliPreferred(cliTargets([argumentPath], input.arguments_by_name, input.field), preferred);
+    const choiceMcpAssignments = mcpAssignments(choiceMcpTargets, input.value_path);
+    const choiceCliAssignments = cliAssignments(choiceCliTargets, input.value_path);
+    const type = targetType(choiceMcpTargets, choiceCliTargets);
+
+    return {
+      option: argumentPath,
+      argument_path: argumentPath,
+      value_path: input.value_path,
+      preferred,
+      ...(type ? { type } : {}),
+      apply_to: collectApplyTo({
+        paths: [argumentPath],
+        ...(choiceMcpTargets ? { mcp_targets: choiceMcpTargets } : {}),
+        ...(choiceMcpAssignments ? { mcp_assignments: choiceMcpAssignments } : {}),
+        ...(choiceCliAssignments ? { cli_assignments: choiceCliAssignments } : {}),
+        ...(choiceCliTargets ? { cli_targets: choiceCliTargets } : {})
+      })
+    };
+  });
+}
+
 function promptForRequiredInput(field: string): string {
   return `Provide ${field.replace(/_/g, " ")}.`;
 }
@@ -311,6 +390,7 @@ function collectRequiredInput(input: {
   cli_assignments?: ActionCliAssignment[];
   cli_targets?: ActionCliTarget[];
   argument_source?: string;
+  choices?: ActionRequiredInputChoice[];
   placeholder?: string;
   alternatives?: readonly string[];
   allowed_values?: readonly string[];
@@ -319,14 +399,9 @@ function collectRequiredInput(input: {
     source: "user",
     input_key: input.field,
     prompt: promptForRequiredInput(input.field),
-    apply_to: {
-      mcp_argument_paths: input.paths,
-      ...(input.mcp_assignments ? { mcp_assignments: input.mcp_assignments } : {}),
-      ...(input.cli_assignments ? { cli_assignments: input.cli_assignments } : {}),
-      ...(input.mcp_targets ? { mcp_targets: input.mcp_targets } : {}),
-      ...(input.cli_targets ? { cli_targets: input.cli_targets } : {})
-    },
+    apply_to: collectApplyTo(input),
     ...(input.argument_source ? { value_path: input.argument_source } : {}),
+    ...(input.choices ? { input_mode: "choose_one" as const, choices: input.choices } : {}),
     ...(input.placeholder ? { placeholder: input.placeholder } : {}),
     ...(input.alternatives ? { alternatives: input.alternatives } : {}),
     ...(input.allowed_values ? { allowed_values: input.allowed_values } : {})
@@ -424,6 +499,12 @@ export function actionExecution(input: {
     const placeholder = metadata?.placeholder;
     const mcpAssignmentList = mcpAssignments(mcpTargetList, argumentSource);
     const cliAssignmentList = cliAssignments(cliTargetList, argumentSource);
+    const choices = requiredInputChoices({
+      field,
+      paths: splitArgumentPaths,
+      arguments_by_name: input.arguments_by_name,
+      value_path: argumentSource
+    });
     return {
       field,
       argument_path: argumentPath,
@@ -436,6 +517,7 @@ export function actionExecution(input: {
         ...(cliAssignmentList ? { cli_assignments: cliAssignmentList } : {}),
         ...(cliTargetList ? { cli_targets: cliTargetList } : {}),
         ...(argumentSource ? { argument_source: argumentSource } : {}),
+        ...(choices ? { choices } : {}),
         ...(placeholder ? { placeholder } : {}),
         ...(metadata?.alternatives ? { alternatives: metadata.alternatives } : {}),
         ...(metadata?.allowed_values ? { allowed_values: metadata.allowed_values } : {})

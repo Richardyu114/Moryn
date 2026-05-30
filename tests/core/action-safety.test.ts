@@ -40,6 +40,81 @@ const summaryCollect = {
   placeholder: "<summary>"
 };
 
+const textOrContentChoices = [
+  {
+    option: "text",
+    argument_path: "text",
+    value_path: "user_input.text_or_content",
+    preferred: true,
+    type: "string",
+    apply_to: {
+      mcp_argument_paths: ["text"],
+      mcp_assignments: [{
+        argument: "text",
+        value_path: "user_input.text_or_content",
+        preferred: true
+      }],
+      mcp_targets: [{
+        argument: "text",
+        type: "string",
+        required: false,
+        preferred: true
+      }],
+      cli_assignments: [{
+        flag: "--text",
+        value_path: "user_input.text_or_content",
+        argv_template: ["--text", "<user_input.text_or_content>"],
+        value_encoding: "string",
+        type: "string",
+        required: false,
+        preferred: true
+      }],
+      cli_targets: [{
+        flag: "--text",
+        type: "string",
+        required: false,
+        preferred: true
+      }]
+    }
+  },
+  {
+    option: "content",
+    argument_path: "content",
+    value_path: "user_input.text_or_content",
+    preferred: false,
+    type: "object",
+    apply_to: {
+      mcp_argument_paths: ["content"],
+      mcp_assignments: [{
+        argument: "content",
+        value_path: "user_input.text_or_content",
+        preferred: false
+      }],
+      mcp_targets: [{
+        argument: "content",
+        type: "object",
+        required: false,
+        preferred: false
+      }],
+      cli_assignments: [{
+        flag: "--content-json",
+        value_path: "user_input.text_or_content",
+        argv_template: ["--content-json", "<json:user_input.text_or_content>"],
+        value_encoding: "json",
+        type: "object",
+        required: false,
+        preferred: false
+      }],
+      cli_targets: [{
+        flag: "--content-json",
+        type: "object",
+        required: false,
+        preferred: false
+      }]
+    }
+  }
+];
+
 describe("action execution readiness", () => {
   it("exposes a runbook that tells hosts exactly how to run ready actions", () => {
     const execution = actionExecution({
@@ -465,6 +540,8 @@ describe("action execution readiness", () => {
             ]
           },
           value_path: "user_input.text_or_content",
+          input_mode: "choose_one",
+          choices: textOrContentChoices,
           placeholder: "<text_or_content>",
           alternatives: ["text", "content"]
         },
@@ -574,6 +651,8 @@ describe("action execution readiness", () => {
           ]
         },
         value_path: "user_input.text_or_content",
+        input_mode: "choose_one",
+        choices: textOrContentChoices,
         placeholder: "<text_or_content>",
         alternatives: ["text", "content"]
       },

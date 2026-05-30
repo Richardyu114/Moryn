@@ -463,7 +463,10 @@ fields, ask for confirmation, or block automation without recomputing safety
 policy. `required_inputs[]` joins each missing field to its original
 `argument_path`, split `argument_paths`, argument source, placeholder/value,
 `selection_sources.required_input`, `mcp_targets`, `cli_targets`, alternatives,
-and enum `allowed_values` when present.
+and enum `allowed_values` when present. Its `collect` recipe may set
+`input_mode` to `"choose_one"` and include `choices[]`; hosts should select one
+choice and use that choice's `apply_to` assignments instead of filling every
+alternative target.
 `required_inputs_by_field` mirrors those entries by field name for direct host
 lookups. `mcp_targets` names the MCP argument, optional nested path, type,
 required flag, and preferred alternative for each fillable target.
@@ -1258,9 +1261,10 @@ and `required_fields` into a single `next_step`: `run`,
 next step is `collect_required_fields`, `execution.required_inputs[]` gives the
 exact field, source path, placeholder, alternatives, allowed values, and split
 argument paths to use for collecting input and filling the action. Each entry
-also includes `mcp_targets` and `cli_targets`, so MCP and shell hosts can fill
-the selected tool arguments without joining separate argument metadata or
-parsing command strings.
+also includes `collect`, `mcp_targets`, and `cli_targets`; when `collect`
+contains `choices[]`, hosts pick exactly one choice and apply that choice's
+MCP/CLI assignments, so they do not need to parse `text|content` or infer which
+alternative is intended.
 `execution.required_inputs_by_field` exposes the same metadata keyed by field
 name.
 
