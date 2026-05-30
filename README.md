@@ -404,10 +404,13 @@ inferring intent from array order or action names. Action templates include a
 read-only actions from agent-authored writes, local setup changes, and actions
 that need explicit user approval. They also include `execution`, a concise
 next-step summary with `ready_to_run`, `next_step`,
-`missing_required_fields`, `required_inputs`, `required_inputs_by_field`, and
-`requires_user_confirmation`, so hosts can choose between running the action,
-collecting fields, asking for confirmation, or blocking automation without
-recomputing that policy. Each `required_inputs[]` entry names the field,
+`blocked_by`, `missing_required_fields`, `required_inputs`,
+`required_inputs_by_field`, and `requires_user_confirmation`, so hosts can
+choose between running the action, collecting fields, asking for confirmation,
+or blocking automation without recomputing that policy. `blocked_by` is a
+machine-readable reason list: `required_fields`, `user_confirmation`, or
+`unsafe_action`. Agents should treat `execution.ready_to_run`, not
+`safe_to_run` alone, as the immediate run gate. Each `required_inputs[]` entry names the field,
 original `argument_path`, split `argument_paths`, optional argument source,
 optional `selection_sources.required_input`, placeholder/value, `mcp_targets`,
 `cli_targets`, alternatives, and allowed values when present;
@@ -574,6 +577,9 @@ direct required-input lookups. Each operation also repeats that
 without losing the registry paths.
 `execution.required_inputs[]` mirrors required inputs in call-ready form, and
 `execution.required_inputs_by_field` indexes the same entries by field name.
+`execution.blocked_by` names why the operation is not immediately runnable, so
+hosts can avoid running placeholder commands when `safe_to_run` is true but
+required user input is still missing.
 Each entry includes `selection_sources.required_input`, `mcp_targets`, and
 `cli_targets`, so hosts do not need to join
 `required_fields_by_name` with `arguments_by_name` and `argument_sources`, or

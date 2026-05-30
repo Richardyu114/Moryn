@@ -385,6 +385,7 @@ function expectLifecycleActionSelectionSources(action: {
   execution?: {
     ready_to_run?: boolean;
     next_step?: string;
+    blocked_by?: string[];
     missing_required_fields?: string[];
     required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
     required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
@@ -418,6 +419,7 @@ function expectActionExecution(action: {
   execution?: {
     ready_to_run?: boolean;
     next_step?: string;
+    blocked_by?: string[];
     missing_required_fields?: string[];
     required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
     required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; selection_sources?: Record<string, string>; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
@@ -461,17 +463,23 @@ function expectActionExecution(action: {
   if (action.required_fields.length > 0) {
     expect(action.execution).toMatchObject({
       ready_to_run: false,
-      next_step: "collect_required_fields"
+      next_step: "collect_required_fields",
+      blocked_by: [
+        "required_fields",
+        ...(action.safety?.requires_user_confirmation ? ["user_confirmation"] : [])
+      ]
     });
   } else if (action.safety?.requires_user_confirmation) {
     expect(action.execution).toMatchObject({
       ready_to_run: false,
-      next_step: "confirm_with_user"
+      next_step: "confirm_with_user",
+      blocked_by: ["user_confirmation"]
     });
   } else {
     expect(action.execution).toMatchObject({
       ready_to_run: action.safe_to_run,
-      next_step: action.safe_to_run ? "run" : "do_not_auto_run"
+      next_step: action.safe_to_run ? "run" : "do_not_auto_run",
+      blocked_by: action.safe_to_run ? [] : ["unsafe_action"]
     });
   }
   expect(action.execution?.reason).toEqual(expect.any(String));
@@ -489,6 +497,7 @@ function expectDiscoveredLifecycleStepSelectionSources(action: {
   execution?: {
     ready_to_run?: boolean;
     next_step?: string;
+    blocked_by?: string[];
     missing_required_fields?: string[];
     required_inputs?: Array<{ field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;
     required_inputs_by_field?: Record<string, { field?: string; argument_path?: string; argument_paths?: string[]; mcp_targets?: Array<{ argument?: string; path?: string; type?: string; required?: boolean; preferred?: boolean }>; cli_targets?: Array<{ flag?: string; flags?: string[]; positional?: string; type?: string; required?: boolean; repeatable?: boolean; preferred?: boolean }> }>;

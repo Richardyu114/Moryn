@@ -10,6 +10,7 @@ describe("action execution readiness", () => {
     })).toEqual({
       ready_to_run: true,
       next_step: "run",
+      blocked_by: [],
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
@@ -40,6 +41,7 @@ describe("action execution readiness", () => {
     })).toEqual({
       ready_to_run: false,
       next_step: "collect_required_fields",
+      blocked_by: ["required_fields"],
       missing_required_fields: ["summary"],
       required_inputs: [{
         field: "summary",
@@ -264,6 +266,7 @@ describe("action execution readiness", () => {
     })).toEqual({
       ready_to_run: false,
       next_step: "confirm_with_user",
+      blocked_by: ["user_confirmation"],
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
@@ -280,6 +283,7 @@ describe("action execution readiness", () => {
     })).toEqual({
       ready_to_run: false,
       next_step: "confirm_with_user",
+      blocked_by: ["user_confirmation"],
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},

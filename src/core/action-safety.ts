@@ -7,6 +7,7 @@ export interface ActionSafety {
 }
 
 export type ActionExecutionNextStep = "run" | "collect_required_fields" | "confirm_with_user" | "do_not_auto_run";
+export type ActionExecutionBlocker = "required_fields" | "user_confirmation" | "unsafe_action";
 
 export interface ActionMcpTarget {
   argument: string;
@@ -69,6 +70,7 @@ type ArgumentInputMetadata = {
 export interface ActionExecution {
   ready_to_run: boolean;
   next_step: ActionExecutionNextStep;
+  blocked_by: ActionExecutionBlocker[];
   missing_required_fields: string[];
   required_inputs: ActionRequiredInput[];
   required_inputs_by_field: Record<string, ActionRequiredInput>;
@@ -195,6 +197,10 @@ export function actionExecution(input: {
     return {
       ready_to_run: false,
       next_step: "collect_required_fields",
+      blocked_by: [
+        "required_fields",
+        ...(safety.requires_user_confirmation ? ["user_confirmation" as const] : [])
+      ],
       missing_required_fields: [...input.required_fields],
       required_inputs: requiredInputs,
       required_inputs_by_field: requiredInputsByField,
@@ -207,6 +213,7 @@ export function actionExecution(input: {
     return {
       ready_to_run: false,
       next_step: "confirm_with_user",
+      blocked_by: ["user_confirmation"],
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
@@ -219,6 +226,7 @@ export function actionExecution(input: {
     return {
       ready_to_run: false,
       next_step: "do_not_auto_run",
+      blocked_by: ["unsafe_action"],
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
@@ -230,6 +238,7 @@ export function actionExecution(input: {
   return {
     ready_to_run: true,
     next_step: "run",
+    blocked_by: [],
     missing_required_fields: [],
     required_inputs: [],
     required_inputs_by_field: {},

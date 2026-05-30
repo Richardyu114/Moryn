@@ -208,6 +208,7 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.recall.execution).toEqual({
       ready_to_run: true,
       next_step: "run",
+      blocked_by: [],
       missing_required_fields: [],
       required_inputs: [],
       required_inputs_by_field: {},
@@ -225,6 +226,7 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.agent_finish.execution).toMatchObject({
       ready_to_run: false,
       next_step: "collect_required_fields",
+      blocked_by: ["required_fields"],
       missing_required_fields: ["summary"],
       required_inputs: [{
         field: "summary",
@@ -279,6 +281,7 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.promote.execution).toMatchObject({
       ready_to_run: false,
       next_step: "collect_required_fields",
+      blocked_by: ["required_fields"],
       missing_required_fields: ["record_id", "target_state"],
       required_inputs: [
         {
@@ -371,6 +374,7 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.project_init.execution).toMatchObject({
       ready_to_run: false,
       next_step: "collect_required_fields",
+      blocked_by: ["required_fields", "user_confirmation"],
       missing_required_fields: ["path"],
       required_inputs: [{
         field: "path",
