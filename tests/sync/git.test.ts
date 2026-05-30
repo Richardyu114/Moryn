@@ -52,6 +52,30 @@ async function expectInvalidArgument(action: () => Promise<unknown>, expectedMes
   expect(envelope.error.message).toMatch(expectedMessage);
 }
 
+async function expectInvalidSyncArgument(
+  action: () => Promise<unknown>,
+  expectedMessage: RegExp,
+  recommendedAction: string,
+  recoveryHint: unknown
+): Promise<void> {
+  let caught: unknown;
+  try {
+    await action();
+  } catch (error) {
+    caught = error;
+  }
+
+  if (!caught) {
+    throw new Error("Expected invalid sync argument");
+  }
+
+  const envelope = toErrorEnvelope(caught);
+  expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+  expect(envelope.error.message).toMatch(expectedMessage);
+  expect(envelope.error.recommended_action).toBe(recommendedAction);
+  expect(envelope.error.recovery_hint).toEqual(recoveryHint);
+}
+
 describe("git sync adapter", () => {
   it("exports stable sync result selection source paths", () => {
     expect(EXPORTED_SYNC_RESULT_SELECTION_SOURCES).toEqual(SYNC_RESULT_SELECTION_SOURCES);
@@ -78,29 +102,65 @@ describe("git sync adapter", () => {
         id: () => "device_invalid"
       });
 
-      await expectInvalidArgument(
+      await expectInvalidSyncArgument(
         () => initializeGitSync(store, ""),
-        /Invalid remoteUrl/
+        /Invalid remoteUrl/,
+        "retry sync with a non-empty remoteUrl",
+        {
+          rejected_argument: { argument: "remoteUrl", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          retry_with: { argument: "remoteUrl", value_placeholder: "<remoteUrl>" }
+        }
       );
-      await expectInvalidArgument(
+      await expectInvalidSyncArgument(
         () => initializeGitSync("", remote),
-        /Invalid storePath/
+        /Invalid storePath/,
+        "retry sync with a non-empty storePath",
+        {
+          rejected_argument: { argument: "storePath", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          retry_with: { argument: "storePath", value_placeholder: "<storePath>" }
+        }
       );
-      await expectInvalidArgument(
+      await expectInvalidSyncArgument(
         () => getGitSyncStatus(""),
-        /Invalid storePath/
+        /Invalid storePath/,
+        "retry sync with a non-empty storePath",
+        {
+          rejected_argument: { argument: "storePath", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          retry_with: { argument: "storePath", value_placeholder: "<storePath>" }
+        }
       );
-      await expectInvalidArgument(
+      await expectInvalidSyncArgument(
         () => pullGitSync(123 as never),
-        /Invalid storePath/
+        /Invalid storePath/,
+        "retry sync with a non-empty storePath",
+        {
+          rejected_argument: { argument: "storePath", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          retry_with: { argument: "storePath", value_placeholder: "<storePath>" }
+        }
       );
-      await expectInvalidArgument(
+      await expectInvalidSyncArgument(
         () => pushGitSync(store, null as never),
-        /Invalid sync options/
+        /Invalid sync options/,
+        "retry sync with a valid options object",
+        {
+          rejected_argument: { argument: "options", value: null },
+          expected: { kind: "object", required: false },
+          retry_with: { argument: "options", value_placeholder: { message: "<message>" } }
+        }
       );
-      await expectInvalidArgument(
+      await expectInvalidSyncArgument(
         () => pushGitSync(store, { message: "" }),
-        /Invalid message/
+        /Invalid message/,
+        "retry sync with a non-empty message",
+        {
+          rejected_argument: { argument: "message", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          retry_with: { argument: "message", value_placeholder: "<message>" }
+        }
       );
 
       await expect(access(join(store, ".git"))).rejects.toMatchObject({ code: "ENOENT" });

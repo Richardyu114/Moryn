@@ -79,22 +79,70 @@ export interface GitSyncResult {
   selection_sources: typeof SYNC_RESULT_SELECTION_SOURCES;
 }
 
-function validateRequiredString(value: unknown, name: string): asserts value is string {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Invalid argument: Invalid ${name}`);
+type SyncArgumentRecoveryHint =
+  | {
+      rejected_argument: { argument: "storePath" | "remoteUrl" | "message"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      retry_with: { argument: "storePath" | "remoteUrl" | "message"; value_placeholder: string };
+    }
+  | {
+      rejected_argument: { argument: "options"; value: unknown };
+      expected: { kind: "object"; required: false };
+      retry_with: { argument: "options"; value_placeholder: { message: "<message>" } };
+    };
+
+class SyncArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: SyncArgumentRecoveryHint;
+
+  constructor(message: string, recommendedAction: string, recoveryHint: SyncArgumentRecoveryHint) {
+    super(message);
+    this.name = "SyncArgumentError";
+    this.recommended_action = recommendedAction;
+    this.recovery_hint = recoveryHint;
   }
 }
 
-function validateOptionalString(value: unknown, name: string): void {
+function invalidSyncStringError(name: "storePath" | "remoteUrl" | "message", value: unknown): SyncArgumentError {
+  return new SyncArgumentError(
+    `Invalid argument: Invalid ${name}`,
+    `retry sync with a non-empty ${name}`,
+    {
+      rejected_argument: { argument: name, value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: name, value_placeholder: `<${name}>` }
+    }
+  );
+}
+
+function invalidSyncOptionsError(options: unknown): SyncArgumentError {
+  return new SyncArgumentError(
+    "Invalid argument: Invalid sync options",
+    "retry sync with a valid options object",
+    {
+      rejected_argument: { argument: "options", value: options },
+      expected: { kind: "object", required: false },
+      retry_with: { argument: "options", value_placeholder: { message: "<message>" } }
+    }
+  );
+}
+
+function validateRequiredString(value: unknown, name: "storePath" | "remoteUrl"): asserts value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw invalidSyncStringError(name, value);
+  }
+}
+
+function validateOptionalString(value: unknown, name: "message"): void {
   if (value === undefined) return;
   if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Invalid argument: Invalid ${name}`);
+    throw invalidSyncStringError(name, value);
   }
 }
 
 function validateSyncOptions(options: unknown): asserts options is { message?: string } {
   if (options === null || typeof options !== "object" || Array.isArray(options)) {
-    throw new Error("Invalid argument: Invalid sync options");
+    throw invalidSyncOptionsError(options);
   }
   validateOptionalString((options as { message?: unknown }).message, "message");
 }
