@@ -3704,16 +3704,54 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
-      try {
-        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "sync", "--push", "--pull"]);
-        throw new Error("Expected moryn sync to reject conflicting operation flags");
-      } catch (error) {
-        if (!("stderr" in (error as object))) throw error;
-        const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
-        expect(parsed.ok).toBe(false);
-        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
-        expect(parsed.error.message).toContain("choose only one sync operation");
-        expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+      for (const { args, rejectedArguments } of [
+        {
+          args: ["sync", "--push", "--pull"],
+          rejectedArguments: [
+            { option: "--push", value: true },
+            { option: "--pull", value: true }
+          ]
+        },
+        {
+          args: ["sync", "--status", "--push"],
+          rejectedArguments: [
+            { option: "--status", value: true },
+            { option: "--push", value: true }
+          ]
+        }
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error("Expected moryn sync to reject conflicting operation flags");
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recommended_action: string;
+              recovery_hint: {
+                rejected_arguments: Array<{ option: string; value: boolean }>;
+                expected: { kind: string; options: string[] };
+                retry_with: Array<{ option: string }>;
+              };
+            };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain("choose only one sync operation");
+          expect(parsed.error.recommended_action).toBe("retry with exactly one sync operation");
+          expect(parsed.error.recovery_hint).toEqual({
+            rejected_arguments: rejectedArguments,
+            expected: { kind: "choose_one", options: ["--status", "--push", "--pull"] },
+            retry_with: [
+              { option: "--status" },
+              { option: "--push" },
+              { option: "--pull" }
+            ]
+          });
+        }
       }
     });
   });
@@ -3731,11 +3769,28 @@ describe("moryn CLI", () => {
           throw new Error(`Expected moryn ${args.join(" ")} to reject message without push`);
         } catch (error) {
           if (!("stderr" in (error as object))) throw error;
-          const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recommended_action: string;
+              recovery_hint: {
+                rejected_argument: { option: string; value: string };
+                expected: { kind: string; option: string; requires: string };
+                retry_with: { required_option: string; option: string; value_placeholder: string };
+              };
+            };
+          };
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain("--message requires --push");
-          expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+          expect(parsed.error.recommended_action).toBe("retry with --push when using --message");
+          expect(parsed.error.recovery_hint).toEqual({
+            rejected_argument: { option: "--message", value: "ignored message" },
+            expected: { kind: "requires_option", option: "--message", requires: "--push" },
+            retry_with: { required_option: "--push", option: "--message", value_placeholder: "<message>" }
+          });
         }
       }
     });

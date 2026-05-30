@@ -95,6 +95,16 @@ type CliArgumentRecoveryHint =
       retry_with: Array<{ option: "--text" | "--content-json"; value_placeholder: string }>;
     }
   | {
+      rejected_arguments: Array<{ option: "--status" | "--push" | "--pull"; value: true }>;
+      expected: { kind: "choose_one"; options: ["--status", "--push", "--pull"] };
+      retry_with: Array<{ option: "--status" | "--push" | "--pull" }>;
+    }
+  | {
+      rejected_argument: { option: "--message"; value: string };
+      expected: { kind: "requires_option"; option: "--message"; requires: "--push" };
+      retry_with: { required_option: "--push"; option: "--message"; value_placeholder: "<message>" };
+    }
+  | {
       rejected_argument: { option: "--set"; value: string };
       expected: {
         kind: "path_assignment";
@@ -258,6 +268,38 @@ function setAssignmentCliArgumentError(assignment: string): CliArgumentError {
   );
 }
 
+const SYNC_OPERATION_RETRY_OPTIONS = [
+  { option: "--status" },
+  { option: "--push" },
+  { option: "--pull" }
+] as const;
+
+type SyncOperationArgument = { option: "--status" | "--push" | "--pull"; value: true };
+
+function syncOperationChoiceCliArgumentError(rejectedArguments: SyncOperationArgument[]): CliArgumentError {
+  return new CliArgumentError(
+    "Invalid argument: choose only one sync operation",
+    "retry with exactly one sync operation",
+    {
+      rejected_arguments: rejectedArguments,
+      expected: { kind: "choose_one", options: ["--status", "--push", "--pull"] },
+      retry_with: [...SYNC_OPERATION_RETRY_OPTIONS]
+    }
+  );
+}
+
+function syncMessageRequiresPushCliArgumentError(message: string): CliArgumentError {
+  return new CliArgumentError(
+    "Invalid argument: --message requires --push",
+    "retry with --push when using --message",
+    {
+      rejected_argument: { option: "--message", value: message },
+      expected: { kind: "requires_option", option: "--message", requires: "--push" },
+      retry_with: { required_option: "--push", option: "--message", value_placeholder: "<message>" }
+    }
+  );
+}
+
 function createCliEngine() {
   const path = storePath();
   return createEngine({
@@ -384,12 +426,16 @@ function collectNonEmptyOption(option: string) {
 }
 
 function validateSyncOperationOptions(options: { status?: boolean; push?: boolean; pull?: boolean; message?: string }): void {
-  const selected = [options.status, options.push, options.pull].filter(Boolean).length;
-  if (selected > 1) {
-    throw new Error("Invalid argument: choose only one sync operation");
+  const selected: SyncOperationArgument[] = [
+    ...(options.status ? [{ option: "--status" as const, value: true as const }] : []),
+    ...(options.push ? [{ option: "--push" as const, value: true as const }] : []),
+    ...(options.pull ? [{ option: "--pull" as const, value: true as const }] : [])
+  ];
+  if (selected.length > 1) {
+    throw syncOperationChoiceCliArgumentError(selected);
   }
   if (options.message !== undefined && !options.push) {
-    throw new Error("Invalid argument: --message requires --push");
+    throw syncMessageRequiresPushCliArgumentError(options.message);
   }
 }
 
