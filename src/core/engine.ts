@@ -1,7 +1,7 @@
 import { appendEvent, readEvents } from "./store.js";
 import { rebuildDerivedViews } from "./derived.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
-import { RECORD_KINDS, RECORD_SCOPES, isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
+import { PROVENANCE_METHODS, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES, isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { commandForPromoteContext, InvalidRefreshCursorError, PROMOTE_CANDIDATE_WHEN, withNextActionMetadata, type MorynErrorNextAction } from "./errors.js";
@@ -581,6 +581,190 @@ class WriteSourceError extends Error {
   }
 }
 
+type WriteMetadataRecoveryHint =
+  | {
+      rejected_argument: { argument: "state"; value: unknown };
+      expected: { kind: "allowed_values"; allowed_values: string[] };
+      retry_with: { argument: "state"; value_placeholder: "candidate" };
+    }
+  | {
+      rejected_argument: { argument: "priority"; value: unknown };
+      expected: { kind: "allowed_values"; allowed_values: string[] };
+      retry_with: { argument: "priority"; value_placeholder: "normal" };
+    }
+  | {
+      rejected_argument: { argument: "confidence"; value: unknown };
+      expected: { kind: "number_range"; min: 0; max: 1; inclusive: true };
+      retry_with: { argument: "confidence"; value_placeholder: 0.5 };
+    }
+  | {
+      rejected_argument: { argument: "confirmed"; value: unknown };
+      expected: { kind: "boolean" };
+      retry_with: { argument: "confirmed"; value_placeholder: true };
+    };
+
+class WriteMetadataError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: WriteMetadataRecoveryHint;
+
+  constructor(message: string, recommendedAction: string, recoveryHint: WriteMetadataRecoveryHint) {
+    super(message);
+    this.name = "WriteMetadataError";
+    this.recommended_action = recommendedAction;
+    this.recovery_hint = recoveryHint;
+  }
+}
+
+function invalidWriteStateError(state: unknown): WriteMetadataError {
+  return new WriteMetadataError(
+    "Invalid argument: Invalid state",
+    "retry write with a supported state",
+    {
+      rejected_argument: { argument: "state", value: state },
+      expected: { kind: "allowed_values", allowed_values: [...RECORD_STATES] },
+      retry_with: { argument: "state", value_placeholder: "candidate" }
+    }
+  );
+}
+
+function invalidWriteConfidenceError(confidence: unknown): WriteMetadataError {
+  return new WriteMetadataError(
+    "Invalid argument: Invalid confidence",
+    "retry write with confidence between 0 and 1",
+    {
+      rejected_argument: { argument: "confidence", value: confidence },
+      expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+      retry_with: { argument: "confidence", value_placeholder: 0.5 }
+    }
+  );
+}
+
+function invalidWritePriorityError(priority: unknown): WriteMetadataError {
+  return new WriteMetadataError(
+    "Invalid argument: Invalid priority",
+    "retry write with a supported priority",
+    {
+      rejected_argument: { argument: "priority", value: priority },
+      expected: { kind: "allowed_values", allowed_values: [...RECORD_PRIORITIES] },
+      retry_with: { argument: "priority", value_placeholder: "normal" }
+    }
+  );
+}
+
+function invalidWriteConfirmedError(confirmed: unknown): WriteMetadataError {
+  return new WriteMetadataError(
+    "Invalid argument: Invalid confirmed",
+    "retry write with a boolean confirmed value",
+    {
+      rejected_argument: { argument: "confirmed", value: confirmed },
+      expected: { kind: "boolean" },
+      retry_with: { argument: "confirmed", value_placeholder: true }
+    }
+  );
+}
+
+type WriteProvenanceRecoveryHint =
+  | {
+      rejected_argument: { argument: "provenance"; value: unknown };
+      expected: { kind: "object"; required: false };
+      retry_with: {
+        argument: "provenance";
+        value_placeholder: { derived_from: ["<record_id>"]; reason: "<reason>" };
+      };
+    }
+  | {
+      rejected_argument: { argument: "provenance.derived_from"; value: unknown };
+      expected: { kind: "array_of_non_empty_strings" };
+      retry_with: { argument: "provenance.derived_from"; value_placeholder: ["<record_id>"] };
+    }
+  | {
+      rejected_argument: { argument: "provenance.reason"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      retry_with: { argument: "provenance.reason"; value_placeholder: "<reason>" };
+    }
+  | {
+      rejected_argument: { argument: "provenance.method"; value: unknown };
+      expected: { kind: "allowed_values"; allowed_values: string[] };
+      retry_with: { argument: "provenance.method"; value_placeholder: "agent-proposed" };
+    }
+  | {
+      rejected_argument: { argument: "provenance.promoted_at"; value: unknown };
+      expected: { kind: "iso_datetime"; format: "RFC3339 timestamp with timezone" };
+      retry_with: { argument: "provenance.promoted_at"; value_placeholder: "<ISO datetime>" };
+    };
+
+class WriteProvenanceError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: WriteProvenanceRecoveryHint;
+
+  constructor(message: string, recommendedAction: string, recoveryHint: WriteProvenanceRecoveryHint) {
+    super(message);
+    this.name = "WriteProvenanceError";
+    this.recommended_action = recommendedAction;
+    this.recovery_hint = recoveryHint;
+  }
+}
+
+function invalidWriteProvenanceError(provenance: unknown): WriteProvenanceError {
+  return new WriteProvenanceError(
+    "Invalid argument: Invalid provenance",
+    "retry write with a valid provenance object",
+    {
+      rejected_argument: { argument: "provenance", value: provenance },
+      expected: { kind: "object", required: false },
+      retry_with: { argument: "provenance", value_placeholder: { derived_from: ["<record_id>"], reason: "<reason>" } }
+    }
+  );
+}
+
+function invalidWriteProvenanceDerivedFromError(derivedFrom: unknown): WriteProvenanceError {
+  return new WriteProvenanceError(
+    "Invalid argument: Invalid provenance.derived_from",
+    "retry write with valid provenance source record ids",
+    {
+      rejected_argument: { argument: "provenance.derived_from", value: derivedFrom },
+      expected: { kind: "array_of_non_empty_strings" },
+      retry_with: { argument: "provenance.derived_from", value_placeholder: ["<record_id>"] }
+    }
+  );
+}
+
+function invalidWriteProvenanceReasonError(reason: unknown): WriteProvenanceError {
+  return new WriteProvenanceError(
+    "Invalid argument: Invalid provenance.reason",
+    "retry write with a non-empty provenance reason",
+    {
+      rejected_argument: { argument: "provenance.reason", value: reason },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument: "provenance.reason", value_placeholder: "<reason>" }
+    }
+  );
+}
+
+function invalidWriteProvenanceMethodError(method: unknown): WriteProvenanceError {
+  return new WriteProvenanceError(
+    "Invalid argument: Invalid provenance.method",
+    "retry write with a supported provenance method",
+    {
+      rejected_argument: { argument: "provenance.method", value: method },
+      expected: { kind: "allowed_values", allowed_values: [...PROVENANCE_METHODS] },
+      retry_with: { argument: "provenance.method", value_placeholder: "agent-proposed" }
+    }
+  );
+}
+
+function invalidWriteProvenancePromotedAtError(promotedAt: unknown): WriteProvenanceError {
+  return new WriteProvenanceError(
+    "Invalid argument: Invalid provenance.promoted_at",
+    "retry write with a valid provenance timestamp",
+    {
+      rejected_argument: { argument: "provenance.promoted_at", value: promotedAt },
+      expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
+      retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
+    }
+  );
+}
+
 function validateWriteInput(input: WriteInput): void {
   assertPlainObject(input, "write input");
   if (!recordKindSchema.safeParse(input.kind).success) throw invalidWriteKindError(input.kind);
@@ -607,22 +791,22 @@ function validateWriteInput(input: WriteInput): void {
   if (input.content.format !== undefined && input.content.format !== "text" && input.content.format !== "json") {
     throw invalidWriteContentFormatError(input.content.format);
   }
-  if (input.state !== undefined && !recordStateSchema.safeParse(input.state).success) throw new Error("Invalid argument: Invalid state");
+  if (input.state !== undefined && !recordStateSchema.safeParse(input.state).success) throw invalidWriteStateError(input.state);
   if (input.confidence !== undefined && (!Number.isFinite(input.confidence) || input.confidence < 0 || input.confidence > 1)) {
-    throw new Error("Invalid argument: Invalid confidence");
+    throw invalidWriteConfidenceError(input.confidence);
   }
-  if (input.priority !== undefined && !recordPrioritySchema.safeParse(input.priority).success) throw new Error("Invalid argument: Invalid priority");
+  if (input.priority !== undefined && !recordPrioritySchema.safeParse(input.priority).success) throw invalidWritePriorityError(input.priority);
   if (!recordSourceSchema.safeParse(input.source).success) throw new WriteSourceError(input.source);
-  validateOptionalConfirmed(input.confirmed);
+  if (input.confirmed !== undefined && typeof input.confirmed !== "boolean") throw invalidWriteConfirmedError(input.confirmed);
   if (input.provenance !== undefined) {
     if (typeof input.provenance !== "object" || input.provenance === null || Array.isArray(input.provenance)) {
-      throw new Error("Invalid argument: Invalid provenance");
+      throw invalidWriteProvenanceError(input.provenance);
     }
     if (input.provenance.derived_from !== undefined && (!Array.isArray(input.provenance.derived_from) || !input.provenance.derived_from.every((recordId) => typeof recordId === "string" && recordId.length > 0))) {
-      throw new Error("Invalid argument: Invalid provenance.derived_from");
+      throw invalidWriteProvenanceDerivedFromError(input.provenance.derived_from);
     }
     if (input.provenance.reason !== undefined && (typeof input.provenance.reason !== "string" || !input.provenance.reason.length)) {
-      throw new Error("Invalid argument: Invalid provenance.reason");
+      throw invalidWriteProvenanceReasonError(input.provenance.reason);
     }
     if (
       input.provenance.method !== undefined
@@ -630,13 +814,13 @@ function validateWriteInput(input: WriteInput): void {
       && input.provenance.method !== "rule-promoted"
       && input.provenance.method !== "user-confirmed"
     ) {
-      throw new Error("Invalid argument: Invalid provenance.method");
+      throw invalidWriteProvenanceMethodError(input.provenance.method);
     }
     if (
       input.provenance.promoted_at !== undefined
       && !isoDateTimeSchema.safeParse(input.provenance.promoted_at).success
     ) {
-      throw new Error("Invalid argument: Invalid provenance.promoted_at");
+      throw invalidWriteProvenancePromotedAtError(input.provenance.promoted_at);
     }
   }
 }

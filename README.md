@@ -722,9 +722,10 @@ write-metadata, choose-one, path-assignment, revise-patch, and refresh cursor
 validation errors also include `recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
 allowed values, non-empty constraints, integer or numeric bounds, JSON object,
-write `kind`/`type`/`scope`/`project_id`, write content, tag, and source-client
-expectations, MCP argument requirements such as `type`/`scope`, dependency rules
-such as `--message` requiring `--push`, project-context requirements,
+write `kind`/`type`/`scope`/`project_id`, write content, write metadata such as
+`tags`, `source.client`, `state`, `priority`, `confidence`, `confirmed`, and
+`provenance.*`, MCP argument requirements such as `type`/`scope`, dependency
+rules such as `--message` requiring `--push`, project-context requirements,
 path-assignment shape, revise patch rules, or ISO datetime cursor requirements,
 `missing_argument` or `missing_one_of` names omitted inputs, `rejected_patch`
 names invalid patch paths or patch payloads, `rejected_arguments` lists

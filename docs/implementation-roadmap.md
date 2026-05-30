@@ -273,7 +273,8 @@ Deliverables:
   agents can recover from invalid or omitted write `kind`/`type`/`scope`/
   `project_id`, missing MCP write `type`/`scope`, omitted project context for
   project-scoped writes, empty or malformed write `content`, invalid write
-  `tags`/`source.client`, empty
+  `tags`/`source.client`, `state`/`priority`/`confidence`/`confirmed`, invalid
+  `provenance.*`, empty
   placeholders such as `--text ""`, malformed `--content-json`, malformed
   `--set path=value` assignments, managed-field revise attempts, invalid revise
   patches, conflicting write content or sync operation inputs, invalid sync

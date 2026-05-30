@@ -823,7 +823,20 @@ describe("core engine", () => {
         expected: { kind: "non_empty_string", min_length: 1 },
         retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
       });
-      await expectInvalidArgument({
+      await expectInvalidWriteShapeArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Invalid state.", format: "text" },
+        state: "published" as never,
+        source: { client: "test" }
+      }, "Invalid state", "retry write with a supported state", {
+        rejected_argument: { argument: "state", value: "published" },
+        expected: { kind: "allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
+        retry_with: { argument: "state", value_placeholder: "candidate" }
+      });
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
@@ -831,7 +844,24 @@ describe("core engine", () => {
         content: { text: "Invalid confidence.", format: "text" },
         confidence: 2,
         source: { client: "test" }
-      }, "Invalid confidence");
+      }, "Invalid confidence", "retry write with confidence between 0 and 1", {
+        rejected_argument: { argument: "confidence", value: 2 },
+        expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+        retry_with: { argument: "confidence", value_placeholder: 0.5 }
+      });
+      await expectInvalidWriteShapeArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Invalid priority.", format: "text" },
+        priority: "urgent" as never,
+        source: { client: "test" }
+      }, "Invalid priority", "retry write with a supported priority", {
+        rejected_argument: { argument: "priority", value: "urgent" },
+        expected: { kind: "allowed_values", allowed_values: ["low", "normal", "high"] },
+        retry_with: { argument: "priority", value_placeholder: "normal" }
+      });
       await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
@@ -918,7 +948,7 @@ describe("core engine", () => {
         expected: { kind: "non_empty_string", min_length: 1 },
         retry_with: { argument: "source.client", value_placeholder: "<client>" }
       });
-      await expectInvalidArgument({
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
@@ -926,8 +956,25 @@ describe("core engine", () => {
         content: { text: "Invalid confirmed.", format: "text" },
         source: { client: "test" },
         confirmed: "yes" as never
-      }, "Invalid confirmed");
-      await expectInvalidArgument({
+      }, "Invalid confirmed", "retry write with a boolean confirmed value", {
+        rejected_argument: { argument: "confirmed", value: "yes" },
+        expected: { kind: "boolean" },
+        retry_with: { argument: "confirmed", value_placeholder: true }
+      });
+      await expectInvalidWriteShapeArgument({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Invalid provenance.", format: "text" },
+        source: { client: "test" },
+        provenance: "imported" as never
+      }, "Invalid provenance", "retry write with a valid provenance object", {
+        rejected_argument: { argument: "provenance", value: "imported" },
+        expected: { kind: "object", required: false },
+        retry_with: { argument: "provenance", value_placeholder: { derived_from: ["<record_id>"], reason: "<reason>" } }
+      });
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
@@ -935,8 +982,12 @@ describe("core engine", () => {
         content: { text: "Invalid provenance.", format: "text" },
         source: { client: "test" },
         provenance: { method: "imported" } as never
-      }, "Invalid provenance");
-      await expectInvalidArgument({
+      }, "Invalid provenance.method", "retry write with a supported provenance method", {
+        rejected_argument: { argument: "provenance.method", value: "imported" },
+        expected: { kind: "allowed_values", allowed_values: ["agent-proposed", "rule-promoted", "user-confirmed"] },
+        retry_with: { argument: "provenance.method", value_placeholder: "agent-proposed" }
+      });
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
@@ -944,8 +995,12 @@ describe("core engine", () => {
         content: { text: "Empty provenance source.", format: "text" },
         source: { client: "test" },
         provenance: { derived_from: [""] }
-      }, "Invalid provenance.derived_from");
-      await expectInvalidArgument({
+      }, "Invalid provenance.derived_from", "retry write with valid provenance source record ids", {
+        rejected_argument: { argument: "provenance.derived_from", value: [""] },
+        expected: { kind: "array_of_non_empty_strings" },
+        retry_with: { argument: "provenance.derived_from", value_placeholder: ["<record_id>"] }
+      });
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
@@ -953,8 +1008,12 @@ describe("core engine", () => {
         content: { text: "Empty provenance reason.", format: "text" },
         source: { client: "test" },
         provenance: { reason: "" }
-      }, "Invalid provenance.reason");
-      await expectInvalidArgument({
+      }, "Invalid provenance.reason", "retry write with a non-empty provenance reason", {
+        rejected_argument: { argument: "provenance.reason", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        retry_with: { argument: "provenance.reason", value_placeholder: "<reason>" }
+      });
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
@@ -962,8 +1021,12 @@ describe("core engine", () => {
         content: { text: "Invalid provenance timestamp.", format: "text" },
         source: { client: "test" },
         provenance: { promoted_at: "not-a-date" }
-      }, "Invalid provenance.promoted_at");
-      await expectInvalidArgument({
+      }, "Invalid provenance.promoted_at", "retry write with a valid provenance timestamp", {
+        rejected_argument: { argument: "provenance.promoted_at", value: "not-a-date" },
+        expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
+        retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
+      });
+      await expectInvalidWriteShapeArgument({
         kind: "memory",
         type: "decision",
         scope: "project",
@@ -971,7 +1034,11 @@ describe("core engine", () => {
         content: { text: "Date-only provenance timestamp.", format: "text" },
         source: { client: "test" },
         provenance: { promoted_at: "2026-05-27" }
-      }, "Invalid provenance.promoted_at");
+      }, "Invalid provenance.promoted_at", "retry write with a valid provenance timestamp", {
+        rejected_argument: { argument: "provenance.promoted_at", value: "2026-05-27" },
+        expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
+        retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
+      });
 
       expect(await readEvents(storePath)).toHaveLength(0);
     });
