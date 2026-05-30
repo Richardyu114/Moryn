@@ -33,6 +33,7 @@ export type OperationContract = {
   interfaces: OperationInterfaces;
   safety: ActionSafety;
   execution: ActionExecution;
+  selection_sources: Record<string, string>;
 };
 
 type OperationRequiredFieldMetadata = RequiredFieldMetadata & {
@@ -67,7 +68,7 @@ type OperationArgumentMetadataInput = Omit<OperationArgumentMetadata, "name"> & 
   name?: string;
 };
 
-type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "arguments_by_name" | "safety" | "execution"> & {
+type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "arguments_by_name" | "safety" | "execution" | "selection_sources"> & {
   required_fields_by_name?: Record<string, OperationRequiredFieldMetadata>;
   arguments_by_name?: Record<string, OperationArgumentMetadataInput>;
 };
@@ -134,7 +135,8 @@ function operationContract(input: OperationContractInput): OperationContract {
       arguments_by_name,
       argument_sources: input.argument_sources,
       required_input_selection_sources: requiredInputSelectionSources(OPERATION_CONTRACTS_SELECTION_SOURCES)
-    })
+    }),
+    selection_sources: OPERATION_CONTRACTS_SELECTION_SOURCES
   };
 }
 

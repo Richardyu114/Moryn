@@ -147,6 +147,10 @@ describe("package smoke test", () => {
     expect(response.operations_by_cli_command["moryn agent enter"]).toBe(response.operations_by_id.agent_enter);
     expect(response.operations_by_cli_command["moryn contracts operations"]).toBe(response.operations_by_id.operation_contracts);
     expect(response.operations_by_cli_command["moryn write --kind <kind> --type <type> --scope <scope> --text <text>"]).toBe(response.operations_by_id.write);
+    expect(response.operations_by_id.agent_enter.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(response.operations_by_id.write.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(response.operations_by_mcp_tool.write.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
+    expect(response.operations_by_cli_command["moryn write --kind <kind> --type <type> --scope <scope> --text <text>"].selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
     expect(response.operations_by_id.recall.execution).toEqual({
       ready_to_run: true,
       next_step: "run",

@@ -233,6 +233,10 @@ Deliverables:
   reverse lookup maps keyed by MCP tool and CLI command, so agents can discover
   how to call Moryn without hallucinating command names, placeholders, optional
   arguments, defaults, enum values, operation ids, or argument shapes.
+- Done: Each static operation contract now repeats operation-level
+  `selection_sources`, so hosts can hand a single `operations_by_id`,
+  `operations_by_mcp_tool`, or `operations_by_cli_command` entry to an agent
+  without losing the stable registry paths.
 - Done: Operation contracts and runtime action templates now expose
   `execution` readiness summaries with `ready_to_run`, `next_step`,
   missing required fields, `required_inputs`, `required_inputs_by_field`, and

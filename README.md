@@ -557,7 +557,9 @@ interfaces, `operations_by_mcp_tool`, `operations_by_cli_command`,
 selection sources include `operations_by_mcp_tool.<tool>` and
 `operations_by_cli_command.<command>` for direct reverse lookups, plus
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` for
-direct required-input lookups.
+direct required-input lookups. Each operation also repeats that
+`selection_sources` map locally, so a host can pass around one operation object
+without losing the registry paths.
 `execution.required_inputs[]` mirrors required inputs in call-ready form, and
 `execution.required_inputs_by_field` indexes the same entries by field name.
 Each entry includes `selection_sources.required_input`, `mcp_targets`, and

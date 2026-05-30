@@ -448,9 +448,10 @@ MCP tool: `operation_contracts`.
 The response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, reverse indexes `operations_by_mcp_tool` and
 `operations_by_cli_command`, and selection sources for those keyed paths. Each
-operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
-`execution`, `required_fields`, `required_fields_by_name`, `arguments_by_name`,
-and `argument_sources`. `execution` summarizes the
+operation carries CLI/MCP interfaces, action-local `selection_sources`,
+`safe_to_run`, `safety`, `required_when`, `execution`, `required_fields`,
+`required_fields_by_name`, `arguments_by_name`, and `argument_sources`.
+`execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, `required_inputs_by_field`, and
 `requires_user_confirmation`, so hosts can decide whether to run, collect
@@ -590,9 +591,11 @@ enum `allowed_values`:
 
 Library hosts can call `getOperationContracts()` or import
 `OPERATION_CONTRACTS_SELECTION_SOURCES` from the package entrypoint. The
-operation registry is static discovery metadata; after a runtime response
-returns `next.actions`, agents should prefer those returned actions because
-they include the live project, sync, cursor, and handoff context.
+operation registry is static discovery metadata. Each operation repeats the
+registry selection source map locally so selected operation entries remain
+self-describing outside the aggregate registry. After a runtime response returns
+`next.actions`, agents should prefer those returned actions because they include
+the live project, sync, cursor, and handoff context.
 
 ### `init`
 
