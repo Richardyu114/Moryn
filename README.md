@@ -622,7 +622,10 @@ maps operation ids, MCP tools, and display CLI commands to the single-operation
 lookup commands. Each compact entry also carries an `execution_hint` with the
 `execution.ready_to_run` guard, next step, missing required fields, and keyed
 required-input paths, so agents can decide whether to fetch details, collect
-inputs, or call the operation without recombining fields. Its
+inputs, or call the operation without recombining fields. Each entry's
+`full_contract_lookup` gives concrete package, CLI, and MCP calls for that
+operation, so agents do not need to substitute placeholders in the top-level
+lookup templates. Its
 `selection_sources` names those compact index paths so hosts can cite or
 dereference the mapping without guessing field names. When a
 host needs the full static directory, it can run

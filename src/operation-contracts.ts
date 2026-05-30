@@ -125,6 +125,22 @@ export type OperationContractIndexEntry = {
       by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>";
     };
   };
+  full_contract_lookup: {
+    package_helper: string;
+    cli: {
+      command: string;
+      executable: "moryn";
+      args: string[];
+      exec_file: {
+        executable: "moryn";
+        args: string[];
+      };
+    };
+    mcp: {
+      tool: "operation_contracts";
+      arguments: { operation: string };
+    };
+  };
 };
 
 export type OperationContractIndexResponse = {
@@ -1218,6 +1234,26 @@ function singleOperationContractResponse(contract: OperationContract, matchedSou
   };
 }
 
+function operationContractLookup(operation: string): OperationContractIndexEntry["full_contract_lookup"] {
+  const args = ["contracts", "operations", "--operation", operation];
+  return {
+    package_helper: `getOperationContract('${operation}')`,
+    cli: {
+      command: commandLineForCliInterface("moryn", args),
+      executable: "moryn",
+      args,
+      exec_file: {
+        executable: "moryn",
+        args
+      }
+    },
+    mcp: {
+      tool: "operation_contracts",
+      arguments: { operation }
+    }
+  };
+}
+
 function operationContractIndexEntry(operation: OperationContract): OperationContractIndexEntry {
   return {
     operation: operation.operation,
@@ -1240,7 +1276,8 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
         by_field: "execution.required_inputs_by_field.<field>",
         by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>"
       }
-    }
+    },
+    full_contract_lookup: operationContractLookup(operation.operation)
   };
 }
 

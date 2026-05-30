@@ -738,6 +738,22 @@ describe("published package smoke", () => {
               by_field: "execution.required_inputs_by_field.<field>",
               by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>"
             }
+          },
+          full_contract_lookup: {
+            package_helper: "getOperationContract('agent_finish')",
+            cli: {
+              command: "moryn contracts operations --operation agent_finish",
+              executable: "moryn",
+              args: ["contracts", "operations", "--operation", "agent_finish"],
+              exec_file: {
+                executable: "moryn",
+                args: ["contracts", "operations", "--operation", "agent_finish"]
+              }
+            },
+            mcp: {
+              tool: "operation_contracts",
+              arguments: { operation: "agent_finish" }
+            }
           }
         });
         expect(parsedOperationsIndex.operations_by_mcp_tool.agent_finish).toBe("agent_finish");

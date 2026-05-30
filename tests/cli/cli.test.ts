@@ -1535,7 +1535,7 @@ describe("moryn CLI", () => {
         };
       };
       operations: Array<{ operation: string; mcp_tool: string; cli_command: string; next_step: string }>;
-      operations_by_id: Record<string, { operation: string; mcp_tool: string; cli_command: string; required_fields: string[]; missing_required_fields: string[]; execution_hint: Record<string, unknown> }>;
+      operations_by_id: Record<string, { operation: string; mcp_tool: string; cli_command: string; required_fields: string[]; missing_required_fields: string[]; execution_hint: Record<string, unknown>; full_contract_lookup: Record<string, unknown> }>;
       operations_by_mcp_tool: Record<string, string>;
       operations_by_cli_command: Record<string, string>;
       selection_sources: Record<string, string>;
@@ -1577,6 +1577,22 @@ describe("moryn CLI", () => {
         required_input_sources: {
           by_field: "execution.required_inputs_by_field.<field>",
           by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>"
+        }
+      },
+      full_contract_lookup: {
+        package_helper: "getOperationContract('agent_finish')",
+        cli: {
+          command: "moryn contracts operations --operation agent_finish",
+          executable: "moryn",
+          args: ["contracts", "operations", "--operation", "agent_finish"],
+          exec_file: {
+            executable: "moryn",
+            args: ["contracts", "operations", "--operation", "agent_finish"]
+          }
+        },
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { operation: "agent_finish" }
         }
       }
     });
