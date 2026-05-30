@@ -980,6 +980,12 @@ describe("core engine", () => {
         const envelope = toErrorEnvelope(error);
         expect(envelope.error.code).toBe("INVALID_ARGUMENT");
         expect(envelope.error.message).toContain("Invalid patch");
+        expect(envelope.error.recommended_action).toBe("retry revise with a valid patch");
+        expect(envelope.error.recovery_hint).toEqual({
+          rejected_patch: { patch: { confidence: 2 } },
+          expected: { kind: "valid_record_after_patch" },
+          retry_with: { patch_placeholder: { "content.text": "<non-empty text>" } }
+        });
       }
       await expect(engine.revise({
         record_id: written.record.id,

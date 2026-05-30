@@ -458,16 +458,15 @@ function validateWriteInput(input: WriteInput): void {
 function validateRevisionInput(input: RevisionInput): void {
   assertPlainObject(input, "revise input");
   validateRecordId(input.record_id);
-  if (
-    typeof input.patch !== "object" ||
-    input.patch === null ||
-    Array.isArray(input.patch) ||
-    Object.keys(input.patch).length === 0
-  ) {
-    throw new Error("Invalid argument: Invalid patch");
+  if (typeof input.patch !== "object" || input.patch === null || Array.isArray(input.patch)) {
+    throw invalidRevisionPatchShapeError(input.patch, "patch_object");
   }
-  if (!Object.keys(input.patch).every(isValidPatchPath)) {
-    throw new Error("Invalid argument: Invalid patch");
+  if (Object.keys(input.patch).length === 0) {
+    throw emptyRevisionPatchError(input.patch);
+  }
+  const invalidPath = Object.keys(input.patch).find((path) => !isValidPatchPath(path));
+  if (invalidPath !== undefined) {
+    throw invalidRevisionPatchPathError(invalidPath, input.patch[invalidPath]);
   }
   validateOptionalReason(input.reason);
   validateOptionalSource(input.source);
@@ -895,11 +894,104 @@ const managedRevisionFields = new Set([
   "links"
 ]);
 
-function assertRevisionPatchIsSafe(patch: Record<string, unknown>): void {
-  const managed = Object.keys(patch).find((path) => managedRevisionFields.has(path.split(".")[0] as string));
-  if (managed) {
-    throw new Error(`Invalid argument: revise cannot modify managed field ${managed}`);
+const MANAGED_REVISION_FIELDS = [...managedRevisionFields];
+
+type RevisionPatchRecoveryHint =
+  | {
+      rejected_patch: { patch: unknown };
+      expected: { kind: "patch_object" | "non_empty_patch" | "valid_record_after_patch" };
+      retry_with: { patch_placeholder: Record<string, string> };
+    }
+  | {
+      rejected_patch: { path: string; value: unknown };
+      expected: { kind: "valid_patch_path"; format: "dot-separated record field path" };
+      retry_with: { patch_path_placeholder: "content.text" };
+    }
+  | {
+      rejected_patch: { path: string; value: unknown };
+      expected: { kind: "user_editable_patch"; managed_fields: string[] };
+      retry_with: { remove_patch_path: string; use_operation?: "promote"; operation_arguments?: Record<string, unknown> };
+    };
+
+class RevisionPatchError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: RevisionPatchRecoveryHint;
+
+  constructor(message: string, recommendedAction: string, recoveryHint: RevisionPatchRecoveryHint) {
+    super(message);
+    this.name = "RevisionPatchError";
+    this.recommended_action = recommendedAction;
+    this.recovery_hint = recoveryHint;
   }
+}
+
+function invalidRevisionPatchShapeError(patch: unknown, expectedKind: "patch_object"): RevisionPatchError {
+  return new RevisionPatchError(
+    "Invalid argument: Invalid patch",
+    "retry revise with a valid patch",
+    {
+      rejected_patch: { patch },
+      expected: { kind: expectedKind },
+      retry_with: { patch_placeholder: { "content.text": "<updated text>" } }
+    }
+  );
+}
+
+function emptyRevisionPatchError(patch: Record<string, unknown>): RevisionPatchError {
+  return new RevisionPatchError(
+    "Invalid argument: Invalid patch",
+    "retry revise with a valid patch",
+    {
+      rejected_patch: { patch },
+      expected: { kind: "non_empty_patch" },
+      retry_with: { patch_placeholder: { "content.text": "<updated text>" } }
+    }
+  );
+}
+
+function invalidRevisionPatchPathError(path: string, value: unknown): RevisionPatchError {
+  return new RevisionPatchError(
+    "Invalid argument: Invalid patch",
+    "retry revise with a valid patch",
+    {
+      rejected_patch: { path, value },
+      expected: { kind: "valid_patch_path", format: "dot-separated record field path" },
+      retry_with: { patch_path_placeholder: "content.text" }
+    }
+  );
+}
+
+function invalidRevisionRecordPatchError(patch: Record<string, unknown>, detail?: string): RevisionPatchError {
+  return new RevisionPatchError(
+    `Invalid argument: Invalid patch${detail ? `; ${detail}` : ""}`,
+    "retry revise with a valid patch",
+    {
+      rejected_patch: { patch },
+      expected: { kind: "valid_record_after_patch" },
+      retry_with: { patch_placeholder: { "content.text": "<non-empty text>" } }
+    }
+  );
+}
+
+function managedRevisionFieldError(path: string, value: unknown, recordId: string): RevisionPatchError {
+  const managedField = path.split(".")[0] as string;
+  return new RevisionPatchError(
+    `Invalid argument: revise cannot modify managed field ${managedField}`,
+    "retry revise without managed fields",
+    {
+      rejected_patch: { path, value },
+      expected: { kind: "user_editable_patch", managed_fields: MANAGED_REVISION_FIELDS },
+      retry_with: {
+        remove_patch_path: path,
+        ...(managedField === "state"
+          ? {
+              use_operation: "promote" as const,
+              operation_arguments: { record_id: recordId, target_state: value, confirmed: true }
+            }
+          : {})
+      }
+    }
+  );
 }
 
 function isUserConfirmed(source: RecordSource, confirmed?: boolean): boolean {
@@ -1101,7 +1193,10 @@ export function createEngine(deps: EngineDeps) {
     async revise(input: RevisionInput) {
       validateRevisionInput(input);
       const record = await requireRecord(input.record_id);
-      assertRevisionPatchIsSafe(input.patch);
+      const managedPath = Object.keys(input.patch).find((path) => managedRevisionFields.has(path.split(".")[0] as string));
+      if (managedPath !== undefined) {
+        throw managedRevisionFieldError(managedPath, input.patch[managedPath], input.record_id);
+      }
       const createdAt = nextMutationTimestamp(record, now());
       const source = input.source ?? { client: "moryn" };
       const patched = applyRecordPatch(record, input.patch);
@@ -1109,7 +1204,7 @@ export function createEngine(deps: EngineDeps) {
         parseRecord(patched);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        throw new Error(`Invalid argument: Invalid patch; ${message}`);
+        throw invalidRevisionRecordPatchError(input.patch, message);
       }
       const sensitive = detectSensitiveContent(sensitiveScanText(patched.content));
       const conflicts = !sensitive.sensitive && patched.state === "canonical"

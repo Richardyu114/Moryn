@@ -3253,11 +3253,35 @@ describe("moryn CLI", () => {
         throw new Error("Expected moryn revise to reject managed state patch");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
-        const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: {
+              rejected_patch: { path: string; value: unknown };
+              expected: { kind: string; managed_fields: string[] };
+              retry_with: { remove_patch_path: string; use_operation: string; operation_arguments: Record<string, unknown> };
+            };
+          };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("INVALID_ARGUMENT");
         expect(parsed.error.message).toContain("managed field state");
-        expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        expect(parsed.error.recommended_action).toBe("retry revise without managed fields");
+        expect(parsed.error.recovery_hint).toEqual({
+          rejected_patch: { path: "state", value: "canonical" },
+          expected: {
+            kind: "user_editable_patch",
+            managed_fields: ["id", "kind", "scope", "state", "visibility", "created_at", "updated_at", "source", "provenance", "conflict", "links"]
+          },
+          retry_with: {
+            remove_patch_path: "state",
+            use_operation: "promote",
+            operation_arguments: { record_id: recordId, target_state: "canonical", confirmed: true }
+          }
+        });
       }
     });
   });
@@ -3288,11 +3312,19 @@ describe("moryn CLI", () => {
         throw new Error("Expected moryn revise to reject blank content.text patch");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
-        const parsed = JSON.parse((error as { stderr: string }).stderr) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: { code: string; message: string; recommended_action: string; recovery_hint: unknown };
+        };
         expect(parsed.ok).toBe(false);
         expect(parsed.error.code).toBe("INVALID_ARGUMENT");
         expect(parsed.error.message).toContain("Invalid patch");
-        expect(parsed.error.recommended_action).toBe("fix the command arguments and retry");
+        expect(parsed.error.recommended_action).toBe("retry revise with a valid patch");
+        expect(parsed.error.recovery_hint).toEqual({
+          rejected_patch: { patch: { "content.text": "" } },
+          expected: { kind: "valid_record_after_patch" },
+          retry_with: { patch_placeholder: { "content.text": "<non-empty text>" } }
+        });
       }
     });
   });

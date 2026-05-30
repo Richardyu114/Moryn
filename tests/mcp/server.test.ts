@@ -5500,12 +5500,36 @@ describe("MCP stdio server", () => {
             reason: "Bypass promotion",
             source: { client: "mcp-test" }
           }
-        })) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: {
+              rejected_patch: { path: string; value: unknown };
+              expected: { kind: string; managed_fields: string[] };
+              retry_with: { remove_patch_path: string; use_operation: string; operation_arguments: Record<string, unknown> };
+            };
+          };
+        };
 
         expect(result.ok).toBe(false);
         expect(result.error.code).toBe("INVALID_ARGUMENT");
         expect(result.error.message).toContain("managed field state");
-        expect(result.error.recommended_action).toBe("fix the command arguments and retry");
+        expect(result.error.recommended_action).toBe("retry revise without managed fields");
+        expect(result.error.recovery_hint).toEqual({
+          rejected_patch: { path: "state", value: "canonical" },
+          expected: {
+            kind: "user_editable_patch",
+            managed_fields: ["id", "kind", "scope", "state", "visibility", "created_at", "updated_at", "source", "provenance", "conflict", "links"]
+          },
+          retry_with: {
+            remove_patch_path: "state",
+            use_operation: "promote",
+            operation_arguments: { record_id: write.record.id, target_state: "canonical", confirmed: true }
+          }
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });
@@ -5531,13 +5555,55 @@ describe("MCP stdio server", () => {
           }
         })) as { record: { id: string } };
 
-        for (const patch of [
-          { "content.text": "" },
-          {},
-          { "": "Invalid patch path" },
-          { ".content.text": "Invalid patch path" },
-          { "content..text": "Invalid patch path" },
-          { "content.text.": "Invalid patch path" }
+        for (const { patch, recoveryHint } of [
+          {
+            patch: { "content.text": "" },
+            recoveryHint: {
+              rejected_patch: { patch: { "content.text": "" } },
+              expected: { kind: "valid_record_after_patch" },
+              retry_with: { patch_placeholder: { "content.text": "<non-empty text>" } }
+            }
+          },
+          {
+            patch: {},
+            recoveryHint: {
+              rejected_patch: { patch: {} },
+              expected: { kind: "non_empty_patch" },
+              retry_with: { patch_placeholder: { "content.text": "<updated text>" } }
+            }
+          },
+          {
+            patch: { "": "Invalid patch path" },
+            recoveryHint: {
+              rejected_patch: { path: "", value: "Invalid patch path" },
+              expected: { kind: "valid_patch_path", format: "dot-separated record field path" },
+              retry_with: { patch_path_placeholder: "content.text" }
+            }
+          },
+          {
+            patch: { ".content.text": "Invalid patch path" },
+            recoveryHint: {
+              rejected_patch: { path: ".content.text", value: "Invalid patch path" },
+              expected: { kind: "valid_patch_path", format: "dot-separated record field path" },
+              retry_with: { patch_path_placeholder: "content.text" }
+            }
+          },
+          {
+            patch: { "content..text": "Invalid patch path" },
+            recoveryHint: {
+              rejected_patch: { path: "content..text", value: "Invalid patch path" },
+              expected: { kind: "valid_patch_path", format: "dot-separated record field path" },
+              retry_with: { patch_path_placeholder: "content.text" }
+            }
+          },
+          {
+            patch: { "content.text.": "Invalid patch path" },
+            recoveryHint: {
+              rejected_patch: { path: "content.text.", value: "Invalid patch path" },
+              expected: { kind: "valid_patch_path", format: "dot-separated record field path" },
+              retry_with: { patch_path_placeholder: "content.text" }
+            }
+          }
         ]) {
           const result = parseTextContent(await client.callTool({
             name: "revise",
@@ -5547,12 +5613,13 @@ describe("MCP stdio server", () => {
               reason: "Invalid revision patch",
               source: { client: "mcp-test" }
             }
-          })) as { ok: boolean; error: { code: string; message: string; recommended_action: string } };
+          })) as { ok: boolean; error: { code: string; message: string; recommended_action: string; recovery_hint: unknown } };
 
           expect(result.ok).toBe(false);
           expect(result.error.code).toBe("INVALID_ARGUMENT");
           expect(result.error.message).toContain("Invalid patch");
-          expect(result.error.recommended_action).toBe("fix the command arguments and retry");
+          expect(result.error.recommended_action).toBe("retry revise with a valid patch");
+          expect(result.error.recovery_hint).toEqual(recoveryHint);
         }
       });
     } finally {

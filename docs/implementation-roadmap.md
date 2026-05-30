@@ -265,16 +265,17 @@ Deliverables:
   without parsing prose.
 - Done: CLI and MCP required-option, option-dependency, non-empty string, enum,
   integer/number-range, JSON-object, choose-one, path-assignment, and refresh
-  cursor validation errors now return structured `error.recovery_hint` metadata
-  with `missing_argument`, `missing_one_of`, `rejected_argument`,
-  `rejected_arguments`, machine-readable `expected` rules, and `retry_with`, so
-  agents can recover from omitted `--kind`/`--type` values, missing MCP write
-  `type`/`scope`, empty placeholders such as `--text ""`, malformed
-  `--content-json`, malformed `--set path=value` assignments, conflicting write
-  content or sync operation inputs, invalid sync option dependencies such as
-  `--message` without `--push`, invalid refresh cursors, or hallucinated flags
-  such as invalid `--state`, `--limit`, and `--confidence` without parsing
-  English error text.
+  cursor and revise-patch validation errors now return structured
+  `error.recovery_hint` metadata with `missing_argument`, `missing_one_of`,
+  `rejected_argument`, `rejected_arguments`, `rejected_patch`,
+  machine-readable `expected` rules, and `retry_with`, so agents can recover
+  from omitted `--kind`/`--type` values, missing MCP write `type`/`scope`, empty
+  placeholders such as `--text ""`, malformed `--content-json`, malformed
+  `--set path=value` assignments, managed-field revise attempts, invalid revise
+  patches, conflicting write content or sync operation inputs, invalid sync
+  option dependencies such as `--message` without `--push`, invalid refresh
+  cursors, or hallucinated flags such as invalid `--state`, `--limit`, and
+  `--confidence` without parsing English error text.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic
