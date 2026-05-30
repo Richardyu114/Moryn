@@ -117,6 +117,7 @@ const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   category: "operations_by_category.<category>",
   category_operation: "operations_by_category.<category>.<operation>",
   required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
+  allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
@@ -707,7 +708,7 @@ describe("MCP stdio server", () => {
             category: string;
             safe_to_run: boolean;
             required_fields: string[];
-            required_fields_by_name: Record<string, { name: string; argument_path: string; placeholder?: string; value?: unknown; alternatives?: string[] }>;
+            required_fields_by_name: Record<string, { name: string; argument_path: string; placeholder?: string; value?: unknown; alternatives?: string[]; allowed_values?: string[] }>;
             argument_sources?: Record<string, string>;
             interfaces: {
               cli: { command: string };
@@ -753,6 +754,12 @@ describe("MCP stdio server", () => {
           safe_to_run: false,
           required_fields: ["kind", "type", "scope", "text_or_content"],
           required_fields_by_name: {
+            kind: {
+              allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"]
+            },
+            scope: {
+              allowed_values: ["global", "project", "topic", "session", "artifact"]
+            },
             text_or_content: {
               name: "text_or_content",
               argument_path: "text|content",
@@ -767,6 +774,13 @@ describe("MCP stdio server", () => {
             text_or_content: "user_input.text_or_content"
           }
         });
+        expect(parsed.operations_by_id.promote).toMatchObject({
+          required_fields_by_name: {
+            target_state: {
+              allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"]
+            }
+          }
+        });
         expect(parsed.operations_by_id.project_init).toMatchObject({
           required_fields_by_name: {
             path: {
@@ -774,6 +788,9 @@ describe("MCP stdio server", () => {
               argument_path: "path",
               placeholder: "<path>",
               value: "<path>"
+            },
+            sync_mode: {
+              allowed_values: ["manual", "session", "interval"]
             }
           },
           argument_sources: {

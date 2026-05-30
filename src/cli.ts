@@ -21,17 +21,23 @@ import {
   type MorynErrorContext,
   toErrorEnvelope
 } from "./core/errors.js";
-import { initializeProjectConfig, resolveProjectContext } from "./core/project.js";
-import { isValidPatchPath } from "./core/schema.js";
+import { SYNC_MODES, initializeProjectConfig, resolveProjectContext } from "./core/project.js";
+import {
+  RECORD_KINDS,
+  RECORD_PRIORITIES,
+  RECORD_SCOPES,
+  RECORD_STATES,
+  isValidPatchPath
+} from "./core/schema.js";
 import { runMcpServer } from "./mcp/server.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
 
 const program = new Command();
-const recordKinds = ["memory", "skill", "soul", "session_summary", "agent_note"] as const;
-const recordScopes = ["global", "project", "topic", "session", "artifact"] as const;
-const recordStates = ["raw", "candidate", "canonical", "archived", "quarantined"] as const;
-const recordPriorities = ["low", "normal", "high"] as const;
-const syncModes = ["manual", "session", "interval"] as const;
+const recordKinds = RECORD_KINDS;
+const recordScopes = RECORD_SCOPES;
+const recordStates = RECORD_STATES;
+const recordPriorities = RECORD_PRIORITIES;
+const syncModes = SYNC_MODES;
 
 function storePath(): string {
   return parseNonEmptyString(program.opts<{ store?: string }>().store, "--store") ?? join(homedir(), ".moryn");

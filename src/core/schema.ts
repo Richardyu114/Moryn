@@ -1,11 +1,20 @@
 import { z } from "zod";
 import type { MorynEvent } from "./types.js";
 
-export const recordKindSchema = z.enum(["memory", "skill", "soul", "session_summary", "agent_note"]);
-export const recordStateSchema = z.enum(["raw", "candidate", "canonical", "archived", "quarantined"]);
-export const recordScopeSchema = z.enum(["global", "project", "topic", "session", "artifact"]);
-export const recordPrioritySchema = z.enum(["low", "normal", "high"]);
-export const recordVisibilitySchema = z.enum(["active", "archived", "quarantined"]);
+export const RECORD_KINDS = ["memory", "skill", "soul", "session_summary", "agent_note"] as const;
+export const RECORD_STATES = ["raw", "candidate", "canonical", "archived", "quarantined"] as const;
+export const RECORD_SCOPES = ["global", "project", "topic", "session", "artifact"] as const;
+export const RECORD_PRIORITIES = ["low", "normal", "high"] as const;
+export const RECORD_VISIBILITIES = ["active", "archived", "quarantined"] as const;
+export const CONTENT_FORMATS = ["text", "json"] as const;
+export const CONFLICT_RESOLUTIONS = ["needs_review", "resolved"] as const;
+export const PROVENANCE_METHODS = ["agent-proposed", "rule-promoted", "user-confirmed"] as const;
+
+export const recordKindSchema = z.enum(RECORD_KINDS);
+export const recordStateSchema = z.enum(RECORD_STATES);
+export const recordScopeSchema = z.enum(RECORD_SCOPES);
+export const recordPrioritySchema = z.enum(RECORD_PRIORITIES);
+export const recordVisibilitySchema = z.enum(RECORD_VISIBILITIES);
 export const isoDateTimeSchema = z.string().datetime();
 const nonEmptyStringSchema = z.string().min(1);
 
@@ -28,7 +37,7 @@ const recordContentSchema = z.record(z.string(), z.unknown())
   .refine((content) => Object.keys(content).length > 0, { message: "Content must not be empty" })
   .and(z.object({
     text: nonEmptyStringSchema.optional(),
-    format: z.enum(["text", "json"]).optional()
+    format: z.enum(CONTENT_FORMATS).optional()
   }));
 
 export function isValidPatchPath(path: string): boolean {
@@ -44,7 +53,7 @@ export const recordLinkSchema = z.object({
 export const recordConflictSchema = z.object({
   kind: z.literal("semantic"),
   with: z.array(z.string().min(1)),
-  resolution: z.enum(["needs_review", "resolved"])
+  resolution: z.enum(CONFLICT_RESOLUTIONS)
 });
 
 export const recordSchema = z.object({
@@ -65,7 +74,7 @@ export const recordSchema = z.object({
   provenance: z.object({
     derived_from: z.array(nonEmptyStringSchema).optional(),
     reason: nonEmptyStringSchema.optional(),
-    method: z.enum(["agent-proposed", "rule-promoted", "user-confirmed"]).optional(),
+    method: z.enum(PROVENANCE_METHODS).optional(),
     promoted_at: isoDateTimeSchema.optional()
   }).optional(),
   conflict: recordConflictSchema.optional(),

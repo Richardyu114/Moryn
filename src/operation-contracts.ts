@@ -1,4 +1,11 @@
 import { actionSafety, type ActionSafety } from "./core/action-safety.js";
+import { SYNC_MODES } from "./core/project.js";
+import {
+  RECORD_KINDS,
+  RECORD_PRIORITIES,
+  RECORD_SCOPES,
+  RECORD_STATES
+} from "./core/schema.js";
 import { requiredFieldsByName, type RequiredFieldMetadata } from "./core/workflow.js";
 
 type OperationCategory = "setup" | "core" | "sync" | "lifecycle" | "contracts" | "maintenance";
@@ -28,6 +35,7 @@ export type OperationContract = {
 
 type OperationRequiredFieldMetadata = RequiredFieldMetadata & {
   alternatives?: string[];
+  allowed_values?: readonly string[];
 };
 
 type OperationContractInput = Omit<OperationContract, "required_fields_by_name" | "safety"> & {
@@ -40,6 +48,7 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
   category: "operations_by_category.<category>",
   category_operation: "operations_by_category.<category>.<operation>",
   required_field: "operations_by_id.<operation>.required_fields_by_name.<field>",
+  allowed_value: "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
   argument_source: "operations_by_id.<operation>.argument_sources.<field>",
   cli_command: "operations_by_id.<operation>.interfaces.cli.command",
   mcp_tool: "operations_by_id.<operation>.interfaces.mcp.tool",
@@ -189,6 +198,13 @@ export const OPERATION_CONTRACTS = [
     required_when: "When a project path has no Moryn config or the project config needs explicit repair.",
     required_fields: ["path"],
     argument_sources: userInputSources(["path"]),
+    required_fields_by_name: {
+      sync_mode: {
+        name: "sync_mode",
+        argument_path: "sync_mode",
+        allowed_values: SYNC_MODES
+      }
+    },
     interfaces: {
       cli: { command: "moryn project init --path <path>" },
       mcp: { tool: "project_init", arguments: { path: "<path>" } }
@@ -239,6 +255,25 @@ export const OPERATION_CONTRACTS = [
     required_fields: ["kind", "type", "scope", "text_or_content"],
     argument_sources: userInputSources(["kind", "type", "scope", "text_or_content"]),
     required_fields_by_name: {
+      kind: {
+        name: "kind",
+        argument_path: "kind",
+        value: "<kind>",
+        placeholder: "<kind>",
+        allowed_values: RECORD_KINDS
+      },
+      scope: {
+        name: "scope",
+        argument_path: "scope",
+        value: "<scope>",
+        placeholder: "<scope>",
+        allowed_values: RECORD_SCOPES
+      },
+      priority: {
+        name: "priority",
+        argument_path: "priority",
+        allowed_values: RECORD_PRIORITIES
+      },
       text_or_content: {
         name: "text_or_content",
         argument_path: "text|content",
@@ -272,6 +307,15 @@ export const OPERATION_CONTRACTS = [
     required_when: "When a candidate, archived, or quarantined record should move to a target state.",
     required_fields: ["record_id", "target_state"],
     argument_sources: userInputSources(["record_id", "target_state"]),
+    required_fields_by_name: {
+      target_state: {
+        name: "target_state",
+        argument_path: "target_state",
+        value: "<state>",
+        placeholder: "<state>",
+        allowed_values: RECORD_STATES
+      }
+    },
     interfaces: {
       cli: { command: "moryn promote <record_id> --state <state>" },
       mcp: { tool: "promote", arguments: { record_id: "<record_id>", target_state: "<state>" } }

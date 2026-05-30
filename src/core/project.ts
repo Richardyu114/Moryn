@@ -6,10 +6,11 @@ import { promisify } from "node:util";
 import { z } from "zod";
 
 const exec = promisify(execFile);
+export const SYNC_MODES = ["manual", "session", "interval"] as const;
 
 const syncModeSchema = z.preprocess(
   (value) => value === "auto" ? "interval" : value,
-  z.enum(["manual", "session", "interval"])
+  z.enum(SYNC_MODES)
 );
 
 const projectConfigSchema = z.object({

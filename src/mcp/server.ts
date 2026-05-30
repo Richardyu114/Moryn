@@ -19,15 +19,16 @@ import {
   type MorynErrorContext,
   toErrorEnvelope
 } from "../core/errors.js";
-import { initializeProjectConfig, resolveProjectContext } from "../core/project.js";
+import { SYNC_MODES, initializeProjectConfig, resolveProjectContext } from "../core/project.js";
+import { RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "../core/schema.js";
 import type { RecordKind, RecordScope, RecordSource, RecordState } from "../core/types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
 
 type Engine = ReturnType<typeof createEngine>;
 
-const recordKindSchema = z.enum(["memory", "skill", "soul", "session_summary", "agent_note"]);
-const recordScopeSchema = z.enum(["global", "project", "topic", "session", "artifact"]);
-const recordStateSchema = z.enum(["raw", "candidate", "canonical", "archived", "quarantined"]);
+const recordKindSchema = z.enum(RECORD_KINDS);
+const recordScopeSchema = z.enum(RECORD_SCOPES);
+const recordStateSchema = z.enum(RECORD_STATES);
 const nonEmptyStringSchema = z.string().min(1);
 
 const sourceSchema = z.object({
@@ -103,7 +104,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: nonEmptyStringSchema.optional(),
         tags: z.array(nonEmptyStringSchema).optional(),
         default_skills: z.array(nonEmptyStringSchema).optional(),
-        sync_mode: z.enum(["manual", "session", "interval"]).optional(),
+        sync_mode: z.enum(SYNC_MODES).optional(),
         repair: z.boolean().optional()
       }
     },
@@ -262,7 +263,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         content: z.record(z.string(), z.unknown()).optional(),
         state: recordStateSchema.optional(),
         confidence: z.number().min(0).max(1).optional(),
-        priority: z.enum(["low", "normal", "high"]).optional(),
+        priority: z.enum(RECORD_PRIORITIES).optional(),
         provenance: z.object({
           derived_from: z.array(nonEmptyStringSchema).optional(),
           reason: nonEmptyStringSchema.optional()

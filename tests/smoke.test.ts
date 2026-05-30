@@ -114,10 +114,22 @@ describe("package smoke test", () => {
       summary: "user_input.summary"
     });
     expect(response.operations_by_id.write.required_fields).toEqual(["kind", "type", "scope", "text_or_content"]);
+    expect(response.operations_by_id.write.required_fields_by_name.kind.allowed_values).toEqual([
+      "memory", "skill", "soul", "session_summary", "agent_note"
+    ]);
+    expect(response.operations_by_id.write.required_fields_by_name.scope.allowed_values).toEqual([
+      "global", "project", "topic", "session", "artifact"
+    ]);
     expect(response.operations_by_id.write.required_fields_by_name.text_or_content).toMatchObject({
       argument_path: "text|content",
       alternatives: ["text", "content"]
     });
+    expect(response.operations_by_id.promote.required_fields_by_name.target_state.allowed_values).toEqual([
+      "raw", "candidate", "canonical", "archived", "quarantined"
+    ]);
+    expect(response.operations_by_id.project_init.required_fields_by_name.sync_mode.allowed_values).toEqual([
+      "manual", "session", "interval"
+    ]);
     expect(response.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
     expect(response.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
     expect(response.operations_by_category.lifecycle.agent_enter).toBe(response.operations_by_id.agent_enter);

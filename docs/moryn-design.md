@@ -448,7 +448,8 @@ MCP tool: `operation_contracts`.
 The response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, and selection sources for those keyed paths. Each
 operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
-`required_fields`, `required_fields_by_name`, and `argument_sources`:
+`required_fields`, `required_fields_by_name`, and `argument_sources`.
+Required-field metadata can include `allowed_values` for enum arguments:
 
 ```json
 {
@@ -485,6 +486,25 @@ operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
       "argument_sources": {
         "summary": "user_input.summary"
       }
+    },
+    "write": {
+      "operation": "write",
+      "required_fields_by_name": {
+        "kind": {
+          "name": "kind",
+          "argument_path": "kind",
+          "value": "<kind>",
+          "placeholder": "<kind>",
+          "allowed_values": ["memory", "skill", "soul", "session_summary", "agent_note"]
+        },
+        "scope": {
+          "name": "scope",
+          "argument_path": "scope",
+          "value": "<scope>",
+          "placeholder": "<scope>",
+          "allowed_values": ["global", "project", "topic", "session", "artifact"]
+        }
+      }
     }
   },
   "selection_sources": {
@@ -493,6 +513,7 @@ operation carries CLI/MCP interfaces, `safe_to_run`, `safety`, `required_when`,
     "category": "operations_by_category.<category>",
     "category_operation": "operations_by_category.<category>.<operation>",
     "required_field": "operations_by_id.<operation>.required_fields_by_name.<field>",
+    "allowed_value": "operations_by_id.<operation>.required_fields_by_name.<field>.allowed_values[]",
     "argument_source": "operations_by_id.<operation>.argument_sources.<field>",
     "cli_command": "operations_by_id.<operation>.interfaces.cli.command",
     "mcp_tool": "operations_by_id.<operation>.interfaces.mcp.tool",
