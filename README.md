@@ -784,12 +784,12 @@ conflicting inputs, `validation_issues` lists schema paths to repair,
 `discover_with` names safe lookup calls, and `retry_with` gives exact
 options/arguments plus placeholders for corrected values. Agents should use
 those fields instead of splitting the human-readable error message.
-MCP and CLI write content argument failures also include
+Core write field failures and MCP/CLI write content argument failures also include
 `operation_contract: "operations_by_id.write"` and `argument_sources` entries
-for the rejected or missing `type`, `scope`, `text`, `content`,
-`content.text`, `content.format`, `--text`, or `--content-json` argument, so
-hosts can inspect the authoritative write contract before retrying. The write
-operation contract exposes `content_text` and `content_format` entries under
+for the rejected or missing `kind`, `type`, `scope`, `project_id`, `text`,
+`content`, `content.text`, `content.format`, `--text`, or `--content-json`
+argument, so hosts can inspect the authoritative write contract before
+retrying. The write operation contract exposes `content_text` and `content_format` entries under
 `arguments_by_name`, including the nested MCP paths, the `--content-json` CLI
 source, and `content.format` allowed values.
 CLI error envelopes recursively translate known `argument` fields in

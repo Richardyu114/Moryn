@@ -722,11 +722,12 @@ safe status `next_action` inspection, local-store continuity, retry conditions,
 and `do_not` guardrails, `validation_issues` lists schema paths to repair, `discover_with`
 names safe lookup calls such as `project_list`, and `retry_with` contains the
 option/argument value placeholder to use for the corrected retry.
-MCP and CLI write content argument failures also include
+Core write field failures and MCP/CLI write content argument failures also include
 `operation_contract: "operations_by_id.write"` plus `argument_sources` entries
-for rejected or missing `type`, `scope`, `text`, `content`, `content.text`,
-`content.format`, `--text`, and `--content-json` inputs, so agents can look up
-the authoritative write argument contract instead of inferring it from prose.
+for rejected or missing `kind`, `type`, `scope`, `project_id`, `text`,
+`content`, `content.text`, `content.format`, `--text`, and `--content-json`
+inputs, so agents can look up the authoritative write argument contract instead
+of inferring it from prose.
 The contract's `arguments_by_name.content_text` and
 `arguments_by_name.content_format` entries declare the nested MCP paths, the
 `--content-json` CLI source, and allowed `content.format` values.

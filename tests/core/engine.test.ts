@@ -785,8 +785,12 @@ describe("core engine", () => {
         content: { text: "Invalid kind.", format: "text" },
         source: { client: "test" }
       }, "Invalid kind", "retry write with a supported kind", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "kind", value: "note" },
         expected: { kind: "allowed_values", allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"] },
+        argument_sources: {
+          kind: "operations_by_id.write.arguments_by_name.kind"
+        },
         retry_with: { argument: "kind", value_placeholder: "memory" }
       });
       await expectInvalidWriteShapeArgument({
@@ -796,8 +800,12 @@ describe("core engine", () => {
         content: { text: "Invalid type.", format: "text" },
         source: { client: "test" }
       }, "Invalid type", "retry write with a non-empty type", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "type", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          type: "operations_by_id.write.arguments_by_name.type"
+        },
         retry_with: { argument: "type", value_placeholder: "<record type>" }
       });
       await expectInvalidWriteShapeArgument({
@@ -807,8 +815,12 @@ describe("core engine", () => {
         content: { text: "Invalid scope.", format: "text" },
         source: { client: "test" }
       }, "Invalid scope", "retry write with a supported scope", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "scope", value: "workspace" },
         expected: { kind: "allowed_values", allowed_values: ["global", "project", "topic", "session", "artifact"] },
+        argument_sources: {
+          scope: "operations_by_id.write.arguments_by_name.scope"
+        },
         retry_with: { argument: "scope", value_placeholder: "project" }
       });
       await expectInvalidWriteShapeArgument({
@@ -819,8 +831,12 @@ describe("core engine", () => {
         content: { text: "Invalid project id.", format: "text" },
         source: { client: "test" }
       }, "Invalid project_id", "retry write with a valid project_id", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "project_id", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          project_id: "operations_by_id.write.arguments_by_name.project_id"
+        },
         retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
       });
       await expectInvalidWriteShapeArgument({

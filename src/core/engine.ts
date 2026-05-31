@@ -77,6 +77,10 @@ const START_LISTED_PROJECT_WHEN = "After choosing this project from project_list
 const RECALL_REFRESH_CHANGE_WHEN = "After refresh reports this change and the agent needs the full record content.";
 const WRITE_CANDIDATE_RECORD_ID_SOURCE = "write.record.id";
 const WRITE_OPERATION_CONTRACT_SOURCE = "operations_by_id.write";
+const WRITE_KIND_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.kind";
+const WRITE_TYPE_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.type";
+const WRITE_SCOPE_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.scope";
+const WRITE_PROJECT_ID_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.project_id";
 const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content";
 const WRITE_CONTENT_TEXT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content_text";
 const WRITE_CONTENT_FORMAT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content_format";
@@ -666,18 +670,27 @@ function invalidWriteContentFormatError(format: unknown): WriteContentError {
 
 type WriteCoreFieldRecoveryHint =
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "kind"; value: unknown };
       expected: { kind: "allowed_values"; allowed_values: string[] };
+      argument_sources: { kind: typeof WRITE_KIND_ARGUMENT_SOURCE };
       retry_with: { argument: "kind"; value_placeholder: "memory" };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "scope"; value: unknown };
       expected: { kind: "allowed_values"; allowed_values: string[] };
+      argument_sources: { scope: typeof WRITE_SCOPE_ARGUMENT_SOURCE };
       retry_with: { argument: "scope"; value_placeholder: "project" };
     }
   | {
       rejected_argument: { argument: "type" | "project_id"; value: unknown };
       expected: { kind: "non_empty_string"; min_length: 1 };
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
+      argument_sources: Partial<{
+        type: typeof WRITE_TYPE_ARGUMENT_SOURCE;
+        project_id: typeof WRITE_PROJECT_ID_ARGUMENT_SOURCE;
+      }>;
       retry_with: { argument: "type" | "project_id"; value_placeholder: string };
     };
 
@@ -698,8 +711,10 @@ function invalidWriteKindError(kind: unknown): WriteCoreFieldError {
     "Invalid argument: Invalid kind",
     "retry write with a supported kind",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "kind", value: kind },
       expected: { kind: "allowed_values", allowed_values: [...RECORD_KINDS] },
+      argument_sources: { kind: WRITE_KIND_ARGUMENT_SOURCE },
       retry_with: { argument: "kind", value_placeholder: "memory" }
     }
   );
@@ -710,8 +725,10 @@ function invalidWriteTypeError(type: unknown): WriteCoreFieldError {
     "Invalid argument: Invalid type",
     "retry write with a non-empty type",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "type", value: type },
       expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: { type: WRITE_TYPE_ARGUMENT_SOURCE },
       retry_with: { argument: "type", value_placeholder: "<record type>" }
     }
   );
@@ -722,8 +739,10 @@ function invalidWriteScopeError(scope: unknown): WriteCoreFieldError {
     "Invalid argument: Invalid scope",
     "retry write with a supported scope",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "scope", value: scope },
       expected: { kind: "allowed_values", allowed_values: [...RECORD_SCOPES] },
+      argument_sources: { scope: WRITE_SCOPE_ARGUMENT_SOURCE },
       retry_with: { argument: "scope", value_placeholder: "project" }
     }
   );
@@ -734,8 +753,10 @@ function invalidWriteProjectIdError(projectId: unknown): WriteCoreFieldError {
     "Invalid argument: Invalid project_id",
     "retry write with a valid project_id",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "project_id", value: projectId },
       expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: { project_id: WRITE_PROJECT_ID_ARGUMENT_SOURCE },
       retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
     }
   );
