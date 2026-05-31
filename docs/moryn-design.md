@@ -480,7 +480,9 @@ shell strings. For Moryn subcommands, `executable` is `"moryn"` and `args`
 equals the subcommand `argv`. CLI generation also accepts flattened contract
 fields for nested MCP arguments, so hosts can pass `agent_client` or
 `agent_session_id` and still get the same flags as an `agent.client` or
-`agent.session_id` payload.
+`agent.session_id` payload. MCP interface generation normalizes those flattened
+fields back into nested tool arguments, so the same collected value works for
+both transports.
 `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, `required_inputs_by_field`,
@@ -1560,7 +1562,8 @@ fields are derived from the existing
 interface without reverse-engineering one transport from the other. When those
 arguments use flattened contract names for nested MCP payloads, such as
 `agent_client`, the generated CLI interface falls back to that flattened field
-and emits the corresponding flag, such as `--agent`. Action
+and emits the corresponding flag, such as `--agent`, while the generated MCP
+interface emits the nested argument, such as `agent.client`. Action
 templates also include `safety`, a machine-readable
 explanation of `safe_to_run` with `safe_to_auto_run`,
 `requires_user_confirmation`, `requires_authored_input`, `writes_local_config`,

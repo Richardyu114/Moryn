@@ -72,6 +72,89 @@ describe("action interfaces", () => {
     expect(interfaces.cli.command_line).toBe("moryn agent status --status Working --agent codex --session-id 'session 1' --model gpt-5");
   });
 
+  it("normalizes flattened nested argument fields when generating MCP arguments", () => {
+    const interfaces = actionInterfaces({
+      tool: "agent_status",
+      command: "moryn agent status --status <status>",
+      arguments: {
+        status: "Working",
+        agent_client: "codex",
+        agent_session_id: "session 1",
+        agent_model: "gpt-5"
+      }
+    });
+
+    expect(interfaces.mcp.arguments).toEqual({
+      status: "Working",
+      agent: {
+        client: "codex",
+        session_id: "session 1",
+        model: "gpt-5"
+      }
+    });
+  });
+
+  it("merges flattened fields with partial parent objects when generating MCP arguments", () => {
+    const interfaces = actionInterfaces({
+      tool: "agent_status",
+      command: "moryn agent status --status <status>",
+      arguments: {
+        status: "Working",
+        agent: { client: "codex" },
+        agent_session_id: "session 1"
+      }
+    });
+
+    expect(interfaces.mcp.arguments).toEqual({
+      status: "Working",
+      agent: {
+        client: "codex",
+        session_id: "session 1"
+      }
+    });
+  });
+
+  it("does not mutate input arguments when normalizing MCP arguments", () => {
+    const input = {
+      status: "Working",
+      agent: { client: "codex" },
+      agent_session_id: "session 1"
+    };
+
+    actionInterfaces({
+      tool: "agent_status",
+      command: "moryn agent status --status <status>",
+      arguments: input
+    });
+
+    expect(input).toEqual({
+      status: "Working",
+      agent: { client: "codex" },
+      agent_session_id: "session 1"
+    });
+  });
+
+  it("prefers explicit nested MCP values over duplicate flattened fields", () => {
+    const interfaces = actionInterfaces({
+      tool: "agent_status",
+      command: "moryn agent status --status <status>",
+      arguments: {
+        status: "Working",
+        agent: { client: "codex", session_id: "nested session" },
+        agent_client: "other",
+        agent_session_id: "flat session"
+      }
+    });
+
+    expect(interfaces.mcp.arguments).toEqual({
+      status: "Working",
+      agent: {
+        client: "codex",
+        session_id: "nested session"
+      }
+    });
+  });
+
   it("does not duplicate nested CLI flags when parent and flattened fields are both present", () => {
     const interfaces = actionInterfaces({
       tool: "agent_status",

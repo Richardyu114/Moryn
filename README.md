@@ -477,7 +477,8 @@ those targets into direct write-back instructions with flag or positional,
 `required_when`, repeatable/default metadata, and preferred flag.
 Generated CLI interfaces accept flattened contract fields for nested MCP
 arguments too, so `agent_client` and `agent_session_id` produce the same CLI
-flags as `agent: { client, session_id }`.
+flags as `agent: { client, session_id }`; generated MCP interfaces normalize
+those flattened fields back into the nested JSON arguments the tool expects.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
@@ -1069,7 +1070,10 @@ vector with the bin as the first element. Hosts should treat
 signal to collect the named fields before running `exec_file`. When a generated
 action argument is backed by a nested MCP path, CLI generation also accepts the
 flattened contract argument name, so `agent_client`/`agent_session_id` can be
-passed directly and still emit `--agent`/`--session-id`.
+passed directly and still emit `--agent`/`--session-id`. The generated
+`interfaces.mcp.arguments` normalizes those same flattened fields back into
+MCP JSON, so `agent_client` becomes `agent.client` instead of leaking as an
+unsupported top-level tool argument.
 
 ## Current MVP Commands
 

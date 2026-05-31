@@ -17,7 +17,7 @@ type ActionInterfaces<TArguments> = {
   };
   mcp: {
     tool: string;
-    arguments: TArguments;
+    arguments: Record<string, unknown>;
   };
 };
 
@@ -55,6 +55,26 @@ function pathValue(root: Record<string, unknown>, path: string): unknown {
       ? (value as Record<string, unknown>)[key]
       : undefined;
   }, root);
+}
+
+function setPathValue(root: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split(".");
+  let current = root;
+  for (const part of parts.slice(0, -1)) {
+    const existing = current[part];
+    if (typeof existing !== "object" || existing === null || Array.isArray(existing)) {
+      current[part] = {};
+    }
+    current = current[part] as Record<string, unknown>;
+  }
+  const leaf = parts.at(-1);
+  if (leaf) current[leaf] = value;
+}
+
+function clonePlainValue(value: unknown): unknown {
+  if (Array.isArray(value)) return [...value];
+  if (typeof value === "object" && value !== null) return { ...value as Record<string, unknown> };
+  return value;
 }
 
 function argumentValue(argumentsByName: Record<string, unknown>, argument: OperationArgumentMetadata): unknown {
@@ -155,6 +175,30 @@ function cliPlaceholders(argv: readonly string[]): string[] {
   })));
 }
 
+function mcpArgumentsForAction(tool: string, argumentsByName: Record<string, unknown>): Record<string, unknown> {
+  const operationArguments = operationArgumentList(tool);
+  if (operationArguments.length === 0) return argumentsByName;
+  const flattenedNestedArguments = new Set(operationArguments.flatMap((argument) => {
+    return argument.parent_argument && argument.mcp?.path ? [argument.name] : [];
+  }));
+  const normalizedArguments = Object.fromEntries(
+    Object.entries(argumentsByName)
+      .filter(([name]) => !flattenedNestedArguments.has(name))
+      .map(([name, value]) => [name, clonePlainValue(value)])
+  );
+  for (const argument of operationArguments) {
+    if (!argument.mcp) continue;
+    const value = argumentValue(argumentsByName, argument);
+    if (value === undefined) continue;
+    if (argument.mcp.path) {
+      setPathValue(normalizedArguments, argument.mcp.path, clonePlainValue(value));
+    } else {
+      normalizedArguments[argument.mcp.argument] = clonePlainValue(value);
+    }
+  }
+  return normalizedArguments;
+}
+
 export function cliArgvForAction(tool: string, argumentsByName: Record<string, unknown>): string[] {
   const operationArguments = operationArgumentList(tool);
   const positionals = operationArguments
@@ -212,7 +256,7 @@ export function actionInterfaces<TArguments extends Record<string, unknown>>(inp
     },
     mcp: {
       tool: input.tool,
-      arguments: input.arguments
+      arguments: mcpArgumentsForAction(input.tool, input.arguments)
     }
   };
 }
