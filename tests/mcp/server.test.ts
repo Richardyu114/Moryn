@@ -4873,6 +4873,21 @@ describe("MCP stdio server", () => {
         expect(start.sync.pull_error_details).toMatchObject({
           code: "SYNC_NOT_CONFIGURED",
           recommended_action: "run moryn sync init <remote>",
+          recovery_hint: {
+            missing_argument: { argument: "remote", placeholder: "<remote>" },
+            expected: {
+              kind: "git_remote",
+              source: "user_input.remote"
+            },
+            retry_with: {
+              tool: "sync_init",
+              command: "moryn sync init <remote>",
+              arguments: { remote: "<remote>" },
+              safe_to_run: false
+            },
+            requires_user_confirmation: true,
+            do_not: ["invent_git_remote", "write_sync_config_without_user_confirmation", "retry_sync_until_remote_is_configured"]
+          },
           next_action: {
             recommended_action: "configure_sync_remote",
             tool: "sync_init",
@@ -4899,6 +4914,7 @@ describe("MCP stdio server", () => {
             push_error_details?: {
               code: string;
               recommended_action: string;
+              recovery_hint?: unknown;
               next_action?: {
                 recommended_action: string;
                 tool: string;
@@ -4914,6 +4930,21 @@ describe("MCP stdio server", () => {
         expect(finish.sync.push_error_details).toMatchObject({
           code: "SYNC_NOT_CONFIGURED",
           recommended_action: "run moryn sync init <remote>",
+          recovery_hint: {
+            missing_argument: { argument: "remote", placeholder: "<remote>" },
+            expected: {
+              kind: "git_remote",
+              source: "user_input.remote"
+            },
+            retry_with: {
+              tool: "sync_init",
+              command: "moryn sync init <remote>",
+              arguments: { remote: "<remote>" },
+              safe_to_run: false
+            },
+            requires_user_confirmation: true,
+            do_not: ["invent_git_remote", "write_sync_config_without_user_confirmation", "retry_sync_until_remote_is_configured"]
+          },
           next_action: {
             recommended_action: "configure_sync_remote",
             tool: "sync_init",

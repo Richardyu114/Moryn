@@ -2652,7 +2652,7 @@ Rebuildable index errors return a safe derived-view rebuild action:
 ```
 
 Missing sync configuration returns a setup action with a remote placeholder.
-Agents must fill the user-owned remote before running it:
+Agents must fill the user-owned remote and get confirmation before running it:
 
 ```json
 {
@@ -2678,7 +2678,13 @@ Agents must fill the user-owned remote before running it:
           "remote": "<remote>"
         },
         "safe_to_run": false
-      }
+      },
+      "requires_user_confirmation": true,
+      "do_not": [
+        "invent_git_remote",
+        "write_sync_config_without_user_confirmation",
+        "retry_sync_until_remote_is_configured"
+      ]
     },
     "next_action": {
       "recommended_action": "configure_sync_remote",

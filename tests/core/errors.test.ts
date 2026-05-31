@@ -278,7 +278,9 @@ describe("error envelopes", () => {
             command: "moryn sync init <remote>",
             arguments: { remote: "<remote>" },
             safe_to_run: false
-          }
+          },
+          requires_user_confirmation: true,
+          do_not: ["invent_git_remote", "write_sync_config_without_user_confirmation", "retry_sync_until_remote_is_configured"]
         },
         next_action: {
           recommended_action: "configure_sync_remote",

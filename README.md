@@ -756,7 +756,9 @@ confirmation-required failures with explicit user-confirmation requirements,
 retry templates, and guardrails against auto-confirming,
 sync runtime failures such as missing remotes, unavailable remotes, Git
 conflicts, and permission or authentication failures with safe status
-inspection, local-store continuity, retry conditions, and `do_not` guardrails,
+inspection, local-store continuity, authored remote requirements, retry
+conditions, and `do_not` guardrails against inventing remotes, writing sync
+config without confirmation, or retrying sync before setup,
 sync arguments such as `storePath`, `remoteUrl`, `options`, and `message`,
 dependency rules such as `--message`
 requiring `--push`, project-context requirements, path-assignment shape, revise
