@@ -42,6 +42,7 @@ const recordStateSchema = z.union([z.enum(RECORD_STATES), stringSchema]);
 const recordPrioritySchema = z.union([z.enum(RECORD_PRIORITIES), stringSchema]);
 const syncModeSchema = z.union([z.enum(SYNC_MODES), stringSchema]);
 const numberSchema = z.number();
+const coreValidatedBooleanSchema = z.unknown();
 const nonEmptyStringSchema = stringSchema.min(1);
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
   { argument: "text", value_placeholder: "<text>" },
@@ -202,7 +203,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         tags: z.array(stringSchema).optional(),
         default_skills: z.array(stringSchema).optional(),
         sync_mode: syncModeSchema.optional(),
-        repair: z.boolean().optional()
+        repair: coreValidatedBooleanSchema.optional()
       }
     },
     async ({ path, project_id, tags, default_skills, sync_mode, repair }) => toolResult(async () => ({
@@ -212,7 +213,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         tags,
         default_skills,
         sync: sync_mode === undefined ? undefined : { mode: sync_mode as SyncMode },
-        repair
+        repair: repair as boolean | undefined
       })
     }))
   );
@@ -417,7 +418,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           derived_from: z.array(stringSchema).optional(),
           reason: stringSchema.optional()
         }).optional(),
-        confirmed: z.boolean().optional(),
+        confirmed: coreValidatedBooleanSchema.optional(),
         source: sourceSchema.optional()
       }
     },
@@ -452,7 +453,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         confidence: input.confidence,
         priority: input.priority as RecordPriority | undefined,
         source: (input.source ?? { client: "mcp" }) as RecordSource,
-        confirmed: input.confirmed,
+        confirmed: input.confirmed as boolean | undefined,
         provenance: input.provenance
       });
     })

@@ -739,8 +739,9 @@ confirmation-required, and refresh cursor failures also include
 `recovery_hint`:
 for common MCP tool fields, Moryn keeps protocol validation loose enough for
 the core operation to return this JSON envelope, so empty strings, unknown enum
-values, and numeric range mistakes usually come back with `operation_contract`,
-`argument_sources`, and `retry_with` instead of a host-only validation string.
+values, numeric range mistakes, and boolean mistakes on fields with core
+contracts usually come back with `operation_contract`, `argument_sources`, and
+`retry_with` instead of a host-only validation string.
 `rejected_argument` preserves the rejected option and value, `expected` carries
 allowed values, non-empty constraints, integer or numeric bounds, JSON object,
 write `kind`/`type`/`scope`/`project_id`, write content, write metadata such as

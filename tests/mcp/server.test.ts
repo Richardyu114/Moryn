@@ -6861,6 +6861,79 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns structured JSON errors for invalid MCP boolean inputs with core recovery", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-boolean-input-"));
+    const store = join(root, "store");
+    const projectPath = join(root, "project");
+    try {
+      await mkdir(projectPath, { recursive: true });
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const invalidConfirmed = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid confirmed should return structured recovery.",
+            confirmed: "yes",
+            source: { client: "mcp-test" }
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(invalidConfirmed.ok).toBe(false);
+        expect(invalidConfirmed.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidConfirmed.error.message).toContain("Invalid confirmed");
+        expect(invalidConfirmed.error.recommended_action).toBe("retry write with a boolean confirmed value");
+        expect(invalidConfirmed.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "confirmed", value: "yes" },
+          expected: { kind: "boolean" },
+          argument_sources: {
+            confirmed: "operations_by_id.write.arguments_by_name.confirmed"
+          },
+          retry_with: { argument: "confirmed", value_placeholder: true }
+        });
+
+        const invalidRepair = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: projectPath,
+            repair: "yes"
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(invalidRepair.ok).toBe(false);
+        expect(invalidRepair.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidRepair.error.message).toContain("Invalid repair");
+        expect(invalidRepair.error.recommended_action).toBe("retry project init with a boolean repair value");
+        expect(invalidRepair.error.recovery_hint).toEqual({
+          rejected_argument: { argument: "repair", value: "yes" },
+          expected: { kind: "boolean" },
+          retry_with: { argument: "repair", value_placeholder: true }
+        });
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("marks conflicting MCP canonical writes as candidates", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-conflict-"));
     try {
