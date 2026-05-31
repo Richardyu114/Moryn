@@ -490,9 +490,10 @@ Direct MCP mutation calls (`revise`, `promote`, `archive`, `quarantine`, and
 `"source.session_id"`. When a caller provides multiple aliases for the same
 nested field with different values, Moryn returns a structured
 `INVALID_ARGUMENT` recovery hint instead of silently choosing one.
-This applies to agent identity aliases too: conflicting `agent.client` and
-`agent_client` values in `project_list` or lifecycle tools must be retried with
-one value. Moryn also rejects parent-scalar plus child-alias mixes such as
+This applies to agent identity aliases too: conflicting literal path and
+flattened aliases such as `"agent.client"` and `agent_client` in `project_list`
+or lifecycle tools must be retried with one value. Moryn also rejects
+parent-scalar plus child-alias mixes such as
 `source: "codex"` with `source_client` or `agent: "codex"` with `agent_client`,
 because those inputs otherwise hide an invalid nested object shape.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
@@ -849,9 +850,9 @@ contract aliases, plus literal recovery-hint paths such as `"content.text"`,
 preserve `provenance.method` and `provenance.promoted_at`, and invalid values
 for those nested fields return the same source-backed `recovery_hint` instead
 of being silently dropped. Conflicting direct MCP aliases for the same nested
-write field, such as `source.client` and `source_client` with different values,
-are rejected with `expected.kind: "single_value"` and contract-backed retry
-guidance. A scalar parent paired with a child alias, for example
+write field, such as `"source.client"` and `source_client` with different
+values, are rejected with `expected.kind: "single_value"` and contract-backed
+retry guidance. A scalar parent paired with a child alias, for example
 `source: "codex"` plus `source_client`, is rejected the same way instead of
 being coerced into a partial `source` object.
 Empty CLI `write --reason` values return

@@ -461,6 +461,7 @@ function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArg
   const valuesByInput: Record<string, unknown> = {};
   const nestedValue = mcpPathValue(input, argument.mcp.path);
   if (nestedValue !== undefined) valuesByInput[argument.mcp.path] = nestedValue;
+  if (nestedInputValue !== undefined) valuesByInput[argument.mcp.path] = nestedInputValue;
   if (flattenedValue !== undefined) valuesByInput[argument.name] = flattenedValue;
   if (Object.keys(valuesByInput).length <= 1) return undefined;
   const distinctValues = new Set(Object.values(valuesByInput).map(stableMcpValueKey));

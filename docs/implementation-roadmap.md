@@ -776,7 +776,8 @@ Deliverables:
   `source_model`, normalizing them into mutation event `source` metadata before
   core validation.
 - Done: Direct MCP alias normalization now rejects conflicting nested and
-  flattened values for the same contract path with a structured
+  flattened values for the same contract path, including literal path keys such
+  as `"source.client"` versus `source_client`, with a structured
   `INVALID_ARGUMENT` recovery hint, so agents must retry with one value instead
   of relying on silent overwrite order.
 - Done: Direct MCP alias normalization also rejects scalar parent arguments
