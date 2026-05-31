@@ -861,10 +861,13 @@ validation, including single-string tag, record id, file, kind, scope, type, and
 state values. MCP `recall.query` shape failures likewise pass through core
 validation, including numeric values, and return
 `operations_by_id.recall.arguments_by_name.query`. Empty CLI recall filters such
-as `--record-id`, `--tag`, and `--file`, plus empty `recall ""` queries, return
-the same recall argument sources instead of generic non-empty-string hints. MCP `project_list.current_task` and `project_list.sync_remote`
-shape failures also pass through core validation, including numeric values, and
-return `operations_by_id.project_list.arguments_by_name.current_task` or
+as `--record-id`, `--tag`, and `--file` return the same recall argument sources
+instead of generic non-empty-string hints. Empty `recall ""` queries return a
+positional `query` recovery hint backed by
+`operations_by_id.recall.arguments_by_name.query`. MCP
+`project_list.current_task` and `project_list.sync_remote` shape failures also
+pass through core validation, including numeric values, and return
+`operations_by_id.project_list.arguments_by_name.current_task` or
 `operations_by_id.project_list.arguments_by_name.sync_remote` instead of
 host-side schema text. MCP `boot.current_task` and `refresh.current_task`
 shape failures also pass through core validation and return
@@ -944,10 +947,11 @@ Missing required parser options for `revise --set`, `promote --state`,
 same source-backed recovery shape, so agents can inspect the exact operation
 contract before retrying. Missing positional arguments for mutation record ids,
 linked record ids, and `sync init <remote>` also return operation and argument
-sources instead of generic command-argument advice. Empty mutation positionals
-such as `revise "" --set ...` and `link <record-id> "" --type ...` also fail at
-the CLI boundary with `record-id` or `linked-record-id` recovery hints. Empty
-`sync init ""` remotes likewise fail with a positional `remote` recovery hint.
+sources instead of generic command-argument advice. Empty read and mutation
+positionals such as `recall ""`, `revise "" --set ...`, and
+`link <record-id> "" --type ...` also fail at the CLI boundary with `query`,
+`record-id`, or `linked-record-id` recovery hints. Empty `sync init ""` remotes
+likewise fail with a positional `remote` recovery hint.
 Empty CLI strings for write
 text/tags/provenance, refresh cursors, sync messages, lifecycle
 project/task/sync/agent/status/summary inputs, MCP source metadata and

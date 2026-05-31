@@ -928,7 +928,9 @@ program.command("recall")
     const limit = parseLimit(options.limit, "recall");
     const recallInput = {
       record_ids: options.recordId,
-      query: parseNonEmptyCliString(query, "query", { operation: "recall", argument: "query" }),
+      query: query === undefined
+        ? undefined
+        : parseNonEmptyCliPositional(query, "query", { operation: "recall", argument: "query" }),
       project_id: projectId,
       kinds: parseEnumList(options.kind, recordKinds, "--kind", { operation: "recall", argument: "kinds" }),
       scopes: parseEnumList(options.scope, recordScopes, "--scope", { operation: "recall", argument: "scopes" }),

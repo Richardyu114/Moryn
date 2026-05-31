@@ -3440,14 +3440,6 @@ describe("moryn CLI", () => {
           option: "--derived-from"
         },
         {
-          args: ["recall", ""],
-          operation: "recall",
-          argument: "query",
-          message: "Invalid query",
-          option: "query",
-          valuePlaceholder: "<non-empty query>"
-        },
-        {
           args: ["recall", "--record-id", ""],
           operation: "recall",
           argument: "record_ids",
@@ -3706,11 +3698,17 @@ describe("moryn CLI", () => {
     });
   }, 20000);
 
-  it("rejects empty CLI mutation positionals before writing events", async () => {
+  it("rejects empty CLI positionals before side effects", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
       for (const { args, operation, argument, positional } of [
+        {
+          args: ["recall", ""],
+          operation: "recall",
+          argument: "query",
+          positional: "query"
+        },
         {
           args: ["revise", "", "--set", "type=decision"],
           operation: "revise",

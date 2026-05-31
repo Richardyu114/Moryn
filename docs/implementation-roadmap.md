@@ -389,9 +389,9 @@ Deliverables:
 - Done: CLI empty `boot --current-task` and `refresh --current-task` failures
   now expose the matching operation-specific `current_task` argument source
   before boot or refresh logic runs.
-- Done: CLI empty `recall ""` query failures now expose
-  `operations_by_id.recall.arguments_by_name.query` instead of a generic
-  non-empty-string hint.
+- Done: CLI empty `recall ""` query failures now expose positional `query`
+  recovery backed by `operations_by_id.recall.arguments_by_name.query` instead
+  of a generic non-empty-string hint.
 - Done: CLI empty recall filter failures for repeatable fields such as
   `--record-id`, `--tag`, and `--file` now expose the matching
   `operations_by_id.recall.arguments_by_name.*` sources instead of generic or
@@ -744,6 +744,8 @@ Deliverables:
   `record-id`/`linked-record-id` recovery hints backed by the matching mutation
   `arguments_by_name` source, so agents do not need to translate lower-level
   `record_id` or `linked_record_id` argument errors.
+- Done: Empty CLI `recall` query positionals now use the same positional
+  recovery channel, so agents do not see a pseudo-option named `query`.
 - Done: Empty CLI `sync init` remote positionals now use the same positional
   recovery channel, so agents do not see a pseudo-option named `remote`.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content

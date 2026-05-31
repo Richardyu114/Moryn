@@ -809,9 +809,10 @@ runs.
 MCP `recall.query` shape failures also pass through core validation, including
 numeric values, and point at `operations_by_id.recall.arguments_by_name.query`
 instead of host-side schema text.
-Empty CLI recall filters such as `--record-id`, `--tag`, and `--file`, plus
-empty `recall ""` queries, point at the same recall argument contracts instead
-of generic non-empty-string hints.
+Empty CLI recall filters such as `--record-id`, `--tag`, and `--file` point at
+the same recall argument contracts instead of generic non-empty-string hints.
+Empty `recall ""` queries return a positional `query` recovery hint backed by
+`operations_by_id.recall.arguments_by_name.query`.
 RFC3339 cursor failures point to
 `operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
 through lifecycle refresh-since arguments. MCP `refresh.cursor` shape failures
@@ -870,10 +871,11 @@ required parser options for `revise --set`, `promote --state`, `link --type`,
 recovery shape, so agents can inspect the exact operation contract before
 retrying. Missing positional arguments for mutation record ids, linked record
 ids, and `sync init <remote>` also return operation and argument sources instead
-of generic command-argument advice. Empty mutation positionals such as
-`revise "" --set ...` and `link <record-id> "" --type ...` also fail at the CLI
-boundary with `record-id` or `linked-record-id` recovery hints. Empty
-`sync init ""` remotes likewise fail with a positional `remote` recovery hint.
+of generic command-argument advice. Empty read and mutation positionals such as
+`recall ""`, `revise "" --set ...`, and `link <record-id> "" --type ...` also
+fail at the CLI boundary with `query`, `record-id`, or `linked-record-id`
+recovery hints. Empty `sync init ""` remotes likewise fail with a positional
+`remote` recovery hint.
 Empty CLI strings for write
 text/tags/provenance, refresh cursors, sync messages, lifecycle
 project/task/sync/agent/status/summary inputs, MCP source metadata and
