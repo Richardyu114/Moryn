@@ -84,6 +84,42 @@ type McpArgumentRecoveryHint =
       expected: { kind: "choose_one"; arguments: ["text", "content"] };
       argument_sources: Record<"text" | "content", string>;
       retry_with: Array<{ argument: "text" | "content"; value_placeholder: string }>;
+    }
+  | {
+      operation_contract: `operations_by_id.${McpProjectContextOperation}`;
+      rejected_argument: { argument: "project_id"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: Record<"project_id", string>;
+      discover_with: {
+        tool: "project_list";
+        command: "moryn project list";
+        arguments: Record<string, never>;
+        safe_to_run: true;
+      };
+      retry_with: {
+        argument: "project_id";
+        value_source: "project_list.projects_by_id.<project_id>.project_id";
+        value_placeholder: "<project_id_from_project_list>";
+      };
+      fallback_value_source: "project_list.projects[].project_id";
+      do_not: ["invent_project_id", "retry_with_same_invalid_project_id"];
+    }
+  | {
+      operation_contract: `operations_by_id.${McpProjectContextOperation}`;
+      rejected_argument: { argument: "project_path"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: Record<"project_path", string>;
+      retry_with: {
+        argument: "project_path";
+        value_source: "user_input.project_path";
+        value_placeholder: "<project_path>";
+      };
+      retry_alternative: {
+        argument: "project_id";
+        value_source: "project_list.projects_by_id.<project_id>.project_id";
+        value_placeholder: "<project_id_from_project_list>";
+      };
+      do_not: ["invent_project_path", "assume_numeric_project_path_is_valid"];
     };
 
 class McpArgumentError extends Error {
@@ -156,11 +192,112 @@ function withDefaultSource(source: unknown): unknown {
   return source;
 }
 
-async function resolveProjectInput(input: { project_id?: string; project_path?: string }): Promise<{ project_id?: string; tags: string[]; default_skills: string[] }> {
-  if (input.project_id === undefined && input.project_path === undefined) {
+type McpProjectContextOperation =
+  | "boot"
+  | "recall"
+  | "write"
+  | "refresh"
+  | "agent_doctor"
+  | "agent_guide"
+  | "agent_enter"
+  | "agent_start"
+  | "agent_status"
+  | "agent_finish";
+
+function projectContextArgumentError(
+  operation: McpProjectContextOperation,
+  argument: "project_id" | "project_path",
+  value: unknown
+): McpArgumentError {
+  if (argument === "project_id") {
+    return new McpArgumentError(
+      "Invalid argument: Invalid project_id",
+      "retry with a non-empty project_id from project_list",
+      {
+        operation_contract: `operations_by_id.${operation}`,
+        rejected_argument: { argument, value },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          project_id: `operations_by_id.${operation}.arguments_by_name.project_id`
+        },
+        discover_with: {
+          tool: "project_list",
+          command: "moryn project list",
+          arguments: {},
+          safe_to_run: true
+        },
+        retry_with: {
+          argument: "project_id",
+          value_source: "project_list.projects_by_id.<project_id>.project_id",
+          value_placeholder: "<project_id_from_project_list>"
+        },
+        fallback_value_source: "project_list.projects[].project_id",
+        do_not: ["invent_project_id", "retry_with_same_invalid_project_id"]
+      }
+    );
+  }
+
+  return new McpArgumentError(
+    "Invalid argument: Invalid project_path",
+    "retry with a non-empty project_path or select project_id from project_list",
+    {
+      operation_contract: `operations_by_id.${operation}`,
+      rejected_argument: { argument, value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: {
+        project_path: `operations_by_id.${operation}.arguments_by_name.project_path`
+      },
+      retry_with: {
+        argument: "project_path",
+        value_source: "user_input.project_path",
+        value_placeholder: "<project_path>"
+      },
+      retry_alternative: {
+        argument: "project_id",
+        value_source: "project_list.projects_by_id.<project_id>.project_id",
+        value_placeholder: "<project_id_from_project_list>"
+      },
+      do_not: ["invent_project_path", "assume_numeric_project_path_is_valid"]
+    }
+  );
+}
+
+function validateProjectContextInput(
+  operation: McpProjectContextOperation,
+  input: { project_id?: unknown; project_path?: unknown }
+): { project_id?: string; project_path?: string } {
+  if (input.project_id !== undefined && (typeof input.project_id !== "string" || input.project_id.length === 0)) {
+    throw projectContextArgumentError(operation, "project_id", input.project_id);
+  }
+  if (input.project_path !== undefined && (typeof input.project_path !== "string" || input.project_path.length === 0)) {
+    throw projectContextArgumentError(operation, "project_path", input.project_path);
+  }
+  return {
+    project_id: input.project_id,
+    project_path: input.project_path
+  };
+}
+
+function lifecycleProjectContextInput(
+  operation: McpProjectContextOperation,
+  input: { project_id?: unknown; project_path?: unknown }
+): { projectId?: string; projectPath?: string } {
+  const projectInput = validateProjectContextInput(operation, input);
+  return {
+    projectId: projectInput.project_id,
+    projectPath: projectInput.project_path
+  };
+}
+
+async function resolveProjectInput(
+  operation: McpProjectContextOperation,
+  input: { project_id?: unknown; project_path?: unknown }
+): Promise<{ project_id?: string; tags: string[]; default_skills: string[] }> {
+  const projectInput = validateProjectContextInput(operation, input);
+  if (projectInput.project_id === undefined && projectInput.project_path === undefined) {
     return { tags: [], default_skills: [] };
   }
-  const project = await resolveProjectContext({ projectPath: input.project_path, projectId: input.project_id });
+  const project = await resolveProjectContext({ projectPath: projectInput.project_path, projectId: projectInput.project_id });
   return {
     project_id: project.project_id,
     tags: project.config?.tags ?? [],
@@ -354,15 +491,15 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Boot Moryn Context",
       description: "Return a bounded context package for an agent starting work.",
       inputSchema: {
-        project_id: stringSchema.optional(),
-        project_path: stringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         sync_remote: stringSchema.optional(),
         current_task: z.unknown().optional(),
         default_skills: z.unknown().optional()
       }
     },
     async ({ project_id, project_path, current_task, default_skills }) => toolResult(async () => {
-      const project = await resolveProjectInput({ project_id, project_path });
+      const project = await resolveProjectInput("boot", { project_id, project_path });
       return engine.boot({
         project_id: project.project_id,
         default_skills: default_skills ?? project.default_skills,
@@ -379,8 +516,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         record_ids: z.unknown().optional(),
         query: coreValidatedStringSchema.optional(),
-        project_id: stringSchema.optional(),
-        project_path: stringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         kinds: z.unknown().optional(),
         scopes: z.unknown().optional(),
         types: z.unknown().optional(),
@@ -391,7 +528,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       }
     },
     async ({ record_ids, query, project_id, project_path, kinds, scopes, types, states, tags, files, limit }) => toolResult(async () => {
-      const project = await resolveProjectInput({ project_id, project_path });
+      const project = await resolveProjectInput("recall", { project_id, project_path });
       return engine.recall({
         record_ids,
         query,
@@ -444,8 +581,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         kind: coreValidatedRecordKindSchema,
         type: coreValidatedStringSchema.optional(),
         scope: coreValidatedRecordScopeSchema.optional(),
-        project_id: stringSchema.optional(),
-        project_path: stringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         tags: z.unknown().optional(),
         text: coreValidatedStringSchema.optional(),
         content: z.unknown().optional(),
@@ -468,7 +605,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         throw writeContentChoiceError();
       }
       const content = input.content ?? { text: input.text ?? "", format: "text" as const };
-      const project = await resolveProjectInput({ project_id: input.project_id, project_path: input.project_path });
+      const project = await resolveProjectInput("write", { project_id: input.project_id, project_path: input.project_path });
       const type = input.type ?? (input.kind === "session_summary" ? "summary" : undefined);
       const scope = input.scope ?? (input.kind === "session_summary" ? "project" : undefined);
       if (type === undefined) {
@@ -646,15 +783,15 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Refresh Moryn Changes",
       description: "Return important changes since a cursor for periodic agent memory refresh.",
       inputSchema: {
-        project_id: stringSchema.optional(),
-        project_path: stringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         cursor: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional()
       }
     },
     async ({ project_id, project_path, cursor, current_task, limit }) => toolResult(async () => {
-      const project = await resolveProjectInput({ project_id, project_path });
+      const project = await resolveProjectInput("refresh", { project_id, project_path });
       return engine.refresh({
         project_id: project.project_id,
         cursor,
@@ -670,8 +807,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Diagnose Moryn Agent Setup",
       description: "Read-only setup check that tells an agent whether store, project, and sync are ready and what to call next.",
       inputSchema: {
-        project_id: stringSchema.optional(),
-        project_path: stringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional()
@@ -681,8 +818,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       const lifecycleAgent = lifecycleAgentInput(agent);
       return toolResult(async () => agentDoctor({
         storePath: options.storePath,
-        projectId: project_id,
-        projectPath: project_path,
+        ...lifecycleProjectContextInput("agent_doctor", { project_id, project_path }),
         syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         agent: lifecycleAgent
@@ -696,8 +832,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Enter Moryn Agent Session",
       description: "One-call agent entrypoint: diagnose setup, discover projects when needed, or start a known project session.",
       inputSchema: {
-        project_id: stringSchema.optional(),
-        project_path: stringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         refresh_since: z.unknown().optional(),
@@ -721,8 +857,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       });
       return toolResult(async () => agentEnter({
         storePath: options.storePath,
-        projectId: project_id,
-        projectPath: project_path,
+        ...lifecycleProjectContextInput("agent_enter", { project_id, project_path }),
         syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         refreshSince: refresh_since,
@@ -743,8 +878,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Guide Moryn Agent Workflow",
       description: "Return machine-readable lifecycle guidance and exact next tool arguments for agents.",
       inputSchema: {
-        project_id: stringSchema.optional(),
-        project_path: stringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional()
@@ -754,8 +889,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       const lifecycleAgent = lifecycleAgentInput(agent);
       return toolResult(async () => agentGuide({
         storePath: options.storePath,
-        projectId: project_id,
-        projectPath: project_path,
+        ...lifecycleProjectContextInput("agent_guide", { project_id, project_path }),
         syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         agent: lifecycleAgent
@@ -769,8 +903,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Start Moryn Agent Session",
       description: "Low-friction agent startup: pull sync, resolve project context, boot context, and refresh recent changes.",
       inputSchema: {
-        project_id: stringSchema.optional(),
-        project_path: stringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         refresh_since: z.unknown().optional(),
@@ -794,8 +928,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       });
       return toolResult(async () => agentStart({
         storePath: options.storePath,
-        projectId: project_id,
-        projectPath: project_path,
+        ...lifecycleProjectContextInput("agent_start", { project_id, project_path }),
         syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         refreshSince: refresh_since,
@@ -817,8 +950,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Low-friction agent handoff: write a session summary and push sync.",
       inputSchema: {
         summary: z.unknown(),
-        project_id: stringSchema.optional(),
-        project_path: stringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
@@ -840,8 +973,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       const contextArguments = compactUndefined(contextInput);
       return toolResult(async () => agentFinish({
         storePath: options.storePath,
-        projectId: project_id,
-        projectPath: project_path,
+        ...lifecycleProjectContextInput("agent_finish", { project_id, project_path }),
         syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         summary,
@@ -862,8 +994,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Low-friction in-progress update: write a project status checkpoint and push sync.",
       inputSchema: {
         status: z.unknown(),
-        project_id: stringSchema.optional(),
-        project_path: stringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
@@ -885,8 +1017,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       const contextArguments = compactUndefined(contextInput);
       return toolResult(async () => agentStatus({
         storePath: options.storePath,
-        projectId: project_id,
-        projectPath: project_path,
+        ...lifecycleProjectContextInput("agent_status", { project_id, project_path }),
         syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         status,

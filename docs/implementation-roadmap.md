@@ -499,6 +499,11 @@ Deliverables:
   values, and expose the matching
   `operations_by_id.<operation>.arguments_by_name.sync_remote` source instead
   of host-side schema text.
+- Done: MCP project selector shape failures for `boot`, `recall`, `write`,
+  `refresh`, and lifecycle tools now pass through shared project-context
+  validation, including numeric `project_id`/`project_path` values, and expose
+  operation-specific argument sources plus project-list retry guidance instead
+  of host-side schema text.
 - Done: MCP `agent_start.refresh_since` and `agent_enter.refresh_since` shape
   failures now pass through refresh validation, including numeric values, and
   preserve `refresh_since` as the retry argument while pointing at the refresh

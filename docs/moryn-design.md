@@ -795,7 +795,12 @@ RFC3339 cursor failures point to
 `operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
 through lifecycle refresh-since arguments. MCP `refresh.cursor` shape failures
 also pass through core validation, including numeric values, and point at the
-same cursor contract instead of host-side schema text. Project setup argument failures for
+same cursor contract instead of host-side schema text. MCP project selector
+shape failures for `boot`, `recall`, `write`, `refresh`, and lifecycle tools
+also pass through shared project-context validation, including numeric
+`project_id`/`project_path` values, and point at operation-specific argument
+sources with `project_list` retry guidance instead of host-side schema text.
+Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and
 `project_init` path/project id/tags/default skills/sync mode/repair inputs also
 point at `operations_by_id.project_init.arguments_by_name.<argument>`. MCP
@@ -1822,7 +1827,9 @@ Lifecycle tools apply the same rule to `current_task`: malformed values for
 `operations_by_id.<operation>.arguments_by_name.current_task` contract. They
 also apply it to `sync_remote`, so malformed lifecycle remotes point at
 `operations_by_id.<operation>.arguments_by_name.sync_remote` instead of
-host-side schema text.
+host-side schema text. Malformed lifecycle `project_id` and `project_path`
+values use the same operation-specific recovery channel and direct agents back
+to `project_list` rather than guessing project identity.
 The response keeps `projects[]` as the ordered display list and also returns
 `projects_by_id` for direct keyed selection. Each
 `projects_by_id.<project_id>` value mirrors the matching `projects[]` record,

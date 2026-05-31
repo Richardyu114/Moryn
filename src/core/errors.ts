@@ -974,8 +974,8 @@ export function commandForReviseContext(input: { record_id: unknown; patch: unkn
 export function commandForRecallContext(input: {
   record_ids?: unknown;
   query?: unknown;
-  project_id?: string;
-  project_path?: string;
+  project_id?: unknown;
+  project_path?: unknown;
   kinds?: unknown;
   scopes?: unknown;
   types?: unknown;
@@ -989,8 +989,8 @@ export function commandForRecallContext(input: {
     parts.push(shellQuote(input.query));
   }
   appendRepeatedCommandOption(parts, "--record-id", Array.isArray(input.record_ids) ? input.record_ids : undefined);
-  appendCommandOption(parts, "--project-id", input.project_id);
-  appendCommandOption(parts, "--project", input.project_path);
+  appendCommandOptionValue(parts, "--project-id", input.project_id);
+  appendCommandOptionValue(parts, "--project", input.project_path);
   appendRepeatedCommandOption(parts, "--kind", Array.isArray(input.kinds) ? input.kinds : undefined);
   appendRepeatedCommandOption(parts, "--scope", Array.isArray(input.scopes) ? input.scopes : undefined);
   appendRepeatedCommandOption(parts, "--type", Array.isArray(input.types) ? input.types : undefined);
@@ -1002,17 +1002,17 @@ export function commandForRecallContext(input: {
 }
 
 export function commandForRefreshContext(input: {
-  project_id?: string;
-  project_path?: string;
-  cursor?: string;
-  current_task?: string;
+  project_id?: unknown;
+  project_path?: unknown;
+  cursor?: unknown;
+  current_task?: unknown;
   limit?: unknown;
 }): string {
   const parts = ["moryn", "refresh"];
-  appendCommandOption(parts, "--project-id", input.project_id);
-  appendCommandOption(parts, "--project", input.project_path);
-  appendCommandOption(parts, "--cursor", input.cursor);
-  appendCommandOption(parts, "--current-task", input.current_task);
+  appendCommandOptionValue(parts, "--project-id", input.project_id);
+  appendCommandOptionValue(parts, "--project", input.project_path);
+  appendCommandOptionValue(parts, "--cursor", input.cursor);
+  appendCommandOptionValue(parts, "--current-task", input.current_task);
   appendCommandOptionValue(parts, "--limit", input.limit);
   return parts.join(" ");
 }
@@ -1044,8 +1044,8 @@ export function commandForLinkContext(input: { record_id: unknown; linked_record
 }
 
 type AgentStartContextInput = {
-  project_id?: string;
-  project_path?: string;
+  project_id?: unknown;
+  project_path?: unknown;
   sync_remote?: unknown;
   current_task?: unknown;
   refresh_since?: unknown;
@@ -1061,8 +1061,8 @@ type AgentStartContextInput = {
 
 function commandForAgentSessionContext(command: "enter" | "start", input: AgentStartContextInput): string {
   const parts = ["moryn", "agent", command];
-  appendCommandOption(parts, "--project", input.project_path);
-  appendCommandOption(parts, "--project-id", input.project_id);
+  appendCommandOptionValue(parts, "--project", input.project_path);
+  appendCommandOptionValue(parts, "--project-id", input.project_id);
   appendCommandOptionValue(parts, "--sync-remote", input.sync_remote);
   appendCommandOptionValue(parts, "--current-task", input.current_task);
   appendCommandOptionValue(parts, "--refresh-since", input.refresh_since);
@@ -1084,8 +1084,8 @@ export function commandForAgentEnterContext(input: AgentStartContextInput): stri
 }
 
 interface AgentLifecycleCommandContextInput {
-  project_id?: string;
-  project_path?: string;
+  project_id?: unknown;
+  project_path?: unknown;
   sync_remote?: unknown;
   current_task?: unknown;
   push?: boolean;
@@ -1098,8 +1098,8 @@ interface AgentLifecycleCommandContextInput {
 }
 
 function appendAgentLifecycleCommandOptions(parts: string[], input: AgentLifecycleCommandContextInput): void {
-  appendCommandOption(parts, "--project", input.project_path);
-  appendCommandOption(parts, "--project-id", input.project_id);
+  appendCommandOptionValue(parts, "--project", input.project_path);
+  appendCommandOptionValue(parts, "--project-id", input.project_id);
   appendCommandOptionValue(parts, "--sync-remote", input.sync_remote);
   appendCommandOptionValue(parts, "--current-task", input.current_task);
   appendCommandOption(parts, "--agent", input.agent?.client);

@@ -7377,6 +7377,87 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "sync_remote", value_placeholder: "<sync_remote>" }
         });
 
+        for (const { tool, operation, baseArguments } of [
+          { tool: "boot", operation: "boot", baseArguments: {} },
+          { tool: "recall", operation: "recall", baseArguments: {} },
+          { tool: "refresh", operation: "refresh", baseArguments: {} },
+          {
+            tool: "write",
+            operation: "write",
+            baseArguments: { kind: "memory", type: "decision", scope: "project", text: "Project context shape test.", source: { client: "mcp-test" } }
+          },
+          { tool: "agent_doctor", operation: "agent_doctor", baseArguments: {} },
+          { tool: "agent_guide", operation: "agent_guide", baseArguments: {} },
+          { tool: "agent_enter", operation: "agent_enter", baseArguments: {} },
+          { tool: "agent_start", operation: "agent_start", baseArguments: {} },
+          { tool: "agent_status", operation: "agent_status", baseArguments: { status: "working" } },
+          { tool: "agent_finish", operation: "agent_finish", baseArguments: { summary: "done" } }
+        ] as const) {
+          const invalidProjectIdShape = parseTextContent(await client.callTool({
+            name: tool,
+            arguments: {
+              ...baseArguments,
+              project_id: 123
+            }
+          })) as McpInvalidArgument;
+          expect(invalidProjectIdShape.ok).toBe(false);
+          expect(invalidProjectIdShape.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidProjectIdShape.error.message).toContain("Invalid project_id");
+          expect(invalidProjectIdShape.error.recommended_action).toBe("retry with a non-empty project_id from project_list");
+          expect(invalidProjectIdShape.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument: "project_id", value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              project_id: `operations_by_id.${operation}.arguments_by_name.project_id`
+            },
+            discover_with: {
+              tool: "project_list",
+              command: "moryn project list",
+              arguments: {},
+              safe_to_run: true
+            },
+            retry_with: {
+              argument: "project_id",
+              value_source: "project_list.projects_by_id.<project_id>.project_id",
+              value_placeholder: "<project_id_from_project_list>"
+            },
+            fallback_value_source: "project_list.projects[].project_id",
+            do_not: ["invent_project_id", "retry_with_same_invalid_project_id"]
+          });
+
+          const invalidProjectPathShape = parseTextContent(await client.callTool({
+            name: tool,
+            arguments: {
+              ...baseArguments,
+              project_path: 123
+            }
+          })) as McpInvalidArgument;
+          expect(invalidProjectPathShape.ok).toBe(false);
+          expect(invalidProjectPathShape.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidProjectPathShape.error.message).toContain("Invalid project_path");
+          expect(invalidProjectPathShape.error.recommended_action).toBe("retry with a non-empty project_path or select project_id from project_list");
+          expect(invalidProjectPathShape.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument: "project_path", value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              project_path: `operations_by_id.${operation}.arguments_by_name.project_path`
+            },
+            retry_with: {
+              argument: "project_path",
+              value_source: "user_input.project_path",
+              value_placeholder: "<project_path>"
+            },
+            retry_alternative: {
+              argument: "project_id",
+              value_source: "project_list.projects_by_id.<project_id>.project_id",
+              value_placeholder: "<project_id_from_project_list>"
+            },
+            do_not: ["invent_project_path", "assume_numeric_project_path_is_valid"]
+          });
+        }
+
         const emptyQuery = parseTextContent(await client.callTool({
           name: "recall",
           arguments: { project_id: "moryn", query: "" }
