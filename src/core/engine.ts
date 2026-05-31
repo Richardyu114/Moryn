@@ -41,7 +41,7 @@ export interface EngineWarning {
 }
 
 interface RecallInput {
-  record_ids?: string[];
+  record_ids?: unknown;
   query?: string;
   project_id?: string;
   kinds?: RecordKind[];
@@ -1533,7 +1533,7 @@ function recordBootContextMatches(record: MorynRecord, projectId: string | undef
   return record.scope === "global" || (Boolean(projectId) && record.project_id === projectId);
 }
 
-function recordProjectMatchesRecall(record: MorynRecord, input: RecallInput): boolean {
+function recordProjectMatchesRecall(record: MorynRecord, input: ValidatedRecallInput): boolean {
   return Boolean(input.record_ids?.length) || recordProjectMatches(record, input.project_id);
 }
 
@@ -1545,11 +1545,11 @@ function isTrustedForBoot(record: MorynRecord): boolean {
   return record.state === "canonical";
 }
 
-function includesHiddenState(input: RecallInput): boolean {
+function includesHiddenState(input: ValidatedRecallInput): boolean {
   return input.states?.some((state) => state === "archived" || state === "quarantined") ?? false;
 }
 
-function includesRawState(input: RecallInput): boolean {
+function includesRawState(input: ValidatedRecallInput): boolean {
   return input.states?.includes("raw") ?? false;
 }
 
@@ -1635,7 +1635,7 @@ function recallSourceTrust(record: MorynRecord): { score: number; reason: string
   return { score: 1, reason: "source_trust:agent-proposed" };
 }
 
-type ValidatedRecallInput = RecallInput & { tags?: string[] };
+type ValidatedRecallInput = RecallInput & { record_ids?: string[]; tags?: string[] };
 
 function reasonAndScore(record: MorynRecord, input: ValidatedRecallInput): { score: number; reason: string[] } {
   let score = 0;
@@ -2270,7 +2270,11 @@ export function createEngine(deps: EngineDeps) {
 
     async recall(input: RecallInput) {
       validateRecallInput(input);
-      const recallInput = { ...input, tags: Array.isArray(input.tags) ? input.tags : undefined } as ValidatedRecallInput;
+      const recallInput = {
+        ...input,
+        record_ids: Array.isArray(input.record_ids) ? input.record_ids : undefined,
+        tags: Array.isArray(input.tags) ? input.tags : undefined
+      } as ValidatedRecallInput;
       for (const recordId of recallInput.record_ids ?? []) {
         await requireRecord(recordId);
       }

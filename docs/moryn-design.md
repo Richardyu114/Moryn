@@ -766,8 +766,9 @@ placeholder.
 Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 `project_list` also expose the matching operation contract and
 `argument_sources` for invalid filters, cursors, task context, project ids, and
-limits. MCP `recall.tags` shape failures also pass through core validation,
-including single-string tag values. RFC3339 cursor failures point to
+limits. MCP `recall.tags` and `recall.record_ids` shape failures also pass
+through core validation, including single-string tag and record id values.
+RFC3339 cursor failures point to
 `operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
 through lifecycle refresh-since arguments. Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and

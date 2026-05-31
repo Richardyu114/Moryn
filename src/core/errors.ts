@@ -963,7 +963,7 @@ export function commandForReviseContext(input: { record_id: string; patch: unkno
 }
 
 export function commandForRecallContext(input: {
-  record_ids?: string[];
+  record_ids?: unknown;
   query?: string;
   project_id?: string;
   project_path?: string;
@@ -979,7 +979,7 @@ export function commandForRecallContext(input: {
   if (input.query !== undefined) {
     parts.push(shellQuote(input.query));
   }
-  appendRepeatedCommandOption(parts, "--record-id", input.record_ids);
+  appendRepeatedCommandOption(parts, "--record-id", Array.isArray(input.record_ids) ? input.record_ids : undefined);
   appendCommandOption(parts, "--project-id", input.project_id);
   appendCommandOption(parts, "--project", input.project_path);
   appendRepeatedCommandOption(parts, "--kind", input.kinds);

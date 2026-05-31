@@ -373,7 +373,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Recall Moryn Records",
       description: "Search memory, skills, soul, session summaries, and agent notes.",
       inputSchema: {
-        record_ids: z.array(stringSchema).optional(),
+        record_ids: z.unknown().optional(),
         query: stringSchema.optional(),
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
