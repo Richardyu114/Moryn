@@ -505,6 +505,10 @@ caller can remove the exact duplicate input. A scalar parent paired with a child
 `source: "codex"` plus `source_client` or `agent: "codex"` plus `agent_client`,
 is rejected as the same single-value conflict so invalid object shape is not
 hidden by alias normalization.
+Alias conflict hints also include `conflicting_argument.conflict_kind`, with
+values such as `nested_vs_flattened`, `literal_path_vs_flattened`,
+`nested_vs_literal_path`, or `parent_scalar_vs_child_alias`, and their first
+`do_not` guardrail names the exact duplicate shape the caller should remove.
 `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, `required_inputs_by_field`,
@@ -798,7 +802,10 @@ contract-backed retry guidance. When both `source: { client: ... }` and the
 top-level literal key `"source.client"` are present, `values_by_input` preserves
 them as `source.client` and `"\"source.client\""`. Scalar parent values combined
 with child aliases are rejected the same way instead of being coerced into
-partial nested objects.
+partial nested objects. Those hints also include
+`conflicting_argument.conflict_kind` plus a shape-specific `do_not` guardrail, so
+agents can remove the nested object path, literal path key, flattened contract
+field, or scalar parent before retrying.
 Empty CLI `write --reason` values point at
 `operations_by_id.write.arguments_by_name.reason`, matching the write
 provenance contract instead of a generic non-empty-string hint.
@@ -910,6 +917,10 @@ Direct MCP `project_list` and lifecycle calls accept
 `"agent.client"`/`"agent.session_id"` alias fields before agent validation runs,
 normalizing them into the nested `agent` object used by returned lifecycle
 actions.
+Alias conflicts in those direct MCP tools classify the conflict with
+`conflicting_argument.conflict_kind` and emit a matching `do_not` guardrail for
+nested-vs-flattened, literal-vs-flattened, nested-vs-literal, and
+parent-scalar-vs-child-alias retries.
 MCP write `tags` shape failures also pass through core validation, including
 single-string tag values, and return `operations_by_id.write.arguments_by_name.tags`.
 MCP write `provenance` failures also pass through core validation, including

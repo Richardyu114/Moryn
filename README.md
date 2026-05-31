@@ -503,6 +503,10 @@ nested object paths from top-level literal path keys, reporting the latter as
 rejects parent-scalar plus child-alias mixes such as
 `source: "codex"` with `source_client` or `agent: "codex"` with `agent_client`,
 because those inputs otherwise hide an invalid nested object shape.
+Alias conflict hints include `conflicting_argument.conflict_kind`, with values
+such as `nested_vs_flattened`, `literal_path_vs_flattened`,
+`nested_vs_literal_path`, or `parent_scalar_vs_child_alias`, and the first
+`do_not` guardrail names the exact duplicate shape to remove before retrying.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
@@ -863,7 +867,10 @@ retry guidance. When the conflict is between `source: { client: ... }` and the
 top-level literal key `"source.client"`, `values_by_input` keeps both entries as
 `source.client` and `"\"source.client\""`. A scalar parent paired with a child alias, for example
 `source: "codex"` plus `source_client`, is rejected the same way instead of
-being coerced into a partial `source` object.
+being coerced into a partial `source` object. The same hint includes
+`conflicting_argument.conflict_kind` and a shape-specific `do_not` guardrail, so
+agents can remove the nested, literal-path, flattened, or scalar-parent input
+without parsing the displayed keys.
 Empty CLI `write --reason` values return
 `operations_by_id.write.arguments_by_name.reason`, matching the write
 provenance contract instead of a generic non-empty-string hint.
@@ -993,6 +1000,10 @@ Direct MCP `project_list` and lifecycle calls accept
 `"agent.client"`/`"agent.session_id"` alias fields before agent validation runs,
 normalizing them into the nested `agent` object used by follow-up action
 templates.
+Alias conflicts in those direct MCP tools also classify the conflict with
+`conflicting_argument.conflict_kind` and emit a matching `do_not` guardrail, so
+callers can distinguish nested-vs-flattened, literal-vs-flattened,
+nested-vs-literal, and parent-scalar-vs-child-alias retries.
 MCP write `tags` shape failures also pass through core validation, including
 single-string tag values, and return `operations_by_id.write.arguments_by_name.tags`.
 MCP write `provenance` failures also pass through core validation, including

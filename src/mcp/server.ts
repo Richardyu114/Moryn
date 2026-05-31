@@ -49,6 +49,17 @@ type McpAliasConflict = {
   contractArgument: string;
   valuesByInput: Record<string, unknown>;
 };
+type McpAliasConflictKind =
+  | "nested_vs_flattened"
+  | "literal_path_vs_flattened"
+  | "nested_vs_literal_path"
+  | "parent_scalar_vs_child_alias"
+  | "multiple_aliases";
+type McpAliasConflictDoNot =
+  | "provide_both_nested_and_flattened_aliases"
+  | "provide_both_literal_path_and_flattened_aliases"
+  | "provide_both_nested_and_literal_path_aliases"
+  | "provide_parent_scalar_with_child_aliases";
 
 const stringSchema = z.string();
 const recordKindSchema = z.union([z.enum(RECORD_KINDS), stringSchema]);
@@ -153,12 +164,13 @@ type McpArgumentRecoveryHint =
       operation_contract: `operations_by_id.${string}`;
       conflicting_argument: {
         argument: string;
+        conflict_kind: McpAliasConflictKind;
         values_by_input: Record<string, unknown>;
       };
       expected: { kind: "single_value" };
       argument_sources: Record<string, string>;
       retry_with: { argument: string; value_placeholder: string };
-      do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"];
+      do_not: [McpAliasConflictDoNot, "retry_with_conflicting_alias_values"];
     }
   | {
       operation_contract: `operations_by_id.${McpProjectContextOperation}`;
@@ -202,6 +214,7 @@ class McpAliasConflictError extends Error {
       operation_contract: `operations_by_id.${tool}`,
       conflicting_argument: {
         argument: conflict.path,
+        conflict_kind: conflictKindForAliasConflict(conflict),
         values_by_input: conflict.valuesByInput
       },
       expected: { kind: "single_value" },
@@ -209,7 +222,7 @@ class McpAliasConflictError extends Error {
         [conflict.path]: `operations_by_id.${tool}.arguments_by_name.${conflict.contractArgument}`
       },
       retry_with: { argument: conflict.path, value_placeholder: placeholderForAliasConflict(conflict) },
-      do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+      do_not: doNotForAliasConflict(conflict)
     };
   }
 }
@@ -500,6 +513,30 @@ function stableMcpValueKey(value: unknown): string {
 function placeholderForAliasConflict(conflict: McpAliasConflict): string {
   const leaf = conflict.path.split(".").at(-1);
   return leaf ? `<${leaf.replace(/_/g, " ")}>` : "<value>";
+}
+
+function conflictKindForAliasConflict(conflict: McpAliasConflict): McpAliasConflictKind {
+  const inputs = new Set(Object.keys(conflict.valuesByInput));
+  const hasParentScalar = inputs.has(conflict.argument);
+  const hasNestedPath = inputs.has(conflict.path);
+  const hasLiteralPath = inputs.has(JSON.stringify(conflict.path));
+  const hasFlattened = inputs.has(conflict.contractArgument);
+  if (hasParentScalar) return "parent_scalar_vs_child_alias";
+  if (hasNestedPath && hasLiteralPath) return "nested_vs_literal_path";
+  if (hasLiteralPath && hasFlattened) return "literal_path_vs_flattened";
+  if (hasNestedPath && hasFlattened) return "nested_vs_flattened";
+  return "multiple_aliases";
+}
+
+function doNotForAliasConflict(conflict: McpAliasConflict): [McpAliasConflictDoNot, "retry_with_conflicting_alias_values"] {
+  const doNotByKind: Record<McpAliasConflictKind, McpAliasConflictDoNot> = {
+    nested_vs_flattened: "provide_both_nested_and_flattened_aliases",
+    literal_path_vs_flattened: "provide_both_literal_path_and_flattened_aliases",
+    nested_vs_literal_path: "provide_both_nested_and_literal_path_aliases",
+    parent_scalar_vs_child_alias: "provide_parent_scalar_with_child_aliases",
+    multiple_aliases: "provide_both_nested_and_flattened_aliases"
+  };
+  return [doNotByKind[conflictKindForAliasConflict(conflict)], "retry_with_conflicting_alias_values"];
 }
 
 function lifecycleAgentInput(agent: unknown): RecordSource | undefined {

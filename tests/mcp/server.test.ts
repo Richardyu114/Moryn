@@ -7404,6 +7404,7 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.write",
           conflicting_argument: {
             argument: "source.client",
+            conflict_kind: "nested_vs_flattened",
             values_by_input: {
               "source.client": "mcp-test",
               source_client: "codex"
@@ -7437,6 +7438,7 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.write",
           conflicting_argument: {
             argument: "source.client",
+            conflict_kind: "literal_path_vs_flattened",
             values_by_input: {
               "\"source.client\"": "mcp-test",
               source_client: "codex"
@@ -7447,7 +7449,7 @@ describe("MCP stdio server", () => {
             "source.client": "operations_by_id.write.arguments_by_name.source_client"
           },
           retry_with: { argument: "source.client", value_placeholder: "<client>" },
-          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+          do_not: ["provide_both_literal_path_and_flattened_aliases", "retry_with_conflicting_alias_values"]
         });
 
         const conflictingWriteSourceNestedLiteral = parseTextContent(await client.callTool({
@@ -7470,6 +7472,7 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.write",
           conflicting_argument: {
             argument: "source.client",
+            conflict_kind: "nested_vs_literal_path",
             values_by_input: {
               "source.client": "mcp-test",
               "\"source.client\"": "codex"
@@ -7480,7 +7483,7 @@ describe("MCP stdio server", () => {
             "source.client": "operations_by_id.write.arguments_by_name.source_client"
           },
           retry_with: { argument: "source.client", value_placeholder: "<client>" },
-          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+          do_not: ["provide_both_nested_and_literal_path_aliases", "retry_with_conflicting_alias_values"]
         });
 
         const conflictingWriteSourceShape = parseTextContent(await client.callTool({
@@ -7503,6 +7506,7 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.write",
           conflicting_argument: {
             argument: "source.client",
+            conflict_kind: "parent_scalar_vs_child_alias",
             values_by_input: {
               source: "codex",
               source_client: "codex"
@@ -7513,7 +7517,7 @@ describe("MCP stdio server", () => {
             "source.client": "operations_by_id.write.arguments_by_name.source_client"
           },
           retry_with: { argument: "source.client", value_placeholder: "<client>" },
-          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+          do_not: ["provide_parent_scalar_with_child_aliases", "retry_with_conflicting_alias_values"]
         });
 
         const sourceTarget = parseTextContent(await client.callTool({
@@ -7566,6 +7570,7 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.revise",
           conflicting_argument: {
             argument: "source.client",
+            conflict_kind: "nested_vs_flattened",
             values_by_input: {
               "source.client": "mcp-test",
               source_client: "codex"
@@ -8272,6 +8277,7 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.agent_enter",
           conflicting_argument: {
             argument: "agent.client",
+            conflict_kind: "nested_vs_flattened",
             values_by_input: {
               "agent.client": "codex",
               agent_client: "claude"
@@ -8299,6 +8305,7 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.agent_enter",
           conflicting_argument: {
             argument: "agent.client",
+            conflict_kind: "literal_path_vs_flattened",
             values_by_input: {
               "\"agent.client\"": "codex",
               agent_client: "claude"
@@ -8309,7 +8316,7 @@ describe("MCP stdio server", () => {
             "agent.client": "operations_by_id.agent_enter.arguments_by_name.agent_client"
           },
           retry_with: { argument: "agent.client", value_placeholder: "<client>" },
-          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+          do_not: ["provide_both_literal_path_and_flattened_aliases", "retry_with_conflicting_alias_values"]
         });
         const conflictingLifecycleAgentNestedLiteral = parseTextContent(await client.callTool({
           name: "agent_enter",
@@ -8326,6 +8333,7 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.agent_enter",
           conflicting_argument: {
             argument: "agent.client",
+            conflict_kind: "nested_vs_literal_path",
             values_by_input: {
               "agent.client": "codex",
               "\"agent.client\"": "claude"
@@ -8336,7 +8344,7 @@ describe("MCP stdio server", () => {
             "agent.client": "operations_by_id.agent_enter.arguments_by_name.agent_client"
           },
           retry_with: { argument: "agent.client", value_placeholder: "<client>" },
-          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+          do_not: ["provide_both_nested_and_literal_path_aliases", "retry_with_conflicting_alias_values"]
         });
         const conflictingLifecycleAgentShape = parseTextContent(await client.callTool({
           name: "agent_enter",
@@ -8353,6 +8361,7 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.agent_enter",
           conflicting_argument: {
             argument: "agent.client",
+            conflict_kind: "parent_scalar_vs_child_alias",
             values_by_input: {
               agent: "codex",
               agent_client: "codex"
@@ -8363,7 +8372,7 @@ describe("MCP stdio server", () => {
             "agent.client": "operations_by_id.agent_enter.arguments_by_name.agent_client"
           },
           retry_with: { argument: "agent.client", value_placeholder: "<client>" },
-          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+          do_not: ["provide_parent_scalar_with_child_aliases", "retry_with_conflicting_alias_values"]
         });
         const invalidProjectListAgentClient = parseTextContent(await client.callTool({
           name: "project_list",
@@ -8437,6 +8446,7 @@ describe("MCP stdio server", () => {
           operation_contract: "operations_by_id.project_list",
           conflicting_argument: {
             argument: "agent.client",
+            conflict_kind: "nested_vs_flattened",
             values_by_input: {
               "agent.client": "codex",
               agent_client: "claude"

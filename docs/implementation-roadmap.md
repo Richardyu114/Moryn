@@ -359,6 +359,11 @@ Deliverables:
   `source_session_id`, `"provenance.derived_from"`, and `provenance_method`,
   normalizing them into `content`, `source`, and `provenance` before core
   validation so agents can retry directly from recovery hints.
+- Done: Direct MCP alias conflicts now classify `conflicting_argument` with
+  `nested_vs_flattened`, `literal_path_vs_flattened`,
+  `nested_vs_literal_path`, or `parent_scalar_vs_child_alias`, and emit a
+  matching `do_not` guardrail so agents can remove the exact duplicate input
+  shape instead of guessing from displayed keys.
 - Done: Core mutation argument failures for `revise`, `promote`, `archive`,
   `quarantine`, and `link` now expose the matching
   `operation_contract: "operations_by_id.<operation>"` and `argument_sources`
