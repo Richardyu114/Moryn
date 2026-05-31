@@ -98,6 +98,7 @@ type CliParserOperation =
   | "promote"
   | "archive"
   | "quarantine"
+  | "link"
   | "operation_contracts"
   | "agent_guide"
   | "agent_enter"
@@ -1058,20 +1059,21 @@ program.command("link")
   .requiredOption("--type <type>")
   .action(async (recordId, linkedRecordId, options) => {
     const engine = createCliEngine();
+    const linkType = parseNonEmptyCliString(options.type, "--type", { operation: "link", argument: "link_type" })!;
     const context = {
       tool: "link",
-      command: commandForLinkContext({ record_id: recordId, linked_record_id: linkedRecordId, link_type: options.type }),
+      command: commandForLinkContext({ record_id: recordId, linked_record_id: linkedRecordId, link_type: linkType }),
       arguments: {
         record_id: recordId,
         linked_record_id: linkedRecordId,
-        link_type: options.type
+        link_type: linkType
       }
     };
     try {
       printJson(await engine.link({
         record_id: recordId,
         linked_record_id: linkedRecordId,
-        link_type: options.type,
+        link_type: linkType,
         source: { client: "cli" }
       }));
     } catch (error) {

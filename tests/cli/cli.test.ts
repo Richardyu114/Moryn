@@ -3533,6 +3533,13 @@ describe("moryn CLI", () => {
           valuePlaceholder: "<non-empty remote>"
         },
         {
+          args: ["link", "rec_source", "rec_target", "--type", ""],
+          operation: "link",
+          argument: "link_type",
+          message: "Invalid --type",
+          option: "--type"
+        },
+        {
           args: ["agent", "start", "--project-id", ""],
           operation: "agent_start",
           argument: "project_id",
