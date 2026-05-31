@@ -379,6 +379,9 @@ Deliverables:
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty
   explicit agent prefill values are rejected instead of silently ignored.
+- Done: MCP agent lifecycle `agent.client` failures now pass through core
+  validation and return structured recovery hints pointing at
+  `operations_by_id.<operation>.arguments_by_name.agent_client`.
 - Done: CLI sync parser failures for conflicting `--status`/`--push`/`--pull`
   flags now return operation contracts for each selectable sync operation, and
   `--message` without `--push` points at

@@ -552,6 +552,13 @@ const agentSourceArgument = {
     required: false,
     cli: { flags: ["--agent", "--session-id", "--model", "--device-id"] },
     mcp: { argument: "agent" }
+  },
+  agent_client: {
+    type: "string",
+    required: false,
+    cli: { flag: "--agent" },
+    mcp: { argument: "agent", path: "agent.client" },
+    parent_argument: "agent"
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 

@@ -136,6 +136,12 @@ const sourceSchema = z.object({
   model: nonEmptyStringSchema.optional(),
   device_id: nonEmptyStringSchema.optional()
 });
+const coreValidatedAgentSchema = z.object({
+  client: z.unknown().optional().default("mcp"),
+  session_id: nonEmptyStringSchema.optional(),
+  model: nonEmptyStringSchema.optional(),
+  device_id: nonEmptyStringSchema.optional()
+});
 const coreValidatedSourceSchema = z.object({
   client: z.unknown().optional().default("mcp"),
   session_id: nonEmptyStringSchema.optional(),
@@ -179,6 +185,10 @@ async function toolResult(fn: () => Promise<unknown>, context?: MorynErrorContex
 
 function compactUndefined<T extends Record<string, unknown>>(input: T): Record<string, unknown> {
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
+}
+
+function lifecycleAgentInput(agent: unknown): RecordSource | undefined {
+  return agent as RecordSource | undefined;
 }
 
 export async function runMcpServer(engine: Engine, options: { storePath: string }): Promise<void> {
@@ -645,17 +655,20 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_path: stringSchema.optional(),
         sync_remote: stringSchema.optional(),
         current_task: stringSchema.optional(),
-        agent: sourceSchema.optional()
+        agent: coreValidatedAgentSchema.optional()
       }
     },
-    async ({ project_id, project_path, sync_remote, current_task, agent }) => toolResult(async () => agentDoctor({
-      storePath: options.storePath,
-      projectId: project_id,
-      projectPath: project_path,
-      syncRemote: sync_remote,
-      currentTask: current_task,
-      agent
-    }))
+    async ({ project_id, project_path, sync_remote, current_task, agent }) => {
+      const lifecycleAgent = lifecycleAgentInput(agent);
+      return toolResult(async () => agentDoctor({
+        storePath: options.storePath,
+        projectId: project_id,
+        projectPath: project_path,
+        syncRemote: sync_remote,
+        currentTask: current_task,
+        agent: lifecycleAgent
+      }));
+    }
   );
 
   server.registerTool(
@@ -671,10 +684,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         refresh_since: stringSchema.optional(),
         limit: numberSchema.optional(),
         pull: z.boolean().optional(),
-        agent: sourceSchema.optional()
+        agent: coreValidatedAgentSchema.optional()
       }
     },
     async ({ project_id, project_path, sync_remote, current_task, refresh_since, limit, pull, agent }) => {
+      const lifecycleAgent = lifecycleAgentInput(agent);
       const contextArguments = compactUndefined({
         project_id,
         project_path,
@@ -683,7 +697,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         refresh_since,
         limit,
         pull,
-        agent
+        agent: lifecycleAgent
       });
       return toolResult(async () => agentEnter({
         storePath: options.storePath,
@@ -694,7 +708,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         refreshSince: refresh_since,
         limit,
         pull,
-        agent
+        agent: lifecycleAgent
       }), {
         tool: "agent_enter",
         command: commandForAgentEnterContext(contextArguments),
@@ -713,17 +727,20 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_path: stringSchema.optional(),
         sync_remote: stringSchema.optional(),
         current_task: stringSchema.optional(),
-        agent: sourceSchema.optional()
+        agent: coreValidatedAgentSchema.optional()
       }
     },
-    async ({ project_id, project_path, sync_remote, current_task, agent }) => toolResult(async () => agentGuide({
-      storePath: options.storePath,
-      projectId: project_id,
-      projectPath: project_path,
-      syncRemote: sync_remote,
-      currentTask: current_task,
-      agent
-    }))
+    async ({ project_id, project_path, sync_remote, current_task, agent }) => {
+      const lifecycleAgent = lifecycleAgentInput(agent);
+      return toolResult(async () => agentGuide({
+        storePath: options.storePath,
+        projectId: project_id,
+        projectPath: project_path,
+        syncRemote: sync_remote,
+        currentTask: current_task,
+        agent: lifecycleAgent
+      }));
+    }
   );
 
   server.registerTool(
@@ -739,10 +756,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         refresh_since: stringSchema.optional(),
         limit: numberSchema.optional(),
         pull: z.boolean().optional(),
-        agent: sourceSchema.optional()
+        agent: coreValidatedAgentSchema.optional()
       }
     },
     async ({ project_id, project_path, sync_remote, current_task, refresh_since, limit, pull, agent }) => {
+      const lifecycleAgent = lifecycleAgentInput(agent);
       const contextArguments = compactUndefined({
         project_id,
         project_path,
@@ -751,7 +769,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         refresh_since,
         limit,
         pull,
-        agent
+        agent: lifecycleAgent
       });
       return toolResult(async () => agentStart({
         storePath: options.storePath,
@@ -762,7 +780,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         refreshSince: refresh_since,
         limit,
         pull,
-        agent
+        agent: lifecycleAgent
       }), {
         tool: "agent_start",
         command: commandForAgentStartContext(contextArguments),
@@ -783,10 +801,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: stringSchema.optional(),
         current_task: stringSchema.optional(),
         push: z.boolean().optional(),
-        agent: sourceSchema.optional()
+        agent: coreValidatedAgentSchema.optional()
       }
     },
     async ({ summary, project_id, project_path, sync_remote, current_task, push, agent }) => {
+      const lifecycleAgent = lifecycleAgentInput(agent);
       const contextInput = {
         summary,
         project_id,
@@ -794,7 +813,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote,
         current_task,
         push,
-        agent
+        agent: lifecycleAgent
       };
       const contextArguments = compactUndefined(contextInput);
       return toolResult(async () => agentFinish({
@@ -805,7 +824,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         currentTask: current_task,
         summary,
         push,
-        agent
+        agent: lifecycleAgent
       }), {
         tool: "agent_finish",
         command: commandForAgentFinishContext(contextInput),
@@ -826,10 +845,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: stringSchema.optional(),
         current_task: stringSchema.optional(),
         push: z.boolean().optional(),
-        agent: sourceSchema.optional()
+        agent: coreValidatedAgentSchema.optional()
       }
     },
     async ({ status, project_id, project_path, sync_remote, current_task, push, agent }) => {
+      const lifecycleAgent = lifecycleAgentInput(agent);
       const contextInput = {
         status,
         project_id,
@@ -837,7 +857,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote,
         current_task,
         push,
-        agent
+        agent: lifecycleAgent
       };
       const contextArguments = compactUndefined(contextInput);
       return toolResult(async () => agentStatus({
@@ -848,7 +868,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         currentTask: current_task,
         status,
         push,
-        agent
+        agent: lifecycleAgent
       }), {
         tool: "agent_status",
         command: commandForAgentStatusContext(contextInput),

@@ -764,6 +764,13 @@ describe("package smoke test", () => {
       cli: { negative_flag: "--no-pull" },
       mcp: { argument: "pull" }
     });
+    expect(response.operations_by_id.agent_enter.arguments_by_name.agent_client).toMatchObject({
+      type: "string",
+      required: false,
+      cli: { flag: "--agent" },
+      mcp: { argument: "agent", path: "agent.client" },
+      parent_argument: "agent"
+    });
     expect(response.operations_by_id.agent_finish.required_fields).toEqual(["summary"]);
     expect(response.operations_by_id.agent_finish.required_fields_by_name.summary).toMatchObject({
       argument_path: "summary",

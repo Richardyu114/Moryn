@@ -1052,7 +1052,7 @@ describe("MCP stdio server", () => {
               type: string;
               required: boolean;
               cli?: { flag?: string; flags?: string[]; positional?: string; repeatable?: boolean; default?: unknown; negative_flag?: string };
-              mcp?: { argument: string };
+              mcp?: { argument: string; path?: string };
               default?: unknown;
               allowed_values?: string[];
               alternatives?: string[];
@@ -1113,6 +1113,14 @@ describe("MCP stdio server", () => {
           default: true,
           cli: { negative_flag: "--no-pull" },
           mcp: { argument: "pull" }
+        });
+        expect(parsed.operations_by_id.agent_enter.arguments_by_name.agent_client).toMatchObject({
+          name: "agent_client",
+          type: "string",
+          required: false,
+          cli: { flag: "--agent" },
+          mcp: { argument: "agent", path: "agent.client" },
+          parent_argument: "agent"
         });
         expect(parsed.operations_by_id.agent_finish).toMatchObject({
           safe_to_run: false,
@@ -6859,6 +6867,32 @@ describe("MCP stdio server", () => {
             value_placeholder: "<refresh cursor ISO datetime>"
           }
         });
+        for (const { tool, operation, arguments: toolArguments } of [
+          { tool: "agent_doctor", operation: "agent_doctor", arguments: { agent: { client: "" } } },
+          { tool: "agent_guide", operation: "agent_guide", arguments: { agent: { client: "" } } },
+          { tool: "agent_enter", operation: "agent_enter", arguments: { agent: { client: "" } } },
+          { tool: "agent_start", operation: "agent_start", arguments: { agent: { client: "" } } },
+          { tool: "agent_status", operation: "agent_status", arguments: { status: "working", agent: { client: "" } } },
+          { tool: "agent_finish", operation: "agent_finish", arguments: { summary: "done", agent: { client: "" } } }
+        ]) {
+          const invalidAgentClient = parseTextContent(await client.callTool({
+            name: tool,
+            arguments: toolArguments
+          })) as McpInvalidArgument;
+          expect(invalidAgentClient.ok).toBe(false);
+          expect(invalidAgentClient.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidAgentClient.error.message).toContain("Invalid agent.client");
+          expect(invalidAgentClient.error.recommended_action).toBe("retry agent lifecycle with a valid agent client");
+          expect(invalidAgentClient.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument: "agent.client", value: "" },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              "agent.client": `operations_by_id.${operation}.arguments_by_name.agent_client`
+            },
+            retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
+          });
+        }
         const invalidTargetState = parseTextContent(await client.callTool({
           name: "promote",
           arguments: { record_id: "rec_missing", target_state: "published" }

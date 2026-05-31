@@ -144,6 +144,33 @@ type LifecycleActionTemplate = {
   execution: ActionExecution;
 };
 
+type LifecycleOperation = "agent_guide" | "agent_doctor" | "agent_enter" | "agent_start" | "agent_status" | "agent_finish";
+
+class AgentIdentityError extends Error {
+  readonly recommended_action = "retry agent lifecycle with a valid agent client";
+  readonly recovery_hint: {
+    operation_contract: `operations_by_id.${LifecycleOperation}`;
+    rejected_argument: { argument: "agent.client"; value: unknown };
+    expected: { kind: "non_empty_string"; min_length: 1 };
+    argument_sources: { "agent.client": `operations_by_id.${LifecycleOperation}.arguments_by_name.agent_client` };
+    retry_with: { argument: "agent.client"; value_placeholder: "<agent client>" };
+  };
+
+  constructor(operation: LifecycleOperation, client: unknown) {
+    super("Invalid argument: Invalid agent.client");
+    this.name = "AgentIdentityError";
+    this.recovery_hint = {
+      operation_contract: `operations_by_id.${operation}`,
+      rejected_argument: { argument: "agent.client", value: client },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: {
+        "agent.client": `operations_by_id.${operation}.arguments_by_name.agent_client`
+      },
+      retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
+    };
+  }
+}
+
 type HandoffRecordIdArgumentSource =
   "handoff.inbox_by_record_id.<record_id>.record_id"
   | "handoff.active_sessions_by_record_id.<record_id>.record_id";
@@ -469,6 +496,14 @@ function sourceFromAgent(agent: AgentIdentity | undefined): RecordSource {
     model: agent?.model,
     device_id: agent?.device_id
   };
+}
+
+function validateAgentIdentity(agent: AgentIdentity | undefined, operation: LifecycleOperation): void {
+  const rawAgent = agent as { client?: unknown } | undefined;
+  if (rawAgent === undefined) return;
+  if (rawAgent.client !== undefined && (typeof rawAgent.client !== "string" || rawAgent.client.length === 0)) {
+    throw new AgentIdentityError(operation, rawAgent.client);
+  }
 }
 
 function projectEnvelope(project: ProjectContext): {
@@ -1907,6 +1942,7 @@ async function enterDiscoveryBootstrap(input: AgentEnterInput): Promise<Bootstra
 }
 
 export async function agentDoctor(input: AgentDoctorInput) {
+  validateAgentIdentity(input.agent, "agent_doctor");
   const checks: DoctorCheck[] = [];
   let storeInitialized = false;
   let storeError: string | undefined;
@@ -2031,6 +2067,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
 }
 
 export async function agentEnter(input: AgentEnterInput) {
+  validateAgentIdentity(input.agent, "agent_enter");
   const bootstrap = await enterDiscoveryBootstrap(input);
   const doctor = await agentDoctor(input);
   if (doctor.next.tool === "project_list") {
@@ -2114,6 +2151,7 @@ export async function agentEnter(input: AgentEnterInput) {
 }
 
 export function agentGuide(input: AgentGuideInput) {
+  validateAgentIdentity(input.agent, "agent_guide");
   const command = buildAgentEnterCommand(input);
   const startupArguments = lifecycleActionArguments(input);
   const startup = agentEnterActionTemplate(command, startupArguments);
@@ -2142,6 +2180,7 @@ export function agentGuide(input: AgentGuideInput) {
 }
 
 export async function agentStart(input: AgentStartInput) {
+  validateAgentIdentity(input.agent, "agent_start");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
@@ -2210,6 +2249,7 @@ export async function agentStart(input: AgentStartInput) {
 }
 
 export async function agentFinish(input: AgentFinishInput) {
+  validateAgentIdentity(input.agent, "agent_finish");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
@@ -2266,6 +2306,7 @@ export async function agentFinish(input: AgentFinishInput) {
 }
 
 export async function agentStatus(input: AgentStatusInput) {
+  validateAgentIdentity(input.agent, "agent_status");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
