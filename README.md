@@ -786,12 +786,13 @@ options/arguments plus placeholders for corrected values. Agents should use
 those fields instead of splitting the human-readable error message.
 Core write field failures and MCP/CLI write content argument failures also include
 `operation_contract: "operations_by_id.write"` and `argument_sources` entries
-for the rejected or missing `kind`, `type`, `scope`, `project_id`, `text`,
+for the rejected or missing `kind`, `type`, `scope`, `project_id`, `tags`,
+`state`, `priority`, `confidence`, `confirmed`, `source.client`, `text`,
 `content`, `content.text`, `content.format`, `--text`, or `--content-json`
 argument, so hosts can inspect the authoritative write contract before
-retrying. The write operation contract exposes `content_text` and `content_format` entries under
-`arguments_by_name`, including the nested MCP paths, the `--content-json` CLI
-source, and `content.format` allowed values.
+retrying. The write operation contract exposes `content_text`, `content_format`,
+and `source_client` entries under `arguments_by_name`, including nested MCP
+paths, the `--content-json` CLI source, and allowed values.
 CLI error envelopes recursively translate known `argument` fields in
 `recovery_hint` to command-line `option` names such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`, so CLI agents can render a

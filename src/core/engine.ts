@@ -84,6 +84,12 @@ const WRITE_PROJECT_ID_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_na
 const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content";
 const WRITE_CONTENT_TEXT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content_text";
 const WRITE_CONTENT_FORMAT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content_format";
+const WRITE_TAGS_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.tags";
+const WRITE_STATE_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.state";
+const WRITE_CONFIDENCE_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.confidence";
+const WRITE_PRIORITY_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.priority";
+const WRITE_CONFIRMED_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.confirmed";
+const WRITE_SOURCE_CLIENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.source_client";
 
 export const WRITE_SELECTION_SOURCES = {
   record: "record",
@@ -763,8 +769,10 @@ function invalidWriteProjectIdError(projectId: unknown): WriteCoreFieldError {
 }
 
 type WriteTagsRecoveryHint = {
+  operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
   rejected_argument: { argument: "tags"; value: unknown };
   expected: { kind: "array_of_non_empty_strings" };
+  argument_sources: { tags: typeof WRITE_TAGS_ARGUMENT_SOURCE };
   retry_with: { argument: "tags"; value_placeholder: ["<tag>"] };
 };
 
@@ -776,16 +784,20 @@ class WriteTagsError extends Error {
     super("Invalid argument: Invalid tags");
     this.name = "WriteTagsError";
     this.recovery_hint = {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "tags", value: tags },
       expected: { kind: "array_of_non_empty_strings" },
+      argument_sources: { tags: WRITE_TAGS_ARGUMENT_SOURCE },
       retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
     };
   }
 }
 
 type WriteSourceRecoveryHint = {
+  operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
   rejected_argument: { argument: "source.client"; value: unknown };
   expected: { kind: "non_empty_string"; min_length: 1 };
+  argument_sources: { "source.client": typeof WRITE_SOURCE_CLIENT_ARGUMENT_SOURCE };
   retry_with: { argument: "source.client"; value_placeholder: "<client>" };
 };
 
@@ -800,8 +812,10 @@ class WriteSourceError extends Error {
       ? (source as { client?: unknown }).client
       : undefined;
     this.recovery_hint = {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "source.client", value: client },
       expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: { "source.client": WRITE_SOURCE_CLIENT_ARGUMENT_SOURCE },
       retry_with: { argument: "source.client", value_placeholder: "<client>" }
     };
   }
@@ -809,23 +823,31 @@ class WriteSourceError extends Error {
 
 type WriteMetadataRecoveryHint =
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "state"; value: unknown };
       expected: { kind: "allowed_values"; allowed_values: string[] };
+      argument_sources: { state: typeof WRITE_STATE_ARGUMENT_SOURCE };
       retry_with: { argument: "state"; value_placeholder: "candidate" };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "priority"; value: unknown };
       expected: { kind: "allowed_values"; allowed_values: string[] };
+      argument_sources: { priority: typeof WRITE_PRIORITY_ARGUMENT_SOURCE };
       retry_with: { argument: "priority"; value_placeholder: "normal" };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "confidence"; value: unknown };
       expected: { kind: "number_range"; min: 0; max: 1; inclusive: true };
+      argument_sources: { confidence: typeof WRITE_CONFIDENCE_ARGUMENT_SOURCE };
       retry_with: { argument: "confidence"; value_placeholder: 0.5 };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "confirmed"; value: unknown };
       expected: { kind: "boolean" };
+      argument_sources: { confirmed: typeof WRITE_CONFIRMED_ARGUMENT_SOURCE };
       retry_with: { argument: "confirmed"; value_placeholder: true };
     };
 
@@ -846,8 +868,10 @@ function invalidWriteStateError(state: unknown): WriteMetadataError {
     "Invalid argument: Invalid state",
     "retry write with a supported state",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "state", value: state },
       expected: { kind: "allowed_values", allowed_values: [...RECORD_STATES] },
+      argument_sources: { state: WRITE_STATE_ARGUMENT_SOURCE },
       retry_with: { argument: "state", value_placeholder: "candidate" }
     }
   );
@@ -858,8 +882,10 @@ function invalidWriteConfidenceError(confidence: unknown): WriteMetadataError {
     "Invalid argument: Invalid confidence",
     "retry write with confidence between 0 and 1",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "confidence", value: confidence },
       expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+      argument_sources: { confidence: WRITE_CONFIDENCE_ARGUMENT_SOURCE },
       retry_with: { argument: "confidence", value_placeholder: 0.5 }
     }
   );
@@ -870,8 +896,10 @@ function invalidWritePriorityError(priority: unknown): WriteMetadataError {
     "Invalid argument: Invalid priority",
     "retry write with a supported priority",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "priority", value: priority },
       expected: { kind: "allowed_values", allowed_values: [...RECORD_PRIORITIES] },
+      argument_sources: { priority: WRITE_PRIORITY_ARGUMENT_SOURCE },
       retry_with: { argument: "priority", value_placeholder: "normal" }
     }
   );
@@ -882,8 +910,10 @@ function invalidWriteConfirmedError(confirmed: unknown): WriteMetadataError {
     "Invalid argument: Invalid confirmed",
     "retry write with a boolean confirmed value",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "confirmed", value: confirmed },
       expected: { kind: "boolean" },
+      argument_sources: { confirmed: WRITE_CONFIRMED_ARGUMENT_SOURCE },
       retry_with: { argument: "confirmed", value_placeholder: true }
     }
   );

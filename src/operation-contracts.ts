@@ -1094,6 +1094,12 @@ export const OPERATION_CONTRACTS = [
         type: "object",
         required: false,
         mcp: { argument: "source" }
+      },
+      source_client: {
+        type: "string",
+        required: false,
+        mcp: { argument: "source", path: "source.client" },
+        parent_argument: "source"
       }
     },
     required_fields_by_name: {

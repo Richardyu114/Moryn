@@ -848,8 +848,12 @@ describe("core engine", () => {
         state: "published" as never,
         source: { client: "test" }
       }, "Invalid state", "retry write with a supported state", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "state", value: "published" },
         expected: { kind: "allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
+        argument_sources: {
+          state: "operations_by_id.write.arguments_by_name.state"
+        },
         retry_with: { argument: "state", value_placeholder: "candidate" }
       });
       await expectInvalidWriteShapeArgument({
@@ -861,8 +865,12 @@ describe("core engine", () => {
         confidence: 2,
         source: { client: "test" }
       }, "Invalid confidence", "retry write with confidence between 0 and 1", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "confidence", value: 2 },
         expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+        argument_sources: {
+          confidence: "operations_by_id.write.arguments_by_name.confidence"
+        },
         retry_with: { argument: "confidence", value_placeholder: 0.5 }
       });
       await expectInvalidWriteShapeArgument({
@@ -874,8 +882,12 @@ describe("core engine", () => {
         priority: "urgent" as never,
         source: { client: "test" }
       }, "Invalid priority", "retry write with a supported priority", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "priority", value: "urgent" },
         expected: { kind: "allowed_values", allowed_values: ["low", "normal", "high"] },
+        argument_sources: {
+          priority: "operations_by_id.write.arguments_by_name.priority"
+        },
         retry_with: { argument: "priority", value_placeholder: "normal" }
       });
       await expectInvalidWriteShapeArgument({
@@ -887,8 +899,12 @@ describe("core engine", () => {
         content: { text: "Invalid tags.", format: "text" },
         source: { client: "test" }
       }, "Invalid tags", "retry write with valid tags", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "tags", value: ["valid", 123] },
         expected: { kind: "array_of_non_empty_strings" },
+        argument_sources: {
+          tags: "operations_by_id.write.arguments_by_name.tags"
+        },
         retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
       });
       await expectInvalidWriteShapeArgument({
@@ -900,8 +916,12 @@ describe("core engine", () => {
         content: { text: "Empty tag.", format: "text" },
         source: { client: "test" }
       }, "Invalid tags", "retry write with valid tags", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "tags", value: [""] },
         expected: { kind: "array_of_non_empty_strings" },
+        argument_sources: {
+          tags: "operations_by_id.write.arguments_by_name.tags"
+        },
         retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
       });
       await expectInvalidContentArgument({
@@ -976,8 +996,12 @@ describe("core engine", () => {
         content: { text: "Invalid source.", format: "text" },
         source: { client: "" }
       }, "Invalid source.client", "retry write with a valid source client", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "source.client", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          "source.client": "operations_by_id.write.arguments_by_name.source_client"
+        },
         retry_with: { argument: "source.client", value_placeholder: "<client>" }
       });
       await expectInvalidWriteShapeArgument({
@@ -989,8 +1013,12 @@ describe("core engine", () => {
         source: { client: "test" },
         confirmed: "yes" as never
       }, "Invalid confirmed", "retry write with a boolean confirmed value", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "confirmed", value: "yes" },
         expected: { kind: "boolean" },
+        argument_sources: {
+          confirmed: "operations_by_id.write.arguments_by_name.confirmed"
+        },
         retry_with: { argument: "confirmed", value_placeholder: true }
       });
       await expectInvalidWriteShapeArgument({

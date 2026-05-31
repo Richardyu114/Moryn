@@ -1198,6 +1198,13 @@ describe("moryn CLI", () => {
           mcp: { argument: "content", path: "content.format" },
           allowed_values: ["text", "json"],
           parent_argument: "content"
+        },
+        source_client: {
+          name: "source_client",
+          type: "string",
+          required: false,
+          mcp: { argument: "source", path: "source.client" },
+          parent_argument: "source"
         }
       },
       required_fields_by_name: {
