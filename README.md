@@ -860,7 +860,9 @@ text. MCP `recall.tags`,
 validation, including single-string tag, record id, file, kind, scope, type, and
 state values. MCP `recall.query` shape failures likewise pass through core
 validation, including numeric values, and return
-`operations_by_id.recall.arguments_by_name.query`. MCP `project_list.current_task` and `project_list.sync_remote`
+`operations_by_id.recall.arguments_by_name.query`. Empty CLI `recall ""`
+queries return that same query argument source instead of a generic
+non-empty-string hint. MCP `project_list.current_task` and `project_list.sync_remote`
 shape failures also pass through core validation, including numeric values, and
 return `operations_by_id.project_list.arguments_by_name.current_task` or
 `operations_by_id.project_list.arguments_by_name.sync_remote` instead of

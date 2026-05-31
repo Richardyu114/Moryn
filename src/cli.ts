@@ -91,6 +91,7 @@ type CliRequiredPositionalSource = CliRequiredSource & {
 type CliParserOperation =
   | "write"
   | "boot"
+  | "recall"
   | "refresh"
   | "sync_push"
   | "revise"
@@ -880,7 +881,7 @@ program.command("recall")
     const limit = parseLimit(options.limit, "recall");
     const recallInput = {
       record_ids: options.recordId,
-      query: parseNonEmptyString(query, "query"),
+      query: parseNonEmptyCliString(query, "query", { operation: "recall", argument: "query" }),
       project_id: projectId,
       kinds: parseEnumList(options.kind, recordKinds, "--kind", { operation: "recall", argument: "kinds" }),
       scopes: parseEnumList(options.scope, recordScopes, "--scope", { operation: "recall", argument: "scopes" }),

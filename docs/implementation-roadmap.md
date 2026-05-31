@@ -389,6 +389,9 @@ Deliverables:
 - Done: CLI empty `boot --current-task` and `refresh --current-task` failures
   now expose the matching operation-specific `current_task` argument source
   before boot or refresh logic runs.
+- Done: CLI empty `recall ""` query failures now expose
+  `operations_by_id.recall.arguments_by_name.query` instead of a generic
+  non-empty-string hint.
 - Done: `project_init` setup argument failures for path/project id/tags/default
   skills/sync mode/repair now expose `operations_by_id.project_init` recovery
   hints and argument sources; MCP `path`, `project_id`, and `sync_mode` shape

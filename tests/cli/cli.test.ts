@@ -3440,6 +3440,14 @@ describe("moryn CLI", () => {
           option: "--derived-from"
         },
         {
+          args: ["recall", ""],
+          operation: "recall",
+          argument: "query",
+          message: "Invalid query",
+          option: "query",
+          valuePlaceholder: "<non-empty query>"
+        },
+        {
           args: ["refresh", "--project-id", "moryn", "--cursor", ""],
           operation: "refresh",
           argument: "cursor",
