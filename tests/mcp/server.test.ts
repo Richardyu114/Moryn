@@ -7140,6 +7140,25 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "cursor", value_placeholder: "<cursor>" }
         });
+
+        const invalidBootDefaultSkills = parseTextContent(await client.callTool({
+          name: "boot",
+          arguments: { project_id: "moryn", default_skills: "release" }
+        })) as McpInvalidArgument;
+        expect(invalidBootDefaultSkills.ok).toBe(false);
+        expect(invalidBootDefaultSkills.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidBootDefaultSkills.error.message).toContain("Invalid default_skills");
+        expect(invalidBootDefaultSkills.error.recommended_action).toBe("retry read with default_skills as non-empty strings");
+        expect(invalidBootDefaultSkills.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.boot",
+          rejected_argument: { argument: "default_skills", value: "release" },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            default_skills: "operations_by_id.boot.arguments_by_name.default_skills"
+          },
+          retry_with: { argument: "default_skills", value_placeholder: ["<default_skill>"] }
+        });
+
         const invalidCursor = parseTextContent(await client.callTool({
           name: "refresh",
           arguments: { project_id: "moryn", cursor: "not-a-date" }

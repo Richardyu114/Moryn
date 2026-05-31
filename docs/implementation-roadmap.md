@@ -431,6 +431,10 @@ Deliverables:
   `operations_by_id.recall.arguments_by_name.files` plus the matching
   `kinds`/`scopes`/`types`/`states` argument sources instead of host-side
   schema text.
+- Done: MCP `boot.default_skills` shape failures now pass through core
+  validation, including single-string skill selector values, and expose
+  `operations_by_id.boot.arguments_by_name.default_skills` instead of host-side
+  schema text.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty

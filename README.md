@@ -828,7 +828,8 @@ including RFC3339 refresh cursor failures. MCP `recall.tags`,
 `recall.record_ids`, `recall.files`, `recall.kinds`, `recall.scopes`,
 `recall.types`, and `recall.states` shape failures also pass through core
 validation, including single-string tag, record id, file, kind, scope, type, and
-state values. Project setup argument failures for
+state values. MCP `boot.default_skills` shape failures likewise pass through
+core validation, including single-string skill selector values. Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and
 `project_init` path/project id/tags/default skills/sync mode/repair inputs also
 point at `operations_by_id.project_init.arguments_by_name.<argument>`. That

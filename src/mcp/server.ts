@@ -354,7 +354,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_path: stringSchema.optional(),
         sync_remote: stringSchema.optional(),
         current_task: stringSchema.optional(),
-        default_skills: z.array(stringSchema).optional()
+        default_skills: z.unknown().optional()
       }
     },
     async ({ project_id, project_path, current_task, default_skills }) => toolResult(async () => {

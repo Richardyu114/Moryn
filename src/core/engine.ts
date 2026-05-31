@@ -62,9 +62,11 @@ interface RefreshInput {
 
 interface BootInput {
   project_id?: string;
-  default_skills?: string[];
+  default_skills?: unknown;
   current_task?: string;
 }
+
+type ValidatedBootInput = BootInput & { default_skills?: string[] };
 
 interface ListProjectsInput {
   limit?: unknown;
@@ -1572,7 +1574,7 @@ function isProjectSkill(record: MorynRecord, projectId: string | undefined): boo
     && (record.project_id === projectId || record.tags.includes(projectId as string));
 }
 
-function bootSkills(records: MorynRecord[], input: BootInput): MorynRecord[] {
+function bootSkills(records: MorynRecord[], input: ValidatedBootInput): MorynRecord[] {
   const selectors = input.default_skills ?? [];
   const selected = records.filter((record) => record.kind === "skill" && (
     isProjectSkill(record, input.project_id)
@@ -2316,27 +2318,31 @@ export function createEngine(deps: EngineDeps) {
 
     async boot(input: BootInput) {
       validateBootInput(input);
+      const bootInput = {
+        ...input,
+        default_skills: Array.isArray(input.default_skills) ? input.default_skills : undefined
+      } as ValidatedBootInput;
       const visibleRecords = (await currentRecords())
         .filter(isVisibleByDefault)
-        .filter((record) => recordBootContextMatches(record, input.project_id));
+        .filter((record) => recordBootContextMatches(record, bootInput.project_id));
       const records = visibleRecords
         .filter(isTrustedForBoot)
       const recent = [...visibleRecords]
         .filter(isImportantBootRecent)
         .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-      const projectMemoryRecords = projectMemory(records, input.project_id);
-      const trustedProjectRecords = projectScopedRecords(records, input.project_id);
-      const taskRelevant = input.current_task
+      const projectMemoryRecords = projectMemory(records, bootInput.project_id);
+      const trustedProjectRecords = projectScopedRecords(records, bootInput.project_id);
+      const taskRelevant = bootInput.current_task
         ? boundedBootRecords(records
           .filter((record) => record.kind === "memory" && record.scope === "project")
-          .filter((record) => matchesCurrentTask(record, input.current_task)))
+          .filter((record) => matchesCurrentTask(record, bootInput.current_task)))
         : [];
       const userPreferences = boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "preference"));
       const soul = boundedBootRecords(records.filter((record) => record.kind === "soul"));
       const globalRules = boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule"));
       const importantDecisions = boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "decision"));
       const warnings = boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker"));
-      const skills = boundedBootRecords(bootSkills(records, input));
+      const skills = boundedBootRecords(bootSkills(records, bootInput));
       const recentChanges = recent.filter((record) => record.kind !== "soul").slice(0, 5);
       const cursor = [...visibleRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at ?? new Date().toISOString();
       const remoteUpdates = await remoteHasUpdates();

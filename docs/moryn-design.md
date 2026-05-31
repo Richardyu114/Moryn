@@ -769,7 +769,9 @@ Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 limits. MCP `recall.tags`, `recall.record_ids`, `recall.files`,
 `recall.kinds`, `recall.scopes`, `recall.types`, and `recall.states` shape
 failures also pass through core validation, including single-string tag, record
-id, file, kind, scope, type, and state values.
+id, file, kind, scope, type, and state values. MCP `boot.default_skills` shape
+failures likewise pass through core validation, including single-string skill
+selector values.
 RFC3339 cursor failures point to
 `operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
 through lifecycle refresh-since arguments. Project setup argument failures for
