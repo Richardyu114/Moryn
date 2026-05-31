@@ -6778,6 +6778,32 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
         });
 
+        const invalidTagsShape = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid tag shape should return structured recovery.",
+            tags: "mcp",
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidTagsShape.ok).toBe(false);
+        expect(invalidTagsShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidTagsShape.error.message).toContain("Invalid tags");
+        expect(invalidTagsShape.error.recommended_action).toBe("retry write with valid tags");
+        expect(invalidTagsShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "tags", value: "mcp" },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            tags: "operations_by_id.write.arguments_by_name.tags"
+          },
+          retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+        });
+
         const emptySourceClient = parseTextContent(await client.callTool({
           name: "write",
           arguments: {

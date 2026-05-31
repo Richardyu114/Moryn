@@ -434,7 +434,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         scope: recordScopeSchema.optional(),
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
-        tags: z.array(stringSchema).optional(),
+        tags: z.unknown().optional(),
         text: stringSchema.optional(),
         content: z.record(z.string(), z.unknown()).optional(),
         state: recordStateSchema.optional(),
@@ -465,12 +465,15 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       if (!scope) {
         throw writeRequiredArgumentError("scope");
       }
+      const tags = input.tags === undefined || Array.isArray(input.tags)
+        ? [...project.tags, ...(input.tags ?? [])]
+        : input.tags;
       return engine.write({
         kind: input.kind as RecordKind,
         type,
         scope: scope as RecordScope,
         project_id: project.project_id,
-        tags: [...project.tags, ...(input.tags ?? [])],
+        tags,
         content,
         state: input.state as RecordState | undefined,
         confidence: input.confidence,

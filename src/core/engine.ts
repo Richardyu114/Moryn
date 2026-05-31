@@ -24,7 +24,7 @@ interface WriteInput {
   type: string;
   scope: RecordScope;
   project_id?: string;
-  tags?: string[];
+  tags?: unknown;
   content: Record<string, unknown> & { text?: string; format?: "text" | "json" };
   state?: RecordState;
   confidence?: unknown;
@@ -2058,8 +2058,9 @@ export function createEngine(deps: EngineDeps) {
     async write(input: WriteInput) {
       validateWriteInput(input);
       const createdAt = now();
+      const tags = Array.isArray(input.tags) ? input.tags : [];
       const sensitive = detectSensitiveContent(sensitiveScanText(input.content));
-      const conflicts = sensitive.sensitive ? [] : semanticConflicts(await currentRecords(), input);
+      const conflicts = sensitive.sensitive ? [] : semanticConflicts(await currentRecords(), { ...input, tags });
       const needsConflictConfirmation = input.state === "canonical" && conflicts.length > 0 && !isUserConfirmed(input.source, input.confirmed);
       const needsConfirmation = input.state === "canonical"
         && (requiresCanonicalConfirmation(input) || conflicts.length > 0)
@@ -2078,7 +2079,7 @@ export function createEngine(deps: EngineDeps) {
         type: input.type,
         scope: input.scope,
         project_id: input.project_id,
-        tags: input.tags ?? [],
+        tags,
         content,
         state,
         confidence,
