@@ -6342,6 +6342,31 @@ describe("MCP stdio server", () => {
         expect(neither.error.code).toBe("INVALID_ARGUMENT");
         expect(neither.error.message).toContain("text or content");
 
+        const invalidContentShape = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            content: "Plain content string",
+            source: { client: "mcp-test" }
+          }
+        })) as { ok: boolean; error: { code: string; message: string; recommended_action: string; recovery_hint: unknown } };
+        expect(invalidContentShape.ok).toBe(false);
+        expect(invalidContentShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidContentShape.error.message).toContain("Invalid content");
+        expect(invalidContentShape.error.recommended_action).toBe("retry write with valid content");
+        expect(invalidContentShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "content", value: "Plain content string" },
+          expected: { kind: "content_object", required: true },
+          argument_sources: {
+            content: "operations_by_id.write.arguments_by_name.content"
+          },
+          retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
+        });
+
         const emptyContent = parseTextContent(await client.callTool({
           name: "write",
           arguments: {

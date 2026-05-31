@@ -835,6 +835,8 @@ lifecycle startup tools likewise pass through core validation, including
 non-number values, and return the relevant `arguments_by_name.limit` source.
 MCP write `confidence` failures also pass through core validation, including
 non-number values, and return `operations_by_id.write.arguments_by_name.confidence`.
+MCP write `content` shape failures also pass through core validation, including
+single-string content values, and return `operations_by_id.write.arguments_by_name.content`.
 MCP write `tags` shape failures also pass through core validation, including
 single-string tag values, and return `operations_by_id.write.arguments_by_name.tags`.
 MCP write `provenance` failures also pass through core validation, including

@@ -25,7 +25,7 @@ interface WriteInput {
   scope: RecordScope;
   project_id?: string;
   tags?: unknown;
-  content: Record<string, unknown> & { text?: string; format?: "text" | "json" };
+  content: unknown;
   state?: RecordState;
   confidence?: unknown;
   priority?: "low" | "normal" | "high";
@@ -1321,14 +1321,15 @@ function validateWriteInput(input: WriteInput): void {
   if (typeof input.content !== "object" || input.content === null || Array.isArray(input.content)) {
     throw invalidWriteContentError(input.content, "content_object");
   }
-  if (Object.keys(input.content).length === 0) {
-    throw invalidWriteContentError(input.content, "non_empty_content_object");
+  const content = input.content as Record<string, unknown> & { text?: unknown; format?: unknown };
+  if (Object.keys(content).length === 0) {
+    throw invalidWriteContentError(content, "non_empty_content_object");
   }
-  if (input.content.text !== undefined && (typeof input.content.text !== "string" || !input.content.text.length)) {
-    throw invalidWriteContentTextError(input.content.text);
+  if (content.text !== undefined && (typeof content.text !== "string" || !content.text.length)) {
+    throw invalidWriteContentTextError(content.text);
   }
-  if (input.content.format !== undefined && input.content.format !== "text" && input.content.format !== "json") {
-    throw invalidWriteContentFormatError(input.content.format);
+  if (content.format !== undefined && content.format !== "text" && content.format !== "json") {
+    throw invalidWriteContentFormatError(content.format);
   }
   if (input.state !== undefined && !recordStateSchema.safeParse(input.state).success) throw invalidWriteStateError(input.state);
   if (input.confidence !== undefined && (typeof input.confidence !== "number" || !Number.isFinite(input.confidence) || input.confidence < 0 || input.confidence > 1)) {
@@ -2059,8 +2060,9 @@ export function createEngine(deps: EngineDeps) {
       validateWriteInput(input);
       const createdAt = now();
       const tags = Array.isArray(input.tags) ? input.tags : [];
-      const sensitive = detectSensitiveContent(sensitiveScanText(input.content));
-      const conflicts = sensitive.sensitive ? [] : semanticConflicts(await currentRecords(), { ...input, tags });
+      const inputContent = input.content as Record<string, unknown> & { text?: string; format?: "text" | "json" };
+      const sensitive = detectSensitiveContent(sensitiveScanText(inputContent));
+      const conflicts = sensitive.sensitive ? [] : semanticConflicts(await currentRecords(), { ...input, tags, content: inputContent });
       const needsConflictConfirmation = input.state === "canonical" && conflicts.length > 0 && !isUserConfirmed(input.source, input.confirmed);
       const needsConfirmation = input.state === "canonical"
         && (requiresCanonicalConfirmation(input) || conflicts.length > 0)
@@ -2070,7 +2072,7 @@ export function createEngine(deps: EngineDeps) {
         : needsConfirmation
           ? "candidate"
           : (input.state ?? (input.kind === "agent_note" ? "raw" : "candidate"));
-      const content = sensitive.sensitive ? redactSensitiveRecordContent(input.content) : input.content;
+      const content = sensitive.sensitive ? redactSensitiveRecordContent(inputContent) : inputContent;
       const confidence = typeof input.confidence === "number" ? input.confidence : 0.5;
       const provenance = input.provenance as RecordProvenance | undefined;
       const record: MorynRecord = {

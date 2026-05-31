@@ -436,7 +436,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_path: stringSchema.optional(),
         tags: z.unknown().optional(),
         text: stringSchema.optional(),
-        content: z.record(z.string(), z.unknown()).optional(),
+        content: z.unknown().optional(),
         state: recordStateSchema.optional(),
         confidence: coreValidatedNumberSchema.optional(),
         priority: recordPrioritySchema.optional(),

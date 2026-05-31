@@ -399,6 +399,10 @@ Deliverables:
   including non-number values, and expose
   `operations_by_id.write.arguments_by_name.confidence` instead of host-side
   schema text.
+- Done: MCP write `content` shape failures now pass through core validation,
+  including single-string content values, and expose
+  `operations_by_id.write.arguments_by_name.content` instead of host-side schema
+  text.
 - Done: MCP write `tags` shape failures now pass through core validation,
   including single-string tag values, and expose
   `operations_by_id.write.arguments_by_name.tags` instead of host-side schema
