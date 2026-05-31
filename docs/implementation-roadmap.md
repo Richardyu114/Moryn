@@ -356,6 +356,10 @@ Deliverables:
   `--kind`/`--type`/`--scope` parser failures now point agents at
   `operations_by_id.write.arguments_by_name.<argument>` before write validation
   runs.
+- Done: CLI required-option parser failures for `revise --set`,
+  `promote --state`, `link --type`, `agent status --status`, and
+  `agent finish --summary` now expose the matching operation contract and
+  argument source before command action logic runs.
 - Done: CLI non-empty string failures for write text/tags/provenance, refresh
   cursors, and sync push messages, plus malformed `revise --set` assignments,
   now expose operation contract and argument source hints before lower-level

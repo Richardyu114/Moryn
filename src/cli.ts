@@ -70,6 +70,12 @@ type CliWriteSource = {
   operation: "write";
   argument: string;
 };
+type CliRequiredOperation = "write" | "revise" | "promote" | "link" | "agent_status" | "agent_finish";
+type CliRequiredArgumentSource = `operations_by_id.${CliRequiredOperation}.arguments_by_name.${string}`;
+type CliRequiredSource = {
+  operation: CliRequiredOperation;
+  argument: string;
+};
 type CliParserOperation =
   | "write"
   | "refresh"
@@ -128,10 +134,10 @@ type CliArgumentRecoveryHint =
       retry_with: { option: string; value_placeholder: string };
     }
   | {
-      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
+      operation_contract: `operations_by_id.${CliRequiredOperation}`;
       missing_argument: { option: string; placeholder: string };
       expected: { kind: "required_option"; required: true };
-      argument_sources: Record<string, CliWriteArgumentSource>;
+      argument_sources: Record<string, CliRequiredArgumentSource>;
       retry_with: { option: string; value_placeholder: string };
     }
   | {
@@ -301,19 +307,58 @@ function printError(error: unknown, context?: MorynErrorContext): void {
   process.stderr.write(`${JSON.stringify(cliErrorEnvelope(error, context), null, 2)}\n`);
 }
 
-function cliRequiredOptionError(message: string): CliArgumentError | undefined {
+function cliRequiredOptionError(message: string, args = process.argv.slice(2)): CliArgumentError | undefined {
   const match = /^required option '([^ ]+) ([^']+)' not specified$/.exec(message);
   if (!match) return undefined;
   const [, option, placeholder] = match;
   if (!option || !placeholder) return undefined;
-  return requiredCliOptionError(option, placeholder, message, requiredCliOptionSource(option));
+  return requiredCliOptionError(option, placeholder, message, requiredCliOptionSource(option, args));
 }
 
-function requiredCliOptionSource(option: string): CliWriteSource | undefined {
-  if (option === "--kind") return { operation: "write", argument: "kind" };
-  if (option === "--type") return { operation: "write", argument: "type" };
-  if (option === "--scope") return { operation: "write", argument: "scope" };
+function requiredCliOptionSource(option: string, args = process.argv.slice(2)): CliRequiredSource | undefined {
+  const commandPath = cliCommandPath(args);
+  if (commandPath[0] === "write") {
+    if (option === "--kind") return { operation: "write", argument: "kind" };
+    if (option === "--type") return { operation: "write", argument: "type" };
+    if (option === "--scope") return { operation: "write", argument: "scope" };
+  }
+  if (commandPath[0] === "revise" && option === "--set") return { operation: "revise", argument: "patch" };
+  if (commandPath[0] === "promote" && option === "--state") return { operation: "promote", argument: "target_state" };
+  if (commandPath[0] === "link" && option === "--type") return { operation: "link", argument: "link_type" };
+  if (commandPath[0] === "agent" && commandPath[1] === "status" && option === "--status") {
+    return { operation: "agent_status", argument: "status" };
+  }
+  if (commandPath[0] === "agent" && commandPath[1] === "finish" && option === "--summary") {
+    return { operation: "agent_finish", argument: "summary" };
+  }
   return undefined;
+}
+
+function cliCommandPath(args: string[]): string[] {
+  const path: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--store") {
+      index += 1;
+      continue;
+    }
+    if (arg === "--pretty" || arg === "--help" || arg === "-h" || arg === "--version" || arg === "-V") {
+      continue;
+    }
+    if (arg?.startsWith("--store=")) {
+      continue;
+    }
+    if (!arg || arg.startsWith("-")) {
+      continue;
+    }
+    path.push(arg);
+    if (path[0] === "agent" || path[0] === "project" || path[0] === "contracts" || path[0] === "sync") {
+      if (path.length >= 2) break;
+      continue;
+    }
+    break;
+  }
+  return path;
 }
 
 function requiredCliOptionError(option: string, placeholder: string, message?: string, source = requiredCliOptionSource(option)): CliArgumentError {
@@ -321,10 +366,12 @@ function requiredCliOptionError(option: string, placeholder: string, message?: s
     `Invalid argument: ${message ?? `required option '${option} ${placeholder}' not specified`}`,
     `retry with required ${option}`,
     {
-      ...(source !== undefined ? { operation_contract: WRITE_OPERATION_CONTRACT_SOURCE } : {}),
+      ...(source !== undefined ? { operation_contract: `operations_by_id.${source.operation}` as const } : {}),
       missing_argument: { option, placeholder },
       expected: { kind: "required_option", required: true },
-      ...(source !== undefined ? { argument_sources: { [source.argument]: `operations_by_id.write.arguments_by_name.${source.argument}` as const } } : {}),
+      ...(source !== undefined
+        ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
+        : {}),
       retry_with: { option, value_placeholder: placeholder }
     }
   );
@@ -793,6 +840,9 @@ program.command("revise")
   .option("--confirm", "Confirm a high-risk or conflicting canonical revision")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
+    if (!options.set.length) {
+      throw requiredCliOptionError("--set", "<assignment>", "required option '--set <assignment>' not specified", { operation: "revise", argument: "patch" });
+    }
     const patch = parseAssignments(options.set);
     const reason = parseNonEmptyString(options.reason, "--reason");
     const context = {

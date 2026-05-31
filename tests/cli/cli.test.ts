@@ -6611,9 +6611,10 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
-      for (const { args, message, argument, option, placeholder } of [
+      for (const { args, operation, message, argument, option, placeholder } of [
         {
           args: ["write", "--scope", "project", "--type", "decision", "--text", "Parser errors should still be structured."],
+          operation: "write",
           message: "required option '--kind <kind>'",
           argument: "kind",
           option: "--kind",
@@ -6621,6 +6622,7 @@ describe("moryn CLI", () => {
         },
         {
           args: ["write", "--kind", "memory", "--scope", "project", "--text", "Parser errors should still be structured."],
+          operation: "write",
           message: "required option '--type <type>'",
           argument: "type",
           option: "--type",
@@ -6628,10 +6630,51 @@ describe("moryn CLI", () => {
         },
         {
           args: ["write", "--kind", "memory", "--type", "decision", "--text", "Parser errors should still be structured."],
+          operation: "write",
           message: "required option '--scope <scope>'",
           argument: "scope",
           option: "--scope",
           placeholder: "<scope>"
+        },
+        {
+          args: ["revise", "rec_missing"],
+          operation: "revise",
+          message: "required option '--set <assignment>'",
+          argument: "patch",
+          option: "--set",
+          placeholder: "<assignment>"
+        },
+        {
+          args: ["promote", "rec_missing"],
+          operation: "promote",
+          message: "required option '--state <state>'",
+          argument: "target_state",
+          option: "--state",
+          placeholder: "<state>"
+        },
+        {
+          args: ["link", "rec_missing", "rec_linked"],
+          operation: "link",
+          message: "required option '--type <type>'",
+          argument: "link_type",
+          option: "--type",
+          placeholder: "<type>"
+        },
+        {
+          args: ["agent", "status"],
+          operation: "agent_status",
+          message: "required option '--status <text>'",
+          argument: "status",
+          option: "--status",
+          placeholder: "<text>"
+        },
+        {
+          args: ["agent", "finish"],
+          operation: "agent_finish",
+          message: "required option '--summary <text>'",
+          argument: "summary",
+          option: "--summary",
+          placeholder: "<text>"
         }
       ]) {
         try {
@@ -6661,11 +6704,11 @@ describe("moryn CLI", () => {
           expect(parsed.error.recoverable).toBe(true);
           expect(parsed.error.recommended_action).toBe(`retry with required ${option}`);
           expect(parsed.error.recovery_hint).toEqual({
-            operation_contract: "operations_by_id.write",
+            operation_contract: `operations_by_id.${operation}`,
             missing_argument: { option, placeholder },
             expected: { kind: "required_option", required: true },
             argument_sources: {
-              [argument]: `operations_by_id.write.arguments_by_name.${argument}`
+              [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
             },
             retry_with: { option, value_placeholder: placeholder }
           });
