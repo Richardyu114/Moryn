@@ -720,8 +720,10 @@ inspect one call shape without holding the full registry in context. If a host
 passes an unknown operation id, MCP tool, or CLI command, the CLI and MCP error
 envelope includes `recovery_hint` with the rejected lookup, available operation
 ids, the compact index lookup call, and a retry template, so agents can recover
-without parsing the error message. The retry templates include package helper,
-CLI, and MCP forms, so library hosts can call the correct helper without
+without parsing the error message. The recovery hint keeps the existing
+`retry_with_operation` shortcut and also includes `retry_with_lookup_modes` for
+operation id, MCP tool, and CLI command retries. Those templates include package
+helper, CLI, and MCP forms, so library hosts can call the correct helper without
 deriving it from a command string. If a host accidentally mixes lookup modes, for
 example `--index` plus `--operation` or `operation` plus `mcp_tool`, the same
 envelope includes `recovery_hint.rejected_lookup.provided` and

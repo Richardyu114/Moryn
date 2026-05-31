@@ -138,6 +138,7 @@ export type OperationContractLookupRecoveryHint = {
       arguments: { operation: "<operation>" };
     };
   };
+  retry_with_lookup_modes: Omit<OperationContractLookupConflictRecoveryHint["accepted_lookup_modes"], "index">;
   selection_sources: typeof OPERATION_CONTRACT_INDEX_SELECTION_SOURCES;
 };
 
@@ -370,6 +371,32 @@ function operationContractLookupRecoveryHint(kind: OperationContractLookupKind, 
       mcp: {
         tool: "operation_contracts",
         arguments: { operation: "<operation>" }
+      }
+    },
+    retry_with_lookup_modes: {
+      operation: {
+        package_helper: "getOperationContract('<operation>')",
+        cli: "moryn contracts operations --operation <operation>",
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { operation: "<operation>" }
+        }
+      },
+      mcp_tool: {
+        package_helper: "getOperationContractByMcpTool('<tool>')",
+        cli: "moryn contracts operations --mcp-tool <tool>",
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { mcp_tool: "<mcp_tool>" }
+        }
+      },
+      cli_command: {
+        package_helper: "getOperationContractByCliCommand('<command>')",
+        cli: "moryn contracts operations --cli-command <command>",
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { cli_command: "<cli_command>" }
+        }
       }
     },
     selection_sources: OPERATION_CONTRACT_INDEX_SELECTION_SOURCES

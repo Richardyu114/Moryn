@@ -1868,6 +1868,11 @@ describe("MCP stdio server", () => {
                 cli: string;
                 mcp: { tool: string; arguments: { operation: string } };
               };
+              retry_with_lookup_modes: {
+                operation: { package_helper: string; cli: string; mcp: { tool: string; arguments: { operation: string } } };
+                mcp_tool: { package_helper: string; cli: string; mcp: { tool: string; arguments: { mcp_tool: string } } };
+                cli_command: { package_helper: string; cli: string; mcp: { tool: string; arguments: { cli_command: string } } };
+              };
               selection_sources: Record<string, string>;
             };
           };
@@ -1897,6 +1902,32 @@ describe("MCP stdio server", () => {
           mcp: {
             tool: "operation_contracts",
             arguments: { operation: "<operation>" }
+          }
+        });
+        expect(parsed.error.recovery_hint.retry_with_lookup_modes).toEqual({
+          operation: {
+            package_helper: "getOperationContract('<operation>')",
+            cli: "moryn contracts operations --operation <operation>",
+            mcp: {
+              tool: "operation_contracts",
+              arguments: { operation: "<operation>" }
+            }
+          },
+          mcp_tool: {
+            package_helper: "getOperationContractByMcpTool('<tool>')",
+            cli: "moryn contracts operations --mcp-tool <tool>",
+            mcp: {
+              tool: "operation_contracts",
+              arguments: { mcp_tool: "<mcp_tool>" }
+            }
+          },
+          cli_command: {
+            package_helper: "getOperationContractByCliCommand('<command>')",
+            cli: "moryn contracts operations --cli-command <command>",
+            mcp: {
+              tool: "operation_contracts",
+              arguments: { cli_command: "<cli_command>" }
+            }
           }
         });
         expect(parsed.error.recovery_hint.selection_sources.operation).toBe("operations_by_id.<operation>");
