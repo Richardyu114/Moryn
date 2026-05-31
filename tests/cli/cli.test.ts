@@ -5713,7 +5713,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("run moryn project init --path <path> for a new project or retry with the correct --project/--project-id");
         expect(parsed.error.recovery_hint).toEqual({
-          rejected_argument: { argument: "project_path", value: missingProject },
+          rejected_argument: { option: "--project", value: missingProject },
           initialize_with: {
             tool: "project_init",
             command: `moryn project init --path ${missingProject}`,
@@ -5722,12 +5722,12 @@ describe("moryn CLI", () => {
           },
           retry_alternative: [
             {
-              argument: "project_path",
+              option: "--project",
               value_source: "user_input.path",
               value_placeholder: "<correct_project_path>"
             },
             {
-              argument: "project_id",
+              option: "--project-id",
               value_source: "user_input.project_id",
               value_placeholder: "<project_id>"
             }

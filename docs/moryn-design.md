@@ -709,6 +709,10 @@ safe status inspection, local-store continuity, retry conditions, and `do_not`
 guardrails, `validation_issues` lists schema paths to repair, `discover_with`
 names safe lookup calls such as `project_list`, and `retry_with` contains the
 option/argument value placeholder to use for the corrected retry.
+At the CLI boundary, known `argument` fields inside `error.recovery_hint` are
+recursively translated to command-line `option` fields such as `--project`,
+`--project-id`, `--cursor`, or `--refresh-since`; MCP and package callers keep
+the JSON argument names.
 
 ### `init`
 

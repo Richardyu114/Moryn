@@ -767,6 +767,10 @@ conflicting inputs, `validation_issues` lists schema paths to repair,
 `discover_with` names safe lookup calls, and `retry_with` gives exact
 options/arguments plus placeholders for corrected values. Agents should use
 those fields instead of splitting the human-readable error message.
+CLI error envelopes recursively translate known `argument` fields in
+`recovery_hint` to command-line `option` names such as `--project`,
+`--project-id`, `--cursor`, or `--refresh-since`, so CLI agents can render a
+retry prompt without mapping JSON argument names by hand.
 Each static operation `interfaces.cli` entry includes a display `command`, a
 prequoted `command_line`, `executable`, `args`, grouped `exec_file`, legacy
 `argv`, `placeholders`, and `has_placeholders`. For Moryn subcommands,

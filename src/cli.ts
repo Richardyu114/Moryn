@@ -146,6 +146,9 @@ function cliOptionForCoreArgument(argument: string, context?: MorynErrorContext)
   if (argument === "project_id") {
     return "--project-id";
   }
+  if (argument === "project_path") {
+    return "--project";
+  }
   if (argument === "cursor") {
     return context?.arguments.refresh_since !== undefined ? "--refresh-since" : "--cursor";
   }
@@ -163,19 +166,24 @@ function cliArgumentObjectToOption(value: Record<string, unknown>, context?: Mor
   return { option, ...rest };
 }
 
+function cliRecoveryHintValue(value: unknown, context?: MorynErrorContext): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => cliRecoveryHintValue(entry, context));
+  }
+  if (!isRecord(value)) {
+    return value;
+  }
+  const converted = cliArgumentObjectToOption(value, context);
+  return Object.fromEntries(
+    Object.entries(converted).map(([key, entry]) => [key, cliRecoveryHintValue(entry, context)])
+  );
+}
+
 function cliRecoveryHint(recoveryHint: unknown, context?: MorynErrorContext): unknown {
   if (!isRecord(recoveryHint)) {
     return recoveryHint;
   }
-  return {
-    ...recoveryHint,
-    ...(isRecord(recoveryHint.rejected_argument)
-      ? { rejected_argument: cliArgumentObjectToOption(recoveryHint.rejected_argument, context) }
-      : {}),
-    ...(isRecord(recoveryHint.retry_with)
-      ? { retry_with: cliArgumentObjectToOption(recoveryHint.retry_with, context) }
-      : {})
-  };
+  return cliRecoveryHintValue(recoveryHint, context);
 }
 
 function cliErrorEnvelope(error: unknown, context?: MorynErrorContext): MorynErrorEnvelope {
