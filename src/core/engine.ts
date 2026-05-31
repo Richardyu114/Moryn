@@ -48,7 +48,7 @@ interface RecallInput {
   scopes?: RecordScope[];
   types?: string[];
   states?: RecordState[];
-  tags?: string[];
+  tags?: unknown;
   files?: string[];
   limit?: unknown;
 }
@@ -1635,7 +1635,9 @@ function recallSourceTrust(record: MorynRecord): { score: number; reason: string
   return { score: 1, reason: "source_trust:agent-proposed" };
 }
 
-function reasonAndScore(record: MorynRecord, input: RecallInput): { score: number; reason: string[] } {
+type ValidatedRecallInput = RecallInput & { tags?: string[] };
+
+function reasonAndScore(record: MorynRecord, input: ValidatedRecallInput): { score: number; reason: string[] } {
   let score = 0;
   const reason: string[] = [];
 
@@ -1699,7 +1701,7 @@ function reasonAndScore(record: MorynRecord, input: RecallInput): { score: numbe
   return { score, reason: [...new Set(reason)] };
 }
 
-function matchesQuery(result: { reason: string[] }, input: RecallInput): boolean {
+function matchesQuery(result: { reason: string[] }, input: ValidatedRecallInput): boolean {
   if (!input.query || input.record_ids?.length) return true;
   return result.reason.some((reason) => reason.startsWith("text_match:"));
 }
@@ -2268,23 +2270,24 @@ export function createEngine(deps: EngineDeps) {
 
     async recall(input: RecallInput) {
       validateRecallInput(input);
-      for (const recordId of input.record_ids ?? []) {
+      const recallInput = { ...input, tags: Array.isArray(input.tags) ? input.tags : undefined } as ValidatedRecallInput;
+      for (const recordId of recallInput.record_ids ?? []) {
         await requireRecord(recordId);
       }
-      const limit = validateLimit(input.limit, 10, "recall");
+      const limit = validateLimit(recallInput.limit, 10, "recall");
       const records = (await currentRecords())
-        .filter((record) => includesHiddenState(input) || includesRawState(input) || isVisibleInDefaultRecall(record))
-        .filter((record) => recordProjectMatchesRecall(record, input))
-        .filter((record) => !input.record_ids?.length || input.record_ids.includes(record.id))
-        .filter((record) => !input.kinds?.length || input.kinds.includes(record.kind))
-        .filter((record) => !input.scopes?.length || input.scopes.includes(record.scope))
-        .filter((record) => !input.types?.length || input.types.includes(record.type))
-        .filter((record) => !input.states?.length || input.states.includes(record.state))
-        .filter((record) => matchesAny(record.tags, input.tags))
-        .filter((record) => !input.files?.length || input.files.some((file) => `${searchableText(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())))
-        .map((record) => ({ record, ...reasonAndScore(record, input) }))
-        .filter((result) => matchesQuery(result, input))
-        .filter((result) => result.score > 0 || (!input.query && !input.record_ids?.length))
+        .filter((record) => includesHiddenState(recallInput) || includesRawState(recallInput) || isVisibleInDefaultRecall(record))
+        .filter((record) => recordProjectMatchesRecall(record, recallInput))
+        .filter((record) => !recallInput.record_ids?.length || recallInput.record_ids.includes(record.id))
+        .filter((record) => !recallInput.kinds?.length || recallInput.kinds.includes(record.kind))
+        .filter((record) => !recallInput.scopes?.length || recallInput.scopes.includes(record.scope))
+        .filter((record) => !recallInput.types?.length || recallInput.types.includes(record.type))
+        .filter((record) => !recallInput.states?.length || recallInput.states.includes(record.state))
+        .filter((record) => matchesAny(record.tags, recallInput.tags))
+        .filter((record) => !recallInput.files?.length || recallInput.files.some((file) => `${searchableText(record)} ${record.tags.join(" ")}`.toLowerCase().includes(file.toLowerCase())))
+        .map((record) => ({ record, ...reasonAndScore(record, recallInput) }))
+        .filter((result) => matchesQuery(result, recallInput))
+        .filter((result) => result.score > 0 || (!recallInput.query && !recallInput.record_ids?.length))
         .sort((a, b) => (b.score - a.score) || b.record.updated_at.localeCompare(a.record.updated_at) || a.record.id.localeCompare(b.record.id))
         .slice(0, limit);
       return {

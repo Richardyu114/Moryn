@@ -971,7 +971,7 @@ export function commandForRecallContext(input: {
   scopes?: string[];
   types?: string[];
   states?: string[];
-  tags?: string[];
+  tags?: unknown;
   files?: string[];
   limit?: unknown;
 }): string {
@@ -986,7 +986,7 @@ export function commandForRecallContext(input: {
   appendRepeatedCommandOption(parts, "--scope", input.scopes);
   appendRepeatedCommandOption(parts, "--type", input.types);
   appendRepeatedCommandOption(parts, "--state", input.states);
-  appendRepeatedCommandOption(parts, "--tag", input.tags);
+  appendRepeatedCommandOption(parts, "--tag", Array.isArray(input.tags) ? input.tags : undefined);
   appendRepeatedCommandOption(parts, "--file", input.files);
   appendCommandOptionValue(parts, "--limit", input.limit);
   return parts.join(" ");

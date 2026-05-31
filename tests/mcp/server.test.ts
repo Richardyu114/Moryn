@@ -7489,6 +7489,27 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "limit", value_placeholder: 10 }
         });
 
+        const invalidRecallTags = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            project_id: "moryn",
+            tags: "sync"
+          }
+        })) as typeof invalidLimit;
+        expect(invalidRecallTags.ok).toBe(false);
+        expect(invalidRecallTags.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidRecallTags.error.message).toContain("Invalid tags");
+        expect(invalidRecallTags.error.recommended_action).toBe("retry read with tags as non-empty strings");
+        expect(invalidRecallTags.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "tags", value: "sync" },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            tags: "operations_by_id.recall.arguments_by_name.tags"
+          },
+          retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+        });
+
         const invalidLifecycleLimit = parseTextContent(await client.callTool({
           name: "agent_enter",
           arguments: {

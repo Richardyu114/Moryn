@@ -824,7 +824,8 @@ placeholder.
 Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 `project_list` likewise include the matching operation contract plus
 `argument_sources` for invalid filters, cursors, tasks, project ids, and limits,
-including RFC3339 refresh cursor failures. Project setup argument failures for
+including RFC3339 refresh cursor failures. MCP `recall.tags` shape failures also
+pass through core validation, including single-string tag values. Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and
 `project_init` path/project id/tags/default skills/sync mode/repair inputs also
 point at `operations_by_id.project_init.arguments_by_name.<argument>`. That

@@ -381,7 +381,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         scopes: z.array(recordScopeSchema).optional(),
         types: z.array(stringSchema).optional(),
         states: z.array(recordStateSchema).optional(),
-        tags: z.array(stringSchema).optional(),
+        tags: z.unknown().optional(),
         files: z.array(stringSchema).optional(),
         limit: coreValidatedNumberSchema.optional()
       }
