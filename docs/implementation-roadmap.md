@@ -732,6 +732,10 @@ Deliverables:
   recovery hint backed by `operations_by_id.link.arguments_by_name.link_type`,
   so shell agents can retry the exact flag instead of translating a lower-level
   `link_type` JSON argument error.
+- Done: Empty CLI `project init --project-id` values now fail at the CLI
+  boundary with a `--project-id` recovery hint backed by
+  `operations_by_id.project_init.arguments_by_name.project_id`, so agents do not
+  need to translate a lower-level `project_id` argument error.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

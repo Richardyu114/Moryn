@@ -3626,6 +3626,13 @@ describe("moryn CLI", () => {
           valuePlaceholder: "<path>"
         },
         {
+          args: ["project", "init", "--project-id", ""],
+          operation: "project_init",
+          argument: "project_id",
+          message: "Invalid --project-id",
+          option: "--project-id"
+        },
+        {
           args: ["project", "init", "--tag", ""],
           operation: "project_init",
           argument: "tags",

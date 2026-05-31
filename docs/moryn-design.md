@@ -876,9 +876,10 @@ project/task/sync/agent/status/summary inputs, MCP source metadata and
 `project_list`/lifecycle agent identity metadata (`source.client`,
 `source.session_id`, `source.model`, `source.device_id`, `agent.client`,
 `agent.session_id`, `agent.model`, and `agent.device_id`), and
-`project init --path`/`project list` task/sync/agent prefill inputs, empty
-`link --type` values, plus malformed `revise --set` assignments, use the same
-source-backed recovery channel. MCP `project_list.agent` and lifecycle `agent` shape failures also
+`project init --path`, `project init --project-id`, `project list`
+task/sync/agent prefill inputs, empty `link --type` values, plus malformed
+`revise --set` assignments, use the same source-backed recovery channel. MCP
+`project_list.agent` and lifecycle `agent` shape failures also
 pass through core validation, including single-string agent values.
 Explicit empty agent prefill fields such as `project list --agent ""` are
 rejected instead of being ignored. Empty CLI agent identity flags point at the
