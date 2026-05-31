@@ -7489,6 +7489,90 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "limit", value_placeholder: 10 }
         });
 
+        const invalidRecallKinds = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            project_id: "moryn",
+            kinds: "memory"
+          }
+        })) as typeof invalidLimit;
+        expect(invalidRecallKinds.ok).toBe(false);
+        expect(invalidRecallKinds.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidRecallKinds.error.message).toContain("Invalid kinds");
+        expect(invalidRecallKinds.error.recommended_action).toBe("retry read with supported kinds");
+        expect(invalidRecallKinds.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "kinds", value: "memory" },
+          expected: { kind: "array_of_allowed_values", allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"] },
+          argument_sources: {
+            kinds: "operations_by_id.recall.arguments_by_name.kinds"
+          },
+          retry_with: { argument: "kinds", value_placeholder: ["memory"] }
+        });
+
+        const invalidRecallScopes = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            project_id: "moryn",
+            scopes: "project"
+          }
+        })) as typeof invalidLimit;
+        expect(invalidRecallScopes.ok).toBe(false);
+        expect(invalidRecallScopes.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidRecallScopes.error.message).toContain("Invalid scopes");
+        expect(invalidRecallScopes.error.recommended_action).toBe("retry read with supported scopes");
+        expect(invalidRecallScopes.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "scopes", value: "project" },
+          expected: { kind: "array_of_allowed_values", allowed_values: ["global", "project", "topic", "session", "artifact"] },
+          argument_sources: {
+            scopes: "operations_by_id.recall.arguments_by_name.scopes"
+          },
+          retry_with: { argument: "scopes", value_placeholder: ["project"] }
+        });
+
+        const invalidRecallTypes = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            project_id: "moryn",
+            types: "decision"
+          }
+        })) as typeof invalidLimit;
+        expect(invalidRecallTypes.ok).toBe(false);
+        expect(invalidRecallTypes.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidRecallTypes.error.message).toContain("Invalid types");
+        expect(invalidRecallTypes.error.recommended_action).toBe("retry read with types as non-empty strings");
+        expect(invalidRecallTypes.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "types", value: "decision" },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            types: "operations_by_id.recall.arguments_by_name.types"
+          },
+          retry_with: { argument: "types", value_placeholder: ["<type>"] }
+        });
+
+        const invalidRecallStates = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            project_id: "moryn",
+            states: "canonical"
+          }
+        })) as typeof invalidLimit;
+        expect(invalidRecallStates.ok).toBe(false);
+        expect(invalidRecallStates.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidRecallStates.error.message).toContain("Invalid states");
+        expect(invalidRecallStates.error.recommended_action).toBe("retry read with supported states");
+        expect(invalidRecallStates.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "states", value: "canonical" },
+          expected: { kind: "array_of_allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
+          argument_sources: {
+            states: "operations_by_id.recall.arguments_by_name.states"
+          },
+          retry_with: { argument: "states", value_placeholder: ["canonical"] }
+        });
+
         const invalidRecallTags = parseTextContent(await client.callTool({
           name: "recall",
           arguments: {

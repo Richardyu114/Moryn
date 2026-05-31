@@ -44,10 +44,10 @@ interface RecallInput {
   record_ids?: unknown;
   query?: string;
   project_id?: string;
-  kinds?: RecordKind[];
-  scopes?: RecordScope[];
-  types?: string[];
-  states?: RecordState[];
+  kinds?: unknown;
+  scopes?: unknown;
+  types?: unknown;
+  states?: unknown;
   tags?: unknown;
   files?: unknown;
   limit?: unknown;
@@ -1635,7 +1635,15 @@ function recallSourceTrust(record: MorynRecord): { score: number; reason: string
   return { score: 1, reason: "source_trust:agent-proposed" };
 }
 
-type ValidatedRecallInput = RecallInput & { record_ids?: string[]; tags?: string[]; files?: string[] };
+type ValidatedRecallInput = RecallInput & {
+  record_ids?: string[];
+  kinds?: RecordKind[];
+  scopes?: RecordScope[];
+  types?: string[];
+  states?: RecordState[];
+  tags?: string[];
+  files?: string[];
+};
 
 function reasonAndScore(record: MorynRecord, input: ValidatedRecallInput): { score: number; reason: string[] } {
   let score = 0;
@@ -2273,6 +2281,10 @@ export function createEngine(deps: EngineDeps) {
       const recallInput = {
         ...input,
         record_ids: Array.isArray(input.record_ids) ? input.record_ids : undefined,
+        kinds: Array.isArray(input.kinds) ? input.kinds : undefined,
+        scopes: Array.isArray(input.scopes) ? input.scopes : undefined,
+        types: Array.isArray(input.types) ? input.types : undefined,
+        states: Array.isArray(input.states) ? input.states : undefined,
         tags: Array.isArray(input.tags) ? input.tags : undefined,
         files: Array.isArray(input.files) ? input.files : undefined
       } as ValidatedRecallInput;
