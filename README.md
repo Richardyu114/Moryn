@@ -853,7 +853,9 @@ return `operations_by_id.project_list.arguments_by_name.current_task` or
 host-side schema text. MCP `boot.current_task` and `refresh.current_task`
 shape failures also pass through core validation and return
 `operations_by_id.boot.arguments_by_name.current_task` or
-`operations_by_id.refresh.arguments_by_name.current_task`. MCP project selector
+`operations_by_id.refresh.arguments_by_name.current_task`; `boot.sync_remote`
+shape failures likewise return `operations_by_id.boot.arguments_by_name.sync_remote`.
+MCP project selector
 shape failures for `boot`, `recall`, `write`, `refresh`, and lifecycle tools
 also return operation-specific `project_id`/`project_path` sources and tell
 agents to select project ids from `project_list` instead of inventing them. MCP lifecycle

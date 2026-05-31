@@ -454,6 +454,10 @@ Deliverables:
   `operations_by_id.boot.arguments_by_name.current_task` or
   `operations_by_id.refresh.arguments_by_name.current_task` instead of
   host-side schema text.
+- Done: MCP `boot.sync_remote` shape failures now pass through core validation,
+  including numeric values, and expose
+  `operations_by_id.boot.arguments_by_name.sync_remote` instead of host-side
+  schema text.
 - Done: MCP `project_init.path`, `project_init.project_id`,
   `project_init.sync_mode`, `project_init.tags`, and
   `project_init.default_skills` shape failures now pass through core

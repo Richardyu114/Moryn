@@ -74,9 +74,10 @@ interface BootInput {
   project_id?: string;
   default_skills?: unknown;
   current_task?: unknown;
+  sync_remote?: unknown;
 }
 
-type ValidatedBootInput = BootInput & { default_skills?: string[]; current_task?: string };
+type ValidatedBootInput = BootInput & { default_skills?: string[]; current_task?: string; sync_remote?: string };
 
 interface ListProjectsInput {
   limit?: unknown;
@@ -1465,6 +1466,7 @@ function validateBootInput(input: BootInput): void {
   validateOptionalString("boot", input.project_id, "project_id");
   validateOptionalStringArray("boot", input.default_skills, "default_skills");
   validateOptionalString("boot", input.current_task, "current_task");
+  validateOptionalString("boot", input.sync_remote, "sync_remote");
 }
 
 function validateRefreshInput(input: RefreshInput): void {

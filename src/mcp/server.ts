@@ -493,17 +493,18 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
-        sync_remote: stringSchema.optional(),
+        sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         default_skills: z.unknown().optional()
       }
     },
-    async ({ project_id, project_path, current_task, default_skills }) => toolResult(async () => {
+    async ({ project_id, project_path, sync_remote, current_task, default_skills }) => toolResult(async () => {
       const project = await resolveProjectInput("boot", { project_id, project_path });
       return engine.boot({
         project_id: project.project_id,
         default_skills: default_skills ?? project.default_skills,
-        current_task: current_task as string | undefined
+        current_task: current_task as string | undefined,
+        sync_remote
       });
     })
   );

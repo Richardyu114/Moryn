@@ -7377,6 +7377,26 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "sync_remote", value_placeholder: "<sync_remote>" }
         });
 
+        const invalidBootSyncRemote = parseTextContent(await client.callTool({
+          name: "boot",
+          arguments: {
+            sync_remote: 123
+          }
+        })) as McpInvalidArgument;
+        expect(invalidBootSyncRemote.ok).toBe(false);
+        expect(invalidBootSyncRemote.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidBootSyncRemote.error.message).toContain("Invalid sync_remote");
+        expect(invalidBootSyncRemote.error.recommended_action).toBe("retry read with a non-empty sync_remote");
+        expect(invalidBootSyncRemote.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.boot",
+          rejected_argument: { argument: "sync_remote", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            sync_remote: "operations_by_id.boot.arguments_by_name.sync_remote"
+          },
+          retry_with: { argument: "sync_remote", value_placeholder: "<sync_remote>" }
+        });
+
         for (const { tool, operation, baseArguments } of [
           { tool: "boot", operation: "boot", baseArguments: {} },
           { tool: "recall", operation: "recall", baseArguments: {} },

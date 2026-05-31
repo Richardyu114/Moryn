@@ -787,7 +787,8 @@ failures likewise pass through core validation, including single-string skill
 selector values. MCP `boot.current_task` and `refresh.current_task` shape
 failures pass through core validation too, including numeric task values, and
 point at the matching `operations_by_id.<operation>.arguments_by_name.current_task`
-contract.
+contract. MCP `boot.sync_remote` shape failures also pass through core
+validation and point at `operations_by_id.boot.arguments_by_name.sync_remote`.
 MCP `recall.query` shape failures also pass through core validation, including
 numeric values, and point at `operations_by_id.recall.arguments_by_name.query`
 instead of host-side schema text.
