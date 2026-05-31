@@ -336,7 +336,9 @@ Deliverables:
   `content.format`, `--text`, and `--content-json`; the write contract now
   includes `content_text`, `content_format`, `source_client`, `provenance`,
   `provenance_method`, and `provenance_promoted_at` metadata, so agents can
-  fetch the relevant fields before retrying.
+  fetch the relevant fields before retrying, and MCP write calls now preserve
+  `provenance.method`/`provenance.promoted_at` instead of dropping them before
+  core validation.
 - Done: Core mutation argument failures for `revise`, `promote`, `archive`,
   `quarantine`, and `link` now expose the matching
   `operation_contract: "operations_by_id.<operation>"` and `argument_sources`

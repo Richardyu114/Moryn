@@ -30,7 +30,7 @@ import {
 } from "../core/errors.js";
 import { SYNC_MODES, initializeProjectConfig, resolveProjectContext, type SyncMode } from "../core/project.js";
 import { RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "../core/schema.js";
-import type { RecordKind, RecordPriority, RecordScope, RecordSource, RecordState } from "../core/types.js";
+import type { RecordKind, RecordPriority, RecordProvenance, RecordScope, RecordSource, RecordState } from "../core/types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
 
 type Engine = ReturnType<typeof createEngine>;
@@ -41,6 +41,7 @@ const recordScopeSchema = z.union([z.enum(RECORD_SCOPES), stringSchema]);
 const recordStateSchema = z.union([z.enum(RECORD_STATES), stringSchema]);
 const recordPrioritySchema = z.union([z.enum(RECORD_PRIORITIES), stringSchema]);
 const syncModeSchema = z.union([z.enum(SYNC_MODES), stringSchema]);
+const provenanceMethodSchema = z.union([z.enum(["agent-proposed", "rule-promoted", "user-confirmed"]), stringSchema]);
 const numberSchema = z.number();
 const coreValidatedBooleanSchema = z.unknown();
 const nonEmptyStringSchema = stringSchema.min(1);
@@ -422,7 +423,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         priority: recordPrioritySchema.optional(),
         provenance: z.object({
           derived_from: z.array(stringSchema).optional(),
-          reason: stringSchema.optional()
+          reason: stringSchema.optional(),
+          method: provenanceMethodSchema.optional(),
+          promoted_at: stringSchema.optional()
         }).optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
         source: coreValidatedSourceSchema.optional()
@@ -460,7 +463,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         priority: input.priority as RecordPriority | undefined,
         source: (input.source ?? { client: "mcp" }) as RecordSource,
         confirmed: input.confirmed as boolean | undefined,
-        provenance: input.provenance
+        provenance: input.provenance as RecordProvenance | undefined
       });
     })
   );

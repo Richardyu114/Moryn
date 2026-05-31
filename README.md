@@ -801,7 +801,9 @@ write contract before retrying. The write operation contract exposes
 `content_text`, `content_format`, `source_client`, `provenance`,
 `provenance_method`, and `provenance_promoted_at` entries under
 `arguments_by_name`, including nested MCP paths, the `--content-json` CLI
-source, and allowed values.
+source, and allowed values. MCP write calls preserve `provenance.method` and
+`provenance.promoted_at`, and invalid values for those nested fields return the
+same source-backed `recovery_hint` instead of being silently dropped.
 Core mutation argument failures for `revise`, `promote`, `archive`,
 `quarantine`, and `link` also include the matching
 `operation_contract: "operations_by_id.<operation>"` plus `argument_sources`

@@ -741,7 +741,10 @@ write argument contract instead of inferring it from prose. The contract's
 `arguments_by_name.source_client`, `arguments_by_name.provenance`,
 `arguments_by_name.provenance_method`, and
 `arguments_by_name.provenance_promoted_at` entries declare nested MCP paths, the
-`--content-json` CLI source, and allowed values.
+`--content-json` CLI source, and allowed values. MCP write calls preserve
+`provenance.method` and `provenance.promoted_at`, and invalid nested provenance
+values return the same source-backed `recovery_hint` instead of being silently
+dropped.
 Core mutation argument failures for `revise`, `promote`, `archive`,
 `quarantine`, and `link` also include the current
 `operation_contract: "operations_by_id.<operation>"` plus `argument_sources`

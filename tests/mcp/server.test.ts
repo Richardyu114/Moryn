@@ -6031,16 +6031,19 @@ describe("MCP stdio server", () => {
             state: "candidate",
             provenance: {
               derived_from: ["rec_source"],
-              reason: "Derived from handoff summary."
+              reason: "Derived from handoff summary.",
+              method: "user-confirmed",
+              promoted_at: "2026-05-31T00:00:00.000Z"
             },
             source: { client: "mcp-test" }
           }
-        })) as { record: { provenance?: { derived_from?: string[]; reason?: string; method?: string } } };
+        })) as { record: { provenance?: { derived_from?: string[]; reason?: string; method?: string; promoted_at?: string } } };
 
         expect(write.record.provenance).toEqual({
           derived_from: ["rec_source"],
           reason: "Derived from handoff summary.",
-          method: "agent-proposed"
+          method: "user-confirmed",
+          promoted_at: "2026-05-31T00:00:00.000Z"
         });
       });
     } finally {
@@ -6665,6 +6668,58 @@ describe("MCP stdio server", () => {
             "source.client": "operations_by_id.revise.arguments_by_name.source_client"
           },
           retry_with: { argument: "source.client", value_placeholder: "<client>" }
+        });
+
+        const invalidProvenanceMethod = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid provenance method should return structured recovery.",
+            provenance: { method: "imported" },
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidProvenanceMethod.ok).toBe(false);
+        expect(invalidProvenanceMethod.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProvenanceMethod.error.message).toContain("Invalid provenance.method");
+        expect(invalidProvenanceMethod.error.recommended_action).toBe("retry write with a supported provenance method");
+        expect(invalidProvenanceMethod.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance.method", value: "imported" },
+          expected: { kind: "allowed_values", allowed_values: ["agent-proposed", "rule-promoted", "user-confirmed"] },
+          argument_sources: {
+            "provenance.method": "operations_by_id.write.arguments_by_name.provenance_method"
+          },
+          retry_with: { argument: "provenance.method", value_placeholder: "agent-proposed" }
+        });
+
+        const invalidProvenanceTimestamp = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid provenance timestamp should return structured recovery.",
+            provenance: { promoted_at: "not-a-date" },
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidProvenanceTimestamp.ok).toBe(false);
+        expect(invalidProvenanceTimestamp.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProvenanceTimestamp.error.message).toContain("Invalid provenance.promoted_at");
+        expect(invalidProvenanceTimestamp.error.recommended_action).toBe("retry write with a valid provenance timestamp");
+        expect(invalidProvenanceTimestamp.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance.promoted_at", value: "not-a-date" },
+          expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
+          argument_sources: {
+            "provenance.promoted_at": "operations_by_id.write.arguments_by_name.provenance_promoted_at"
+          },
+          retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
         });
 
         const emptyQuery = parseTextContent(await client.callTool({
