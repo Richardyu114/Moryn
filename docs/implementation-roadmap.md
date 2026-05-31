@@ -293,10 +293,12 @@ Deliverables:
   avoid inventing ids, uninitialized or invalid store/project config that
   should run `moryn init` or `moryn project init --repair` only after user
   confirmation and avoid assumed store paths, automatic config repair, or
-  invented project ids, unknown or missing project context that should run
-  `moryn project list`, select
-  `project_list.projects_by_id.<project_id>.project_id`, and avoid inventing
-  project ids, high-risk confirmation failures that should ask the user before
+  invented project ids, missing project paths that should not be silently
+  treated as new projects, project id conflicts that should use the
+  `.moryn.json` id or an explicitly approved config repair instead of retrying
+  the rejected id, unknown or missing project context that should run `moryn
+  project list`, select `project_list.projects_by_id.<project_id>.project_id`,
+  and avoid inventing project ids, high-risk confirmation failures that should ask the user before
   retrying with `confirmed: true` or `--confirm` and should never auto-confirm,
   sync runtime failures that should inspect `moryn sync --status`, preserve
   local events, wait for conflicts or credentials to be fixed, and avoid unsafe

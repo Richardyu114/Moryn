@@ -859,6 +859,29 @@ describe("error envelopes", () => {
       ok: false,
       error: {
         code: "PROJECT_PATH_NOT_FOUND",
+        recovery_hint: {
+          rejected_argument: { argument: "project_path", value: "/tmp/missing" },
+          initialize_with: {
+            tool: "project_init",
+            command: "moryn project init --path /tmp/missing",
+            arguments: { path: "/tmp/missing" },
+            safe_to_run: false
+          },
+          retry_alternative: [
+            {
+              argument: "project_path",
+              value_source: "user_input.path",
+              value_placeholder: "<correct_project_path>"
+            },
+            {
+              argument: "project_id",
+              value_source: "user_input.project_id",
+              value_placeholder: "<project_id>"
+            }
+          ],
+          requires_user_confirmation: true,
+          do_not: ["assume_missing_path_is_new_project", "invent_project_id", "auto_initialize_project_config"]
+        },
         next_action: {
           recommended_action: "initialize_project_or_retry_corrected_context",
           tool: "project_init",
@@ -966,6 +989,24 @@ describe("error envelopes", () => {
       ok: false,
       error: {
         code: "PROJECT_ID_CONFLICT",
+        recovery_hint: {
+          rejected_argument: { argument: "project_id", value: "other" },
+          config_project_id: "moryn",
+          retry_with: {
+            tool: "agent_enter",
+            command: "moryn agent enter --project-id moryn",
+            arguments: { project_id: "moryn" },
+            safe_to_run: false
+          },
+          repair_alternative: {
+            tool: "project_init",
+            command: "moryn project init --repair",
+            arguments: { repair: true },
+            safe_to_run: false
+          },
+          requires_user_confirmation: true,
+          do_not: ["retry_with_rejected_project_id", "invent_project_id", "auto_update_project_config"]
+        },
         next_action: {
           recommended_action: "retry_with_project_config_id_or_update_project_config",
           tool: "agent_enter",

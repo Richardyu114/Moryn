@@ -4425,6 +4425,7 @@ describe("MCP stdio server", () => {
             message: string;
             recoverable: boolean;
             recommended_action: string;
+            recovery_hint: unknown;
             next_action: {
               recommended_action: string;
               tool: string;
@@ -4441,6 +4442,29 @@ describe("MCP stdio server", () => {
         expect(parsedStart.error.message).toContain("Project path does not exist");
         expect(parsedStart.error.recoverable).toBe(true);
         expect(parsedStart.error.recommended_action).toBe("run moryn project init --path <path> for a new project or retry with the correct --project/--project-id");
+        expect(parsedStart.error.recovery_hint).toEqual({
+          rejected_argument: { argument: "project_path", value: missingProject },
+          initialize_with: {
+            tool: "project_init",
+            command: `moryn project init --path ${missingProject}`,
+            arguments: { path: missingProject },
+            safe_to_run: false
+          },
+          retry_alternative: [
+            {
+              argument: "project_path",
+              value_source: "user_input.path",
+              value_placeholder: "<correct_project_path>"
+            },
+            {
+              argument: "project_id",
+              value_source: "user_input.project_id",
+              value_placeholder: "<project_id>"
+            }
+          ],
+          requires_user_confirmation: true,
+          do_not: ["assume_missing_path_is_new_project", "invent_project_id", "auto_initialize_project_config"]
+        });
         expect(parsedStart.error.next_action).toMatchObject({
           recommended_action: "initialize_project_or_retry_corrected_context",
           tool: "project_init",
@@ -4640,6 +4664,7 @@ describe("MCP stdio server", () => {
             code: string;
             message: string;
             recommended_action: string;
+            recovery_hint: unknown;
             next_action?: {
               recommended_action: string;
               tool: string;
@@ -4655,6 +4680,24 @@ describe("MCP stdio server", () => {
         expect(parsedStart.error.code).toBe("PROJECT_ID_CONFLICT");
         expect(parsedStart.error.message).toContain("Project id conflict");
         expect(parsedStart.error.recommended_action).toBe("pass the project id from .moryn.json or update the project config");
+        expect(parsedStart.error.recovery_hint).toEqual({
+          rejected_argument: { argument: "project_id", value: "other" },
+          config_project_id: "moryn",
+          retry_with: {
+            tool: "agent_enter",
+            command: "moryn agent enter --project-id moryn",
+            arguments: { project_id: "moryn" },
+            safe_to_run: false
+          },
+          repair_alternative: {
+            tool: "project_init",
+            command: "moryn project init --repair",
+            arguments: { repair: true },
+            safe_to_run: false
+          },
+          requires_user_confirmation: true,
+          do_not: ["retry_with_rejected_project_id", "invent_project_id", "auto_update_project_config"]
+        });
         expect(parsedStart.error.next_action).toMatchObject({
           recommended_action: "retry_with_project_config_id_or_update_project_config",
           tool: "agent_enter",

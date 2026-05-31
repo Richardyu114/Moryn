@@ -700,13 +700,15 @@ and retry-after-original-read instructions, missing-record errors with safe
 guardrails against inventing ids, store initialization and config repair errors
 with guarded `init` or `project_init` commands, user-confirmation requirements,
 and guardrails against assuming store paths, auto-repairing config, or
-inventing project ids, confirmation-required failures with explicit
-user-confirmation requirements and guardrails against auto-confirming, sync
-runtime failures with safe status inspection, local-store continuity, retry
-conditions, and `do_not` guardrails, `validation_issues` lists schema paths to
-repair, `discover_with` names safe lookup calls such as `project_list`, and
-`retry_with` contains the option/argument value placeholder to use for the
-corrected retry.
+inventing project ids, project path and project id conflict errors with
+guarded initialization or retry templates and `do_not` guardrails against
+treating typos as new projects, retrying rejected ids, or auto-updating project
+config, confirmation-required failures with explicit user-confirmation
+requirements and guardrails against auto-confirming, sync runtime failures with
+safe status inspection, local-store continuity, retry conditions, and `do_not`
+guardrails, `validation_issues` lists schema paths to repair, `discover_with`
+names safe lookup calls such as `project_list`, and `retry_with` contains the
+option/argument value placeholder to use for the corrected retry.
 
 ### `init`
 
@@ -1510,7 +1512,9 @@ their workflow phase uses `write.record.id` as the `record_id` replacement
 source, so agents promote the candidate returned by the original write instead
 of repeating the write or guessing an id. For
 `PROJECT_PATH_NOT_FOUND`, the `next_action.arguments.path` value is the exact
-missing path when it can be derived from the error. For `PROJECT_ID_NOT_FOUND`,
+missing path when it can be derived from the error, and `error.recovery_hint`
+offers both a guarded `project_init` command and authored retry alternatives
+for corrected `project_path` or `project_id`. For `PROJECT_ID_NOT_FOUND`,
 `error.recovery_hint.rejected_argument` and
 `next_action.rejected_arguments.project_id` preserve the rejected id, and
 `candidate_project_ids` lists known choices while `next_action.arguments`
@@ -2956,6 +2960,38 @@ action is parameterized from the error message:
     "message": "Project path does not exist: /workspace/missing. Run project_init for a new project, or pass the correct project_path/project_id.",
     "recoverable": true,
     "recommended_action": "run moryn project init --path <path> for a new project or retry with the correct --project/--project-id",
+    "recovery_hint": {
+      "rejected_argument": {
+        "argument": "project_path",
+        "value": "/workspace/missing"
+      },
+      "initialize_with": {
+        "tool": "project_init",
+        "command": "moryn project init --path /workspace/missing",
+        "arguments": {
+          "path": "/workspace/missing"
+        },
+        "safe_to_run": false
+      },
+      "retry_alternative": [
+        {
+          "argument": "project_path",
+          "value_source": "user_input.path",
+          "value_placeholder": "<correct_project_path>"
+        },
+        {
+          "argument": "project_id",
+          "value_source": "user_input.project_id",
+          "value_placeholder": "<project_id>"
+        }
+      ],
+      "requires_user_confirmation": true,
+      "do_not": [
+        "assume_missing_path_is_new_project",
+        "invent_project_id",
+        "auto_initialize_project_config"
+      ]
+    },
     "next_action": {
       "recommended_action": "initialize_project_or_retry_corrected_context",
       "tool": "project_init",
@@ -3037,6 +3073,35 @@ and write lifecycle records:
     "message": "Project id conflict: project_path resolves to moryn, but project_id was other. Use the .moryn.json project_id or update the project config.",
     "recoverable": true,
     "recommended_action": "pass the project id from .moryn.json or update the project config",
+    "recovery_hint": {
+      "rejected_argument": {
+        "argument": "project_id",
+        "value": "other"
+      },
+      "config_project_id": "moryn",
+      "retry_with": {
+        "tool": "agent_enter",
+        "command": "moryn agent enter --project-id moryn",
+        "arguments": {
+          "project_id": "moryn"
+        },
+        "safe_to_run": false
+      },
+      "repair_alternative": {
+        "tool": "project_init",
+        "command": "moryn project init --repair",
+        "arguments": {
+          "repair": true
+        },
+        "safe_to_run": false
+      },
+      "requires_user_confirmation": true,
+      "do_not": [
+        "retry_with_rejected_project_id",
+        "invent_project_id",
+        "auto_update_project_config"
+      ]
+    },
     "next_action": {
       "recommended_action": "retry_with_project_config_id_or_update_project_config",
       "tool": "agent_enter",

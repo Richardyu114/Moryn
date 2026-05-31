@@ -749,7 +749,9 @@ store initialization and config repair failures with guarded `init` or
 `project_init` commands, user-confirmation requirements, and guardrails against
 assuming store paths, auto-repairing, or inventing project ids,
 project-selection failures with safe `project_list` discovery, selected-id and
-ordered fallback sources, and guardrails against inventing project ids,
+ordered fallback sources, missing-path initialization alternatives, conflict
+retry templates, and guardrails against treating typos as new projects, using
+rejected project ids, or inventing project ids,
 confirmation-required failures with explicit user-confirmation requirements,
 retry templates, and guardrails against auto-confirming,
 sync runtime failures such as missing remotes, unavailable remotes, Git
@@ -1084,7 +1086,10 @@ Project-scoped writes that omit project context return a safe `project_list`
 next action and keep `scope: project` in `next_action.rejected_arguments`, so
 agents discover the project instead of guessing `project_id`.
 When the missing project path is known, `next_action.arguments` contains the
-exact path instead of a placeholder. For unknown project ids,
+exact path instead of a placeholder. Its `recovery_hint` preserves the rejected
+`project_path`, provides a guarded `project_init` command, offers authored
+`project_path` and `project_id` retry alternatives, and forbids treating the
+typo as a new project without confirmation. For unknown project ids,
 `recovery_hint.rejected_argument` and
 `next_action.rejected_arguments.project_id` record the rejected id, while
 `candidate_project_ids` carries known choices and `next_action.arguments` stays
@@ -1102,7 +1107,10 @@ context. Their returned `next.actions` are portable: if
 project context was resolved from `.moryn.json`, the actions are prefilled with
 the resolved `project_id`.
 Project id conflict errors preserve the rejected explicit id and return the
-`.moryn.json` project id as the only retry candidate. The retry action uses
+`.moryn.json` project id as the only retry candidate. Their `recovery_hint`
+also names the rejected id, the config project id, a guarded `agent_enter`
+retry template, a repair alternative, and `do_not` guardrails against retrying
+the rejected id or auto-updating project config. The retry action uses
 `agent_enter` and is not marked safe to run automatically, because entering a
 session may write lifecycle records.
 

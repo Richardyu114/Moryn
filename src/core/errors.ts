@@ -353,6 +353,60 @@ function knownRecoveryHint(code: string, message: string, context?: MorynErrorCo
       do_not: ["invent_project_id", "start_without_project_context"]
     };
   }
+  if (code === "PROJECT_PATH_NOT_FOUND") {
+    const path = projectPathFromMessage(message) ?? "<path>";
+    return {
+      rejected_argument: {
+        argument: "project_path",
+        value: path
+      },
+      initialize_with: {
+        tool: "project_init",
+        command: `moryn project init --path ${path === "<path>" ? path : shellQuote(path)}`,
+        arguments: { path },
+        safe_to_run: false
+      },
+      retry_alternative: [
+        {
+          argument: "project_path",
+          value_source: "user_input.path",
+          value_placeholder: "<correct_project_path>"
+        },
+        {
+          argument: "project_id",
+          value_source: "user_input.project_id",
+          value_placeholder: "<project_id>"
+        }
+      ],
+      requires_user_confirmation: true,
+      do_not: ["assume_missing_path_is_new_project", "invent_project_id", "auto_initialize_project_config"]
+    };
+  }
+  if (code === "PROJECT_ID_CONFLICT") {
+    const { resolvedProjectId, rejectedProjectId } = conflictingProjectIdFromMessage(message);
+    const projectId = resolvedProjectId ?? "<project_id_from_config>";
+    return {
+      rejected_argument: {
+        argument: "project_id",
+        ...(rejectedProjectId ? { value: rejectedProjectId } : {})
+      },
+      config_project_id: projectId,
+      retry_with: {
+        tool: "agent_enter",
+        command: `moryn agent enter --project-id ${projectId}`,
+        arguments: { project_id: projectId },
+        safe_to_run: false
+      },
+      repair_alternative: {
+        tool: "project_init",
+        command: "moryn project init --repair",
+        arguments: { repair: true },
+        safe_to_run: false
+      },
+      requires_user_confirmation: true,
+      do_not: ["retry_with_rejected_project_id", "invent_project_id", "auto_update_project_config"]
+    };
+  }
   if (code === "SYNC_NOT_CONFIGURED") {
     return {
       missing_argument: { argument: "remote", placeholder: "<remote>" },
