@@ -854,6 +854,9 @@ validation, including numeric values, and return
 schema text or lower-level write content paths. MCP `limit` failures for read and
 lifecycle startup tools likewise pass through core validation, including
 non-number values, and return the relevant `arguments_by_name.limit` source.
+MCP `agent_start.refresh_since` and `agent_enter.refresh_since` shape failures
+also pass through refresh validation, including numeric values, and return the
+refresh cursor contract while preserving `refresh_since` as the retry argument.
 MCP write `confidence` failures also pass through core validation, including
 non-number values, and return `operations_by_id.write.arguments_by_name.confidence`.
 MCP write `content` shape failures also pass through core validation, including

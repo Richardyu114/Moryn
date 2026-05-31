@@ -55,10 +55,12 @@ interface RecallInput {
 
 interface RefreshInput {
   project_id?: string;
-  cursor?: string;
+  cursor?: unknown;
   current_task?: string;
   limit?: unknown;
 }
+
+type ValidatedRefreshInput = RefreshInput & { cursor?: string };
 
 interface BootInput {
   project_id?: string;
@@ -2395,11 +2397,12 @@ export function createEngine(deps: EngineDeps) {
 
     async refresh(input: RefreshInput) {
       validateRefreshInput(input);
+      const refreshInput = input as ValidatedRefreshInput;
       const limit = validateLimit(input.limit, 20, "refresh");
       const records = (await currentRecords())
         .filter(isVisibleByDefault)
         .filter((record) => recordBootContextMatches(record, input.project_id))
-        .filter((record) => !input.cursor || record.updated_at > input.cursor)
+        .filter((record) => !refreshInput.cursor || record.updated_at > refreshInput.cursor)
         .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
       const allChanges = records.map((record) => {
         const importance = refreshImportance(record, input.current_task);
@@ -2418,7 +2421,7 @@ export function createEngine(deps: EngineDeps) {
       const reportableChanges = allChanges.filter((change) => change.change.importance !== "silent");
       const changes = reportableChanges.slice(0, limit);
       const latest = (reportableChanges.length > changes.length ? changes.at(-1)?.record.updated_at : records.at(-1)?.updated_at)
-        ?? input.cursor
+        ?? refreshInput.cursor
         ?? new Date().toISOString();
       return {
         cursor: latest,

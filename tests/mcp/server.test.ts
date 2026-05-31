@@ -7301,6 +7301,25 @@ describe("MCP stdio server", () => {
             value_placeholder: "<refresh cursor ISO datetime>"
           }
         });
+        for (const tool of ["agent_start", "agent_enter"] as const) {
+          const invalidAgentCursorShape = parseTextContent(await client.callTool({
+            name: tool,
+            arguments: { project_id: "moryn", refresh_since: 123 }
+          })) as McpInvalidArgument;
+          expect(invalidAgentCursorShape.ok).toBe(false);
+          expect(invalidAgentCursorShape.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidAgentCursorShape.error.message).toContain("Invalid cursor");
+          expect(invalidAgentCursorShape.error.recommended_action).toBe("retry read with a non-empty cursor");
+          expect(invalidAgentCursorShape.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.refresh",
+            rejected_argument: { argument: "refresh_since", value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              cursor: "operations_by_id.refresh.arguments_by_name.cursor"
+            },
+            retry_with: { argument: "refresh_since", value_placeholder: "<cursor>" }
+          });
+        }
         for (const { tool, operation, argument } of [
           { tool: "agent_status", operation: "agent_status", argument: "status" },
           { tool: "agent_finish", operation: "agent_finish", argument: "summary" }

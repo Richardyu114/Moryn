@@ -462,6 +462,10 @@ Deliverables:
   now pass through lifecycle validation, including numeric values, and expose
   the matching lifecycle `operations_by_id.<operation>.arguments_by_name.*`
   sources instead of host-side schema text or write `content.text` hints.
+- Done: MCP `agent_start.refresh_since` and `agent_enter.refresh_since` shape
+  failures now pass through refresh validation, including numeric values, and
+  preserve `refresh_since` as the retry argument while pointing at the refresh
+  cursor contract.
 - Done: MCP write and mutation `source.session_id`, `source.model`, and
   `source.device_id` failures now pass through core validation and return
   structured recovery hints pointing at `source_session_id`, `source_model`, or

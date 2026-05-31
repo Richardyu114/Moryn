@@ -1822,6 +1822,9 @@ Partial lifecycle sync failures keep the legacy string field (`pull_error`,
 matching `*_error_details` object with the same structured error contract used
 by CLI and MCP failures: `code`, `message`, `recoverable`,
 `recommended_action`, and optional `next_action`.
+MCP `agent_start.refresh_since` and `agent_enter.refresh_since` shape failures,
+including numeric values, pass through refresh validation and return the refresh
+cursor contract while preserving `refresh_since` as the retry argument.
 If the local sync state is already conflicted, or a pull leaves Git in a
 conflicted state, `agent_start` fails before boot/refresh with `SYNC_CONFLICT`
 and a `sync_status` recovery action. `agent_status` and `agent_finish` perform

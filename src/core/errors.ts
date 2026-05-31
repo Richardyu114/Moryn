@@ -1040,7 +1040,7 @@ type AgentStartContextInput = {
   project_path?: string;
   sync_remote?: string;
   current_task?: string;
-  refresh_since?: string;
+  refresh_since?: unknown;
   limit?: unknown;
   pull?: boolean;
   agent?: {
@@ -1057,7 +1057,7 @@ function commandForAgentSessionContext(command: "enter" | "start", input: AgentS
   appendCommandOption(parts, "--project-id", input.project_id);
   appendCommandOption(parts, "--sync-remote", input.sync_remote);
   appendCommandOption(parts, "--current-task", input.current_task);
-  appendCommandOption(parts, "--refresh-since", input.refresh_since);
+  appendCommandOptionValue(parts, "--refresh-since", input.refresh_since);
   appendCommandOptionValue(parts, "--limit", input.limit);
   if (input.pull === false) parts.push("--no-pull");
   appendCommandOption(parts, "--agent", input.agent?.client);
