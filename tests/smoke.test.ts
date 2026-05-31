@@ -791,7 +791,33 @@ describe("package smoke test", () => {
       type: "string[]",
       required: false,
       cli: { flag: "--derived-from", repeatable: true },
-      mcp: { argument: "provenance", path: "provenance.derived_from" }
+      mcp: { argument: "provenance", path: "provenance.derived_from" },
+      parent_argument: "provenance"
+    });
+    expect(response.operations_by_id.write.arguments_by_name.provenance).toMatchObject({
+      type: "object",
+      required: false,
+      mcp: { argument: "provenance" }
+    });
+    expect(response.operations_by_id.write.arguments_by_name.reason).toMatchObject({
+      type: "string",
+      required: false,
+      cli: { flag: "--reason" },
+      mcp: { argument: "provenance", path: "provenance.reason" },
+      parent_argument: "provenance"
+    });
+    expect(response.operations_by_id.write.arguments_by_name.provenance_method).toMatchObject({
+      type: "string",
+      required: false,
+      mcp: { argument: "provenance", path: "provenance.method" },
+      allowed_values: ["agent-proposed", "rule-promoted", "user-confirmed"],
+      parent_argument: "provenance"
+    });
+    expect(response.operations_by_id.write.arguments_by_name.provenance_promoted_at).toMatchObject({
+      type: "string",
+      required: false,
+      mcp: { argument: "provenance", path: "provenance.promoted_at" },
+      parent_argument: "provenance"
     });
     expect(response.operations_by_id.write.required_fields_by_name.kind.allowed_values).toEqual([
       "memory", "skill", "soul", "session_summary", "agent_note"

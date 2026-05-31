@@ -1030,8 +1030,12 @@ describe("core engine", () => {
         source: { client: "test" },
         provenance: "imported" as never
       }, "Invalid provenance", "retry write with a valid provenance object", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "provenance", value: "imported" },
         expected: { kind: "object", required: false },
+        argument_sources: {
+          provenance: "operations_by_id.write.arguments_by_name.provenance"
+        },
         retry_with: { argument: "provenance", value_placeholder: { derived_from: ["<record_id>"], reason: "<reason>" } }
       });
       await expectInvalidWriteShapeArgument({
@@ -1043,8 +1047,12 @@ describe("core engine", () => {
         source: { client: "test" },
         provenance: { method: "imported" } as never
       }, "Invalid provenance.method", "retry write with a supported provenance method", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "provenance.method", value: "imported" },
         expected: { kind: "allowed_values", allowed_values: ["agent-proposed", "rule-promoted", "user-confirmed"] },
+        argument_sources: {
+          "provenance.method": "operations_by_id.write.arguments_by_name.provenance_method"
+        },
         retry_with: { argument: "provenance.method", value_placeholder: "agent-proposed" }
       });
       await expectInvalidWriteShapeArgument({
@@ -1056,8 +1064,12 @@ describe("core engine", () => {
         source: { client: "test" },
         provenance: { derived_from: [""] }
       }, "Invalid provenance.derived_from", "retry write with valid provenance source record ids", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "provenance.derived_from", value: [""] },
         expected: { kind: "array_of_non_empty_strings" },
+        argument_sources: {
+          "provenance.derived_from": "operations_by_id.write.arguments_by_name.derived_from"
+        },
         retry_with: { argument: "provenance.derived_from", value_placeholder: ["<record_id>"] }
       });
       await expectInvalidWriteShapeArgument({
@@ -1069,8 +1081,12 @@ describe("core engine", () => {
         source: { client: "test" },
         provenance: { reason: "" }
       }, "Invalid provenance.reason", "retry write with a non-empty provenance reason", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "provenance.reason", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          "provenance.reason": "operations_by_id.write.arguments_by_name.reason"
+        },
         retry_with: { argument: "provenance.reason", value_placeholder: "<reason>" }
       });
       await expectInvalidWriteShapeArgument({
@@ -1082,8 +1098,12 @@ describe("core engine", () => {
         source: { client: "test" },
         provenance: { promoted_at: "not-a-date" }
       }, "Invalid provenance.promoted_at", "retry write with a valid provenance timestamp", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "provenance.promoted_at", value: "not-a-date" },
         expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
+        argument_sources: {
+          "provenance.promoted_at": "operations_by_id.write.arguments_by_name.provenance_promoted_at"
+        },
         retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
       });
       await expectInvalidWriteShapeArgument({
@@ -1095,8 +1115,12 @@ describe("core engine", () => {
         source: { client: "test" },
         provenance: { promoted_at: "2026-05-27" }
       }, "Invalid provenance.promoted_at", "retry write with a valid provenance timestamp", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "provenance.promoted_at", value: "2026-05-27" },
         expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
+        argument_sources: {
+          "provenance.promoted_at": "operations_by_id.write.arguments_by_name.provenance_promoted_at"
+        },
         retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
       });
 

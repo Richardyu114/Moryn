@@ -2,6 +2,7 @@ import { actionExecution, actionSafety, type ActionExecution, type ActionSafety 
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { SYNC_MODES } from "./core/project.js";
 import {
+  PROVENANCE_METHODS,
   RECORD_KINDS,
   RECORD_PRIORITIES,
   RECORD_SCOPES,
@@ -1072,17 +1073,37 @@ export const OPERATION_CONTRACTS = [
         mcp: { argument: "priority" },
         allowed_values: RECORD_PRIORITIES
       },
+      provenance: {
+        type: "object",
+        required: false,
+        mcp: { argument: "provenance" }
+      },
       derived_from: {
         type: "string[]",
         required: false,
         cli: { flag: "--derived-from", repeatable: true },
-        mcp: { argument: "provenance", path: "provenance.derived_from" }
+        mcp: { argument: "provenance", path: "provenance.derived_from" },
+        parent_argument: "provenance"
       },
       reason: {
         type: "string",
         required: false,
         cli: { flag: "--reason" },
-        mcp: { argument: "provenance", path: "provenance.reason" }
+        mcp: { argument: "provenance", path: "provenance.reason" },
+        parent_argument: "provenance"
+      },
+      provenance_method: {
+        type: "string",
+        required: false,
+        mcp: { argument: "provenance", path: "provenance.method" },
+        allowed_values: PROVENANCE_METHODS,
+        parent_argument: "provenance"
+      },
+      provenance_promoted_at: {
+        type: "string",
+        required: false,
+        mcp: { argument: "provenance", path: "provenance.promoted_at" },
+        parent_argument: "provenance"
       },
       confirmed: {
         type: "boolean",

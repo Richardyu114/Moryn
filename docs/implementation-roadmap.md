@@ -325,10 +325,13 @@ Deliverables:
   and MCP/CLI write content argument failures also point at
   `operation_contract: "operations_by_id.write"` and expose `argument_sources`
   for `kind`, `type`, `scope`, `project_id`, `tags`, `state`, `priority`,
-  `confidence`, `confirmed`, `source.client`, `text`, `content`,
-  `content.text`, `content.format`, `--text`, and `--content-json`; the write
-  contract now includes `content_text`, `content_format`, and `source_client`
-  metadata, so agents can fetch the relevant fields before retrying.
+  `confidence`, `confirmed`, `source.client`, `provenance`,
+  `provenance.derived_from`, `provenance.reason`, `provenance.method`,
+  `provenance.promoted_at`, `text`, `content`, `content.text`,
+  `content.format`, `--text`, and `--content-json`; the write contract now
+  includes `content_text`, `content_format`, `source_client`, `provenance`,
+  `provenance_method`, and `provenance_promoted_at` metadata, so agents can
+  fetch the relevant fields before retrying.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

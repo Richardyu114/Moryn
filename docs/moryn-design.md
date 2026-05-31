@@ -725,13 +725,16 @@ option/argument value placeholder to use for the corrected retry.
 Core write field failures and MCP/CLI write content argument failures also include
 `operation_contract: "operations_by_id.write"` plus `argument_sources` entries
 for rejected or missing `kind`, `type`, `scope`, `project_id`, `tags`, `state`,
-`priority`, `confidence`, `confirmed`, `source.client`, `text`, `content`,
-`content.text`, `content.format`, `--text`, and `--content-json` inputs, so
-agents can look up the authoritative write argument contract instead of
-inferring it from prose. The contract's `arguments_by_name.content_text`,
-`arguments_by_name.content_format`, and `arguments_by_name.source_client`
-entries declare nested MCP paths, the `--content-json` CLI source, and allowed
-values.
+`priority`, `confidence`, `confirmed`, `source.client`, `provenance`,
+`provenance.derived_from`, `provenance.reason`, `provenance.method`,
+`provenance.promoted_at`, `text`, `content`, `content.text`, `content.format`,
+`--text`, and `--content-json` inputs, so agents can look up the authoritative
+write argument contract instead of inferring it from prose. The contract's
+`arguments_by_name.content_text`, `arguments_by_name.content_format`,
+`arguments_by_name.source_client`, `arguments_by_name.provenance`,
+`arguments_by_name.provenance_method`, and
+`arguments_by_name.provenance_promoted_at` entries declare nested MCP paths, the
+`--content-json` CLI source, and allowed values.
 At the CLI boundary, known `argument` fields inside `error.recovery_hint` are
 recursively translated to command-line `option` fields such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`; MCP and package callers keep

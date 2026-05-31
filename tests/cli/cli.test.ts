@@ -1199,6 +1199,43 @@ describe("moryn CLI", () => {
           allowed_values: ["text", "json"],
           parent_argument: "content"
         },
+        provenance: {
+          name: "provenance",
+          type: "object",
+          required: false,
+          mcp: { argument: "provenance" }
+        },
+        derived_from: {
+          name: "derived_from",
+          type: "string[]",
+          required: false,
+          cli: { flag: "--derived-from", repeatable: true },
+          mcp: { argument: "provenance", path: "provenance.derived_from" },
+          parent_argument: "provenance"
+        },
+        reason: {
+          name: "reason",
+          type: "string",
+          required: false,
+          cli: { flag: "--reason" },
+          mcp: { argument: "provenance", path: "provenance.reason" },
+          parent_argument: "provenance"
+        },
+        provenance_method: {
+          name: "provenance_method",
+          type: "string",
+          required: false,
+          mcp: { argument: "provenance", path: "provenance.method" },
+          allowed_values: ["agent-proposed", "rule-promoted", "user-confirmed"],
+          parent_argument: "provenance"
+        },
+        provenance_promoted_at: {
+          name: "provenance_promoted_at",
+          type: "string",
+          required: false,
+          mcp: { argument: "provenance", path: "provenance.promoted_at" },
+          parent_argument: "provenance"
+        },
         source_client: {
           name: "source_client",
           type: "string",

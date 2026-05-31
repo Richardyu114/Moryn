@@ -90,6 +90,11 @@ const WRITE_CONFIDENCE_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_na
 const WRITE_PRIORITY_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.priority";
 const WRITE_CONFIRMED_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.confirmed";
 const WRITE_SOURCE_CLIENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.source_client";
+const WRITE_PROVENANCE_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.provenance";
+const WRITE_PROVENANCE_DERIVED_FROM_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.derived_from";
+const WRITE_PROVENANCE_REASON_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.reason";
+const WRITE_PROVENANCE_METHOD_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.provenance_method";
+const WRITE_PROVENANCE_PROMOTED_AT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.provenance_promoted_at";
 
 export const WRITE_SELECTION_SOURCES = {
   record: "record",
@@ -921,31 +926,45 @@ function invalidWriteConfirmedError(confirmed: unknown): WriteMetadataError {
 
 type WriteProvenanceRecoveryHint =
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "provenance"; value: unknown };
       expected: { kind: "object"; required: false };
+      argument_sources: { provenance: typeof WRITE_PROVENANCE_ARGUMENT_SOURCE };
       retry_with: {
         argument: "provenance";
         value_placeholder: { derived_from: ["<record_id>"]; reason: "<reason>" };
       };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "provenance.derived_from"; value: unknown };
       expected: { kind: "array_of_non_empty_strings" };
+      argument_sources: {
+        "provenance.derived_from": typeof WRITE_PROVENANCE_DERIVED_FROM_ARGUMENT_SOURCE;
+      };
       retry_with: { argument: "provenance.derived_from"; value_placeholder: ["<record_id>"] };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "provenance.reason"; value: unknown };
       expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: { "provenance.reason": typeof WRITE_PROVENANCE_REASON_ARGUMENT_SOURCE };
       retry_with: { argument: "provenance.reason"; value_placeholder: "<reason>" };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "provenance.method"; value: unknown };
       expected: { kind: "allowed_values"; allowed_values: string[] };
+      argument_sources: { "provenance.method": typeof WRITE_PROVENANCE_METHOD_ARGUMENT_SOURCE };
       retry_with: { argument: "provenance.method"; value_placeholder: "agent-proposed" };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "provenance.promoted_at"; value: unknown };
       expected: { kind: "iso_datetime"; format: "RFC3339 timestamp with timezone" };
+      argument_sources: {
+        "provenance.promoted_at": typeof WRITE_PROVENANCE_PROMOTED_AT_ARGUMENT_SOURCE;
+      };
       retry_with: { argument: "provenance.promoted_at"; value_placeholder: "<ISO datetime>" };
     };
 
@@ -966,8 +985,10 @@ function invalidWriteProvenanceError(provenance: unknown): WriteProvenanceError 
     "Invalid argument: Invalid provenance",
     "retry write with a valid provenance object",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "provenance", value: provenance },
       expected: { kind: "object", required: false },
+      argument_sources: { provenance: WRITE_PROVENANCE_ARGUMENT_SOURCE },
       retry_with: { argument: "provenance", value_placeholder: { derived_from: ["<record_id>"], reason: "<reason>" } }
     }
   );
@@ -978,8 +999,10 @@ function invalidWriteProvenanceDerivedFromError(derivedFrom: unknown): WriteProv
     "Invalid argument: Invalid provenance.derived_from",
     "retry write with valid provenance source record ids",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "provenance.derived_from", value: derivedFrom },
       expected: { kind: "array_of_non_empty_strings" },
+      argument_sources: { "provenance.derived_from": WRITE_PROVENANCE_DERIVED_FROM_ARGUMENT_SOURCE },
       retry_with: { argument: "provenance.derived_from", value_placeholder: ["<record_id>"] }
     }
   );
@@ -990,8 +1013,10 @@ function invalidWriteProvenanceReasonError(reason: unknown): WriteProvenanceErro
     "Invalid argument: Invalid provenance.reason",
     "retry write with a non-empty provenance reason",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "provenance.reason", value: reason },
       expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: { "provenance.reason": WRITE_PROVENANCE_REASON_ARGUMENT_SOURCE },
       retry_with: { argument: "provenance.reason", value_placeholder: "<reason>" }
     }
   );
@@ -1002,8 +1027,10 @@ function invalidWriteProvenanceMethodError(method: unknown): WriteProvenanceErro
     "Invalid argument: Invalid provenance.method",
     "retry write with a supported provenance method",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "provenance.method", value: method },
       expected: { kind: "allowed_values", allowed_values: [...PROVENANCE_METHODS] },
+      argument_sources: { "provenance.method": WRITE_PROVENANCE_METHOD_ARGUMENT_SOURCE },
       retry_with: { argument: "provenance.method", value_placeholder: "agent-proposed" }
     }
   );
@@ -1014,8 +1041,10 @@ function invalidWriteProvenancePromotedAtError(promotedAt: unknown): WriteProven
     "Invalid argument: Invalid provenance.promoted_at",
     "retry write with a valid provenance timestamp",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "provenance.promoted_at", value: promotedAt },
       expected: { kind: "iso_datetime", format: "RFC3339 timestamp with timezone" },
+      argument_sources: { "provenance.promoted_at": WRITE_PROVENANCE_PROMOTED_AT_ARGUMENT_SOURCE },
       retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
     }
   );
