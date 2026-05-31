@@ -491,6 +491,8 @@ and accept source identity aliases such as `source_client` and
 writing mutation events. If a direct MCP caller supplies conflicting aliases for
 the same nested path, Moryn rejects the call with a structured
 `INVALID_ARGUMENT` recovery hint rather than silently selecting one value.
+The same conflict rule applies to agent identity aliases in `project_list` and
+lifecycle tools.
 `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, `required_inputs_by_field`,

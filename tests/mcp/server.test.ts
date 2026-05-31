@@ -8158,6 +8158,33 @@ describe("MCP stdio server", () => {
             retry_with: { argument: `agent.${field}`, value_placeholder: placeholder }
           });
         }
+        const conflictingLifecycleAgentClient = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            agent: { client: "codex" },
+            agent_client: "claude"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingLifecycleAgentClient.ok).toBe(false);
+        expect(conflictingLifecycleAgentClient.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingLifecycleAgentClient.error.message).toContain("Conflicting agent.client aliases");
+        expect(conflictingLifecycleAgentClient.error.recommended_action).toBe("retry agent_enter with one agent.client value");
+        expect(conflictingLifecycleAgentClient.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.agent_enter",
+          conflicting_argument: {
+            argument: "agent.client",
+            values_by_input: {
+              "agent.client": "codex",
+              agent_client: "claude"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            "agent.client": "operations_by_id.agent_enter.arguments_by_name.agent_client"
+          },
+          retry_with: { argument: "agent.client", value_placeholder: "<client>" },
+          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+        });
         const invalidProjectListAgentClient = parseTextContent(await client.callTool({
           name: "project_list",
           arguments: { agent: { client: "" } }
@@ -8215,6 +8242,33 @@ describe("MCP stdio server", () => {
             retry_with: { argument: `agent.${field}`, value_placeholder: placeholder }
           });
         }
+        const conflictingProjectListAgentClient = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: {
+            agent: { client: "codex" },
+            agent_client: "claude"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingProjectListAgentClient.ok).toBe(false);
+        expect(conflictingProjectListAgentClient.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingProjectListAgentClient.error.message).toContain("Conflicting agent.client aliases");
+        expect(conflictingProjectListAgentClient.error.recommended_action).toBe("retry project_list with one agent.client value");
+        expect(conflictingProjectListAgentClient.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_list",
+          conflicting_argument: {
+            argument: "agent.client",
+            values_by_input: {
+              "agent.client": "codex",
+              agent_client: "claude"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            "agent.client": "operations_by_id.project_list.arguments_by_name.agent_client"
+          },
+          retry_with: { argument: "agent.client", value_placeholder: "<client>" },
+          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+        });
         const invalidTargetState = parseTextContent(await client.callTool({
           name: "promote",
           arguments: { record_id: "rec_missing", target_state: "published" }

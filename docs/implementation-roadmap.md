@@ -779,6 +779,9 @@ Deliverables:
   flattened values for the same contract path with a structured
   `INVALID_ARGUMENT` recovery hint, so agents must retry with one value instead
   of relying on silent overwrite order.
+- Done: Direct MCP lifecycle and `project_list` tests now lock the same
+  conflict behavior for agent identity aliases, including `agent.client` versus
+  `agent_client`.
 - Done: Empty CLI `link --type` values now return a CLI-shaped `--type`
   recovery hint backed by `operations_by_id.link.arguments_by_name.link_type`,
   so shell agents can retry the exact flag instead of translating a lower-level

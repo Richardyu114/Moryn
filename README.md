@@ -490,6 +490,9 @@ Direct MCP mutation calls (`revise`, `promote`, `archive`, `quarantine`, and
 `"source.session_id"`. When a caller provides multiple aliases for the same
 nested field with different values, Moryn returns a structured
 `INVALID_ARGUMENT` recovery hint instead of silently choosing one.
+This applies to agent identity aliases too: conflicting `agent.client` and
+`agent_client` values in `project_list` or lifecycle tools must be retried with
+one value.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
