@@ -379,6 +379,10 @@ Deliverables:
   cursors, and sync push messages, plus malformed `revise --set` assignments,
   now expose operation contract and argument source hints before lower-level
   validation runs.
+- Done: CLI empty `--reason` failures for `revise`, `promote`, `archive`, and
+  `quarantine` now expose the matching
+  `operations_by_id.<operation>.arguments_by_name.reason` source before record
+  lookup runs.
 - Done: `project_init` setup argument failures for path/project id/tags/default
   skills/sync mode/repair now expose `operations_by_id.project_init` recovery
   hints and argument sources; MCP `path`, `project_id`, and `sync_mode` shape

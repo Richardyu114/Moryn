@@ -833,6 +833,9 @@ MCP mutation `reason` shape failures for `revise`, `promote`, `archive`, and
 `quarantine` likewise pass through core validation, including numeric values,
 and return the matching `operations_by_id.<operation>.arguments_by_name.reason`
 source instead of host-side schema text.
+Empty CLI `--reason` values for those same mutation commands return the same
+argument source, so agents can retry with the contract-backed reason shape
+before the command reaches record lookup.
 MCP `revise.patch` shape failures also pass through core validation, including
 single-string patch values, and return `rejected_patch` plus a safe patch
 placeholder. MCP mutation `record_id` shape failures for `revise`, `promote`,

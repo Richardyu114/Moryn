@@ -93,6 +93,9 @@ type CliParserOperation =
   | "refresh"
   | "sync_push"
   | "revise"
+  | "promote"
+  | "archive"
+  | "quarantine"
   | "operation_contracts"
   | "agent_guide"
   | "agent_enter"
@@ -936,7 +939,7 @@ program.command("revise")
       throw requiredCliOptionError("--set", "<assignment>", "required option '--set <assignment>' not specified", { operation: "revise", argument: "patch" });
     }
     const patch = parseAssignments(options.set);
-    const reason = parseNonEmptyString(options.reason, "--reason");
+    const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "revise", argument: "reason" });
     const context = {
       tool: "revise",
       command: commandForReviseContext({ record_id: recordId, patch, reason }),
@@ -968,7 +971,7 @@ program.command("promote")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
     const targetState = parseEnum(options.state, recordStates, "--state", { operation: "promote", argument: "target_state" })!;
-    const reason = parseNonEmptyString(options.reason, "--reason");
+    const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "promote", argument: "reason" });
     const context = {
       tool: "promote",
       command: commandForPromoteContext({ record_id: recordId, target_state: targetState, reason }),
@@ -997,7 +1000,7 @@ program.command("archive")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    const reason = parseNonEmptyString(options.reason, "--reason");
+    const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "archive", argument: "reason" });
     const context = {
       tool: "archive",
       command: commandForArchiveContext({ record_id: recordId, reason }),
@@ -1019,7 +1022,7 @@ program.command("quarantine")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    const reason = parseNonEmptyString(options.reason, "--reason");
+    const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "quarantine", argument: "reason" });
     const context = {
       tool: "quarantine",
       command: commandForQuarantineContext({ record_id: recordId, reason }),
