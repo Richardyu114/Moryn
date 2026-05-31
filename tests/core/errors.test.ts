@@ -482,9 +482,22 @@ describe("error envelopes", () => {
             action: "retry_original_operation"
           },
           do_not: ["echo_private_key", "write_credentials_to_memory", "retry_in_loop_without_user_action"]
+        },
+        next_action: {
+          recommended_action: "check_sync_status_before_retrying_after_permission_failure",
+          tool: "sync_status",
+          command: "moryn sync --status",
+          arguments: {},
+          required_fields: [],
+          safe_to_run: true
         }
       }
     });
+    expectNextActionInterfaces(envelope.error.next_action!);
+    expectNextActionWorkflow(envelope.error.next_action!);
+    expectNextActionSelectionSources(envelope.error.next_action!);
+    expectNextActionSafety(envelope.error.next_action!);
+    expectNextActionExecution(envelope.error.next_action!);
   });
 
   it("does not attach sync runtime recovery hints to non-sync conflict prose", () => {

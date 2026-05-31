@@ -303,9 +303,9 @@ Deliverables:
   inventing project ids or writing project-scoped records without context,
   high-risk confirmation failures that should ask the user before
   retrying with `confirmed: true` or `--confirm` and should never auto-confirm,
-  sync runtime failures that should inspect `moryn sync --status`, preserve
-  local events, collect user-authored remotes before `moryn sync init`, wait for
-  conflicts or credentials to be fixed, and avoid invented remotes or unsafe
+  sync runtime failures that should expose safe `sync_status` next actions,
+  preserve local events, collect user-authored remotes before `moryn sync init`,
+  wait for conflicts or credentials to be fixed, and avoid invented remotes or unsafe
   retry loops, invalid sync
   `storePath`/`remoteUrl`/`options`/`message`, empty
   placeholders such as `--text ""`, malformed `--content-json`, malformed

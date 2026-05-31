@@ -708,8 +708,8 @@ config, project-context discovery errors with safe `project_list`, selected and
 ordered project-id sources, and guardrails against writing project-scoped
 records without context, confirmation-required failures with explicit user-confirmation
 requirements and guardrails against auto-confirming, sync runtime failures with
-safe status inspection, local-store continuity, retry conditions, and `do_not`
-guardrails, `validation_issues` lists schema paths to repair, `discover_with`
+safe status `next_action` inspection, local-store continuity, retry conditions,
+and `do_not` guardrails, `validation_issues` lists schema paths to repair, `discover_with`
 names safe lookup calls such as `project_list`, and `retry_with` contains the
 option/argument value placeholder to use for the corrected retry.
 At the CLI boundary, known `argument` fields inside `error.recovery_hint` are
@@ -2827,6 +2827,13 @@ external condition changes:
         "write_credentials_to_memory",
         "retry_in_loop_without_user_action"
       ]
+    },
+    "next_action": {
+      "recommended_action": "check_sync_status_before_retrying_after_permission_failure",
+      "tool": "sync_status",
+      "command": "moryn sync --status",
+      "arguments": {},
+      "safe_to_run": true
     }
   }
 }

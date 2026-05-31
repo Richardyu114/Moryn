@@ -491,6 +491,7 @@ const REBUILD_INDEX_WHEN = "After receiving INDEX_STALE, before retrying recall 
 const CONFIGURE_SYNC_WHEN = "Before using sync operations when no remote has been configured.";
 const CHECK_REMOTE_SYNC_WHEN = "After a remote sync failure, before retrying remote operations.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
+const CHECK_PERMISSION_FAILURE_WHEN = "After a credentials or filesystem permission failure, before retrying remote or filesystem operations.";
 const LIST_RECORDS_WHEN = "After a record id is rejected, before retrying with a replacement record id.";
 const RETRY_WITH_SELECTED_RECORD_WHEN = "After choosing the correct record id from list_recent results, retry the original tool with that selected id.";
 const LIST_RECENT_SELECTED_RECORD_ID_SOURCE = "list_recent.records_by_id.<record_id>.id";
@@ -1175,6 +1176,16 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         command: "moryn sync --status",
         arguments: {},
         required_when: INSPECT_SYNC_CONFLICT_WHEN,
+        required_fields: [],
+        safe_to_run: true
+      });
+    case "PERMISSION_DENIED":
+      return withNextActionMetadata({
+        recommended_action: "check_sync_status_before_retrying_after_permission_failure",
+        tool: "sync_status",
+        command: "moryn sync --status",
+        arguments: {},
+        required_when: CHECK_PERMISSION_FAILURE_WHEN,
         required_fields: [],
         safe_to_run: true
       });
