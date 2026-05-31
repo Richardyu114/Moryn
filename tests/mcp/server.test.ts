@@ -2859,6 +2859,20 @@ describe("MCP stdio server", () => {
           "agent_session_id",
           "agent.session_id"
         ]));
+        const reviseTool = tools.tools.find((tool) => tool.name === "revise");
+        expect(Object.keys(reviseTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "source_client",
+          "source.client",
+          "source_session_id",
+          "source.session_id"
+        ]));
+        const linkTool = tools.tools.find((tool) => tool.name === "link");
+        expect(Object.keys(linkTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "source_client",
+          "source.client",
+          "source_session_id",
+          "source.session_id"
+        ]));
 
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
 
@@ -6514,6 +6528,100 @@ describe("MCP stdio server", () => {
           .filter((event) => event.op !== "upsert_record")
           .map((event) => event.source.client);
         expect(mutationClients).toEqual(["mcp", "mcp", "mcp", "mcp", "mcp"]);
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts source identity aliases in MCP mutation arguments", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-mutation-aliases-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const target = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "MCP mutation source alias target.",
+            state: "candidate"
+          }
+        })) as { record: { id: string } };
+        const linked = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "MCP mutation source alias linked record.",
+            state: "candidate"
+          }
+        })) as { record: { id: string } };
+
+        await client.callTool({
+          name: "revise",
+          arguments: {
+            record_id: target.record.id,
+            patch: { "content.text": "MCP mutation source alias revised target." },
+            reason: "Source alias",
+            source_client: "codex",
+            "source.session_id": "revise-alias-session"
+          }
+        });
+        await client.callTool({
+          name: "promote",
+          arguments: {
+            record_id: target.record.id,
+            target_state: "canonical",
+            reason: "Source alias",
+            "source.client": "claude",
+            source_session_id: "promote-alias-session"
+          }
+        });
+        await client.callTool({
+          name: "link",
+          arguments: {
+            record_id: target.record.id,
+            linked_record_id: linked.record.id,
+            link_type: "related",
+            source_client: "cursor",
+            source_session_id: "link-alias-session"
+          }
+        });
+        await client.callTool({
+          name: "archive",
+          arguments: {
+            record_id: linked.record.id,
+            reason: "Source alias",
+            source_client: "gemini",
+            "source.session_id": "archive-alias-session"
+          }
+        });
+        await client.callTool({
+          name: "quarantine",
+          arguments: {
+            record_id: target.record.id,
+            reason: "Source alias",
+            "source.client": "copilot",
+            source_session_id: "quarantine-alias-session"
+          }
+        });
+
+        const mutationSources = (await readEvents(store))
+          .filter((event) => event.op !== "upsert_record")
+          .map((event) => event.source);
+        expect(mutationSources).toEqual([
+          expect.objectContaining({ client: "codex", session_id: "revise-alias-session" }),
+          expect.objectContaining({ client: "claude", session_id: "promote-alias-session" }),
+          expect.objectContaining({ client: "cursor", session_id: "link-alias-session" }),
+          expect.objectContaining({ client: "gemini", session_id: "archive-alias-session" }),
+          expect.objectContaining({ client: "copilot", session_id: "quarantine-alias-session" })
+        ]);
       });
     } finally {
       await rm(store, { recursive: true, force: true });

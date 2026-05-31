@@ -57,6 +57,16 @@ const coreValidatedRecordScopeSchema = z.unknown();
 const coreValidatedRecordStateSchema = z.unknown();
 const coreValidatedRecordPrioritySchema = z.unknown();
 const coreValidatedStringSchema = z.unknown();
+const sourceAliasInputSchema = {
+  source_client: z.unknown().optional(),
+  "source.client": z.unknown().optional(),
+  source_session_id: z.unknown().optional(),
+  "source.session_id": z.unknown().optional(),
+  source_model: z.unknown().optional(),
+  "source.model": z.unknown().optional(),
+  source_device_id: z.unknown().optional(),
+  "source.device_id": z.unknown().optional()
+} as const;
 const writeAliasInputSchema = {
   content_text: z.unknown().optional(),
   content_format: z.unknown().optional(),
@@ -70,14 +80,7 @@ const writeAliasInputSchema = {
   "provenance.method": z.unknown().optional(),
   provenance_promoted_at: z.unknown().optional(),
   "provenance.promoted_at": z.unknown().optional(),
-  source_client: z.unknown().optional(),
-  "source.client": z.unknown().optional(),
-  source_session_id: z.unknown().optional(),
-  "source.session_id": z.unknown().optional(),
-  source_model: z.unknown().optional(),
-  "source.model": z.unknown().optional(),
-  source_device_id: z.unknown().optional(),
-  "source.device_id": z.unknown().optional()
+  ...sourceAliasInputSchema
 } as const;
 const agentAliasInputSchema = {
   agent_client: z.unknown().optional(),
@@ -690,25 +693,29 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         patch: z.unknown(),
         reason: coreValidatedStringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
-        source: z.unknown().optional()
+        source: z.unknown().optional(),
+        ...sourceAliasInputSchema
       }
     },
-    async ({ record_id, patch, reason, confirmed, source }) => toolResult(async () => engine.revise({
-        record_id,
-        patch,
-        reason,
-        confirmed: confirmed as boolean | undefined,
-        source: withDefaultSource(source) as RecordSource
+    async (input) => {
+      const normalizedInput = normalizeMcpToolArguments("revise", input);
+      return toolResult(async () => engine.revise({
+        record_id: normalizedInput.record_id,
+        patch: normalizedInput.patch,
+        reason: normalizedInput.reason,
+        confirmed: normalizedInput.confirmed as boolean | undefined,
+        source: withDefaultSource(normalizedInput.source) as RecordSource
       }), {
         tool: "revise",
-        command: commandForReviseContext({ record_id, patch, reason }),
+        command: commandForReviseContext({ record_id: normalizedInput.record_id, patch: normalizedInput.patch, reason: normalizedInput.reason }),
         arguments: {
-          record_id,
-          patch,
-          ...(reason !== undefined ? { reason } : {}),
-          ...(source !== undefined ? { source } : {})
+          record_id: normalizedInput.record_id,
+          patch: normalizedInput.patch,
+          ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
+          ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
         }
-      })
+      });
+    }
   );
 
   server.registerTool(
@@ -721,25 +728,33 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         target_state: coreValidatedRecordStateSchema,
         reason: coreValidatedStringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
-        source: z.unknown().optional()
+        source: z.unknown().optional(),
+        ...sourceAliasInputSchema
       }
     },
-    async ({ record_id, target_state, reason, confirmed, source }) => toolResult(async () => engine.promote({
-      record_id,
-      target_state,
-      reason,
-      source: withDefaultSource(source) as RecordSource,
-      confirmed: confirmed as boolean | undefined
-    }), {
-      tool: "promote",
-      command: commandForPromoteContext({ record_id, target_state, reason }),
-      arguments: {
-        record_id,
-        target_state,
-        ...(reason !== undefined ? { reason } : {}),
-        ...(source !== undefined ? { source } : {})
-      }
-    })
+    async (input) => {
+      const normalizedInput = normalizeMcpToolArguments("promote", input);
+      return toolResult(async () => engine.promote({
+        record_id: normalizedInput.record_id,
+        target_state: normalizedInput.target_state,
+        reason: normalizedInput.reason,
+        source: withDefaultSource(normalizedInput.source) as RecordSource,
+        confirmed: normalizedInput.confirmed as boolean | undefined
+      }), {
+        tool: "promote",
+        command: commandForPromoteContext({
+          record_id: normalizedInput.record_id,
+          target_state: normalizedInput.target_state,
+          reason: normalizedInput.reason
+        }),
+        arguments: {
+          record_id: normalizedInput.record_id,
+          target_state: normalizedInput.target_state,
+          ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
+          ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
+        }
+      });
+    }
   );
 
   server.registerTool(
@@ -750,22 +765,26 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         record_id: z.unknown(),
         reason: coreValidatedStringSchema.optional(),
-        source: z.unknown().optional()
+        source: z.unknown().optional(),
+        ...sourceAliasInputSchema
       }
     },
-    async ({ record_id, reason, source }) => toolResult(async () => engine.archive({
-      record_id,
-      reason,
-      source: withDefaultSource(source) as RecordSource
-    }), {
-      tool: "archive",
-      command: commandForArchiveContext({ record_id, reason }),
-      arguments: {
-        record_id,
-        ...(reason !== undefined ? { reason } : {}),
-        ...(source !== undefined ? { source } : {})
-      }
-    })
+    async (input) => {
+      const normalizedInput = normalizeMcpToolArguments("archive", input);
+      return toolResult(async () => engine.archive({
+        record_id: normalizedInput.record_id,
+        reason: normalizedInput.reason,
+        source: withDefaultSource(normalizedInput.source) as RecordSource
+      }), {
+        tool: "archive",
+        command: commandForArchiveContext({ record_id: normalizedInput.record_id, reason: normalizedInput.reason }),
+        arguments: {
+          record_id: normalizedInput.record_id,
+          ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
+          ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
+        }
+      });
+    }
   );
 
   server.registerTool(
@@ -776,22 +795,26 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         record_id: z.unknown(),
         reason: coreValidatedStringSchema.optional(),
-        source: z.unknown().optional()
+        source: z.unknown().optional(),
+        ...sourceAliasInputSchema
       }
     },
-    async ({ record_id, reason, source }) => toolResult(async () => engine.quarantine({
-      record_id,
-      reason,
-      source: withDefaultSource(source) as RecordSource
-    }), {
-      tool: "quarantine",
-      command: commandForQuarantineContext({ record_id, reason }),
-      arguments: {
-        record_id,
-        ...(reason !== undefined ? { reason } : {}),
-        ...(source !== undefined ? { source } : {})
-      }
-    })
+    async (input) => {
+      const normalizedInput = normalizeMcpToolArguments("quarantine", input);
+      return toolResult(async () => engine.quarantine({
+        record_id: normalizedInput.record_id,
+        reason: normalizedInput.reason,
+        source: withDefaultSource(normalizedInput.source) as RecordSource
+      }), {
+        tool: "quarantine",
+        command: commandForQuarantineContext({ record_id: normalizedInput.record_id, reason: normalizedInput.reason }),
+        arguments: {
+          record_id: normalizedInput.record_id,
+          ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
+          ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
+        }
+      });
+    }
   );
 
   server.registerTool(
@@ -803,24 +826,32 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         record_id: z.unknown(),
         linked_record_id: z.unknown(),
         link_type: coreValidatedStringSchema,
-        source: z.unknown().optional()
+        source: z.unknown().optional(),
+        ...sourceAliasInputSchema
       }
     },
-    async ({ record_id, linked_record_id, link_type, source }) => toolResult(async () => engine.link({
-      record_id,
-      linked_record_id,
-      link_type,
-      source: withDefaultSource(source) as RecordSource
-    }), {
-      tool: "link",
-      command: commandForLinkContext({ record_id, linked_record_id, link_type }),
-      arguments: {
-        record_id,
-        linked_record_id,
-        link_type,
-        ...(source !== undefined ? { source } : {})
-      }
-    })
+    async (input) => {
+      const normalizedInput = normalizeMcpToolArguments("link", input);
+      return toolResult(async () => engine.link({
+        record_id: normalizedInput.record_id,
+        linked_record_id: normalizedInput.linked_record_id,
+        link_type: normalizedInput.link_type,
+        source: withDefaultSource(normalizedInput.source) as RecordSource
+      }), {
+        tool: "link",
+        command: commandForLinkContext({
+          record_id: normalizedInput.record_id,
+          linked_record_id: normalizedInput.linked_record_id,
+          link_type: normalizedInput.link_type
+        }),
+        arguments: {
+          record_id: normalizedInput.record_id,
+          linked_record_id: normalizedInput.linked_record_id,
+          link_type: normalizedInput.link_type,
+          ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
+        }
+      });
+    }
   );
 
   server.registerTool(

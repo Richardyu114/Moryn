@@ -485,7 +485,10 @@ normalizes those aliases back into nested tool arguments, so the same collected
 value works for both transports. Direct MCP `project_list` and lifecycle tools
 also expose and accept those agent identity aliases, so a host can call
 `agent_enter` with `agent_client` and `"agent.session_id"` instead of first
-reconstructing the nested `agent` object.
+reconstructing the nested `agent` object. Direct MCP mutation tools also expose
+and accept source identity aliases such as `source_client` and
+`"source.session_id"`, normalizing them into the nested `source` object before
+writing mutation events.
 `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, `required_inputs_by_field`,
@@ -782,7 +785,9 @@ for invalid `record_id`, `linked_record_id`, `reason`, `source.client`,
 `link_type`, `confirmed`, or `target_state` values. These mutation contracts
 declare `arguments_by_name.source_client` with the nested MCP path
 `source.client`, so callers can retry source metadata without guessing the
-object shape.
+object shape. The direct MCP mutation tools expose and accept
+`source_client`, `source_session_id`, `source_model`, `source_device_id`, and
+literal `"source.*"` path aliases before source validation runs.
 MCP mutation `source` shape failures also pass through core validation,
 including single-string source values.
 MCP mutation `reason` shape failures for `revise`, `promote`, `archive`, and
@@ -872,6 +877,9 @@ MCP write `source` shape failures also pass through core validation, including
 single-string source values, and return `operations_by_id.write.arguments_by_name.source_client`.
 MCP write accepts `source_client`/`source_session_id` and literal
 `"source.client"`/`"source.session_id"` alias fields before source validation runs.
+Direct MCP mutation tools accept those same source alias fields before source
+validation runs, normalizing them into the nested `source` object used by
+mutation events.
 Direct MCP `project_list` and lifecycle calls accept
 `agent_client`/`agent_session_id` and literal
 `"agent.client"`/`"agent.session_id"` alias fields before agent validation runs,

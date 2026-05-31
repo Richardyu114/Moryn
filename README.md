@@ -485,6 +485,9 @@ and `agent_finish` expose and accept the same agent identity aliases
 (`agent_client`, `agent_session_id`, `agent_model`, `agent_device_id`, plus
 literal paths such as `"agent.client"` and `"agent.session_id"`), so hosts can
 reuse operation-contract fields without hand-building an `agent` object.
+Direct MCP mutation calls (`revise`, `promote`, `archive`, `quarantine`, and
+`link`) do the same for source identity aliases such as `source_client` and
+`"source.session_id"`.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
@@ -848,7 +851,10 @@ Core mutation argument failures for `revise`, `promote`, `archive`,
 for `record_id`, `linked_record_id`, `reason`, `source.client`, `link_type`,
 `confirmed`, or `target_state` as applicable. Those mutation contracts expose a
 nested `source_client` entry under `arguments_by_name`, so MCP hosts can recover
-from invalid `source.client` payloads without inventing the nested path.
+from invalid `source.client` payloads without inventing the nested path. The
+direct MCP mutation tools also expose and accept `source_client`,
+`source_session_id`, `source_model`, `source_device_id`, and literal
+`"source.*"` path aliases before source validation runs.
 MCP mutation `source` shape failures also pass through core validation,
 including single-string source values.
 MCP mutation `reason` shape failures for `revise`, `promote`, `archive`, and
@@ -956,6 +962,9 @@ MCP write `source` shape failures also pass through core validation, including
 single-string source values, and return `operations_by_id.write.arguments_by_name.source_client`.
 MCP write accepts `source_client`/`source_session_id` and literal
 `"source.client"`/`"source.session_id"` alias fields before source validation runs.
+Direct MCP mutation tools accept those same source alias fields before source
+validation runs, normalizing them into the nested `source` object used by
+mutation events.
 Direct MCP `project_list` and lifecycle calls accept
 `agent_client`/`agent_session_id` and literal
 `"agent.client"`/`"agent.session_id"` alias fields before agent validation runs,
