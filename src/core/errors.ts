@@ -186,6 +186,55 @@ function knownRecoveryHint(code: string, message: string, context?: MorynErrorCo
       }
     };
   }
+  if (code === "STORE_NOT_INITIALIZED") {
+    return {
+      missing_artifact: { path: "config.json", scope: "store" },
+      initialize_with: {
+        tool: "init",
+        command: "moryn init",
+        arguments: {},
+        safe_to_run: false
+      },
+      requires_user_confirmation: true,
+      do_not: ["write_store_files_without_user_confirmation", "assume_default_store_path"]
+    };
+  }
+  if (code === "INVALID_STORE_CONFIG") {
+    const configPath = storeConfigPathFromMessage(message) ?? "config.json";
+    return {
+      invalid_artifact: { path: configPath, scope: "store" },
+      repair_with: {
+        tool: "init",
+        command: "moryn init --repair",
+        arguments: { repair: true },
+        safe_to_run: false
+      },
+      requires_user_confirmation: true,
+      do_not: ["auto_repair_store_config", "overwrite_config_without_user_confirmation"]
+    };
+  }
+  if (code === "INVALID_PROJECT_CONFIG") {
+    const parsedConfigPath = projectConfigPathFromMessage(message);
+    const configPath = parsedConfigPath ?? ".moryn.json";
+    const path = projectPathFromConfigPath(parsedConfigPath) ?? "<path>";
+    const commandPath = path === "<path>" ? path : shellQuote(path);
+    return {
+      invalid_artifact: { path: configPath, scope: "project" },
+      repair_with: {
+        tool: "project_init",
+        command: `moryn project init --path ${commandPath} --repair`,
+        arguments: { path, repair: true },
+        safe_to_run: false
+      },
+      retry_alternative: {
+        argument: "project_id",
+        value_source: "user_input.project_id",
+        value_placeholder: "<project_id>"
+      },
+      requires_user_confirmation: true,
+      do_not: ["auto_repair_project_config", "invent_project_id"]
+    };
+  }
   if (code === "CONFIRMATION_REQUIRED") {
     const retryCommand = context ? appendConfirmFlag(context.command) : "<retry_original_command_with_confirmation>";
     const retryArguments = context ? { ...context.arguments, confirmed: true } : { confirmed: true };
@@ -603,6 +652,22 @@ function projectConfigPathFromMessage(message: string): string | undefined {
   return details.slice(0, markerIndex + configMarker.length);
 }
 
+function projectPathFromConfigPath(configPath: string | undefined): string | undefined {
+  if (!configPath?.startsWith("/")) return undefined;
+  const projectPath = configPath.replace(/\/\.moryn\.json$/, "");
+  return projectPath === configPath ? undefined : projectPath;
+}
+
+function storeConfigPathFromMessage(message: string): string | undefined {
+  const prefix = "Invalid store config: ";
+  if (!message.startsWith(prefix)) return undefined;
+  const details = message.slice(prefix.length);
+  const configMarker = "config.json";
+  const markerIndex = details.indexOf(configMarker);
+  if (markerIndex === -1) return undefined;
+  return details.slice(0, markerIndex + configMarker.length);
+}
+
 function unknownProjectIdFromMessage(message: string): { rejectedProjectId?: string; candidateProjectIds?: string[] } {
   const prefix = "Project id is not known in this store: ";
   if (!message.startsWith(prefix)) return {};
@@ -1000,7 +1065,7 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
     case "INVALID_PROJECT_CONFIG":
       {
         const configPath = projectConfigPathFromMessage(message);
-        const path = configPath?.replace(/\/\.moryn\.json$/, "") ?? "<path>";
+        const path = projectPathFromConfigPath(configPath) ?? "<path>";
         return withNextActionMetadata({
           recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
           tool: "project_init",

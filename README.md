@@ -721,8 +721,9 @@ integer/number-range, JSON-object, read-filter, project-init, sync-argument,
 store-path, event-path-component, schema-validation, write-core-field,
 write-content, write-metadata, choose-one, path-assignment, revise-patch,
 replay-history, sensitive-content, index-stale, missing-record, sync runtime,
-project-selection, confirmation-required, and refresh cursor failures also
-include `recovery_hint`:
+store initialization, store/project config repair, project-selection,
+confirmation-required, and refresh cursor failures also include
+`recovery_hint`:
 `rejected_argument` preserves the rejected option and value, `expected` carries
 allowed values, non-empty constraints, integer or numeric bounds, JSON object,
 write `kind`/`type`/`scope`/`project_id`, write content, write metadata such as
@@ -744,6 +745,9 @@ stale derived-view errors with safe rebuild and retry-after-original-read
 instructions,
 missing-record failures with safe `list_recent` discovery, selected-id and
 ordered fallback sources, and guardrails against inventing ids,
+store initialization and config repair failures with guarded `init` or
+`project_init` commands, user-confirmation requirements, and guardrails against
+assuming store paths, auto-repairing, or inventing project ids,
 project-selection failures with safe `project_list` discovery, selected-id and
 ordered fallback sources, and guardrails against inventing project ids,
 confirmation-required failures with explicit user-confirmation requirements,
@@ -1024,9 +1028,12 @@ available as the ordered view. `list_recent.selection_sources` names the same
 keyed record and record-id paths for hosts that should not infer them from
 error-recovery workflows.
 Their `safety` object explains whether the action can be auto-run, needs user
-confirmation, needs authored arguments, or writes local configuration. Uninitialized
-store errors return an `init` next action with
-`safe_to_run: false`, because it creates local store files. Confirmation errors
+confirmation, needs authored arguments, or writes local configuration.
+Uninitialized store errors return an `init` next action and a `recovery_hint`
+with `initialize_with`, `requires_user_confirmation: true`, and `do_not`
+guardrails against writing store files without approval or assuming a default
+store path. The action keeps `safe_to_run: false` because it creates local
+store files. Confirmation errors
 from `promote` and `revise` return a retry action with `confirmed: true` and
 `--confirm`, plus a `recovery_hint` that marks user confirmation as required.
 They also keep `safe_to_run: false` so the agent asks the user first.
@@ -1047,12 +1054,17 @@ top-level `selection_sources`: `write` names `record`, `record.id`, and
 `quarantine_event` and `quarantine_event.event_id`. Agents can pass these ids
 to the next action without guessing which nested field is authoritative.
 Invalid local `config.json` errors return a guarded `init --repair` next action.
-The action is not safe to run automatically because it replaces the device-local
-store config.
+The adjacent `recovery_hint.invalid_artifact` names the config path, and
+`recovery_hint.repair_with` repeats the repair command with `safe_to_run:
+false`, `requires_user_confirmation: true`, and `do_not` guardrails against
+automatic repair or silent overwrite. The action is not safe to run
+automatically because it replaces the device-local store config.
 Invalid `.moryn.json` errors return a guarded `project_init --repair` next
-action with the failing project path prefilled. The action is not safe to run
-automatically because it replaces project config and should use a user-approved
-project id.
+action with the failing project path prefilled when it can be derived. Its
+`recovery_hint` names the invalid artifact, provides a guarded repair command,
+offers `project_id` as an authored retry alternative, and forbids auto-repair
+or invented ids. The action is not safe to run automatically because it replaces
+project config and should use a user-approved project id.
 Missing record errors return a safe `list_recent` next action and a compact
 `recovery_hint` with the rejected argument, selected-id source, ordered fallback
 source, and `do_not` guardrails against inventing ids or retrying the same bad

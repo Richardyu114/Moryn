@@ -268,9 +268,9 @@ Deliverables:
   integer/number-range, JSON-object, read-filter, project-init, sync-argument,
   store-path, event-path-component, schema-validation, write-core-field,
   write-content, write-metadata, choose-one, path-assignment, refresh cursor,
-  replay-history, sensitive-content, index-stale, missing-record,
-  project-selection, confirmation-required, sync runtime, and revise-patch
-  failures now return structured
+  replay-history, sensitive-content, index-stale, missing-record, store
+  initialization, store/project config repair, project-selection,
+  confirmation-required, sync runtime, and revise-patch failures now return structured
   `error.recovery_hint` metadata with `missing_argument`, `missing_one_of`,
   `rejected_argument`, `rejected_arguments`, `rejected_patch`,
   machine-readable `expected` rules, `discover_with`, and `retry_with`, so
@@ -290,7 +290,10 @@ Deliverables:
   detected secret value, stale derived views that should run `moryn rebuild`
   before retrying the original read, missing record ids that should run
   `moryn list-recent`, select `list_recent.records_by_id.<record_id>.id`, and
-  avoid inventing ids, unknown or missing project context that should run
+  avoid inventing ids, uninitialized or invalid store/project config that
+  should run `moryn init` or `moryn project init --repair` only after user
+  confirmation and avoid assumed store paths, automatic config repair, or
+  invented project ids, unknown or missing project context that should run
   `moryn project list`, select
   `project_list.projects_by_id.<project_id>.project_id`, and avoid inventing
   project ids, high-risk confirmation failures that should ask the user before

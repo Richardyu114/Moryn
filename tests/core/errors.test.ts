@@ -499,6 +499,17 @@ describe("error envelopes", () => {
       error: {
         code: "STORE_NOT_INITIALIZED",
         recommended_action: "run moryn init",
+        recovery_hint: {
+          missing_artifact: { path: "config.json", scope: "store" },
+          initialize_with: {
+            tool: "init",
+            command: "moryn init",
+            arguments: {},
+            safe_to_run: false
+          },
+          requires_user_confirmation: true,
+          do_not: ["write_store_files_without_user_confirmation", "assume_default_store_path"]
+        },
         next_action: {
           recommended_action: "initialize_store",
           tool: "init",
@@ -518,6 +529,17 @@ describe("error envelopes", () => {
       error: {
         code: "INVALID_STORE_CONFIG",
         recommended_action: "fix or repair config.json, then run moryn init",
+        recovery_hint: {
+          invalid_artifact: { path: "/home/user/.moryn/config.json", scope: "store" },
+          repair_with: {
+            tool: "init",
+            command: "moryn init --repair",
+            arguments: { repair: true },
+            safe_to_run: false
+          },
+          requires_user_confirmation: true,
+          do_not: ["auto_repair_store_config", "overwrite_config_without_user_confirmation"]
+        },
         next_action: {
           recommended_action: "repair_local_store_config",
           tool: "init",
@@ -537,6 +559,22 @@ describe("error envelopes", () => {
       error: {
         code: "INVALID_PROJECT_CONFIG",
         recommended_action: "fix .moryn.json or pass an explicit project id",
+        recovery_hint: {
+          invalid_artifact: { path: "/workspace/moryn/.moryn.json", scope: "project" },
+          repair_with: {
+            tool: "project_init",
+            command: "moryn project init --path /workspace/moryn --repair",
+            arguments: { path: "/workspace/moryn", repair: true },
+            safe_to_run: false
+          },
+          retry_alternative: {
+            argument: "project_id",
+            value_source: "user_input.project_id",
+            value_placeholder: "<project_id>"
+          },
+          requires_user_confirmation: true,
+          do_not: ["auto_repair_project_config", "invent_project_id"]
+        },
         next_action: {
           recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
           tool: "project_init",
@@ -545,6 +583,36 @@ describe("error envelopes", () => {
           safe_to_run: false
         }
       }
+    });
+  });
+
+  it("requires authored path input when invalid project config path is not absolute", () => {
+    const envelope = toErrorEnvelope(new Error("Invalid project config: .moryn.json: project_id must be non-empty"));
+
+    expect(envelope.error.recovery_hint).toMatchObject({
+      invalid_artifact: { path: ".moryn.json", scope: "project" },
+      repair_with: {
+        tool: "project_init",
+        command: "moryn project init --path <path> --repair",
+        arguments: { path: "<path>", repair: true },
+        safe_to_run: false
+      },
+      retry_alternative: {
+        argument: "project_id",
+        value_source: "user_input.project_id",
+        value_placeholder: "<project_id>"
+      },
+      requires_user_confirmation: true,
+      do_not: ["auto_repair_project_config", "invent_project_id"]
+    });
+    expect(envelope.error.next_action).toMatchObject({
+      recommended_action: "repair_project_config_or_retry_with_explicit_project_id",
+      tool: "project_init",
+      command: "moryn project init --path <path> --repair",
+      arguments: { path: "<path>", repair: true },
+      required_fields: ["path"],
+      argument_sources: { path: "user_input.path" },
+      safe_to_run: false
     });
   });
 

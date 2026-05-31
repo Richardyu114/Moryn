@@ -662,9 +662,10 @@ CLI and MCP boundary validation errors for required options, option dependencies
 non-empty strings, enum values, integer and number ranges, JSON object inputs,
 read filters, project init inputs, store path inputs, sync inputs, event path
 components, schema validation, replay history failures, sensitive-content
-failures, stale derived views, missing-record failures, sync runtime failures,
-confirmation-required failures, write core fields such as `kind`, `type`,
-`scope`, and `project_id`, write content payloads, write metadata such as
+failures, stale derived views, missing-record failures, store initialization
+and config repair failures, sync runtime failures, confirmation-required
+failures, write core fields such as `kind`, `type`, `scope`, and `project_id`,
+write content payloads, write metadata such as
 `tags`, `source.client`,
 `state`, `priority`, `confidence`, `confirmed`, and `provenance.*`, mutation
 arguments such as
@@ -696,7 +697,10 @@ requirements, sensitive-content failures that omit the detected secret value and
 return a redaction retry template, stale derived-view errors with safe rebuild
 and retry-after-original-read instructions, missing-record errors with safe
 `list_recent` discovery, selected-id and ordered fallback sources, and
-guardrails against inventing ids, confirmation-required failures with explicit
+guardrails against inventing ids, store initialization and config repair errors
+with guarded `init` or `project_init` commands, user-confirmation requirements,
+and guardrails against assuming store paths, auto-repairing config, or
+inventing project ids, confirmation-required failures with explicit
 user-confirmation requirements and guardrails against auto-confirming, sync
 runtime failures with safe status inspection, local-store continuity, retry
 conditions, and `do_not` guardrails, `validation_issues` lists schema paths to
@@ -2350,6 +2354,23 @@ local store files:
     "message": "Store not initialized",
     "recoverable": true,
     "recommended_action": "run moryn init",
+    "recovery_hint": {
+      "missing_artifact": {
+        "path": "config.json",
+        "scope": "store"
+      },
+      "initialize_with": {
+        "tool": "init",
+        "command": "moryn init",
+        "arguments": {},
+        "safe_to_run": false
+      },
+      "requires_user_confirmation": true,
+      "do_not": [
+        "write_store_files_without_user_confirmation",
+        "assume_default_store_path"
+      ]
+    },
     "next_action": {
       "recommended_action": "initialize_store",
       "tool": "init",
@@ -2373,6 +2394,25 @@ not marked safe to run automatically because it replaces the device-local
     "message": "Invalid store config: /home/user/.moryn/config.json: Unexpected end of JSON input",
     "recoverable": true,
     "recommended_action": "fix or repair config.json, then run moryn init",
+    "recovery_hint": {
+      "invalid_artifact": {
+        "path": "/home/user/.moryn/config.json",
+        "scope": "store"
+      },
+      "repair_with": {
+        "tool": "init",
+        "command": "moryn init --repair",
+        "arguments": {
+          "repair": true
+        },
+        "safe_to_run": false
+      },
+      "requires_user_confirmation": true,
+      "do_not": [
+        "auto_repair_store_config",
+        "overwrite_config_without_user_confirmation"
+      ]
+    },
     "next_action": {
       "recommended_action": "repair_local_store_config",
       "tool": "init",
@@ -2399,6 +2439,31 @@ configuration and needs a user-approved project id:
     "message": "Invalid project config: /workspace/moryn/.moryn.json: project_id must be non-empty",
     "recoverable": true,
     "recommended_action": "fix .moryn.json or pass an explicit project id",
+    "recovery_hint": {
+      "invalid_artifact": {
+        "path": "/workspace/moryn/.moryn.json",
+        "scope": "project"
+      },
+      "repair_with": {
+        "tool": "project_init",
+        "command": "moryn project init --path /workspace/moryn --repair",
+        "arguments": {
+          "path": "/workspace/moryn",
+          "repair": true
+        },
+        "safe_to_run": false
+      },
+      "retry_alternative": {
+        "argument": "project_id",
+        "value_source": "user_input.project_id",
+        "value_placeholder": "<project_id>"
+      },
+      "requires_user_confirmation": true,
+      "do_not": [
+        "auto_repair_project_config",
+        "invent_project_id"
+      ]
+    },
     "next_action": {
       "recommended_action": "repair_project_config_or_retry_with_explicit_project_id",
       "tool": "project_init",
