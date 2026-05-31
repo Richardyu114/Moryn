@@ -223,8 +223,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         path: stringSchema,
         project_id: stringSchema.optional(),
-        tags: z.array(stringSchema).optional(),
-        default_skills: z.array(stringSchema).optional(),
+        tags: z.unknown().optional(),
+        default_skills: z.unknown().optional(),
         sync_mode: syncModeSchema.optional(),
         repair: coreValidatedBooleanSchema.optional()
       }

@@ -7856,6 +7856,48 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "path", value_placeholder: "<path>" }
         });
 
+        const invalidProjectInitTags = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: projectPath,
+            tags: "typescript"
+          }
+        })) as typeof invalidRepair;
+        expect(invalidProjectInitTags.ok).toBe(false);
+        expect(invalidProjectInitTags.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProjectInitTags.error.message).toContain("Invalid tags");
+        expect(invalidProjectInitTags.error.recommended_action).toBe("retry project init with tags as non-empty strings");
+        expect(invalidProjectInitTags.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_init",
+          rejected_argument: { argument: "tags", value: "typescript" },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            tags: "operations_by_id.project_init.arguments_by_name.tags"
+          },
+          retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+        });
+
+        const invalidProjectInitDefaultSkills = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: projectPath,
+            default_skills: "release"
+          }
+        })) as typeof invalidRepair;
+        expect(invalidProjectInitDefaultSkills.ok).toBe(false);
+        expect(invalidProjectInitDefaultSkills.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProjectInitDefaultSkills.error.message).toContain("Invalid default_skills");
+        expect(invalidProjectInitDefaultSkills.error.recommended_action).toBe("retry project init with default_skills as non-empty strings");
+        expect(invalidProjectInitDefaultSkills.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_init",
+          rejected_argument: { argument: "default_skills", value: "release" },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            default_skills: "operations_by_id.project_init.arguments_by_name.default_skills"
+          },
+          retry_with: { argument: "default_skills", value_placeholder: ["<default_skill>"] }
+        });
+
         const target = parseTextContent(await client.callTool({
           name: "write",
           arguments: {

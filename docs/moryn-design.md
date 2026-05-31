@@ -777,8 +777,10 @@ RFC3339 cursor failures point to
 through lifecycle refresh-since arguments. Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and
 `project_init` path/project id/tags/default skills/sync mode/repair inputs also
-point at `operations_by_id.project_init.arguments_by_name.<argument>`. That
-includes MCP setup failures that would otherwise stop at host schema validation.
+point at `operations_by_id.project_init.arguments_by_name.<argument>`. MCP
+`project_init.tags` and `project_init.default_skills` shape failures pass
+through core validation too, including single-string tag and skill selector
+values. That includes MCP setup failures that would otherwise stop at host schema validation.
 Contract discovery argument failures such as MCP `operation_contracts.index`
 also point at `operations_by_id.operation_contracts.arguments_by_name.index`,
 so agents can recover while looking up the registry itself. Lifecycle boolean

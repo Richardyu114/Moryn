@@ -35,11 +35,16 @@ export interface ProjectContext {
 
 export interface InitializeProjectConfigInput {
   project_id?: string;
-  tags?: string[];
-  default_skills?: string[];
+  tags?: unknown;
+  default_skills?: unknown;
   sync?: { mode?: SyncMode };
   repair?: boolean;
 }
+
+type ValidatedInitializeProjectConfigInput = InitializeProjectConfigInput & {
+  tags?: string[];
+  default_skills?: string[];
+};
 
 export const PROJECT_INIT_SELECTION_SOURCES = {
   path: "path",
@@ -288,7 +293,7 @@ function validateOptionalBoolean(value: unknown, name: "repair", source?: "proje
   }
 }
 
-function validateInitializeProjectConfigInput(input: unknown): asserts input is InitializeProjectConfigInput {
+function validateInitializeProjectConfigInput(input: unknown): asserts input is ValidatedInitializeProjectConfigInput {
   assertPlainObject(input, "project config input");
   validateOptionalString(input.project_id, "project_id", "project_init");
   validateOptionalStringArray(input.tags, "tags", "project_init");
