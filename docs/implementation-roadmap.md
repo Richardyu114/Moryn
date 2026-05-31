@@ -360,6 +360,10 @@ Deliverables:
   cursors, and sync push messages, plus malformed `revise --set` assignments,
   now expose operation contract and argument source hints before lower-level
   validation runs.
+- Done: CLI sync parser failures for conflicting `--status`/`--push`/`--pull`
+  flags now return operation contracts for each selectable sync operation, and
+  `--message` without `--push` points at
+  `operations_by_id.sync_push.arguments_by_name.message`.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

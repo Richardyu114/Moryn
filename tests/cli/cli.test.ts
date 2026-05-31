@@ -3929,15 +3929,15 @@ describe("moryn CLI", () => {
         {
           args: ["sync", "--push", "--pull"],
           rejectedArguments: [
-            { option: "--push", value: true },
-            { option: "--pull", value: true }
+            { option: "--push", value: true, operation_contract: "operations_by_id.sync_push" },
+            { option: "--pull", value: true, operation_contract: "operations_by_id.sync_pull" }
           ]
         },
         {
           args: ["sync", "--status", "--push"],
           rejectedArguments: [
-            { option: "--status", value: true },
-            { option: "--push", value: true }
+            { option: "--status", value: true, operation_contract: "operations_by_id.sync_status" },
+            { option: "--push", value: true, operation_contract: "operations_by_id.sync_push" }
           ]
         }
       ]) {
@@ -3953,9 +3953,10 @@ describe("moryn CLI", () => {
               message: string;
               recommended_action: string;
               recovery_hint: {
-                rejected_arguments: Array<{ option: string; value: boolean }>;
+                operation_contracts: Record<string, string>;
+                rejected_arguments: Array<{ option: string; value: boolean; operation_contract: string }>;
                 expected: { kind: string; options: string[] };
-                retry_with: Array<{ option: string }>;
+                retry_with: Array<{ option: string; operation_contract: string }>;
               };
             };
           };
@@ -3964,12 +3965,17 @@ describe("moryn CLI", () => {
           expect(parsed.error.message).toContain("choose only one sync operation");
           expect(parsed.error.recommended_action).toBe("retry with exactly one sync operation");
           expect(parsed.error.recovery_hint).toEqual({
+            operation_contracts: {
+              "--status": "operations_by_id.sync_status",
+              "--push": "operations_by_id.sync_push",
+              "--pull": "operations_by_id.sync_pull"
+            },
             rejected_arguments: rejectedArguments,
             expected: { kind: "choose_one", options: ["--status", "--push", "--pull"] },
             retry_with: [
-              { option: "--status" },
-              { option: "--push" },
-              { option: "--pull" }
+              { option: "--status", operation_contract: "operations_by_id.sync_status" },
+              { option: "--push", operation_contract: "operations_by_id.sync_push" },
+              { option: "--pull", operation_contract: "operations_by_id.sync_pull" }
             ]
           });
         }
@@ -3997,9 +4003,11 @@ describe("moryn CLI", () => {
               message: string;
               recommended_action: string;
               recovery_hint: {
+                operation_contract: string;
                 rejected_argument: { option: string; value: string };
                 expected: { kind: string; option: string; requires: string };
-                retry_with: { required_option: string; option: string; value_placeholder: string };
+                argument_sources: Record<string, string>;
+                retry_with: { required_option: string; operation_contract: string; option: string; value_placeholder: string };
               };
             };
           };
@@ -4008,9 +4016,18 @@ describe("moryn CLI", () => {
           expect(parsed.error.message).toContain("--message requires --push");
           expect(parsed.error.recommended_action).toBe("retry with --push when using --message");
           expect(parsed.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.sync_push",
             rejected_argument: { option: "--message", value: "ignored message" },
             expected: { kind: "requires_option", option: "--message", requires: "--push" },
-            retry_with: { required_option: "--push", option: "--message", value_placeholder: "<message>" }
+            argument_sources: {
+              message: "operations_by_id.sync_push.arguments_by_name.message"
+            },
+            retry_with: {
+              required_option: "--push",
+              operation_contract: "operations_by_id.sync_push",
+              option: "--message",
+              value_placeholder: "<message>"
+            }
           });
         }
       }

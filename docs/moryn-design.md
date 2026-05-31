@@ -755,7 +755,10 @@ range failures, and missing write `--kind`/`--type`/`--scope` options also carry
 the matching operation contract and `arguments_by_name.<argument>` source before
 the core engine runs. Empty CLI strings for write text/tags/provenance, refresh
 cursors, and sync messages, plus malformed `revise --set` assignments, use the
-same source-backed recovery channel.
+same source-backed recovery channel. Conflicting `moryn sync` operation flags
+include `operation_contracts` for `sync_status`, `sync_push`, and `sync_pull`,
+and `--message` without `--push` points at
+`operations_by_id.sync_push.arguments_by_name.message`.
 At the CLI boundary, known `argument` fields inside `error.recovery_hint` are
 recursively translated to command-line `option` fields such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`; MCP and package callers keep

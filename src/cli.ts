@@ -76,6 +76,8 @@ type CliParserSource = {
   operation: CliParserOperation;
   argument: string;
 };
+type CliSyncOperation = "sync_status" | "sync_push" | "sync_pull";
+type CliSyncOperationContractSource = `operations_by_id.${CliSyncOperation}`;
 
 type CliArgumentRecoveryHint =
   | {
@@ -166,14 +168,17 @@ type CliArgumentRecoveryHint =
       retry_with: Array<{ option: "--text" | "--content-json"; value_placeholder: string }>;
     }
   | {
-      rejected_arguments: Array<{ option: "--status" | "--push" | "--pull"; value: true }>;
+      operation_contracts: Record<"--status" | "--push" | "--pull", CliSyncOperationContractSource>;
+      rejected_arguments: Array<{ option: "--status" | "--push" | "--pull"; value: true; operation_contract: CliSyncOperationContractSource }>;
       expected: { kind: "choose_one"; options: ["--status", "--push", "--pull"] };
-      retry_with: Array<{ option: "--status" | "--push" | "--pull" }>;
+      retry_with: Array<{ option: "--status" | "--push" | "--pull"; operation_contract: CliSyncOperationContractSource }>;
     }
   | {
+      operation_contract: "operations_by_id.sync_push";
       rejected_argument: { option: "--message"; value: string };
       expected: { kind: "requires_option"; option: "--message"; requires: "--push" };
-      retry_with: { required_option: "--push"; option: "--message"; value_placeholder: "<message>" };
+      argument_sources: { message: "operations_by_id.sync_push.arguments_by_name.message" };
+      retry_with: { required_option: "--push"; operation_contract: "operations_by_id.sync_push"; option: "--message"; value_placeholder: "<message>" };
     }
   | {
       operation_contract: "operations_by_id.revise";
@@ -401,19 +406,26 @@ function setAssignmentCliArgumentError(assignment: string): CliArgumentError {
   );
 }
 
+const SYNC_OPERATION_CONTRACTS = {
+  "--status": "operations_by_id.sync_status",
+  "--push": "operations_by_id.sync_push",
+  "--pull": "operations_by_id.sync_pull"
+} as const;
+
 const SYNC_OPERATION_RETRY_OPTIONS = [
-  { option: "--status" },
-  { option: "--push" },
-  { option: "--pull" }
+  { option: "--status", operation_contract: SYNC_OPERATION_CONTRACTS["--status"] },
+  { option: "--push", operation_contract: SYNC_OPERATION_CONTRACTS["--push"] },
+  { option: "--pull", operation_contract: SYNC_OPERATION_CONTRACTS["--pull"] }
 ] as const;
 
-type SyncOperationArgument = { option: "--status" | "--push" | "--pull"; value: true };
+type SyncOperationArgument = { option: "--status" | "--push" | "--pull"; value: true; operation_contract: CliSyncOperationContractSource };
 
 function syncOperationChoiceCliArgumentError(rejectedArguments: SyncOperationArgument[]): CliArgumentError {
   return new CliArgumentError(
     "Invalid argument: choose only one sync operation",
     "retry with exactly one sync operation",
     {
+      operation_contracts: SYNC_OPERATION_CONTRACTS,
       rejected_arguments: rejectedArguments,
       expected: { kind: "choose_one", options: ["--status", "--push", "--pull"] },
       retry_with: [...SYNC_OPERATION_RETRY_OPTIONS]
@@ -426,9 +438,18 @@ function syncMessageRequiresPushCliArgumentError(message: string): CliArgumentEr
     "Invalid argument: --message requires --push",
     "retry with --push when using --message",
     {
+      operation_contract: "operations_by_id.sync_push",
       rejected_argument: { option: "--message", value: message },
       expected: { kind: "requires_option", option: "--message", requires: "--push" },
-      retry_with: { required_option: "--push", option: "--message", value_placeholder: "<message>" }
+      argument_sources: {
+        message: "operations_by_id.sync_push.arguments_by_name.message"
+      },
+      retry_with: {
+        required_option: "--push",
+        operation_contract: "operations_by_id.sync_push",
+        option: "--message",
+        value_placeholder: "<message>"
+      }
     }
   );
 }
@@ -568,9 +589,9 @@ function collectNonEmptyOption(option: string) {
 
 function validateSyncOperationOptions(options: { status?: boolean; push?: boolean; pull?: boolean; message?: string }): void {
   const selected: SyncOperationArgument[] = [
-    ...(options.status ? [{ option: "--status" as const, value: true as const }] : []),
-    ...(options.push ? [{ option: "--push" as const, value: true as const }] : []),
-    ...(options.pull ? [{ option: "--pull" as const, value: true as const }] : [])
+    ...(options.status ? [{ option: "--status" as const, value: true as const, operation_contract: SYNC_OPERATION_CONTRACTS["--status"] }] : []),
+    ...(options.push ? [{ option: "--push" as const, value: true as const, operation_contract: SYNC_OPERATION_CONTRACTS["--push"] }] : []),
+    ...(options.pull ? [{ option: "--pull" as const, value: true as const, operation_contract: SYNC_OPERATION_CONTRACTS["--pull"] }] : [])
   ];
   if (selected.length > 1) {
     throw syncOperationChoiceCliArgumentError(selected);
