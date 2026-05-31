@@ -419,6 +419,9 @@ Deliverables:
   including single-string source values for `revise`, `promote`, `archive`,
   `quarantine`, and `link`, and expose mutation `source_client` argument
   sources instead of host-side schema text.
+- Done: MCP `revise.patch` shape failures now pass through core validation,
+  including single-string patch values, and expose `rejected_patch` recovery
+  hints instead of host-side schema text.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty

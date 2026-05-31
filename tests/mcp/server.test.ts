@@ -5970,6 +5970,14 @@ describe("MCP stdio server", () => {
 
         for (const { patch, recoveryHint } of [
           {
+            patch: "content.text=Updated text",
+            recoveryHint: {
+              rejected_patch: { patch: "content.text=Updated text" },
+              expected: { kind: "patch_object" },
+              retry_with: { patch_placeholder: { "content.text": "<updated text>" } }
+            }
+          },
+          {
             patch: { "content.text": "" },
             recoveryHint: {
               rejected_patch: { patch: { "content.text": "" } },

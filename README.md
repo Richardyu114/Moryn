@@ -818,6 +818,9 @@ nested `source_client` entry under `arguments_by_name`, so MCP hosts can recover
 from invalid `source.client` payloads without inventing the nested path.
 MCP mutation `source` shape failures also pass through core validation,
 including single-string source values.
+MCP `revise.patch` shape failures also pass through core validation, including
+single-string patch values, and return `rejected_patch` plus a safe patch
+placeholder.
 Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 `project_list` likewise include the matching operation contract plus
 `argument_sources` for invalid filters, cursors, tasks, project ids, and limits,

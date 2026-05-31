@@ -948,11 +948,13 @@ export function commandForPromoteContext(input: { record_id: string; target_stat
   return parts.join(" ");
 }
 
-export function commandForReviseContext(input: { record_id: string; patch: Record<string, unknown>; reason?: string }): string {
+export function commandForReviseContext(input: { record_id: string; patch: unknown; reason?: string }): string {
   const parts = ["moryn", "revise", shellQuote(input.record_id)];
-  for (const [path, value] of Object.entries(input.patch)) {
-    const assignmentValue = typeof value === "string" ? value : JSON.stringify(value);
-    parts.push("--set", shellQuote(`${path}=${assignmentValue}`));
+  if (typeof input.patch === "object" && input.patch !== null && !Array.isArray(input.patch)) {
+    for (const [path, value] of Object.entries(input.patch)) {
+      const assignmentValue = typeof value === "string" ? value : JSON.stringify(value);
+      parts.push("--set", shellQuote(`${path}=${assignmentValue}`));
+    }
   }
   if (input.reason !== undefined) {
     parts.push("--reason", shellQuote(input.reason));

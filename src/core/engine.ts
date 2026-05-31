@@ -345,7 +345,7 @@ interface StateChangeInput {
 
 interface RevisionInput {
   record_id: string;
-  patch: Record<string, unknown>;
+  patch: unknown;
   reason?: string;
   source?: RecordSource;
   confirmed?: boolean;
@@ -1381,12 +1381,13 @@ function validateRevisionInput(input: RevisionInput): void {
   if (typeof input.patch !== "object" || input.patch === null || Array.isArray(input.patch)) {
     throw invalidRevisionPatchShapeError(input.patch, "patch_object");
   }
-  if (Object.keys(input.patch).length === 0) {
-    throw emptyRevisionPatchError(input.patch);
+  const patch = input.patch as Record<string, unknown>;
+  if (Object.keys(patch).length === 0) {
+    throw emptyRevisionPatchError(patch);
   }
-  const invalidPath = Object.keys(input.patch).find((path) => !isValidPatchPath(path));
+  const invalidPath = Object.keys(patch).find((path) => !isValidPatchPath(path));
   if (invalidPath !== undefined) {
-    throw invalidRevisionPatchPathError(invalidPath, input.patch[invalidPath]);
+    throw invalidRevisionPatchPathError(invalidPath, patch[invalidPath]);
   }
   validateOptionalReason("revise", input.reason);
   validateOptionalSource(input.source, "revise", "retry mutation with a valid source client");
@@ -2120,19 +2121,20 @@ export function createEngine(deps: EngineDeps) {
 
     async revise(input: RevisionInput) {
       validateRevisionInput(input);
+      const patch = input.patch as Record<string, unknown>;
       const record = await requireRecord(input.record_id);
-      const managedPath = Object.keys(input.patch).find((path) => managedRevisionFields.has(path.split(".")[0] as string));
+      const managedPath = Object.keys(patch).find((path) => managedRevisionFields.has(path.split(".")[0] as string));
       if (managedPath !== undefined) {
-        throw managedRevisionFieldError(managedPath, input.patch[managedPath], input.record_id);
+        throw managedRevisionFieldError(managedPath, patch[managedPath], input.record_id);
       }
       const createdAt = nextMutationTimestamp(record, now());
       const source = input.source ?? { client: "moryn" };
-      const patched = applyRecordPatch(record, input.patch);
+      const patched = applyRecordPatch(record, patch);
       try {
         parseRecord(patched);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        throw invalidRevisionRecordPatchError(input.patch, message);
+        throw invalidRevisionRecordPatchError(patch, message);
       }
       const sensitive = detectSensitiveContent(sensitiveScanText(patched.content));
       const conflicts = !sensitive.sensitive && patched.state === "canonical"
@@ -2141,12 +2143,12 @@ export function createEngine(deps: EngineDeps) {
       if (conflicts.length > 0 && !isUserConfirmed(source, input.confirmed)) {
         throw new Error("Confirmation required: conflicting canonical memory requires explicit user confirmation");
       }
-      const patch = sensitive.sensitive ? redactSensitivePatch(input.patch) : input.patch;
+      const eventPatch = sensitive.sensitive ? redactSensitivePatch(patch) : patch;
       const event: MorynEvent = {
         event_id: id("evt"),
         op: "revise_record",
         record_id: input.record_id,
-        patch,
+        patch: eventPatch,
         reason: input.reason,
         confirmed: input.confirmed,
         conflict: conflicts.length

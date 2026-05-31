@@ -500,7 +500,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Append a logical revision event for an existing record.",
       inputSchema: {
         record_id: stringSchema,
-        patch: z.record(z.string(), z.unknown()),
+        patch: z.unknown(),
         reason: stringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
         source: z.unknown().optional()
