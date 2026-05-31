@@ -288,7 +288,8 @@ Deliverables:
   paths reported as `validation_issues`, invalid replay history with bad
   `event_id`/`event_op`/`record_id`, sensitive-content rejections that omit the
   detected secret value, stale derived views that should run `moryn rebuild`
-  before retrying the original read, missing record ids that should run
+  before retrying the original read and should not be trusted or manually
+  edited before rebuild, missing record ids that should run
   `moryn list-recent`, select `list_recent.records_by_id.<record_id>.id`, and
   avoid inventing ids, uninitialized or invalid store/project config that
   should run `moryn init` or `moryn project init --repair` only after user

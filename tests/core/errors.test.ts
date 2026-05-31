@@ -245,7 +245,8 @@ describe("error envelopes", () => {
           retry_after: {
             condition: "derived_views_rebuilt",
             action: "retry_original_read"
-          }
+          },
+          do_not: ["retry_original_read_before_rebuild", "edit_snapshots_or_indexes_manually", "trust_stale_derived_views"]
         },
         next_action: {
           recommended_action: "rebuild_derived_views",

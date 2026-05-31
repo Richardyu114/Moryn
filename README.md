@@ -742,7 +742,8 @@ safe rebuild inspection hint,
 sensitive-content failures that intentionally omit the detected secret value and
 return a redaction retry template,
 stale derived-view errors with safe rebuild and retry-after-original-read
-instructions,
+instructions plus guardrails against retrying reads before rebuild, manually
+editing derived artifacts, or trusting stale views,
 missing-record failures with safe `list_recent` discovery, selected-id and
 ordered fallback sources, and guardrails against inventing ids,
 store initialization and config repair failures with guarded `init` or

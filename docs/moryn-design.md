@@ -694,8 +694,9 @@ shape, revise patch rules, record/event schema validation issues with `path`,
 `path_string`, and messages, replay history failures with the bad `event_id`,
 `event_op`, `record_id`, and rebuild inspection hint, or ISO datetime cursor
 requirements, sensitive-content failures that omit the detected secret value and
-return a redaction retry template, stale derived-view errors with safe rebuild
-and retry-after-original-read instructions, missing-record errors with safe
+return a redaction retry template, stale derived-view errors with safe rebuild,
+retry-after-original-read instructions, and guardrails against trusting stale
+views or manually editing derived artifacts, missing-record errors with safe
 `list_recent` discovery, selected-id and ordered fallback sources, and
 guardrails against inventing ids, store initialization and config repair errors
 with guarded `init` or `project_init` commands, user-confirmation requirements,
@@ -2640,7 +2641,12 @@ Rebuildable index errors return a safe derived-view rebuild action:
       "retry_after": {
         "condition": "derived_views_rebuilt",
         "action": "retry_original_read"
-      }
+      },
+      "do_not": [
+        "retry_original_read_before_rebuild",
+        "edit_snapshots_or_indexes_manually",
+        "trust_stale_derived_views"
+      ]
     },
     "next_action": {
       "recommended_action": "rebuild_derived_views",

@@ -287,7 +287,8 @@ function knownRecoveryHint(code: string, message: string, context?: MorynErrorCo
       retry_after: {
         condition: "derived_views_rebuilt",
         action: "retry_original_read"
-      }
+      },
+      do_not: ["retry_original_read_before_rebuild", "edit_snapshots_or_indexes_manually", "trust_stale_derived_views"]
     };
   }
   if (code === "RECORD_NOT_FOUND") {
