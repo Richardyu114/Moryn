@@ -714,6 +714,10 @@ contracts operations --mcp-tool agent_finish`, `moryn contracts operations
 --summary <summary>"}`, or package helpers `getOperationContract("agent_finish")`,
 `getOperationContractByMcpTool("agent_finish")`, and
 `getOperationContractByCliCommand("moryn agent finish --summary <summary>")`.
+Package helpers return `undefined` for well-formed but unknown lookup strings.
+Malformed helper lookup arguments, such as numeric values or empty strings, throw
+`OperationContractLookupArgumentError` with `recommended_action` and
+`recovery_hint` fields that point at the matching `arguments_by_name` source.
 The `operation_contracts` registry entry also declares the `index` flag and
 single-operation lookup arguments in `arguments_by_name` and
 `interfaces.mcp.arguments`, so hosts can discover the filters from the same
@@ -963,7 +967,8 @@ parsing command strings.
 Library hosts can call `getOperationContractIndex()` for discovery,
 `getOperationContracts()` for the full directory, `getOperationContract(operation)`,
 `getOperationContractByMcpTool(tool)`, or `getOperationContractByCliCommand(command)`
-for one operation, and reuse `OPERATION_CONTRACTS_SELECTION_SOURCES`. Treat this
+for one operation, import `OperationContractLookupArgumentError` for malformed
+lookup recovery, and reuse `OPERATION_CONTRACTS_SELECTION_SOURCES`. Treat this
 as static operation metadata; after any runtime response returns `next.actions`,
 prefer those returned actions because they include the current project, sync,
 cursor, and handoff context. The `moryn contracts operations` CLI command and

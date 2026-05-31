@@ -14,6 +14,7 @@ import {
   LIST_RECENT_SELECTION_SOURCES,
   MUTATION_EVENT_SELECTION_SOURCES,
   NEXT_ACTION_SELECTION_SOURCES,
+  OperationContractLookupArgumentError,
   PROJECT_INIT_SELECTION_SOURCES,
   PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES,
   PROJECT_LIST_SELECTION_SOURCES,
@@ -297,6 +298,35 @@ describe("package smoke test", () => {
     expect(getOperationContract("missing_operation")).toBeUndefined();
     expect(getOperationContractByMcpTool("missing_tool")).toBeUndefined();
     expect(getOperationContractByCliCommand("moryn missing")).toBeUndefined();
+    for (const { helper, argument, value, placeholder } of [
+      { helper: getOperationContract, argument: "operation", value: 123, placeholder: "<operation>" },
+      { helper: getOperationContractByMcpTool, argument: "mcp_tool", value: 123, placeholder: "<mcp_tool>" },
+      { helper: getOperationContractByCliCommand, argument: "cli_command", value: 123, placeholder: "<cli_command>" },
+      { helper: getOperationContract, argument: "operation", value: "", placeholder: "<operation>" }
+    ] as const) {
+      expect(() => helper(value as never)).toThrowError(
+        expect.objectContaining({
+          name: "OperationContractLookupArgumentError",
+          message: `Invalid argument: Invalid ${argument}`,
+          recommended_action: `retry operation_contracts with a non-empty ${argument} value`,
+          recovery_hint: {
+            operation_contract: "operations_by_id.operation_contracts",
+            rejected_argument: { argument, value },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              [argument]: `operations_by_id.operation_contracts.arguments_by_name.${argument}`
+            },
+            retry_with: { argument, value_placeholder: placeholder }
+          }
+        })
+      );
+      try {
+        helper(value as never);
+        throw new Error("Expected lookup helper to reject invalid lookup shape");
+      } catch (error) {
+        expect(error).toBeInstanceOf(OperationContractLookupArgumentError);
+      }
+    }
     expect(response.operations_by_mcp_tool.agent_enter).toEqual({
       operation: "agent_enter",
       operation_source: "operations_by_id.agent_enter"

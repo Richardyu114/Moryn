@@ -290,6 +290,13 @@ export function validateOperationContractLookupArgument(kind: OperationContractL
   }
 }
 
+function validateRequiredOperationContractLookupArgument(kind: OperationContractLookupKind, value: unknown): asserts value is string {
+  validateOperationContractLookupArgument(kind, value);
+  if (value === undefined) {
+    throw new OperationContractLookupArgumentError(kind, value);
+  }
+}
+
 export type OperationContractIndexEntry = {
   operation: string;
   operation_source: string;
@@ -1757,18 +1764,21 @@ export function getOperationContractIndex(): OperationContractIndexResponse {
 }
 
 export function getOperationContract(operation: string): SingleOperationContractResponse | undefined {
+  validateRequiredOperationContractLookupArgument("operation", operation);
   const contract = OPERATION_CONTRACTS_BY_ID[operation];
   if (!contract) return undefined;
   return singleOperationContractResponse(contract, `operations_by_id.${operation}`);
 }
 
 export function getOperationContractByMcpTool(tool: string): SingleOperationContractResponse | undefined {
+  validateRequiredOperationContractLookupArgument("mcp_tool", tool);
   const contract = OPERATION_CONTRACTS_BY_TOOL[tool];
   if (!contract) return undefined;
   return singleOperationContractResponse(contract, `operations_by_mcp_tool.${tool}`);
 }
 
 export function getOperationContractByCliCommand(command: string): SingleOperationContractResponse | undefined {
+  validateRequiredOperationContractLookupArgument("cli_command", command);
   const contract = OPERATION_CONTRACTS_BY_CLI_COMMAND[command];
   if (!contract) return undefined;
   return singleOperationContractResponse(contract, `operations_by_cli_command.${command}`);

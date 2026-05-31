@@ -27,6 +27,7 @@ import {
 } from "./core/engine.js";
 import { NEXT_ACTION_SELECTION_SOURCES } from "./core/errors.js";
 export {
+  OperationContractLookupArgumentError,
   OPERATION_CONTRACTS,
   OPERATION_CONTRACT_INDEX_SELECTION_SOURCES,
   OPERATION_CONTRACTS_SELECTION_SOURCES,

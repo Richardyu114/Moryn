@@ -646,9 +646,14 @@ Library hosts can call `getOperationContractIndex()` for discovery,
 `getOperationContracts()` for the full directory, call `getOperationContract(operation)`,
 `getOperationContractByMcpTool(tool)`, or `getOperationContractByCliCommand(command)`
 for one operation, or import `OPERATION_CONTRACTS_SELECTION_SOURCES` from the
-package entrypoint. The
-operation registry is static discovery metadata. Each operation repeats the
-registry selection source map locally so selected operation entries remain
+package entrypoint. The single-operation package helpers return `undefined` for
+well-formed but unknown lookup strings and throw
+`OperationContractLookupArgumentError` for malformed lookup arguments such as
+numeric values or empty strings; that exported error carries
+`recommended_action` and `recovery_hint` fields pointing at the matching
+`operations_by_id.operation_contracts.arguments_by_name.*` source. The operation
+registry is static discovery metadata. Each operation repeats the registry
+selection source map locally so selected operation entries remain
 self-describing outside the aggregate registry. After a runtime response returns
 `next.actions`, agents should prefer those returned actions because they include
 the live project, sync, cursor, and handoff context.

@@ -271,6 +271,10 @@ Deliverables:
   `error.recovery_hint.rejected_lookup.provided` plus `accepted_lookup_modes`
   with the same package, CLI, and MCP retry forms, so agents can drop the extra
   lookup mode and retry without parsing prose.
+- Done: Single-operation package helpers now reject malformed lookup arguments,
+  including numeric values and empty strings, with exported
+  `OperationContractLookupArgumentError` recovery fields while preserving
+  `undefined` for well-formed but unknown lookup strings.
 - Done: CLI and MCP required-option, option-dependency, non-empty string, enum,
   integer/number-range, JSON-object, read-filter, project-init, sync-argument,
   store-path, event-path-component, schema-validation, write-core-field,
