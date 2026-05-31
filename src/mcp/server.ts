@@ -208,7 +208,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Initialize Moryn Project Config",
       description: "Create or update a .moryn.json project config.",
       inputSchema: {
-        path: z.string().min(1),
+        path: stringSchema,
         project_id: stringSchema.optional(),
         tags: z.array(stringSchema).optional(),
         default_skills: z.array(stringSchema).optional(),

@@ -269,6 +269,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function cliOptionForCoreArgument(argument: string, context?: MorynErrorContext): string | undefined {
+  if (argument === "path" && context?.tool === "project_init") {
+    return "--path";
+  }
   if (argument === "scope") {
     return "--scope";
   }
@@ -1405,18 +1408,37 @@ project.command("init")
   .option("--sync-mode <mode>", "Sync mode")
   .option("--repair", "Replace an invalid existing .moryn.json after explicit confirmation")
   .action(async (options) => {
-    printJson({
-      ok: true,
-      ...await initializeProjectConfig(options.path, {
-        project_id: options.projectId,
-        tags: options.tag,
-        default_skills: options.defaultSkill,
-        sync: options.syncMode === undefined
-          ? undefined
-          : { mode: parseEnum(options.syncMode, syncModes, "--sync-mode", { operation: "project_init", argument: "sync_mode" }) },
-        repair: options.repair
-      })
+    const syncMode = options.syncMode === undefined
+      ? undefined
+      : parseEnum(options.syncMode, syncModes, "--sync-mode", { operation: "project_init", argument: "sync_mode" });
+    const contextArguments = compactUndefined({
+      path: options.path,
+      project_id: options.projectId,
+      tags: options.tag.length ? options.tag : undefined,
+      default_skills: options.defaultSkill.length ? options.defaultSkill : undefined,
+      sync_mode: syncMode,
+      repair: options.repair
     });
+    const context = {
+      tool: "project_init",
+      command: "moryn project init --path <path>",
+      arguments: contextArguments
+    };
+    try {
+      printJson({
+        ok: true,
+        ...await initializeProjectConfig(options.path, {
+          project_id: options.projectId,
+          tags: options.tag,
+          default_skills: options.defaultSkill,
+          sync: syncMode === undefined ? undefined : { mode: syncMode },
+          repair: options.repair
+        })
+      });
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
   });
 
 project.command("list")

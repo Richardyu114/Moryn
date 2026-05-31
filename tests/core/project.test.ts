@@ -115,8 +115,12 @@ describe("project config", () => {
         /Invalid project_id/,
         "retry project init with a non-empty project_id",
         {
+          operation_contract: "operations_by_id.project_init",
           rejected_argument: { argument: "project_id", value: "" },
           expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            project_id: "operations_by_id.project_init.arguments_by_name.project_id"
+          },
           retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
         }
       );
@@ -125,8 +129,12 @@ describe("project config", () => {
         /Invalid tags/,
         "retry project init with tags as non-empty strings",
         {
+          operation_contract: "operations_by_id.project_init",
           rejected_argument: { argument: "tags", value: ["typescript", ""] },
           expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            tags: "operations_by_id.project_init.arguments_by_name.tags"
+          },
           retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
         }
       );
@@ -135,19 +143,27 @@ describe("project config", () => {
         /Invalid default_skills/,
         "retry project init with default_skills as non-empty strings",
         {
+          operation_contract: "operations_by_id.project_init",
           rejected_argument: { argument: "default_skills", value: ["release", 123] },
           expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            default_skills: "operations_by_id.project_init.arguments_by_name.default_skills"
+          },
           retry_with: { argument: "default_skills", value_placeholder: ["<default_skill>"] }
         }
       );
       await expectInvalidProjectArgument(
         () => initializeProjectConfig(projectPath, { sync: { mode: "always" as never } }),
-        /Invalid sync\.mode/,
-        "retry project init with a supported sync.mode",
+        /Invalid sync_mode/,
+        "retry project init with a supported sync_mode",
         {
-          rejected_argument: { argument: "sync.mode", value: "always" },
+          operation_contract: "operations_by_id.project_init",
+          rejected_argument: { argument: "sync_mode", value: "always" },
           expected: { kind: "allowed_values", allowed_values: ["manual", "session", "interval", "auto"] },
-          retry_with: { argument: "sync.mode", value_placeholder: "session" }
+          argument_sources: {
+            sync_mode: "operations_by_id.project_init.arguments_by_name.sync_mode"
+          },
+          retry_with: { argument: "sync_mode", value_placeholder: "session" }
         }
       );
       await expectInvalidProjectArgument(
@@ -155,8 +171,12 @@ describe("project config", () => {
         /Invalid repair/,
         "retry project init with a boolean repair value",
         {
+          operation_contract: "operations_by_id.project_init",
           rejected_argument: { argument: "repair", value: "yes" },
           expected: { kind: "boolean" },
+          argument_sources: {
+            repair: "operations_by_id.project_init.arguments_by_name.repair"
+          },
           retry_with: { argument: "repair", value_placeholder: true }
         }
       );
@@ -192,21 +212,29 @@ describe("project config", () => {
         await expectInvalidProjectArgument(
           () => initializeProjectConfig("", { project_id: "moryn" }),
           /Invalid projectPath/,
-          "retry project operation with a non-empty projectPath",
+          "retry project init with a non-empty path",
           {
-            rejected_argument: { argument: "projectPath", value: "" },
+            operation_contract: "operations_by_id.project_init",
+            rejected_argument: { argument: "path", value: "" },
             expected: { kind: "non_empty_string", min_length: 1 },
-            retry_with: { argument: "projectPath", value_placeholder: "<projectPath>" }
+            argument_sources: {
+              path: "operations_by_id.project_init.arguments_by_name.path"
+            },
+            retry_with: { argument: "path", value_placeholder: "<path>" }
           }
         );
         await expectInvalidProjectArgument(
           () => initializeProjectConfig(null as never, { project_id: "moryn" }),
           /Invalid projectPath/,
-          "retry project operation with a non-empty projectPath",
+          "retry project init with a non-empty path",
           {
-            rejected_argument: { argument: "projectPath", value: null },
+            operation_contract: "operations_by_id.project_init",
+            rejected_argument: { argument: "path", value: null },
             expected: { kind: "non_empty_string", min_length: 1 },
-            retry_with: { argument: "projectPath", value_placeholder: "<projectPath>" }
+            argument_sources: {
+              path: "operations_by_id.project_init.arguments_by_name.path"
+            },
+            retry_with: { argument: "path", value_placeholder: "<path>" }
           }
         );
         await expectInvalidProjectArgument(

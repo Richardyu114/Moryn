@@ -375,6 +375,10 @@ Deliverables:
   cursors, and sync push messages, plus malformed `revise --set` assignments,
   now expose operation contract and argument source hints before lower-level
   validation runs.
+- Done: `project_init` setup argument failures for path/project id/tags/default
+  skills/sync mode/repair now expose `operations_by_id.project_init` recovery
+  hints and argument sources; MCP `path` failures pass through core validation
+  instead of host-side schema text, and CLI renders the retry field as `--path`.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty

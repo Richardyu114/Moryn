@@ -85,6 +85,34 @@ type ProjectArgumentRecoveryHint =
       rejected_argument: { argument: "sync.mode"; value: unknown };
       expected: { kind: "allowed_values"; allowed_values: string[] };
       retry_with: { argument: "sync.mode"; value_placeholder: "session" };
+    }
+  | {
+      operation_contract: "operations_by_id.project_init";
+      rejected_argument: { argument: "path" | "project_id"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: Record<"path" | "project_id", string>;
+      retry_with: { argument: "path" | "project_id"; value_placeholder: string };
+    }
+  | {
+      operation_contract: "operations_by_id.project_init";
+      rejected_argument: { argument: "tags" | "default_skills"; value: unknown };
+      expected: { kind: "array_of_non_empty_strings" };
+      argument_sources: Record<"tags" | "default_skills", string>;
+      retry_with: { argument: "tags" | "default_skills"; value_placeholder: string[] };
+    }
+  | {
+      operation_contract: "operations_by_id.project_init";
+      rejected_argument: { argument: "repair"; value: unknown };
+      expected: { kind: "boolean" };
+      argument_sources: { repair: string };
+      retry_with: { argument: "repair"; value_placeholder: true };
+    }
+  | {
+      operation_contract: "operations_by_id.project_init";
+      rejected_argument: { argument: "sync_mode"; value: unknown };
+      expected: { kind: "allowed_values"; allowed_values: string[] };
+      argument_sources: { sync_mode: string };
+      retry_with: { argument: "sync_mode"; value_placeholder: "session" };
     };
 
 class ProjectArgumentError extends Error {
@@ -105,7 +133,44 @@ function projectStringAction(name: "project_id" | "projectId" | "projectPath"): 
     : `retry project operation with a non-empty ${name}`;
 }
 
-function invalidProjectStringError(name: "project_id" | "projectId" | "projectPath", value: unknown): ProjectArgumentError {
+type ProjectInitArgument = "path" | "project_id" | "tags" | "default_skills" | "sync_mode" | "repair";
+
+function projectInitArgumentSource(argument: ProjectInitArgument): string {
+  return `operations_by_id.project_init.arguments_by_name.${argument}`;
+}
+
+function projectInitRecoveryBase<TArgument extends ProjectInitArgument>(argument: TArgument): {
+  operation_contract: "operations_by_id.project_init";
+  argument_sources: Record<TArgument, string>;
+} {
+  return {
+    operation_contract: "operations_by_id.project_init",
+    argument_sources: {
+      [argument]: projectInitArgumentSource(argument)
+    } as Record<TArgument, string>
+  };
+}
+
+function invalidProjectInitStringError(argument: "path" | "project_id", value: unknown, messageName: string = argument): ProjectArgumentError {
+  return new ProjectArgumentError(
+    `Invalid argument: Invalid ${messageName}`,
+    argument === "path"
+      ? "retry project init with a non-empty path"
+      : "retry project init with a non-empty project_id",
+    {
+      ...projectInitRecoveryBase(argument),
+      rejected_argument: { argument, value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      retry_with: { argument, value_placeholder: `<${argument}>` }
+    }
+  );
+}
+
+function invalidProjectStringError(name: "project_id" | "projectId" | "projectPath", value: unknown, source?: "project_init"): ProjectArgumentError {
+  if (source === "project_init") {
+    const argument = name === "projectPath" ? "path" : "project_id";
+    return invalidProjectInitStringError(argument, value, name);
+  }
   return new ProjectArgumentError(
     `Invalid argument: Invalid ${name}`,
     projectStringAction(name),
@@ -117,8 +182,20 @@ function invalidProjectStringError(name: "project_id" | "projectId" | "projectPa
   );
 }
 
-function invalidProjectStringArrayError(name: "tags" | "default_skills", value: unknown): ProjectArgumentError {
+function invalidProjectStringArrayError(name: "tags" | "default_skills", value: unknown, source?: "project_init"): ProjectArgumentError {
   const singular = name === "default_skills" ? "default_skill" : "tag";
+  if (source === "project_init") {
+    return new ProjectArgumentError(
+      `Invalid argument: Invalid ${name}`,
+      `retry project init with ${name} as non-empty strings`,
+      {
+        ...projectInitRecoveryBase(name),
+        rejected_argument: { argument: name, value },
+        expected: { kind: "array_of_non_empty_strings" },
+        retry_with: { argument: name, value_placeholder: [`<${singular}>`] }
+      }
+    );
+  }
   return new ProjectArgumentError(
     `Invalid argument: Invalid ${name}`,
     `retry project init with ${name} as non-empty strings`,
@@ -130,7 +207,19 @@ function invalidProjectStringArrayError(name: "tags" | "default_skills", value: 
   );
 }
 
-function invalidProjectBooleanError(name: "repair", value: unknown): ProjectArgumentError {
+function invalidProjectBooleanError(name: "repair", value: unknown, source?: "project_init"): ProjectArgumentError {
+  if (source === "project_init") {
+    return new ProjectArgumentError(
+      `Invalid argument: Invalid ${name}`,
+      "retry project init with a boolean repair value",
+      {
+        ...projectInitRecoveryBase(name),
+        rejected_argument: { argument: name, value },
+        expected: { kind: "boolean" },
+        retry_with: { argument: name, value_placeholder: true }
+      }
+    );
+  }
   return new ProjectArgumentError(
     `Invalid argument: Invalid ${name}`,
     "retry project init with a boolean repair value",
@@ -142,7 +231,19 @@ function invalidProjectBooleanError(name: "repair", value: unknown): ProjectArgu
   );
 }
 
-function invalidProjectSyncModeError(value: unknown): ProjectArgumentError {
+function invalidProjectSyncModeError(value: unknown, source?: "project_init"): ProjectArgumentError {
+  if (source === "project_init") {
+    return new ProjectArgumentError(
+      "Invalid argument: Invalid sync_mode",
+      "retry project init with a supported sync_mode",
+      {
+        ...projectInitRecoveryBase("sync_mode"),
+        rejected_argument: { argument: "sync_mode", value },
+        expected: { kind: "allowed_values", allowed_values: [...SYNC_MODES, "auto"] },
+        retry_with: { argument: "sync_mode", value_placeholder: "session" }
+      }
+    );
+  }
   return new ProjectArgumentError(
     "Invalid argument: Invalid sync.mode",
     "retry project init with a supported sync.mode",
@@ -160,39 +261,39 @@ function assertPlainObject(value: unknown, name: string): asserts value is Recor
   }
 }
 
-function validateOptionalString(value: unknown, name: "project_id" | "projectId" | "projectPath"): void {
+function validateOptionalString(value: unknown, name: "project_id" | "projectId" | "projectPath", source?: "project_init"): void {
   if (value === undefined) return;
   if (typeof value !== "string" || value.length === 0) {
-    throw invalidProjectStringError(name, value);
+    throw invalidProjectStringError(name, value, source);
   }
 }
 
-function validateRequiredString(value: unknown, name: "projectPath"): asserts value is string {
+function validateRequiredString(value: unknown, name: "projectPath", source?: "project_init"): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {
-    throw invalidProjectStringError(name, value);
+    throw invalidProjectStringError(name, value, source);
   }
 }
 
-function validateOptionalStringArray(value: unknown, name: "tags" | "default_skills"): void {
+function validateOptionalStringArray(value: unknown, name: "tags" | "default_skills", source?: "project_init"): void {
   if (value === undefined) return;
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.length === 0)) {
-    throw invalidProjectStringArrayError(name, value);
+    throw invalidProjectStringArrayError(name, value, source);
   }
 }
 
-function validateOptionalBoolean(value: unknown, name: "repair"): void {
+function validateOptionalBoolean(value: unknown, name: "repair", source?: "project_init"): void {
   if (value === undefined) return;
   if (typeof value !== "boolean") {
-    throw invalidProjectBooleanError(name, value);
+    throw invalidProjectBooleanError(name, value, source);
   }
 }
 
 function validateInitializeProjectConfigInput(input: unknown): asserts input is InitializeProjectConfigInput {
   assertPlainObject(input, "project config input");
-  validateOptionalString(input.project_id, "project_id");
-  validateOptionalStringArray(input.tags, "tags");
-  validateOptionalStringArray(input.default_skills, "default_skills");
-  validateOptionalBoolean(input.repair, "repair");
+  validateOptionalString(input.project_id, "project_id", "project_init");
+  validateOptionalStringArray(input.tags, "tags", "project_init");
+  validateOptionalStringArray(input.default_skills, "default_skills", "project_init");
+  validateOptionalBoolean(input.repair, "repair", "project_init");
 
   if (input.sync !== undefined) {
     assertPlainObject(input.sync, "sync");
@@ -203,7 +304,7 @@ function validateInitializeProjectConfigInput(input: unknown): asserts input is 
       input.sync.mode !== "interval" &&
       input.sync.mode !== "auto"
     ) {
-      throw invalidProjectSyncModeError(input.sync.mode);
+      throw invalidProjectSyncModeError(input.sync.mode, "project_init");
     }
   }
 }
@@ -304,7 +405,7 @@ export async function readProjectConfig(projectPath: string): Promise<ProjectCon
 }
 
 export async function initializeProjectConfig(projectPath: string, input: InitializeProjectConfigInput = {}): Promise<InitializeProjectConfigResult> {
-  validateRequiredString(projectPath, "projectPath");
+  validateRequiredString(projectPath, "projectPath", "project_init");
   validateInitializeProjectConfigInput(input);
   const resolved = resolve(projectPath);
   await mkdir(resolved, { recursive: true });

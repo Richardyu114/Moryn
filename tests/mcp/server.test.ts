@@ -7305,9 +7305,33 @@ describe("MCP stdio server", () => {
         expect(invalidRepair.error.message).toContain("Invalid repair");
         expect(invalidRepair.error.recommended_action).toBe("retry project init with a boolean repair value");
         expect(invalidRepair.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_init",
           rejected_argument: { argument: "repair", value: "yes" },
           expected: { kind: "boolean" },
+          argument_sources: {
+            repair: "operations_by_id.project_init.arguments_by_name.repair"
+          },
           retry_with: { argument: "repair", value_placeholder: true }
+        });
+
+        const invalidProjectInitPath = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: ""
+          }
+        })) as typeof invalidRepair;
+        expect(invalidProjectInitPath.ok).toBe(false);
+        expect(invalidProjectInitPath.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProjectInitPath.error.message).toContain("Invalid projectPath");
+        expect(invalidProjectInitPath.error.recommended_action).toBe("retry project init with a non-empty path");
+        expect(invalidProjectInitPath.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_init",
+          rejected_argument: { argument: "path", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            path: "operations_by_id.project_init.arguments_by_name.path"
+          },
+          retry_with: { argument: "path", value_placeholder: "<path>" }
         });
 
         const target = parseTextContent(await client.callTool({

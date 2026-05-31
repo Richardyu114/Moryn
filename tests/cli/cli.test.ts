@@ -3267,7 +3267,7 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
-      for (const { args, operation, argument, message, option } of [
+      for (const { args, operation, argument, message, option, recommendedAction, valuePlaceholder } of [
         {
           args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", ""],
           operation: "write",
@@ -3367,6 +3367,15 @@ describe("moryn CLI", () => {
           option: "--summary"
         },
         {
+          args: ["project", "init", "--path", ""],
+          operation: "project_init",
+          argument: "path",
+          message: "Invalid projectPath",
+          option: "--path",
+          recommendedAction: "retry project init with a non-empty path",
+          valuePlaceholder: "<path>"
+        },
+        {
           args: ["project", "list", "--current-task", ""],
           operation: "project_list",
           argument: "current_task",
@@ -3418,7 +3427,7 @@ describe("moryn CLI", () => {
           expect(parsed.ok).toBe(false);
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain(message);
-          expect(parsed.error.recommended_action).toBe(`retry with a non-empty ${option} value`);
+          expect(parsed.error.recommended_action).toBe(recommendedAction ?? `retry with a non-empty ${option} value`);
           expect(parsed.error.recovery_hint).toEqual({
             operation_contract: `operations_by_id.${operation}`,
             rejected_argument: { option, value: "" },
@@ -3426,7 +3435,7 @@ describe("moryn CLI", () => {
             argument_sources: {
               [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
             },
-            retry_with: { option, value_placeholder: `<non-empty ${option.slice(2)}>` }
+            retry_with: { option, value_placeholder: valuePlaceholder ?? `<non-empty ${option.slice(2)}>` }
           });
         }
       }

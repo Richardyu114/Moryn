@@ -819,23 +819,27 @@ from invalid `source.client` payloads without inventing the nested path.
 Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 `project_list` likewise include the matching operation contract plus
 `argument_sources` for invalid filters, cursors, tasks, project ids, and limits,
-including RFC3339 refresh cursor failures. CLI parser failures for `--limit` on
-read and lifecycle startup commands, plus enum options such as `--kind`,
-`--scope`, `--state`, `--priority`, and `--sync-mode`, write `--confidence`
-range failures, and missing write `--kind`/`--type`/`--scope` options expose the
-same operation contract and `arguments_by_name.<argument>` source before control
-reaches the core engine. Missing required parser options for `revise --set`,
-`promote --state`, `link --type`, `agent status --status`, and
-`agent finish --summary` use the same source-backed recovery shape, so agents
-can inspect the exact operation contract before retrying. Missing positional
-arguments for mutation record ids, linked record ids, and `sync init <remote>`
-also return operation and argument sources instead of generic command-argument
-advice. Empty CLI strings for write text/tags/provenance, refresh cursors, sync
-messages, lifecycle project/task/sync/agent/status/summary inputs, MCP source
-metadata and `project_list`/lifecycle agent identity metadata (`source.client`,
+including RFC3339 refresh cursor failures. Project setup argument failures for
+`project_init` path/project id/tags/default skills/sync mode/repair inputs also
+point at `operations_by_id.project_init.arguments_by_name.<argument>`, including
+MCP `path` failures that would otherwise stop at host schema validation. CLI
+parser failures for `--limit` on read and lifecycle startup commands, plus enum
+options such as `--kind`, `--scope`, `--state`, `--priority`, and `--sync-mode`,
+write `--confidence` range failures, and missing write
+`--kind`/`--type`/`--scope` options expose the same operation contract and
+`arguments_by_name.<argument>` source before control reaches the core engine.
+Missing required parser options for `revise --set`, `promote --state`,
+`link --type`, `agent status --status`, and `agent finish --summary` use the
+same source-backed recovery shape, so agents can inspect the exact operation
+contract before retrying. Missing positional arguments for mutation record ids,
+linked record ids, and `sync init <remote>` also return operation and argument
+sources instead of generic command-argument advice. Empty CLI strings for write
+text/tags/provenance, refresh cursors, sync messages, lifecycle
+project/task/sync/agent/status/summary inputs, MCP source metadata and
+`project_list`/lifecycle agent identity metadata (`source.client`,
 `source.session_id`, `source.model`, `source.device_id`, `agent.client`,
-`agent.session_id`, `agent.model`, and `agent.device_id`), and `project list`
-task/sync/agent prefill inputs, plus
+`agent.session_id`, `agent.model`, and `agent.device_id`), and
+`project init --path`/`project list` task/sync/agent prefill inputs, plus
 malformed `revise --set` assignments, use the same source-backed recovery
 channel.
 Explicit empty agent prefill fields such as `project list --agent ""` are
