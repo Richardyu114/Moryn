@@ -749,6 +749,9 @@ Deliverables:
   fields back into tool JSON, so hosts can pass `agent_client` once and receive
   executable `interfaces.mcp.arguments.agent.client` without rebuilding nested
   objects.
+- Done: Generated action CLI interfaces now JSON-encode object-valued flags such
+  as `--content-json`, so returned actions are runnable without hosts converting
+  `{ text, format }` payloads or removing duplicate nested field flags.
 - Done: Empty CLI `link --type` values now return a CLI-shaped `--type`
   recovery hint backed by `operations_by_id.link.arguments_by_name.link_type`,
   so shell agents can retry the exact flag instead of translating a lower-level

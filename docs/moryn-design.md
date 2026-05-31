@@ -1564,6 +1564,9 @@ arguments use flattened contract names for nested MCP payloads, such as
 `agent_client`, the generated CLI interface falls back to that flattened field
 and emits the corresponding flag, such as `--agent`, while the generated MCP
 interface emits the nested argument, such as `agent.client`. Action
+interfaces also JSON-encode object-valued CLI flags, so a structured `content`
+payload becomes a single runnable `--content-json` value rather than
+`[object Object]` or duplicate field flags. Action
 templates also include `safety`, a machine-readable
 explanation of `safe_to_run` with `safe_to_auto_run`,
 `requires_user_confirmation`, `requires_authored_input`, `writes_local_config`,

@@ -1074,6 +1074,9 @@ passed directly and still emit `--agent`/`--session-id`. The generated
 `interfaces.mcp.arguments` normalizes those same flattened fields back into
 MCP JSON, so `agent_client` becomes `agent.client` instead of leaking as an
 unsupported top-level tool argument.
+Object-valued CLI flags are JSON-encoded in generated action interfaces, so
+actions that carry `content: { ... }` emit a runnable `--content-json` argument
+instead of `[object Object]` or duplicate per-field flags.
 
 ## Current MVP Commands
 

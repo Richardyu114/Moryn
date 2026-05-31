@@ -93,7 +93,7 @@ function shouldSkipNestedCliArgument(
   const parent = argumentsByName[argument.parent_argument];
   if (typeof parent !== "object" || parent === null || Array.isArray(parent)) return false;
   const parentArgument = operationArguments.find((candidate) => candidate.name === argument.parent_argument);
-  return Boolean(parentArgument?.cli?.flags?.length);
+  return Boolean(parentArgument?.cli);
 }
 
 function cliArgumentValue(argumentsByName: Record<string, unknown>, argument: OperationArgumentMetadata, operationArguments: OperationArgumentMetadata[]): unknown {
@@ -130,6 +130,10 @@ function pushFlagValue(argv: string[], flag: string, value: unknown): void {
     for (const entry of value) {
       argv.push(flag, String(entry));
     }
+    return;
+  }
+  if (typeof value === "object" && value !== null) {
+    argv.push(flag, JSON.stringify(value));
     return;
   }
   argv.push(flag, String(value));
