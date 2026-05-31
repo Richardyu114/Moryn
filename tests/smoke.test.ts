@@ -1326,7 +1326,7 @@ describe("package smoke test", () => {
       "raw", "candidate", "canonical", "archived", "quarantined"
     ]);
     expect(response.operations_by_id.project_init.required_fields_by_name.sync_mode.allowed_values).toEqual([
-      "manual", "session", "interval"
+      "manual", "session", "interval", "auto"
     ]);
     expect(response.operations_by_id.recall.arguments_by_name.kinds).toMatchObject({
       type: "string[]",

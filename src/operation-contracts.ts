@@ -1,6 +1,6 @@
 import { actionExecution, actionSafety, type ActionExecution, type ActionSafety } from "./core/action-safety.js";
 import { commandLineForCliInterface } from "./core/cli-command-line.js";
-import { SYNC_MODES } from "./core/project.js";
+import { PROJECT_SYNC_MODE_INPUTS } from "./core/project.js";
 import {
   PROVENANCE_METHODS,
   RECORD_KINDS,
@@ -964,7 +964,7 @@ export const OPERATION_CONTRACTS = [
         required: false,
         cli: { flag: "--sync-mode" },
         mcp: { argument: "sync_mode" },
-        allowed_values: SYNC_MODES
+        allowed_values: PROJECT_SYNC_MODE_INPUTS
       },
       repair: {
         type: "boolean",
@@ -977,7 +977,7 @@ export const OPERATION_CONTRACTS = [
       sync_mode: {
         name: "sync_mode",
         argument_path: "sync_mode",
-        allowed_values: SYNC_MODES
+        allowed_values: PROJECT_SYNC_MODE_INPUTS
       }
     },
     interfaces: {

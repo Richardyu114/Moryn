@@ -207,8 +207,8 @@ moryn project init --path /path/to/project --project-id my-project --tag typescr
 moryn project init --path /path/to/project --project-id my-project --repair
 ```
 
-Supported sync modes are `manual`, `session`, and `interval`. The default is
-`session`.
+Supported sync modes are `manual`, `session`, and `interval`. Legacy `auto` is
+accepted as an alias for `interval`. The default is `session`.
 When updating an existing `.moryn.json`, omitted `--tag`, `--default-skill`, and
 `--sync-mode` values keep the existing config instead of clearing it.
 Successful `moryn project init` output includes

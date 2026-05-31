@@ -7,6 +7,7 @@ import { z } from "zod";
 
 const exec = promisify(execFile);
 export const SYNC_MODES = ["manual", "session", "interval"] as const;
+export const PROJECT_SYNC_MODE_INPUTS = [...SYNC_MODES, "auto"] as const;
 
 const syncModeSchema = z.preprocess(
   (value) => value === "auto" ? "interval" : value,

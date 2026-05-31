@@ -1492,7 +1492,7 @@ describe("moryn CLI", () => {
           value: "<path>"
         },
         sync_mode: {
-          allowed_values: ["manual", "session", "interval"]
+          allowed_values: ["manual", "session", "interval", "auto"]
         }
       },
       argument_sources: {
@@ -2732,6 +2732,18 @@ describe("moryn CLI", () => {
       expect(projectConfig.project_id).toBe("moryn-v2");
       expect(projectConfig.tags).toEqual(["typescript"]);
       expect(projectConfig.default_skills).toEqual(["release"]);
+      expect(projectConfig.sync.mode).toBe("interval");
+    });
+  });
+
+  it("accepts legacy project init sync-mode auto and normalizes it to interval", async () => {
+    await withTempDir(async (dir) => {
+      const project = join(dir, "project");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--sync-mode", "auto"]);
+
+      const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as {
+        sync: { mode: string };
+      };
       expect(projectConfig.sync.mode).toBe("interval");
     });
   });
@@ -6927,7 +6939,7 @@ describe("moryn CLI", () => {
           argument: "sync_mode",
           option: "--sync-mode",
           value: "sometimes",
-          allowedValues: ["manual", "session", "interval"]
+          allowedValues: ["manual", "session", "interval", "auto"]
         }
       ]) {
         try {

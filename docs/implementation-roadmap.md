@@ -69,6 +69,9 @@ Deliverables:
   local config locations or key fields.
 - Done: CLI accepts `--project <path>` and resolves project identity consistently.
 - Done: Project config can add default tags and sync mode.
+- Done: CLI, MCP, and operation contracts all accept legacy project
+  `sync_mode: "auto"` as an alias for `interval`, so agents do not see
+  contradictory allowed values across interfaces.
 - Done: CLI `project init` updates preserve existing tags, default skills, and
   sync mode when those inputs are omitted, so an agent rerun does not silently
   clear project defaults.

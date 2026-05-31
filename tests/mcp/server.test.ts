@@ -1651,7 +1651,7 @@ describe("MCP stdio server", () => {
               value: "<path>"
             },
             sync_mode: {
-              allowed_values: ["manual", "session", "interval"]
+              allowed_values: ["manual", "session", "interval", "auto"]
             }
           },
           argument_sources: {

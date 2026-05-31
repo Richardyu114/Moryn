@@ -33,7 +33,7 @@ import {
   type MorynErrorContext,
   toErrorEnvelope
 } from "./core/errors.js";
-import { SYNC_MODES, initializeProjectConfig, resolveProjectContext } from "./core/project.js";
+import { PROJECT_SYNC_MODE_INPUTS, initializeProjectConfig, resolveProjectContext, type SyncMode } from "./core/project.js";
 import {
   RECORD_KINDS,
   RECORD_PRIORITIES,
@@ -49,7 +49,7 @@ const recordKinds = RECORD_KINDS;
 const recordScopes = RECORD_SCOPES;
 const recordStates = RECORD_STATES;
 const recordPriorities = RECORD_PRIORITIES;
-const syncModes = SYNC_MODES;
+const projectSyncModeInputs = PROJECT_SYNC_MODE_INPUTS;
 
 const CLI_ARGUMENT_RECOVERY_ACTION_PREFIX = "retry with a valid" as const;
 const WRITE_OPERATION_CONTRACT_SOURCE = "operations_by_id.write";
@@ -758,6 +758,11 @@ function parseEnum<T extends string>(value: string | undefined, allowed: readonl
 
 function parseEnumList<T extends string>(values: string[], allowed: readonly T[], option: string, source?: CliEnumSource): T[] {
   return values.map((value) => parseEnum(value, allowed, option, source) as T);
+}
+
+function parseProjectSyncMode(value: string | undefined): SyncMode | undefined {
+  const parsed = parseEnum(value, projectSyncModeInputs, "--sync-mode", { operation: "project_init", argument: "sync_mode" });
+  return parsed === "auto" ? "interval" : parsed;
 }
 
 function parseNonEmptyString(value: string | undefined, option: string): string | undefined {
@@ -1483,9 +1488,7 @@ project.command("init")
   .action(async (options) => {
     const projectPath = parseNonEmptyCliString(options.path, "--path", { operation: "project_init", argument: "path" })!;
     const projectId = parseNonEmptyCliString(options.projectId, "--project-id", { operation: "project_init", argument: "project_id" });
-    const syncMode = options.syncMode === undefined
-      ? undefined
-      : parseEnum(options.syncMode, syncModes, "--sync-mode", { operation: "project_init", argument: "sync_mode" });
+    const syncMode = parseProjectSyncMode(options.syncMode);
     const contextArguments = compactUndefined({
       path: projectPath,
       project_id: projectId,
