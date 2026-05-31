@@ -7288,6 +7288,23 @@ describe("MCP stdio server", () => {
             retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
           });
         }
+        const invalidLifecycleAgentShape = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: { agent: "codex" }
+        })) as McpInvalidArgument;
+        expect(invalidLifecycleAgentShape.ok).toBe(false);
+        expect(invalidLifecycleAgentShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidLifecycleAgentShape.error.message).toContain("Invalid agent.client");
+        expect(invalidLifecycleAgentShape.error.recommended_action).toBe("retry agent lifecycle with a valid agent client");
+        expect(invalidLifecycleAgentShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.agent_enter",
+          rejected_argument: { argument: "agent.client", value: undefined },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "agent.client": "operations_by_id.agent_enter.arguments_by_name.agent_client"
+          },
+          retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
+        });
         for (const { field, argumentName, placeholder } of [
           { field: "session_id", argumentName: "agent_session_id", placeholder: "<agent session id>" },
           { field: "model", argumentName: "agent_model", placeholder: "<agent model>" },
@@ -7322,6 +7339,23 @@ describe("MCP stdio server", () => {
         expect(invalidProjectListAgentClient.error.recovery_hint).toEqual({
           operation_contract: "operations_by_id.project_list",
           rejected_argument: { argument: "agent.client", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "agent.client": "operations_by_id.project_list.arguments_by_name.agent_client"
+          },
+          retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
+        });
+        const invalidProjectListAgentShape = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: { agent: "codex" }
+        })) as McpInvalidArgument;
+        expect(invalidProjectListAgentShape.ok).toBe(false);
+        expect(invalidProjectListAgentShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProjectListAgentShape.error.message).toContain("Invalid agent.client");
+        expect(invalidProjectListAgentShape.error.recommended_action).toBe("retry project_list with a valid agent client");
+        expect(invalidProjectListAgentShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_list",
+          rejected_argument: { argument: "agent.client", value: undefined },
           expected: { kind: "non_empty_string", min_length: 1 },
           argument_sources: {
             "agent.client": "operations_by_id.project_list.arguments_by_name.agent_client"

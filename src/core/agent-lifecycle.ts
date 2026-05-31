@@ -23,7 +23,7 @@ interface AgentLifecycleInput {
   projectPath?: string;
   projectId?: string;
   currentTask?: string;
-  agent?: AgentIdentity;
+  agent?: unknown;
   syncRemote?: string;
 }
 
@@ -547,18 +547,26 @@ interface AgentHandoffEntry {
   next_action: HandoffEntryNextAction;
 }
 
-function sourceFromAgent(agent: AgentIdentity | undefined): RecordSource {
+function sourceFromAgent(agent: unknown): RecordSource {
+  const identity = agent as AgentIdentity | undefined;
   return {
-    client: agent?.client ?? "agent",
-    session_id: agent?.session_id,
-    model: agent?.model,
-    device_id: agent?.device_id
+    client: identity?.client ?? "agent",
+    session_id: identity?.session_id,
+    model: identity?.model,
+    device_id: identity?.device_id
   };
 }
 
-function validateAgentIdentity(agent: AgentIdentity | undefined, operation: LifecycleOperation): void {
-  const rawAgent = agent as Partial<Record<AgentIdentityField, unknown>> | undefined;
-  if (rawAgent === undefined) return;
+function agentIdentityFromInput(input: AgentLifecycleInput): AgentIdentity | undefined {
+  return input.agent as AgentIdentity | undefined;
+}
+
+function validateAgentIdentity(agent: unknown, operation: LifecycleOperation): void {
+  if (agent === undefined) return;
+  if (typeof agent !== "object" || agent === null || Array.isArray(agent)) {
+    throw new AgentIdentityError(operation, "client", undefined);
+  }
+  const rawAgent = agent as Partial<Record<AgentIdentityField, unknown>>;
   for (const field of Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[]) {
     const value = rawAgent[field];
     if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
@@ -823,10 +831,10 @@ function buildAgentStartCommand(input: AgentLifecycleInput): string {
   appendOption(parts, "--project-id", input.projectId);
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
-  appendOption(parts, "--agent", input.agent?.client);
-  appendOption(parts, "--session-id", input.agent?.session_id);
-  appendOption(parts, "--model", input.agent?.model);
-  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--agent", agentIdentityFromInput(input)?.client);
+  appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
+  appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
+  appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
   return parts.join(" ");
 }
 
@@ -836,10 +844,10 @@ function buildDiscoveredProjectStartTemplateCommand(input: AgentLifecycleInput):
   appendTemplateOption(parts, "--project-id", "<project_id>");
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
-  appendOption(parts, "--agent", input.agent?.client);
-  appendOption(parts, "--session-id", input.agent?.session_id);
-  appendOption(parts, "--model", input.agent?.model);
-  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--agent", agentIdentityFromInput(input)?.client);
+  appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
+  appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
+  appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
   return parts.join(" ");
 }
 
@@ -849,10 +857,10 @@ function buildAgentEnterCommand(input: AgentLifecycleInput): string {
   appendOption(parts, "--project-id", input.projectId);
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
-  appendOption(parts, "--agent", input.agent?.client);
-  appendOption(parts, "--session-id", input.agent?.session_id);
-  appendOption(parts, "--model", input.agent?.model);
-  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--agent", agentIdentityFromInput(input)?.client);
+  appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
+  appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
+  appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
   return parts.join(" ");
 }
 
@@ -866,10 +874,10 @@ function buildAgentStartTemplateCommand(input: AgentLifecycleInput, requiredFiel
   } else if (requiredFields.includes("current_task")) {
     parts.push("--current-task", "<current_task>");
   }
-  appendOption(parts, "--agent", input.agent?.client);
-  appendOption(parts, "--session-id", input.agent?.session_id);
-  appendOption(parts, "--model", input.agent?.model);
-  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--agent", agentIdentityFromInput(input)?.client);
+  appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
+  appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
+  appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
   return parts.join(" ");
 }
 
@@ -879,10 +887,10 @@ function buildAgentRefreshCommand(input: AgentLifecycleInput, cursor: string): s
   appendOption(parts, "--project-id", input.projectId);
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
-  appendOption(parts, "--agent", input.agent?.client);
-  appendOption(parts, "--session-id", input.agent?.session_id);
-  appendOption(parts, "--model", input.agent?.model);
-  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--agent", agentIdentityFromInput(input)?.client);
+  appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
+  appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
+  appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
   appendOption(parts, "--refresh-since", cursor);
   return parts.join(" ");
 }
@@ -893,10 +901,10 @@ function buildAgentRefreshTemplateCommand(input: AgentLifecycleInput): string {
   appendTemplateOption(parts, "--project-id", input.projectId);
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
-  appendOption(parts, "--agent", input.agent?.client);
-  appendOption(parts, "--session-id", input.agent?.session_id);
-  appendOption(parts, "--model", input.agent?.model);
-  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--agent", agentIdentityFromInput(input)?.client);
+  appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
+  appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
+  appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
   parts.push("--refresh-since", "<refresh_since>");
   return parts.join(" ");
 }
@@ -907,10 +915,10 @@ function buildAgentStatusTemplateCommand(input: AgentLifecycleInput): string {
   appendTemplateOption(parts, "--project-id", input.projectId);
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
-  appendOption(parts, "--agent", input.agent?.client);
-  appendOption(parts, "--session-id", input.agent?.session_id);
-  appendOption(parts, "--model", input.agent?.model);
-  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--agent", agentIdentityFromInput(input)?.client);
+  appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
+  appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
+  appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
   parts.push("--status", "<status>");
   return parts.join(" ");
 }
@@ -921,10 +929,10 @@ function buildAgentStatusCommand(input: AgentLifecycleInput): string {
   appendOption(parts, "--project-id", input.projectId);
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
-  appendOption(parts, "--agent", input.agent?.client);
-  appendOption(parts, "--session-id", input.agent?.session_id);
-  appendOption(parts, "--model", input.agent?.model);
-  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--agent", agentIdentityFromInput(input)?.client);
+  appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
+  appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
+  appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
   parts.push("--status", "<status>");
   return parts.join(" ");
 }
@@ -935,10 +943,10 @@ function buildAgentFinishTemplateCommand(input: AgentLifecycleInput): string {
   appendTemplateOption(parts, "--project-id", input.projectId);
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
-  appendOption(parts, "--agent", input.agent?.client);
-  appendOption(parts, "--session-id", input.agent?.session_id);
-  appendOption(parts, "--model", input.agent?.model);
-  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--agent", agentIdentityFromInput(input)?.client);
+  appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
+  appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
+  appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
   parts.push("--summary", "<summary>");
   return parts.join(" ");
 }
@@ -949,10 +957,10 @@ function buildAgentFinishCommand(input: AgentLifecycleInput): string {
   appendOption(parts, "--project-id", input.projectId);
   appendOption(parts, "--sync-remote", input.syncRemote);
   appendOption(parts, "--current-task", input.currentTask);
-  appendOption(parts, "--agent", input.agent?.client);
-  appendOption(parts, "--session-id", input.agent?.session_id);
-  appendOption(parts, "--model", input.agent?.model);
-  appendOption(parts, "--device-id", input.agent?.device_id);
+  appendOption(parts, "--agent", agentIdentityFromInput(input)?.client);
+  appendOption(parts, "--session-id", agentIdentityFromInput(input)?.session_id);
+  appendOption(parts, "--model", agentIdentityFromInput(input)?.model);
+  appendOption(parts, "--device-id", agentIdentityFromInput(input)?.device_id);
   parts.push("--summary", "<summary>");
   return parts.join(" ");
 }
@@ -1008,7 +1016,7 @@ function lifecycleActionArguments(input: AgentLifecycleInput): {
     project_id: input.projectId,
     sync_remote: input.syncRemote,
     current_task: input.currentTask,
-    agent: input.agent
+    agent: agentIdentityFromInput(input)
   };
 }
 
@@ -1913,7 +1921,7 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
   const activeSessions: AgentHandoffEntry[] = [];
 
   for (const record of sorted.filter((record) => record.type === "status")) {
-    if (isSameAgentSession(record.source, input.agent)) continue;
+    if (isSameAgentSession(record.source, agentIdentityFromInput(input))) continue;
     if (!isFreshActiveStatus(record, now)) continue;
     const key = sourceSessionKey(record.source);
     const finalSummary = finalSummaryBySession.get(key);
@@ -1928,7 +1936,7 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
   }
 
   const inbox = finalSummaries
-    .filter((record) => !isSameAgentSession(record.source, input.agent))
+    .filter((record) => !isSameAgentSession(record.source, agentIdentityFromInput(input)))
     .slice(0, 5)
     .map((record) => handoffEntry(record, projectId, "review_handoff_summary"));
   const nextAction = activeSessions[0]?.next_action ?? inbox[0]?.next_action;
@@ -2095,7 +2103,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
           project_id: input.projectId,
           sync_remote: input.syncRemote,
           current_task: input.currentTask,
-          agent: input.agent
+          agent: agentIdentityFromInput(input)
         }
       })
     : withActionInterfaces({

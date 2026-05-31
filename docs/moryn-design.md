@@ -819,7 +819,8 @@ project/task/sync/agent/status/summary inputs, MCP source metadata and
 `agent.session_id`, `agent.model`, and `agent.device_id`), and
 `project init --path`/`project list` task/sync/agent prefill inputs, plus
 malformed `revise --set` assignments, use the same source-backed recovery
-channel.
+channel. MCP `project_list.agent` and lifecycle `agent` shape failures also
+pass through core validation, including single-string agent values.
 Explicit empty agent prefill fields such as `project list --agent ""` are
 rejected instead of being ignored. Conflicting `moryn sync` operation flags
 include `operation_contracts` for `sync_status`, `sync_push`, and `sync_pull`,

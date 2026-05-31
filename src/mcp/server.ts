@@ -134,12 +134,7 @@ function writeContentChoiceError(rejectedArguments?: Array<
   );
 }
 
-const coreValidatedAgentSchema = z.object({
-  client: z.unknown().optional().default("mcp"),
-  session_id: z.unknown().optional(),
-  model: z.unknown().optional(),
-  device_id: z.unknown().optional()
-});
+const coreValidatedAgentSchema = z.unknown();
 const coreValidatedSourceSchema = z.object({
   client: z.unknown().optional().default("mcp"),
   session_id: z.unknown().optional(),
