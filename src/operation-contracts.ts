@@ -480,6 +480,28 @@ const sourceClientArgument = {
   parent_argument: "source"
 } satisfies OperationArgumentMetadataInput;
 
+const sourceIdentityArguments = {
+  source_client: sourceClientArgument,
+  source_session_id: {
+    type: "string",
+    required: false,
+    mcp: { argument: "source", path: "source.session_id" },
+    parent_argument: "source"
+  },
+  source_model: {
+    type: "string",
+    required: false,
+    mcp: { argument: "source", path: "source.model" },
+    parent_argument: "source"
+  },
+  source_device_id: {
+    type: "string",
+    required: false,
+    mcp: { argument: "source", path: "source.device_id" },
+    parent_argument: "source"
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
 function operationRequiredFieldsByName(input: OperationContractInput): Record<string, OperationRequiredFieldMetadata> {
   return {
     ...requiredFieldsByName(input.required_fields, input.interfaces.mcp.arguments),
@@ -1156,12 +1178,7 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      source_client: {
-        type: "string",
-        required: false,
-        mcp: { argument: "source", path: "source.client" },
-        parent_argument: "source"
-      }
+      ...sourceIdentityArguments
     },
     required_fields_by_name: {
       kind: {
@@ -1236,7 +1253,7 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      source_client: sourceClientArgument
+      ...sourceIdentityArguments
     },
     interfaces: {
       cli: { command: "moryn revise <record_id> --set <path=value>", argv: ["revise", "<record_id>", "--set", "<path=value>"] },
@@ -1282,7 +1299,7 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      source_client: sourceClientArgument
+      ...sourceIdentityArguments
     },
     required_fields_by_name: {
       target_state: {
@@ -1324,7 +1341,7 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      source_client: sourceClientArgument
+      ...sourceIdentityArguments
     },
     interfaces: {
       cli: { command: "moryn archive <record_id>", argv: ["archive", "<record_id>"] },
@@ -1357,7 +1374,7 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      source_client: sourceClientArgument
+      ...sourceIdentityArguments
     },
     interfaces: {
       cli: { command: "moryn quarantine <record_id>", argv: ["quarantine", "<record_id>"] },
@@ -1396,7 +1413,7 @@ export const OPERATION_CONTRACTS = [
         required: false,
         mcp: { argument: "source" }
       },
-      source_client: sourceClientArgument
+      ...sourceIdentityArguments
     },
     interfaces: {
       cli: {

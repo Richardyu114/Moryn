@@ -144,9 +144,9 @@ const coreValidatedAgentSchema = z.object({
 });
 const coreValidatedSourceSchema = z.object({
   client: z.unknown().optional().default("mcp"),
-  session_id: nonEmptyStringSchema.optional(),
-  model: nonEmptyStringSchema.optional(),
-  device_id: nonEmptyStringSchema.optional()
+  session_id: z.unknown().optional(),
+  model: z.unknown().optional(),
+  device_id: z.unknown().optional()
 });
 
 async function resolveProjectInput(input: { project_id?: string; project_path?: string }): Promise<{ project_id?: string; tags: string[]; default_skills: string[] }> {

@@ -90,6 +90,9 @@ const WRITE_CONFIDENCE_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_na
 const WRITE_PRIORITY_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.priority";
 const WRITE_CONFIRMED_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.confirmed";
 const WRITE_SOURCE_CLIENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.source_client";
+const WRITE_SOURCE_SESSION_ID_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.source_session_id";
+const WRITE_SOURCE_MODEL_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.source_model";
+const WRITE_SOURCE_DEVICE_ID_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.source_device_id";
 const WRITE_PROVENANCE_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.provenance";
 const WRITE_PROVENANCE_DERIVED_FROM_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.derived_from";
 const WRITE_PROVENANCE_REASON_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.reason";
@@ -369,8 +372,37 @@ type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.$
 
 type MutationOperation = "revise" | "promote" | "archive" | "quarantine" | "link";
 type MutationOperationContractSource = `operations_by_id.${MutationOperation}`;
-type MutationArgumentName = "record_id" | "linked_record_id" | "reason" | "source.client" | "link_type" | "confirmed" | "target_state";
+type SourceIdentityField = "client" | "session_id" | "model" | "device_id";
+type SourceIdentityArgument = `source.${SourceIdentityField}`;
+type MutationArgumentName = "record_id" | "linked_record_id" | "reason" | SourceIdentityArgument | "link_type" | "confirmed" | "target_state";
 type MutationArgumentSource = `operations_by_id.${MutationOperation}.arguments_by_name.${string}`;
+
+const SOURCE_IDENTITY_FIELDS = {
+  client: {
+    argument: "source.client",
+    contractArgument: "source_client",
+    placeholder: "<client>"
+  },
+  session_id: {
+    argument: "source.session_id",
+    contractArgument: "source_session_id",
+    placeholder: "<source session id>"
+  },
+  model: {
+    argument: "source.model",
+    contractArgument: "source_model",
+    placeholder: "<source model>"
+  },
+  device_id: {
+    argument: "source.device_id",
+    contractArgument: "source_device_id",
+    placeholder: "<source device id>"
+  }
+} as const satisfies Record<SourceIdentityField, {
+  argument: SourceIdentityArgument;
+  contractArgument: string;
+  placeholder: string;
+}>;
 
 function textOf(record: MorynRecord): string {
   return displayRecordText(record);
@@ -397,10 +429,10 @@ function assertPlainObject(value: unknown, name: string): asserts value is Recor
 type MutationArgumentRecoveryHint =
   | {
       operation_contract: MutationOperationContractSource;
-      rejected_argument: { argument: "record_id" | "linked_record_id" | "reason" | "source.client" | "link_type"; value: unknown };
+      rejected_argument: { argument: "record_id" | "linked_record_id" | "reason" | SourceIdentityArgument | "link_type"; value: unknown };
       expected: { kind: "non_empty_string"; min_length: 1 };
       argument_sources: Partial<Record<MutationArgumentName, MutationArgumentSource>>;
-      retry_with: { argument: "record_id" | "linked_record_id" | "reason" | "source.client" | "link_type"; value_placeholder: string };
+      retry_with: { argument: "record_id" | "linked_record_id" | "reason" | SourceIdentityArgument | "link_type"; value_placeholder: string };
     }
   | {
       operation_contract: MutationOperationContractSource;
@@ -417,9 +449,9 @@ type MutationArgumentRecoveryHint =
       retry_with: { argument: "target_state"; value_placeholder: "canonical" };
     }
   | {
-      rejected_argument: { argument: "source.client"; value: unknown };
+      rejected_argument: { argument: SourceIdentityArgument; value: unknown };
       expected: { kind: "non_empty_string"; min_length: 1 };
-      retry_with: { argument: "source.client"; value_placeholder: "<client>" };
+      retry_with: { argument: SourceIdentityArgument; value_placeholder: string };
     };
 
 class MutationArgumentError extends Error {
@@ -439,7 +471,9 @@ function mutationOperationContractSource(operation: MutationOperation): Mutation
 }
 
 function mutationArgumentSource(operation: MutationOperation, argument: MutationArgumentName): MutationArgumentSource {
-  const argumentName = argument === "source.client" ? "source_client" : argument;
+  const argumentName = argument.startsWith("source.")
+    ? SOURCE_IDENTITY_FIELDS[argument.slice("source.".length) as SourceIdentityField].contractArgument
+    : argument;
   return `operations_by_id.${operation}.arguments_by_name.${argumentName}`;
 }
 
@@ -494,34 +528,47 @@ function invalidMutationTargetStateError(operation: MutationOperation, targetSta
   );
 }
 
-function invalidSourceClientError(operation: MutationOperation, source: unknown, recommendedAction: string): MutationArgumentError {
-  const client = typeof source === "object" && source !== null && "client" in source
-    ? (source as { client?: unknown }).client
+function sourceIdentityValue(source: unknown, field: SourceIdentityField): unknown {
+  return typeof source === "object" && source !== null && field in source
+    ? (source as Partial<Record<SourceIdentityField, unknown>>)[field]
     : undefined;
+}
+
+function invalidSourceIdentityError(
+  operation: MutationOperation,
+  source: unknown,
+  field: SourceIdentityField,
+  recommendedAction: string
+): MutationArgumentError {
+  const metadata = SOURCE_IDENTITY_FIELDS[field];
+  const action = field === "client" ? recommendedAction : "retry mutation with valid source metadata";
   return new MutationArgumentError(
-    "Invalid argument: Invalid source.client",
-    recommendedAction,
+    `Invalid argument: Invalid ${metadata.argument}`,
+    action,
     {
       operation_contract: mutationOperationContractSource(operation),
-      rejected_argument: { argument: "source.client", value: client },
+      rejected_argument: { argument: metadata.argument, value: sourceIdentityValue(source, field) },
       expected: { kind: "non_empty_string", min_length: 1 },
-      argument_sources: { "source.client": mutationArgumentSource(operation, "source.client") },
-      retry_with: { argument: "source.client", value_placeholder: "<client>" }
+      argument_sources: { [metadata.argument]: mutationArgumentSource(operation, metadata.argument) },
+      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
     }
   );
 }
 
-function invalidGenericSourceClientError(source: unknown, recommendedAction: string): MutationArgumentError {
-  const client = typeof source === "object" && source !== null && "client" in source
-    ? (source as { client?: unknown }).client
-    : undefined;
+function invalidGenericSourceIdentityError(
+  source: unknown,
+  field: SourceIdentityField,
+  recommendedAction: string
+): MutationArgumentError {
+  const metadata = SOURCE_IDENTITY_FIELDS[field];
+  const action = field === "client" ? recommendedAction : "retry with valid source metadata";
   return new MutationArgumentError(
-    "Invalid argument: Invalid source.client",
-    recommendedAction,
+    `Invalid argument: Invalid ${metadata.argument}`,
+    action,
     {
-      rejected_argument: { argument: "source.client", value: client },
+      rejected_argument: { argument: metadata.argument, value: sourceIdentityValue(source, field) },
       expected: { kind: "non_empty_string", min_length: 1 },
-      retry_with: { argument: "source.client", value_placeholder: "<client>" }
+      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
     }
   );
 }
@@ -664,11 +711,28 @@ function validateOptionalSource(
   operation?: MutationOperation,
   recommendedAction = "retry with a valid source client"
 ): void {
-  if (source !== undefined && !recordSourceSchema.safeParse(source).success) {
+  if (source === undefined) return;
+  if (typeof source !== "object" || source === null || Array.isArray(source)) {
     if (operation === undefined) {
-      throw invalidGenericSourceClientError(source, recommendedAction);
+      throw invalidGenericSourceIdentityError(source, "client", recommendedAction);
     }
-    throw invalidSourceClientError(operation, source, recommendedAction);
+    throw invalidSourceIdentityError(operation, source, "client", recommendedAction);
+  }
+  const rawSource = source as Partial<Record<SourceIdentityField, unknown>>;
+  for (const field of Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[]) {
+    const value = rawSource[field];
+    if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
+      if (operation === undefined) {
+        throw invalidGenericSourceIdentityError(source, field, recommendedAction);
+      }
+      throw invalidSourceIdentityError(operation, source, field, recommendedAction);
+    }
+  }
+  if (rawSource.client === undefined) {
+    if (operation === undefined) {
+      throw invalidGenericSourceIdentityError(source, "client", recommendedAction);
+    }
+    throw invalidSourceIdentityError(operation, source, "client", recommendedAction);
   }
 }
 
@@ -893,31 +957,51 @@ class WriteTagsError extends Error {
   }
 }
 
+type WriteSourceArgumentSource =
+  | typeof WRITE_SOURCE_CLIENT_ARGUMENT_SOURCE
+  | typeof WRITE_SOURCE_SESSION_ID_ARGUMENT_SOURCE
+  | typeof WRITE_SOURCE_MODEL_ARGUMENT_SOURCE
+  | typeof WRITE_SOURCE_DEVICE_ID_ARGUMENT_SOURCE;
+
 type WriteSourceRecoveryHint = {
   operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
-  rejected_argument: { argument: "source.client"; value: unknown };
+  rejected_argument: { argument: SourceIdentityArgument; value: unknown };
   expected: { kind: "non_empty_string"; min_length: 1 };
-  argument_sources: { "source.client": typeof WRITE_SOURCE_CLIENT_ARGUMENT_SOURCE };
-  retry_with: { argument: "source.client"; value_placeholder: "<client>" };
+  argument_sources: Partial<Record<SourceIdentityArgument, WriteSourceArgumentSource>>;
+  retry_with: { argument: SourceIdentityArgument; value_placeholder: string };
 };
 
 class WriteSourceError extends Error {
-  readonly recommended_action = "retry write with a valid source client";
+  readonly recommended_action: string;
   readonly recovery_hint: WriteSourceRecoveryHint;
 
-  constructor(source: unknown) {
-    super("Invalid argument: Invalid source.client");
+  constructor(source: unknown, field: SourceIdentityField) {
+    const metadata = SOURCE_IDENTITY_FIELDS[field];
+    super(`Invalid argument: Invalid ${metadata.argument}`);
     this.name = "WriteSourceError";
-    const client = typeof source === "object" && source !== null && "client" in source
-      ? (source as { client?: unknown }).client
-      : undefined;
+    this.recommended_action = field === "client"
+      ? "retry write with a valid source client"
+      : "retry write with valid source metadata";
     this.recovery_hint = {
       operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
-      rejected_argument: { argument: "source.client", value: client },
+      rejected_argument: { argument: metadata.argument, value: sourceIdentityValue(source, field) },
       expected: { kind: "non_empty_string", min_length: 1 },
-      argument_sources: { "source.client": WRITE_SOURCE_CLIENT_ARGUMENT_SOURCE },
-      retry_with: { argument: "source.client", value_placeholder: "<client>" }
+      argument_sources: { [metadata.argument]: writeSourceArgumentSource(field) },
+      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
     };
+  }
+}
+
+function writeSourceArgumentSource(field: SourceIdentityField): WriteSourceArgumentSource {
+  switch (field) {
+    case "client":
+      return WRITE_SOURCE_CLIENT_ARGUMENT_SOURCE;
+    case "session_id":
+      return WRITE_SOURCE_SESSION_ID_ARGUMENT_SOURCE;
+    case "model":
+      return WRITE_SOURCE_MODEL_ARGUMENT_SOURCE;
+    case "device_id":
+      return WRITE_SOURCE_DEVICE_ID_ARGUMENT_SOURCE;
   }
 }
 
@@ -1176,7 +1260,16 @@ function validateWriteInput(input: WriteInput): void {
     throw invalidWriteConfidenceError(input.confidence);
   }
   if (input.priority !== undefined && !recordPrioritySchema.safeParse(input.priority).success) throw invalidWritePriorityError(input.priority);
-  if (!recordSourceSchema.safeParse(input.source).success) throw new WriteSourceError(input.source);
+  try {
+    validateOptionalSource(input.source);
+  } catch (error) {
+    if (error instanceof MutationArgumentError) {
+      const argument = error.recovery_hint.rejected_argument.argument;
+      const field = argument.slice("source.".length) as SourceIdentityField;
+      throw new WriteSourceError(input.source, field);
+    }
+    throw error;
+  }
   if (input.confirmed !== undefined && typeof input.confirmed !== "boolean") throw invalidWriteConfirmedError(input.confirmed);
   if (input.provenance !== undefined) {
     if (typeof input.provenance !== "object" || input.provenance === null || Array.isArray(input.provenance)) {

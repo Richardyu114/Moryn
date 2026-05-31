@@ -775,9 +775,11 @@ can inspect the exact operation contract before retrying. Missing positional
 arguments for mutation record ids, linked record ids, and `sync init <remote>`
 also return operation and argument sources instead of generic command-argument
 advice. Empty CLI strings for write text/tags/provenance, refresh cursors, sync
-messages, lifecycle project/task/sync/agent/status/summary inputs, MCP agent
-lifecycle identity metadata (`agent.client`, `agent.session_id`, `agent.model`,
-and `agent.device_id`), and `project list` task/sync/agent prefill inputs, plus
+messages, lifecycle project/task/sync/agent/status/summary inputs, MCP source
+and agent identity metadata (`source.client`, `source.session_id`,
+`source.model`, `source.device_id`, `agent.client`, `agent.session_id`,
+`agent.model`, and `agent.device_id`), and `project list` task/sync/agent
+prefill inputs, plus
 malformed `revise --set` assignments, use the same source-backed recovery
 channel.
 Explicit empty agent prefill fields such as `project list --agent ""` are

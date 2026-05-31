@@ -383,6 +383,10 @@ Deliverables:
   validation and return structured recovery hints pointing at `agent_client`,
   `agent_session_id`, `agent_model`, or `agent_device_id` operation contract
   arguments.
+- Done: MCP write and mutation `source.session_id`, `source.model`, and
+  `source.device_id` failures now pass through core validation and return
+  structured recovery hints pointing at `source_session_id`, `source_model`, or
+  `source_device_id` operation contract arguments.
 - Done: CLI sync parser failures for conflicting `--status`/`--push`/`--pull`
   flags now return operation contracts for each selectable sync operation, and
   `--message` without `--push` points at

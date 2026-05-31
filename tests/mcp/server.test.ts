@@ -1318,6 +1318,27 @@ describe("MCP stdio server", () => {
               required: false,
               mcp: { argument: "source", path: "source.client" },
               parent_argument: "source"
+            },
+            source_session_id: {
+              name: "source_session_id",
+              type: "string",
+              required: false,
+              mcp: { argument: "source", path: "source.session_id" },
+              parent_argument: "source"
+            },
+            source_model: {
+              name: "source_model",
+              type: "string",
+              required: false,
+              mcp: { argument: "source", path: "source.model" },
+              parent_argument: "source"
+            },
+            source_device_id: {
+              name: "source_device_id",
+              type: "string",
+              required: false,
+              mcp: { argument: "source", path: "source.device_id" },
+              parent_argument: "source"
             }
           },
           required_fields_by_name: {
@@ -1525,6 +1546,27 @@ describe("MCP stdio server", () => {
             type: "string",
             required: false,
             mcp: { argument: "source", path: "source.client" },
+            parent_argument: "source"
+          });
+          expect(parsed.operations_by_id[operation].arguments_by_name.source_session_id).toMatchObject({
+            name: "source_session_id",
+            type: "string",
+            required: false,
+            mcp: { argument: "source", path: "source.session_id" },
+            parent_argument: "source"
+          });
+          expect(parsed.operations_by_id[operation].arguments_by_name.source_model).toMatchObject({
+            name: "source_model",
+            type: "string",
+            required: false,
+            mcp: { argument: "source", path: "source.model" },
+            parent_argument: "source"
+          });
+          expect(parsed.operations_by_id[operation].arguments_by_name.source_device_id).toMatchObject({
+            name: "source_device_id",
+            type: "string",
+            required: false,
+            mcp: { argument: "source", path: "source.device_id" },
             parent_argument: "source"
           });
         }
@@ -6681,6 +6723,36 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "source.client", value_placeholder: "<client>" }
         });
+        for (const { field, argumentName, placeholder } of [
+          { field: "session_id", argumentName: "source_session_id", placeholder: "<source session id>" },
+          { field: "model", argumentName: "source_model", placeholder: "<source model>" },
+          { field: "device_id", argumentName: "source_device_id", placeholder: "<source device id>" }
+        ]) {
+          const invalidSourceField = parseTextContent(await client.callTool({
+            name: "write",
+            arguments: {
+              kind: "memory",
+              type: "decision",
+              scope: "project",
+              project_id: "moryn",
+              text: "Invalid source metadata should return structured recovery.",
+              source: { client: "mcp-test", [field]: "" }
+            }
+          })) as McpInvalidArgument;
+          expect(invalidSourceField.ok).toBe(false);
+          expect(invalidSourceField.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidSourceField.error.message).toContain(`Invalid source.${field}`);
+          expect(invalidSourceField.error.recommended_action).toBe("retry write with valid source metadata");
+          expect(invalidSourceField.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.write",
+            rejected_argument: { argument: `source.${field}`, value: "" },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              [`source.${field}`]: `operations_by_id.write.arguments_by_name.${argumentName}`
+            },
+            retry_with: { argument: `source.${field}`, value_placeholder: placeholder }
+          });
+        }
 
         const sourceTarget = parseTextContent(await client.callTool({
           name: "write",
@@ -6714,6 +6786,33 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "source.client", value_placeholder: "<client>" }
         });
+        for (const { field, argumentName, placeholder } of [
+          { field: "session_id", argumentName: "source_session_id", placeholder: "<source session id>" },
+          { field: "model", argumentName: "source_model", placeholder: "<source model>" },
+          { field: "device_id", argumentName: "source_device_id", placeholder: "<source device id>" }
+        ]) {
+          const invalidMutationSourceField = parseTextContent(await client.callTool({
+            name: "revise",
+            arguments: {
+              record_id: sourceTarget.record.id,
+              patch: { "content.text": "Updated target." },
+              source: { client: "mcp-test", [field]: "" }
+            }
+          })) as McpInvalidArgument;
+          expect(invalidMutationSourceField.ok).toBe(false);
+          expect(invalidMutationSourceField.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidMutationSourceField.error.message).toContain(`Invalid source.${field}`);
+          expect(invalidMutationSourceField.error.recommended_action).toBe("retry mutation with valid source metadata");
+          expect(invalidMutationSourceField.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.revise",
+            rejected_argument: { argument: `source.${field}`, value: "" },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              [`source.${field}`]: `operations_by_id.revise.arguments_by_name.${argumentName}`
+            },
+            retry_with: { argument: `source.${field}`, value_placeholder: placeholder }
+          });
+        }
 
         const invalidProvenanceMethod = parseTextContent(await client.callTool({
           name: "write",
