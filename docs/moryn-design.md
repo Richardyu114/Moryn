@@ -753,7 +753,9 @@ read and lifecycle startup commands, plus enum options such as `--kind`,
 `--scope`, `--state`, `--priority`, and `--sync-mode`, write `--confidence`
 range failures, and missing write `--kind`/`--type`/`--scope` options also carry
 the matching operation contract and `arguments_by_name.<argument>` source before
-the core engine runs.
+the core engine runs. Empty CLI strings for write text/tags/provenance, refresh
+cursors, and sync messages, plus malformed `revise --set` assignments, use the
+same source-backed recovery channel.
 At the CLI boundary, known `argument` fields inside `error.recovery_hint` are
 recursively translated to command-line `option` fields such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`; MCP and package callers keep

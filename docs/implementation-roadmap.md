@@ -356,6 +356,10 @@ Deliverables:
   `--kind`/`--type`/`--scope` parser failures now point agents at
   `operations_by_id.write.arguments_by_name.<argument>` before write validation
   runs.
+- Done: CLI non-empty string failures for write text/tags/provenance, refresh
+  cursors, and sync push messages, plus malformed `revise --set` assignments,
+  now expose operation contract and argument source hints before lower-level
+  validation runs.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

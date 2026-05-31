@@ -3254,29 +3254,39 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
-      for (const { args, message, option } of [
+      for (const { args, operation, argument, message, option } of [
         {
           args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", ""],
+          operation: "write",
+          argument: "text",
           message: "Invalid --text",
           option: "--text"
         },
         {
           args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", "Valid text", "--tag", ""],
+          operation: "write",
+          argument: "tags",
           message: "Invalid --tag",
           option: "--tag"
         },
         {
           args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "moryn", "--text", "Valid text", "--derived-from", ""],
+          operation: "write",
+          argument: "derived_from",
           message: "Invalid --derived-from",
           option: "--derived-from"
         },
         {
           args: ["refresh", "--project-id", "moryn", "--cursor", ""],
+          operation: "refresh",
+          argument: "cursor",
           message: "Invalid --cursor",
           option: "--cursor"
         },
         {
           args: ["sync", "--push", "--message", ""],
+          operation: "sync_push",
+          argument: "message",
           message: "Invalid --message",
           option: "--message"
         }
@@ -3293,8 +3303,10 @@ describe("moryn CLI", () => {
               message: string;
               recommended_action: string;
               recovery_hint: {
+                operation_contract: string;
                 rejected_argument: { option: string; value: string };
                 expected: { kind: string; min_length: number };
+                argument_sources: Record<string, string>;
                 retry_with: { option: string; value_placeholder: string };
               };
             };
@@ -3304,8 +3316,12 @@ describe("moryn CLI", () => {
           expect(parsed.error.message).toContain(message);
           expect(parsed.error.recommended_action).toBe(`retry with a non-empty ${option} value`);
           expect(parsed.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
             rejected_argument: { option, value: "" },
             expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
+            },
             retry_with: { option, value_placeholder: `<non-empty ${option.slice(2)}>` }
           });
         }
@@ -3520,8 +3536,10 @@ describe("moryn CLI", () => {
               recoverable: boolean;
               recommended_action: string;
               recovery_hint: {
+                operation_contract: string;
                 rejected_argument: { option: string; value: string };
                 expected: { kind: string; key_path: string; separator: string; value: string };
+                argument_sources: Record<string, string>;
                 retry_with: { option: string; value_placeholder: string };
               };
             };
@@ -3532,12 +3550,16 @@ describe("moryn CLI", () => {
           expect(parsed.error.recoverable).toBe(true);
           expect(parsed.error.recommended_action).toBe("retry with a valid --set path assignment");
           expect(parsed.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.revise",
             rejected_argument: { option: "--set", value: assignment },
             expected: {
               kind: "path_assignment",
               key_path: "dot-separated patch path",
               separator: "=",
               value: "JSON scalar/object/array or string"
+            },
+            argument_sources: {
+              patch: "operations_by_id.revise.arguments_by_name.patch"
             },
             retry_with: { option: "--set", value_placeholder: "<path>=<json-or-string>" }
           });

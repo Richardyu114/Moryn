@@ -70,6 +70,12 @@ type CliWriteSource = {
   operation: "write";
   argument: string;
 };
+type CliParserOperation = "write" | "refresh" | "sync_push" | "revise";
+type CliParserArgumentSource = `operations_by_id.${CliParserOperation}.arguments_by_name.${string}`;
+type CliParserSource = {
+  operation: CliParserOperation;
+  argument: string;
+};
 
 type CliArgumentRecoveryHint =
   | {
@@ -121,6 +127,13 @@ type CliArgumentRecoveryHint =
       retry_with: { option: string; value_placeholder: string };
     }
   | {
+      operation_contract: `operations_by_id.${CliParserOperation}`;
+      rejected_argument: { option: string; value: string };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: Record<string, CliParserArgumentSource>;
+      retry_with: { option: string; value_placeholder: string };
+    }
+  | {
       rejected_argument: { option: string; value: string };
       expected: { kind: "non_empty_string"; min_length: 1 };
       retry_with: { option: string; value_placeholder: string };
@@ -161,6 +174,18 @@ type CliArgumentRecoveryHint =
       rejected_argument: { option: "--message"; value: string };
       expected: { kind: "requires_option"; option: "--message"; requires: "--push" };
       retry_with: { required_option: "--push"; option: "--message"; value_placeholder: "<message>" };
+    }
+  | {
+      operation_contract: "operations_by_id.revise";
+      rejected_argument: { option: "--set"; value: string };
+      expected: {
+        kind: "path_assignment";
+        key_path: "dot-separated patch path";
+        separator: "=";
+        value: "JSON scalar/object/array or string";
+      };
+      argument_sources: { patch: "operations_by_id.revise.arguments_by_name.patch" };
+      retry_with: { option: "--set"; value_placeholder: "<path>=<json-or-string>" };
     }
   | {
       rejected_argument: { option: "--set"; value: string };
@@ -289,13 +314,26 @@ function requiredCliOptionError(option: string, placeholder: string, message?: s
   );
 }
 
-function nonEmptyCliArgumentError(option: string): CliArgumentError {
+function cliParserArgumentSource(option: string): CliParserSource | undefined {
+  if (option === "--text") return { operation: "write", argument: "text" };
+  if (option === "--tag") return { operation: "write", argument: "tags" };
+  if (option === "--derived-from") return { operation: "write", argument: "derived_from" };
+  if (option === "--cursor") return { operation: "refresh", argument: "cursor" };
+  if (option === "--message") return { operation: "sync_push", argument: "message" };
+  return undefined;
+}
+
+function nonEmptyCliArgumentError(option: string, source = cliParserArgumentSource(option)): CliArgumentError {
   return new CliArgumentError(
     `Invalid argument: Invalid ${option}; must not be empty`,
     `retry with a non-empty ${option} value`,
     {
+      ...(source !== undefined ? { operation_contract: `operations_by_id.${source.operation}` as const } : {}),
       rejected_argument: { option, value: "" },
       expected: { kind: "non_empty_string", min_length: 1 },
+      ...(source !== undefined
+        ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
+        : {}),
       retry_with: { option, value_placeholder: `<non-empty ${option.replace(/^--/, "")}>` }
     }
   );
@@ -347,12 +385,16 @@ function setAssignmentCliArgumentError(assignment: string): CliArgumentError {
     `Invalid argument: Invalid --set assignment: ${assignment}`,
     "retry with a valid --set path assignment",
     {
+      operation_contract: "operations_by_id.revise",
       rejected_argument: { option: "--set", value: assignment },
       expected: {
         kind: "path_assignment",
         key_path: "dot-separated patch path",
         separator: "=",
         value: "JSON scalar/object/array or string"
+      },
+      argument_sources: {
+        patch: "operations_by_id.revise.arguments_by_name.patch"
       },
       retry_with: { option: "--set", value_placeholder: "<path>=<json-or-string>" }
     }
