@@ -557,6 +557,13 @@ function appendCommandOption(parts: string[], option: string, value: string | nu
   parts.push(option, shellQuote(String(value)));
 }
 
+function appendCommandOptionValue(parts: string[], option: string, value: unknown): void {
+  if (value === undefined) return;
+  if (typeof value === "string" || typeof value === "number") {
+    appendCommandOption(parts, option, value);
+  }
+}
+
 function appendRepeatedCommandOption(parts: string[], option: string, values: string[] | undefined): void {
   for (const value of values ?? []) {
     appendCommandOption(parts, option, value);
@@ -964,7 +971,7 @@ export function commandForRecallContext(input: {
   states?: string[];
   tags?: string[];
   files?: string[];
-  limit?: number;
+  limit?: unknown;
 }): string {
   const parts = ["moryn", "recall"];
   if (input.query !== undefined) {
@@ -979,7 +986,7 @@ export function commandForRecallContext(input: {
   appendRepeatedCommandOption(parts, "--state", input.states);
   appendRepeatedCommandOption(parts, "--tag", input.tags);
   appendRepeatedCommandOption(parts, "--file", input.files);
-  appendCommandOption(parts, "--limit", input.limit);
+  appendCommandOptionValue(parts, "--limit", input.limit);
   return parts.join(" ");
 }
 
@@ -988,14 +995,14 @@ export function commandForRefreshContext(input: {
   project_path?: string;
   cursor?: string;
   current_task?: string;
-  limit?: number;
+  limit?: unknown;
 }): string {
   const parts = ["moryn", "refresh"];
   appendCommandOption(parts, "--project-id", input.project_id);
   appendCommandOption(parts, "--project", input.project_path);
   appendCommandOption(parts, "--cursor", input.cursor);
   appendCommandOption(parts, "--current-task", input.current_task);
-  appendCommandOption(parts, "--limit", input.limit);
+  appendCommandOptionValue(parts, "--limit", input.limit);
   return parts.join(" ");
 }
 
@@ -1032,7 +1039,7 @@ type AgentStartContextInput = {
   sync_remote?: string;
   current_task?: string;
   refresh_since?: string;
-  limit?: number;
+  limit?: unknown;
   pull?: boolean;
   agent?: {
     client?: string;
@@ -1049,7 +1056,7 @@ function commandForAgentSessionContext(command: "enter" | "start", input: AgentS
   appendCommandOption(parts, "--sync-remote", input.sync_remote);
   appendCommandOption(parts, "--current-task", input.current_task);
   appendCommandOption(parts, "--refresh-since", input.refresh_since);
-  appendCommandOption(parts, "--limit", input.limit);
+  appendCommandOptionValue(parts, "--limit", input.limit);
   if (input.pull === false) parts.push("--no-pull");
   appendCommandOption(parts, "--agent", input.agent?.client);
   appendCommandOption(parts, "--session-id", input.agent?.session_id);

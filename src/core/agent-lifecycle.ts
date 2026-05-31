@@ -30,7 +30,7 @@ interface AgentLifecycleInput {
 export interface AgentStartInput extends AgentLifecycleInput {
   pull?: boolean;
   refreshSince?: string;
-  limit?: number;
+  limit?: unknown;
 }
 
 export interface AgentFinishInput extends AgentLifecycleInput {

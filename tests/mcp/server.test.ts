@@ -7281,6 +7281,48 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "limit", value_placeholder: 10 }
         });
+
+        const invalidStringLimit = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            project_id: "moryn",
+            limit: "ten"
+          }
+        })) as typeof invalidLimit;
+        expect(invalidStringLimit.ok).toBe(false);
+        expect(invalidStringLimit.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidStringLimit.error.message).toContain("Invalid limit");
+        expect(invalidStringLimit.error.recommended_action).toBe("retry read with a limit between 1 and 100");
+        expect(invalidStringLimit.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "limit", value: "ten" },
+          expected: { kind: "integer_range", min: 1, max: 100, integer: true },
+          argument_sources: {
+            limit: "operations_by_id.recall.arguments_by_name.limit"
+          },
+          retry_with: { argument: "limit", value_placeholder: 10 }
+        });
+
+        const invalidLifecycleLimit = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            project_id: "moryn",
+            limit: "ten"
+          }
+        })) as typeof invalidLimit;
+        expect(invalidLifecycleLimit.ok).toBe(false);
+        expect(invalidLifecycleLimit.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidLifecycleLimit.error.message).toContain("Invalid limit");
+        expect(invalidLifecycleLimit.error.recommended_action).toBe("retry read with a limit between 1 and 100");
+        expect(invalidLifecycleLimit.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.refresh",
+          rejected_argument: { argument: "limit", value: "ten" },
+          expected: { kind: "integer_range", min: 1, max: 100, integer: true },
+          argument_sources: {
+            limit: "operations_by_id.refresh.arguments_by_name.limit"
+          },
+          retry_with: { argument: "limit", value_placeholder: 10 }
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });

@@ -48,6 +48,7 @@ const recordPrioritySchema = z.union([z.enum(RECORD_PRIORITIES), stringSchema]);
 const syncModeSchema = z.union([z.enum(SYNC_MODES), stringSchema]);
 const provenanceMethodSchema = z.union([z.enum(["agent-proposed", "rule-promoted", "user-confirmed"]), stringSchema]);
 const numberSchema = z.number();
+const coreValidatedNumberSchema = z.unknown();
 const coreValidatedBooleanSchema = z.unknown();
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
   { argument: "text", value_placeholder: "<text>" },
@@ -239,7 +240,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "List Moryn Projects",
       description: "Discover known project ids and recent project activity from the Moryn store.",
       inputSchema: {
-        limit: numberSchema.optional(),
+        limit: coreValidatedNumberSchema.optional(),
         current_task: stringSchema.optional(),
         sync_remote: stringSchema.optional(),
         agent: coreValidatedAgentSchema.optional()
@@ -375,7 +376,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         states: z.array(recordStateSchema).optional(),
         tags: z.array(stringSchema).optional(),
         files: z.array(stringSchema).optional(),
-        limit: numberSchema.optional()
+        limit: coreValidatedNumberSchema.optional()
       }
     },
     async ({ record_ids, query, project_id, project_path, kinds, scopes, types, states, tags, files, limit }) => toolResult(async () => {
@@ -640,7 +641,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_path: stringSchema.optional(),
         cursor: stringSchema.optional(),
         current_task: stringSchema.optional(),
-        limit: numberSchema.optional()
+        limit: coreValidatedNumberSchema.optional()
       }
     },
     async ({ project_id, project_path, cursor, current_task, limit }) => toolResult(async () => {
@@ -691,7 +692,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: stringSchema.optional(),
         current_task: stringSchema.optional(),
         refresh_since: stringSchema.optional(),
-        limit: numberSchema.optional(),
+        limit: coreValidatedNumberSchema.optional(),
         pull: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional()
       }
@@ -764,7 +765,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: stringSchema.optional(),
         current_task: stringSchema.optional(),
         refresh_since: stringSchema.optional(),
-        limit: numberSchema.optional(),
+        limit: coreValidatedNumberSchema.optional(),
         pull: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional()
       }
@@ -950,7 +951,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "List Recent Moryn Records",
       description: "Return recently updated records.",
       inputSchema: {
-        limit: numberSchema.optional()
+        limit: coreValidatedNumberSchema.optional()
       }
     },
     async ({ limit }) => toolResult(async () => engine.listRecent(limit))

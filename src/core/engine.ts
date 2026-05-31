@@ -50,14 +50,14 @@ interface RecallInput {
   states?: RecordState[];
   tags?: string[];
   files?: string[];
-  limit?: number;
+  limit?: unknown;
 }
 
 interface RefreshInput {
   project_id?: string;
   cursor?: string;
   current_task?: string;
-  limit?: number;
+  limit?: unknown;
 }
 
 interface BootInput {
@@ -67,7 +67,7 @@ interface BootInput {
 }
 
 interface ListProjectsInput {
-  limit?: number;
+  limit?: unknown;
   current_task?: string;
   sync_remote?: string;
   agent?: RecordSource;
@@ -441,9 +441,9 @@ function searchableText(record: MorynRecord): string {
   return searchableRecordText(record);
 }
 
-function validateLimit(limit: number | undefined, fallback: number, operation: ReadOperation): number {
+function validateLimit(limit: unknown, fallback: number, operation: ReadOperation): number {
   const resolved = limit ?? fallback;
-  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
+  if (typeof resolved !== "number" || !Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
     throw invalidReadLimitError(operation, resolved);
   }
   return resolved;
@@ -2387,7 +2387,7 @@ export function createEngine(deps: EngineDeps) {
       };
     },
 
-    async listRecent(limit = 20) {
+    async listRecent(limit: unknown = 20) {
       const records = (await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20, "list_recent"));
       return {
         records,

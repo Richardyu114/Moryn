@@ -830,8 +830,10 @@ so agents can recover while looking up the registry itself. Lifecycle boolean
 failures for MCP `agent_enter`/`agent_start` `pull` and
 `agent_finish`/`agent_status` `push` also point at their
 `operations_by_id.<operation>.arguments_by_name.<argument>` contracts instead
-of stopping at host schema validation. CLI parser failures for `--limit` on read
-and lifecycle startup commands, plus enum
+of stopping at host schema validation. MCP `limit` failures for read and
+lifecycle startup tools likewise pass through core validation, including
+non-number values, and return the relevant `arguments_by_name.limit` source.
+CLI parser failures for `--limit` on read and lifecycle startup commands, plus enum
 options such as `--kind`, `--scope`, `--state`, `--priority`, and `--sync-mode`,
 write `--confidence` range failures, and missing write
 `--kind`/`--type`/`--scope` options expose the same operation contract and
