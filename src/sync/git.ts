@@ -86,6 +86,20 @@ type SyncArgumentRecoveryHint =
       retry_with: { argument: "storePath" | "remoteUrl" | "message"; value_placeholder: string };
     }
   | {
+      operation_contract: "operations_by_id.sync_init";
+      rejected_argument: { argument: "remote"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: { remote: "operations_by_id.sync_init.arguments_by_name.remote" };
+      retry_with: { argument: "remote"; value_placeholder: "<remote>" };
+    }
+  | {
+      operation_contract: "operations_by_id.sync_push";
+      rejected_argument: { argument: "message"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: { message: "operations_by_id.sync_push.arguments_by_name.message" };
+      retry_with: { argument: "message"; value_placeholder: "<message>" };
+    }
+  | {
       rejected_argument: { argument: "options"; value: unknown };
       expected: { kind: "object"; required: false };
       retry_with: { argument: "options"; value_placeholder: { message: "<message>" } };
@@ -104,6 +118,36 @@ class SyncArgumentError extends Error {
 }
 
 function invalidSyncStringError(name: "storePath" | "remoteUrl" | "message", value: unknown): SyncArgumentError {
+  if (name === "remoteUrl") {
+    return new SyncArgumentError(
+      "Invalid argument: Invalid remoteUrl",
+      "retry sync with a non-empty remoteUrl",
+      {
+        operation_contract: "operations_by_id.sync_init",
+        rejected_argument: { argument: "remote", value },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          remote: "operations_by_id.sync_init.arguments_by_name.remote"
+        },
+        retry_with: { argument: "remote", value_placeholder: "<remote>" }
+      }
+    );
+  }
+  if (name === "message") {
+    return new SyncArgumentError(
+      "Invalid argument: Invalid message",
+      "retry sync with a non-empty message",
+      {
+        operation_contract: "operations_by_id.sync_push",
+        rejected_argument: { argument: "message", value },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          message: "operations_by_id.sync_push.arguments_by_name.message"
+        },
+        retry_with: { argument: "message", value_placeholder: "<message>" }
+      }
+    );
+  }
   return new SyncArgumentError(
     `Invalid argument: Invalid ${name}`,
     `retry sync with a non-empty ${name}`,

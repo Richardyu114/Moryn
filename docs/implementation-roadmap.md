@@ -517,6 +517,11 @@ Deliverables:
   flags now return operation contracts for each selectable sync operation, and
   `--message` without `--push` points at
   `operations_by_id.sync_push.arguments_by_name.message`.
+- Done: MCP `sync_init.remote` and `sync_push.message` shape failures now pass
+  through sync validation, including numeric values, and expose
+  `operations_by_id.sync_init.arguments_by_name.remote` or
+  `operations_by_id.sync_push.arguments_by_name.message` instead of host-side
+  schema text.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

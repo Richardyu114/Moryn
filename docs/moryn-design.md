@@ -852,6 +852,11 @@ rejected instead of being ignored. Conflicting `moryn sync` operation flags
 include `operation_contracts` for `sync_status`, `sync_push`, and `sync_pull`,
 and `--message` without `--push` points at
 `operations_by_id.sync_push.arguments_by_name.message`.
+MCP `sync_init.remote` and `sync_push.message` shape failures also pass through
+sync validation, including numeric values, and point at
+`operations_by_id.sync_init.arguments_by_name.remote` or
+`operations_by_id.sync_push.arguments_by_name.message` instead of host-side
+schema text.
 At the CLI boundary, known `argument` fields inside `error.recovery_hint` are
 recursively translated to command-line `option` fields such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`; MCP and package callers keep

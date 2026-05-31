@@ -916,10 +916,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Initialize Moryn Git Sync",
       description: "Initialize or connect the local Moryn store to a Git remote.",
       inputSchema: {
-        remote: stringSchema
+        remote: coreValidatedStringSchema
       }
     },
-    async ({ remote }) => toolResult(async () => initializeGitSync(options.storePath, remote))
+    async ({ remote }) => toolResult(async () => initializeGitSync(options.storePath, remote as string))
   );
 
   server.registerTool(
@@ -948,10 +948,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Push Moryn Git Sync",
       description: "Commit and push local event history from the Moryn store.",
       inputSchema: {
-        message: stringSchema.optional()
+        message: coreValidatedStringSchema.optional()
       }
     },
-    async ({ message }) => toolResult(async () => pushGitSync(options.storePath, { message }))
+    async ({ message }) => toolResult(async () => pushGitSync(options.storePath, { message: message as string | undefined }))
   );
 
   server.registerTool(

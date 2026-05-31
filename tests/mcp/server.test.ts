@@ -7920,6 +7920,42 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "link_type", value_placeholder: "<link_type>" }
         });
+
+        const invalidSyncRemoteShape = parseTextContent(await client.callTool({
+          name: "sync_init",
+          arguments: { remote: 123 }
+        })) as McpInvalidArgument;
+        expect(invalidSyncRemoteShape.ok).toBe(false);
+        expect(invalidSyncRemoteShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidSyncRemoteShape.error.message).toContain("Invalid remoteUrl");
+        expect(invalidSyncRemoteShape.error.recommended_action).toBe("retry sync with a non-empty remoteUrl");
+        expect(invalidSyncRemoteShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.sync_init",
+          rejected_argument: { argument: "remote", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            remote: "operations_by_id.sync_init.arguments_by_name.remote"
+          },
+          retry_with: { argument: "remote", value_placeholder: "<remote>" }
+        });
+
+        const invalidSyncMessageShape = parseTextContent(await client.callTool({
+          name: "sync_push",
+          arguments: { message: 123 }
+        })) as McpInvalidArgument;
+        expect(invalidSyncMessageShape.ok).toBe(false);
+        expect(invalidSyncMessageShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidSyncMessageShape.error.message).toContain("Invalid message");
+        expect(invalidSyncMessageShape.error.recommended_action).toBe("retry sync with a non-empty message");
+        expect(invalidSyncMessageShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.sync_push",
+          rejected_argument: { argument: "message", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            message: "operations_by_id.sync_push.arguments_by_name.message"
+          },
+          retry_with: { argument: "message", value_placeholder: "<message>" }
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });

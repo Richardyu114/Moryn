@@ -107,9 +107,13 @@ describe("git sync adapter", () => {
         /Invalid remoteUrl/,
         "retry sync with a non-empty remoteUrl",
         {
-          rejected_argument: { argument: "remoteUrl", value: "" },
+          operation_contract: "operations_by_id.sync_init",
+          rejected_argument: { argument: "remote", value: "" },
           expected: { kind: "non_empty_string", min_length: 1 },
-          retry_with: { argument: "remoteUrl", value_placeholder: "<remoteUrl>" }
+          argument_sources: {
+            remote: "operations_by_id.sync_init.arguments_by_name.remote"
+          },
+          retry_with: { argument: "remote", value_placeholder: "<remote>" }
         }
       );
       await expectInvalidSyncArgument(
@@ -157,8 +161,12 @@ describe("git sync adapter", () => {
         /Invalid message/,
         "retry sync with a non-empty message",
         {
+          operation_contract: "operations_by_id.sync_push",
           rejected_argument: { argument: "message", value: "" },
           expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            message: "operations_by_id.sync_push.arguments_by_name.message"
+          },
           retry_with: { argument: "message", value_placeholder: "<message>" }
         }
       );
