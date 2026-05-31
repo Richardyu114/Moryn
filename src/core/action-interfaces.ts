@@ -82,8 +82,8 @@ function argumentValue(argumentsByName: Record<string, unknown>, argument: Opera
   if (!argument.mcp.path) return argumentsByName[argument.mcp.argument];
   const nestedValue = pathValue(argumentsByName, argument.mcp.path);
   if (nestedValue !== undefined) return nestedValue;
-  const flattenedValue = argumentsByName[argument.name];
-  return flattenedValue === undefined ? argumentsByName[argument.mcp.path] : flattenedValue;
+  const literalPathValue = argumentsByName[argument.mcp.path];
+  return literalPathValue === undefined ? argumentsByName[argument.name] : literalPathValue;
 }
 
 function shouldSkipNestedCliArgument(

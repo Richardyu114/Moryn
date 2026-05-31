@@ -764,6 +764,9 @@ Deliverables:
   such as `"content.text"`/`"content.format"` or `"source.client"` from
   recovery hints, normalizing them into executable CLI vectors and nested MCP
   arguments instead of leaking unsupported top-level keys.
+- Done: Generated action interfaces now apply stable duplicate-alias precedence
+  for nested MCP fields: nested object values beat literal MCP path keys, and
+  literal MCP path keys beat flattened contract fields.
 - Done: Direct MCP `write` calls now accept the same content/source/provenance
   aliases exposed by operation contracts, so hosts do not need to rebuild nested
   objects before retrying.

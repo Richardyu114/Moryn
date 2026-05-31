@@ -155,6 +155,28 @@ describe("action interfaces", () => {
     });
   });
 
+  it("prefers literal MCP path values over duplicate flattened fields", () => {
+    const interfaces = actionInterfaces({
+      tool: "agent_status",
+      command: "moryn agent status --status <status>",
+      arguments: {
+        status: "Working",
+        "agent.client": "codex",
+        agent_client: "other",
+        "agent.session_id": "literal session",
+        agent_session_id: "flat session"
+      }
+    });
+
+    expect(interfaces.mcp.arguments).toEqual({
+      status: "Working",
+      agent: {
+        client: "codex",
+        session_id: "literal session"
+      }
+    });
+  });
+
   it("does not duplicate nested CLI flags when parent and flattened fields are both present", () => {
     const interfaces = actionInterfaces({
       tool: "agent_status",
@@ -299,6 +321,34 @@ describe("action interfaces", () => {
       scope: "project",
       text: "Use explicit source metadata.",
       source: { client: "codex", session_id: "session 1" }
+    });
+  });
+
+  it("prefers literal MCP source path values over duplicate flattened source fields", () => {
+    const interfaces = actionInterfaces({
+      tool: "write",
+      command: "moryn write --kind memory --type decision --scope project --text <text>",
+      arguments: {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        text: "Use explicit source metadata.",
+        "source.client": "codex",
+        source_client: "other",
+        "source.session_id": "literal session",
+        source_session_id: "flat session"
+      }
+    });
+
+    expect(interfaces.mcp.arguments).toEqual({
+      kind: "memory",
+      type: "decision",
+      scope: "project",
+      text: "Use explicit source metadata.",
+      source: {
+        client: "codex",
+        session_id: "literal session"
+      }
     });
   });
 

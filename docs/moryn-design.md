@@ -482,7 +482,10 @@ fields and literal MCP path keys for nested MCP arguments, so hosts can pass
 `agent_client`, `agent_session_id`, `agent.client`, or `agent.session_id` and
 still get the same flags as an `agent` payload. MCP interface generation
 normalizes those aliases back into nested tool arguments, so the same collected
-value works for both transports. Direct MCP `project_list` and lifecycle tools
+value works for both transports. When duplicate values for the same nested
+field are present, generated action interfaces use the same stable precedence:
+nested object value, then literal MCP path key, then flattened contract field.
+Direct MCP `project_list` and lifecycle tools
 also expose and accept those agent identity aliases, so a host can call
 `agent_enter` with `agent_client` and `"agent.session_id"` instead of first
 reconstructing the nested `agent` object. Direct MCP mutation tools also expose
