@@ -379,6 +379,10 @@ Deliverables:
   skills/sync mode/repair now expose `operations_by_id.project_init` recovery
   hints and argument sources; MCP `path` failures pass through core validation
   instead of host-side schema text, and CLI renders the retry field as `--path`.
+- Done: `init` repair argument failures now expose `operations_by_id.init`
+  recovery hints and `arguments_by_name.repair`; MCP `repair` failures pass
+  through core validation instead of host-side schema text, preventing string
+  truthy values from repairing local store config.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty

@@ -820,10 +820,11 @@ Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 `project_list` likewise include the matching operation contract plus
 `argument_sources` for invalid filters, cursors, tasks, project ids, and limits,
 including RFC3339 refresh cursor failures. Project setup argument failures for
+`init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and
 `project_init` path/project id/tags/default skills/sync mode/repair inputs also
-point at `operations_by_id.project_init.arguments_by_name.<argument>`, including
-MCP `path` failures that would otherwise stop at host schema validation. CLI
-parser failures for `--limit` on read and lifecycle startup commands, plus enum
+point at `operations_by_id.project_init.arguments_by_name.<argument>`. That
+includes MCP setup failures that would otherwise stop at host schema validation.
+CLI parser failures for `--limit` on read and lifecycle startup commands, plus enum
 options such as `--kind`, `--scope`, `--state`, `--priority`, and `--sync-mode`,
 write `--confidence` range failures, and missing write
 `--kind`/`--type`/`--scope` options expose the same operation contract and

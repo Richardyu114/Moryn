@@ -376,6 +376,13 @@ describe("package smoke test", () => {
       mcp_tool: "<tool>",
       cli_command: "<command>"
     });
+    expect(response.operations_by_id.init.arguments_by_name.repair).toMatchObject({
+      name: "repair",
+      type: "boolean",
+      required: false,
+      cli: { flag: "--repair" },
+      mcp: { argument: "repair" }
+    });
     expect(response.operations_by_id.project_init.interfaces.cli.argv).toEqual(["project", "init", "--path", "<path>"]);
     expect(response.operations_by_id.project_init.interfaces.cli.placeholders).toEqual(["path"]);
     expect(response.operations_by_id.project_init.interfaces.cli.has_placeholders).toBe(true);

@@ -1071,6 +1071,13 @@ describe("MCP stdio server", () => {
 
         expect(parsed.recommended_entrypoint).toBe("agent_enter");
         expect(parsed.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
+        expect(parsed.operations_by_id.init.arguments_by_name.repair).toMatchObject({
+          name: "repair",
+          type: "boolean",
+          required: false,
+          cli: { flag: "--repair" },
+          mcp: { argument: "repair" }
+        });
         expect(parsed.operations_by_id.agent_enter).toMatchObject({
           operation: "agent_enter",
           category: "lifecycle",
@@ -7250,6 +7257,34 @@ describe("MCP stdio server", () => {
       await mkdir(projectPath, { recursive: true });
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const invalidInitRepair = parseTextContent(await client.callTool({
+          name: "init",
+          arguments: {
+            repair: "yes"
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(invalidInitRepair.ok).toBe(false);
+        expect(invalidInitRepair.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidInitRepair.error.message).toContain("Invalid repair");
+        expect(invalidInitRepair.error.recommended_action).toBe("retry init with a boolean repair value");
+        expect(invalidInitRepair.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.init",
+          rejected_argument: { argument: "repair", value: "yes" },
+          expected: { kind: "boolean" },
+          argument_sources: {
+            repair: "operations_by_id.init.arguments_by_name.repair"
+          },
+          retry_with: { argument: "repair", value_placeholder: true }
+        });
 
         const invalidConfirmed = parseTextContent(await client.callTool({
           name: "write",

@@ -196,10 +196,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Initialize Moryn Store",
       description: "Create or update the local Moryn store configuration and directories.",
       inputSchema: {
-        repair: z.boolean().optional()
+        repair: coreValidatedBooleanSchema.optional()
       }
     },
-    async ({ repair }) => toolResult(async () => ({ ok: true, ...await initializeStore(options.storePath, { repair }) }))
+    async ({ repair }) => toolResult(async () => ({ ok: true, ...await initializeStore(options.storePath, { repair: repair as boolean | undefined }) }))
   );
 
   server.registerTool(

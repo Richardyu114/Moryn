@@ -37,6 +37,33 @@ describe("store config", () => {
     });
   }
 
+  async function expectInvalidStoreRepair(action: () => Promise<unknown>, value: unknown): Promise<void> {
+    let caught: unknown;
+    try {
+      await action();
+    } catch (error) {
+      caught = error;
+    }
+
+    if (!caught) {
+      throw new Error("Expected invalid store repair");
+    }
+
+    const envelope = toErrorEnvelope(caught);
+    expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+    expect(envelope.error.message).toContain("Invalid repair");
+    expect(envelope.error.recommended_action).toBe("retry init with a boolean repair value");
+    expect(envelope.error.recovery_hint).toEqual({
+      operation_contract: "operations_by_id.init",
+      rejected_argument: { argument: "repair", value },
+      expected: { kind: "boolean" },
+      argument_sources: {
+        repair: "operations_by_id.init.arguments_by_name.repair"
+      },
+      retry_with: { argument: "repair", value_placeholder: true }
+    });
+  }
+
   it("initializes config and local store directories", async () => {
     await withTempStore(async (storePath) => {
       const result = await initializeStore(storePath, {
@@ -88,6 +115,14 @@ describe("store config", () => {
       await expectInvalidStorePath(() => readStoreConfig(123 as never), 123);
 
       await expect(access(sentinel)).rejects.toMatchObject({ code: "ENOENT" });
+    });
+  });
+
+  it("rejects invalid repair options before writing local store files", async () => {
+    await withTempStore(async (storePath) => {
+      await expectInvalidStoreRepair(() => initializeStore(storePath, { repair: "yes" as never }), "yes");
+
+      await expect(access(join(storePath, "config.json"))).rejects.toMatchObject({ code: "ENOENT" });
     });
   });
 

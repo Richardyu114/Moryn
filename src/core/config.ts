@@ -35,6 +35,9 @@ export interface InitializeStoreOptions {
   repair?: boolean;
 }
 
+const INIT_OPERATION_CONTRACT_SOURCE = "operations_by_id.init";
+const INIT_REPAIR_ARGUMENT_SOURCE = "operations_by_id.init.arguments_by_name.repair";
+
 function isNotFoundError(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
@@ -58,9 +61,40 @@ class StorePathArgumentError extends Error {
   }
 }
 
+class StoreRepairArgumentError extends Error {
+  readonly recommended_action = "retry init with a boolean repair value";
+  readonly recovery_hint: {
+    operation_contract: typeof INIT_OPERATION_CONTRACT_SOURCE;
+    rejected_argument: { argument: "repair"; value: unknown };
+    expected: { kind: "boolean" };
+    argument_sources: { repair: typeof INIT_REPAIR_ARGUMENT_SOURCE };
+    retry_with: { argument: "repair"; value_placeholder: true };
+  };
+
+  constructor(repair: unknown) {
+    super("Invalid argument: Invalid repair");
+    this.name = "StoreRepairArgumentError";
+    this.recovery_hint = {
+      operation_contract: INIT_OPERATION_CONTRACT_SOURCE,
+      rejected_argument: { argument: "repair", value: repair },
+      expected: { kind: "boolean" },
+      argument_sources: {
+        repair: INIT_REPAIR_ARGUMENT_SOURCE
+      },
+      retry_with: { argument: "repair", value_placeholder: true }
+    };
+  }
+}
+
 export function validateStorePath(storePath: unknown): asserts storePath is string {
   if (typeof storePath !== "string" || storePath.length === 0) {
     throw new StorePathArgumentError(storePath);
+  }
+}
+
+function validateInitializeStoreOptions(options: InitializeStoreOptions): void {
+  if (options.repair !== undefined && typeof options.repair !== "boolean") {
+    throw new StoreRepairArgumentError(options.repair);
   }
 }
 
@@ -93,6 +127,7 @@ export async function readStoreConfig(storePath: string): Promise<StoreConfig> {
 
 export async function initializeStore(storePath: string, options: InitializeStoreOptions = {}): Promise<InitializeStoreResult> {
   validateStorePath(storePath);
+  validateInitializeStoreOptions(options);
   const now = options.now ?? (() => new Date().toISOString());
   const id = options.id ?? (() => createId("device"));
   await mkdir(storePath, { recursive: true });
