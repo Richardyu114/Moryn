@@ -839,9 +839,16 @@ describe("error envelopes", () => {
           discover_with: {
             tool: "project_list",
             command: "moryn project list",
-            arguments: {}
+            arguments: {},
+            safe_to_run: true
           },
-          retry_with: { argument: "project_id", value_source: "project_list.projects_by_id.<project_id>.project_id", value_placeholder: "<project_id>" }
+          retry_with: {
+            argument: "project_id",
+            value_source: "project_list.projects_by_id.<project_id>.project_id",
+            value_placeholder: "<project_id_from_project_list>"
+          },
+          fallback_value_source: "project_list.projects[].project_id",
+          do_not: ["invent_project_id", "write_project_scoped_record_without_project_context"]
         },
         next_action: {
           recommended_action: "discover_project_context_before_project_scoped_write",

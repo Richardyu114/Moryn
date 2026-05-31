@@ -703,7 +703,9 @@ and guardrails against assuming store paths, auto-repairing config, or
 inventing project ids, project path and project id conflict errors with
 guarded initialization or retry templates and `do_not` guardrails against
 treating typos as new projects, retrying rejected ids, or auto-updating project
-config, confirmation-required failures with explicit user-confirmation
+config, project-context discovery errors with safe `project_list`, selected and
+ordered project-id sources, and guardrails against writing project-scoped
+records without context, confirmation-required failures with explicit user-confirmation
 requirements and guardrails against auto-confirming, sync runtime failures with
 safe status inspection, local-store continuity, retry conditions, and `do_not`
 guardrails, `validation_issues` lists schema paths to repair, `discover_with`
@@ -2937,13 +2939,19 @@ rejected scope in metadata, so agents do not invent a `project_id`:
       "discover_with": {
         "tool": "project_list",
         "command": "moryn project list",
-        "arguments": {}
+        "arguments": {},
+        "safe_to_run": true
       },
       "retry_with": {
         "argument": "project_id",
         "value_source": "project_list.projects_by_id.<project_id>.project_id",
-        "value_placeholder": "<project_id>"
-      }
+        "value_placeholder": "<project_id_from_project_list>"
+      },
+      "fallback_value_source": "project_list.projects[].project_id",
+      "do_not": [
+        "invent_project_id",
+        "write_project_scoped_record_without_project_context"
+      ]
     },
     "next_action": {
       "recommended_action": "discover_project_context_before_project_scoped_write",

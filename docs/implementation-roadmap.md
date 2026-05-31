@@ -298,7 +298,9 @@ Deliverables:
   `.moryn.json` id or an explicitly approved config repair instead of retrying
   the rejected id, unknown or missing project context that should run `moryn
   project list`, select `project_list.projects_by_id.<project_id>.project_id`,
-  and avoid inventing project ids, high-risk confirmation failures that should ask the user before
+  use `project_list.projects[].project_id` as the ordered fallback, and avoid
+  inventing project ids or writing project-scoped records without context,
+  high-risk confirmation failures that should ask the user before
   retrying with `confirmed: true` or `--confirm` and should never auto-confirm,
   sync runtime failures that should inspect `moryn sync --status`, preserve
   local events, collect user-authored remotes before `moryn sync init`, wait for

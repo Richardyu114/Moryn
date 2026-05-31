@@ -751,7 +751,8 @@ assuming store paths, auto-repairing, or inventing project ids,
 project-selection failures with safe `project_list` discovery, selected-id and
 ordered fallback sources, missing-path initialization alternatives, conflict
 retry templates, and guardrails against treating typos as new projects, using
-rejected project ids, or inventing project ids,
+rejected project ids, writing project-scoped records without context, or
+inventing project ids,
 confirmation-required failures with explicit user-confirmation requirements,
 retry templates, and guardrails against auto-confirming,
 sync runtime failures such as missing remotes, unavailable remotes, Git

@@ -177,13 +177,16 @@ function knownRecoveryHint(code: string, message: string, context?: MorynErrorCo
       discover_with: {
         tool: "project_list",
         command: "moryn project list",
-        arguments: {}
+        arguments: {},
+        safe_to_run: true
       },
       retry_with: {
         argument: "project_id",
         value_source: PROJECT_CONTEXT_PROJECT_ID_SOURCE,
-        value_placeholder: "<project_id>"
-      }
+        value_placeholder: "<project_id_from_project_list>"
+      },
+      fallback_value_source: PROJECT_LIST_ORDERED_PROJECT_ID_SOURCE,
+      do_not: ["invent_project_id", "write_project_scoped_record_without_project_context"]
     };
   }
   if (code === "STORE_NOT_INITIALIZED") {
