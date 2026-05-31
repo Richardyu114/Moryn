@@ -177,7 +177,7 @@ function cliPlaceholders(argv: readonly string[]): string[] {
   })));
 }
 
-function mcpArgumentsForAction(tool: string, argumentsByName: Record<string, unknown>): Record<string, unknown> {
+export function mcpArgumentsForAction(tool: string, argumentsByName: Record<string, unknown>): Record<string, unknown> {
   const operationArguments = operationArgumentList(tool);
   if (operationArguments.length === 0) return argumentsByName;
   const flattenedNestedArguments = new Set(operationArguments.flatMap((argument) => {

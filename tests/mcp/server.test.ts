@@ -2833,6 +2833,16 @@ describe("MCP stdio server", () => {
           "sync_status",
           "write"
         ]);
+        const writeTool = tools.tools.find((tool) => tool.name === "write");
+        expect(Object.keys(writeTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "content_text",
+          "content.format",
+          "source.client",
+          "source_session_id",
+          "provenance.derived_from",
+          "reason",
+          "provenance_method"
+        ]));
 
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
 
@@ -6278,6 +6288,48 @@ describe("MCP stdio server", () => {
           reason: "Derived from handoff summary.",
           method: "user-confirmed",
           promoted_at: "2026-05-31T00:00:00.000Z"
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts operation-contract aliases when writing over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-write-aliases-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const write = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            content_text: "Use MCP aliases directly.",
+            "content.format": "json",
+            "source.client": "codex",
+            source_session_id: "session 1",
+            "provenance.derived_from": ["rec_source"],
+            reason: "Retried from recovery hint.",
+            provenance_method: "agent-proposed"
+          }
+        })) as {
+          record: {
+            content: { text: string; format: string };
+            source: { client: string; session_id?: string };
+            provenance?: { derived_from?: string[]; reason?: string; method?: string };
+          };
+        };
+
+        expect(write.record.content).toEqual({ text: "Use MCP aliases directly.", format: "json" });
+        expect(write.record.source).toMatchObject({ client: "codex", session_id: "session 1" });
+        expect(write.record.provenance).toMatchObject({
+          derived_from: ["rec_source"],
+          reason: "Retried from recovery hint.",
+          method: "agent-proposed"
         });
       });
     } finally {

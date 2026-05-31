@@ -827,9 +827,13 @@ write contract before retrying. The write operation contract exposes
 `content_text`, `content_format`, `source_client`, `provenance`,
 `provenance_method`, and `provenance_promoted_at` entries under
 `arguments_by_name`, including nested MCP paths, the `--content-json` CLI
-source, and allowed values. MCP write calls preserve `provenance.method` and
-`provenance.promoted_at`, and invalid values for those nested fields return the
-same source-backed `recovery_hint` instead of being silently dropped.
+source, and allowed values. The `write` MCP tool also exposes and accepts those
+contract aliases, plus literal recovery-hint paths such as `"content.text"`,
+`"source.client"`, and `"provenance.derived_from"`, normalizing them into
+`content`, `source`, and `provenance` before core validation. MCP write calls
+preserve `provenance.method` and `provenance.promoted_at`, and invalid values
+for those nested fields return the same source-backed `recovery_hint` instead
+of being silently dropped.
 Empty CLI `write --reason` values return
 `operations_by_id.write.arguments_by_name.reason`, matching the write
 provenance contract instead of a generic non-empty-string hint.
@@ -940,8 +944,13 @@ failures also pass through core validation, including numeric values, and
 return the matching write argument source instead of host-side schema text.
 MCP write `content` shape failures also pass through core validation, including
 single-string content values, and return `operations_by_id.write.arguments_by_name.content`.
+MCP write accepts `content_text`/`content_format` and
+`"content.text"`/`"content.format"` as aliases for the same structured content
+object before that validation runs.
 MCP write `source` shape failures also pass through core validation, including
 single-string source values, and return `operations_by_id.write.arguments_by_name.source_client`.
+MCP write accepts `source_client`/`source_session_id` and literal
+`"source.client"`/`"source.session_id"` alias fields before source validation runs.
 MCP write `tags` shape failures also pass through core validation, including
 single-string tag values, and return `operations_by_id.write.arguments_by_name.tags`.
 MCP write `provenance` failures also pass through core validation, including

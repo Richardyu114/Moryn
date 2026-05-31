@@ -354,6 +354,11 @@ Deliverables:
   fetch the relevant fields before retrying, and MCP write calls now preserve
   `provenance.method`/`provenance.promoted_at` instead of dropping them before
   core validation.
+- Done: The `write` MCP tool now exposes and accepts operation-contract aliases
+  such as `content_text`, `"content.format"`, `"source.client"`,
+  `source_session_id`, `"provenance.derived_from"`, and `provenance_method`,
+  normalizing them into `content`, `source`, and `provenance` before core
+  validation so agents can retry directly from recovery hints.
 - Done: Core mutation argument failures for `revise`, `promote`, `archive`,
   `quarantine`, and `link` now expose the matching
   `operation_contract: "operations_by_id.<operation>"` and `argument_sources`
@@ -759,6 +764,9 @@ Deliverables:
   such as `"content.text"`/`"content.format"` or `"source.client"` from
   recovery hints, normalizing them into executable CLI vectors and nested MCP
   arguments instead of leaking unsupported top-level keys.
+- Done: Direct MCP `write` calls now accept the same content/source/provenance
+  aliases exposed by operation contracts, so hosts do not need to rebuild nested
+  objects before retrying.
 - Done: Empty CLI `link --type` values now return a CLI-shaped `--type`
   recovery hint backed by `operations_by_id.link.arguments_by_name.link_type`,
   so shell agents can retry the exact flag instead of translating a lower-level

@@ -17,6 +17,7 @@ import {
   validateOperationContractLookupArgument
 } from "../operation-contracts.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
+import { mcpArgumentsForAction } from "../core/action-interfaces.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
@@ -56,6 +57,28 @@ const coreValidatedRecordScopeSchema = z.unknown();
 const coreValidatedRecordStateSchema = z.unknown();
 const coreValidatedRecordPrioritySchema = z.unknown();
 const coreValidatedStringSchema = z.unknown();
+const writeAliasInputSchema = {
+  content_text: z.unknown().optional(),
+  content_format: z.unknown().optional(),
+  "content.text": z.unknown().optional(),
+  "content.format": z.unknown().optional(),
+  derived_from: z.unknown().optional(),
+  "provenance.derived_from": z.unknown().optional(),
+  reason: z.unknown().optional(),
+  "provenance.reason": z.unknown().optional(),
+  provenance_method: z.unknown().optional(),
+  "provenance.method": z.unknown().optional(),
+  provenance_promoted_at: z.unknown().optional(),
+  "provenance.promoted_at": z.unknown().optional(),
+  source_client: z.unknown().optional(),
+  "source.client": z.unknown().optional(),
+  source_session_id: z.unknown().optional(),
+  "source.session_id": z.unknown().optional(),
+  source_model: z.unknown().optional(),
+  "source.model": z.unknown().optional(),
+  source_device_id: z.unknown().optional(),
+  "source.device_id": z.unknown().optional()
+} as const;
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
   { argument: "text", value_placeholder: "<text>" },
   { argument: "content", value_placeholder: "<content object>" }
@@ -332,6 +355,10 @@ function compactUndefined<T extends Record<string, unknown>>(input: T): Record<s
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
 }
 
+function normalizeMcpToolArguments(tool: string, input: Record<string, unknown>): Record<string, unknown> {
+  return mcpArgumentsForAction(tool, input);
+}
+
 function lifecycleAgentInput(agent: unknown): RecordSource | undefined {
   return agent as RecordSource | undefined;
 }
@@ -596,45 +623,47 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         priority: coreValidatedRecordPrioritySchema.optional(),
         provenance: z.unknown().optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
-        source: z.unknown().optional()
+        source: z.unknown().optional(),
+        ...writeAliasInputSchema
       }
     },
     async (input) => toolResult(async () => {
-      if (input.content && input.text !== undefined) {
+      const normalizedInput = normalizeMcpToolArguments("write", input);
+      if (normalizedInput.content && normalizedInput.text !== undefined) {
         throw writeContentChoiceError([
-          { argument: "text", value: input.text },
-          { argument: "content", value: input.content as Record<string, unknown> }
+          { argument: "text", value: normalizedInput.text },
+          { argument: "content", value: normalizedInput.content as Record<string, unknown> }
         ]);
       }
-      if (!input.content && input.text === undefined) {
+      if (!normalizedInput.content && normalizedInput.text === undefined) {
         throw writeContentChoiceError();
       }
-      const content = input.content ?? { text: input.text ?? "", format: "text" as const };
-      const project = await resolveProjectInput("write", { project_id: input.project_id, project_path: input.project_path });
-      const type = input.type ?? (input.kind === "session_summary" ? "summary" : undefined);
-      const scope = input.scope ?? (input.kind === "session_summary" ? "project" : undefined);
+      const content = normalizedInput.content ?? { text: normalizedInput.text ?? "", format: "text" as const };
+      const project = await resolveProjectInput("write", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      const type = normalizedInput.type ?? (normalizedInput.kind === "session_summary" ? "summary" : undefined);
+      const scope = normalizedInput.scope ?? (normalizedInput.kind === "session_summary" ? "project" : undefined);
       if (type === undefined) {
         throw writeRequiredArgumentError("type");
       }
       if (scope === undefined) {
         throw writeRequiredArgumentError("scope");
       }
-      const tags = input.tags === undefined || Array.isArray(input.tags)
-        ? [...project.tags, ...(input.tags ?? [])]
-        : input.tags;
+      const tags = normalizedInput.tags === undefined || Array.isArray(normalizedInput.tags)
+        ? [...project.tags, ...(normalizedInput.tags ?? [])]
+        : normalizedInput.tags;
       return engine.write({
-        kind: input.kind,
+        kind: normalizedInput.kind as RecordKind,
         type,
-        scope,
+        scope: scope as RecordScope,
         project_id: project.project_id,
         tags,
         content,
-        state: input.state,
-        confidence: input.confidence,
-        priority: input.priority,
-        source: withDefaultSource(input.source) as RecordSource,
-        confirmed: input.confirmed as boolean | undefined,
-        provenance: input.provenance as RecordProvenance | undefined
+        state: normalizedInput.state as RecordState | undefined,
+        confidence: normalizedInput.confidence,
+        priority: normalizedInput.priority as RecordPriority | undefined,
+        source: withDefaultSource(normalizedInput.source) as RecordSource,
+        confirmed: normalizedInput.confirmed as boolean | undefined,
+        provenance: normalizedInput.provenance as RecordProvenance | undefined
       });
     })
   );
