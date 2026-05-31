@@ -869,6 +869,9 @@ shape failures also pass through core validation and return
 `operations_by_id.boot.arguments_by_name.current_task` or
 `operations_by_id.refresh.arguments_by_name.current_task`; `boot.sync_remote`
 shape failures likewise return `operations_by_id.boot.arguments_by_name.sync_remote`.
+Empty CLI `boot --current-task` and `refresh --current-task` values return the
+same operation-specific `current_task` argument sources before boot or refresh
+logic runs.
 MCP project selector
 shape failures for `boot`, `recall`, `write`, `refresh`, and lifecycle tools
 also return operation-specific `project_id`/`project_path` sources and tell

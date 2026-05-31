@@ -3447,6 +3447,20 @@ describe("moryn CLI", () => {
           option: "--cursor"
         },
         {
+          args: ["boot", "--project-id", "moryn", "--current-task", ""],
+          operation: "boot",
+          argument: "current_task",
+          message: "Invalid --current-task",
+          option: "--current-task"
+        },
+        {
+          args: ["refresh", "--project-id", "moryn", "--current-task", ""],
+          operation: "refresh",
+          argument: "current_task",
+          message: "Invalid --current-task",
+          option: "--current-task"
+        },
+        {
           args: ["sync", "--push", "--message", ""],
           operation: "sync_push",
           argument: "message",

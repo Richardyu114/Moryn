@@ -803,6 +803,9 @@ failures pass through core validation too, including numeric task values, and
 point at the matching `operations_by_id.<operation>.arguments_by_name.current_task`
 contract. MCP `boot.sync_remote` shape failures also pass through core
 validation and point at `operations_by_id.boot.arguments_by_name.sync_remote`.
+Empty CLI `boot --current-task` and `refresh --current-task` values point at the
+same operation-specific `current_task` contracts before boot or refresh logic
+runs.
 MCP `recall.query` shape failures also pass through core validation, including
 numeric values, and point at `operations_by_id.recall.arguments_by_name.query`
 instead of host-side schema text.

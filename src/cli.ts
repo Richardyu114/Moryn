@@ -90,6 +90,7 @@ type CliRequiredPositionalSource = CliRequiredSource & {
 };
 type CliParserOperation =
   | "write"
+  | "boot"
   | "refresh"
   | "sync_push"
   | "revise"
@@ -924,7 +925,7 @@ program.command("boot")
     printJson(await engine.boot({
       project_id: project.project_id,
       default_skills: project.default_skills,
-      current_task: parseNonEmptyString(options.currentTask, "--current-task")
+      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", { operation: "boot", argument: "current_task" })
     }));
   });
 
@@ -1084,7 +1085,7 @@ program.command("refresh")
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options);
     const cursor = parseNonEmptyString(options.cursor, "--cursor");
-    const currentTask = parseNonEmptyString(options.currentTask, "--current-task");
+    const currentTask = parseNonEmptyCliString(options.currentTask, "--current-task", { operation: "refresh", argument: "current_task" });
     const limit = parseLimit(options.limit, "refresh");
     const contextArguments = compactUndefined({
       ...(projectId !== undefined ? { project_id: projectId } : {}),
