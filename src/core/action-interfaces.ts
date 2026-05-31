@@ -81,7 +81,9 @@ function argumentValue(argumentsByName: Record<string, unknown>, argument: Opera
   if (!argument.mcp) return argumentsByName[argument.name];
   if (!argument.mcp.path) return argumentsByName[argument.mcp.argument];
   const nestedValue = pathValue(argumentsByName, argument.mcp.path);
-  return nestedValue === undefined ? argumentsByName[argument.name] : nestedValue;
+  if (nestedValue !== undefined) return nestedValue;
+  const flattenedValue = argumentsByName[argument.name];
+  return flattenedValue === undefined ? argumentsByName[argument.mcp.path] : flattenedValue;
 }
 
 function shouldSkipNestedCliArgument(
@@ -114,7 +116,7 @@ function parentObjectValueForArguments(
     if (childArgument.parent_argument !== argument.name || !childArgument.mcp?.path) continue;
     const key = childArgument.mcp.path.split(".").at(-1);
     if (!key || mergedValue[key] !== undefined) continue;
-    const childValue = argumentsByName[childArgument.name];
+    const childValue = argumentValue(argumentsByName, childArgument);
     if (childValue !== undefined) mergedValue[key] = childValue;
   }
   return Object.keys(mergedValue).length > 0 ? mergedValue : undefined;
@@ -179,7 +181,7 @@ function mcpArgumentsForAction(tool: string, argumentsByName: Record<string, unk
   const operationArguments = operationArgumentList(tool);
   if (operationArguments.length === 0) return argumentsByName;
   const flattenedNestedArguments = new Set(operationArguments.flatMap((argument) => {
-    return argument.parent_argument && argument.mcp?.path ? [argument.name] : [];
+    return argument.parent_argument && argument.mcp?.path ? [argument.name, argument.mcp.path] : [];
   }));
   const normalizedArguments = Object.fromEntries(
     Object.entries(argumentsByName)

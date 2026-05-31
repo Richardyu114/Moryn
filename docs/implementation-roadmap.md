@@ -755,6 +755,10 @@ Deliverables:
 - Done: Generated action CLI interfaces now merge flattened object subfields
   such as `content_text`/`content_format` into the parent `--content-json`
   argument, matching MCP normalization for hosts that fill contract field names.
+- Done: Generated action interfaces now also accept literal nested MCP path keys
+  such as `"content.text"`/`"content.format"` or `"source.client"` from
+  recovery hints, normalizing them into executable CLI vectors and nested MCP
+  arguments instead of leaking unsupported top-level keys.
 - Done: Empty CLI `link --type` values now return a CLI-shaped `--type`
   recovery hint backed by `operations_by_id.link.arguments_by_name.link_type`,
   so shell agents can retry the exact flag instead of translating a lower-level

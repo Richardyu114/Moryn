@@ -244,6 +244,64 @@ describe("action interfaces", () => {
     });
   });
 
+  it("accepts literal MCP path keys when generating transport arguments", () => {
+    const interfaces = actionInterfaces({
+      tool: "write",
+      command: "moryn write --kind memory --type decision --scope project --content-json <content>",
+      arguments: {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        "content.text": "Use recovery hint paths.",
+        "content.format": "json"
+      }
+    });
+
+    expect(interfaces.cli.argv).toEqual([
+      "write",
+      "--kind", "memory",
+      "--type", "decision",
+      "--scope", "project",
+      "--content-json", "{\"text\":\"Use recovery hint paths.\",\"format\":\"json\"}"
+    ]);
+    expect(interfaces.mcp.arguments).toEqual({
+      kind: "memory",
+      type: "decision",
+      scope: "project",
+      content: { text: "Use recovery hint paths.", format: "json" }
+    });
+  });
+
+  it("normalizes literal MCP path keys for nested MCP-only metadata", () => {
+    const interfaces = actionInterfaces({
+      tool: "write",
+      command: "moryn write --kind memory --type decision --scope project --text <text>",
+      arguments: {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        text: "Use explicit source metadata.",
+        "source.client": "codex",
+        "source.session_id": "session 1"
+      }
+    });
+
+    expect(interfaces.cli.argv).toEqual([
+      "write",
+      "--kind", "memory",
+      "--type", "decision",
+      "--scope", "project",
+      "--text", "Use explicit source metadata."
+    ]);
+    expect(interfaces.mcp.arguments).toEqual({
+      kind: "memory",
+      type: "decision",
+      scope: "project",
+      text: "Use explicit source metadata.",
+      source: { client: "codex", session_id: "session 1" }
+    });
+  });
+
   it("uses the direct executable when runtime actions are not launched through moryn", () => {
     const interfaces = actionInterfaces({
       tool: "moryn-agent-smoke",
