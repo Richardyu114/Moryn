@@ -444,10 +444,23 @@ function assertNoMcpAliasConflicts(tool: string, input: Record<string, unknown>)
 
 function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArgumentMetadata): McpAliasConflict | undefined {
   if (!argument.parent_argument || !argument.mcp?.path) return undefined;
+  const parentValue = input[argument.mcp.argument];
+  const nestedInputValue = input[argument.mcp.path];
+  const flattenedValue = input[argument.name];
+  if (parentValue !== undefined && !isMcpObject(parentValue) && (nestedInputValue !== undefined || flattenedValue !== undefined)) {
+    const valuesByInput: Record<string, unknown> = { [argument.mcp.argument]: parentValue };
+    if (nestedInputValue !== undefined) valuesByInput[argument.mcp.path] = nestedInputValue;
+    if (flattenedValue !== undefined) valuesByInput[argument.name] = flattenedValue;
+    return {
+      argument: argument.mcp.argument,
+      path: argument.mcp.path,
+      contractArgument: argument.name,
+      valuesByInput
+    };
+  }
   const valuesByInput: Record<string, unknown> = {};
   const nestedValue = mcpPathValue(input, argument.mcp.path);
   if (nestedValue !== undefined) valuesByInput[argument.mcp.path] = nestedValue;
-  const flattenedValue = input[argument.name];
   if (flattenedValue !== undefined) valuesByInput[argument.name] = flattenedValue;
   if (Object.keys(valuesByInput).length <= 1) return undefined;
   const distinctValues = new Set(Object.values(valuesByInput).map(stableMcpValueKey));
@@ -460,9 +473,13 @@ function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArg
   };
 }
 
+function isMcpObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function mcpPathValue(input: Record<string, unknown>, path: string): unknown {
   return path.split(".").reduce<unknown>((value, key) => {
-    return typeof value === "object" && value !== null && !Array.isArray(value)
+    return isMcpObject(value)
       ? (value as Record<string, unknown>)[key]
       : undefined;
   }, input);

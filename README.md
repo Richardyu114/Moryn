@@ -492,7 +492,9 @@ nested field with different values, Moryn returns a structured
 `INVALID_ARGUMENT` recovery hint instead of silently choosing one.
 This applies to agent identity aliases too: conflicting `agent.client` and
 `agent_client` values in `project_list` or lifecycle tools must be retried with
-one value.
+one value. Moryn also rejects parent-scalar plus child-alias mixes such as
+`source: "codex"` with `source_client` or `agent: "codex"` with `agent_client`,
+because those inputs otherwise hide an invalid nested object shape.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
@@ -849,7 +851,9 @@ for those nested fields return the same source-backed `recovery_hint` instead
 of being silently dropped. Conflicting direct MCP aliases for the same nested
 write field, such as `source.client` and `source_client` with different values,
 are rejected with `expected.kind: "single_value"` and contract-backed retry
-guidance.
+guidance. A scalar parent paired with a child alias, for example
+`source: "codex"` plus `source_client`, is rejected the same way instead of
+being coerced into a partial `source` object.
 Empty CLI `write --reason` values return
 `operations_by_id.write.arguments_by_name.reason`, matching the write
 provenance contract instead of a generic non-empty-string hint.
