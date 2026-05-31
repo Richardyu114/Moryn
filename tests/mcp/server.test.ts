@@ -7823,6 +7823,35 @@ describe("MCP stdio server", () => {
           { tool: "revise", operation: "revise", baseArguments: { patch: { "content.text": "No-op" } } },
           { tool: "promote", operation: "promote", baseArguments: { target_state: "canonical" } },
           { tool: "archive", operation: "archive", baseArguments: {} },
+          { tool: "quarantine", operation: "quarantine", baseArguments: {} }
+        ] as const) {
+          const invalidMutationReasonShape = parseTextContent(await client.callTool({
+            name: tool,
+            arguments: {
+              ...baseArguments,
+              record_id: "rec_missing",
+              reason: 123
+            }
+          })) as McpInvalidArgument;
+          expect(invalidMutationReasonShape.ok).toBe(false);
+          expect(invalidMutationReasonShape.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidMutationReasonShape.error.message).toContain("Invalid reason");
+          expect(invalidMutationReasonShape.error.recommended_action).toBe("retry mutation with a non-empty reason");
+          expect(invalidMutationReasonShape.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument: "reason", value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              reason: `operations_by_id.${operation}.arguments_by_name.reason`
+            },
+            retry_with: { argument: "reason", value_placeholder: "<reason>" }
+          });
+        }
+
+        for (const { tool, operation, baseArguments } of [
+          { tool: "revise", operation: "revise", baseArguments: { patch: { "content.text": "No-op" } } },
+          { tool: "promote", operation: "promote", baseArguments: { target_state: "canonical" } },
+          { tool: "archive", operation: "archive", baseArguments: {} },
           { tool: "quarantine", operation: "quarantine", baseArguments: {} },
           { tool: "link", operation: "link", baseArguments: { linked_record_id: "rec_other", link_type: "related" } }
         ] as const) {

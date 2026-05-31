@@ -946,17 +946,17 @@ function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextActi
   });
 }
 
-export function commandForPromoteContext(input: { record_id: unknown; target_state: unknown; reason?: string }): string {
+export function commandForPromoteContext(input: { record_id: unknown; target_state: unknown; reason?: unknown }): string {
   const parts = ["moryn", "promote"];
   appendCommandValue(parts, input.record_id);
   appendCommandOptionValue(parts, "--state", input.target_state);
-  if (input.reason !== undefined) {
+  if (typeof input.reason === "string") {
     parts.push("--reason", shellQuote(input.reason));
   }
   return parts.join(" ");
 }
 
-export function commandForReviseContext(input: { record_id: unknown; patch: unknown; reason?: string }): string {
+export function commandForReviseContext(input: { record_id: unknown; patch: unknown; reason?: unknown }): string {
   const parts = ["moryn", "revise"];
   appendCommandValue(parts, input.record_id);
   if (typeof input.patch === "object" && input.patch !== null && !Array.isArray(input.patch)) {
@@ -965,7 +965,7 @@ export function commandForReviseContext(input: { record_id: unknown; patch: unkn
       parts.push("--set", shellQuote(`${path}=${assignmentValue}`));
     }
   }
-  if (input.reason !== undefined) {
+  if (typeof input.reason === "string") {
     parts.push("--reason", shellQuote(input.reason));
   }
   return parts.join(" ");
@@ -1017,19 +1017,19 @@ export function commandForRefreshContext(input: {
   return parts.join(" ");
 }
 
-export function commandForArchiveContext(input: { record_id: unknown; reason?: string }): string {
+export function commandForArchiveContext(input: { record_id: unknown; reason?: unknown }): string {
   const parts = ["moryn", "archive"];
   appendCommandValue(parts, input.record_id);
-  if (input.reason !== undefined) {
+  if (typeof input.reason === "string") {
     parts.push("--reason", shellQuote(input.reason));
   }
   return parts.join(" ");
 }
 
-export function commandForQuarantineContext(input: { record_id: unknown; reason?: string }): string {
+export function commandForQuarantineContext(input: { record_id: unknown; reason?: unknown }): string {
   const parts = ["moryn", "quarantine"];
   appendCommandValue(parts, input.record_id);
-  if (input.reason !== undefined) {
+  if (typeof input.reason === "string") {
     parts.push("--reason", shellQuote(input.reason));
   }
   return parts.join(" ");

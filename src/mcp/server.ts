@@ -505,7 +505,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         record_id: z.unknown(),
         patch: z.unknown(),
-        reason: stringSchema.optional(),
+        reason: coreValidatedStringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
         source: z.unknown().optional()
       }
@@ -536,7 +536,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         record_id: z.unknown(),
         target_state: coreValidatedRecordStateSchema,
-        reason: stringSchema.optional(),
+        reason: coreValidatedStringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
         source: z.unknown().optional()
       }
@@ -566,7 +566,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Hide a record from default boot and recall while preserving history.",
       inputSchema: {
         record_id: z.unknown(),
-        reason: stringSchema.optional(),
+        reason: coreValidatedStringSchema.optional(),
         source: z.unknown().optional()
       }
     },
@@ -592,7 +592,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Mark a record as sensitive or unsafe so it is excluded by default.",
       inputSchema: {
         record_id: z.unknown(),
-        reason: stringSchema.optional(),
+        reason: coreValidatedStringSchema.optional(),
         source: z.unknown().optional()
       }
     },

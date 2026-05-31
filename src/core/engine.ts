@@ -359,14 +359,14 @@ function withRefreshChangeNextActionMetadata<T extends {
 
 interface StateChangeInput {
   record_id: unknown;
-  reason?: string;
+  reason?: unknown;
   source?: RecordSource;
 }
 
 interface RevisionInput {
   record_id: unknown;
   patch: unknown;
-  reason?: string;
+  reason?: unknown;
   source?: RecordSource;
   confirmed?: boolean;
 }
@@ -374,7 +374,7 @@ interface RevisionInput {
 interface PromoteInput {
   record_id: unknown;
   target_state: unknown;
-  reason?: string;
+  reason?: unknown;
   source?: RecordSource;
   confirmed?: boolean;
 }
@@ -386,9 +386,9 @@ interface LinkInput {
   source?: RecordSource;
 }
 
-type ValidatedStateChangeInput = StateChangeInput & { record_id: string };
-type ValidatedRevisionInput = RevisionInput & { record_id: string };
-type ValidatedPromoteInput = PromoteInput & { record_id: string; target_state: RecordState };
+type ValidatedStateChangeInput = StateChangeInput & { record_id: string; reason?: string };
+type ValidatedRevisionInput = RevisionInput & { record_id: string; reason?: string };
+type ValidatedPromoteInput = PromoteInput & { record_id: string; target_state: RecordState; reason?: string };
 type ValidatedLinkInput = LinkInput & { record_id: string; linked_record_id: string; link_type: string };
 
 type ReadOperation = "recall" | "boot" | "refresh" | "list_recent" | "project_list";
@@ -2187,7 +2187,7 @@ export function createEngine(deps: EngineDeps) {
         op: "revise_record",
         record_id: revisionInput.record_id,
         patch: eventPatch,
-        reason: input.reason,
+        reason: revisionInput.reason,
         confirmed: input.confirmed,
         conflict: conflicts.length
           ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
@@ -2243,7 +2243,7 @@ export function createEngine(deps: EngineDeps) {
         op: "promote_record",
         record_id: promoteInput.record_id,
         target_state: promoteInput.target_state,
-        reason: input.reason,
+        reason: promoteInput.reason,
         confirmed: input.confirmed,
         conflict: conflicts.length
           ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
@@ -2264,7 +2264,7 @@ export function createEngine(deps: EngineDeps) {
         event_id: id("evt"),
         op: "archive_record",
         record_id: stateInput.record_id,
-        reason: input.reason,
+        reason: stateInput.reason,
         created_at: createdAt,
         source: input.source ?? { client: "moryn" }
       };
@@ -2281,7 +2281,7 @@ export function createEngine(deps: EngineDeps) {
         event_id: id("evt"),
         op: "quarantine_record",
         record_id: stateInput.record_id,
-        reason: input.reason,
+        reason: stateInput.reason,
         created_at: createdAt,
         source: input.source ?? { client: "moryn" }
       };

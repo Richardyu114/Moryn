@@ -428,6 +428,11 @@ Deliverables:
   including single-string source values for `revise`, `promote`, `archive`,
   `quarantine`, and `link`, and expose mutation `source_client` argument
   sources instead of host-side schema text.
+- Done: MCP mutation `reason` shape failures now pass through core validation,
+  including numeric values for `revise`, `promote`, `archive`, and
+  `quarantine`, and expose the matching
+  `operations_by_id.<operation>.arguments_by_name.reason` sources instead of
+  host-side schema text.
 - Done: MCP `revise.patch` shape failures now pass through core validation,
   including single-string patch values, and expose `rejected_patch` recovery
   hints instead of host-side schema text.

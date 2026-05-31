@@ -763,6 +763,10 @@ declare `arguments_by_name.source_client` with the nested MCP path
 object shape.
 MCP mutation `source` shape failures also pass through core validation,
 including single-string source values.
+MCP mutation `reason` shape failures for `revise`, `promote`, `archive`, and
+`quarantine` also pass through core validation, including numeric values, and
+point at the matching `operations_by_id.<operation>.arguments_by_name.reason`
+source instead of host-side schema text.
 MCP `revise.patch` shape failures also pass through core validation, including
 single-string patch values, and return `rejected_patch` plus a safe patch
 placeholder. MCP mutation `record_id` shape failures for `revise`, `promote`,
