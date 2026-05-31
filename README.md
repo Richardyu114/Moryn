@@ -729,8 +729,10 @@ without parsing the error message. The recovery hint keeps the existing
 operation id, MCP tool, and CLI command retries. Those templates include package
 helper, CLI, and MCP forms, so library hosts can call the correct helper without
 deriving it from a command string. MCP lookup shape failures for `operation`,
-`mcp_tool`, and `cli_command` also pass through this recovery channel, including
-numeric values, so contract discovery remains self-recovering. If a host
+`mcp_tool`, and `cli_command` also pass through core validation, including
+numeric values and empty strings, and point at the matching
+`operations_by_id.operation_contracts.arguments_by_name.*` source before lookup
+matching runs. If a host
 accidentally mixes lookup modes, for
 example `--index` plus `--operation` or `operation` plus `mcp_tool`, the same
 envelope includes `recovery_hint.rejected_lookup.provided` and
@@ -878,7 +880,9 @@ single-string tag or skill selector values. That includes MCP setup failures
 that would otherwise stop at host schema validation.
 Contract discovery argument failures such as MCP `operation_contracts.index`
 also point at `operations_by_id.operation_contracts.arguments_by_name.index`,
-so agents can recover while looking up the registry itself. Lifecycle boolean
+and `operation_contracts.operation`/`mcp_tool`/`cli_command` shape failures point
+at their matching lookup arguments, so agents can recover while looking up the
+registry itself. Lifecycle boolean
 failures for MCP `agent_enter`/`agent_start` `pull` and
 `agent_finish`/`agent_status` `push` also point at their
 `operations_by_id.<operation>.arguments_by_name.<argument>` contracts instead

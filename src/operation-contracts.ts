@@ -203,6 +203,14 @@ export type OperationContractIndexArgumentRecoveryHint = {
   retry_with: { argument: "index"; value_placeholder: true };
 };
 
+export type OperationContractLookupArgumentRecoveryHint = {
+  operation_contract: "operations_by_id.operation_contracts";
+  rejected_argument: { argument: OperationContractLookupKind; value: unknown };
+  expected: { kind: "non_empty_string"; min_length: 1 };
+  argument_sources: Partial<Record<OperationContractLookupKind, string>>;
+  retry_with: { argument: OperationContractLookupKind; value_placeholder: string };
+};
+
 export const OPERATION_CONTRACT_LOOKUP_RECOVERY_ACTION =
   "fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command" as const;
 
@@ -250,9 +258,35 @@ export class OperationContractIndexArgumentError extends Error {
   }
 }
 
+export class OperationContractLookupArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: OperationContractLookupArgumentRecoveryHint;
+
+  constructor(kind: OperationContractLookupKind, value: unknown) {
+    super(`Invalid argument: Invalid ${kind}`);
+    this.name = "OperationContractLookupArgumentError";
+    this.recommended_action = `retry operation_contracts with a non-empty ${kind} value`;
+    this.recovery_hint = {
+      operation_contract: "operations_by_id.operation_contracts",
+      rejected_argument: { argument: kind, value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: {
+        [kind]: `operations_by_id.operation_contracts.arguments_by_name.${kind}`
+      },
+      retry_with: { argument: kind, value_placeholder: `<${kind}>` }
+    };
+  }
+}
+
 export function validateOperationContractIndexArgument(index: unknown): asserts index is boolean | undefined {
   if (index !== undefined && typeof index !== "boolean") {
     throw new OperationContractIndexArgumentError(index);
+  }
+}
+
+export function validateOperationContractLookupArgument(kind: OperationContractLookupKind, value: unknown): asserts value is string | undefined {
+  if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
+    throw new OperationContractLookupArgumentError(kind, value);
   }
 }
 

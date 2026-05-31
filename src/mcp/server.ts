@@ -13,7 +13,8 @@ import {
   OperationContractLookupConflictError,
   OperationContractLookupError,
   type OperationContractLookupOption,
-  validateOperationContractIndexArgument
+  validateOperationContractIndexArgument,
+  validateOperationContractLookupArgument
 } from "../operation-contracts.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
@@ -427,6 +428,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     async ({ index, operation, mcp_tool, cli_command }) => {
       try {
         validateOperationContractIndexArgument(index);
+        validateOperationContractLookupArgument("operation", operation);
+        validateOperationContractLookupArgument("mcp_tool", mcp_tool);
+        validateOperationContractLookupArgument("cli_command", cli_command);
         const lookupOptions: OperationContractLookupOption[] = [
           ...(index ? [{ mode: "index" as const, option: "index" }] : []),
           ...(operation !== undefined ? [{ mode: "operation" as const, option: "operation" }] : []),
@@ -443,7 +447,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           return jsonResult(getOperationContractIndex(), { pretty: false });
         }
         if (operation !== undefined) {
-          const lookup = String(operation);
+          const lookup = operation;
           const contract = getOperationContract(lookup);
           if (!contract) {
             return {
@@ -454,7 +458,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           return jsonResult(contract, { pretty: false });
         }
         if (mcp_tool !== undefined) {
-          const lookup = String(mcp_tool);
+          const lookup = mcp_tool;
           const contract = getOperationContractByMcpTool(lookup);
           if (!contract) {
             return {
@@ -465,7 +469,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           return jsonResult(contract, { pretty: false });
         }
         if (cli_command !== undefined) {
-          const lookup = String(cli_command);
+          const lookup = cli_command;
           const contract = getOperationContractByCliCommand(lookup);
           if (!contract) {
             return {

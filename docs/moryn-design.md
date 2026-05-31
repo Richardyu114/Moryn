@@ -669,8 +669,9 @@ shortcut and adds `retry_with_lookup_modes` for operation id, MCP tool, and CLI
 command retries. Those templates include package helper, CLI, and MCP forms, so
 library hosts do not need to infer helper names from command examples. MCP
 lookup shape failures for `operation`, `mcp_tool`, and `cli_command` also pass
-through this channel, including numeric values, so contract discovery remains
-self-recovering. If a
+through core validation, including numeric values and empty strings, and point
+at the matching `operations_by_id.operation_contracts.arguments_by_name.*`
+source before lookup matching runs. If a
 caller sends more than one lookup mode, the error envelope uses the same
 recovery channel to return `recovery_hint.rejected_lookup.provided` plus
 `accepted_lookup_modes`, each with package, CLI, and MCP retry forms, letting
@@ -812,7 +813,9 @@ single-string tag or skill selector values. That includes MCP setup failures
 that would otherwise stop at host schema validation.
 Contract discovery argument failures such as MCP `operation_contracts.index`
 also point at `operations_by_id.operation_contracts.arguments_by_name.index`,
-so agents can recover while looking up the registry itself. Lifecycle boolean
+and `operation_contracts.operation`/`mcp_tool`/`cli_command` shape failures point
+at their matching lookup arguments, so agents can recover while looking up the
+registry itself. Lifecycle boolean
 failures for MCP `agent_enter`/`agent_start` `pull` and
 `agent_finish`/`agent_status` `push` also point at their
 `operations_by_id.<operation>.arguments_by_name.<argument>` contracts instead

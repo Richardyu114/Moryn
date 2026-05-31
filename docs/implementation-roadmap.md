@@ -390,8 +390,9 @@ Deliverables:
   when an agent sends a non-boolean index value.
 - Done: `operation_contracts.operation`, `operation_contracts.mcp_tool`, and
   `operation_contracts.cli_command` MCP lookup shape failures now pass through
-  the contract lookup recovery channel, including numeric values, so agents get
-  the compact index and retry templates instead of host-side schema text.
+  core validation, including numeric values and empty strings, so agents get the
+  matching `operations_by_id.operation_contracts.arguments_by_name.*` source
+  instead of host-side schema text or a misleading unknown-lookup error.
 - Done: Lifecycle MCP `pull`/`push` boolean failures for `agent_enter`,
   `agent_start`, `agent_finish`, and `agent_status` now pass through core
   validation and expose operation contract argument sources instead of
