@@ -13,6 +13,8 @@ import {
   OperationContractLookupConflictError,
   OperationContractLookupError,
   type OperationContractLookupOption,
+  operationArgumentsByTool,
+  type OperationArgumentMetadata,
   validateOperationContractIndexArgument,
   validateOperationContractLookupArgument
 } from "../operation-contracts.js";
@@ -41,6 +43,12 @@ import type { RecordKind, RecordPriority, RecordProvenance, RecordScope, RecordS
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
 
 type Engine = ReturnType<typeof createEngine>;
+type McpAliasConflict = {
+  argument: string;
+  path: string;
+  contractArgument: string;
+  valuesByInput: Record<string, unknown>;
+};
 
 const stringSchema = z.string();
 const recordKindSchema = z.union([z.enum(RECORD_KINDS), stringSchema]);
@@ -142,6 +150,17 @@ type McpArgumentRecoveryHint =
       do_not: ["invent_project_id", "retry_with_same_invalid_project_id"];
     }
   | {
+      operation_contract: `operations_by_id.${string}`;
+      conflicting_argument: {
+        argument: string;
+        values_by_input: Record<string, unknown>;
+      };
+      expected: { kind: "single_value" };
+      argument_sources: Record<string, string>;
+      retry_with: { argument: string; value_placeholder: string };
+      do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"];
+    }
+  | {
       operation_contract: `operations_by_id.${McpProjectContextOperation}`;
       rejected_argument: { argument: "project_path"; value: unknown };
       expected: { kind: "non_empty_string"; min_length: 1 };
@@ -168,6 +187,30 @@ class McpArgumentError extends Error {
     this.name = "McpArgumentError";
     this.recommended_action = recommendedAction;
     this.recovery_hint = recoveryHint;
+  }
+}
+
+class McpAliasConflictError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: McpArgumentRecoveryHint;
+
+  constructor(tool: string, conflict: McpAliasConflict) {
+    super(`Invalid argument: Conflicting ${conflict.path} aliases`);
+    this.name = "McpAliasConflictError";
+    this.recommended_action = `retry ${tool} with one ${conflict.path} value`;
+    this.recovery_hint = {
+      operation_contract: `operations_by_id.${tool}`,
+      conflicting_argument: {
+        argument: conflict.path,
+        values_by_input: conflict.valuesByInput
+      },
+      expected: { kind: "single_value" },
+      argument_sources: {
+        [conflict.path]: `operations_by_id.${tool}.arguments_by_name.${conflict.contractArgument}`
+      },
+      retry_with: { argument: conflict.path, value_placeholder: placeholderForAliasConflict(conflict) },
+      do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+    };
   }
 }
 
@@ -364,12 +407,80 @@ async function toolResult(fn: () => Promise<unknown>, context?: MorynErrorContex
   }
 }
 
+async function toolResultWithNormalizedInput(
+  tool: string,
+  input: Record<string, unknown>,
+  fn: (normalizedInput: Record<string, unknown>) => Promise<unknown>,
+  context?: (normalizedInput: Record<string, unknown>) => MorynErrorContext
+) {
+  let normalizedInput: Record<string, unknown> | undefined;
+  try {
+    normalizedInput = normalizeMcpToolArguments(tool, input);
+    return jsonResult(await fn(normalizedInput));
+  } catch (error) {
+    return {
+      ...jsonResult(toErrorEnvelope(error, normalizedInput && context ? context(normalizedInput) : undefined)),
+      isError: true
+    };
+  }
+}
+
 function compactUndefined<T extends Record<string, unknown>>(input: T): Record<string, unknown> {
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
 }
 
 function normalizeMcpToolArguments(tool: string, input: Record<string, unknown>): Record<string, unknown> {
+  assertNoMcpAliasConflicts(tool, input);
   return mcpArgumentsForAction(tool, input);
+}
+
+function assertNoMcpAliasConflicts(tool: string, input: Record<string, unknown>): void {
+  const operationArguments = Object.values(operationArgumentsByTool(tool));
+  for (const argument of operationArguments) {
+    const conflict = mcpAliasConflict(input, argument);
+    if (conflict) throw new McpAliasConflictError(tool, conflict);
+  }
+}
+
+function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArgumentMetadata): McpAliasConflict | undefined {
+  if (!argument.parent_argument || !argument.mcp?.path) return undefined;
+  const valuesByInput: Record<string, unknown> = {};
+  const nestedValue = mcpPathValue(input, argument.mcp.path);
+  if (nestedValue !== undefined) valuesByInput[argument.mcp.path] = nestedValue;
+  const flattenedValue = input[argument.name];
+  if (flattenedValue !== undefined) valuesByInput[argument.name] = flattenedValue;
+  if (Object.keys(valuesByInput).length <= 1) return undefined;
+  const distinctValues = new Set(Object.values(valuesByInput).map(stableMcpValueKey));
+  if (distinctValues.size <= 1) return undefined;
+  return {
+    argument: argument.mcp.argument,
+    path: argument.mcp.path,
+    contractArgument: argument.name,
+    valuesByInput
+  };
+}
+
+function mcpPathValue(input: Record<string, unknown>, path: string): unknown {
+  return path.split(".").reduce<unknown>((value, key) => {
+    return typeof value === "object" && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)[key]
+      : undefined;
+  }, input);
+}
+
+function stableMcpValueKey(value: unknown): string {
+  if (Array.isArray(value)) return JSON.stringify(value.map(stableMcpValueKey));
+  if (typeof value === "object" && value !== null) {
+    return JSON.stringify(Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entryValue]) => [key, stableMcpValueKey(entryValue)]));
+  }
+  return JSON.stringify(value);
+}
+
+function placeholderForAliasConflict(conflict: McpAliasConflict): string {
+  const leaf = conflict.path.split(".").at(-1);
+  return leaf ? `<${leaf.replace(/_/g, " ")}>` : "<value>";
 }
 
 function lifecycleAgentInput(agent: unknown): RecordSource | undefined {
@@ -433,16 +544,15 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...agentAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("project_list", input);
+    async (input) => toolResultWithNormalizedInput("project_list", input, async (normalizedInput) => {
       const projectListAgent = lifecycleAgentInput(normalizedInput.agent);
-      return toolResult(async () => engine.listProjects({
+      return engine.listProjects({
         limit: normalizedInput.limit,
         current_task: normalizedInput.current_task,
         sync_remote: normalizedInput.sync_remote,
         agent: projectListAgent
-      }));
-    }
+      });
+    })
   );
 
   server.registerTool(
@@ -697,15 +807,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...sourceAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("revise", input);
-      return toolResult(async () => engine.revise({
+    async (input) => toolResultWithNormalizedInput("revise", input, async (normalizedInput) => engine.revise({
         record_id: normalizedInput.record_id,
         patch: normalizedInput.patch,
         reason: normalizedInput.reason,
         confirmed: normalizedInput.confirmed as boolean | undefined,
         source: withDefaultSource(normalizedInput.source) as RecordSource
-      }), {
+      }), (normalizedInput) => ({
         tool: "revise",
         command: commandForReviseContext({ record_id: normalizedInput.record_id, patch: normalizedInput.patch, reason: normalizedInput.reason }),
         arguments: {
@@ -714,8 +822,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
           ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
         }
-      });
-    }
+      }))
   );
 
   server.registerTool(
@@ -732,15 +839,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...sourceAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("promote", input);
-      return toolResult(async () => engine.promote({
+    async (input) => toolResultWithNormalizedInput("promote", input, async (normalizedInput) => engine.promote({
         record_id: normalizedInput.record_id,
         target_state: normalizedInput.target_state,
         reason: normalizedInput.reason,
         source: withDefaultSource(normalizedInput.source) as RecordSource,
         confirmed: normalizedInput.confirmed as boolean | undefined
-      }), {
+      }), (normalizedInput) => ({
         tool: "promote",
         command: commandForPromoteContext({
           record_id: normalizedInput.record_id,
@@ -753,8 +858,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
           ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
         }
-      });
-    }
+      }))
   );
 
   server.registerTool(
@@ -769,13 +873,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...sourceAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("archive", input);
-      return toolResult(async () => engine.archive({
+    async (input) => toolResultWithNormalizedInput("archive", input, async (normalizedInput) => engine.archive({
         record_id: normalizedInput.record_id,
         reason: normalizedInput.reason,
         source: withDefaultSource(normalizedInput.source) as RecordSource
-      }), {
+      }), (normalizedInput) => ({
         tool: "archive",
         command: commandForArchiveContext({ record_id: normalizedInput.record_id, reason: normalizedInput.reason }),
         arguments: {
@@ -783,8 +885,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
           ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
         }
-      });
-    }
+      }))
   );
 
   server.registerTool(
@@ -799,13 +900,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...sourceAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("quarantine", input);
-      return toolResult(async () => engine.quarantine({
+    async (input) => toolResultWithNormalizedInput("quarantine", input, async (normalizedInput) => engine.quarantine({
         record_id: normalizedInput.record_id,
         reason: normalizedInput.reason,
         source: withDefaultSource(normalizedInput.source) as RecordSource
-      }), {
+      }), (normalizedInput) => ({
         tool: "quarantine",
         command: commandForQuarantineContext({ record_id: normalizedInput.record_id, reason: normalizedInput.reason }),
         arguments: {
@@ -813,8 +912,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           ...(normalizedInput.reason !== undefined ? { reason: normalizedInput.reason } : {}),
           ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
         }
-      });
-    }
+      }))
   );
 
   server.registerTool(
@@ -830,14 +928,12 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...sourceAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("link", input);
-      return toolResult(async () => engine.link({
+    async (input) => toolResultWithNormalizedInput("link", input, async (normalizedInput) => engine.link({
         record_id: normalizedInput.record_id,
         linked_record_id: normalizedInput.linked_record_id,
         link_type: normalizedInput.link_type,
         source: withDefaultSource(normalizedInput.source) as RecordSource
-      }), {
+      }), (normalizedInput) => ({
         tool: "link",
         command: commandForLinkContext({
           record_id: normalizedInput.record_id,
@@ -850,8 +946,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           link_type: normalizedInput.link_type,
           ...(normalizedInput.source !== undefined ? { source: normalizedInput.source } : {})
         }
-      });
-    }
+      }))
   );
 
   server.registerTool(
@@ -892,17 +987,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...agentAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("agent_doctor", input);
+    async (input) => toolResultWithNormalizedInput("agent_doctor", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      return toolResult(async () => agentDoctor({
+      return agentDoctor({
         storePath: options.storePath,
         ...lifecycleProjectContextInput("agent_doctor", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
         syncRemote: normalizedInput.sync_remote as string | undefined,
         currentTask: normalizedInput.current_task as string | undefined,
         agent: lifecycleAgent
-      }));
-    }
+      });
+    })
   );
 
   server.registerTool(
@@ -922,8 +1016,20 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...agentAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("agent_enter", input);
+    async (input) => toolResultWithNormalizedInput("agent_enter", input, async (normalizedInput) => {
+      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+      const coreValidatedPull = normalizedInput.pull as boolean | undefined;
+      return agentEnter({
+        storePath: options.storePath,
+        ...lifecycleProjectContextInput("agent_enter", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
+        syncRemote: normalizedInput.sync_remote as string | undefined,
+        currentTask: normalizedInput.current_task as string | undefined,
+        refreshSince: normalizedInput.refresh_since,
+        limit: normalizedInput.limit,
+        pull: coreValidatedPull,
+        agent: lifecycleAgent
+      });
+    }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPull = normalizedInput.pull as boolean | undefined;
       const contextArguments = compactUndefined({
@@ -936,21 +1042,12 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         pull: coreValidatedPull,
         agent: lifecycleAgent
       });
-      return toolResult(async () => agentEnter({
-        storePath: options.storePath,
-        ...lifecycleProjectContextInput("agent_enter", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        refreshSince: normalizedInput.refresh_since,
-        limit: normalizedInput.limit,
-        pull: coreValidatedPull,
-        agent: lifecycleAgent
-      }), {
+      return {
         tool: "agent_enter",
         command: commandForAgentEnterContext(contextArguments),
         arguments: contextArguments
-      });
-    }
+      };
+    })
   );
 
   server.registerTool(
@@ -967,17 +1064,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...agentAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("agent_guide", input);
+    async (input) => toolResultWithNormalizedInput("agent_guide", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
-      return toolResult(async () => agentGuide({
+      return agentGuide({
         storePath: options.storePath,
         ...lifecycleProjectContextInput("agent_guide", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
         syncRemote: normalizedInput.sync_remote as string | undefined,
         currentTask: normalizedInput.current_task as string | undefined,
         agent: lifecycleAgent
-      }));
-    }
+      });
+    })
   );
 
   server.registerTool(
@@ -997,8 +1093,20 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...agentAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("agent_start", input);
+    async (input) => toolResultWithNormalizedInput("agent_start", input, async (normalizedInput) => {
+      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+      const coreValidatedPull = normalizedInput.pull as boolean | undefined;
+      return agentStart({
+        storePath: options.storePath,
+        ...lifecycleProjectContextInput("agent_start", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
+        syncRemote: normalizedInput.sync_remote as string | undefined,
+        currentTask: normalizedInput.current_task as string | undefined,
+        refreshSince: normalizedInput.refresh_since,
+        limit: normalizedInput.limit,
+        pull: coreValidatedPull,
+        agent: lifecycleAgent
+      });
+    }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPull = normalizedInput.pull as boolean | undefined;
       const contextArguments = compactUndefined({
@@ -1011,21 +1119,12 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         pull: coreValidatedPull,
         agent: lifecycleAgent
       });
-      return toolResult(async () => agentStart({
-        storePath: options.storePath,
-        ...lifecycleProjectContextInput("agent_start", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        refreshSince: normalizedInput.refresh_since,
-        limit: normalizedInput.limit,
-        pull: coreValidatedPull,
-        agent: lifecycleAgent
-      }), {
+      return {
         tool: "agent_start",
         command: commandForAgentStartContext(contextArguments),
         arguments: contextArguments
-      });
-    }
+      };
+    })
   );
 
   server.registerTool(
@@ -1044,8 +1143,19 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...agentAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("agent_finish", input);
+    async (input) => toolResultWithNormalizedInput("agent_finish", input, async (normalizedInput) => {
+      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+      const coreValidatedPush = normalizedInput.push as boolean | undefined;
+      return agentFinish({
+        storePath: options.storePath,
+        ...lifecycleProjectContextInput("agent_finish", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
+        syncRemote: normalizedInput.sync_remote as string | undefined,
+        currentTask: normalizedInput.current_task as string | undefined,
+        summary: normalizedInput.summary,
+        push: coreValidatedPush,
+        agent: lifecycleAgent
+      });
+    }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPush = normalizedInput.push as boolean | undefined;
       const contextInput = {
@@ -1058,20 +1168,12 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: lifecycleAgent
       };
       const contextArguments = compactUndefined(contextInput);
-      return toolResult(async () => agentFinish({
-        storePath: options.storePath,
-        ...lifecycleProjectContextInput("agent_finish", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        summary: normalizedInput.summary,
-        push: coreValidatedPush,
-        agent: lifecycleAgent
-      }), {
+      return {
         tool: "agent_finish",
         command: commandForAgentFinishContext(contextInput),
         arguments: contextArguments
-      });
-    }
+      };
+    })
   );
 
   server.registerTool(
@@ -1090,8 +1192,19 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...agentAliasInputSchema
       }
     },
-    async (input) => {
-      const normalizedInput = normalizeMcpToolArguments("agent_status", input);
+    async (input) => toolResultWithNormalizedInput("agent_status", input, async (normalizedInput) => {
+      const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
+      const coreValidatedPush = normalizedInput.push as boolean | undefined;
+      return agentStatus({
+        storePath: options.storePath,
+        ...lifecycleProjectContextInput("agent_status", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
+        syncRemote: normalizedInput.sync_remote as string | undefined,
+        currentTask: normalizedInput.current_task as string | undefined,
+        status: normalizedInput.status,
+        push: coreValidatedPush,
+        agent: lifecycleAgent
+      });
+    }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPush = normalizedInput.push as boolean | undefined;
       const contextInput = {
@@ -1104,20 +1217,12 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: lifecycleAgent
       };
       const contextArguments = compactUndefined(contextInput);
-      return toolResult(async () => agentStatus({
-        storePath: options.storePath,
-        ...lifecycleProjectContextInput("agent_status", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
-        syncRemote: normalizedInput.sync_remote as string | undefined,
-        currentTask: normalizedInput.current_task as string | undefined,
-        status: normalizedInput.status,
-        push: coreValidatedPush,
-        agent: lifecycleAgent
-      }), {
+      return {
         tool: "agent_status",
         command: commandForAgentStatusContext(contextInput),
         arguments: contextArguments
-      });
-    }
+      };
+    })
   );
 
   server.registerTool(

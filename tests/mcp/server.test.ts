@@ -7384,6 +7384,39 @@ describe("MCP stdio server", () => {
           });
         }
 
+        const conflictingWriteSource = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Conflicting source aliases should fail.",
+            source: { client: "mcp-test" },
+            source_client: "codex"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingWriteSource.ok).toBe(false);
+        expect(conflictingWriteSource.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingWriteSource.error.message).toContain("Conflicting source.client aliases");
+        expect(conflictingWriteSource.error.recommended_action).toBe("retry write with one source.client value");
+        expect(conflictingWriteSource.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          conflicting_argument: {
+            argument: "source.client",
+            values_by_input: {
+              "source.client": "mcp-test",
+              source_client: "codex"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            "source.client": "operations_by_id.write.arguments_by_name.source_client"
+          },
+          retry_with: { argument: "source.client", value_placeholder: "<client>" },
+          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+        });
+
         const sourceTarget = parseTextContent(await client.callTool({
           name: "write",
           arguments: {
@@ -7415,6 +7448,36 @@ describe("MCP stdio server", () => {
             "source.client": "operations_by_id.revise.arguments_by_name.source_client"
           },
           retry_with: { argument: "source.client", value_placeholder: "<client>" }
+        });
+
+        const conflictingMutationSource = parseTextContent(await client.callTool({
+          name: "revise",
+          arguments: {
+            record_id: sourceTarget.record.id,
+            patch: { "content.text": "Updated target." },
+            source: { client: "mcp-test" },
+            source_client: "codex"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingMutationSource.ok).toBe(false);
+        expect(conflictingMutationSource.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingMutationSource.error.message).toContain("Conflicting source.client aliases");
+        expect(conflictingMutationSource.error.recommended_action).toBe("retry revise with one source.client value");
+        expect(conflictingMutationSource.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.revise",
+          conflicting_argument: {
+            argument: "source.client",
+            values_by_input: {
+              "source.client": "mcp-test",
+              source_client: "codex"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            "source.client": "operations_by_id.revise.arguments_by_name.source_client"
+          },
+          retry_with: { argument: "source.client", value_placeholder: "<client>" },
+          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
         });
 
         const invalidMutationSourceShape = parseTextContent(await client.callTool({

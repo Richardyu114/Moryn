@@ -488,7 +488,9 @@ also expose and accept those agent identity aliases, so a host can call
 reconstructing the nested `agent` object. Direct MCP mutation tools also expose
 and accept source identity aliases such as `source_client` and
 `"source.session_id"`, normalizing them into the nested `source` object before
-writing mutation events.
+writing mutation events. If a direct MCP caller supplies conflicting aliases for
+the same nested path, Moryn rejects the call with a structured
+`INVALID_ARGUMENT` recovery hint rather than silently selecting one value.
 `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, `required_inputs_by_field`,
@@ -774,7 +776,10 @@ exposes and accepts those aliases, plus literal recovery-hint paths such as
 normalizing them into `content`, `source`, and `provenance` before core
 validation. MCP write calls preserve `provenance.method` and
 `provenance.promoted_at`, and invalid nested provenance values return the same
-source-backed `recovery_hint` instead of being silently dropped.
+source-backed `recovery_hint` instead of being silently dropped. Conflicting
+direct MCP aliases for the same nested write field, such as `source.client` and
+`source_client` with different values, are rejected with
+`expected.kind: "single_value"` and contract-backed retry guidance.
 Empty CLI `write --reason` values point at
 `operations_by_id.write.arguments_by_name.reason`, matching the write
 provenance contract instead of a generic non-empty-string hint.
@@ -879,7 +884,8 @@ MCP write accepts `source_client`/`source_session_id` and literal
 `"source.client"`/`"source.session_id"` alias fields before source validation runs.
 Direct MCP mutation tools accept those same source alias fields before source
 validation runs, normalizing them into the nested `source` object used by
-mutation events.
+mutation events. Conflicting mutation source aliases are rejected with the same
+single-value recovery shape instead of being silently overwritten.
 Direct MCP `project_list` and lifecycle calls accept
 `agent_client`/`agent_session_id` and literal
 `"agent.client"`/`"agent.session_id"` alias fields before agent validation runs,
