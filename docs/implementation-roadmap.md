@@ -379,9 +379,10 @@ Deliverables:
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty
   explicit agent prefill values are rejected instead of silently ignored.
-- Done: MCP agent lifecycle `agent.client` failures now pass through core
-  validation and return structured recovery hints pointing at
-  `operations_by_id.<operation>.arguments_by_name.agent_client`.
+- Done: MCP agent lifecycle identity metadata failures now pass through core
+  validation and return structured recovery hints pointing at `agent_client`,
+  `agent_session_id`, `agent_model`, or `agent_device_id` operation contract
+  arguments.
 - Done: CLI sync parser failures for conflicting `--status`/`--push`/`--pull`
   flags now return operation contracts for each selectable sync operation, and
   `--message` without `--push` points at
@@ -397,11 +398,12 @@ Deliverables:
   execute returned recommendations without parsing command strings or guessing
   whether the action is a Moryn subcommand or a direct package bin.
 - Done: Each static operation contract now repeats operation-local
-  `selection_sources`, so hosts can hand a single `operations_by_id`,
-  `operations_by_mcp_tool`, or `operations_by_cli_command` entry to an agent
-  without losing the stable in-operation paths. Registry-only reverse/group/list
-  lookup paths remain in the top-level selection-source registry to keep the
-  aggregate payload under the host budget.
+  `selection_sources`, so hosts can hand a single `operations_by_id` entry or
+  single-operation lookup response to an agent without losing stable
+  in-operation paths. Default full-directory reverse and category indexes carry
+  lightweight `{ operation, operation_source }` references back to
+  `operations_by_id.<operation>` to keep the aggregate payload under the host
+  budget.
 - Done: Operation contracts and runtime action templates now expose
   `execution` readiness summaries with `ready_to_run`, `next_step`,
   missing required fields, `required_inputs`, `required_inputs_by_field`, and

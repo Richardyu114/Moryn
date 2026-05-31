@@ -138,9 +138,9 @@ const sourceSchema = z.object({
 });
 const coreValidatedAgentSchema = z.object({
   client: z.unknown().optional().default("mcp"),
-  session_id: nonEmptyStringSchema.optional(),
-  model: nonEmptyStringSchema.optional(),
-  device_id: nonEmptyStringSchema.optional()
+  session_id: z.unknown().optional(),
+  model: z.unknown().optional(),
+  device_id: z.unknown().optional()
 });
 const coreValidatedSourceSchema = z.object({
   client: z.unknown().optional().default("mcp"),

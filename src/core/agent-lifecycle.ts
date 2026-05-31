@@ -145,28 +145,60 @@ type LifecycleActionTemplate = {
 };
 
 type LifecycleOperation = "agent_guide" | "agent_doctor" | "agent_enter" | "agent_start" | "agent_status" | "agent_finish";
+type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
+
+const AGENT_IDENTITY_FIELDS = {
+  client: {
+    argument: "agent.client",
+    contractArgument: "agent_client",
+    placeholder: "<agent client>"
+  },
+  session_id: {
+    argument: "agent.session_id",
+    contractArgument: "agent_session_id",
+    placeholder: "<agent session id>"
+  },
+  model: {
+    argument: "agent.model",
+    contractArgument: "agent_model",
+    placeholder: "<agent model>"
+  },
+  device_id: {
+    argument: "agent.device_id",
+    contractArgument: "agent_device_id",
+    placeholder: "<agent device id>"
+  }
+} as const satisfies Record<AgentIdentityField, {
+  argument: `agent.${string}`;
+  contractArgument: string;
+  placeholder: string;
+}>;
 
 class AgentIdentityError extends Error {
-  readonly recommended_action = "retry agent lifecycle with a valid agent client";
+  readonly recommended_action: string;
   readonly recovery_hint: {
     operation_contract: `operations_by_id.${LifecycleOperation}`;
-    rejected_argument: { argument: "agent.client"; value: unknown };
+    rejected_argument: { argument: `agent.${string}`; value: unknown };
     expected: { kind: "non_empty_string"; min_length: 1 };
-    argument_sources: { "agent.client": `operations_by_id.${LifecycleOperation}.arguments_by_name.agent_client` };
-    retry_with: { argument: "agent.client"; value_placeholder: "<agent client>" };
+    argument_sources: Record<`agent.${string}`, `operations_by_id.${LifecycleOperation}.arguments_by_name.${string}`>;
+    retry_with: { argument: `agent.${string}`; value_placeholder: string };
   };
 
-  constructor(operation: LifecycleOperation, client: unknown) {
-    super("Invalid argument: Invalid agent.client");
+  constructor(operation: LifecycleOperation, field: AgentIdentityField, value: unknown) {
+    const metadata = AGENT_IDENTITY_FIELDS[field];
+    super(`Invalid argument: Invalid ${metadata.argument}`);
     this.name = "AgentIdentityError";
+    this.recommended_action = field === "client"
+      ? "retry agent lifecycle with a valid agent client"
+      : "retry agent lifecycle with valid agent identity metadata";
     this.recovery_hint = {
       operation_contract: `operations_by_id.${operation}`,
-      rejected_argument: { argument: "agent.client", value: client },
+      rejected_argument: { argument: metadata.argument, value },
       expected: { kind: "non_empty_string", min_length: 1 },
       argument_sources: {
-        "agent.client": `operations_by_id.${operation}.arguments_by_name.agent_client`
+        [metadata.argument]: `operations_by_id.${operation}.arguments_by_name.${metadata.contractArgument}`
       },
-      retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
+      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
     };
   }
 }
@@ -499,10 +531,13 @@ function sourceFromAgent(agent: AgentIdentity | undefined): RecordSource {
 }
 
 function validateAgentIdentity(agent: AgentIdentity | undefined, operation: LifecycleOperation): void {
-  const rawAgent = agent as { client?: unknown } | undefined;
+  const rawAgent = agent as Partial<Record<AgentIdentityField, unknown>> | undefined;
   if (rawAgent === undefined) return;
-  if (rawAgent.client !== undefined && (typeof rawAgent.client !== "string" || rawAgent.client.length === 0)) {
-    throw new AgentIdentityError(operation, rawAgent.client);
+  for (const field of Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[]) {
+    const value = rawAgent[field];
+    if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
+      throw new AgentIdentityError(operation, field, value);
+    }
   }
 }
 

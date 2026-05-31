@@ -638,12 +638,16 @@ names the compact index paths, including `operation_source`,
 When a
 host needs the full static directory, it can run
 `moryn contracts operations` or call `operation_contracts` without filters. That
-full registry exposes `operations_by_id`, `operations_by_category`, CLI/MCP
-interfaces, `operations_by_mcp_tool`, `operations_by_cli_command`,
+full registry exposes complete contracts under `operations_by_id`, keeps the
+ordered `operations` list complete, and uses lightweight references in
+`operations_by_category`, `operations_by_mcp_tool`, and
+`operations_by_cli_command` to avoid repeating the same large contract objects.
+Each reference carries `operation` plus `operation_source`, so hosts can follow
+the pointer to `operations_by_id.<operation>` before reading CLI/MCP interfaces,
 `safe_to_run`, `safety`, `execution`, `required_when`, `required_fields`,
 `required_fields_by_name`, `arguments_by_name`, and `argument_sources`. Its
 selection sources include `operations_by_mcp_tool.<tool>` and
-`operations_by_cli_command.<command>` for direct reverse lookups, plus
+`operations_by_cli_command.<command>` for direct reverse lookup references, plus
 `operations_by_id.<operation>.interfaces.cli.executable`,
 `operations_by_id.<operation>.interfaces.cli.args[]`, and
 `operations_by_id.<operation>.interfaces.cli.argv[]` for direct CLI lookups,
@@ -828,9 +832,10 @@ arguments for mutation record ids, linked record ids, and `sync init <remote>`
 also return operation and argument sources instead of generic command-argument
 advice. Empty CLI strings for write text/tags/provenance, refresh cursors, sync
 messages, lifecycle project/task/sync/agent/status/summary inputs, MCP agent
-lifecycle `agent.client` values, and `project list` task/sync/agent prefill
-inputs, plus malformed `revise --set` assignments, use the same source-backed
-recovery channel.
+lifecycle identity metadata (`agent.client`, `agent.session_id`, `agent.model`,
+and `agent.device_id`), and `project list` task/sync/agent prefill inputs, plus
+malformed `revise --set` assignments, use the same source-backed recovery
+channel.
 Explicit empty agent prefill fields such as `project list --agent ""` are
 rejected instead of being ignored. Conflicting `moryn sync` operation flags now
 include `operation_contracts` for `sync_status`, `sync_push`, and `sync_pull`,

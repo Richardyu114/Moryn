@@ -1122,6 +1122,30 @@ describe("MCP stdio server", () => {
           mcp: { argument: "agent", path: "agent.client" },
           parent_argument: "agent"
         });
+        expect(parsed.operations_by_id.agent_enter.arguments_by_name.agent_session_id).toMatchObject({
+          name: "agent_session_id",
+          type: "string",
+          required: false,
+          cli: { flag: "--session-id" },
+          mcp: { argument: "agent", path: "agent.session_id" },
+          parent_argument: "agent"
+        });
+        expect(parsed.operations_by_id.agent_enter.arguments_by_name.agent_model).toMatchObject({
+          name: "agent_model",
+          type: "string",
+          required: false,
+          cli: { flag: "--model" },
+          mcp: { argument: "agent", path: "agent.model" },
+          parent_argument: "agent"
+        });
+        expect(parsed.operations_by_id.agent_enter.arguments_by_name.agent_device_id).toMatchObject({
+          name: "agent_device_id",
+          type: "string",
+          required: false,
+          cli: { flag: "--device-id" },
+          mcp: { argument: "agent", path: "agent.device_id" },
+          parent_argument: "agent"
+        });
         expect(parsed.operations_by_id.agent_finish).toMatchObject({
           safe_to_run: false,
           required_fields: ["summary"],
@@ -1622,11 +1646,26 @@ describe("MCP stdio server", () => {
           mcp_tool: "<tool>",
           cli_command: "<command>"
         });
-        expect(parsed.operations_by_category.lifecycle.agent_enter).toEqual(parsed.operations_by_id.agent_enter);
-        expect(parsed.operations_by_mcp_tool.agent_enter).toEqual(parsed.operations_by_id.agent_enter);
-        expect(parsed.operations_by_mcp_tool.operation_contracts).toEqual(parsed.operations_by_id.operation_contracts);
-        expect(parsed.operations_by_cli_command["moryn agent enter"]).toEqual(parsed.operations_by_id.agent_enter);
-        expect(parsed.operations_by_cli_command["moryn contracts operations"]).toEqual(parsed.operations_by_id.operation_contracts);
+        expect(parsed.operations_by_category.lifecycle.agent_enter).toEqual({
+          operation: "agent_enter",
+          operation_source: "operations_by_id.agent_enter"
+        });
+        expect(parsed.operations_by_mcp_tool.agent_enter).toEqual({
+          operation: "agent_enter",
+          operation_source: "operations_by_id.agent_enter"
+        });
+        expect(parsed.operations_by_mcp_tool.operation_contracts).toEqual({
+          operation: "operation_contracts",
+          operation_source: "operations_by_id.operation_contracts"
+        });
+        expect(parsed.operations_by_cli_command["moryn agent enter"]).toEqual({
+          operation: "agent_enter",
+          operation_source: "operations_by_id.agent_enter"
+        });
+        expect(parsed.operations_by_cli_command["moryn contracts operations"]).toEqual({
+          operation: "operation_contracts",
+          operation_source: "operations_by_id.operation_contracts"
+        });
         expect(parsed.operations_by_id.agent_enter.selection_sources.required_input_path_by_value_path).toBeUndefined();
         expect(parsed.operations_by_id.agent_enter.selection_sources.category).toBeUndefined();
         expect(parsed.operations_by_id.agent_enter.selection_sources.category_operation).toBeUndefined();
@@ -1634,8 +1673,6 @@ describe("MCP stdio server", () => {
         expect(parsed.operations_by_id.agent_enter.selection_sources.cli_command_operation).toBeUndefined();
         expect(parsed.operations_by_id.agent_enter.selection_sources.ordered_operation).toBeUndefined();
         expect(parsed.operations_by_id.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
-        expect(parsed.operations_by_mcp_tool.agent_enter.selection_sources.required_input_path_by_value_path).toBeUndefined();
-        expect(parsed.operations_by_cli_command["moryn agent enter"].selection_sources.required_input_path_by_value_path).toBeUndefined();
         expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
       });
     } finally {
@@ -6867,17 +6904,18 @@ describe("MCP stdio server", () => {
             value_placeholder: "<refresh cursor ISO datetime>"
           }
         });
-        for (const { tool, operation, arguments: toolArguments } of [
-          { tool: "agent_doctor", operation: "agent_doctor", arguments: { agent: { client: "" } } },
-          { tool: "agent_guide", operation: "agent_guide", arguments: { agent: { client: "" } } },
-          { tool: "agent_enter", operation: "agent_enter", arguments: { agent: { client: "" } } },
-          { tool: "agent_start", operation: "agent_start", arguments: { agent: { client: "" } } },
-          { tool: "agent_status", operation: "agent_status", arguments: { status: "working", agent: { client: "" } } },
-          { tool: "agent_finish", operation: "agent_finish", arguments: { summary: "done", agent: { client: "" } } }
-        ]) {
+        const lifecycleAgentTools = [
+          { tool: "agent_doctor", operation: "agent_doctor", baseArguments: {} },
+          { tool: "agent_guide", operation: "agent_guide", baseArguments: {} },
+          { tool: "agent_enter", operation: "agent_enter", baseArguments: {} },
+          { tool: "agent_start", operation: "agent_start", baseArguments: {} },
+          { tool: "agent_status", operation: "agent_status", baseArguments: { status: "working" } },
+          { tool: "agent_finish", operation: "agent_finish", baseArguments: { summary: "done" } }
+        ];
+        for (const { tool, operation, baseArguments } of lifecycleAgentTools) {
           const invalidAgentClient = parseTextContent(await client.callTool({
             name: tool,
-            arguments: toolArguments
+            arguments: { ...baseArguments, agent: { client: "" } }
           })) as McpInvalidArgument;
           expect(invalidAgentClient.ok).toBe(false);
           expect(invalidAgentClient.error.code).toBe("INVALID_ARGUMENT");
@@ -6891,6 +6929,29 @@ describe("MCP stdio server", () => {
               "agent.client": `operations_by_id.${operation}.arguments_by_name.agent_client`
             },
             retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
+          });
+        }
+        for (const { field, argumentName, placeholder } of [
+          { field: "session_id", argumentName: "agent_session_id", placeholder: "<agent session id>" },
+          { field: "model", argumentName: "agent_model", placeholder: "<agent model>" },
+          { field: "device_id", argumentName: "agent_device_id", placeholder: "<agent device id>" }
+        ]) {
+          const invalidAgentField = parseTextContent(await client.callTool({
+            name: "agent_enter",
+            arguments: { agent: { client: "codex", [field]: "" } }
+          })) as McpInvalidArgument;
+          expect(invalidAgentField.ok).toBe(false);
+          expect(invalidAgentField.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidAgentField.error.message).toContain(`Invalid agent.${field}`);
+          expect(invalidAgentField.error.recommended_action).toBe("retry agent lifecycle with valid agent identity metadata");
+          expect(invalidAgentField.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.agent_enter",
+            rejected_argument: { argument: `agent.${field}`, value: "" },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              [`agent.${field}`]: `operations_by_id.agent_enter.arguments_by_name.${argumentName}`
+            },
+            retry_with: { argument: `agent.${field}`, value_placeholder: placeholder }
           });
         }
         const invalidTargetState = parseTextContent(await client.callTool({

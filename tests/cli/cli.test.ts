@@ -1570,11 +1570,26 @@ describe("moryn CLI", () => {
       mcp_tool: "<tool>",
       cli_command: "<command>"
     });
-    expect(parsed.operations_by_category.lifecycle.agent_enter).toEqual(parsed.operations_by_id.agent_enter);
-    expect(parsed.operations_by_mcp_tool.agent_enter).toEqual(parsed.operations_by_id.agent_enter);
-    expect(parsed.operations_by_mcp_tool.operation_contracts).toEqual(parsed.operations_by_id.operation_contracts);
-    expect(parsed.operations_by_cli_command["moryn agent enter"]).toEqual(parsed.operations_by_id.agent_enter);
-    expect(parsed.operations_by_cli_command["moryn contracts operations"]).toEqual(parsed.operations_by_id.operation_contracts);
+    expect(parsed.operations_by_category.lifecycle.agent_enter).toEqual({
+      operation: "agent_enter",
+      operation_source: "operations_by_id.agent_enter"
+    });
+    expect(parsed.operations_by_mcp_tool.agent_enter).toEqual({
+      operation: "agent_enter",
+      operation_source: "operations_by_id.agent_enter"
+    });
+    expect(parsed.operations_by_mcp_tool.operation_contracts).toEqual({
+      operation: "operation_contracts",
+      operation_source: "operations_by_id.operation_contracts"
+    });
+    expect(parsed.operations_by_cli_command["moryn agent enter"]).toEqual({
+      operation: "agent_enter",
+      operation_source: "operations_by_id.agent_enter"
+    });
+    expect(parsed.operations_by_cli_command["moryn contracts operations"]).toEqual({
+      operation: "operation_contracts",
+      operation_source: "operations_by_id.operation_contracts"
+    });
     expect(parsed.operations_by_id.agent_enter.selection_sources.required_input_path_by_value_path).toBeUndefined();
     expect(parsed.operations_by_id.agent_enter.selection_sources.category).toBeUndefined();
     expect(parsed.operations_by_id.agent_enter.selection_sources.category_operation).toBeUndefined();
@@ -1582,8 +1597,6 @@ describe("moryn CLI", () => {
     expect(parsed.operations_by_id.agent_enter.selection_sources.cli_command_operation).toBeUndefined();
     expect(parsed.operations_by_id.agent_enter.selection_sources.ordered_operation).toBeUndefined();
     expect(parsed.operations_by_id.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
-    expect(parsed.operations_by_mcp_tool.agent_enter.selection_sources.required_input_path_by_value_path).toBeUndefined();
-    expect(parsed.operations_by_cli_command["moryn agent enter"].selection_sources.required_input_path_by_value_path).toBeUndefined();
     expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
   });
 

@@ -83,12 +83,12 @@ describe("published package smoke", () => {
         const parsedOperations = JSON.parse(operations.stdout) as {
           recommended_entrypoint: string;
           operations_by_mcp_tool: {
-            agent_enter: { operation: string };
-            operation_contracts: { operation: string };
+            agent_enter: { operation: string; operation_source: string };
+            operation_contracts: { operation: string; operation_source: string };
           };
           operations_by_cli_command: {
-            "moryn agent enter": { operation: string };
-            "moryn contracts operations": { operation: string };
+            "moryn agent enter": { operation: string; operation_source: string };
+            "moryn contracts operations": { operation: string; operation_source: string };
           };
           operations_by_id: {
             agent_enter: { interfaces: { cli: { command: string; executable: string; argv: string[]; args: string[]; exec_file: { executable: string; args: string[] }; placeholders: string[]; has_placeholders: boolean; command_line: string } } };
@@ -146,9 +146,13 @@ describe("published package smoke", () => {
         expect(parsedContracts.selection_sources.contract).toBe("contracts.<group>.<contract>");
         expect(parsedOperations.recommended_entrypoint).toBe("agent_enter");
         expect(parsedOperations.operations_by_mcp_tool.agent_enter.operation).toBe("agent_enter");
+        expect(parsedOperations.operations_by_mcp_tool.agent_enter.operation_source).toBe("operations_by_id.agent_enter");
         expect(parsedOperations.operations_by_mcp_tool.operation_contracts.operation).toBe("operation_contracts");
+        expect(parsedOperations.operations_by_mcp_tool.operation_contracts.operation_source).toBe("operations_by_id.operation_contracts");
         expect(parsedOperations.operations_by_cli_command["moryn agent enter"].operation).toBe("agent_enter");
+        expect(parsedOperations.operations_by_cli_command["moryn agent enter"].operation_source).toBe("operations_by_id.agent_enter");
         expect(parsedOperations.operations_by_cli_command["moryn contracts operations"].operation).toBe("operation_contracts");
+        expect(parsedOperations.operations_by_cli_command["moryn contracts operations"].operation_source).toBe("operations_by_id.operation_contracts");
         expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.command).toBe("moryn agent enter");
         expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.executable).toBe("moryn");
         expect(parsedOperations.operations_by_id.agent_enter.interfaces.cli.argv).toEqual(["agent", "enter"]);

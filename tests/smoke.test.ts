@@ -297,12 +297,30 @@ describe("package smoke test", () => {
     expect(getOperationContract("missing_operation")).toBeUndefined();
     expect(getOperationContractByMcpTool("missing_tool")).toBeUndefined();
     expect(getOperationContractByCliCommand("moryn missing")).toBeUndefined();
-    expect(response.operations_by_mcp_tool.agent_enter).toBe(response.operations_by_id.agent_enter);
-    expect(response.operations_by_mcp_tool.operation_contracts).toBe(response.operations_by_id.operation_contracts);
-    expect(response.operations_by_mcp_tool.write).toBe(response.operations_by_id.write);
-    expect(response.operations_by_cli_command["moryn agent enter"]).toBe(response.operations_by_id.agent_enter);
-    expect(response.operations_by_cli_command["moryn contracts operations"]).toBe(response.operations_by_id.operation_contracts);
-    expect(response.operations_by_cli_command["moryn write --kind <kind> --type <type> --scope <scope> --text <text>"]).toBe(response.operations_by_id.write);
+    expect(response.operations_by_mcp_tool.agent_enter).toEqual({
+      operation: "agent_enter",
+      operation_source: "operations_by_id.agent_enter"
+    });
+    expect(response.operations_by_mcp_tool.operation_contracts).toEqual({
+      operation: "operation_contracts",
+      operation_source: "operations_by_id.operation_contracts"
+    });
+    expect(response.operations_by_mcp_tool.write).toEqual({
+      operation: "write",
+      operation_source: "operations_by_id.write"
+    });
+    expect(response.operations_by_cli_command["moryn agent enter"]).toEqual({
+      operation: "agent_enter",
+      operation_source: "operations_by_id.agent_enter"
+    });
+    expect(response.operations_by_cli_command["moryn contracts operations"]).toEqual({
+      operation: "operation_contracts",
+      operation_source: "operations_by_id.operation_contracts"
+    });
+    expect(response.operations_by_cli_command["moryn write --kind <kind> --type <type> --scope <scope> --text <text>"]).toEqual({
+      operation: "write",
+      operation_source: "operations_by_id.write"
+    });
     expect(response.operations_by_id.agent_enter.selection_sources.required_input_path_by_value_path).toBeUndefined();
     expect(response.operations_by_id.agent_enter.selection_sources.category).toBeUndefined();
     expect(response.operations_by_id.agent_enter.selection_sources.category_operation).toBeUndefined();
@@ -310,8 +328,6 @@ describe("package smoke test", () => {
     expect(response.operations_by_id.agent_enter.selection_sources.cli_command_operation).toBeUndefined();
     expect(response.operations_by_id.agent_enter.selection_sources.ordered_operation).toBeUndefined();
     expect(response.operations_by_id.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
-    expect(response.operations_by_mcp_tool.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
-    expect(response.operations_by_cli_command["moryn write --kind <kind> --type <type> --scope <scope> --text <text>"].selection_sources.required_input_path_by_value_path).toBeUndefined();
     expect(response.operations_by_id.agent_enter.interfaces.cli.executable).toBe("moryn");
     expect(response.operations_by_id.agent_enter.interfaces.cli.argv).toEqual(["agent", "enter"]);
     expect(response.operations_by_id.agent_enter.interfaces.cli.args).toEqual(["agent", "enter"]);
@@ -769,6 +785,27 @@ describe("package smoke test", () => {
       required: false,
       cli: { flag: "--agent" },
       mcp: { argument: "agent", path: "agent.client" },
+      parent_argument: "agent"
+    });
+    expect(response.operations_by_id.agent_enter.arguments_by_name.agent_session_id).toMatchObject({
+      type: "string",
+      required: false,
+      cli: { flag: "--session-id" },
+      mcp: { argument: "agent", path: "agent.session_id" },
+      parent_argument: "agent"
+    });
+    expect(response.operations_by_id.agent_enter.arguments_by_name.agent_model).toMatchObject({
+      type: "string",
+      required: false,
+      cli: { flag: "--model" },
+      mcp: { argument: "agent", path: "agent.model" },
+      parent_argument: "agent"
+    });
+    expect(response.operations_by_id.agent_enter.arguments_by_name.agent_device_id).toMatchObject({
+      type: "string",
+      required: false,
+      cli: { flag: "--device-id" },
+      mcp: { argument: "agent", path: "agent.device_id" },
       parent_argument: "agent"
     });
     expect(response.operations_by_id.agent_finish.required_fields).toEqual(["summary"]);
@@ -1244,6 +1281,9 @@ describe("package smoke test", () => {
     });
     expect(response.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
     expect(response.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
-    expect(response.operations_by_category.lifecycle.agent_enter).toBe(response.operations_by_id.agent_enter);
+    expect(response.operations_by_category.lifecycle.agent_enter).toEqual({
+      operation: "agent_enter",
+      operation_source: "operations_by_id.agent_enter"
+    });
   });
 });

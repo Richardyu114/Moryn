@@ -465,10 +465,15 @@ value-path required-input hint, and `full_contract_lookup`; package users can im
 `OPERATION_CONTRACT_INDEX_SELECTION_SOURCES` for the same compact map.
 The full response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, reverse indexes `operations_by_mcp_tool` and
-`operations_by_cli_command`, and selection sources for those keyed paths. Each
-operation carries CLI/MCP interfaces, action-local `selection_sources`,
-`safe_to_run`, `safety`, `required_when`, `execution`, `required_fields`,
-`required_fields_by_name`, `arguments_by_name`, and `argument_sources`.
+`operations_by_cli_command`, and selection sources for those keyed paths. The
+ordered `operations` list and `operations_by_id` carry full contracts; grouped
+and reverse indexes carry lightweight `{ operation, operation_source }`
+references so MCP hosts can resolve the canonical
+`operations_by_id.<operation>` contract without receiving the same large object
+several times. Each full operation carries CLI/MCP interfaces, action-local
+`selection_sources`, `safe_to_run`, `safety`, `required_when`, `execution`,
+`required_fields`, `required_fields_by_name`, `arguments_by_name`, and
+`argument_sources`.
 Each `interfaces.cli` object includes a display `command`, an `executable`,
 `args`, and compatibility `argv`, so hosts can execute the CLI without parsing
 shell strings. For Moryn subcommands, `executable` is `"moryn"` and `args`
@@ -771,9 +776,10 @@ arguments for mutation record ids, linked record ids, and `sync init <remote>`
 also return operation and argument sources instead of generic command-argument
 advice. Empty CLI strings for write text/tags/provenance, refresh cursors, sync
 messages, lifecycle project/task/sync/agent/status/summary inputs, MCP agent
-lifecycle `agent.client` values, and `project list` task/sync/agent prefill
-inputs, plus malformed `revise --set` assignments, use the same source-backed
-recovery channel.
+lifecycle identity metadata (`agent.client`, `agent.session_id`, `agent.model`,
+and `agent.device_id`), and `project list` task/sync/agent prefill inputs, plus
+malformed `revise --set` assignments, use the same source-backed recovery
+channel.
 Explicit empty agent prefill fields such as `project list --agent ""` are
 rejected instead of being ignored. Conflicting `moryn sync` operation flags
 include `operation_contracts` for `sync_status`, `sync_push`, and `sync_pull`,

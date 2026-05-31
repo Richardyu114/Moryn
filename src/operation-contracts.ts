@@ -105,6 +105,11 @@ export type SingleOperationContractResponse = {
   selection_sources: typeof OPERATION_CONTRACTS_SELECTION_SOURCES;
 };
 
+export type OperationContractReference = {
+  operation: string;
+  operation_source: string;
+};
+
 export type OperationContractLookupKind = "operation" | "mcp_tool" | "cli_command";
 export type OperationContractLookupMode = "index" | OperationContractLookupKind;
 export type OperationContractLookupOption = {
@@ -558,6 +563,27 @@ const agentSourceArgument = {
     required: false,
     cli: { flag: "--agent" },
     mcp: { argument: "agent", path: "agent.client" },
+    parent_argument: "agent"
+  },
+  agent_session_id: {
+    type: "string",
+    required: false,
+    cli: { flag: "--session-id" },
+    mcp: { argument: "agent", path: "agent.session_id" },
+    parent_argument: "agent"
+  },
+  agent_model: {
+    type: "string",
+    required: false,
+    cli: { flag: "--model" },
+    mcp: { argument: "agent", path: "agent.model" },
+    parent_argument: "agent"
+  },
+  agent_device_id: {
+    type: "string",
+    required: false,
+    cli: { flag: "--device-id" },
+    mcp: { argument: "agent", path: "agent.device_id" },
     parent_argument: "agent"
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
@@ -1664,21 +1690,32 @@ export function getOperationContractByCliCommand(command: string): SingleOperati
   return singleOperationContractResponse(contract, `operations_by_cli_command.${command}`);
 }
 
-function operationsByCategory(operations: readonly OperationContract[]): Record<string, Record<string, OperationContract>> {
-  const categories: Record<string, Record<string, OperationContract>> = {};
+function operationContractReference(operation: OperationContract): OperationContractReference {
+  return {
+    operation: operation.operation,
+    operation_source: `operations_by_id.${operation.operation}`
+  };
+}
+
+function operationContractReferences(operations: readonly OperationContract[]): OperationContractReference[] {
+  return operations.map(operationContractReference);
+}
+
+function operationsByCategory(operations: readonly OperationContract[]): Record<string, Record<string, OperationContractReference>> {
+  const categories: Record<string, Record<string, OperationContractReference>> = {};
   for (const operation of operations) {
     categories[operation.category] ??= {};
-    categories[operation.category][operation.operation] = operation;
+    categories[operation.category][operation.operation] = operationContractReference(operation);
   }
   return categories;
 }
 
-function operationsByMcpTool(operations: readonly OperationContract[]): Record<string, OperationContract> {
-  return Object.fromEntries(operations.map((operation) => [operation.interfaces.mcp.tool, operation]));
+function operationsByMcpTool(operations: readonly OperationContract[]): Record<string, OperationContractReference> {
+  return Object.fromEntries(operations.map((operation) => [operation.interfaces.mcp.tool, operationContractReference(operation)]));
 }
 
-function operationsByCliCommand(operations: readonly OperationContract[]): Record<string, OperationContract> {
-  return Object.fromEntries(operations.map((operation) => [operation.interfaces.cli.command, operation]));
+function operationsByCliCommand(operations: readonly OperationContract[]): Record<string, OperationContractReference> {
+  return Object.fromEntries(operations.map((operation) => [operation.interfaces.cli.command, operationContractReference(operation)]));
 }
 
 export function getOperationContracts() {
