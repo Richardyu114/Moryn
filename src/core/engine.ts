@@ -350,13 +350,13 @@ function withRefreshChangeNextActionMetadata<T extends {
 }
 
 interface StateChangeInput {
-  record_id: string;
+  record_id: unknown;
   reason?: string;
   source?: RecordSource;
 }
 
 interface RevisionInput {
-  record_id: string;
+  record_id: unknown;
   patch: unknown;
   reason?: string;
   source?: RecordSource;
@@ -364,7 +364,7 @@ interface RevisionInput {
 }
 
 interface PromoteInput {
-  record_id: string;
+  record_id: unknown;
   target_state: RecordState;
   reason?: string;
   source?: RecordSource;
@@ -372,11 +372,16 @@ interface PromoteInput {
 }
 
 interface LinkInput {
-  record_id: string;
-  linked_record_id: string;
+  record_id: unknown;
+  linked_record_id: unknown;
   link_type: string;
   source?: RecordSource;
 }
+
+type ValidatedStateChangeInput = StateChangeInput & { record_id: string };
+type ValidatedRevisionInput = RevisionInput & { record_id: string };
+type ValidatedPromoteInput = PromoteInput & { record_id: string };
+type ValidatedLinkInput = LinkInput & { record_id: string; linked_record_id: string };
 
 type ReadOperation = "recall" | "boot" | "refresh" | "list_recent" | "project_list";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
@@ -2143,11 +2148,12 @@ export function createEngine(deps: EngineDeps) {
 
     async revise(input: RevisionInput) {
       validateRevisionInput(input);
+      const revisionInput = input as ValidatedRevisionInput;
       const patch = input.patch as Record<string, unknown>;
-      const record = await requireRecord(input.record_id);
+      const record = await requireRecord(revisionInput.record_id);
       const managedPath = Object.keys(patch).find((path) => managedRevisionFields.has(path.split(".")[0] as string));
       if (managedPath !== undefined) {
-        throw managedRevisionFieldError(managedPath, patch[managedPath], input.record_id);
+        throw managedRevisionFieldError(managedPath, patch[managedPath], revisionInput.record_id);
       }
       const createdAt = nextMutationTimestamp(record, now());
       const source = input.source ?? { client: "moryn" };
@@ -2169,7 +2175,7 @@ export function createEngine(deps: EngineDeps) {
       const event: MorynEvent = {
         event_id: id("evt"),
         op: "revise_record",
-        record_id: input.record_id,
+        record_id: revisionInput.record_id,
         patch: eventPatch,
         reason: input.reason,
         confirmed: input.confirmed,
@@ -2190,7 +2196,7 @@ export function createEngine(deps: EngineDeps) {
       const quarantineEvent: MorynEvent = {
         event_id: id("evt"),
         op: "quarantine_record",
-        record_id: input.record_id,
+        record_id: revisionInput.record_id,
         reason: "SENSITIVE_CONTENT_DETECTED",
         created_at: quarantineCreatedAt,
         source
@@ -2207,7 +2213,8 @@ export function createEngine(deps: EngineDeps) {
 
     async promote(input: PromoteInput) {
       validatePromoteInput(input);
-      const record = await requireRecord(input.record_id);
+      const promoteInput = input as ValidatedPromoteInput;
+      const record = await requireRecord(promoteInput.record_id);
       const source = input.source ?? { client: "moryn" };
       const conflicts = input.target_state === "canonical" ? semanticConflicts(await currentRecords(), record) : [];
       if (input.target_state === "canonical"
@@ -2224,7 +2231,7 @@ export function createEngine(deps: EngineDeps) {
       const event: MorynEvent = {
         event_id: id("evt"),
         op: "promote_record",
-        record_id: input.record_id,
+        record_id: promoteInput.record_id,
         target_state: input.target_state,
         reason: input.reason,
         confirmed: input.confirmed,
@@ -2240,12 +2247,13 @@ export function createEngine(deps: EngineDeps) {
 
     async archive(input: StateChangeInput) {
       validateStateChangeInput(input, "archive input", "archive");
-      const record = await requireRecord(input.record_id);
+      const stateInput = input as ValidatedStateChangeInput;
+      const record = await requireRecord(stateInput.record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MorynEvent = {
         event_id: id("evt"),
         op: "archive_record",
-        record_id: input.record_id,
+        record_id: stateInput.record_id,
         reason: input.reason,
         created_at: createdAt,
         source: input.source ?? { client: "moryn" }
@@ -2256,12 +2264,13 @@ export function createEngine(deps: EngineDeps) {
 
     async quarantine(input: StateChangeInput) {
       validateStateChangeInput(input, "quarantine input", "quarantine");
-      const record = await requireRecord(input.record_id);
+      const stateInput = input as ValidatedStateChangeInput;
+      const record = await requireRecord(stateInput.record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MorynEvent = {
         event_id: id("evt"),
         op: "quarantine_record",
-        record_id: input.record_id,
+        record_id: stateInput.record_id,
         reason: input.reason,
         created_at: createdAt,
         source: input.source ?? { client: "moryn" }
@@ -2272,14 +2281,15 @@ export function createEngine(deps: EngineDeps) {
 
     async link(input: LinkInput) {
       validateLinkInput(input);
-      const record = await requireRecord(input.record_id);
-      await requireRecord(input.linked_record_id);
+      const linkInput = input as ValidatedLinkInput;
+      const record = await requireRecord(linkInput.record_id);
+      await requireRecord(linkInput.linked_record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MorynEvent = {
         event_id: id("evt"),
         op: "link_records",
-        record_id: input.record_id,
-        linked_record_id: input.linked_record_id,
+        record_id: linkInput.record_id,
+        linked_record_id: linkInput.linked_record_id,
         link_type: input.link_type,
         created_at: createdAt,
         source: input.source ?? { client: "moryn" }

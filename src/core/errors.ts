@@ -564,6 +564,12 @@ function appendCommandOptionValue(parts: string[], option: string, value: unknow
   }
 }
 
+function appendCommandValue(parts: string[], value: unknown): void {
+  if (typeof value === "string" || typeof value === "number") {
+    parts.push(shellQuote(String(value)));
+  }
+}
+
 function appendRepeatedCommandOption(parts: string[], option: string, values: string[] | undefined): void {
   for (const value of values ?? []) {
     appendCommandOption(parts, option, value);
@@ -940,16 +946,19 @@ function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextActi
   });
 }
 
-export function commandForPromoteContext(input: { record_id: string; target_state: string; reason?: string }): string {
-  const parts = ["moryn", "promote", shellQuote(input.record_id), "--state", shellQuote(input.target_state)];
+export function commandForPromoteContext(input: { record_id: unknown; target_state: string; reason?: string }): string {
+  const parts = ["moryn", "promote"];
+  appendCommandValue(parts, input.record_id);
+  parts.push("--state", shellQuote(input.target_state));
   if (input.reason !== undefined) {
     parts.push("--reason", shellQuote(input.reason));
   }
   return parts.join(" ");
 }
 
-export function commandForReviseContext(input: { record_id: string; patch: unknown; reason?: string }): string {
-  const parts = ["moryn", "revise", shellQuote(input.record_id)];
+export function commandForReviseContext(input: { record_id: unknown; patch: unknown; reason?: string }): string {
+  const parts = ["moryn", "revise"];
+  appendCommandValue(parts, input.record_id);
   if (typeof input.patch === "object" && input.patch !== null && !Array.isArray(input.patch)) {
     for (const [path, value] of Object.entries(input.patch)) {
       const assignmentValue = typeof value === "string" ? value : JSON.stringify(value);
@@ -1008,31 +1017,30 @@ export function commandForRefreshContext(input: {
   return parts.join(" ");
 }
 
-export function commandForArchiveContext(input: { record_id: string; reason?: string }): string {
-  const parts = ["moryn", "archive", shellQuote(input.record_id)];
+export function commandForArchiveContext(input: { record_id: unknown; reason?: string }): string {
+  const parts = ["moryn", "archive"];
+  appendCommandValue(parts, input.record_id);
   if (input.reason !== undefined) {
     parts.push("--reason", shellQuote(input.reason));
   }
   return parts.join(" ");
 }
 
-export function commandForQuarantineContext(input: { record_id: string; reason?: string }): string {
-  const parts = ["moryn", "quarantine", shellQuote(input.record_id)];
+export function commandForQuarantineContext(input: { record_id: unknown; reason?: string }): string {
+  const parts = ["moryn", "quarantine"];
+  appendCommandValue(parts, input.record_id);
   if (input.reason !== undefined) {
     parts.push("--reason", shellQuote(input.reason));
   }
   return parts.join(" ");
 }
 
-export function commandForLinkContext(input: { record_id: string; linked_record_id: string; link_type: string }): string {
-  return [
-    "moryn",
-    "link",
-    shellQuote(input.record_id),
-    shellQuote(input.linked_record_id),
-    "--type",
-    shellQuote(input.link_type)
-  ].join(" ");
+export function commandForLinkContext(input: { record_id: unknown; linked_record_id: unknown; link_type: string }): string {
+  const parts = ["moryn", "link"];
+  appendCommandValue(parts, input.record_id);
+  appendCommandValue(parts, input.linked_record_id);
+  parts.push("--type", shellQuote(input.link_type));
+  return parts.join(" ");
 }
 
 type AgentStartContextInput = {

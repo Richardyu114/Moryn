@@ -820,7 +820,10 @@ MCP mutation `source` shape failures also pass through core validation,
 including single-string source values.
 MCP `revise.patch` shape failures also pass through core validation, including
 single-string patch values, and return `rejected_patch` plus a safe patch
-placeholder.
+placeholder. MCP mutation `record_id` shape failures for `revise`, `promote`,
+`archive`, `quarantine`, and `link`, plus `link.linked_record_id`, pass through
+core validation and return the matching `operations_by_id.<operation>`
+argument source instead of host-side schema text.
 Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 `project_list` likewise include the matching operation contract plus
 `argument_sources` for invalid filters, cursors, tasks, project ids, and limits,

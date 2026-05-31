@@ -494,7 +494,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Revise Moryn Record",
       description: "Append a logical revision event for an existing record.",
       inputSchema: {
-        record_id: stringSchema,
+        record_id: z.unknown(),
         patch: z.unknown(),
         reason: stringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
@@ -525,7 +525,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Promote Moryn Record",
       description: "Change a record state by appending a promotion/state event.",
       inputSchema: {
-        record_id: stringSchema,
+        record_id: z.unknown(),
         target_state: recordStateSchema,
         reason: stringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
@@ -556,7 +556,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Archive Moryn Record",
       description: "Hide a record from default boot and recall while preserving history.",
       inputSchema: {
-        record_id: stringSchema,
+        record_id: z.unknown(),
         reason: stringSchema.optional(),
         source: z.unknown().optional()
       }
@@ -582,7 +582,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Quarantine Moryn Record",
       description: "Mark a record as sensitive or unsafe so it is excluded by default.",
       inputSchema: {
-        record_id: stringSchema,
+        record_id: z.unknown(),
         reason: stringSchema.optional(),
         source: z.unknown().optional()
       }
@@ -608,8 +608,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Link Moryn Records",
       description: "Append a relationship from one record to another.",
       inputSchema: {
-        record_id: stringSchema,
-        linked_record_id: stringSchema,
+        record_id: z.unknown(),
+        linked_record_id: z.unknown(),
         link_type: stringSchema,
         source: z.unknown().optional()
       }

@@ -7555,6 +7555,57 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "reason", value_placeholder: "<reason>" }
         });
+
+        for (const { tool, operation, baseArguments } of [
+          { tool: "revise", operation: "revise", baseArguments: { patch: { "content.text": "No-op" } } },
+          { tool: "promote", operation: "promote", baseArguments: { target_state: "canonical" } },
+          { tool: "archive", operation: "archive", baseArguments: {} },
+          { tool: "quarantine", operation: "quarantine", baseArguments: {} },
+          { tool: "link", operation: "link", baseArguments: { linked_record_id: "rec_other", link_type: "related" } }
+        ] as const) {
+          const invalidMutationRecordId = parseTextContent(await client.callTool({
+            name: tool,
+            arguments: {
+              ...baseArguments,
+              record_id: 123
+            }
+          })) as McpInvalidArgument;
+          expect(invalidMutationRecordId.ok).toBe(false);
+          expect(invalidMutationRecordId.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidMutationRecordId.error.message).toContain("Invalid record_id");
+          expect(invalidMutationRecordId.error.recommended_action).toBe("retry mutation with a valid record_id");
+          expect(invalidMutationRecordId.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument: "record_id", value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              record_id: `operations_by_id.${operation}.arguments_by_name.record_id`
+            },
+            retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
+          });
+        }
+
+        const invalidLinkedRecordId = parseTextContent(await client.callTool({
+          name: "link",
+          arguments: {
+            record_id: "rec_missing",
+            linked_record_id: 123,
+            link_type: "related"
+          }
+        })) as McpInvalidArgument;
+        expect(invalidLinkedRecordId.ok).toBe(false);
+        expect(invalidLinkedRecordId.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidLinkedRecordId.error.message).toContain("Invalid linked_record_id");
+        expect(invalidLinkedRecordId.error.recommended_action).toBe("retry mutation with a valid linked_record_id");
+        expect(invalidLinkedRecordId.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.link",
+          rejected_argument: { argument: "linked_record_id", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            linked_record_id: "operations_by_id.link.arguments_by_name.linked_record_id"
+          },
+          retry_with: { argument: "linked_record_id", value_placeholder: "<linked_record_id>" }
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });

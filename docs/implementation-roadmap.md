@@ -481,6 +481,11 @@ Deliverables:
   `source.device_id` failures now pass through core validation and return
   structured recovery hints pointing at `source_session_id`, `source_model`, or
   `source_device_id` operation contract arguments.
+- Done: MCP mutation `record_id` shape failures for `revise`, `promote`,
+  `archive`, `quarantine`, and `link`, plus `link.linked_record_id`, now pass
+  through core validation, including numeric values, and expose the matching
+  `operations_by_id.<operation>.arguments_by_name.*` sources instead of
+  host-side schema text.
 - Done: CLI sync parser failures for conflicting `--status`/`--push`/`--pull`
   flags now return operation contracts for each selectable sync operation, and
   `--message` without `--push` points at
