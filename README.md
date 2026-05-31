@@ -814,11 +814,13 @@ same operation contract and `arguments_by_name.<argument>` source before control
 reaches the core engine. Missing required parser options for `revise --set`,
 `promote --state`, `link --type`, `agent status --status`, and
 `agent finish --summary` use the same source-backed recovery shape, so agents
-can inspect the exact operation contract before retrying. Empty CLI strings for
-write text/tags/provenance, refresh cursors, sync messages, lifecycle
-project/task/sync/agent/status/summary inputs, and `project list`
-task/sync/agent prefill inputs, plus malformed `revise --set` assignments, use
-the same source-backed recovery channel.
+can inspect the exact operation contract before retrying. Missing positional
+arguments for mutation record ids, linked record ids, and `sync init <remote>`
+also return operation and argument sources instead of generic command-argument
+advice. Empty CLI strings for write text/tags/provenance, refresh cursors, sync
+messages, lifecycle project/task/sync/agent/status/summary inputs, and
+`project list` task/sync/agent prefill inputs, plus malformed `revise --set`
+assignments, use the same source-backed recovery channel.
 Explicit empty agent prefill fields such as `project list --agent ""` are
 rejected instead of being ignored. Conflicting `moryn sync` operation flags now
 include `operation_contracts` for `sync_status`, `sync_push`, and `sync_pull`,

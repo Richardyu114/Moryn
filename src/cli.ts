@@ -70,11 +70,23 @@ type CliWriteSource = {
   operation: "write";
   argument: string;
 };
-type CliRequiredOperation = "write" | "revise" | "promote" | "link" | "agent_status" | "agent_finish";
+type CliRequiredOperation =
+  | "write"
+  | "revise"
+  | "promote"
+  | "archive"
+  | "quarantine"
+  | "link"
+  | "agent_status"
+  | "agent_finish"
+  | "sync_init";
 type CliRequiredArgumentSource = `operations_by_id.${CliRequiredOperation}.arguments_by_name.${string}`;
 type CliRequiredSource = {
   operation: CliRequiredOperation;
   argument: string;
+};
+type CliRequiredPositionalSource = CliRequiredSource & {
+  positional: string;
 };
 type CliParserOperation =
   | "write"
@@ -144,6 +156,18 @@ type CliArgumentRecoveryHint =
       missing_argument: { option: string; placeholder: string };
       expected: { kind: "required_option"; required: true };
       retry_with: { option: string; value_placeholder: string };
+    }
+  | {
+      operation_contract: `operations_by_id.${CliRequiredOperation}`;
+      missing_argument: { positional: string; placeholder: string };
+      expected: { kind: "required_positional"; required: true };
+      argument_sources: Record<string, CliRequiredArgumentSource>;
+      retry_with: { positional: string; value_placeholder: string };
+    }
+  | {
+      missing_argument: { positional: string; placeholder: string };
+      expected: { kind: "required_positional"; required: true };
+      retry_with: { positional: string; value_placeholder: string };
     }
   | {
       operation_contract: `operations_by_id.${CliParserOperation}`;
@@ -315,6 +339,14 @@ function cliRequiredOptionError(message: string, args = process.argv.slice(2)): 
   return requiredCliOptionError(option, placeholder, message, requiredCliOptionSource(option, args));
 }
 
+function cliRequiredArgumentError(message: string, args = process.argv.slice(2)): CliArgumentError | undefined {
+  const match = /^missing required argument '([^']+)'$/.exec(message);
+  if (!match) return undefined;
+  const [, positional] = match;
+  if (!positional) return undefined;
+  return requiredCliPositionalArgumentError(positional, `<${positional}>`, message, requiredCliPositionalArgumentSource(positional, args));
+}
+
 function requiredCliOptionSource(option: string, args = process.argv.slice(2)): CliRequiredSource | undefined {
   const commandPath = cliCommandPath(args);
   if (commandPath[0] === "write") {
@@ -330,6 +362,30 @@ function requiredCliOptionSource(option: string, args = process.argv.slice(2)): 
   }
   if (commandPath[0] === "agent" && commandPath[1] === "finish" && option === "--summary") {
     return { operation: "agent_finish", argument: "summary" };
+  }
+  return undefined;
+}
+
+function requiredCliPositionalArgumentSource(positional: string, args = process.argv.slice(2)): CliRequiredPositionalSource | undefined {
+  const commandPath = cliCommandPath(args);
+  if (commandPath[0] === "revise" && positional === "record-id") {
+    return { operation: "revise", argument: "record_id", positional };
+  }
+  if (commandPath[0] === "promote" && positional === "record-id") {
+    return { operation: "promote", argument: "record_id", positional };
+  }
+  if (commandPath[0] === "archive" && positional === "record-id") {
+    return { operation: "archive", argument: "record_id", positional };
+  }
+  if (commandPath[0] === "quarantine" && positional === "record-id") {
+    return { operation: "quarantine", argument: "record_id", positional };
+  }
+  if (commandPath[0] === "link") {
+    if (positional === "record-id") return { operation: "link", argument: "record_id", positional };
+    if (positional === "linked-record-id") return { operation: "link", argument: "linked_record_id", positional };
+  }
+  if (commandPath[0] === "sync" && commandPath[1] === "init" && positional === "remote") {
+    return { operation: "sync_init", argument: "remote", positional };
   }
   return undefined;
 }
@@ -373,6 +429,27 @@ function requiredCliOptionError(option: string, placeholder: string, message?: s
         ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
         : {}),
       retry_with: { option, value_placeholder: placeholder }
+    }
+  );
+}
+
+function requiredCliPositionalArgumentError(
+  positional: string,
+  placeholder: string,
+  message?: string,
+  source = requiredCliPositionalArgumentSource(positional)
+): CliArgumentError {
+  return new CliArgumentError(
+    `Invalid argument: ${message ?? `missing required argument '${positional}'`}`,
+    `retry with required <${positional}>`,
+    {
+      ...(source !== undefined ? { operation_contract: `operations_by_id.${source.operation}` as const } : {}),
+      missing_argument: { positional, placeholder },
+      expected: { kind: "required_positional", required: true },
+      ...(source !== undefined
+        ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
+        : {}),
+      retry_with: { positional, value_placeholder: placeholder }
     }
   );
 }
@@ -1396,7 +1473,7 @@ program.parseAsync().catch((error: unknown) => {
 
   if (error instanceof CommanderError) {
     const message = error.message.startsWith("error: ") ? error.message.slice("error: ".length) : error.message;
-    printError(cliRequiredOptionError(message) ?? new Error(`Invalid argument: ${message}`));
+    printError(cliRequiredOptionError(message) ?? cliRequiredArgumentError(message) ?? new Error(`Invalid argument: ${message}`));
     process.exitCode = error.exitCode;
     return;
   }

@@ -6717,6 +6717,100 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("returns structured JSON errors for missing CLI positional arguments", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      for (const { args, operation, message, argument, positional, placeholder } of [
+        {
+          args: ["revise", "--set", "content.text=Updated"],
+          operation: "revise",
+          message: "missing required argument 'record-id'",
+          argument: "record_id",
+          positional: "record-id",
+          placeholder: "<record-id>"
+        },
+        {
+          args: ["promote", "--state", "canonical"],
+          operation: "promote",
+          message: "missing required argument 'record-id'",
+          argument: "record_id",
+          positional: "record-id",
+          placeholder: "<record-id>"
+        },
+        {
+          args: ["archive"],
+          operation: "archive",
+          message: "missing required argument 'record-id'",
+          argument: "record_id",
+          positional: "record-id",
+          placeholder: "<record-id>"
+        },
+        {
+          args: ["quarantine"],
+          operation: "quarantine",
+          message: "missing required argument 'record-id'",
+          argument: "record_id",
+          positional: "record-id",
+          placeholder: "<record-id>"
+        },
+        {
+          args: ["link", "rec_source", "--type", "supersedes"],
+          operation: "link",
+          message: "missing required argument 'linked-record-id'",
+          argument: "linked_record_id",
+          positional: "linked-record-id",
+          placeholder: "<linked-record-id>"
+        },
+        {
+          args: ["sync", "init"],
+          operation: "sync_init",
+          message: "missing required argument 'remote'",
+          argument: "remote",
+          positional: "remote",
+          placeholder: "<remote>"
+        }
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject missing positional input`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recoverable: boolean;
+              recommended_action: string;
+              recovery_hint: {
+                operation_contract: string;
+                missing_argument: { positional: string; placeholder: string };
+                expected: { kind: string; required: boolean };
+                argument_sources: Record<string, string>;
+                retry_with: { positional: string; value_placeholder: string };
+              };
+            };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain(message);
+          expect(parsed.error.recoverable).toBe(true);
+          expect(parsed.error.recommended_action).toBe(`retry with required <${positional}>`);
+          expect(parsed.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            missing_argument: { positional, placeholder },
+            expected: { kind: "required_positional", required: true },
+            argument_sources: {
+              [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
+            },
+            retry_with: { positional, value_placeholder: placeholder }
+          });
+        }
+      }
+    });
+  });
+
   it("returns structured JSON errors for malformed store config during init", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

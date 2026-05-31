@@ -360,6 +360,9 @@ Deliverables:
   `promote --state`, `link --type`, `agent status --status`, and
   `agent finish --summary` now expose the matching operation contract and
   argument source before command action logic runs.
+- Done: CLI missing positional argument parser failures for mutation record ids,
+  linked record ids, and `sync init <remote>` now expose matching operation
+  contracts and argument sources instead of generic command-argument advice.
 - Done: CLI non-empty string failures for write text/tags/provenance, refresh
   cursors, and sync push messages, plus malformed `revise --set` assignments,
   now expose operation contract and argument source hints before lower-level
