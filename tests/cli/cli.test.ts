@@ -3714,6 +3714,64 @@ describe("moryn CLI", () => {
     });
   }, 20000);
 
+  it("rejects empty CLI mutation positionals before writing events", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+
+      for (const { args, operation, argument, positional } of [
+        {
+          args: ["revise", "", "--set", "type=decision"],
+          operation: "revise",
+          argument: "record_id",
+          positional: "record-id"
+        },
+        {
+          args: ["link", "rec_source", "", "--type", "related"],
+          operation: "link",
+          argument: "linked_record_id",
+          positional: "linked-record-id"
+        }
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject an empty positional argument`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recommended_action: string;
+              recovery_hint: {
+                operation_contract: string;
+                rejected_argument: { positional: string; value: string };
+                expected: { kind: string; min_length: number };
+                argument_sources: Record<string, string>;
+                retry_with: { positional: string; value_placeholder: string };
+              };
+            };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain(`Invalid ${positional}`);
+          expect(parsed.error.recommended_action).toBe(`retry with a non-empty <${positional}> value`);
+          expect(parsed.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { positional, value: "" },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
+            },
+            retry_with: { positional, value_placeholder: `<non-empty ${positional}>` }
+          });
+        }
+      }
+
+      await expect(readEvents(dir)).resolves.toHaveLength(0);
+    });
+  });
+
   it("writes project session summaries with handoff defaults from the CLI", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

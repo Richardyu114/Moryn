@@ -740,6 +740,10 @@ Deliverables:
   with a `--path` recovery hint backed by
   `operations_by_id.project_init.arguments_by_name.path`, so agents do not need
   to translate a lower-level `projectPath` argument error.
+- Done: Empty CLI mutation positionals now fail at the CLI boundary with
+  `record-id`/`linked-record-id` recovery hints backed by the matching mutation
+  `arguments_by_name` source, so agents do not need to translate lower-level
+  `record_id` or `linked_record_id` argument errors.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

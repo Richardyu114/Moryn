@@ -870,7 +870,9 @@ required parser options for `revise --set`, `promote --state`, `link --type`,
 recovery shape, so agents can inspect the exact operation contract before
 retrying. Missing positional arguments for mutation record ids, linked record
 ids, and `sync init <remote>` also return operation and argument sources instead
-of generic command-argument advice. Empty CLI strings for write
+of generic command-argument advice. Empty mutation positionals such as
+`revise "" --set ...` and `link <record-id> "" --type ...` also fail at the CLI
+boundary with `record-id` or `linked-record-id` recovery hints. Empty CLI strings for write
 text/tags/provenance, refresh cursors, sync messages, lifecycle
 project/task/sync/agent/status/summary inputs, MCP source metadata and
 `project_list`/lifecycle agent identity metadata (`source.client`,

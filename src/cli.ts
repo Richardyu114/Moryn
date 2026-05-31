@@ -191,6 +191,18 @@ type CliArgumentRecoveryHint =
       retry_with: { option: string; value_placeholder: string };
     }
   | {
+      operation_contract: `operations_by_id.${CliParserOperation}`;
+      rejected_argument: { positional: string; value: string };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: Record<string, CliParserArgumentSource>;
+      retry_with: { positional: string; value_placeholder: string };
+    }
+  | {
+      rejected_argument: { positional: string; value: string };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      retry_with: { positional: string; value_placeholder: string };
+    }
+  | {
       operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { option: "--content-json"; value: string };
       expected: { kind: "valid_json_object" | "json_object" };
@@ -502,6 +514,22 @@ function nonEmptyCliArgumentError(option: string, source = cliParserArgumentSour
   );
 }
 
+function nonEmptyCliPositionalArgumentError(positional: string, source?: CliParserSource): CliArgumentError {
+  return new CliArgumentError(
+    `Invalid argument: Invalid ${positional}; must not be empty`,
+    `retry with a non-empty <${positional}> value`,
+    {
+      ...(source !== undefined ? { operation_contract: `operations_by_id.${source.operation}` as const } : {}),
+      rejected_argument: { positional, value: "" },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      ...(source !== undefined
+        ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
+        : {}),
+      retry_with: { positional, value_placeholder: `<non-empty ${positional}>` }
+    }
+  );
+}
+
 function contentJsonCliArgumentError(value: string, expectedKind: "valid_json_object" | "json_object", detail?: string): CliArgumentError {
   return new CliArgumentError(
     `Invalid argument: Invalid --content-json${detail ? `; ${detail}` : ""}`,
@@ -748,6 +776,13 @@ function parseNonEmptyCliString(value: string | undefined, option: string, sourc
   return value;
 }
 
+function parseNonEmptyCliPositional(value: string, positional: string, source?: CliParserSource): string {
+  if (value.length === 0) {
+    throw nonEmptyCliPositionalArgumentError(positional, source);
+  }
+  return value;
+}
+
 function collectNonEmptyOption(option: string, source?: CliParserSource) {
   return (value: string, previous: string[] = []): string[] => {
     if (value.length === 0) {
@@ -949,6 +984,7 @@ program.command("revise")
   .option("--confirm", "Confirm a high-risk or conflicting canonical revision")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
+    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", { operation: "revise", argument: "record_id" });
     if (!options.set.length) {
       throw requiredCliOptionError("--set", "<assignment>", "required option '--set <assignment>' not specified", { operation: "revise", argument: "patch" });
     }
@@ -956,16 +992,16 @@ program.command("revise")
     const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "revise", argument: "reason" });
     const context = {
       tool: "revise",
-      command: commandForReviseContext({ record_id: recordId, patch, reason }),
+      command: commandForReviseContext({ record_id: parsedRecordId, patch, reason }),
       arguments: {
-        record_id: recordId,
+        record_id: parsedRecordId,
         patch,
         ...(reason !== undefined ? { reason } : {})
       }
     };
     try {
       printJson(await engine.revise({
-        record_id: recordId,
+        record_id: parsedRecordId,
         patch,
         reason,
         source: { client: "cli" },
@@ -984,20 +1020,21 @@ program.command("promote")
   .option("--confirm", "Confirm a high-risk canonical promotion")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
+    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", { operation: "promote", argument: "record_id" });
     const targetState = parseEnum(options.state, recordStates, "--state", { operation: "promote", argument: "target_state" })!;
     const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "promote", argument: "reason" });
     const context = {
       tool: "promote",
-      command: commandForPromoteContext({ record_id: recordId, target_state: targetState, reason }),
+      command: commandForPromoteContext({ record_id: parsedRecordId, target_state: targetState, reason }),
       arguments: {
-        record_id: recordId,
+        record_id: parsedRecordId,
         target_state: targetState,
         ...(reason !== undefined ? { reason } : {})
       }
     };
     try {
       printJson(await engine.promote({
-        record_id: recordId,
+        record_id: parsedRecordId,
         target_state: targetState,
         reason,
         source: { client: "cli" },
@@ -1014,17 +1051,18 @@ program.command("archive")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
+    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", { operation: "archive", argument: "record_id" });
     const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "archive", argument: "reason" });
     const context = {
       tool: "archive",
-      command: commandForArchiveContext({ record_id: recordId, reason }),
+      command: commandForArchiveContext({ record_id: parsedRecordId, reason }),
       arguments: {
-        record_id: recordId,
+        record_id: parsedRecordId,
         ...(reason !== undefined ? { reason } : {})
       }
     };
     try {
-      printJson(await engine.archive({ record_id: recordId, reason, source: { client: "cli" } }));
+      printJson(await engine.archive({ record_id: parsedRecordId, reason, source: { client: "cli" } }));
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -1036,17 +1074,18 @@ program.command("quarantine")
   .option("--reason <reason>")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
+    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", { operation: "quarantine", argument: "record_id" });
     const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "quarantine", argument: "reason" });
     const context = {
       tool: "quarantine",
-      command: commandForQuarantineContext({ record_id: recordId, reason }),
+      command: commandForQuarantineContext({ record_id: parsedRecordId, reason }),
       arguments: {
-        record_id: recordId,
+        record_id: parsedRecordId,
         ...(reason !== undefined ? { reason } : {})
       }
     };
     try {
-      printJson(await engine.quarantine({ record_id: recordId, reason, source: { client: "cli" } }));
+      printJson(await engine.quarantine({ record_id: parsedRecordId, reason, source: { client: "cli" } }));
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -1059,20 +1098,22 @@ program.command("link")
   .requiredOption("--type <type>")
   .action(async (recordId, linkedRecordId, options) => {
     const engine = createCliEngine();
+    const parsedRecordId = parseNonEmptyCliPositional(recordId, "record-id", { operation: "link", argument: "record_id" });
+    const parsedLinkedRecordId = parseNonEmptyCliPositional(linkedRecordId, "linked-record-id", { operation: "link", argument: "linked_record_id" });
     const linkType = parseNonEmptyCliString(options.type, "--type", { operation: "link", argument: "link_type" })!;
     const context = {
       tool: "link",
-      command: commandForLinkContext({ record_id: recordId, linked_record_id: linkedRecordId, link_type: linkType }),
+      command: commandForLinkContext({ record_id: parsedRecordId, linked_record_id: parsedLinkedRecordId, link_type: linkType }),
       arguments: {
-        record_id: recordId,
-        linked_record_id: linkedRecordId,
+        record_id: parsedRecordId,
+        linked_record_id: parsedLinkedRecordId,
         link_type: linkType
       }
     };
     try {
       printJson(await engine.link({
-        record_id: recordId,
-        linked_record_id: linkedRecordId,
+        record_id: parsedRecordId,
+        linked_record_id: parsedLinkedRecordId,
         link_type: linkType,
         source: { client: "cli" }
       }));
