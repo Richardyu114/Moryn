@@ -2857,8 +2857,10 @@ describe("moryn CLI", () => {
               recoverable: boolean;
               recommended_action: string;
               recovery_hint: {
+                operation_contract: string;
                 rejected_argument: { option: string; value: string };
                 expected: { kind: string; min: number; max: number; inclusive: boolean };
+                argument_sources: Record<string, string>;
                 retry_with: { option: string; value_placeholder: string };
               };
             };
@@ -2869,8 +2871,12 @@ describe("moryn CLI", () => {
           expect(parsed.error.recoverable).toBe(true);
           expect(parsed.error.recommended_action).toBe("retry with a valid --confidence value");
           expect(parsed.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.write",
             rejected_argument: { option: "--confidence", value: confidence },
             expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+            argument_sources: {
+              confidence: "operations_by_id.write.arguments_by_name.confidence"
+            },
             retry_with: { option: "--confidence", value_placeholder: "<number 0-1>" }
           });
         }
@@ -6475,18 +6481,27 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
-      for (const { args, message, option, placeholder } of [
+      for (const { args, message, argument, option, placeholder } of [
         {
           args: ["write", "--scope", "project", "--type", "decision", "--text", "Parser errors should still be structured."],
           message: "required option '--kind <kind>'",
+          argument: "kind",
           option: "--kind",
           placeholder: "<kind>"
         },
         {
           args: ["write", "--kind", "memory", "--scope", "project", "--text", "Parser errors should still be structured."],
           message: "required option '--type <type>'",
+          argument: "type",
           option: "--type",
           placeholder: "<type>"
+        },
+        {
+          args: ["write", "--kind", "memory", "--type", "decision", "--text", "Parser errors should still be structured."],
+          message: "required option '--scope <scope>'",
+          argument: "scope",
+          option: "--scope",
+          placeholder: "<scope>"
         }
       ]) {
         try {
@@ -6502,8 +6517,10 @@ describe("moryn CLI", () => {
               recoverable: boolean;
               recommended_action: string;
               recovery_hint: {
+                operation_contract: string;
                 missing_argument: { option: string; placeholder: string };
                 expected: { kind: string; required: boolean };
+                argument_sources: Record<string, string>;
                 retry_with: { option: string; value_placeholder: string };
               };
             };
@@ -6514,8 +6531,12 @@ describe("moryn CLI", () => {
           expect(parsed.error.recoverable).toBe(true);
           expect(parsed.error.recommended_action).toBe(`retry with required ${option}`);
           expect(parsed.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.write",
             missing_argument: { option, placeholder },
             expected: { kind: "required_option", required: true },
+            argument_sources: {
+              [argument]: `operations_by_id.write.arguments_by_name.${argument}`
+            },
             retry_with: { option, value_placeholder: placeholder }
           });
         }

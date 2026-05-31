@@ -750,9 +750,10 @@ limits. RFC3339 cursor failures point to
 `operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
 through lifecycle refresh-since arguments. CLI parser failures for `--limit` on
 read and lifecycle startup commands, plus enum options such as `--kind`,
-`--scope`, `--state`, `--priority`, and `--sync-mode`, also carry the matching
-operation contract and `arguments_by_name.<argument>` source before the core
-engine runs.
+`--scope`, `--state`, `--priority`, and `--sync-mode`, write `--confidence`
+range failures, and missing write `--kind`/`--type`/`--scope` options also carry
+the matching operation contract and `arguments_by_name.<argument>` source before
+the core engine runs.
 At the CLI boundary, known `argument` fields inside `error.recovery_hint` are
 recursively translated to command-line `option` fields such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`; MCP and package callers keep

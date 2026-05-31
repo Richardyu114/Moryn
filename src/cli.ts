@@ -65,6 +65,11 @@ type CliEnumSource = {
   operation: CliEnumOperation;
   argument: string;
 };
+type CliWriteArgumentSource = `operations_by_id.write.arguments_by_name.${string}`;
+type CliWriteSource = {
+  operation: "write";
+  argument: string;
+};
 
 type CliArgumentRecoveryHint =
   | {
@@ -77,6 +82,13 @@ type CliArgumentRecoveryHint =
   | {
       rejected_argument: { option: string; value: string };
       expected: { kind: "integer_range"; min: number; max: number; integer: true };
+      retry_with: { option: string; value_placeholder: string };
+    }
+  | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
+      rejected_argument: { option: string; value: string };
+      expected: { kind: "number_range"; min: number; max: number; inclusive: true };
+      argument_sources: Record<string, CliWriteArgumentSource>;
       retry_with: { option: string; value_placeholder: string };
     }
   | {
@@ -94,6 +106,13 @@ type CliArgumentRecoveryHint =
   | {
       rejected_argument: { option: string; value: string };
       expected: { kind: "allowed_values"; allowed_values: string[] };
+      retry_with: { option: string; value_placeholder: string };
+    }
+  | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
+      missing_argument: { option: string; placeholder: string };
+      expected: { kind: "required_option"; required: true };
+      argument_sources: Record<string, CliWriteArgumentSource>;
       retry_with: { option: string; value_placeholder: string };
     }
   | {
@@ -246,16 +265,25 @@ function cliRequiredOptionError(message: string): CliArgumentError | undefined {
   if (!match) return undefined;
   const [, option, placeholder] = match;
   if (!option || !placeholder) return undefined;
-  return requiredCliOptionError(option, placeholder, message);
+  return requiredCliOptionError(option, placeholder, message, requiredCliOptionSource(option));
 }
 
-function requiredCliOptionError(option: string, placeholder: string, message?: string): CliArgumentError {
+function requiredCliOptionSource(option: string): CliWriteSource | undefined {
+  if (option === "--kind") return { operation: "write", argument: "kind" };
+  if (option === "--type") return { operation: "write", argument: "type" };
+  if (option === "--scope") return { operation: "write", argument: "scope" };
+  return undefined;
+}
+
+function requiredCliOptionError(option: string, placeholder: string, message?: string, source = requiredCliOptionSource(option)): CliArgumentError {
   return new CliArgumentError(
     `Invalid argument: ${message ?? `required option '${option} ${placeholder}' not specified`}`,
     `retry with required ${option}`,
     {
+      ...(source !== undefined ? { operation_contract: WRITE_OPERATION_CONTRACT_SOURCE } : {}),
       missing_argument: { option, placeholder },
       expected: { kind: "required_option", required: true },
+      ...(source !== undefined ? { argument_sources: { [source.argument]: `operations_by_id.write.arguments_by_name.${source.argument}` as const } } : {}),
       retry_with: { option, value_placeholder: placeholder }
     }
   );
@@ -436,7 +464,7 @@ function parseLimit(value: string, operation?: CliLimitOperation, option = "--li
   return parsed;
 }
 
-function parseConfidence(value: string | undefined, option = "--confidence"): number | undefined {
+function parseConfidence(value: string | undefined, option = "--confidence", source?: CliWriteSource): number | undefined {
   if (value === undefined) return undefined;
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
@@ -444,8 +472,10 @@ function parseConfidence(value: string | undefined, option = "--confidence"): nu
       `Invalid argument: Invalid ${option}; must be a number between 0 and 1`,
       `${CLI_ARGUMENT_RECOVERY_ACTION_PREFIX} ${option} value`,
       {
+        ...(source !== undefined ? { operation_contract: WRITE_OPERATION_CONTRACT_SOURCE } : {}),
         rejected_argument: { option, value },
         expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+        ...(source !== undefined ? { argument_sources: { [source.argument]: `operations_by_id.write.arguments_by_name.${source.argument}` as const } } : {}),
         retry_with: { option, value_placeholder: "<number 0-1>" }
       }
     );
@@ -562,8 +592,8 @@ program.command("write")
     const project = options.project ? await resolveProjectContext({ projectPath: options.project, projectId: options.projectId }) : undefined;
     const type = options.type ?? (options.kind === "session_summary" ? "summary" : undefined);
     const scope = options.scope ?? (options.kind === "session_summary" ? "project" : undefined);
-    if (!type) throw requiredCliOptionError("--type", "<type>");
-    if (!scope) throw requiredCliOptionError("--scope", "<scope>");
+    if (!type) throw requiredCliOptionError("--type", "<type>", undefined, { operation: "write", argument: "type" });
+    if (!scope) throw requiredCliOptionError("--scope", "<scope>", undefined, { operation: "write", argument: "scope" });
     const content = parseContentJson(options.contentJson);
     const text = parseNonEmptyString(options.text, "--text");
     const reason = parseNonEmptyString(options.reason, "--reason");
@@ -587,7 +617,7 @@ program.command("write")
       tags: [...(project?.config?.tags ?? []), ...options.tag],
       content: content ?? { text, format: "text" },
       state: parseEnum(options.state, recordStates, "--state", { operation: "write", argument: "state" }),
-      confidence: parseConfidence(options.confidence),
+      confidence: parseConfidence(options.confidence, "--confidence", { operation: "write", argument: "confidence" }),
       priority: parseEnum(options.priority, recordPriorities, "--priority", { operation: "write", argument: "priority" }),
       source: { client: "cli" },
       confirmed: options.confirm,

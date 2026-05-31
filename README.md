@@ -808,9 +808,10 @@ Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 `argument_sources` for invalid filters, cursors, tasks, project ids, and limits,
 including RFC3339 refresh cursor failures. CLI parser failures for `--limit` on
 read and lifecycle startup commands, plus enum options such as `--kind`,
-`--scope`, `--state`, `--priority`, and `--sync-mode`, expose the same operation
-contract and `arguments_by_name.<argument>` source before control reaches the
-core engine.
+`--scope`, `--state`, `--priority`, and `--sync-mode`, write `--confidence`
+range failures, and missing write `--kind`/`--type`/`--scope` options expose the
+same operation contract and `arguments_by_name.<argument>` source before control
+reaches the core engine.
 CLI error envelopes recursively translate known `argument` fields in
 `recovery_hint` to command-line `option` names such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`, so CLI agents can render a
