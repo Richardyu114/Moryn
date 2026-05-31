@@ -2709,14 +2709,29 @@ describe("moryn CLI", () => {
     });
   });
 
-  it("preserves existing project sync mode when the CLI updates config without --sync-mode", async () => {
+  it("preserves existing project defaults when the CLI updates only provided config fields", async () => {
     await withTempDir(async (dir) => {
       const project = join(dir, "project");
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn", "--sync-mode", "interval"]);
-      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--tag", "typescript"]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts",
+        "project", "init",
+        "--path", project,
+        "--project-id", "moryn",
+        "--tag", "typescript",
+        "--default-skill", "release",
+        "--sync-mode", "interval"
+      ]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "project", "init", "--path", project, "--project-id", "moryn-v2"]);
 
-      const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as { tags: string[]; sync: { mode: string } };
+      const projectConfig = JSON.parse(await readFile(join(project, ".moryn.json"), "utf8")) as {
+        project_id: string;
+        tags: string[];
+        default_skills: string[];
+        sync: { mode: string };
+      };
+      expect(projectConfig.project_id).toBe("moryn-v2");
       expect(projectConfig.tags).toEqual(["typescript"]);
+      expect(projectConfig.default_skills).toEqual(["release"]);
       expect(projectConfig.sync.mode).toBe("interval");
     });
   });

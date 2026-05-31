@@ -69,6 +69,9 @@ Deliverables:
   local config locations or key fields.
 - Done: CLI accepts `--project <path>` and resolves project identity consistently.
 - Done: Project config can add default tags and sync mode.
+- Done: CLI `project init` updates preserve existing tags, default skills, and
+  sync mode when those inputs are omitted, so an agent rerun does not silently
+  clear project defaults.
 - Done: Project config default skills are applied to boot context.
 - Done: Event validation happens on read and write.
 

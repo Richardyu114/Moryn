@@ -1504,8 +1504,8 @@ project.command("init")
         ok: true,
         ...await initializeProjectConfig(projectPath, {
           project_id: projectId,
-          tags: options.tag,
-          default_skills: options.defaultSkill,
+          tags: options.tag.length ? options.tag : undefined,
+          default_skills: options.defaultSkill.length ? options.defaultSkill : undefined,
           sync: syncMode === undefined ? undefined : { mode: syncMode },
           repair: options.repair
         })

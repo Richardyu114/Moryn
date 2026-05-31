@@ -999,6 +999,9 @@ sources:
 Library hosts can reuse the exported `PROJECT_INIT_SELECTION_SOURCES` map from
 the package entrypoint as the canonical field-path contract.
 
+When updating an existing `.moryn.json`, omitted `tags`, `default_skills`, and
+`sync_mode` inputs keep the existing config instead of clearing it.
+
 The `repair` option is explicit and guarded. It replaces an invalid existing
 `.moryn.json` only after the caller supplies the intended project fields.
 
