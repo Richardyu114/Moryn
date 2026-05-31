@@ -7395,6 +7395,24 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "query", value_placeholder: "<query>" }
         });
 
+        const invalidQueryShape = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: { project_id: "moryn", query: 123 }
+        })) as McpInvalidArgument;
+        expect(invalidQueryShape.ok).toBe(false);
+        expect(invalidQueryShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidQueryShape.error.message).toContain("Invalid query");
+        expect(invalidQueryShape.error.recommended_action).toBe("retry read with a non-empty query");
+        expect(invalidQueryShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "query", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            query: "operations_by_id.recall.arguments_by_name.query"
+          },
+          retry_with: { argument: "query", value_placeholder: "<query>" }
+        });
+
         const emptyCursor = parseTextContent(await client.callTool({
           name: "refresh",
           arguments: { project_id: "moryn", cursor: "" }

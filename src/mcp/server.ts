@@ -378,7 +378,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Search memory, skills, soul, session summaries, and agent notes.",
       inputSchema: {
         record_ids: z.unknown().optional(),
-        query: stringSchema.optional(),
+        query: coreValidatedStringSchema.optional(),
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
         kinds: z.unknown().optional(),

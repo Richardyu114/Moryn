@@ -840,7 +840,9 @@ text. MCP `recall.tags`,
 `recall.record_ids`, `recall.files`, `recall.kinds`, `recall.scopes`,
 `recall.types`, and `recall.states` shape failures also pass through core
 validation, including single-string tag, record id, file, kind, scope, type, and
-state values. MCP `project_list.current_task` and `project_list.sync_remote`
+state values. MCP `recall.query` shape failures likewise pass through core
+validation, including numeric values, and return
+`operations_by_id.recall.arguments_by_name.query`. MCP `project_list.current_task` and `project_list.sync_remote`
 shape failures also pass through core validation, including numeric values, and
 return `operations_by_id.project_list.arguments_by_name.current_task` or
 `operations_by_id.project_list.arguments_by_name.sync_remote` instead of

@@ -474,6 +474,10 @@ Deliverables:
   failures now pass through core validation, including numeric values, and
   expose the matching `operations_by_id.project_list.arguments_by_name.*`
   sources instead of host-side schema text.
+- Done: MCP `recall.query` shape failures now pass through core validation,
+  including numeric values, and expose
+  `operations_by_id.recall.arguments_by_name.query` instead of host-side schema
+  text.
 - Done: MCP `agent_status.status` and `agent_finish.summary` shape failures
   now pass through lifecycle validation, including numeric values, and expose
   the matching lifecycle `operations_by_id.<operation>.arguments_by_name.*`

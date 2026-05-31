@@ -784,6 +784,9 @@ selector values. MCP `boot.current_task` and `refresh.current_task` shape
 failures pass through core validation too, including numeric task values, and
 point at the matching `operations_by_id.<operation>.arguments_by_name.current_task`
 contract.
+MCP `recall.query` shape failures also pass through core validation, including
+numeric values, and point at `operations_by_id.recall.arguments_by_name.query`
+instead of host-side schema text.
 RFC3339 cursor failures point to
 `operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
 through lifecycle refresh-since arguments. MCP `refresh.cursor` shape failures

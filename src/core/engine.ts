@@ -50,7 +50,7 @@ export interface EngineWarning {
 
 interface RecallInput {
   record_ids?: unknown;
-  query?: string;
+  query?: unknown;
   project_id?: string;
   kinds?: unknown;
   scopes?: unknown;
@@ -1662,6 +1662,7 @@ function recallSourceTrust(record: MorynRecord): { score: number; reason: string
 
 type ValidatedRecallInput = RecallInput & {
   record_ids?: string[];
+  query?: string;
   kinds?: RecordKind[];
   scopes?: RecordScope[];
   types?: string[];
