@@ -3630,8 +3630,12 @@ describe("core engine", () => {
         patch: { "content.text": "No-op" },
         source: { client: "test" }
       }), "Invalid record_id", "retry mutation with a valid record_id", {
+        operation_contract: "operations_by_id.revise",
         rejected_argument: { argument: "record_id", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          record_id: "operations_by_id.revise.arguments_by_name.record_id"
+        },
         retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
       });
       await expectInvalidArgument(() => engine.revise({
@@ -3661,8 +3665,12 @@ describe("core engine", () => {
         patch: { "content.text": "No-op" },
         source: { client: "" }
       }), "Invalid source.client", "retry mutation with a valid source client", {
+        operation_contract: "operations_by_id.revise",
         rejected_argument: { argument: "source.client", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          "source.client": "operations_by_id.revise.arguments_by_name.source_client"
+        },
         retry_with: { argument: "source.client", value_placeholder: "<client>" }
       });
       await expectInvalidMutationShapeArgument(() => engine.revise({
@@ -3671,8 +3679,12 @@ describe("core engine", () => {
         reason: "",
         source: { client: "test" }
       }), "Invalid reason", "retry mutation with a non-empty reason", {
+        operation_contract: "operations_by_id.revise",
         rejected_argument: { argument: "reason", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          reason: "operations_by_id.revise.arguments_by_name.reason"
+        },
         retry_with: { argument: "reason", value_placeholder: "<reason>" }
       });
 
@@ -3682,8 +3694,12 @@ describe("core engine", () => {
         target_state: "published" as never,
         source: { client: "test" }
       }), "Invalid target_state", "retry mutation with a supported target_state", {
+        operation_contract: "operations_by_id.promote",
         rejected_argument: { argument: "target_state", value: "published" },
         expected: { kind: "allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
+        argument_sources: {
+          target_state: "operations_by_id.promote.arguments_by_name.target_state"
+        },
         retry_with: { argument: "target_state", value_placeholder: "canonical" }
       });
       await expectInvalidMutationShapeArgument(() => engine.promote({
@@ -3692,8 +3708,12 @@ describe("core engine", () => {
         confirmed: "yes" as never,
         source: { client: "test" }
       }), "Invalid confirmed", "retry mutation with a boolean confirmed value", {
+        operation_contract: "operations_by_id.promote",
         rejected_argument: { argument: "confirmed", value: "yes" },
         expected: { kind: "boolean" },
+        argument_sources: {
+          confirmed: "operations_by_id.promote.arguments_by_name.confirmed"
+        },
         retry_with: { argument: "confirmed", value_placeholder: true }
       });
       await expectInvalidMutationShapeArgument(() => engine.promote({
@@ -3702,8 +3722,12 @@ describe("core engine", () => {
         reason: "",
         source: { client: "test" }
       }), "Invalid reason", "retry mutation with a non-empty reason", {
+        operation_contract: "operations_by_id.promote",
         rejected_argument: { argument: "reason", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          reason: "operations_by_id.promote.arguments_by_name.reason"
+        },
         retry_with: { argument: "reason", value_placeholder: "<reason>" }
       });
 
@@ -3712,8 +3736,12 @@ describe("core engine", () => {
         record_id: "",
         source: { client: "test" }
       }), "Invalid record_id", "retry mutation with a valid record_id", {
+        operation_contract: "operations_by_id.archive",
         rejected_argument: { argument: "record_id", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          record_id: "operations_by_id.archive.arguments_by_name.record_id"
+        },
         retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
       });
       await expectInvalidMutationShapeArgument(() => engine.archive({
@@ -3721,8 +3749,12 @@ describe("core engine", () => {
         reason: "",
         source: { client: "test" }
       }), "Invalid reason", "retry mutation with a non-empty reason", {
+        operation_contract: "operations_by_id.archive",
         rejected_argument: { argument: "reason", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          reason: "operations_by_id.archive.arguments_by_name.reason"
+        },
         retry_with: { argument: "reason", value_placeholder: "<reason>" }
       });
       await expectInvalidArgument(() => engine.quarantine(null as never), "Invalid quarantine input");
@@ -3731,8 +3763,12 @@ describe("core engine", () => {
         reason: 123 as never,
         source: { client: "test" }
       }), "Invalid reason", "retry mutation with a non-empty reason", {
+        operation_contract: "operations_by_id.quarantine",
         rejected_argument: { argument: "reason", value: 123 },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          reason: "operations_by_id.quarantine.arguments_by_name.reason"
+        },
         retry_with: { argument: "reason", value_placeholder: "<reason>" }
       });
       await expectInvalidMutationShapeArgument(() => engine.quarantine({
@@ -3740,8 +3776,12 @@ describe("core engine", () => {
         reason: "",
         source: { client: "test" }
       }), "Invalid reason", "retry mutation with a non-empty reason", {
+        operation_contract: "operations_by_id.quarantine",
         rejected_argument: { argument: "reason", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          reason: "operations_by_id.quarantine.arguments_by_name.reason"
+        },
         retry_with: { argument: "reason", value_placeholder: "<reason>" }
       });
 
@@ -3751,8 +3791,12 @@ describe("core engine", () => {
         link_type: "supersedes",
         source: { client: "test" }
       }), "Invalid linked_record_id", "retry mutation with a valid linked_record_id", {
+        operation_contract: "operations_by_id.link",
         rejected_argument: { argument: "linked_record_id", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          linked_record_id: "operations_by_id.link.arguments_by_name.linked_record_id"
+        },
         retry_with: { argument: "linked_record_id", value_placeholder: "<linked_record_id>" }
       });
       await expectInvalidMutationShapeArgument(() => engine.link({
@@ -3761,8 +3805,12 @@ describe("core engine", () => {
         link_type: "",
         source: { client: "test" }
       }), "Invalid link_type", "retry link with a non-empty link_type", {
+        operation_contract: "operations_by_id.link",
         rejected_argument: { argument: "link_type", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          link_type: "operations_by_id.link.arguments_by_name.link_type"
+        },
         retry_with: { argument: "link_type", value_placeholder: "<link_type>" }
       });
       await expectInvalidMutationShapeArgument(() => engine.link({
@@ -3771,8 +3819,12 @@ describe("core engine", () => {
         link_type: "supersedes",
         source: { client: "" }
       }), "Invalid source.client", "retry mutation with a valid source client", {
+        operation_contract: "operations_by_id.link",
         rejected_argument: { argument: "source.client", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          "source.client": "operations_by_id.link.arguments_by_name.source_client"
+        },
         retry_with: { argument: "source.client", value_placeholder: "<client>" }
       });
     });

@@ -468,6 +468,13 @@ function userInputSources(fields: readonly string[]): Record<string, string> | u
   return fields.length ? Object.fromEntries(fields.map((field) => [field, `user_input.${field}`])) : undefined;
 }
 
+const sourceClientArgument = {
+  type: "string",
+  required: false,
+  mcp: { argument: "source", path: "source.client" },
+  parent_argument: "source"
+} satisfies OperationArgumentMetadataInput;
+
 function operationRequiredFieldsByName(input: OperationContractInput): Record<string, OperationRequiredFieldMetadata> {
   return {
     ...requiredFieldsByName(input.required_fields, input.interfaces.mcp.arguments),
@@ -1195,7 +1202,8 @@ export const OPERATION_CONTRACTS = [
         type: "object",
         required: false,
         mcp: { argument: "source" }
-      }
+      },
+      source_client: sourceClientArgument
     },
     interfaces: {
       cli: { command: "moryn revise <record_id> --set <path=value>", argv: ["revise", "<record_id>", "--set", "<path=value>"] },
@@ -1240,7 +1248,8 @@ export const OPERATION_CONTRACTS = [
         type: "object",
         required: false,
         mcp: { argument: "source" }
-      }
+      },
+      source_client: sourceClientArgument
     },
     required_fields_by_name: {
       target_state: {
@@ -1281,7 +1290,8 @@ export const OPERATION_CONTRACTS = [
         type: "object",
         required: false,
         mcp: { argument: "source" }
-      }
+      },
+      source_client: sourceClientArgument
     },
     interfaces: {
       cli: { command: "moryn archive <record_id>", argv: ["archive", "<record_id>"] },
@@ -1313,7 +1323,8 @@ export const OPERATION_CONTRACTS = [
         type: "object",
         required: false,
         mcp: { argument: "source" }
-      }
+      },
+      source_client: sourceClientArgument
     },
     interfaces: {
       cli: { command: "moryn quarantine <record_id>", argv: ["quarantine", "<record_id>"] },
@@ -1351,7 +1362,8 @@ export const OPERATION_CONTRACTS = [
         type: "object",
         required: false,
         mcp: { argument: "source" }
-      }
+      },
+      source_client: sourceClientArgument
     },
     interfaces: {
       cli: {

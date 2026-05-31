@@ -735,6 +735,14 @@ write argument contract instead of inferring it from prose. The contract's
 `arguments_by_name.provenance_method`, and
 `arguments_by_name.provenance_promoted_at` entries declare nested MCP paths, the
 `--content-json` CLI source, and allowed values.
+Core mutation argument failures for `revise`, `promote`, `archive`,
+`quarantine`, and `link` also include the current
+`operation_contract: "operations_by_id.<operation>"` plus `argument_sources`
+for invalid `record_id`, `linked_record_id`, `reason`, `source.client`,
+`link_type`, `confirmed`, or `target_state` values. These mutation contracts
+declare `arguments_by_name.source_client` with the nested MCP path
+`source.client`, so callers can retry source metadata without guessing the
+object shape.
 At the CLI boundary, known `argument` fields inside `error.recovery_hint` are
 recursively translated to command-line `option` fields such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`; MCP and package callers keep

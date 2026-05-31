@@ -829,6 +829,36 @@ describe("package smoke test", () => {
       argument_path: "text|content",
       alternatives: ["text", "content"]
     });
+    expect(response.operations_by_id.revise.arguments_by_name.source_client).toMatchObject({
+      type: "string",
+      required: false,
+      mcp: { argument: "source", path: "source.client" },
+      parent_argument: "source"
+    });
+    expect(response.operations_by_id.promote.arguments_by_name.source_client).toMatchObject({
+      type: "string",
+      required: false,
+      mcp: { argument: "source", path: "source.client" },
+      parent_argument: "source"
+    });
+    expect(response.operations_by_id.archive.arguments_by_name.source_client).toMatchObject({
+      type: "string",
+      required: false,
+      mcp: { argument: "source", path: "source.client" },
+      parent_argument: "source"
+    });
+    expect(response.operations_by_id.quarantine.arguments_by_name.source_client).toMatchObject({
+      type: "string",
+      required: false,
+      mcp: { argument: "source", path: "source.client" },
+      parent_argument: "source"
+    });
+    expect(response.operations_by_id.link.arguments_by_name.source_client).toMatchObject({
+      type: "string",
+      required: false,
+      mcp: { argument: "source", path: "source.client" },
+      parent_argument: "source"
+    });
     expect(response.operations_by_id.write.execution.required_inputs.find((input) => input.field === "text_or_content")).toMatchObject({
       argument_path: "text|content",
       argument_paths: ["text", "content"],

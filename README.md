@@ -796,6 +796,13 @@ write contract before retrying. The write operation contract exposes
 `provenance_method`, and `provenance_promoted_at` entries under
 `arguments_by_name`, including nested MCP paths, the `--content-json` CLI
 source, and allowed values.
+Core mutation argument failures for `revise`, `promote`, `archive`,
+`quarantine`, and `link` also include the matching
+`operation_contract: "operations_by_id.<operation>"` plus `argument_sources`
+for `record_id`, `linked_record_id`, `reason`, `source.client`, `link_type`,
+`confirmed`, or `target_state` as applicable. Those mutation contracts expose a
+nested `source_client` entry under `arguments_by_name`, so MCP hosts can recover
+from invalid `source.client` payloads without inventing the nested path.
 CLI error envelopes recursively translate known `argument` fields in
 `recovery_hint` to command-line `option` names such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`, so CLI agents can render a

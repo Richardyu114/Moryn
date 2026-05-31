@@ -332,6 +332,13 @@ Deliverables:
   includes `content_text`, `content_format`, `source_client`, `provenance`,
   `provenance_method`, and `provenance_promoted_at` metadata, so agents can
   fetch the relevant fields before retrying.
+- Done: Core mutation argument failures for `revise`, `promote`, `archive`,
+  `quarantine`, and `link` now expose the matching
+  `operation_contract: "operations_by_id.<operation>"` and `argument_sources`
+  for invalid `record_id`, `linked_record_id`, `reason`, `source.client`,
+  `link_type`, `confirmed`, or `target_state` values; the mutation contracts
+  include nested `source_client` metadata so MCP callers can repair
+  `source.client` payloads without guessing object paths.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

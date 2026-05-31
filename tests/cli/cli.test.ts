@@ -1443,6 +1443,15 @@ describe("moryn CLI", () => {
       "user_input.scope": "execution.required_inputs_by_field.scope",
       "user_input.text_or_content": "execution.required_inputs_by_field.text_or_content"
     });
+    for (const operation of ["revise", "promote", "archive", "quarantine", "link"] as const) {
+      expect(parsed.operations_by_id[operation].arguments_by_name.source_client).toMatchObject({
+        name: "source_client",
+        type: "string",
+        required: false,
+        mcp: { argument: "source", path: "source.client" },
+        parent_argument: "source"
+      });
+    }
     expect(parsed.operations_by_id.promote).toMatchObject({
       execution: {
         ready_to_run: false,

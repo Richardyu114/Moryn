@@ -363,6 +363,11 @@ interface LinkInput {
   source?: RecordSource;
 }
 
+type MutationOperation = "revise" | "promote" | "archive" | "quarantine" | "link";
+type MutationOperationContractSource = `operations_by_id.${MutationOperation}`;
+type MutationArgumentName = "record_id" | "linked_record_id" | "reason" | "source.client" | "link_type" | "confirmed" | "target_state";
+type MutationArgumentSource = `operations_by_id.${MutationOperation}.arguments_by_name.${string}`;
+
 function textOf(record: MorynRecord): string {
   return displayRecordText(record);
 }
@@ -387,19 +392,30 @@ function assertPlainObject(value: unknown, name: string): asserts value is Recor
 
 type MutationArgumentRecoveryHint =
   | {
+      operation_contract: MutationOperationContractSource;
       rejected_argument: { argument: "record_id" | "linked_record_id" | "reason" | "source.client" | "link_type"; value: unknown };
       expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: Partial<Record<MutationArgumentName, MutationArgumentSource>>;
       retry_with: { argument: "record_id" | "linked_record_id" | "reason" | "source.client" | "link_type"; value_placeholder: string };
     }
   | {
+      operation_contract: MutationOperationContractSource;
       rejected_argument: { argument: "confirmed"; value: unknown };
       expected: { kind: "boolean" };
+      argument_sources: { confirmed: MutationArgumentSource };
       retry_with: { argument: "confirmed"; value_placeholder: true };
     }
   | {
+      operation_contract: MutationOperationContractSource;
       rejected_argument: { argument: "target_state"; value: unknown };
       expected: { kind: "allowed_values"; allowed_values: string[] };
+      argument_sources: { target_state: MutationArgumentSource };
       retry_with: { argument: "target_state"; value_placeholder: "canonical" };
+    }
+  | {
+      rejected_argument: { argument: "source.client"; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      retry_with: { argument: "source.client"; value_placeholder: "<client>" };
     };
 
 class MutationArgumentError extends Error {
@@ -414,7 +430,20 @@ class MutationArgumentError extends Error {
   }
 }
 
-function invalidMutationStringError(argument: "record_id" | "linked_record_id" | "reason" | "link_type", value: unknown): MutationArgumentError {
+function mutationOperationContractSource(operation: MutationOperation): MutationOperationContractSource {
+  return `operations_by_id.${operation}`;
+}
+
+function mutationArgumentSource(operation: MutationOperation, argument: MutationArgumentName): MutationArgumentSource {
+  const argumentName = argument === "source.client" ? "source_client" : argument;
+  return `operations_by_id.${operation}.arguments_by_name.${argumentName}`;
+}
+
+function invalidMutationStringError(
+  operation: MutationOperation,
+  argument: "record_id" | "linked_record_id" | "reason" | "link_type",
+  value: unknown
+): MutationArgumentError {
   const action = argument === "link_type"
     ? "retry link with a non-empty link_type"
     : argument === "reason"
@@ -424,38 +453,61 @@ function invalidMutationStringError(argument: "record_id" | "linked_record_id" |
     `Invalid argument: Invalid ${argument}`,
     action,
     {
+      operation_contract: mutationOperationContractSource(operation),
       rejected_argument: { argument, value },
       expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: { [argument]: mutationArgumentSource(operation, argument) },
       retry_with: { argument, value_placeholder: `<${argument}>` }
     }
   );
 }
 
-function invalidMutationConfirmedError(confirmed: unknown): MutationArgumentError {
+function invalidMutationConfirmedError(operation: MutationOperation, confirmed: unknown): MutationArgumentError {
   return new MutationArgumentError(
     "Invalid argument: Invalid confirmed",
     "retry mutation with a boolean confirmed value",
     {
+      operation_contract: mutationOperationContractSource(operation),
       rejected_argument: { argument: "confirmed", value: confirmed },
       expected: { kind: "boolean" },
+      argument_sources: { confirmed: mutationArgumentSource(operation, "confirmed") },
       retry_with: { argument: "confirmed", value_placeholder: true }
     }
   );
 }
 
-function invalidMutationTargetStateError(targetState: unknown): MutationArgumentError {
+function invalidMutationTargetStateError(operation: MutationOperation, targetState: unknown): MutationArgumentError {
   return new MutationArgumentError(
     "Invalid argument: Invalid target_state",
     "retry mutation with a supported target_state",
     {
+      operation_contract: mutationOperationContractSource(operation),
       rejected_argument: { argument: "target_state", value: targetState },
       expected: { kind: "allowed_values", allowed_values: [...RECORD_STATES] },
+      argument_sources: { target_state: mutationArgumentSource(operation, "target_state") },
       retry_with: { argument: "target_state", value_placeholder: "canonical" }
     }
   );
 }
 
-function invalidSourceClientError(source: unknown, recommendedAction: string): MutationArgumentError {
+function invalidSourceClientError(operation: MutationOperation, source: unknown, recommendedAction: string): MutationArgumentError {
+  const client = typeof source === "object" && source !== null && "client" in source
+    ? (source as { client?: unknown }).client
+    : undefined;
+  return new MutationArgumentError(
+    "Invalid argument: Invalid source.client",
+    recommendedAction,
+    {
+      operation_contract: mutationOperationContractSource(operation),
+      rejected_argument: { argument: "source.client", value: client },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: { "source.client": mutationArgumentSource(operation, "source.client") },
+      retry_with: { argument: "source.client", value_placeholder: "<client>" }
+    }
+  );
+}
+
+function invalidGenericSourceClientError(source: unknown, recommendedAction: string): MutationArgumentError {
   const client = typeof source === "object" && source !== null && "client" in source
     ? (source as { client?: unknown }).client
     : undefined;
@@ -562,26 +614,37 @@ function invalidReadEnumArrayError<T extends string>(
   );
 }
 
-function validateRecordId(recordId: unknown, name: "record_id" | "linked_record_id" = "record_id"): void {
+function validateRecordId(
+  operation: MutationOperation,
+  recordId: unknown,
+  name: "record_id" | "linked_record_id" = "record_id"
+): void {
   if (typeof recordId !== "string" || !recordId.length) {
-    throw invalidMutationStringError(name, recordId);
+    throw invalidMutationStringError(operation, name, recordId);
   }
 }
 
-function validateOptionalReason(reason: unknown): void {
+function validateOptionalReason(operation: MutationOperation, reason: unknown): void {
   if (reason !== undefined && (typeof reason !== "string" || !reason.length)) {
-    throw invalidMutationStringError("reason", reason);
+    throw invalidMutationStringError(operation, "reason", reason);
   }
 }
 
-function validateOptionalSource(source: unknown, recommendedAction = "retry with a valid source client"): void {
+function validateOptionalSource(
+  source: unknown,
+  operation?: MutationOperation,
+  recommendedAction = "retry with a valid source client"
+): void {
   if (source !== undefined && !recordSourceSchema.safeParse(source).success) {
-    throw invalidSourceClientError(source, recommendedAction);
+    if (operation === undefined) {
+      throw invalidGenericSourceClientError(source, recommendedAction);
+    }
+    throw invalidSourceClientError(operation, source, recommendedAction);
   }
 }
 
-function validateOptionalConfirmed(confirmed: unknown): void {
-  if (confirmed !== undefined && typeof confirmed !== "boolean") throw invalidMutationConfirmedError(confirmed);
+function validateOptionalConfirmed(operation: MutationOperation, confirmed: unknown): void {
+  if (confirmed !== undefined && typeof confirmed !== "boolean") throw invalidMutationConfirmedError(operation, confirmed);
 }
 
 function validateOptionalString(value: unknown, name: string): void {
@@ -1112,7 +1175,7 @@ function validateWriteInput(input: WriteInput): void {
 
 function validateRevisionInput(input: RevisionInput): void {
   assertPlainObject(input, "revise input");
-  validateRecordId(input.record_id);
+  validateRecordId("revise", input.record_id);
   if (typeof input.patch !== "object" || input.patch === null || Array.isArray(input.patch)) {
     throw invalidRevisionPatchShapeError(input.patch, "patch_object");
   }
@@ -1123,33 +1186,37 @@ function validateRevisionInput(input: RevisionInput): void {
   if (invalidPath !== undefined) {
     throw invalidRevisionPatchPathError(invalidPath, input.patch[invalidPath]);
   }
-  validateOptionalReason(input.reason);
-  validateOptionalSource(input.source, "retry mutation with a valid source client");
-  validateOptionalConfirmed(input.confirmed);
+  validateOptionalReason("revise", input.reason);
+  validateOptionalSource(input.source, "revise", "retry mutation with a valid source client");
+  validateOptionalConfirmed("revise", input.confirmed);
 }
 
 function validatePromoteInput(input: PromoteInput): void {
   assertPlainObject(input, "promote input");
-  validateRecordId(input.record_id);
-  if (!recordStateSchema.safeParse(input.target_state).success) throw invalidMutationTargetStateError(input.target_state);
-  validateOptionalReason(input.reason);
-  validateOptionalSource(input.source, "retry mutation with a valid source client");
-  validateOptionalConfirmed(input.confirmed);
+  validateRecordId("promote", input.record_id);
+  if (!recordStateSchema.safeParse(input.target_state).success) {
+    throw invalidMutationTargetStateError("promote", input.target_state);
+  }
+  validateOptionalReason("promote", input.reason);
+  validateOptionalSource(input.source, "promote", "retry mutation with a valid source client");
+  validateOptionalConfirmed("promote", input.confirmed);
 }
 
-function validateStateChangeInput(input: StateChangeInput, name: string): void {
+function validateStateChangeInput(input: StateChangeInput, name: string, operation: "archive" | "quarantine"): void {
   assertPlainObject(input, name);
-  validateRecordId(input.record_id);
-  validateOptionalReason(input.reason);
-  validateOptionalSource(input.source, "retry mutation with a valid source client");
+  validateRecordId(operation, input.record_id);
+  validateOptionalReason(operation, input.reason);
+  validateOptionalSource(input.source, operation, "retry mutation with a valid source client");
 }
 
 function validateLinkInput(input: LinkInput): void {
   assertPlainObject(input, "link input");
-  validateRecordId(input.record_id);
-  validateRecordId(input.linked_record_id, "linked_record_id");
-  if (typeof input.link_type !== "string" || !input.link_type.length) throw invalidMutationStringError("link_type", input.link_type);
-  validateOptionalSource(input.source, "retry mutation with a valid source client");
+  validateRecordId("link", input.record_id);
+  validateRecordId("link", input.linked_record_id, "linked_record_id");
+  if (typeof input.link_type !== "string" || !input.link_type.length) {
+    throw invalidMutationStringError("link", "link_type", input.link_type);
+  }
+  validateOptionalSource(input.source, "link", "retry mutation with a valid source client");
 }
 
 function validateRecallInput(input: RecallInput): void {
@@ -1942,7 +2009,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async archive(input: StateChangeInput) {
-      validateStateChangeInput(input, "archive input");
+      validateStateChangeInput(input, "archive input", "archive");
       const record = await requireRecord(input.record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MorynEvent = {
@@ -1958,7 +2025,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async quarantine(input: StateChangeInput) {
-      validateStateChangeInput(input, "quarantine input");
+      validateStateChangeInput(input, "quarantine input", "quarantine");
       const record = await requireRecord(input.record_id);
       const createdAt = nextMutationTimestamp(record, now());
       const event: MorynEvent = {
