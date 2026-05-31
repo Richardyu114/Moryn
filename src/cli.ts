@@ -93,6 +93,7 @@ type CliParserOperation =
   | "refresh"
   | "sync_push"
   | "revise"
+  | "operation_contracts"
   | "agent_guide"
   | "agent_enter"
   | "agent_doctor"
@@ -463,7 +464,18 @@ function cliParserArgumentSource(option: string): CliParserSource | undefined {
   if (option === "--derived-from") return { operation: "write", argument: "derived_from" };
   if (option === "--cursor") return { operation: "refresh", argument: "cursor" };
   if (option === "--message") return { operation: "sync_push", argument: "message" };
+  const commandPath = cliCommandPath(process.argv.slice(2));
+  if (commandPath[0] === "contracts" && commandPath[1] === "operations") {
+    if (option === "--operation") return { operation: "operation_contracts", argument: "operation" };
+    if (option === "--mcp-tool") return { operation: "operation_contracts", argument: "mcp_tool" };
+    if (option === "--cli-command") return { operation: "operation_contracts", argument: "cli_command" };
+  }
   return undefined;
+}
+
+function cliValuePlaceholderForOption(option: string, source?: CliParserSource): string {
+  if (source?.operation === "operation_contracts") return `<${source.argument}>`;
+  return `<non-empty ${option.replace(/^--/, "")}>`;
 }
 
 function nonEmptyCliArgumentError(option: string, source = cliParserArgumentSource(option)): CliArgumentError {
@@ -477,7 +489,7 @@ function nonEmptyCliArgumentError(option: string, source = cliParserArgumentSour
       ...(source !== undefined
         ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
         : {}),
-      retry_with: { option, value_placeholder: `<non-empty ${option.replace(/^--/, "")}>` }
+      retry_with: { option, value_placeholder: cliValuePlaceholderForOption(option, source) }
     }
   );
 }

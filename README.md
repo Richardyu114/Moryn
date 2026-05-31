@@ -736,7 +736,9 @@ deriving it from a command string. MCP lookup shape failures for `operation`,
 `mcp_tool`, and `cli_command` also pass through core validation, including
 numeric values and empty strings, and point at the matching
 `operations_by_id.operation_contracts.arguments_by_name.*` source before lookup
-matching runs. If a host
+matching runs. Empty CLI lookup flag values such as `--operation ""`,
+`--mcp-tool ""`, and `--cli-command ""` use the same operation-contract argument
+sources. If a host
 accidentally mixes lookup modes, for
 example `--index` plus `--operation` or `operation` plus `mcp_tool`, the same
 envelope includes `recovery_hint.rejected_lookup.provided` and

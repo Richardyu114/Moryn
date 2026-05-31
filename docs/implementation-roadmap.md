@@ -397,6 +397,10 @@ Deliverables:
   core validation, including numeric values and empty strings, so agents get the
   matching `operations_by_id.operation_contracts.arguments_by_name.*` source
   instead of host-side schema text or a misleading unknown-lookup error.
+- Done: Empty CLI contract lookup flags (`--operation`, `--mcp-tool`, and
+  `--cli-command`) now return the same
+  `operations_by_id.operation_contracts.arguments_by_name.*` recovery sources
+  instead of generic non-empty string hints.
 - Done: Lifecycle MCP `pull`/`push` boolean failures for `agent_enter`,
   `agent_start`, `agent_finish`, and `agent_status` now pass through core
   validation and expose operation contract argument sources instead of

@@ -676,7 +676,9 @@ library hosts do not need to infer helper names from command examples. MCP
 lookup shape failures for `operation`, `mcp_tool`, and `cli_command` also pass
 through core validation, including numeric values and empty strings, and point
 at the matching `operations_by_id.operation_contracts.arguments_by_name.*`
-source before lookup matching runs. If a
+source before lookup matching runs. Empty CLI lookup flag values such as
+`--operation ""`, `--mcp-tool ""`, and `--cli-command ""` use the same
+operation-contract argument sources. If a
 caller sends more than one lookup mode, the error envelope uses the same
 recovery channel to return `recovery_hint.rejected_lookup.provided` plus
 `accepted_lookup_modes`, each with package, CLI, and MCP retry forms, letting

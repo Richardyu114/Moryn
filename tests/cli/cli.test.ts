@@ -1932,6 +1932,55 @@ describe("moryn CLI", () => {
     }
   });
 
+  it("returns operation contract argument hints for empty contract CLI lookup flags", async () => {
+    for (const { option, argument, placeholder } of [
+      { option: "--operation", argument: "operation", placeholder: "<operation>" },
+      { option: "--mcp-tool", argument: "mcp_tool", placeholder: "<mcp_tool>" },
+      { option: "--cli-command", argument: "cli_command", placeholder: "<cli_command>" }
+    ] as const) {
+      try {
+        await exec("node", [
+          "--import", tsxLoader, cliPath,
+          "contracts", "operations",
+          option, ""
+        ]);
+        throw new Error(`Expected empty ${option} lookup to fail`);
+      } catch (error) {
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: {
+              operation_contract: string;
+              rejected_argument: { option: string; value: string };
+              expected: { kind: string; min_length: number };
+              argument_sources: Record<string, string>;
+              retry_with: { option: string; value_placeholder: string };
+            };
+          };
+        };
+
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.message).toBe(`Invalid argument: Invalid ${option}; must not be empty`);
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe(`retry with a non-empty ${option} value`);
+        expect(parsed.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.operation_contracts",
+          rejected_argument: { option, value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            [argument]: `operations_by_id.operation_contracts.arguments_by_name.${argument}`
+          },
+          retry_with: { option, value_placeholder: placeholder }
+        });
+      }
+    }
+  });
+
   it("returns machine-readable agent guide from the CLI", async () => {
     await withTempDir(async (dir) => {
       const guide = await exec("node", [
