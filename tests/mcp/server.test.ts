@@ -7253,6 +7253,32 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "confidence", value_placeholder: 0.5 }
         });
 
+        const invalidStringConfidence = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid string confidence should return structured recovery.",
+            confidence: "high",
+            source: { client: "mcp-test" }
+          }
+        })) as typeof invalidConfidence;
+        expect(invalidStringConfidence.ok).toBe(false);
+        expect(invalidStringConfidence.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidStringConfidence.error.message).toContain("Invalid confidence");
+        expect(invalidStringConfidence.error.recommended_action).toBe("retry write with confidence between 0 and 1");
+        expect(invalidStringConfidence.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "confidence", value: "high" },
+          expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+          argument_sources: {
+            confidence: "operations_by_id.write.arguments_by_name.confidence"
+          },
+          retry_with: { argument: "confidence", value_placeholder: 0.5 }
+        });
+
         const invalidLimit = parseTextContent(await client.callTool({
           name: "recall",
           arguments: {

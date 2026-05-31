@@ -27,7 +27,7 @@ interface WriteInput {
   tags?: string[];
   content: Record<string, unknown> & { text?: string; format?: "text" | "json" };
   state?: RecordState;
-  confidence?: number;
+  confidence?: unknown;
   priority?: "low" | "normal" | "high";
   source: RecordSource;
   confirmed?: boolean;
@@ -1331,7 +1331,7 @@ function validateWriteInput(input: WriteInput): void {
     throw invalidWriteContentFormatError(input.content.format);
   }
   if (input.state !== undefined && !recordStateSchema.safeParse(input.state).success) throw invalidWriteStateError(input.state);
-  if (input.confidence !== undefined && (!Number.isFinite(input.confidence) || input.confidence < 0 || input.confidence > 1)) {
+  if (input.confidence !== undefined && (typeof input.confidence !== "number" || !Number.isFinite(input.confidence) || input.confidence < 0 || input.confidence > 1)) {
     throw invalidWriteConfidenceError(input.confidence);
   }
   if (input.priority !== undefined && !recordPrioritySchema.safeParse(input.priority).success) throw invalidWritePriorityError(input.priority);
@@ -2069,6 +2069,7 @@ export function createEngine(deps: EngineDeps) {
           ? "candidate"
           : (input.state ?? (input.kind === "agent_note" ? "raw" : "candidate"));
       const content = sensitive.sensitive ? redactSensitiveRecordContent(input.content) : input.content;
+      const confidence = typeof input.confidence === "number" ? input.confidence : 0.5;
       const record: MorynRecord = {
         id: id("rec"),
         kind: input.kind,
@@ -2078,7 +2079,7 @@ export function createEngine(deps: EngineDeps) {
         tags: input.tags ?? [],
         content,
         state,
-        confidence: input.confidence ?? 0.5,
+        confidence,
         priority: input.priority ?? "normal",
         visibility: state === "quarantined" ? "quarantined" : state === "archived" ? "archived" : "active",
         created_at: createdAt,

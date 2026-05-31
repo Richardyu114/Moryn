@@ -833,6 +833,8 @@ failures for MCP `agent_enter`/`agent_start` `pull` and
 of stopping at host schema validation. MCP `limit` failures for read and
 lifecycle startup tools likewise pass through core validation, including
 non-number values, and return the relevant `arguments_by_name.limit` source.
+MCP write `confidence` failures also pass through core validation, including
+non-number values, and return `operations_by_id.write.arguments_by_name.confidence`.
 CLI parser failures for `--limit` on read and lifecycle startup commands, plus enum
 options such as `--kind`, `--scope`, `--state`, `--priority`, and `--sync-mode`,
 write `--confidence` range failures, and missing write

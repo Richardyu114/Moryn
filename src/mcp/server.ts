@@ -439,7 +439,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         text: stringSchema.optional(),
         content: z.record(z.string(), z.unknown()).optional(),
         state: recordStateSchema.optional(),
-        confidence: numberSchema.optional(),
+        confidence: coreValidatedNumberSchema.optional(),
         priority: recordPrioritySchema.optional(),
         provenance: z.object({
           derived_from: z.array(stringSchema).optional(),

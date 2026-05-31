@@ -395,6 +395,10 @@ Deliverables:
   and lifecycle startup now pass through core validation, including non-number
   values, and expose the relevant operation contract `arguments_by_name.limit`
   source instead of host-side schema text.
+- Done: MCP write `confidence` failures now pass through core validation,
+  including non-number values, and expose
+  `operations_by_id.write.arguments_by_name.confidence` instead of host-side
+  schema text.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty
