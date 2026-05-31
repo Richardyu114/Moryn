@@ -2843,6 +2843,22 @@ describe("MCP stdio server", () => {
           "reason",
           "provenance_method"
         ]));
+        const agentEnterTool = tools.tools.find((tool) => tool.name === "agent_enter");
+        expect(Object.keys(agentEnterTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "agent_client",
+          "agent.client",
+          "agent_session_id",
+          "agent.session_id",
+          "agent_model",
+          "agent.device_id"
+        ]));
+        const projectListTool = tools.tools.find((tool) => tool.name === "project_list");
+        expect(Object.keys(projectListTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "agent_client",
+          "agent.client",
+          "agent_session_id",
+          "agent.session_id"
+        ]));
 
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
 
@@ -4735,6 +4751,40 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("accepts agent identity aliases in MCP agent_enter arguments", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-enter-alias-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await withMcpClient(store, async (client) => {
+        const entered = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            project_path: project,
+            current_task: "continue known MCP project",
+            agent_client: "codex",
+            "agent.session_id": "codex-alias-session"
+          }
+        })) as {
+          mode: string;
+          next: {
+            actions_by_id: Record<string, { command: string; arguments: { agent?: { client?: string; session_id?: string } } }>;
+          };
+        };
+
+        expect(entered.mode).toBe("start_session");
+        expect(entered.next.actions_by_id.finish_session.arguments.agent).toMatchObject({
+          client: "codex",
+          session_id: "codex-alias-session"
+        });
+        expect(entered.next.actions_by_id.finish_session.command).toContain("--agent codex --session-id codex-alias-session");
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("does not recommend agent_start through MCP when an explicit project path is missing", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-mcp-missing-project-"));
     const store = join(root, "store");
@@ -5578,6 +5628,50 @@ describe("MCP stdio server", () => {
         expectActionSafety(listed.projects[0]!.next);
         expectProjectListNextWorkflow(listed.projects[0]!.next);
         expect(listed.projects_by_id.beta.next.workflow).toEqual(listed.projects[0]!.next.workflow);
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts agent identity aliases in MCP project_list arguments", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-project-list-alias-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "MCP project list alias test.",
+            state: "canonical",
+            source: { client: "mcp-test" }
+          }
+        });
+
+        const listed = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: {
+            agent_client: "codex",
+            "agent.session_id": "codex-list-alias"
+          }
+        })) as {
+          projects: Array<{
+            next: {
+              command: string;
+              arguments: { agent?: { client?: string; session_id?: string } };
+            };
+          }>;
+        };
+
+        expect(listed.projects[0]?.next.arguments.agent).toMatchObject({
+          client: "codex",
+          session_id: "codex-list-alias"
+        });
+        expect(listed.projects[0]?.next.command).toContain("--agent codex --session-id codex-list-alias");
       });
     } finally {
       await rm(store, { recursive: true, force: true });

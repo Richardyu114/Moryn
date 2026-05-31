@@ -482,7 +482,10 @@ fields and literal MCP path keys for nested MCP arguments, so hosts can pass
 `agent_client`, `agent_session_id`, `agent.client`, or `agent.session_id` and
 still get the same flags as an `agent` payload. MCP interface generation
 normalizes those aliases back into nested tool arguments, so the same collected
-value works for both transports.
+value works for both transports. Direct MCP `project_list` and lifecycle tools
+also expose and accept those agent identity aliases, so a host can call
+`agent_enter` with `agent_client` and `"agent.session_id"` instead of first
+reconstructing the nested `agent` object.
 `execution` summarizes the
 immediate branch with `ready_to_run`, `next_step`, `missing_required_fields`,
 `required_inputs`, `required_inputs_by_field`,
@@ -869,6 +872,11 @@ MCP write `source` shape failures also pass through core validation, including
 single-string source values, and return `operations_by_id.write.arguments_by_name.source_client`.
 MCP write accepts `source_client`/`source_session_id` and literal
 `"source.client"`/`"source.session_id"` alias fields before source validation runs.
+Direct MCP `project_list` and lifecycle calls accept
+`agent_client`/`agent_session_id` and literal
+`"agent.client"`/`"agent.session_id"` alias fields before agent validation runs,
+normalizing them into the nested `agent` object used by returned lifecycle
+actions.
 MCP write `tags` shape failures also pass through core validation, including
 single-string tag values, and return `operations_by_id.write.arguments_by_name.tags`.
 MCP write `provenance` failures also pass through core validation, including

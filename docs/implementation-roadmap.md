@@ -767,6 +767,10 @@ Deliverables:
 - Done: Direct MCP `write` calls now accept the same content/source/provenance
   aliases exposed by operation contracts, so hosts do not need to rebuild nested
   objects before retrying.
+- Done: Direct MCP `project_list` and lifecycle calls now expose and accept
+  operation-contract agent identity aliases such as `agent_client`,
+  `"agent.session_id"`, and `agent_model`, normalizing them into the nested
+  `agent` object before lifecycle validation and follow-up action generation.
 - Done: Empty CLI `link --type` values now return a CLI-shaped `--type`
   recovery hint backed by `operations_by_id.link.arguments_by_name.link_type`,
   so shell agents can retry the exact flag instead of translating a lower-level

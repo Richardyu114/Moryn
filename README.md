@@ -479,7 +479,12 @@ Generated CLI interfaces accept flattened contract fields and literal MCP path
 keys for nested MCP arguments too, so `agent_client`, `agent_session_id`, or
 `agent.client` produce the same CLI flags as `agent: { client, session_id }`;
 generated MCP interfaces normalize those aliases back into the nested JSON
-arguments the tool expects.
+arguments the tool expects. Direct MCP calls for `project_list`,
+`agent_doctor`, `agent_guide`, `agent_enter`, `agent_start`, `agent_status`,
+and `agent_finish` expose and accept the same agent identity aliases
+(`agent_client`, `agent_session_id`, `agent_model`, `agent_device_id`, plus
+literal paths such as `"agent.client"` and `"agent.session_id"`), so hosts can
+reuse operation-contract fields without hand-building an `agent` object.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
@@ -951,6 +956,11 @@ MCP write `source` shape failures also pass through core validation, including
 single-string source values, and return `operations_by_id.write.arguments_by_name.source_client`.
 MCP write accepts `source_client`/`source_session_id` and literal
 `"source.client"`/`"source.session_id"` alias fields before source validation runs.
+Direct MCP `project_list` and lifecycle calls accept
+`agent_client`/`agent_session_id` and literal
+`"agent.client"`/`"agent.session_id"` alias fields before agent validation runs,
+normalizing them into the nested `agent` object used by follow-up action
+templates.
 MCP write `tags` shape failures also pass through core validation, including
 single-string tag values, and return `operations_by_id.write.arguments_by_name.tags`.
 MCP write `provenance` failures also pass through core validation, including
