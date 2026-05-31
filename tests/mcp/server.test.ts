@@ -6785,6 +6785,158 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "kind", value_placeholder: "memory" }
         });
 
+        const invalidKindShape = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: 123,
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid kind shape.",
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidKindShape.ok).toBe(false);
+        expect(invalidKindShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidKindShape.error.message).toContain("Invalid kind");
+        expect(invalidKindShape.error.recommended_action).toBe("retry write with a supported kind");
+        expect(invalidKindShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "kind", value: 123 },
+          expected: { kind: "allowed_values", allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"] },
+          argument_sources: {
+            kind: "operations_by_id.write.arguments_by_name.kind"
+          },
+          retry_with: { argument: "kind", value_placeholder: "memory" }
+        });
+
+        const invalidTypeShape = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: 123,
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid type shape.",
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidTypeShape.ok).toBe(false);
+        expect(invalidTypeShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidTypeShape.error.message).toContain("Invalid type");
+        expect(invalidTypeShape.error.recommended_action).toBe("retry write with a non-empty type");
+        expect(invalidTypeShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "type", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            type: "operations_by_id.write.arguments_by_name.type"
+          },
+          retry_with: { argument: "type", value_placeholder: "<record type>" }
+        });
+
+        const invalidScopeShape = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: 123,
+            project_id: "moryn",
+            text: "Invalid scope shape.",
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidScopeShape.ok).toBe(false);
+        expect(invalidScopeShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidScopeShape.error.message).toContain("Invalid scope");
+        expect(invalidScopeShape.error.recommended_action).toBe("retry write with a supported scope");
+        expect(invalidScopeShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "scope", value: 123 },
+          expected: { kind: "allowed_values", allowed_values: ["global", "project", "topic", "session", "artifact"] },
+          argument_sources: {
+            scope: "operations_by_id.write.arguments_by_name.scope"
+          },
+          retry_with: { argument: "scope", value_placeholder: "project" }
+        });
+
+        const invalidTextShape = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: 123,
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidTextShape.ok).toBe(false);
+        expect(invalidTextShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidTextShape.error.message).toContain("Invalid content.text");
+        expect(invalidTextShape.error.recommended_action).toBe("retry write with valid content");
+        expect(invalidTextShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "content.text", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "content.text": "operations_by_id.write.arguments_by_name.content_text"
+          },
+          retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
+        });
+
+        const invalidStateShape = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid state shape.",
+            state: 123,
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidStateShape.ok).toBe(false);
+        expect(invalidStateShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidStateShape.error.message).toContain("Invalid state");
+        expect(invalidStateShape.error.recommended_action).toBe("retry write with a supported state");
+        expect(invalidStateShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "state", value: 123 },
+          expected: { kind: "allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
+          argument_sources: {
+            state: "operations_by_id.write.arguments_by_name.state"
+          },
+          retry_with: { argument: "state", value_placeholder: "candidate" }
+        });
+
+        const invalidPriorityShape = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid priority shape.",
+            priority: 123,
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidPriorityShape.ok).toBe(false);
+        expect(invalidPriorityShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidPriorityShape.error.message).toContain("Invalid priority");
+        expect(invalidPriorityShape.error.recommended_action).toBe("retry write with a supported priority");
+        expect(invalidPriorityShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "priority", value: 123 },
+          expected: { kind: "allowed_values", allowed_values: ["low", "normal", "high"] },
+          argument_sources: {
+            priority: "operations_by_id.write.arguments_by_name.priority"
+          },
+          retry_with: { argument: "priority", value_placeholder: "normal" }
+        });
+
         const emptyTags = parseTextContent(await client.callTool({
           name: "write",
           arguments: {

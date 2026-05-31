@@ -49,7 +49,10 @@ const syncModeSchema = z.union([z.enum(SYNC_MODES), stringSchema]);
 const numberSchema = z.number();
 const coreValidatedNumberSchema = z.unknown();
 const coreValidatedBooleanSchema = z.unknown();
+const coreValidatedRecordKindSchema = z.unknown();
+const coreValidatedRecordScopeSchema = z.unknown();
 const coreValidatedRecordStateSchema = z.unknown();
+const coreValidatedRecordPrioritySchema = z.unknown();
 const coreValidatedStringSchema = z.unknown();
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
   { argument: "text", value_placeholder: "<text>" },
@@ -74,8 +77,8 @@ type McpArgumentRecoveryHint =
   | {
       operation_contract: "operations_by_id.write";
       rejected_arguments: Array<
-        | { argument: "text"; value: string }
-        | { argument: "content"; value: Record<string, unknown> }
+        | { argument: "text"; value: unknown }
+        | { argument: "content"; value: unknown }
       >;
       expected: { kind: "choose_one"; arguments: ["text", "content"] };
       argument_sources: Record<"text" | "content", string>;
@@ -113,8 +116,8 @@ function writeRequiredArgumentError(argument: "type" | "scope"): McpArgumentErro
 }
 
 function writeContentChoiceError(rejectedArguments?: Array<
-  | { argument: "text"; value: string }
-  | { argument: "content"; value: Record<string, unknown> }
+  | { argument: "text"; value: unknown }
+  | { argument: "content"; value: unknown }
 >): McpArgumentError {
   return new McpArgumentError(
     rejectedArguments
@@ -434,17 +437,17 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Write Moryn Record",
       description: "Append a new Moryn record event.",
       inputSchema: {
-        kind: recordKindSchema,
-        type: stringSchema.optional(),
-        scope: recordScopeSchema.optional(),
+        kind: coreValidatedRecordKindSchema,
+        type: coreValidatedStringSchema.optional(),
+        scope: coreValidatedRecordScopeSchema.optional(),
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
         tags: z.unknown().optional(),
-        text: stringSchema.optional(),
+        text: coreValidatedStringSchema.optional(),
         content: z.unknown().optional(),
-        state: recordStateSchema.optional(),
+        state: coreValidatedRecordStateSchema.optional(),
         confidence: coreValidatedNumberSchema.optional(),
-        priority: recordPrioritySchema.optional(),
+        priority: coreValidatedRecordPrioritySchema.optional(),
         provenance: z.unknown().optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
         source: z.unknown().optional()
@@ -464,25 +467,25 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       const project = await resolveProjectInput({ project_id: input.project_id, project_path: input.project_path });
       const type = input.type ?? (input.kind === "session_summary" ? "summary" : undefined);
       const scope = input.scope ?? (input.kind === "session_summary" ? "project" : undefined);
-      if (!type) {
+      if (type === undefined) {
         throw writeRequiredArgumentError("type");
       }
-      if (!scope) {
+      if (scope === undefined) {
         throw writeRequiredArgumentError("scope");
       }
       const tags = input.tags === undefined || Array.isArray(input.tags)
         ? [...project.tags, ...(input.tags ?? [])]
         : input.tags;
       return engine.write({
-        kind: input.kind as RecordKind,
+        kind: input.kind,
         type,
-        scope: scope as RecordScope,
+        scope,
         project_id: project.project_id,
         tags,
         content,
-        state: input.state as RecordState | undefined,
+        state: input.state,
         confidence: input.confidence,
-        priority: input.priority as RecordPriority | undefined,
+        priority: input.priority,
         source: withDefaultSource(input.source) as RecordSource,
         confirmed: input.confirmed as boolean | undefined,
         provenance: input.provenance as RecordProvenance | undefined

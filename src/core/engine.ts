@@ -3,7 +3,7 @@ import { rebuildDerivedViews } from "./derived.js";
 import { applyRecordPatch, replayEvents } from "./replay.js";
 import { PROVENANCE_METHODS, RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES, isoDateTimeSchema, isValidPatchPath, recordKindSchema, recordPrioritySchema, recordScopeSchema, recordSourceSchema, recordStateSchema, parseRecord } from "./schema.js";
 import { detectSensitiveContent, redactSensitiveContent, sensitiveScanText } from "./sensitive.js";
-import type { MorynEvent, MorynRecord, RecordKind, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
+import type { MorynEvent, MorynRecord, RecordKind, RecordPriority, RecordProvenance, RecordScope, RecordSource, RecordState } from "./types.js";
 import { commandForPromoteContext, InvalidRefreshCursorError, PROMOTE_CANDIDATE_WHEN, withNextActionMetadata, type MorynErrorNextAction } from "./errors.js";
 import { createId } from "./id.js";
 import { displayRecordText, searchableContentText, searchableRecordText } from "./content-text.js";
@@ -20,19 +20,27 @@ interface EngineDeps {
 }
 
 interface WriteInput {
-  kind: RecordKind;
-  type: string;
-  scope: RecordScope;
+  kind: unknown;
+  type: unknown;
+  scope: unknown;
   project_id?: string;
   tags?: unknown;
   content: unknown;
-  state?: RecordState;
+  state?: unknown;
   confidence?: unknown;
-  priority?: "low" | "normal" | "high";
+  priority?: unknown;
   source: RecordSource;
   confirmed?: boolean;
   provenance?: unknown;
 }
+
+type ValidatedWriteInput = WriteInput & {
+  kind: RecordKind;
+  type: string;
+  scope: RecordScope;
+  state?: RecordState;
+  priority?: RecordPriority;
+};
 
 export interface EngineWarning {
   code: string;
@@ -2086,47 +2094,48 @@ export function createEngine(deps: EngineDeps) {
   const engine = {
     async write(input: WriteInput) {
       validateWriteInput(input);
+      const writeInput = input as ValidatedWriteInput;
       const createdAt = now();
-      const tags = Array.isArray(input.tags) ? input.tags : [];
+      const tags = Array.isArray(writeInput.tags) ? writeInput.tags : [];
       const inputContent = input.content as Record<string, unknown> & { text?: string; format?: "text" | "json" };
       const sensitive = detectSensitiveContent(sensitiveScanText(inputContent));
-      const conflicts = sensitive.sensitive ? [] : semanticConflicts(await currentRecords(), { ...input, tags, content: inputContent });
-      const needsConflictConfirmation = input.state === "canonical" && conflicts.length > 0 && !isUserConfirmed(input.source, input.confirmed);
-      const needsConfirmation = input.state === "canonical"
-        && (requiresCanonicalConfirmation(input) || conflicts.length > 0)
-        && !isUserConfirmed(input.source, input.confirmed);
+      const conflicts = sensitive.sensitive ? [] : semanticConflicts(await currentRecords(), { ...writeInput, tags, content: inputContent });
+      const needsConflictConfirmation = writeInput.state === "canonical" && conflicts.length > 0 && !isUserConfirmed(writeInput.source, writeInput.confirmed);
+      const needsConfirmation = writeInput.state === "canonical"
+        && (requiresCanonicalConfirmation(writeInput) || conflicts.length > 0)
+        && !isUserConfirmed(writeInput.source, writeInput.confirmed);
       const state = sensitive.sensitive
         ? "quarantined"
         : needsConfirmation
           ? "candidate"
-          : (input.state ?? (input.kind === "agent_note" ? "raw" : "candidate"));
+          : (writeInput.state ?? (writeInput.kind === "agent_note" ? "raw" : "candidate"));
       const content = sensitive.sensitive ? redactSensitiveRecordContent(inputContent) : inputContent;
-      const confidence = typeof input.confidence === "number" ? input.confidence : 0.5;
-      const provenance = input.provenance as RecordProvenance | undefined;
+      const confidence = typeof writeInput.confidence === "number" ? writeInput.confidence : 0.5;
+      const provenance = writeInput.provenance as RecordProvenance | undefined;
       const record: MorynRecord = {
         id: id("rec"),
-        kind: input.kind,
-        type: input.type,
-        scope: input.scope,
-        project_id: input.project_id,
+        kind: writeInput.kind,
+        type: writeInput.type,
+        scope: writeInput.scope,
+        project_id: writeInput.project_id,
         tags,
         content,
         state,
         confidence,
-        priority: input.priority ?? "normal",
+        priority: writeInput.priority ?? "normal",
         visibility: state === "quarantined" ? "quarantined" : state === "archived" ? "archived" : "active",
         created_at: createdAt,
         updated_at: createdAt,
-        source: input.source,
+        source: writeInput.source,
         provenance: {
           ...(provenance ?? {}),
-          method: provenance?.method ?? provenanceMethod(input.source, input.confirmed)
+          method: provenance?.method ?? provenanceMethod(writeInput.source, writeInput.confirmed)
         },
         conflict: conflicts.length
           ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }
           : undefined
       };
-      const event: MorynEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source: input.source };
+      const event: MorynEvent = { event_id: id("evt"), op: "upsert_record", record, created_at: createdAt, source: writeInput.source };
       await appendEventAndRebuild(event);
       const warning: EngineWarning | undefined = sensitive.sensitive
         ? { code: "SENSITIVE_CONTENT_DETECTED", reason: sensitive.reason }
