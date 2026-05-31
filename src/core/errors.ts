@@ -492,6 +492,7 @@ const CONFIGURE_SYNC_WHEN = "Before using sync operations when no remote has bee
 const CHECK_REMOTE_SYNC_WHEN = "After a remote sync failure, before retrying remote operations.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
 const CHECK_PERMISSION_FAILURE_WHEN = "After a credentials or filesystem permission failure, before retrying remote or filesystem operations.";
+const REBUILD_INVALID_HISTORY_WHEN = "After invalid replay history is reported, before retrying derived-view reads.";
 const LIST_RECORDS_WHEN = "After a record id is rejected, before retrying with a replacement record id.";
 const RETRY_WITH_SELECTED_RECORD_WHEN = "After choosing the correct record id from list_recent results, retry the original tool with that selected id.";
 const LIST_RECENT_SELECTED_RECORD_ID_SOURCE = "list_recent.records_by_id.<record_id>.id";
@@ -1145,6 +1146,17 @@ export function nextAction(code: string, message = "", context?: MorynErrorConte
         command: "moryn rebuild",
         arguments: {},
         required_when: REBUILD_INDEX_WHEN,
+        required_fields: [],
+        safe_to_run: true
+      });
+    case "INVALID_RECORD":
+      if (!message.startsWith("Invalid replay ")) return undefined;
+      return withNextActionMetadata({
+        recommended_action: "rebuild_derived_views_from_valid_history",
+        tool: "rebuild",
+        command: "moryn rebuild",
+        arguments: {},
+        required_when: REBUILD_INVALID_HISTORY_WHEN,
         required_fields: [],
         safe_to_run: true
       });

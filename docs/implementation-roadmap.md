@@ -286,7 +286,8 @@ Deliverables:
   `sync.mode`/`repair`, invalid local store `storePath`, invalid event path
   components such as `event_id`/`source.device_id`, invalid record/event schema
   paths reported as `validation_issues`, invalid replay history with bad
-  `event_id`/`event_op`/`record_id`, sensitive-content rejections that omit the
+  `event_id`/`event_op`/`record_id` and replay-only safe rebuild next actions,
+  sensitive-content rejections that omit the
   detected secret value, stale derived views that should run `moryn rebuild`
   before retrying the original read and should not be trusted or manually
   edited before rebuild, missing record ids that should run

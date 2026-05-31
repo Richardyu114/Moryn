@@ -684,9 +684,30 @@ describe("error envelopes", () => {
       error: {
         code: "INVALID_RECORD",
         recoverable: true,
-        recommended_action: "inspect the reported event or record and rebuild from valid history"
+        recommended_action: "inspect the reported event or record and rebuild from valid history",
+        next_action: {
+          recommended_action: "rebuild_derived_views_from_valid_history",
+          tool: "rebuild",
+          command: "moryn rebuild",
+          arguments: {},
+          required_fields: [],
+          safe_to_run: true
+        }
       }
     });
+    expectNextActionInterfaces(envelope.error.next_action!);
+    expectNextActionWorkflow(envelope.error.next_action!);
+    expectNextActionSelectionSources(envelope.error.next_action!);
+    expectNextActionSafety(envelope.error.next_action!);
+    expectNextActionExecution(envelope.error.next_action!);
+  });
+
+  it("does not suggest rebuild for invalid record input schema failures", () => {
+    const envelope = toErrorEnvelope(new Error("Invalid record: state: Invalid option: expected one of \"raw\"|\"candidate\"|\"canonical\"|\"archived\"|\"quarantined\""));
+
+    expect(envelope.error.code).toBe("INVALID_RECORD");
+    expect(envelope.error.recommended_action).toBe("inspect the reported event or record and rebuild from valid history");
+    expect(envelope.error.next_action).toBeUndefined();
   });
 
   it("returns a machine-readable recovery action for missing records", () => {

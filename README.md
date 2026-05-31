@@ -738,7 +738,7 @@ boot/refresh read inputs such as `current_task`, `default_skills`, and
 `storePath`, event path components such as `event_id` and `source.device_id`,
 record/event schema validation issues with `path`, `path_string`, and messages,
 replay history failures with the bad `event_id`, `event_op`, `record_id`, and
-safe rebuild inspection hint,
+safe rebuild inspection hint plus replay-only rebuild `next_action`,
 sensitive-content failures that intentionally omit the detected secret value and
 return a redaction retry template,
 stale derived-view errors with safe rebuild and retry-after-original-read

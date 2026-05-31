@@ -692,7 +692,8 @@ rules, MCP argument requirements such as write `type` and
 project-context requirements, path-assignment
 shape, revise patch rules, record/event schema validation issues with `path`,
 `path_string`, and messages, replay history failures with the bad `event_id`,
-`event_op`, `record_id`, and rebuild inspection hint, or ISO datetime cursor
+`event_op`, `record_id`, rebuild inspection hint, and safe rebuild
+`next_action`, or ISO datetime cursor
 requirements, sensitive-content failures that omit the detected secret value and
 return a redaction retry template, stale derived-view errors with safe rebuild,
 retry-after-original-read instructions, and guardrails against trusting stale
@@ -2650,6 +2651,29 @@ Rebuildable index errors return a safe derived-view rebuild action:
     },
     "next_action": {
       "recommended_action": "rebuild_derived_views",
+      "tool": "rebuild",
+      "command": "moryn rebuild",
+      "arguments": {},
+      "safe_to_run": true
+    }
+  }
+}
+```
+
+Invalid replay-history errors also return a safe rebuild action, but only for
+messages whose prefix is `Invalid replay`. Plain record/event schema failures
+keep their `retry_with` schema hints and do not suggest rebuild:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "INVALID_RECORD",
+    "message": "Invalid replay target for event evt_missing_revision: Record not found: rec_missing",
+    "recoverable": true,
+    "recommended_action": "inspect the reported event or record and rebuild from valid history",
+    "next_action": {
+      "recommended_action": "rebuild_derived_views_from_valid_history",
       "tool": "rebuild",
       "command": "moryn rebuild",
       "arguments": {},
