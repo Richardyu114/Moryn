@@ -485,6 +485,9 @@ normalizes those aliases back into nested tool arguments, so the same collected
 value works for both transports. When duplicate values for the same nested
 field are present, generated action interfaces use the same stable precedence:
 nested object value, then literal MCP path key, then flattened contract field.
+If a parent value is scalar, generated MCP arguments preserve that scalar
+instead of coercing it into a partial object with child aliases, so the target
+tool can return the structured recovery hint for the invalid parent shape.
 Direct MCP `project_list` and lifecycle tools
 also expose and accept those agent identity aliases, so a host can call
 `agent_enter` with `agent_client` and `"agent.session_id"` instead of first

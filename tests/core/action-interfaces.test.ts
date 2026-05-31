@@ -177,6 +177,23 @@ describe("action interfaces", () => {
     });
   });
 
+  it("preserves scalar parent values instead of coercing them with child aliases in MCP arguments", () => {
+    const interfaces = actionInterfaces({
+      tool: "agent_status",
+      command: "moryn agent status --status <status>",
+      arguments: {
+        status: "Working",
+        agent: "codex",
+        agent_session_id: "session 1"
+      }
+    });
+
+    expect(interfaces.mcp.arguments).toEqual({
+      status: "Working",
+      agent: "codex"
+    });
+  });
+
   it("does not duplicate nested CLI flags when parent and flattened fields are both present", () => {
     const interfaces = actionInterfaces({
       tool: "agent_status",
@@ -349,6 +366,29 @@ describe("action interfaces", () => {
         client: "codex",
         session_id: "literal session"
       }
+    });
+  });
+
+  it("preserves scalar source values instead of coercing them with child aliases in MCP arguments", () => {
+    const interfaces = actionInterfaces({
+      tool: "write",
+      command: "moryn write --kind memory --type decision --scope project --text <text>",
+      arguments: {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        text: "Use explicit source metadata.",
+        source: "codex",
+        source_client: "codex"
+      }
+    });
+
+    expect(interfaces.mcp.arguments).toEqual({
+      kind: "memory",
+      type: "decision",
+      scope: "project",
+      text: "Use explicit source metadata.",
+      source: "codex"
     });
   });
 

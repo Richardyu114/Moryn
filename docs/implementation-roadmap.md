@@ -767,6 +767,9 @@ Deliverables:
 - Done: Generated action interfaces now apply stable duplicate-alias precedence
   for nested MCP fields: nested object values beat literal MCP path keys, and
   literal MCP path keys beat flattened contract fields.
+- Done: Generated MCP action arguments now preserve scalar parent values when
+  child aliases are also present, instead of coercing bad parent shapes into
+  partial nested objects.
 - Done: Direct MCP `write` calls now accept the same content/source/provenance
   aliases exposed by operation contracts, so hosts do not need to rebuild nested
   objects before retrying.

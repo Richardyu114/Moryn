@@ -71,6 +71,12 @@ function setPathValue(root: Record<string, unknown>, path: string, value: unknow
   if (leaf) current[leaf] = value;
 }
 
+function hasScalarPathParent(root: Record<string, unknown>, path: string): boolean {
+  const parentKey = path.split(".").at(0);
+  const parentValue = parentKey ? root[parentKey] : undefined;
+  return parentValue !== undefined && (typeof parentValue !== "object" || parentValue === null || Array.isArray(parentValue));
+}
+
 function clonePlainValue(value: unknown): unknown {
   if (Array.isArray(value)) return [...value];
   if (typeof value === "object" && value !== null) return { ...value as Record<string, unknown> };
@@ -193,6 +199,7 @@ export function mcpArgumentsForAction(tool: string, argumentsByName: Record<stri
     const value = argumentValue(argumentsByName, argument);
     if (value === undefined) continue;
     if (argument.mcp.path) {
+      if (hasScalarPathParent(normalizedArguments, argument.mcp.path)) continue;
       setPathValue(normalizedArguments, argument.mcp.path, clonePlainValue(value));
     } else {
       normalizedArguments[argument.mcp.argument] = clonePlainValue(value);

@@ -482,7 +482,9 @@ generated MCP interfaces normalize those aliases back into the nested JSON
 arguments the tool expects. When generated action interfaces receive duplicate
 values for the same nested field, they resolve them in the same predictable
 order: nested object value first, then literal MCP path key, then flattened
-contract field. Direct MCP calls for `project_list`,
+contract field. If a parent value is scalar, generated MCP arguments preserve
+that scalar instead of coercing it into a partial object with child aliases, so
+the receiving tool can return its normal structured recovery hint. Direct MCP calls for `project_list`,
 `agent_doctor`, `agent_guide`, `agent_enter`, `agent_start`, `agent_status`,
 and `agent_finish` expose and accept the same agent identity aliases
 (`agent_client`, `agent_session_id`, `agent_model`, `agent_device_id`, plus
