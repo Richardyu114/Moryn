@@ -49,15 +49,59 @@ function operationArgumentList(tool: string): OperationArgumentMetadata[] {
   return operationArguments.length > 0 ? operationArguments : RUNTIME_TOOL_ARGUMENTS[tool] ?? [];
 }
 
-function argumentValue(argumentsByName: Record<string, unknown>, argument: OperationArgumentMetadata): unknown {
-  if (!argument.mcp) return argumentsByName[argument.name];
-  if (!argument.mcp.path) return argumentsByName[argument.mcp.argument];
-  const root = argumentsByName[argument.mcp.argument];
-  return argument.mcp.path.split(".").reduce<unknown>((value, key) => {
+function pathValue(root: Record<string, unknown>, path: string): unknown {
+  return path.split(".").reduce<unknown>((value, key) => {
     return typeof value === "object" && value !== null && !Array.isArray(value)
       ? (value as Record<string, unknown>)[key]
       : undefined;
   }, root);
+}
+
+function argumentValue(argumentsByName: Record<string, unknown>, argument: OperationArgumentMetadata): unknown {
+  if (!argument.mcp) return argumentsByName[argument.name];
+  if (!argument.mcp.path) return argumentsByName[argument.mcp.argument];
+  const nestedValue = pathValue(argumentsByName, argument.mcp.path);
+  return nestedValue === undefined ? argumentsByName[argument.name] : nestedValue;
+}
+
+function shouldSkipNestedCliArgument(
+  argumentsByName: Record<string, unknown>,
+  argument: OperationArgumentMetadata,
+  operationArguments: OperationArgumentMetadata[]
+): boolean {
+  if (!argument.parent_argument || !argument.cli || !argument.mcp?.path) return false;
+  const parent = argumentsByName[argument.parent_argument];
+  if (typeof parent !== "object" || parent === null || Array.isArray(parent)) return false;
+  const parentArgument = operationArguments.find((candidate) => candidate.name === argument.parent_argument);
+  return Boolean(parentArgument?.cli?.flags?.length);
+}
+
+function cliArgumentValue(argumentsByName: Record<string, unknown>, argument: OperationArgumentMetadata, operationArguments: OperationArgumentMetadata[]): unknown {
+  return Boolean(
+    argument.cli?.flags?.length
+    && argument.mcp
+    && argument.mcp.argument === argument.name
+  )
+    ? parentObjectValueForArguments(argumentsByName, argument, operationArguments)
+    : argumentValue(argumentsByName, argument);
+}
+
+function parentObjectValueForArguments(
+  argumentsByName: Record<string, unknown>,
+  argument: OperationArgumentMetadata,
+  operationArguments: OperationArgumentMetadata[]
+): unknown {
+  const parentValue = argumentValue(argumentsByName, argument);
+  if (typeof parentValue !== "object" || parentValue === null || Array.isArray(parentValue)) return parentValue;
+  const mergedValue = { ...parentValue as Record<string, unknown> };
+  for (const childArgument of operationArguments) {
+    if (childArgument.parent_argument !== argument.name || !childArgument.mcp?.path) continue;
+    const key = childArgument.mcp.path.split(".").at(-1);
+    if (!key || mergedValue[key] !== undefined) continue;
+    const childValue = argumentsByName[childArgument.name];
+    if (childValue !== undefined) mergedValue[key] = childValue;
+  }
+  return mergedValue;
 }
 
 function pushFlagValue(argv: string[], flag: string, value: unknown): void {
@@ -135,7 +179,8 @@ export function cliArgvForAction(tool: string, argumentsByName: Record<string, u
   }
   for (const argument of operationArguments) {
     if (argument.cli?.positional) continue;
-    const value = argumentValue(argumentsByName, argument);
+    if (shouldSkipNestedCliArgument(argumentsByName, argument, operationArguments)) continue;
+    const value = cliArgumentValue(argumentsByName, argument, operationArguments);
     if (argument.type === "boolean") {
       pushBooleanFlag(argv, argument, value);
       continue;

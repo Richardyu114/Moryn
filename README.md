@@ -475,6 +475,9 @@ hosts which flag or positional to fill; `collect.apply_to.cli_assignments` turns
 those targets into direct write-back instructions with flag or positional,
 `value_path`, `argv_template`, `value_encoding`, type, interface-specific
 `required_when`, repeatable/default metadata, and preferred flag.
+Generated CLI interfaces accept flattened contract fields for nested MCP
+arguments too, so `agent_client` and `agent_session_id` produce the same CLI
+flags as `agent: { client, session_id }`.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and
@@ -1063,7 +1066,10 @@ direct package bins such as `moryn-agent-smoke`, `exec_file.executable` is the
 bin name, `exec_file.args` excludes the bin, and `argv` keeps the full legacy
 vector with the bin as the first element. Hosts should treat
 `interfaces.cli.has_placeholders: true` or `execution.ready_to_run: false` as a
-signal to collect the named fields before running `exec_file`.
+signal to collect the named fields before running `exec_file`. When a generated
+action argument is backed by a nested MCP path, CLI generation also accepts the
+flattened contract argument name, so `agent_client`/`agent_session_id` can be
+passed directly and still emit `--agent`/`--session-id`.
 
 ## Current MVP Commands
 

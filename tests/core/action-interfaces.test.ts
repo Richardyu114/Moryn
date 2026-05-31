@@ -50,6 +50,67 @@ describe("action interfaces", () => {
     });
   });
 
+  it("accepts flattened nested argument fields when generating CLI flags", () => {
+    const interfaces = actionInterfaces({
+      tool: "agent_status",
+      command: "moryn agent status --status <status>",
+      arguments: {
+        status: "Working",
+        agent_client: "codex",
+        agent_session_id: "session 1",
+        agent_model: "gpt-5"
+      }
+    });
+
+    expect(interfaces.cli.argv).toEqual([
+      "agent", "status",
+      "--status", "Working",
+      "--agent", "codex",
+      "--session-id", "session 1",
+      "--model", "gpt-5"
+    ]);
+    expect(interfaces.cli.command_line).toBe("moryn agent status --status Working --agent codex --session-id 'session 1' --model gpt-5");
+  });
+
+  it("does not duplicate nested CLI flags when parent and flattened fields are both present", () => {
+    const interfaces = actionInterfaces({
+      tool: "agent_status",
+      command: "moryn agent status --status <status>",
+      arguments: {
+        status: "Working",
+        agent: { client: "codex", session_id: "session 1" },
+        agent_client: "codex",
+        agent_session_id: "session 1"
+      }
+    });
+
+    expect(interfaces.cli.argv).toEqual([
+      "agent", "status",
+      "--status", "Working",
+      "--agent", "codex",
+      "--session-id", "session 1"
+    ]);
+  });
+
+  it("merges flattened fields with partial parent objects when generating CLI flags", () => {
+    const interfaces = actionInterfaces({
+      tool: "agent_status",
+      command: "moryn agent status --status <status>",
+      arguments: {
+        status: "Working",
+        agent: { client: "codex" },
+        agent_session_id: "session 1"
+      }
+    });
+
+    expect(interfaces.cli.argv).toEqual([
+      "agent", "status",
+      "--status", "Working",
+      "--agent", "codex",
+      "--session-id", "session 1"
+    ]);
+  });
+
   it("uses the direct executable when runtime actions are not launched through moryn", () => {
     const interfaces = actionInterfaces({
       tool: "moryn-agent-smoke",
