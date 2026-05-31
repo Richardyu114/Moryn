@@ -281,6 +281,32 @@ class AgentLifecycleCurrentTaskArgumentError extends Error {
   }
 }
 
+class AgentLifecycleSyncRemoteArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: {
+    operation_contract: `operations_by_id.${LifecycleOperation}`;
+    rejected_argument: { argument: "sync_remote"; value: unknown };
+    expected: { kind: "non_empty_string"; min_length: 1 };
+    argument_sources: Record<"sync_remote", `operations_by_id.${LifecycleOperation}.arguments_by_name.sync_remote`>;
+    retry_with: { argument: "sync_remote"; value_placeholder: "<sync_remote>" };
+  };
+
+  constructor(operation: LifecycleOperation, value: unknown) {
+    super("Invalid argument: Invalid sync_remote");
+    this.name = "AgentLifecycleSyncRemoteArgumentError";
+    this.recommended_action = "retry agent lifecycle with a non-empty sync_remote";
+    this.recovery_hint = {
+      operation_contract: `operations_by_id.${operation}`,
+      rejected_argument: { argument: "sync_remote", value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: {
+        sync_remote: `operations_by_id.${operation}.arguments_by_name.sync_remote`
+      },
+      retry_with: { argument: "sync_remote", value_placeholder: "<sync_remote>" }
+    };
+  }
+}
+
 type HandoffRecordIdArgumentSource =
   "handoff.inbox_by_record_id.<record_id>.record_id"
   | "handoff.active_sessions_by_record_id.<record_id>.record_id";
@@ -642,6 +668,12 @@ function validateLifecycleText(value: unknown, argument: "status" | "summary", o
 function validateLifecycleCurrentTask(value: unknown, operation: LifecycleOperation): asserts value is string | undefined {
   if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
     throw new AgentLifecycleCurrentTaskArgumentError(operation, value);
+  }
+}
+
+function validateLifecycleSyncRemote(value: unknown, operation: LifecycleOperation): asserts value is string | undefined {
+  if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
+    throw new AgentLifecycleSyncRemoteArgumentError(operation, value);
   }
 }
 
@@ -2083,6 +2115,7 @@ async function enterDiscoveryBootstrap(input: AgentEnterInput): Promise<Bootstra
 export async function agentDoctor(input: AgentDoctorInput) {
   validateAgentIdentity(input.agent, "agent_doctor");
   validateLifecycleCurrentTask(input.currentTask, "agent_doctor");
+  validateLifecycleSyncRemote(input.syncRemote, "agent_doctor");
   const checks: DoctorCheck[] = [];
   let storeInitialized = false;
   let storeError: string | undefined;
@@ -2209,6 +2242,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
 export async function agentEnter(input: AgentEnterInput) {
   validateAgentIdentity(input.agent, "agent_enter");
   validateLifecycleCurrentTask(input.currentTask, "agent_enter");
+  validateLifecycleSyncRemote(input.syncRemote, "agent_enter");
   validateLifecycleBoolean(input.pull, "pull", "agent_enter");
   const bootstrap = await enterDiscoveryBootstrap(input);
   const doctor = await agentDoctor(input);
@@ -2295,6 +2329,7 @@ export async function agentEnter(input: AgentEnterInput) {
 export function agentGuide(input: AgentGuideInput) {
   validateAgentIdentity(input.agent, "agent_guide");
   validateLifecycleCurrentTask(input.currentTask, "agent_guide");
+  validateLifecycleSyncRemote(input.syncRemote, "agent_guide");
   const command = buildAgentEnterCommand(input);
   const startupArguments = lifecycleActionArguments(input);
   const startup = agentEnterActionTemplate(command, startupArguments);
@@ -2325,6 +2360,7 @@ export function agentGuide(input: AgentGuideInput) {
 export async function agentStart(input: AgentStartInput) {
   validateAgentIdentity(input.agent, "agent_start");
   validateLifecycleCurrentTask(input.currentTask, "agent_start");
+  validateLifecycleSyncRemote(input.syncRemote, "agent_start");
   validateLifecycleBoolean(input.pull, "pull", "agent_start");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
@@ -2397,6 +2433,7 @@ export async function agentFinish(input: AgentFinishInput) {
   validateLifecycleText(input.summary, "summary", "agent_finish");
   validateAgentIdentity(input.agent, "agent_finish");
   validateLifecycleCurrentTask(input.currentTask, "agent_finish");
+  validateLifecycleSyncRemote(input.syncRemote, "agent_finish");
   validateLifecycleBoolean(input.push, "push", "agent_finish");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
@@ -2457,6 +2494,7 @@ export async function agentStatus(input: AgentStatusInput) {
   validateLifecycleText(input.status, "status", "agent_status");
   validateAgentIdentity(input.agent, "agent_status");
   validateLifecycleCurrentTask(input.currentTask, "agent_status");
+  validateLifecycleSyncRemote(input.syncRemote, "agent_status");
   validateLifecycleBoolean(input.push, "push", "agent_status");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });

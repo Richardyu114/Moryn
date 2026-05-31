@@ -1046,7 +1046,7 @@ export function commandForLinkContext(input: { record_id: unknown; linked_record
 type AgentStartContextInput = {
   project_id?: string;
   project_path?: string;
-  sync_remote?: string;
+  sync_remote?: unknown;
   current_task?: unknown;
   refresh_since?: unknown;
   limit?: unknown;
@@ -1063,7 +1063,7 @@ function commandForAgentSessionContext(command: "enter" | "start", input: AgentS
   const parts = ["moryn", "agent", command];
   appendCommandOption(parts, "--project", input.project_path);
   appendCommandOption(parts, "--project-id", input.project_id);
-  appendCommandOption(parts, "--sync-remote", input.sync_remote);
+  appendCommandOptionValue(parts, "--sync-remote", input.sync_remote);
   appendCommandOptionValue(parts, "--current-task", input.current_task);
   appendCommandOptionValue(parts, "--refresh-since", input.refresh_since);
   appendCommandOptionValue(parts, "--limit", input.limit);
@@ -1086,7 +1086,7 @@ export function commandForAgentEnterContext(input: AgentStartContextInput): stri
 interface AgentLifecycleCommandContextInput {
   project_id?: string;
   project_path?: string;
-  sync_remote?: string;
+  sync_remote?: unknown;
   current_task?: unknown;
   push?: boolean;
   agent?: {
@@ -1100,7 +1100,7 @@ interface AgentLifecycleCommandContextInput {
 function appendAgentLifecycleCommandOptions(parts: string[], input: AgentLifecycleCommandContextInput): void {
   appendCommandOption(parts, "--project", input.project_path);
   appendCommandOption(parts, "--project-id", input.project_id);
-  appendCommandOption(parts, "--sync-remote", input.sync_remote);
+  appendCommandOptionValue(parts, "--sync-remote", input.sync_remote);
   appendCommandOptionValue(parts, "--current-task", input.current_task);
   appendCommandOption(parts, "--agent", input.agent?.client);
   appendCommandOption(parts, "--session-id", input.agent?.session_id);

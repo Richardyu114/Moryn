@@ -672,7 +672,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
-        sync_remote: stringSchema.optional(),
+        sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional()
       }
@@ -683,7 +683,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         storePath: options.storePath,
         projectId: project_id,
         projectPath: project_path,
-        syncRemote: sync_remote,
+        syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         agent: lifecycleAgent
       }));
@@ -698,7 +698,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
-        sync_remote: stringSchema.optional(),
+        sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         refresh_since: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional(),
@@ -723,7 +723,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         storePath: options.storePath,
         projectId: project_id,
         projectPath: project_path,
-        syncRemote: sync_remote,
+        syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         refreshSince: refresh_since,
         limit,
@@ -745,7 +745,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
-        sync_remote: stringSchema.optional(),
+        sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional()
       }
@@ -756,7 +756,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         storePath: options.storePath,
         projectId: project_id,
         projectPath: project_path,
-        syncRemote: sync_remote,
+        syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         agent: lifecycleAgent
       }));
@@ -771,7 +771,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
-        sync_remote: stringSchema.optional(),
+        sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         refresh_since: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional(),
@@ -796,7 +796,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         storePath: options.storePath,
         projectId: project_id,
         projectPath: project_path,
-        syncRemote: sync_remote,
+        syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         refreshSince: refresh_since,
         limit,
@@ -819,7 +819,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         summary: z.unknown(),
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
-        sync_remote: stringSchema.optional(),
+        sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional()
@@ -842,7 +842,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         storePath: options.storePath,
         projectId: project_id,
         projectPath: project_path,
-        syncRemote: sync_remote,
+        syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         summary,
         push: coreValidatedPush,
@@ -864,7 +864,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         status: z.unknown(),
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
-        sync_remote: stringSchema.optional(),
+        sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional()
@@ -887,7 +887,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         storePath: options.storePath,
         projectId: project_id,
         projectPath: project_path,
-        syncRemote: sync_remote,
+        syncRemote: sync_remote as string | undefined,
         currentTask: current_task as string | undefined,
         status,
         push: coreValidatedPush,

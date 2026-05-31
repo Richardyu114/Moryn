@@ -1819,7 +1819,10 @@ retry from the operation contract instead of parsing host-side schema text.
 Lifecycle tools apply the same rule to `current_task`: malformed values for
 `agent_doctor`, `agent_guide`, `agent_enter`, `agent_start`, `agent_status`, or
 `agent_finish` pass through lifecycle validation and point at the matching
-`operations_by_id.<operation>.arguments_by_name.current_task` contract.
+`operations_by_id.<operation>.arguments_by_name.current_task` contract. They
+also apply it to `sync_remote`, so malformed lifecycle remotes point at
+`operations_by_id.<operation>.arguments_by_name.sync_remote` instead of
+host-side schema text.
 The response keeps `projects[]` as the ordered display list and also returns
 `projects_by_id` for direct keyed selection. Each
 `projects_by_id.<project_id>` value mirrors the matching `projects[]` record,

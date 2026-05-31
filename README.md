@@ -857,7 +857,10 @@ shape failures also pass through core validation and return
 `current_task` shape failures for
 `agent_doctor`, `agent_guide`, `agent_enter`, `agent_start`, `agent_status`, and
 `agent_finish` pass through lifecycle validation too and return
-`operations_by_id.<operation>.arguments_by_name.current_task`. MCP
+`operations_by_id.<operation>.arguments_by_name.current_task`. MCP lifecycle
+`sync_remote` shape failures follow the same path and return
+`operations_by_id.<operation>.arguments_by_name.sync_remote` instead of
+host-side schema text. MCP
 `boot.default_skills` shape failures likewise pass through core validation,
 including single-string skill selector values. Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and
