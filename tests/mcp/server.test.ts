@@ -6853,6 +6853,32 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "source.client", value_placeholder: "<client>" }
         });
+
+        const invalidSourceShape = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid source shape should return structured recovery.",
+            source: "codex"
+          }
+        })) as McpInvalidArgument;
+        expect(invalidSourceShape.ok).toBe(false);
+        expect(invalidSourceShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidSourceShape.error.message).toContain("Invalid source.client");
+        expect(invalidSourceShape.error.recommended_action).toBe("retry write with a valid source client");
+        expect(invalidSourceShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "source.client", value: undefined },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "source.client": "operations_by_id.write.arguments_by_name.source_client"
+          },
+          retry_with: { argument: "source.client", value_placeholder: "<client>" }
+        });
+
         for (const { field, argumentName, placeholder } of [
           { field: "session_id", argumentName: "source_session_id", placeholder: "<source session id>" },
           { field: "model", argumentName: "source_model", placeholder: "<source model>" },

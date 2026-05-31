@@ -147,6 +147,14 @@ const coreValidatedSourceSchema = z.object({
   device_id: z.unknown().optional()
 });
 
+function withDefaultSource(source: unknown): unknown {
+  if (source === undefined) return { client: "mcp" };
+  if (typeof source === "object" && source !== null && !Array.isArray(source)) {
+    return { client: "mcp", ...source };
+  }
+  return source;
+}
+
 async function resolveProjectInput(input: { project_id?: string; project_path?: string }): Promise<{ project_id?: string; tags: string[]; default_skills: string[] }> {
   if (input.project_id === undefined && input.project_path === undefined) {
     return { tags: [], default_skills: [] };
@@ -442,7 +450,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         priority: recordPrioritySchema.optional(),
         provenance: z.unknown().optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
-        source: coreValidatedSourceSchema.optional()
+        source: z.unknown().optional()
       }
     },
     async (input) => toolResult(async () => {
@@ -478,7 +486,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         state: input.state as RecordState | undefined,
         confidence: input.confidence,
         priority: input.priority as RecordPriority | undefined,
-        source: (input.source ?? { client: "mcp" }) as RecordSource,
+        source: withDefaultSource(input.source) as RecordSource,
         confirmed: input.confirmed as boolean | undefined,
         provenance: input.provenance as RecordProvenance | undefined
       });
