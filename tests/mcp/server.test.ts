@@ -2008,6 +2008,55 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns recovery hints for empty operation contract MCP lookups", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-operation-contract-empty-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const result = await client.callTool({
+          name: "operation_contracts",
+          arguments: { operation: "" }
+        });
+        const first = "content" in result ? result.content[0] : undefined;
+        if (!first || first.type !== "text") {
+          throw new Error("Expected text content from operation_contracts");
+        }
+        const parsed = JSON.parse(first.text) as {
+          ok: boolean;
+          error: {
+            code: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: {
+              rejected_lookup: { kind: string; value: string };
+              index_lookup: { mcp: { tool: string; arguments: { index: boolean } } };
+              retry_with_operation: { mcp: { tool: string; arguments: { operation: string } } };
+              retry_with_lookup_modes: {
+                mcp_tool: { mcp: { tool: string; arguments: { mcp_tool: string } } };
+                cli_command: { mcp: { tool: string; arguments: { cli_command: string } } };
+              };
+            };
+          };
+        };
+
+        expect(result.isError).toBe(true);
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command");
+        expect(parsed.error.recovery_hint.rejected_lookup).toEqual({ kind: "operation", value: "" });
+        expect(parsed.error.recovery_hint.index_lookup.mcp).toEqual({
+          tool: "operation_contracts",
+          arguments: { index: true }
+        });
+        expect(parsed.error.recovery_hint.retry_with_operation.mcp.arguments).toEqual({ operation: "<operation>" });
+        expect(parsed.error.recovery_hint.retry_with_lookup_modes.mcp_tool.mcp.arguments).toEqual({ mcp_tool: "<mcp_tool>" });
+        expect(parsed.error.recovery_hint.retry_with_lookup_modes.cli_command.mcp.arguments).toEqual({ cli_command: "<cli_command>" });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("returns machine-readable agent guide through MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-agent-guide-"));
     try {
@@ -6468,55 +6517,133 @@ describe("MCP stdio server", () => {
     }
   });
 
-  it("rejects empty optional MCP string inputs at the schema boundary", async () => {
+  it("returns structured JSON errors for invalid MCP string and enum inputs", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-empty-input-"));
     try {
       await withMcpClient(store, async (client) => {
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
 
-        await expectInvalidMcpArguments(
-          () => client.callTool({
-            name: "write",
-            arguments: {
-              kind: "memory",
-              type: "decision",
-              scope: "project",
-              project_id: "moryn",
-              text: "",
-              source: { client: "mcp-test" }
-            }
-          }),
-          /Invalid arguments/
-        );
-        await expectInvalidMcpArguments(
-          () => client.callTool({
-            name: "write",
-            arguments: {
-              kind: "memory",
-              type: "decision",
-              scope: "project",
-              project_id: "moryn",
-              text: "Valid text",
-              tags: [""],
-              source: { client: "mcp-test" }
-            }
-          }),
-          /Invalid arguments/
-        );
-        await expectInvalidMcpArguments(
-          () => client.callTool({
-            name: "recall",
-            arguments: { project_id: "moryn", query: "" }
-          }),
-          /Invalid arguments/
-        );
-        await expectInvalidMcpArguments(
-          () => client.callTool({
-            name: "refresh",
-            arguments: { project_id: "moryn", cursor: "" }
-          }),
-          /Invalid arguments/
-        );
+        type McpInvalidArgument = {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+
+        const emptyText = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "",
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(emptyText.ok).toBe(false);
+        expect(emptyText.error.code).toBe("INVALID_ARGUMENT");
+        expect(emptyText.error.message).toContain("Invalid content.text");
+        expect(emptyText.error.recommended_action).toBe("retry write with valid content");
+        expect(emptyText.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "content.text", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "content.text": "operations_by_id.write.arguments_by_name.content_text"
+          },
+          retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
+        });
+
+        const invalidKind = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "note",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid kind.",
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidKind.ok).toBe(false);
+        expect(invalidKind.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidKind.error.message).toContain("Invalid kind");
+        expect(invalidKind.error.recommended_action).toBe("retry write with a supported kind");
+        expect(invalidKind.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "kind", value: "note" },
+          expected: { kind: "allowed_values", allowed_values: ["memory", "skill", "soul", "session_summary", "agent_note"] },
+          argument_sources: {
+            kind: "operations_by_id.write.arguments_by_name.kind"
+          },
+          retry_with: { argument: "kind", value_placeholder: "memory" }
+        });
+
+        const emptyTags = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Valid text",
+            tags: [""],
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(emptyTags.ok).toBe(false);
+        expect(emptyTags.error.code).toBe("INVALID_ARGUMENT");
+        expect(emptyTags.error.message).toContain("Invalid tags");
+        expect(emptyTags.error.recommended_action).toBe("retry write with valid tags");
+        expect(emptyTags.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "tags", value: [""] },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            tags: "operations_by_id.write.arguments_by_name.tags"
+          },
+          retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
+        });
+
+        const emptyQuery = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: { project_id: "moryn", query: "" }
+        })) as McpInvalidArgument;
+        expect(emptyQuery.ok).toBe(false);
+        expect(emptyQuery.error.code).toBe("INVALID_ARGUMENT");
+        expect(emptyQuery.error.message).toContain("Invalid query");
+        expect(emptyQuery.error.recommended_action).toBe("retry read with a non-empty query");
+        expect(emptyQuery.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "query", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            query: "operations_by_id.recall.arguments_by_name.query"
+          },
+          retry_with: { argument: "query", value_placeholder: "<query>" }
+        });
+
+        const emptyCursor = parseTextContent(await client.callTool({
+          name: "refresh",
+          arguments: { project_id: "moryn", cursor: "" }
+        })) as McpInvalidArgument;
+        expect(emptyCursor.ok).toBe(false);
+        expect(emptyCursor.error.code).toBe("INVALID_ARGUMENT");
+        expect(emptyCursor.error.message).toContain("Invalid cursor");
+        expect(emptyCursor.error.recommended_action).toBe("retry read with a non-empty cursor");
+        expect(emptyCursor.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.refresh",
+          rejected_argument: { argument: "cursor", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            cursor: "operations_by_id.refresh.arguments_by_name.cursor"
+          },
+          retry_with: { argument: "cursor", value_placeholder: "<cursor>" }
+        });
         const invalidCursor = parseTextContent(await client.callTool({
           name: "refresh",
           arguments: { project_id: "moryn", cursor: "not-a-date" }
@@ -6619,13 +6746,41 @@ describe("MCP stdio server", () => {
             value_placeholder: "<refresh cursor ISO datetime>"
           }
         });
-        await expectInvalidMcpArguments(
-          () => client.callTool({
-            name: "promote",
-            arguments: { record_id: "rec_missing", target_state: "canonical", reason: "" }
-          }),
-          /Invalid arguments/
-        );
+        const invalidTargetState = parseTextContent(await client.callTool({
+          name: "promote",
+          arguments: { record_id: "rec_missing", target_state: "published" }
+        })) as McpInvalidArgument;
+        expect(invalidTargetState.ok).toBe(false);
+        expect(invalidTargetState.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidTargetState.error.message).toContain("Invalid target_state");
+        expect(invalidTargetState.error.recommended_action).toBe("retry mutation with a supported target_state");
+        expect(invalidTargetState.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.promote",
+          rejected_argument: { argument: "target_state", value: "published" },
+          expected: { kind: "allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
+          argument_sources: {
+            target_state: "operations_by_id.promote.arguments_by_name.target_state"
+          },
+          retry_with: { argument: "target_state", value_placeholder: "canonical" }
+        });
+
+        const emptyReason = parseTextContent(await client.callTool({
+          name: "promote",
+          arguments: { record_id: "rec_missing", target_state: "canonical", reason: "" }
+        })) as McpInvalidArgument;
+        expect(emptyReason.ok).toBe(false);
+        expect(emptyReason.error.code).toBe("INVALID_ARGUMENT");
+        expect(emptyReason.error.message).toContain("Invalid reason");
+        expect(emptyReason.error.recommended_action).toBe("retry mutation with a non-empty reason");
+        expect(emptyReason.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.promote",
+          rejected_argument: { argument: "reason", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            reason: "operations_by_id.promote.arguments_by_name.reason"
+          },
+          retry_with: { argument: "reason", value_placeholder: "<reason>" }
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });

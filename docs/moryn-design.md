@@ -681,6 +681,10 @@ arguments such as
 `record_id`, `linked_record_id`, `target_state`, `reason`, `confirmed`,
 `source.client`, and `link_type`, choose-one input groups, path-assignment
 inputs, revise patches, and refresh cursor formats follow the same pattern:
+MCP string and enum-like fields are intentionally loose enough to reach the
+Moryn operation validator, so empty strings and unknown enum values return
+structured JSON `error.recovery_hint` instead of only a host-side validation
+message when the core operation has a recovery contract.
 `error.recovery_hint.missing_argument` identifies omitted required options,
 `missing_one_of` identifies a missing alternative group, `rejected_argument`
 or `rejected_arguments` identifies invalid or conflicting values,
@@ -2319,8 +2323,11 @@ Sensitive patterns to detect:
 ## Error Handling
 
 CLI runtime failures and MCP tool failures return structured JSON errors.
-MCP protocol-level validation errors can still be reported by the MCP host
-before Moryn tool logic runs.
+For common MCP string and enum-like fields, validation is routed through the
+Moryn operation validator so invalid values return `recovery_hint` with
+`operation_contract`, `argument_sources`, and `retry_with`. MCP protocol-level
+validation errors can still be reported by the MCP host before Moryn tool logic
+runs for shape and type failures.
 
 Example:
 

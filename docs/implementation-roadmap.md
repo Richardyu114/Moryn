@@ -288,6 +288,9 @@ Deliverables:
   `provenance.*`, invalid mutation `record_id`/`target_state`/`reason`/
   `source.client`/`confirmed`/`link_type`, invalid read filters such as
   `query`/`record_ids`/`kinds`/`scopes`/`states`/`tags`/`files`/`limit`,
+  and MCP empty-string or unknown enum-like values without parsing SDK
+  validation prose, because common MCP string and enum-like fields now reach
+  the Moryn operation validator before returning a tool error,
   invalid boot/refresh `current_task`/`default_skills`/`cursor`, invalid or
   empty project init `projectPath`/`project_id`/`tags`/`default_skills`/
   `sync.mode`/`repair`, invalid local store `storePath`, invalid event path

@@ -28,17 +28,20 @@ import {
   type MorynErrorContext,
   toErrorEnvelope
 } from "../core/errors.js";
-import { SYNC_MODES, initializeProjectConfig, resolveProjectContext } from "../core/project.js";
+import { SYNC_MODES, initializeProjectConfig, resolveProjectContext, type SyncMode } from "../core/project.js";
 import { RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "../core/schema.js";
-import type { RecordKind, RecordScope, RecordSource, RecordState } from "../core/types.js";
+import type { RecordKind, RecordPriority, RecordScope, RecordSource, RecordState } from "../core/types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
 
 type Engine = ReturnType<typeof createEngine>;
 
-const recordKindSchema = z.enum(RECORD_KINDS);
-const recordScopeSchema = z.enum(RECORD_SCOPES);
-const recordStateSchema = z.enum(RECORD_STATES);
-const nonEmptyStringSchema = z.string().min(1);
+const stringSchema = z.string();
+const recordKindSchema = z.union([z.enum(RECORD_KINDS), stringSchema]);
+const recordScopeSchema = z.union([z.enum(RECORD_SCOPES), stringSchema]);
+const recordStateSchema = z.union([z.enum(RECORD_STATES), stringSchema]);
+const recordPrioritySchema = z.union([z.enum(RECORD_PRIORITIES), stringSchema]);
+const syncModeSchema = z.union([z.enum(SYNC_MODES), stringSchema]);
+const nonEmptyStringSchema = stringSchema.min(1);
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
   { argument: "text", value_placeholder: "<text>" },
   { argument: "content", value_placeholder: "<content object>" }
@@ -132,7 +135,7 @@ const sourceSchema = z.object({
 });
 
 async function resolveProjectInput(input: { project_id?: string; project_path?: string }): Promise<{ project_id?: string; tags: string[]; default_skills: string[] }> {
-  if (!input.project_id && !input.project_path) {
+  if (input.project_id === undefined && input.project_path === undefined) {
     return { tags: [], default_skills: [] };
   }
   const project = await resolveProjectContext({ projectPath: input.project_path, projectId: input.project_id });
@@ -194,10 +197,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Create or update a .moryn.json project config.",
       inputSchema: {
         path: z.string().min(1),
-        project_id: nonEmptyStringSchema.optional(),
-        tags: z.array(nonEmptyStringSchema).optional(),
-        default_skills: z.array(nonEmptyStringSchema).optional(),
-        sync_mode: z.enum(SYNC_MODES).optional(),
+        project_id: stringSchema.optional(),
+        tags: z.array(stringSchema).optional(),
+        default_skills: z.array(stringSchema).optional(),
+        sync_mode: syncModeSchema.optional(),
         repair: z.boolean().optional()
       }
     },
@@ -207,7 +210,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id,
         tags,
         default_skills,
-        sync: sync_mode === undefined ? undefined : { mode: sync_mode },
+        sync: sync_mode === undefined ? undefined : { mode: sync_mode as SyncMode },
         repair
       })
     }))
@@ -220,8 +223,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Discover known project ids and recent project activity from the Moryn store.",
       inputSchema: {
         limit: z.number().int().positive().max(100).optional(),
-        current_task: nonEmptyStringSchema.optional(),
-        sync_remote: nonEmptyStringSchema.optional(),
+        current_task: stringSchema.optional(),
+        sync_remote: stringSchema.optional(),
         agent: sourceSchema.optional()
       }
     },
@@ -250,17 +253,17 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Return stable CLI/MCP operation contracts, safety metadata, and required fields.",
       inputSchema: {
         index: z.boolean().optional(),
-        operation: nonEmptyStringSchema.optional(),
-        mcp_tool: nonEmptyStringSchema.optional(),
-        cli_command: nonEmptyStringSchema.optional()
+        operation: stringSchema.optional(),
+        mcp_tool: stringSchema.optional(),
+        cli_command: stringSchema.optional()
       }
     },
     async ({ index, operation, mcp_tool, cli_command }) => {
       const lookupOptions: OperationContractLookupOption[] = [
         ...(index ? [{ mode: "index" as const, option: "index" }] : []),
-        ...(operation ? [{ mode: "operation" as const, option: "operation" }] : []),
-        ...(mcp_tool ? [{ mode: "mcp_tool" as const, option: "mcp_tool" }] : []),
-        ...(cli_command ? [{ mode: "cli_command" as const, option: "cli_command" }] : [])
+        ...(operation !== undefined ? [{ mode: "operation" as const, option: "operation" }] : []),
+        ...(mcp_tool !== undefined ? [{ mode: "mcp_tool" as const, option: "mcp_tool" }] : []),
+        ...(cli_command !== undefined ? [{ mode: "cli_command" as const, option: "cli_command" }] : [])
       ];
       if (lookupOptions.length > 1) {
         return {
@@ -271,7 +274,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       if (index) {
         return jsonResult(getOperationContractIndex(), { pretty: false });
       }
-      if (operation) {
+      if (operation !== undefined) {
         const contract = getOperationContract(operation);
         if (!contract) {
           return {
@@ -281,7 +284,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         }
         return jsonResult(contract, { pretty: false });
       }
-      if (mcp_tool) {
+      if (mcp_tool !== undefined) {
         const contract = getOperationContractByMcpTool(mcp_tool);
         if (!contract) {
           return {
@@ -291,7 +294,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         }
         return jsonResult(contract, { pretty: false });
       }
-      if (cli_command) {
+      if (cli_command !== undefined) {
         const contract = getOperationContractByCliCommand(cli_command);
         if (!contract) {
           return {
@@ -311,11 +314,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Boot Moryn Context",
       description: "Return a bounded context package for an agent starting work.",
       inputSchema: {
-        project_id: nonEmptyStringSchema.optional(),
-        project_path: nonEmptyStringSchema.optional(),
-        sync_remote: nonEmptyStringSchema.optional(),
-        current_task: nonEmptyStringSchema.optional(),
-        default_skills: z.array(nonEmptyStringSchema).optional()
+        project_id: stringSchema.optional(),
+        project_path: stringSchema.optional(),
+        sync_remote: stringSchema.optional(),
+        current_task: stringSchema.optional(),
+        default_skills: z.array(stringSchema).optional()
       }
     },
     async ({ project_id, project_path, current_task, default_skills }) => toolResult(async () => {
@@ -334,16 +337,16 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Recall Moryn Records",
       description: "Search memory, skills, soul, session summaries, and agent notes.",
       inputSchema: {
-        record_ids: z.array(nonEmptyStringSchema).optional(),
-        query: nonEmptyStringSchema.optional(),
-        project_id: nonEmptyStringSchema.optional(),
-        project_path: nonEmptyStringSchema.optional(),
+        record_ids: z.array(stringSchema).optional(),
+        query: stringSchema.optional(),
+        project_id: stringSchema.optional(),
+        project_path: stringSchema.optional(),
         kinds: z.array(recordKindSchema).optional(),
         scopes: z.array(recordScopeSchema).optional(),
-        types: z.array(nonEmptyStringSchema).optional(),
+        types: z.array(stringSchema).optional(),
         states: z.array(recordStateSchema).optional(),
-        tags: z.array(nonEmptyStringSchema).optional(),
-        files: z.array(nonEmptyStringSchema).optional(),
+        tags: z.array(stringSchema).optional(),
+        files: z.array(stringSchema).optional(),
         limit: z.number().int().positive().max(100).optional()
       }
     },
@@ -399,19 +402,19 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Append a new Moryn record event.",
       inputSchema: {
         kind: recordKindSchema,
-        type: nonEmptyStringSchema.optional(),
+        type: stringSchema.optional(),
         scope: recordScopeSchema.optional(),
-        project_id: nonEmptyStringSchema.optional(),
-        project_path: nonEmptyStringSchema.optional(),
-        tags: z.array(nonEmptyStringSchema).optional(),
-        text: nonEmptyStringSchema.optional(),
+        project_id: stringSchema.optional(),
+        project_path: stringSchema.optional(),
+        tags: z.array(stringSchema).optional(),
+        text: stringSchema.optional(),
         content: z.record(z.string(), z.unknown()).optional(),
         state: recordStateSchema.optional(),
         confidence: z.number().min(0).max(1).optional(),
-        priority: z.enum(RECORD_PRIORITIES).optional(),
+        priority: recordPrioritySchema.optional(),
         provenance: z.object({
-          derived_from: z.array(nonEmptyStringSchema).optional(),
-          reason: nonEmptyStringSchema.optional()
+          derived_from: z.array(stringSchema).optional(),
+          reason: stringSchema.optional()
         }).optional(),
         confirmed: z.boolean().optional(),
         source: sourceSchema.optional()
@@ -446,7 +449,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         content,
         state: input.state as RecordState | undefined,
         confidence: input.confidence,
-        priority: input.priority,
+        priority: input.priority as RecordPriority | undefined,
         source: (input.source ?? { client: "mcp" }) as RecordSource,
         confirmed: input.confirmed,
         provenance: input.provenance
@@ -460,9 +463,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Revise Moryn Record",
       description: "Append a logical revision event for an existing record.",
       inputSchema: {
-        record_id: nonEmptyStringSchema,
+        record_id: stringSchema,
         patch: z.record(z.string(), z.unknown()),
-        reason: nonEmptyStringSchema.optional(),
+        reason: stringSchema.optional(),
         confirmed: z.boolean().optional(),
         source: sourceSchema.optional()
       }
@@ -491,9 +494,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Promote Moryn Record",
       description: "Change a record state by appending a promotion/state event.",
       inputSchema: {
-        record_id: nonEmptyStringSchema,
+        record_id: stringSchema,
         target_state: recordStateSchema,
-        reason: nonEmptyStringSchema.optional(),
+        reason: stringSchema.optional(),
         confirmed: z.boolean().optional(),
         source: sourceSchema.optional()
       }
@@ -522,8 +525,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Archive Moryn Record",
       description: "Hide a record from default boot and recall while preserving history.",
       inputSchema: {
-        record_id: nonEmptyStringSchema,
-        reason: nonEmptyStringSchema.optional(),
+        record_id: stringSchema,
+        reason: stringSchema.optional(),
         source: sourceSchema.optional()
       }
     },
@@ -548,8 +551,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Quarantine Moryn Record",
       description: "Mark a record as sensitive or unsafe so it is excluded by default.",
       inputSchema: {
-        record_id: nonEmptyStringSchema,
-        reason: nonEmptyStringSchema.optional(),
+        record_id: stringSchema,
+        reason: stringSchema.optional(),
         source: sourceSchema.optional()
       }
     },
@@ -574,9 +577,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Link Moryn Records",
       description: "Append a relationship from one record to another.",
       inputSchema: {
-        record_id: nonEmptyStringSchema,
-        linked_record_id: nonEmptyStringSchema,
-        link_type: nonEmptyStringSchema,
+        record_id: stringSchema,
+        linked_record_id: stringSchema,
+        link_type: stringSchema,
         source: sourceSchema.optional()
       }
     },
@@ -603,10 +606,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Refresh Moryn Changes",
       description: "Return important changes since a cursor for periodic agent memory refresh.",
       inputSchema: {
-        project_id: nonEmptyStringSchema.optional(),
-        project_path: nonEmptyStringSchema.optional(),
-        cursor: nonEmptyStringSchema.optional(),
-        current_task: nonEmptyStringSchema.optional(),
+        project_id: stringSchema.optional(),
+        project_path: stringSchema.optional(),
+        cursor: stringSchema.optional(),
+        current_task: stringSchema.optional(),
         limit: z.number().int().positive().max(100).optional()
       }
     },
@@ -627,10 +630,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Diagnose Moryn Agent Setup",
       description: "Read-only setup check that tells an agent whether store, project, and sync are ready and what to call next.",
       inputSchema: {
-        project_id: nonEmptyStringSchema.optional(),
-        project_path: nonEmptyStringSchema.optional(),
-        sync_remote: nonEmptyStringSchema.optional(),
-        current_task: nonEmptyStringSchema.optional(),
+        project_id: stringSchema.optional(),
+        project_path: stringSchema.optional(),
+        sync_remote: stringSchema.optional(),
+        current_task: stringSchema.optional(),
         agent: sourceSchema.optional()
       }
     },
@@ -650,11 +653,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Enter Moryn Agent Session",
       description: "One-call agent entrypoint: diagnose setup, discover projects when needed, or start a known project session.",
       inputSchema: {
-        project_id: nonEmptyStringSchema.optional(),
-        project_path: nonEmptyStringSchema.optional(),
-        sync_remote: nonEmptyStringSchema.optional(),
-        current_task: nonEmptyStringSchema.optional(),
-        refresh_since: nonEmptyStringSchema.optional(),
+        project_id: stringSchema.optional(),
+        project_path: stringSchema.optional(),
+        sync_remote: stringSchema.optional(),
+        current_task: stringSchema.optional(),
+        refresh_since: stringSchema.optional(),
         limit: z.number().int().positive().max(100).optional(),
         pull: z.boolean().optional(),
         agent: sourceSchema.optional()
@@ -695,10 +698,10 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Guide Moryn Agent Workflow",
       description: "Return machine-readable lifecycle guidance and exact next tool arguments for agents.",
       inputSchema: {
-        project_id: nonEmptyStringSchema.optional(),
-        project_path: nonEmptyStringSchema.optional(),
-        sync_remote: nonEmptyStringSchema.optional(),
-        current_task: nonEmptyStringSchema.optional(),
+        project_id: stringSchema.optional(),
+        project_path: stringSchema.optional(),
+        sync_remote: stringSchema.optional(),
+        current_task: stringSchema.optional(),
         agent: sourceSchema.optional()
       }
     },
@@ -718,11 +721,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Start Moryn Agent Session",
       description: "Low-friction agent startup: pull sync, resolve project context, boot context, and refresh recent changes.",
       inputSchema: {
-        project_id: nonEmptyStringSchema.optional(),
-        project_path: nonEmptyStringSchema.optional(),
-        sync_remote: nonEmptyStringSchema.optional(),
-        current_task: nonEmptyStringSchema.optional(),
-        refresh_since: nonEmptyStringSchema.optional(),
+        project_id: stringSchema.optional(),
+        project_path: stringSchema.optional(),
+        sync_remote: stringSchema.optional(),
+        current_task: stringSchema.optional(),
+        refresh_since: stringSchema.optional(),
         limit: z.number().int().positive().max(100).optional(),
         pull: z.boolean().optional(),
         agent: sourceSchema.optional()
@@ -763,11 +766,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Finish Moryn Agent Session",
       description: "Low-friction agent handoff: write a session summary and push sync.",
       inputSchema: {
-        summary: nonEmptyStringSchema,
-        project_id: nonEmptyStringSchema.optional(),
-        project_path: nonEmptyStringSchema.optional(),
-        sync_remote: nonEmptyStringSchema.optional(),
-        current_task: nonEmptyStringSchema.optional(),
+        summary: stringSchema,
+        project_id: stringSchema.optional(),
+        project_path: stringSchema.optional(),
+        sync_remote: stringSchema.optional(),
+        current_task: stringSchema.optional(),
         push: z.boolean().optional(),
         agent: sourceSchema.optional()
       }
@@ -806,11 +809,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Publish Moryn Agent Status",
       description: "Low-friction in-progress update: write a project status checkpoint and push sync.",
       inputSchema: {
-        status: nonEmptyStringSchema,
-        project_id: nonEmptyStringSchema.optional(),
-        project_path: nonEmptyStringSchema.optional(),
-        sync_remote: nonEmptyStringSchema.optional(),
-        current_task: nonEmptyStringSchema.optional(),
+        status: stringSchema,
+        project_id: stringSchema.optional(),
+        project_path: stringSchema.optional(),
+        sync_remote: stringSchema.optional(),
+        current_task: stringSchema.optional(),
         push: z.boolean().optional(),
         agent: sourceSchema.optional()
       }
@@ -859,7 +862,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Initialize Moryn Git Sync",
       description: "Initialize or connect the local Moryn store to a Git remote.",
       inputSchema: {
-        remote: nonEmptyStringSchema
+        remote: stringSchema
       }
     },
     async ({ remote }) => toolResult(async () => initializeGitSync(options.storePath, remote))
@@ -891,7 +894,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Push Moryn Git Sync",
       description: "Commit and push local event history from the Moryn store.",
       inputSchema: {
-        message: nonEmptyStringSchema.optional()
+        message: stringSchema.optional()
       }
     },
     async ({ message }) => toolResult(async () => pushGitSync(options.storePath, { message }))
