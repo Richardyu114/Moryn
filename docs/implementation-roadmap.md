@@ -462,6 +462,12 @@ Deliverables:
   now pass through lifecycle validation, including numeric values, and expose
   the matching lifecycle `operations_by_id.<operation>.arguments_by_name.*`
   sources instead of host-side schema text or write `content.text` hints.
+- Done: MCP lifecycle `current_task` shape failures for `agent_doctor`,
+  `agent_guide`, `agent_enter`, `agent_start`, `agent_status`, and
+  `agent_finish` now pass through lifecycle validation, including numeric
+  values, and expose the matching
+  `operations_by_id.<operation>.arguments_by_name.current_task` source instead
+  of host-side schema text or lower-level boot/refresh/write hints.
 - Done: MCP `agent_start.refresh_since` and `agent_enter.refresh_since` shape
   failures now pass through refresh validation, including numeric values, and
   preserve `refresh_since` as the retry argument while pointing at the refresh

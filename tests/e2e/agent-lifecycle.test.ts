@@ -8,7 +8,7 @@ import { initializeStore } from "../../src/core/config.js";
 import { createEngine } from "../../src/core/engine.js";
 import { toErrorEnvelope } from "../../src/core/errors.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
-import { agentDoctor, agentEnter, agentFinish, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
+import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
 import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
 
 const exec = promisify(execFile);
@@ -598,6 +598,90 @@ describe("agent lifecycle", () => {
               [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
             },
             retry_with: { argument, value_placeholder: `<${argument}>` }
+          });
+        }
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects invalid lifecycle current task with operation contract recovery hints", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-invalid-task-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { now: () => "2026-05-27T00:00:00.000Z", id: () => "device_codex" });
+
+      for (const { action, operation } of [
+        {
+          action: () => agentDoctor({
+            storePath: store,
+            projectPath: project,
+            currentTask: 123 as never
+          }),
+          operation: "agent_doctor"
+        },
+        {
+          action: () => agentGuide({
+            storePath: store,
+            projectPath: project,
+            currentTask: 123 as never
+          }),
+          operation: "agent_guide"
+        },
+        {
+          action: () => agentEnter({
+            storePath: store,
+            projectPath: project,
+            currentTask: 123 as never
+          }),
+          operation: "agent_enter"
+        },
+        {
+          action: () => agentStart({
+            storePath: store,
+            projectPath: project,
+            currentTask: 123 as never
+          }),
+          operation: "agent_start"
+        },
+        {
+          action: () => agentStatus({
+            storePath: store,
+            projectPath: project,
+            currentTask: 123 as never,
+            status: "working"
+          }),
+          operation: "agent_status"
+        },
+        {
+          action: () => agentFinish({
+            storePath: store,
+            projectPath: project,
+            currentTask: 123 as never,
+            summary: "done"
+          }),
+          operation: "agent_finish"
+        }
+      ] as const) {
+        try {
+          await action();
+          throw new Error(`Expected ${operation} to reject invalid current_task`);
+        } catch (error) {
+          const envelope = toErrorEnvelope(error);
+          expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+          expect(envelope.error.message).toContain("Invalid current_task");
+          expect(envelope.error.recommended_action).toBe("retry agent lifecycle with a non-empty current_task");
+          expect(envelope.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument: "current_task", value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              current_task: `operations_by_id.${operation}.arguments_by_name.current_task`
+            },
+            retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
           });
         }
       }

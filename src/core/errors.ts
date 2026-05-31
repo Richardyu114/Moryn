@@ -1039,7 +1039,7 @@ type AgentStartContextInput = {
   project_id?: string;
   project_path?: string;
   sync_remote?: string;
-  current_task?: string;
+  current_task?: unknown;
   refresh_since?: unknown;
   limit?: unknown;
   pull?: boolean;
@@ -1056,7 +1056,7 @@ function commandForAgentSessionContext(command: "enter" | "start", input: AgentS
   appendCommandOption(parts, "--project", input.project_path);
   appendCommandOption(parts, "--project-id", input.project_id);
   appendCommandOption(parts, "--sync-remote", input.sync_remote);
-  appendCommandOption(parts, "--current-task", input.current_task);
+  appendCommandOptionValue(parts, "--current-task", input.current_task);
   appendCommandOptionValue(parts, "--refresh-since", input.refresh_since);
   appendCommandOptionValue(parts, "--limit", input.limit);
   if (input.pull === false) parts.push("--no-pull");
@@ -1079,7 +1079,7 @@ interface AgentLifecycleCommandContextInput {
   project_id?: string;
   project_path?: string;
   sync_remote?: string;
-  current_task?: string;
+  current_task?: unknown;
   push?: boolean;
   agent?: {
     client?: string;
@@ -1093,7 +1093,7 @@ function appendAgentLifecycleCommandOptions(parts: string[], input: AgentLifecyc
   appendCommandOption(parts, "--project", input.project_path);
   appendCommandOption(parts, "--project-id", input.project_id);
   appendCommandOption(parts, "--sync-remote", input.sync_remote);
-  appendCommandOption(parts, "--current-task", input.current_task);
+  appendCommandOptionValue(parts, "--current-task", input.current_task);
   appendCommandOption(parts, "--agent", input.agent?.client);
   appendCommandOption(parts, "--session-id", input.agent?.session_id);
   appendCommandOption(parts, "--model", input.agent?.model);

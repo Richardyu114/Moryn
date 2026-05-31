@@ -832,8 +832,12 @@ state values. MCP `project_list.current_task` and `project_list.sync_remote`
 shape failures also pass through core validation, including numeric values, and
 return `operations_by_id.project_list.arguments_by_name.current_task` or
 `operations_by_id.project_list.arguments_by_name.sync_remote` instead of
-host-side schema text. MCP `boot.default_skills` shape failures likewise pass through
-core validation, including single-string skill selector values. Project setup argument failures for
+host-side schema text. MCP lifecycle `current_task` shape failures for
+`agent_doctor`, `agent_guide`, `agent_enter`, `agent_start`, `agent_status`, and
+`agent_finish` pass through lifecycle validation too and return
+`operations_by_id.<operation>.arguments_by_name.current_task`. MCP
+`boot.default_skills` shape failures likewise pass through core validation,
+including single-string skill selector values. Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and
 `project_init` path/project id/tags/default skills/sync mode/repair inputs also
 point at `operations_by_id.project_init.arguments_by_name.<argument>`. MCP

@@ -7344,6 +7344,35 @@ describe("MCP stdio server", () => {
             retry_with: { argument, value_placeholder: `<${argument}>` }
           });
         }
+        for (const { tool, operation, baseArguments } of [
+          { tool: "agent_doctor", operation: "agent_doctor", baseArguments: {} },
+          { tool: "agent_guide", operation: "agent_guide", baseArguments: {} },
+          { tool: "agent_enter", operation: "agent_enter", baseArguments: {} },
+          { tool: "agent_start", operation: "agent_start", baseArguments: {} },
+          { tool: "agent_status", operation: "agent_status", baseArguments: { status: "working" } },
+          { tool: "agent_finish", operation: "agent_finish", baseArguments: { summary: "done" } }
+        ] as const) {
+          const invalidLifecycleCurrentTask = parseTextContent(await client.callTool({
+            name: tool,
+            arguments: {
+              ...baseArguments,
+              current_task: 123
+            }
+          })) as McpInvalidArgument;
+          expect(invalidLifecycleCurrentTask.ok).toBe(false);
+          expect(invalidLifecycleCurrentTask.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidLifecycleCurrentTask.error.message).toContain("Invalid current_task");
+          expect(invalidLifecycleCurrentTask.error.recommended_action).toBe("retry agent lifecycle with a non-empty current_task");
+          expect(invalidLifecycleCurrentTask.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument: "current_task", value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              current_task: `operations_by_id.${operation}.arguments_by_name.current_task`
+            },
+            retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
+          });
+        }
         const lifecycleAgentTools = [
           { tool: "agent_doctor", operation: "agent_doctor", baseArguments: {} },
           { tool: "agent_guide", operation: "agent_guide", baseArguments: {} },
