@@ -768,7 +768,10 @@ through lifecycle refresh-since arguments. Project setup argument failures for
 `project_init` path/project id/tags/default skills/sync mode/repair inputs also
 point at `operations_by_id.project_init.arguments_by_name.<argument>`. That
 includes MCP setup failures that would otherwise stop at host schema validation.
-CLI parser failures for `--limit` on read and lifecycle startup commands, plus enum
+Contract discovery argument failures such as MCP `operation_contracts.index`
+also point at `operations_by_id.operation_contracts.arguments_by_name.index`,
+so agents can recover while looking up the registry itself. CLI parser failures
+for `--limit` on read and lifecycle startup commands, plus enum
 options such as `--kind`, `--scope`, `--state`, `--priority`, and `--sync-mode`,
 write `--confidence` range failures, and missing write
 `--kind`/`--type`/`--scope` options also carry the matching operation contract

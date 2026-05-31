@@ -195,6 +195,14 @@ export type OperationContractLookupConflictRecoveryHint = {
   selection_sources: typeof OPERATION_CONTRACT_INDEX_SELECTION_SOURCES;
 };
 
+export type OperationContractIndexArgumentRecoveryHint = {
+  operation_contract: "operations_by_id.operation_contracts";
+  rejected_argument: { argument: "index"; value: unknown };
+  expected: { kind: "boolean" };
+  argument_sources: { index: "operations_by_id.operation_contracts.arguments_by_name.index" };
+  retry_with: { argument: "index"; value_placeholder: true };
+};
+
 export const OPERATION_CONTRACT_LOOKUP_RECOVERY_ACTION =
   "fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command" as const;
 
@@ -220,6 +228,31 @@ export class OperationContractLookupConflictError extends Error {
     super(`Invalid argument: Use only one operation contract lookup option: ${optionsLabel}`);
     this.name = "OperationContractLookupConflictError";
     this.recovery_hint = operationContractLookupConflictRecoveryHint(provided);
+  }
+}
+
+export class OperationContractIndexArgumentError extends Error {
+  readonly recommended_action = "retry operation_contracts with a boolean index value";
+  readonly recovery_hint: OperationContractIndexArgumentRecoveryHint;
+
+  constructor(value: unknown) {
+    super("Invalid argument: Invalid index");
+    this.name = "OperationContractIndexArgumentError";
+    this.recovery_hint = {
+      operation_contract: "operations_by_id.operation_contracts",
+      rejected_argument: { argument: "index", value },
+      expected: { kind: "boolean" },
+      argument_sources: {
+        index: "operations_by_id.operation_contracts.arguments_by_name.index"
+      },
+      retry_with: { argument: "index", value_placeholder: true }
+    };
+  }
+}
+
+export function validateOperationContractIndexArgument(index: unknown): asserts index is boolean | undefined {
+  if (index !== undefined && typeof index !== "boolean") {
+    throw new OperationContractIndexArgumentError(index);
   }
 }
 

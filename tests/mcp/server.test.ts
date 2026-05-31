@@ -1880,6 +1880,44 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns recovery hints for invalid operation contract index MCP lookups", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-operation-contract-index-invalid-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        const parsed = parseTextContent(await client.callTool({
+          name: "operation_contracts",
+          arguments: { index: "yes" }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.message).toContain("Invalid index");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("retry operation_contracts with a boolean index value");
+        expect(parsed.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.operation_contracts",
+          rejected_argument: { argument: "index", value: "yes" },
+          expected: { kind: "boolean" },
+          argument_sources: {
+            index: "operations_by_id.operation_contracts.arguments_by_name.index"
+          },
+          retry_with: { argument: "index", value_placeholder: true }
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("returns one operation contract through MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-operation-contract-"));
     try {

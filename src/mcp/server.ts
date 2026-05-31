@@ -9,7 +9,12 @@ import {
   getOperationContracts,
   getSelectionSourceContracts
 } from "../index.js";
-import { OperationContractLookupConflictError, OperationContractLookupError, type OperationContractLookupOption } from "../operation-contracts.js";
+import {
+  OperationContractLookupConflictError,
+  OperationContractLookupError,
+  type OperationContractLookupOption,
+  validateOperationContractIndexArgument
+} from "../operation-contracts.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "../core/agent-lifecycle.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
@@ -267,59 +272,67 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Get Moryn Operation Contracts",
       description: "Return stable CLI/MCP operation contracts, safety metadata, and required fields.",
       inputSchema: {
-        index: z.boolean().optional(),
+        index: coreValidatedBooleanSchema.optional(),
         operation: stringSchema.optional(),
         mcp_tool: stringSchema.optional(),
         cli_command: stringSchema.optional()
       }
     },
     async ({ index, operation, mcp_tool, cli_command }) => {
-      const lookupOptions: OperationContractLookupOption[] = [
-        ...(index ? [{ mode: "index" as const, option: "index" }] : []),
-        ...(operation !== undefined ? [{ mode: "operation" as const, option: "operation" }] : []),
-        ...(mcp_tool !== undefined ? [{ mode: "mcp_tool" as const, option: "mcp_tool" }] : []),
-        ...(cli_command !== undefined ? [{ mode: "cli_command" as const, option: "cli_command" }] : [])
-      ];
-      if (lookupOptions.length > 1) {
+      try {
+        validateOperationContractIndexArgument(index);
+        const lookupOptions: OperationContractLookupOption[] = [
+          ...(index ? [{ mode: "index" as const, option: "index" }] : []),
+          ...(operation !== undefined ? [{ mode: "operation" as const, option: "operation" }] : []),
+          ...(mcp_tool !== undefined ? [{ mode: "mcp_tool" as const, option: "mcp_tool" }] : []),
+          ...(cli_command !== undefined ? [{ mode: "cli_command" as const, option: "cli_command" }] : [])
+        ];
+        if (lookupOptions.length > 1) {
+          return {
+            ...jsonResult(toErrorEnvelope(new OperationContractLookupConflictError(lookupOptions, "index, operation, mcp_tool, or cli_command"))),
+            isError: true
+          };
+        }
+        if (index) {
+          return jsonResult(getOperationContractIndex(), { pretty: false });
+        }
+        if (operation !== undefined) {
+          const contract = getOperationContract(operation);
+          if (!contract) {
+            return {
+              ...jsonResult(toErrorEnvelope(new OperationContractLookupError("operation", operation))),
+              isError: true
+            };
+          }
+          return jsonResult(contract, { pretty: false });
+        }
+        if (mcp_tool !== undefined) {
+          const contract = getOperationContractByMcpTool(mcp_tool);
+          if (!contract) {
+            return {
+              ...jsonResult(toErrorEnvelope(new OperationContractLookupError("mcp_tool", mcp_tool))),
+              isError: true
+            };
+          }
+          return jsonResult(contract, { pretty: false });
+        }
+        if (cli_command !== undefined) {
+          const contract = getOperationContractByCliCommand(cli_command);
+          if (!contract) {
+            return {
+              ...jsonResult(toErrorEnvelope(new OperationContractLookupError("cli_command", cli_command))),
+              isError: true
+            };
+          }
+          return jsonResult(contract, { pretty: false });
+        }
+        return jsonResult(getOperationContracts(), { pretty: false });
+      } catch (error) {
         return {
-          ...jsonResult(toErrorEnvelope(new OperationContractLookupConflictError(lookupOptions, "index, operation, mcp_tool, or cli_command"))),
+          ...jsonResult(toErrorEnvelope(error)),
           isError: true
         };
       }
-      if (index) {
-        return jsonResult(getOperationContractIndex(), { pretty: false });
-      }
-      if (operation !== undefined) {
-        const contract = getOperationContract(operation);
-        if (!contract) {
-          return {
-            ...jsonResult(toErrorEnvelope(new OperationContractLookupError("operation", operation))),
-            isError: true
-          };
-        }
-        return jsonResult(contract, { pretty: false });
-      }
-      if (mcp_tool !== undefined) {
-        const contract = getOperationContractByMcpTool(mcp_tool);
-        if (!contract) {
-          return {
-            ...jsonResult(toErrorEnvelope(new OperationContractLookupError("mcp_tool", mcp_tool))),
-            isError: true
-          };
-        }
-        return jsonResult(contract, { pretty: false });
-      }
-      if (cli_command !== undefined) {
-        const contract = getOperationContractByCliCommand(cli_command);
-        if (!contract) {
-          return {
-            ...jsonResult(toErrorEnvelope(new OperationContractLookupError("cli_command", cli_command))),
-            isError: true
-          };
-        }
-        return jsonResult(contract, { pretty: false });
-      }
-      return jsonResult(getOperationContracts(), { pretty: false });
     }
   );
 
