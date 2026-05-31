@@ -1101,17 +1101,17 @@ function appendAgentLifecycleCommandOptions(parts: string[], input: AgentLifecyc
   if (input.push === false) parts.push("--no-push");
 }
 
-export function commandForAgentStatusContext(input: AgentLifecycleCommandContextInput & { status: string }): string {
+export function commandForAgentStatusContext(input: AgentLifecycleCommandContextInput & { status: unknown }): string {
   const parts = ["moryn", "agent", "status"];
   appendAgentLifecycleCommandOptions(parts, input);
-  appendCommandOption(parts, "--status", input.status);
+  appendCommandOptionValue(parts, "--status", input.status);
   return parts.join(" ");
 }
 
-export function commandForAgentFinishContext(input: AgentLifecycleCommandContextInput & { summary: string }): string {
+export function commandForAgentFinishContext(input: AgentLifecycleCommandContextInput & { summary: unknown }): string {
   const parts = ["moryn", "agent", "finish"];
   appendAgentLifecycleCommandOptions(parts, input);
-  appendCommandOption(parts, "--summary", input.summary);
+  appendCommandOptionValue(parts, "--summary", input.summary);
   return parts.join(" ");
 }
 

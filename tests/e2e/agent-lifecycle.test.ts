@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { initializeStore } from "../../src/core/config.js";
 import { createEngine } from "../../src/core/engine.js";
+import { toErrorEnvelope } from "../../src/core/errors.js";
 import { initializeProjectConfig } from "../../src/core/project.js";
 import { agentDoctor, agentEnter, agentFinish, agentStart, agentStatus } from "../../src/core/agent-lifecycle.js";
 import { initializeGitSync, pullGitSync, pushGitSync } from "../../src/sync/git.js";
@@ -551,6 +552,60 @@ function expectDiscoveredLifecycleStepSelectionSources(action: {
 }
 
 describe("agent lifecycle", () => {
+  it("rejects invalid required lifecycle text with operation contract recovery hints", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-invalid-text-"));
+    const store = join(root, "store");
+    const project = join(root, "project");
+    try {
+      await initializeProjectConfig(project, { project_id: "moryn" });
+      await initializeStore(store, { now: () => "2026-05-27T00:00:00.000Z", id: () => "device_codex" });
+
+      for (const { action, operation, argument } of [
+        {
+          action: () => agentStatus({
+            storePath: store,
+            projectPath: project,
+            agent: { client: "codex" },
+            status: 123 as never
+          }),
+          operation: "agent_status",
+          argument: "status"
+        },
+        {
+          action: () => agentFinish({
+            storePath: store,
+            projectPath: project,
+            agent: { client: "codex" },
+            summary: 123 as never
+          }),
+          operation: "agent_finish",
+          argument: "summary"
+        }
+      ] as const) {
+        try {
+          await action();
+          throw new Error(`Expected ${operation} to reject invalid ${argument}`);
+        } catch (error) {
+          const envelope = toErrorEnvelope(error);
+          expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+          expect(envelope.error.message).toContain(`Invalid ${argument}`);
+          expect(envelope.error.recommended_action).toBe(`retry agent lifecycle with a non-empty ${argument}`);
+          expect(envelope.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument, value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
+            },
+            retry_with: { argument, value_placeholder: `<${argument}>` }
+          });
+        }
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("pulls, boots, refreshes, writes a handoff, and pushes across two device stores", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-agent-lifecycle-"));
     const remote = join(root, "remote.git");

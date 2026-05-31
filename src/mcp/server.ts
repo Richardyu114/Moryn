@@ -807,7 +807,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Finish Moryn Agent Session",
       description: "Low-friction agent handoff: write a session summary and push sync.",
       inputSchema: {
-        summary: stringSchema,
+        summary: z.unknown(),
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
         sync_remote: stringSchema.optional(),
@@ -852,7 +852,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Publish Moryn Agent Status",
       description: "Low-friction in-progress update: write a project status checkpoint and push sync.",
       inputSchema: {
-        status: stringSchema,
+        status: z.unknown(),
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
         sync_remote: stringSchema.optional(),

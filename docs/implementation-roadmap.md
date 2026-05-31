@@ -458,6 +458,10 @@ Deliverables:
   failures now pass through core validation, including numeric values, and
   expose the matching `operations_by_id.project_list.arguments_by_name.*`
   sources instead of host-side schema text.
+- Done: MCP `agent_status.status` and `agent_finish.summary` shape failures
+  now pass through lifecycle validation, including numeric values, and expose
+  the matching lifecycle `operations_by_id.<operation>.arguments_by_name.*`
+  sources instead of host-side schema text or write `content.text` hints.
 - Done: MCP write and mutation `source.session_id`, `source.model`, and
   `source.device_id` failures now pass through core validation and return
   structured recovery hints pointing at `source_session_id`, `source_model`, or

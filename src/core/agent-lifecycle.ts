@@ -34,12 +34,12 @@ export interface AgentStartInput extends AgentLifecycleInput {
 }
 
 export interface AgentFinishInput extends AgentLifecycleInput {
-  summary: string;
+  summary: unknown;
   push?: boolean;
 }
 
 export interface AgentStatusInput extends AgentLifecycleInput {
-  status: string;
+  status: unknown;
   push?: boolean;
 }
 
@@ -225,6 +225,32 @@ class AgentLifecycleBooleanArgumentError extends Error {
         [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
       } as Record<"pull" | "push", `operations_by_id.${LifecycleOperation}.arguments_by_name.${"pull" | "push"}`>,
       retry_with: { argument, value_placeholder: true }
+    };
+  }
+}
+
+class AgentLifecycleTextArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: {
+    operation_contract: `operations_by_id.${"agent_status" | "agent_finish"}`;
+    rejected_argument: { argument: "status" | "summary"; value: unknown };
+    expected: { kind: "non_empty_string"; min_length: 1 };
+    argument_sources: Record<"status" | "summary", `operations_by_id.${"agent_status" | "agent_finish"}.arguments_by_name.${"status" | "summary"}`>;
+    retry_with: { argument: "status" | "summary"; value_placeholder: "<status>" | "<summary>" };
+  };
+
+  constructor(operation: "agent_status" | "agent_finish", argument: "status" | "summary", value: unknown) {
+    super(`Invalid argument: Invalid ${argument}`);
+    this.name = "AgentLifecycleTextArgumentError";
+    this.recommended_action = `retry agent lifecycle with a non-empty ${argument}`;
+    this.recovery_hint = {
+      operation_contract: `operations_by_id.${operation}`,
+      rejected_argument: { argument, value },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: {
+        [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
+      } as Record<"status" | "summary", `operations_by_id.${"agent_status" | "agent_finish"}.arguments_by_name.${"status" | "summary"}`>,
+      retry_with: { argument, value_placeholder: `<${argument}>` }
     };
   }
 }
@@ -578,6 +604,12 @@ function validateAgentIdentity(agent: unknown, operation: LifecycleOperation): v
 function validateLifecycleBoolean(value: unknown, argument: "pull" | "push", operation: LifecycleOperation): void {
   if (value !== undefined && typeof value !== "boolean") {
     throw new AgentLifecycleBooleanArgumentError(operation, argument, value);
+  }
+}
+
+function validateLifecycleText(value: unknown, argument: "status" | "summary", operation: "agent_status" | "agent_finish"): asserts value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new AgentLifecycleTextArgumentError(operation, argument, value);
   }
 }
 
@@ -2326,6 +2358,7 @@ export async function agentStart(input: AgentStartInput) {
 }
 
 export async function agentFinish(input: AgentFinishInput) {
+  validateLifecycleText(input.summary, "summary", "agent_finish");
   validateAgentIdentity(input.agent, "agent_finish");
   validateLifecycleBoolean(input.push, "push", "agent_finish");
   const bootstrap = await ensureLifecycleBootstrap(input);
@@ -2384,6 +2417,7 @@ export async function agentFinish(input: AgentFinishInput) {
 }
 
 export async function agentStatus(input: AgentStatusInput) {
+  validateLifecycleText(input.status, "status", "agent_status");
   validateAgentIdentity(input.agent, "agent_status");
   validateLifecycleBoolean(input.push, "push", "agent_status");
   const bootstrap = await ensureLifecycleBootstrap(input);

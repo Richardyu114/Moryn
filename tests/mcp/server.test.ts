@@ -7301,6 +7301,30 @@ describe("MCP stdio server", () => {
             value_placeholder: "<refresh cursor ISO datetime>"
           }
         });
+        for (const { tool, operation, argument } of [
+          { tool: "agent_status", operation: "agent_status", argument: "status" },
+          { tool: "agent_finish", operation: "agent_finish", argument: "summary" }
+        ] as const) {
+          const invalidLifecycleText = parseTextContent(await client.callTool({
+            name: tool,
+            arguments: {
+              [argument]: 123
+            }
+          })) as McpInvalidArgument;
+          expect(invalidLifecycleText.ok).toBe(false);
+          expect(invalidLifecycleText.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidLifecycleText.error.message).toContain(`Invalid ${argument}`);
+          expect(invalidLifecycleText.error.recommended_action).toBe(`retry agent lifecycle with a non-empty ${argument}`);
+          expect(invalidLifecycleText.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument, value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
+            },
+            retry_with: { argument, value_placeholder: `<${argument}>` }
+          });
+        }
         const lifecycleAgentTools = [
           { tool: "agent_doctor", operation: "agent_doctor", baseArguments: {} },
           { tool: "agent_guide", operation: "agent_guide", baseArguments: {} },

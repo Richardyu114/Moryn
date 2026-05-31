@@ -1907,6 +1907,10 @@ restart template is also available as `next.actions_by_id.start_next_session`,
 is marked `safe_to_run: true`, and is named by
 `next.recommended_start_action_id` for direct keyed lookup, with
 `next.recommended_start_action_source` exposing the exact JSON path.
+Invalid MCP `summary` shapes, including numeric values, pass through lifecycle
+validation and point at
+`operations_by_id.agent_finish.arguments_by_name.summary` instead of host
+schema text or lower-level write content paths.
 `next.selection_sources` names the generic keyed action and action-id paths. It carries `required_when` for next-session
 startup; when the next task is unknown, `arguments.current_task` is set to
 `"<current_task>"` and `argument_sources.current_task` is set to
@@ -1934,6 +1938,10 @@ remaining distinguishable from final handoffs by `type=status`. Its
 using the status record timestamp as the next refresh cursor; `finish_session`
 is `safe_to_run: false` and carries `arguments.summary: "<summary>"`, while
 `refresh_context` is `safe_to_run: true`. Both actions are also available under
+Invalid MCP `status` shapes, including numeric values, pass through lifecycle
+validation and point at
+`operations_by_id.agent_status.arguments_by_name.status` instead of host
+schema text or lower-level write content paths.
 `next.actions_by_id`, are named by `next.recommended_finish_action_id` and
 `next.recommended_refresh_action_id`, expose exact JSON paths through
 `next.recommended_finish_action_source` and

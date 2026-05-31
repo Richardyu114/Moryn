@@ -846,7 +846,12 @@ so agents can recover while looking up the registry itself. Lifecycle boolean
 failures for MCP `agent_enter`/`agent_start` `pull` and
 `agent_finish`/`agent_status` `push` also point at their
 `operations_by_id.<operation>.arguments_by_name.<argument>` contracts instead
-of stopping at host schema validation. MCP `limit` failures for read and
+of stopping at host schema validation. MCP `agent_status.status` and
+`agent_finish.summary` shape failures likewise pass through lifecycle
+validation, including numeric values, and return
+`operations_by_id.agent_status.arguments_by_name.status` or
+`operations_by_id.agent_finish.arguments_by_name.summary` instead of host-side
+schema text or lower-level write content paths. MCP `limit` failures for read and
 lifecycle startup tools likewise pass through core validation, including
 non-number values, and return the relevant `arguments_by_name.limit` source.
 MCP write `confidence` failures also pass through core validation, including
