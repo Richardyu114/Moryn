@@ -6391,33 +6391,43 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
-      for (const { args, option, value, allowedValues } of [
+      for (const { args, operation, argument, option, value, allowedValues } of [
         {
           args: ["write", "--kind", "nonsense", "--type", "decision", "--scope", "project", "--text", "Invalid kind."],
+          operation: "write",
+          argument: "kind",
           option: "--kind",
           value: "nonsense",
           allowedValues: ["memory", "skill", "soul", "session_summary", "agent_note"]
         },
         {
           args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--priority", "urgent", "--text", "Invalid priority."],
+          operation: "write",
+          argument: "priority",
           option: "--priority",
           value: "urgent",
           allowedValues: ["low", "normal", "high"]
         },
         {
           args: ["recall", "--kind", "nonsense"],
+          operation: "recall",
+          argument: "kinds",
           option: "--kind",
           value: "nonsense",
           allowedValues: ["memory", "skill", "soul", "session_summary", "agent_note"]
         },
         {
           args: ["promote", "rec_missing", "--state", "nonsense"],
+          operation: "promote",
+          argument: "target_state",
           option: "--state",
           value: "nonsense",
           allowedValues: ["raw", "candidate", "canonical", "archived", "quarantined"]
         },
         {
           args: ["project", "init", "--path", dir, "--sync-mode", "sometimes"],
+          operation: "project_init",
+          argument: "sync_mode",
           option: "--sync-mode",
           value: "sometimes",
           allowedValues: ["manual", "session", "interval"]
@@ -6435,8 +6445,10 @@ describe("moryn CLI", () => {
               message: string;
               recommended_action: string;
               recovery_hint: {
+                operation_contract: string;
                 rejected_argument: { option: string; value: string };
                 expected: { kind: string; allowed_values: string[] };
+                argument_sources: Record<string, string>;
                 retry_with: { option: string; value_placeholder: string };
               };
             };
@@ -6448,6 +6460,10 @@ describe("moryn CLI", () => {
           expect(parsed.error.recovery_hint.rejected_argument).toEqual({ option, value });
           expect(parsed.error.recovery_hint.expected.kind).toBe("allowed_values");
           expect(parsed.error.recovery_hint.expected.allowed_values).toEqual(allowedValues);
+          expect(parsed.error.recovery_hint.operation_contract).toBe(`operations_by_id.${operation}`);
+          expect(parsed.error.recovery_hint.argument_sources).toEqual({
+            [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
+          });
           expect(parsed.error.recovery_hint.retry_with.option).toBe(parsed.error.recovery_hint.rejected_argument.option);
           expect(parsed.error.recovery_hint.retry_with.value_placeholder).toBe(`<${parsed.error.recovery_hint.rejected_argument.option.slice(2)} from allowed_values>`);
         }

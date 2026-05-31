@@ -348,6 +348,10 @@ Deliverables:
   now expose the matching operation contract and
   `operations_by_id.<operation>.arguments_by_name.limit` source before the core
   engine runs.
+- Done: CLI enum parser failures for write, recall, promote, and project init
+  options now expose the matching operation contract and
+  `operations_by_id.<operation>.arguments_by_name.<argument>` source for the
+  rejected enum value.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

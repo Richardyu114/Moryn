@@ -58,6 +58,13 @@ const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.
 type CliLimitOperation = "recall" | "refresh" | "list_recent" | "project_list" | "agent_enter" | "agent_start";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
+type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
+type CliEnumOperationContractSource = `operations_by_id.${CliEnumOperation}`;
+type CliEnumArgumentSource = `operations_by_id.${CliEnumOperation}.arguments_by_name.${string}`;
+type CliEnumSource = {
+  operation: CliEnumOperation;
+  argument: string;
+};
 
 type CliArgumentRecoveryHint =
   | {
@@ -75,6 +82,13 @@ type CliArgumentRecoveryHint =
   | {
       rejected_argument: { option: string; value: string };
       expected: { kind: "number_range"; min: number; max: number; inclusive: true };
+      retry_with: { option: string; value_placeholder: string };
+    }
+  | {
+      operation_contract: CliEnumOperationContractSource;
+      rejected_argument: { option: string; value: string };
+      expected: { kind: "allowed_values"; allowed_values: string[] };
+      argument_sources: Record<string, CliEnumArgumentSource>;
       retry_with: { option: string; value_placeholder: string };
     }
   | {
@@ -439,15 +453,19 @@ function parseConfidence(value: string | undefined, option = "--confidence"): nu
   return parsed;
 }
 
-function parseEnum<T extends string>(value: string | undefined, allowed: readonly T[], option: string): T | undefined {
+function parseEnum<T extends string>(value: string | undefined, allowed: readonly T[], option: string, source?: CliEnumSource): T | undefined {
   if (value === undefined) return undefined;
   if (!allowed.includes(value as T)) {
     throw new CliArgumentError(
       `Invalid argument: Invalid ${option}; expected one of ${allowed.join(", ")}`,
       `retry with a supported ${option} value`,
       {
+        ...(source !== undefined ? { operation_contract: `operations_by_id.${source.operation}` as const } : {}),
         rejected_argument: { option, value },
         expected: { kind: "allowed_values", allowed_values: [...allowed] },
+        ...(source !== undefined
+          ? { argument_sources: { [source.argument]: `operations_by_id.${source.operation}.arguments_by_name.${source.argument}` as const } }
+          : {}),
         retry_with: { option, value_placeholder: `<${option.slice(2)} from allowed_values>` }
       }
     );
@@ -455,8 +473,8 @@ function parseEnum<T extends string>(value: string | undefined, allowed: readonl
   return value as T;
 }
 
-function parseEnumList<T extends string>(values: string[], allowed: readonly T[], option: string): T[] {
-  return values.map((value) => parseEnum(value, allowed, option) as T);
+function parseEnumList<T extends string>(values: string[], allowed: readonly T[], option: string, source?: CliEnumSource): T[] {
+  return values.map((value) => parseEnum(value, allowed, option, source) as T);
 }
 
 function parseNonEmptyString(value: string | undefined, option: string): string | undefined {
@@ -562,15 +580,15 @@ program.command("write")
       throw writeContentChoiceCliArgumentError("required option '--text <text>' or '--content-json <json>' not specified");
     }
     const result = await engine.write({
-      kind: parseEnum(options.kind, recordKinds, "--kind")!,
+      kind: parseEnum(options.kind, recordKinds, "--kind", { operation: "write", argument: "kind" })!,
       type,
-      scope: parseEnum(scope, recordScopes, "--scope")!,
+      scope: parseEnum(scope, recordScopes, "--scope", { operation: "write", argument: "scope" })!,
       project_id: projectId,
       tags: [...(project?.config?.tags ?? []), ...options.tag],
       content: content ?? { text, format: "text" },
-      state: parseEnum(options.state, recordStates, "--state"),
+      state: parseEnum(options.state, recordStates, "--state", { operation: "write", argument: "state" }),
       confidence: parseConfidence(options.confidence),
-      priority: parseEnum(options.priority, recordPriorities, "--priority"),
+      priority: parseEnum(options.priority, recordPriorities, "--priority", { operation: "write", argument: "priority" }),
       source: { client: "cli" },
       confirmed: options.confirm,
       provenance: reason || options.derivedFrom.length
@@ -600,10 +618,10 @@ program.command("recall")
       record_ids: options.recordId,
       query: parseNonEmptyString(query, "query"),
       project_id: projectId,
-      kinds: parseEnumList(options.kind, recordKinds, "--kind"),
-      scopes: parseEnumList(options.scope, recordScopes, "--scope"),
+      kinds: parseEnumList(options.kind, recordKinds, "--kind", { operation: "recall", argument: "kinds" }),
+      scopes: parseEnumList(options.scope, recordScopes, "--scope", { operation: "recall", argument: "scopes" }),
       types: options.type,
-      states: parseEnumList(options.state, recordStates, "--state"),
+      states: parseEnumList(options.state, recordStates, "--state", { operation: "recall", argument: "states" }),
       tags: options.tag,
       files: options.file,
       limit
@@ -686,7 +704,7 @@ program.command("promote")
   .option("--confirm", "Confirm a high-risk canonical promotion")
   .action(async (recordId, options) => {
     const engine = createCliEngine();
-    const targetState = parseEnum(options.state, recordStates, "--state")!;
+    const targetState = parseEnum(options.state, recordStates, "--state", { operation: "promote", argument: "target_state" })!;
     const reason = parseNonEmptyString(options.reason, "--reason");
     const context = {
       tool: "promote",
@@ -1141,7 +1159,7 @@ project.command("init")
         default_skills: options.defaultSkill,
         sync: options.syncMode === undefined
           ? undefined
-          : { mode: parseEnum(options.syncMode, syncModes, "--sync-mode") },
+          : { mode: parseEnum(options.syncMode, syncModes, "--sync-mode", { operation: "project_init", argument: "sync_mode" }) },
         repair: options.repair
       })
     });
