@@ -243,8 +243,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Discover known project ids and recent project activity from the Moryn store.",
       inputSchema: {
         limit: coreValidatedNumberSchema.optional(),
-        current_task: stringSchema.optional(),
-        sync_remote: stringSchema.optional(),
+        current_task: z.unknown().optional(),
+        sync_remote: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional()
       }
     },

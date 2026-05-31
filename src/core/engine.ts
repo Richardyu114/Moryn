@@ -70,10 +70,18 @@ type ValidatedBootInput = BootInput & { default_skills?: string[] };
 
 interface ListProjectsInput {
   limit?: unknown;
+  current_task?: unknown;
+  sync_remote?: unknown;
+  agent?: unknown;
+}
+
+type ProjectListAgent = Partial<RecordSource>;
+
+type ValidatedListProjectsInput = ListProjectsInput & {
   current_task?: string;
   sync_remote?: string;
-  agent?: RecordSource;
-}
+  agent?: ProjectListAgent;
+};
 
 const START_LISTED_PROJECT_WHEN = "After choosing this project from project_list results.";
 const RECALL_REFRESH_CHANGE_WHEN = "After refresh reports this change and the agent needs the full record content.";
@@ -1472,11 +1480,11 @@ function appendCommandOption(parts: string[], name: string, value: string | unde
   parts.push(name, shellQuote(value));
 }
 
-function projectStartArguments(projectId: string, input: ListProjectsInput): {
+function projectStartArguments(projectId: string, input: ValidatedListProjectsInput): {
   project_id: string;
   sync_remote?: string;
   current_task?: string;
-  agent?: RecordSource;
+  agent?: ProjectListAgent;
 } {
   return {
     project_id: projectId,
@@ -1486,7 +1494,7 @@ function projectStartArguments(projectId: string, input: ListProjectsInput): {
   };
 }
 
-function projectStartCommand(projectId: string, input: ListProjectsInput): string {
+function projectStartCommand(projectId: string, input: ValidatedListProjectsInput): string {
   const parts = ["moryn", "agent", "start"];
   appendCommandOption(parts, "--project-id", projectId);
   appendCommandOption(parts, "--sync-remote", input.sync_remote);
@@ -2433,6 +2441,7 @@ export function createEngine(deps: EngineDeps) {
     async listProjects(input: ListProjectsInput = {}) {
       validateListProjectsInput(input);
       const limit = validateLimit(input.limit, 20, "project_list");
+      const listProjectsInput = input as ValidatedListProjectsInput;
       const byProject = new Map<string, MorynRecord[]>();
 
       for (const record of (await currentRecords()).filter(isVisibleByDefault)) {
@@ -2456,8 +2465,8 @@ export function createEngine(deps: EngineDeps) {
               safe_to_run: true,
               required_when: START_LISTED_PROJECT_WHEN,
               required_fields: [],
-              command: projectStartCommand(projectId, input),
-              arguments: projectStartArguments(projectId, input)
+              command: projectStartCommand(projectId, listProjectsInput),
+              arguments: projectStartArguments(projectId, listProjectsInput)
             })
           };
         })

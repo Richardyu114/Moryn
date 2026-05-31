@@ -1780,6 +1780,11 @@ optional `current_task`, `sync_remote`, and `agent` fields so each returned
 project includes a complete `agent_start` action template with command, MCP
 arguments, `interfaces`, `safety`, `required_when`, required fields, and a
 single-step `workflow`.
+MCP shape failures for `current_task` and `sync_remote`, such as numeric
+values, pass through core validation and return
+`operations_by_id.project_list.arguments_by_name.current_task` or
+`operations_by_id.project_list.arguments_by_name.sync_remote`, so agents can
+retry from the operation contract instead of parsing host-side schema text.
 The response keeps `projects[]` as the ordered display list and also returns
 `projects_by_id` for direct keyed selection. Each
 `projects_by_id.<project_id>` value mirrors the matching `projects[]` record,

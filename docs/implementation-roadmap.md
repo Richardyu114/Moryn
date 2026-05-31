@@ -454,6 +454,10 @@ Deliverables:
   return structured recovery hints pointing at `agent_client`,
   `agent_session_id`, `agent_model`, or `agent_device_id` operation contract
   arguments instead of host-side MCP schema text.
+- Done: MCP `project_list.current_task` and `project_list.sync_remote` shape
+  failures now pass through core validation, including numeric values, and
+  expose the matching `operations_by_id.project_list.arguments_by_name.*`
+  sources instead of host-side schema text.
 - Done: MCP write and mutation `source.session_id`, `source.model`, and
   `source.device_id` failures now pass through core validation and return
   structured recovery hints pointing at `source_session_id`, `source_model`, or

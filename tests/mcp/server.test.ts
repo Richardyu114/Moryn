@@ -7105,6 +7105,46 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "provenance.promoted_at", value_placeholder: "<ISO datetime>" }
         });
 
+        const invalidProjectListCurrentTask = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: {
+            current_task: 123
+          }
+        })) as McpInvalidArgument;
+        expect(invalidProjectListCurrentTask.ok).toBe(false);
+        expect(invalidProjectListCurrentTask.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProjectListCurrentTask.error.message).toContain("Invalid current_task");
+        expect(invalidProjectListCurrentTask.error.recommended_action).toBe("retry read with a non-empty current_task");
+        expect(invalidProjectListCurrentTask.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_list",
+          rejected_argument: { argument: "current_task", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            current_task: "operations_by_id.project_list.arguments_by_name.current_task"
+          },
+          retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
+        });
+
+        const invalidProjectListSyncRemote = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: {
+            sync_remote: 123
+          }
+        })) as McpInvalidArgument;
+        expect(invalidProjectListSyncRemote.ok).toBe(false);
+        expect(invalidProjectListSyncRemote.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProjectListSyncRemote.error.message).toContain("Invalid sync_remote");
+        expect(invalidProjectListSyncRemote.error.recommended_action).toBe("retry read with a non-empty sync_remote");
+        expect(invalidProjectListSyncRemote.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_list",
+          rejected_argument: { argument: "sync_remote", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            sync_remote: "operations_by_id.project_list.arguments_by_name.sync_remote"
+          },
+          retry_with: { argument: "sync_remote", value_placeholder: "<sync_remote>" }
+        });
+
         const emptyQuery = parseTextContent(await client.callTool({
           name: "recall",
           arguments: { project_id: "moryn", query: "" }
