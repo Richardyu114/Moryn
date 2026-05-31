@@ -564,9 +564,9 @@ Deliverables:
   flags now return operation contracts for each selectable sync operation, and
   `--message` without `--push` points at
   `operations_by_id.sync_push.arguments_by_name.message`.
-- Done: CLI empty `sync init ""` remotes now expose
-  `operations_by_id.sync_init.arguments_by_name.remote` before Git remote
-  initialization runs.
+- Done: CLI empty `sync init ""` remotes now expose positional `remote`
+  recovery backed by `operations_by_id.sync_init.arguments_by_name.remote`
+  before Git remote initialization runs.
 - Done: MCP `sync_init.remote` and `sync_push.message` shape failures now pass
   through sync validation, including numeric values, and expose
   `operations_by_id.sync_init.arguments_by_name.remote` or
@@ -744,6 +744,8 @@ Deliverables:
   `record-id`/`linked-record-id` recovery hints backed by the matching mutation
   `arguments_by_name` source, so agents do not need to translate lower-level
   `record_id` or `linked_record_id` argument errors.
+- Done: Empty CLI `sync init` remote positionals now use the same positional
+  recovery channel, so agents do not see a pseudo-option named `remote`.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.

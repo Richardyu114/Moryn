@@ -1539,7 +1539,7 @@ const sync = program.command("sync");
 sync.command("init")
   .argument("<remote>")
   .action(async (remote) => {
-    const syncRemote = parseNonEmptyCliString(remote, "remote", { operation: "sync_init", argument: "remote" })!;
+    const syncRemote = parseNonEmptyCliPositional(remote, "remote", { operation: "sync_init", argument: "remote" });
     printJson(await initializeGitSync(storePath(), syncRemote));
   });
 

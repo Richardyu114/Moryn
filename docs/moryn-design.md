@@ -872,7 +872,9 @@ retrying. Missing positional arguments for mutation record ids, linked record
 ids, and `sync init <remote>` also return operation and argument sources instead
 of generic command-argument advice. Empty mutation positionals such as
 `revise "" --set ...` and `link <record-id> "" --type ...` also fail at the CLI
-boundary with `record-id` or `linked-record-id` recovery hints. Empty CLI strings for write
+boundary with `record-id` or `linked-record-id` recovery hints. Empty
+`sync init ""` remotes likewise fail with a positional `remote` recovery hint.
+Empty CLI strings for write
 text/tags/provenance, refresh cursors, sync messages, lifecycle
 project/task/sync/agent/status/summary inputs, MCP source metadata and
 `project_list`/lifecycle agent identity metadata (`source.client`,
@@ -892,8 +894,8 @@ repair the exact field. Conflicting `moryn sync` operation flags include
 `--message` without `--push` points at
 `operations_by_id.sync_push.arguments_by_name.message`.
 Empty CLI `sync init ""` remotes point at
-`operations_by_id.sync_init.arguments_by_name.remote` before Git remote
-initialization runs.
+`operations_by_id.sync_init.arguments_by_name.remote` as a positional recovery
+hint before Git remote initialization runs.
 MCP `sync_init.remote` and `sync_push.message` shape failures also pass through
 sync validation, including numeric values, and point at
 `operations_by_id.sync_init.arguments_by_name.remote` or

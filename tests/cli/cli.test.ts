@@ -3525,14 +3525,6 @@ describe("moryn CLI", () => {
           option: "--message"
         },
         {
-          args: ["sync", "init", ""],
-          operation: "sync_init",
-          argument: "remote",
-          message: "Invalid remote",
-          option: "remote",
-          valuePlaceholder: "<non-empty remote>"
-        },
-        {
           args: ["link", "rec_source", "rec_target", "--type", ""],
           operation: "link",
           argument: "link_type",
@@ -3730,6 +3722,12 @@ describe("moryn CLI", () => {
           operation: "link",
           argument: "linked_record_id",
           positional: "linked-record-id"
+        },
+        {
+          args: ["sync", "init", ""],
+          operation: "sync_init",
+          argument: "remote",
+          positional: "remote"
         }
       ]) {
         try {
