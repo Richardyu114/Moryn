@@ -833,7 +833,10 @@ source-backed retry hints for enum-like state and non-empty link-type repairs.
 Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 `project_list` likewise include the matching operation contract plus
 `argument_sources` for invalid filters, cursors, tasks, project ids, and limits,
-including RFC3339 refresh cursor failures. MCP `recall.tags`,
+including RFC3339 refresh cursor failures. MCP `refresh.cursor` shape failures
+also pass through core validation, including numeric values, and return
+`operations_by_id.refresh.arguments_by_name.cursor` instead of host-side schema
+text. MCP `recall.tags`,
 `recall.record_ids`, `recall.files`, `recall.kinds`, `recall.scopes`,
 `recall.types`, and `recall.states` shape failures also pass through core
 validation, including single-string tag, record id, file, kind, scope, type, and

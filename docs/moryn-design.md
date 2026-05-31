@@ -786,7 +786,9 @@ point at the matching `operations_by_id.<operation>.arguments_by_name.current_ta
 contract.
 RFC3339 cursor failures point to
 `operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
-through lifecycle refresh-since arguments. Project setup argument failures for
+through lifecycle refresh-since arguments. MCP `refresh.cursor` shape failures
+also pass through core validation, including numeric values, and point at the
+same cursor contract instead of host-side schema text. Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and
 `project_init` path/project id/tags/default skills/sync mode/repair inputs also
 point at `operations_by_id.project_init.arguments_by_name.<argument>`. MCP

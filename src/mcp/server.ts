@@ -648,7 +648,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
-        cursor: stringSchema.optional(),
+        cursor: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional()
       }

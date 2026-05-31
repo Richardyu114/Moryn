@@ -7413,6 +7413,24 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "cursor", value_placeholder: "<cursor>" }
         });
 
+        const invalidCursorShape = parseTextContent(await client.callTool({
+          name: "refresh",
+          arguments: { project_id: "moryn", cursor: 123 }
+        })) as McpInvalidArgument;
+        expect(invalidCursorShape.ok).toBe(false);
+        expect(invalidCursorShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidCursorShape.error.message).toContain("Invalid cursor");
+        expect(invalidCursorShape.error.recommended_action).toBe("retry read with a non-empty cursor");
+        expect(invalidCursorShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.refresh",
+          rejected_argument: { argument: "cursor", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            cursor: "operations_by_id.refresh.arguments_by_name.cursor"
+          },
+          retry_with: { argument: "cursor", value_placeholder: "<cursor>" }
+        });
+
         const invalidBootDefaultSkills = parseTextContent(await client.callTool({
           name: "boot",
           arguments: { project_id: "moryn", default_skills: "release" }

@@ -488,6 +488,10 @@ Deliverables:
   failures now pass through refresh validation, including numeric values, and
   preserve `refresh_since` as the retry argument while pointing at the refresh
   cursor contract.
+- Done: MCP `refresh.cursor` shape failures now pass through core validation,
+  including numeric values, and expose
+  `operations_by_id.refresh.arguments_by_name.cursor` instead of host-side
+  schema text.
 - Done: MCP write and mutation `source.session_id`, `source.model`, and
   `source.device_id` failures now pass through core validation and return
   structured recovery hints pointing at `source_session_id`, `source_model`, or
