@@ -31,7 +31,7 @@ interface WriteInput {
   priority?: "low" | "normal" | "high";
   source: RecordSource;
   confirmed?: boolean;
-  provenance?: RecordProvenance;
+  provenance?: unknown;
 }
 
 export interface EngineWarning {
@@ -1350,25 +1350,26 @@ function validateWriteInput(input: WriteInput): void {
     if (typeof input.provenance !== "object" || input.provenance === null || Array.isArray(input.provenance)) {
       throw invalidWriteProvenanceError(input.provenance);
     }
-    if (input.provenance.derived_from !== undefined && (!Array.isArray(input.provenance.derived_from) || !input.provenance.derived_from.every((recordId) => typeof recordId === "string" && recordId.length > 0))) {
-      throw invalidWriteProvenanceDerivedFromError(input.provenance.derived_from);
+    const provenance = input.provenance as Partial<RecordProvenance>;
+    if (provenance.derived_from !== undefined && (!Array.isArray(provenance.derived_from) || !provenance.derived_from.every((recordId) => typeof recordId === "string" && recordId.length > 0))) {
+      throw invalidWriteProvenanceDerivedFromError(provenance.derived_from);
     }
-    if (input.provenance.reason !== undefined && (typeof input.provenance.reason !== "string" || !input.provenance.reason.length)) {
-      throw invalidWriteProvenanceReasonError(input.provenance.reason);
-    }
-    if (
-      input.provenance.method !== undefined
-      && input.provenance.method !== "agent-proposed"
-      && input.provenance.method !== "rule-promoted"
-      && input.provenance.method !== "user-confirmed"
-    ) {
-      throw invalidWriteProvenanceMethodError(input.provenance.method);
+    if (provenance.reason !== undefined && (typeof provenance.reason !== "string" || !provenance.reason.length)) {
+      throw invalidWriteProvenanceReasonError(provenance.reason);
     }
     if (
-      input.provenance.promoted_at !== undefined
-      && !isoDateTimeSchema.safeParse(input.provenance.promoted_at).success
+      provenance.method !== undefined
+      && provenance.method !== "agent-proposed"
+      && provenance.method !== "rule-promoted"
+      && provenance.method !== "user-confirmed"
     ) {
-      throw invalidWriteProvenancePromotedAtError(input.provenance.promoted_at);
+      throw invalidWriteProvenanceMethodError(provenance.method);
+    }
+    if (
+      provenance.promoted_at !== undefined
+      && !isoDateTimeSchema.safeParse(provenance.promoted_at).success
+    ) {
+      throw invalidWriteProvenancePromotedAtError(provenance.promoted_at);
     }
   }
 }
@@ -2070,6 +2071,7 @@ export function createEngine(deps: EngineDeps) {
           : (input.state ?? (input.kind === "agent_note" ? "raw" : "candidate"));
       const content = sensitive.sensitive ? redactSensitiveRecordContent(input.content) : input.content;
       const confidence = typeof input.confidence === "number" ? input.confidence : 0.5;
+      const provenance = input.provenance as RecordProvenance | undefined;
       const record: MorynRecord = {
         id: id("rec"),
         kind: input.kind,
@@ -2086,8 +2088,8 @@ export function createEngine(deps: EngineDeps) {
         updated_at: createdAt,
         source: input.source,
         provenance: {
-          ...(input.provenance ?? {}),
-          method: input.provenance?.method ?? provenanceMethod(input.source, input.confirmed)
+          ...(provenance ?? {}),
+          method: provenance?.method ?? provenanceMethod(input.source, input.confirmed)
         },
         conflict: conflicts.length
           ? { kind: "semantic", with: conflicts.map((record) => record.id), resolution: "needs_review" }

@@ -6893,6 +6893,58 @@ describe("MCP stdio server", () => {
           });
         }
 
+        const invalidProvenanceShape = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid provenance shape should return structured recovery.",
+            provenance: "imported",
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidProvenanceShape.ok).toBe(false);
+        expect(invalidProvenanceShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProvenanceShape.error.message).toContain("Invalid provenance");
+        expect(invalidProvenanceShape.error.recommended_action).toBe("retry write with a valid provenance object");
+        expect(invalidProvenanceShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance", value: "imported" },
+          expected: { kind: "object", required: false },
+          argument_sources: {
+            provenance: "operations_by_id.write.arguments_by_name.provenance"
+          },
+          retry_with: { argument: "provenance", value_placeholder: { derived_from: ["<record_id>"], reason: "<reason>" } }
+        });
+
+        const invalidProvenanceDerivedFrom = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid provenance source ids should return structured recovery.",
+            provenance: { derived_from: "rec_source" },
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(invalidProvenanceDerivedFrom.ok).toBe(false);
+        expect(invalidProvenanceDerivedFrom.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProvenanceDerivedFrom.error.message).toContain("Invalid provenance.derived_from");
+        expect(invalidProvenanceDerivedFrom.error.recommended_action).toBe("retry write with valid provenance source record ids");
+        expect(invalidProvenanceDerivedFrom.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance.derived_from", value: "rec_source" },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            "provenance.derived_from": "operations_by_id.write.arguments_by_name.derived_from"
+          },
+          retry_with: { argument: "provenance.derived_from", value_placeholder: ["<record_id>"] }
+        });
+
         const invalidProvenanceMethod = parseTextContent(await client.callTool({
           name: "write",
           arguments: {

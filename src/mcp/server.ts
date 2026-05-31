@@ -46,7 +46,6 @@ const recordScopeSchema = z.union([z.enum(RECORD_SCOPES), stringSchema]);
 const recordStateSchema = z.union([z.enum(RECORD_STATES), stringSchema]);
 const recordPrioritySchema = z.union([z.enum(RECORD_PRIORITIES), stringSchema]);
 const syncModeSchema = z.union([z.enum(SYNC_MODES), stringSchema]);
-const provenanceMethodSchema = z.union([z.enum(["agent-proposed", "rule-promoted", "user-confirmed"]), stringSchema]);
 const numberSchema = z.number();
 const coreValidatedNumberSchema = z.unknown();
 const coreValidatedBooleanSchema = z.unknown();
@@ -441,12 +440,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         state: recordStateSchema.optional(),
         confidence: coreValidatedNumberSchema.optional(),
         priority: recordPrioritySchema.optional(),
-        provenance: z.object({
-          derived_from: z.array(stringSchema).optional(),
-          reason: stringSchema.optional(),
-          method: provenanceMethodSchema.optional(),
-          promoted_at: stringSchema.optional()
-        }).optional(),
+        provenance: z.unknown().optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
         source: coreValidatedSourceSchema.optional()
       }

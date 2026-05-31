@@ -399,6 +399,10 @@ Deliverables:
   including non-number values, and expose
   `operations_by_id.write.arguments_by_name.confidence` instead of host-side
   schema text.
+- Done: MCP write `provenance` failures now pass through core validation,
+  including non-object values and malformed `provenance.derived_from` source
+  ids, and expose the write contract argument sources instead of host-side
+  schema text.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty

@@ -779,6 +779,9 @@ lifecycle startup tools likewise pass through core validation, including
 non-number values, and return the relevant `arguments_by_name.limit` source.
 MCP write `confidence` failures also pass through core validation, including
 non-number values, and return `operations_by_id.write.arguments_by_name.confidence`.
+MCP write `provenance` failures also pass through core validation, including
+non-object values and malformed `provenance.derived_from` source ids, so agents
+get the write contract source instead of host-side schema text.
 CLI parser failures for `--limit` on read and lifecycle startup commands, plus enum
 options such as `--kind`, `--scope`, `--state`, `--priority`, and `--sync-mode`,
 write `--confidence` range failures, and missing write
