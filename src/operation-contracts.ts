@@ -277,6 +277,16 @@ export type OperationContractIndexResponse = {
   operations_by_id: Record<string, OperationContractIndexEntry>;
   operations_by_mcp_tool: Record<string, string>;
   operations_by_cli_command: Record<string, string>;
+  operation_source_lookup: {
+    by_mcp_tool: {
+      operation_id: "operations_by_mcp_tool.<tool>";
+      operation_source: "operations_by_id.<operation>.operation_source";
+    };
+    by_cli_command: {
+      operation_id: "operations_by_cli_command.<command>";
+      operation_source: "operations_by_id.<operation>.operation_source";
+    };
+  };
   selection_sources: typeof OPERATION_CONTRACT_INDEX_SELECTION_SOURCES;
 };
 
@@ -311,6 +321,7 @@ export const OPERATION_CONTRACT_INDEX_SELECTION_SOURCES = {
   operation_source: "operations_by_id.<operation>.operation_source",
   mcp_tool_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.mcp_tool_operation,
   cli_command_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation,
+  operation_source_lookup: "operation_source_lookup",
   ordered_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.ordered_operation,
   execution_hint: "operations_by_id.<operation>.execution_hint",
   execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
@@ -1521,6 +1532,16 @@ export function getOperationContractIndex(): OperationContractIndexResponse {
     operations_by_id: Object.fromEntries(operations.map((operation) => [operation.operation, operation])),
     operations_by_mcp_tool: operationsByMcpToolId(OPERATION_CONTRACTS),
     operations_by_cli_command: operationsByCliCommandId(OPERATION_CONTRACTS),
+    operation_source_lookup: {
+      by_mcp_tool: {
+        operation_id: "operations_by_mcp_tool.<tool>",
+        operation_source: "operations_by_id.<operation>.operation_source"
+      },
+      by_cli_command: {
+        operation_id: "operations_by_cli_command.<command>",
+        operation_source: "operations_by_id.<operation>.operation_source"
+      }
+    },
     selection_sources: OPERATION_CONTRACT_INDEX_SELECTION_SOURCES
   };
 }

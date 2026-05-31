@@ -243,9 +243,12 @@ Deliverables:
   next step, missing fields, keyed required-input paths, and value-path reverse
   lookup hints for collected `user_input.*` values, plus concrete
   `operation_source` full-registry paths and `full_contract_lookup` package,
-  CLI, and MCP calls for that operation. The index response carries its own
-  compact `selection_sources` for those index-only fields including
-  `operation_source` and the value-path hint, package users can import
+  CLI, and MCP calls for that operation. It also exposes
+  `operation_source_lookup`, a compact recipe for turning a tool or display
+  command into an operation id and then the concrete full-contract path without
+  inventing paths. The index response carries its own compact
+  `selection_sources` for those index-only fields including `operation_source`,
+  `operation_source_lookup`, and the value-path hint, package users can import
   `OPERATION_CONTRACT_INDEX_SELECTION_SOURCES`, and `operation_contracts`
   declares `index` in `arguments_by_name` and `interfaces.mcp.arguments` so the
   first-pass filter is machine-discoverable.

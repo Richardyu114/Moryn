@@ -192,7 +192,7 @@ describe("package smoke test", () => {
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_line).toBe("operations_by_id.<operation>.interfaces.cli.command_line");
     expect(response.recommended_entrypoint).toBe("agent_enter");
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
-    expect(Buffer.byteLength(JSON.stringify(index), "utf8")).toBeLessThan(64 * 1024);
+    expect(Buffer.byteLength(JSON.stringify(index), "utf8")).toBeLessThan(64 * 1024 - 128);
     expect(index.recommended_entrypoint).toBe("agent_enter");
     expect(index.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
     expect(index.selection_sources).toEqual({
@@ -200,6 +200,7 @@ describe("package smoke test", () => {
       operation_source: "operations_by_id.<operation>.operation_source",
       mcp_tool_operation: "operations_by_mcp_tool.<tool>",
       cli_command_operation: "operations_by_cli_command.<command>",
+      operation_source_lookup: "operation_source_lookup",
       ordered_operation: "operations[]",
       execution_hint: "operations_by_id.<operation>.execution_hint",
       execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
@@ -269,6 +270,16 @@ describe("package smoke test", () => {
     });
     expect(index.operations_by_mcp_tool.agent_finish).toBe("agent_finish");
     expect(index.operations_by_cli_command["moryn agent finish --summary <summary>"]).toBe("agent_finish");
+    expect(index.operation_source_lookup).toEqual({
+      by_mcp_tool: {
+        operation_id: "operations_by_mcp_tool.<tool>",
+        operation_source: "operations_by_id.<operation>.operation_source"
+      },
+      by_cli_command: {
+        operation_id: "operations_by_cli_command.<command>",
+        operation_source: "operations_by_id.<operation>.operation_source"
+      }
+    });
     expect(index.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
     expect(index.operations_by_id.agent_finish).not.toHaveProperty("execution");
     expect(agentFinishContract?.operation).toBe(response.operations_by_id.agent_finish);

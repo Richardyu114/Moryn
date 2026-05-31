@@ -456,9 +456,12 @@ recipes. Each entry also includes a compact `execution_hint` with the
 required-input paths including value-path reverse lookup for collected
 `user_input.*` values, plus `operation_source` with the concrete full-registry
 path and `full_contract_lookup` with concrete package, CLI, and MCP calls for
-fetching that operation's full contract. It also carries a small
-`selection_sources` map for the index paths, including `operation_source`,
-`execution_hint`, the value-path required-input hint, and `full_contract_lookup`; package users can import
+fetching that operation's full contract. It also includes
+`operation_source_lookup`, so agents starting from a tool or display command can
+read the relevant id map and then the concrete `operation_source` field without
+inventing paths. It carries a small `selection_sources` map for the index paths,
+including `operation_source`, `operation_source_lookup`, `execution_hint`, the
+value-path required-input hint, and `full_contract_lookup`; package users can import
 `OPERATION_CONTRACT_INDEX_SELECTION_SOURCES` for the same compact map.
 The full response lists `operations`, keyed `operations_by_id`, grouped
 `operations_by_category`, reverse indexes `operations_by_mcp_tool` and

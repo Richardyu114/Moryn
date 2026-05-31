@@ -627,9 +627,12 @@ required-input paths, including value-path reverse lookup for collected
 inputs, or call the operation without recombining fields. Each entry's
 `operation_source` gives the concrete full-registry path for that operation, and
 `full_contract_lookup` gives concrete package, CLI, and MCP calls, so agents do
-not need to substitute placeholders in the top-level lookup templates. Its
-`selection_sources` names the compact index paths, including `operation_source`,
-`execution_hint`, the value-path required-input hint, and
+not need to substitute placeholders in the top-level lookup templates. The index
+also carries `operation_source_lookup`, a tiny recipe that tells agents how to
+turn a known MCP tool or display CLI command into an operation id and then read
+the concrete `operation_source` without inventing paths. Its `selection_sources`
+names the compact index paths, including `operation_source`,
+`operation_source_lookup`, `execution_hint`, the value-path required-input hint, and
 `full_contract_lookup`; package users can import
 `OPERATION_CONTRACT_INDEX_SELECTION_SOURCES` for the same index-specific map.
 When a

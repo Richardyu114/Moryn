@@ -1592,10 +1592,11 @@ describe("MCP stdio server", () => {
           operations_by_id: Record<string, { operation: string; operation_source: string; mcp_tool: string; cli_command: string; required_fields: string[]; missing_required_fields: string[]; execution_hint: Record<string, unknown>; full_contract_lookup: Record<string, unknown> }>;
           operations_by_mcp_tool: Record<string, string>;
           operations_by_cli_command: Record<string, string>;
+          operation_source_lookup: Record<string, unknown>;
           selection_sources: Record<string, string>;
         };
 
-        expect(Buffer.byteLength(first.text, "utf8")).toBeLessThan(64 * 1024);
+        expect(Buffer.byteLength(first.text, "utf8")).toBeLessThan(64 * 1024 - 128);
         expect(parsed.recommended_entrypoint).toBe("agent_enter");
         expect(parsed.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
         expect(parsed.selection_sources).toEqual({
@@ -1603,6 +1604,7 @@ describe("MCP stdio server", () => {
           operation_source: "operations_by_id.<operation>.operation_source",
           mcp_tool_operation: "operations_by_mcp_tool.<tool>",
           cli_command_operation: "operations_by_cli_command.<command>",
+          operation_source_lookup: "operation_source_lookup",
           ordered_operation: "operations[]",
           execution_hint: "operations_by_id.<operation>.execution_hint",
           execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
@@ -1660,6 +1662,16 @@ describe("MCP stdio server", () => {
         });
         expect(parsed.operations_by_mcp_tool.agent_finish).toBe("agent_finish");
         expect(parsed.operations_by_cli_command["moryn agent finish --summary <summary>"]).toBe("agent_finish");
+        expect(parsed.operation_source_lookup).toEqual({
+          by_mcp_tool: {
+            operation_id: "operations_by_mcp_tool.<tool>",
+            operation_source: "operations_by_id.<operation>.operation_source"
+          },
+          by_cli_command: {
+            operation_id: "operations_by_cli_command.<command>",
+            operation_source: "operations_by_id.<operation>.operation_source"
+          }
+        });
         expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
         expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
         expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("execution");
