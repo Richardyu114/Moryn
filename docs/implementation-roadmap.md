@@ -422,11 +422,13 @@ Deliverables:
 - Done: MCP `revise.patch` shape failures now pass through core validation,
   including single-string patch values, and expose `rejected_patch` recovery
   hints instead of host-side schema text.
-- Done: MCP `recall.tags` and `recall.record_ids` shape failures now pass
-  through core validation, including single-string tag and record id values, and
-  expose `operations_by_id.recall.arguments_by_name.tags` and
-  `operations_by_id.recall.arguments_by_name.record_ids` instead of host-side
-  schema text.
+- Done: MCP `recall.tags`, `recall.record_ids`, and `recall.files` shape
+  failures now pass through core validation, including single-string tag,
+  record id, and file values, and expose
+  `operations_by_id.recall.arguments_by_name.tags`,
+  `operations_by_id.recall.arguments_by_name.record_ids`, and
+  `operations_by_id.recall.arguments_by_name.files` instead of host-side schema
+  text.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty

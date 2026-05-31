@@ -7531,6 +7531,27 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "record_ids", value_placeholder: ["<record_id>"] }
         });
 
+        const invalidRecallFiles = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            project_id: "moryn",
+            files: "src/auth.ts"
+          }
+        })) as typeof invalidLimit;
+        expect(invalidRecallFiles.ok).toBe(false);
+        expect(invalidRecallFiles.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidRecallFiles.error.message).toContain("Invalid files");
+        expect(invalidRecallFiles.error.recommended_action).toBe("retry read with files as non-empty strings");
+        expect(invalidRecallFiles.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "files", value: "src/auth.ts" },
+          expected: { kind: "array_of_non_empty_strings" },
+          argument_sources: {
+            files: "operations_by_id.recall.arguments_by_name.files"
+          },
+          retry_with: { argument: "files", value_placeholder: ["<file>"] }
+        });
+
         const invalidLifecycleLimit = parseTextContent(await client.callTool({
           name: "agent_enter",
           arguments: {

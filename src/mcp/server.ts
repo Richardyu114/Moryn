@@ -382,7 +382,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         types: z.array(stringSchema).optional(),
         states: z.array(recordStateSchema).optional(),
         tags: z.unknown().optional(),
-        files: z.array(stringSchema).optional(),
+        files: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional()
       }
     },

@@ -972,7 +972,7 @@ export function commandForRecallContext(input: {
   types?: string[];
   states?: string[];
   tags?: unknown;
-  files?: string[];
+  files?: unknown;
   limit?: unknown;
 }): string {
   const parts = ["moryn", "recall"];
@@ -987,7 +987,7 @@ export function commandForRecallContext(input: {
   appendRepeatedCommandOption(parts, "--type", input.types);
   appendRepeatedCommandOption(parts, "--state", input.states);
   appendRepeatedCommandOption(parts, "--tag", Array.isArray(input.tags) ? input.tags : undefined);
-  appendRepeatedCommandOption(parts, "--file", input.files);
+  appendRepeatedCommandOption(parts, "--file", Array.isArray(input.files) ? input.files : undefined);
   appendCommandOptionValue(parts, "--limit", input.limit);
   return parts.join(" ");
 }
