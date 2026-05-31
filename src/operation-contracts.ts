@@ -131,6 +131,7 @@ export type OperationContractLookupRecoveryHint = {
     };
   };
   retry_with_operation: {
+    package_helper: "getOperationContract('<operation>')";
     cli: "moryn contracts operations --operation <operation>";
     mcp: {
       tool: "operation_contracts";
@@ -148,6 +149,7 @@ export type OperationContractLookupConflictRecoveryHint = {
   recommended_action: typeof OPERATION_CONTRACT_LOOKUP_CONFLICT_ACTION;
   accepted_lookup_modes: {
     index: {
+      package_helper: "getOperationContractIndex()";
       cli: {
         command: "moryn contracts operations --index";
         args: ["contracts", "operations", "--index"];
@@ -158,6 +160,7 @@ export type OperationContractLookupConflictRecoveryHint = {
       };
     };
     operation: {
+      package_helper: "getOperationContract('<operation>')";
       cli: "moryn contracts operations --operation <operation>";
       mcp: {
         tool: "operation_contracts";
@@ -165,6 +168,7 @@ export type OperationContractLookupConflictRecoveryHint = {
       };
     };
     mcp_tool: {
+      package_helper: "getOperationContractByMcpTool('<tool>')";
       cli: "moryn contracts operations --mcp-tool <tool>";
       mcp: {
         tool: "operation_contracts";
@@ -172,6 +176,7 @@ export type OperationContractLookupConflictRecoveryHint = {
       };
     };
     cli_command: {
+      package_helper: "getOperationContractByCliCommand('<command>')";
       cli: "moryn contracts operations --cli-command <command>";
       mcp: {
         tool: "operation_contracts";
@@ -360,6 +365,7 @@ function operationContractLookupRecoveryHint(kind: OperationContractLookupKind, 
       }
     },
     retry_with_operation: {
+      package_helper: "getOperationContract('<operation>')",
       cli: "moryn contracts operations --operation <operation>",
       mcp: {
         tool: "operation_contracts",
@@ -379,6 +385,7 @@ function operationContractLookupConflictRecoveryHint(provided: OperationContract
     recommended_action: OPERATION_CONTRACT_LOOKUP_CONFLICT_ACTION,
     accepted_lookup_modes: {
       index: {
+        package_helper: "getOperationContractIndex()",
         cli: {
           command: "moryn contracts operations --index",
           args: ["contracts", "operations", "--index"]
@@ -389,6 +396,7 @@ function operationContractLookupConflictRecoveryHint(provided: OperationContract
         }
       },
       operation: {
+        package_helper: "getOperationContract('<operation>')",
         cli: "moryn contracts operations --operation <operation>",
         mcp: {
           tool: "operation_contracts",
@@ -396,6 +404,7 @@ function operationContractLookupConflictRecoveryHint(provided: OperationContract
         }
       },
       mcp_tool: {
+        package_helper: "getOperationContractByMcpTool('<tool>')",
         cli: "moryn contracts operations --mcp-tool <tool>",
         mcp: {
           tool: "operation_contracts",
@@ -403,6 +412,7 @@ function operationContractLookupConflictRecoveryHint(provided: OperationContract
         }
       },
       cli_command: {
+        package_helper: "getOperationContractByCliCommand('<command>')",
         cli: "moryn contracts operations --cli-command <command>",
         mcp: {
           tool: "operation_contracts",

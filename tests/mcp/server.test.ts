@@ -1790,10 +1790,10 @@ describe("MCP stdio server", () => {
                 provided: Array<{ mode: string; option: string }>;
               };
               accepted_lookup_modes: {
-                index: { cli: { command: string; args: string[] }; mcp: { tool: string; arguments: { index: boolean } } };
-                operation: { cli: string; mcp: { tool: string; arguments: { operation: string } } };
-                mcp_tool: { cli: string; mcp: { tool: string; arguments: { mcp_tool: string } } };
-                cli_command: { cli: string; mcp: { tool: string; arguments: { cli_command: string } } };
+                index: { package_helper: string; cli: { command: string; args: string[] }; mcp: { tool: string; arguments: { index: boolean } } };
+                operation: { package_helper: string; cli: string; mcp: { tool: string; arguments: { operation: string } } };
+                mcp_tool: { package_helper: string; cli: string; mcp: { tool: string; arguments: { mcp_tool: string } } };
+                cli_command: { package_helper: string; cli: string; mcp: { tool: string; arguments: { cli_command: string } } };
               };
               selection_sources: Record<string, string>;
             };
@@ -1814,6 +1814,7 @@ describe("MCP stdio server", () => {
           ]
         });
         expect(parsed.error.recovery_hint.accepted_lookup_modes.index).toEqual({
+          package_helper: "getOperationContractIndex()",
           cli: {
             command: "moryn contracts operations --index",
             args: ["contracts", "operations", "--index"]
@@ -1823,8 +1824,11 @@ describe("MCP stdio server", () => {
             arguments: { index: true }
           }
         });
+        expect(parsed.error.recovery_hint.accepted_lookup_modes.operation.package_helper).toBe("getOperationContract('<operation>')");
         expect(parsed.error.recovery_hint.accepted_lookup_modes.operation.cli).toBe("moryn contracts operations --operation <operation>");
+        expect(parsed.error.recovery_hint.accepted_lookup_modes.mcp_tool.package_helper).toBe("getOperationContractByMcpTool('<tool>')");
         expect(parsed.error.recovery_hint.accepted_lookup_modes.mcp_tool.mcp.arguments).toEqual({ mcp_tool: "<mcp_tool>" });
+        expect(parsed.error.recovery_hint.accepted_lookup_modes.cli_command.package_helper).toBe("getOperationContractByCliCommand('<command>')");
         expect(parsed.error.recovery_hint.accepted_lookup_modes.cli_command.mcp.arguments).toEqual({ cli_command: "<cli_command>" });
         expect(parsed.error.recovery_hint.selection_sources.operation).toBe("operations_by_id.<operation>");
       });
@@ -1860,6 +1864,7 @@ describe("MCP stdio server", () => {
                 mcp: { tool: string; arguments: { index: boolean } };
               };
               retry_with_operation: {
+                package_helper: string;
                 cli: string;
                 mcp: { tool: string; arguments: { operation: string } };
               };
@@ -1887,6 +1892,7 @@ describe("MCP stdio server", () => {
           }
         });
         expect(parsed.error.recovery_hint.retry_with_operation).toEqual({
+          package_helper: "getOperationContract('<operation>')",
           cli: "moryn contracts operations --operation <operation>",
           mcp: {
             tool: "operation_contracts",

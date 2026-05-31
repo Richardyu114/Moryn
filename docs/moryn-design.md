@@ -659,9 +659,11 @@ payload and model context much smaller than the full operation directory. If
 the lookup value is unknown, CLI and MCP error envelopes include
 `error.recovery_hint` with the rejected lookup, available operation ids,
 compact index lookup calls, and retry templates, so agents can recover without
-parsing prose. If a caller sends more than one lookup mode, the error envelope
-uses the same recovery channel to return
-`recovery_hint.rejected_lookup.provided` plus `accepted_lookup_modes`, letting
+parsing prose. Those retry templates include package helper, CLI, and MCP forms,
+so library hosts do not need to infer helper names from command examples. If a
+caller sends more than one lookup mode, the error envelope uses the same
+recovery channel to return `recovery_hint.rejected_lookup.provided` plus
+`accepted_lookup_modes`, each with package, CLI, and MCP retry forms, letting
 agents remove the extra mode instead of guessing from the message text.
 CLI and MCP boundary validation errors for required options, option dependencies,
 non-empty strings, enum values, integer and number ranges, JSON object inputs,

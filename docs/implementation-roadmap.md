@@ -265,10 +265,11 @@ Deliverables:
   loading the full operation directory into context. Unknown operation ids, MCP
   tools, or CLI commands now return `error.recovery_hint` with the rejected
   lookup, available operation ids, compact index lookup calls, and retry
-  templates. Ambiguous lookup calls that provide more than one filter now
-  return `error.recovery_hint.rejected_lookup.provided` plus
-  `accepted_lookup_modes`, so agents can drop the extra lookup mode and retry
-  without parsing prose.
+  templates that include package helper, CLI, and MCP forms. Ambiguous lookup
+  calls that provide more than one filter now return
+  `error.recovery_hint.rejected_lookup.provided` plus `accepted_lookup_modes`
+  with the same package, CLI, and MCP retry forms, so agents can drop the extra
+  lookup mode and retry without parsing prose.
 - Done: CLI and MCP required-option, option-dependency, non-empty string, enum,
   integer/number-range, JSON-object, read-filter, project-init, sync-argument,
   store-path, event-path-component, schema-validation, write-core-field,
