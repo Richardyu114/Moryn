@@ -625,10 +625,11 @@ lookup commands. Each compact entry also carries an `execution_hint` with the
 required-input paths, including value-path reverse lookup for collected
 `user_input.*` values, so agents can decide whether to fetch details, collect
 inputs, or call the operation without recombining fields. Each entry's
-`full_contract_lookup` gives concrete package, CLI, and MCP calls for that
-operation, so agents do not need to substitute placeholders in the top-level
-lookup templates. Its `selection_sources` names the compact index paths,
-including `execution_hint`, the value-path required-input hint, and
+`operation_source` gives the concrete full-registry path for that operation, and
+`full_contract_lookup` gives concrete package, CLI, and MCP calls, so agents do
+not need to substitute placeholders in the top-level lookup templates. Its
+`selection_sources` names the compact index paths, including `operation_source`,
+`execution_hint`, the value-path required-input hint, and
 `full_contract_lookup`; package users can import
 `OPERATION_CONTRACT_INDEX_SELECTION_SOURCES` for the same index-specific map.
 When a

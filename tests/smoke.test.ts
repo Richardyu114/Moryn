@@ -197,6 +197,7 @@ describe("package smoke test", () => {
     expect(index.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
     expect(index.selection_sources).toEqual({
       operation: "operations_by_id.<operation>",
+      operation_source: "operations_by_id.<operation>.operation_source",
       mcp_tool_operation: "operations_by_mcp_tool.<tool>",
       cli_command_operation: "operations_by_cli_command.<command>",
       ordered_operation: "operations[]",
@@ -227,6 +228,7 @@ describe("package smoke test", () => {
     });
     expect(index.operations_by_id.agent_finish).toEqual({
       operation: "agent_finish",
+      operation_source: "operations_by_id.agent_finish",
       category: "lifecycle",
       summary: "Write a final session summary and push sync when appropriate.",
       safe_to_run: false,

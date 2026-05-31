@@ -212,6 +212,7 @@ export class OperationContractLookupConflictError extends Error {
 
 export type OperationContractIndexEntry = {
   operation: string;
+  operation_source: string;
   category: OperationCategory;
   summary: string;
   safe_to_run: boolean;
@@ -307,6 +308,7 @@ export const OPERATION_CONTRACTS_SELECTION_SOURCES = {
 
 export const OPERATION_CONTRACT_INDEX_SELECTION_SOURCES = {
   operation: OPERATION_CONTRACTS_SELECTION_SOURCES.operation,
+  operation_source: "operations_by_id.<operation>.operation_source",
   mcp_tool_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.mcp_tool_operation,
   cli_command_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_operation,
   ordered_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.ordered_operation,
@@ -1458,6 +1460,7 @@ function operationContractLookup(operation: string): OperationContractIndexEntry
 function operationContractIndexEntry(operation: OperationContract): OperationContractIndexEntry {
   return {
     operation: operation.operation,
+    operation_source: `operations_by_id.${operation.operation}`,
     category: operation.category,
     summary: operation.summary,
     safe_to_run: operation.safe_to_run,
