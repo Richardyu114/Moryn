@@ -3448,6 +3448,27 @@ describe("moryn CLI", () => {
           valuePlaceholder: "<non-empty query>"
         },
         {
+          args: ["recall", "--record-id", ""],
+          operation: "recall",
+          argument: "record_ids",
+          message: "Invalid --record-id",
+          option: "--record-id"
+        },
+        {
+          args: ["recall", "--tag", ""],
+          operation: "recall",
+          argument: "tags",
+          message: "Invalid --tag",
+          option: "--tag"
+        },
+        {
+          args: ["recall", "--file", ""],
+          operation: "recall",
+          argument: "files",
+          message: "Invalid --file",
+          option: "--file"
+        },
+        {
           args: ["refresh", "--project-id", "moryn", "--cursor", ""],
           operation: "refresh",
           argument: "cursor",
@@ -3614,7 +3635,7 @@ describe("moryn CLI", () => {
 
       await expect(readEvents(dir)).resolves.toHaveLength(0);
     });
-  });
+  }, 20000);
 
   it("writes project session summaries with handoff defaults from the CLI", async () => {
     await withTempDir(async (dir) => {

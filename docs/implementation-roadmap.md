@@ -392,6 +392,10 @@ Deliverables:
 - Done: CLI empty `recall ""` query failures now expose
   `operations_by_id.recall.arguments_by_name.query` instead of a generic
   non-empty-string hint.
+- Done: CLI empty recall filter failures for repeatable fields such as
+  `--record-id`, `--tag`, and `--file` now expose the matching
+  `operations_by_id.recall.arguments_by_name.*` sources instead of generic or
+  write-operation hints.
 - Done: `project_init` setup argument failures for path/project id/tags/default
   skills/sync mode/repair now expose `operations_by_id.project_init` recovery
   hints and argument sources; MCP `path`, `project_id`, and `sync_mode` shape
