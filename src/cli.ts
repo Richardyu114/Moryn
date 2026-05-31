@@ -70,7 +70,18 @@ type CliWriteSource = {
   operation: "write";
   argument: string;
 };
-type CliParserOperation = "write" | "refresh" | "sync_push" | "revise";
+type CliParserOperation =
+  | "write"
+  | "refresh"
+  | "sync_push"
+  | "revise"
+  | "agent_guide"
+  | "agent_enter"
+  | "agent_doctor"
+  | "agent_start"
+  | "agent_status"
+  | "agent_finish"
+  | "project_list";
 type CliParserArgumentSource = `operations_by_id.${CliParserOperation}.arguments_by_name.${string}`;
 type CliParserSource = {
   operation: CliParserOperation;
@@ -578,10 +589,18 @@ function parseNonEmptyString(value: string | undefined, option: string): string 
   return value;
 }
 
-function collectNonEmptyOption(option: string) {
+function parseNonEmptyCliString(value: string | undefined, option: string, source?: CliParserSource): string | undefined {
+  if (value === undefined) return undefined;
+  if (value.length === 0) {
+    throw nonEmptyCliArgumentError(option, source);
+  }
+  return value;
+}
+
+function collectNonEmptyOption(option: string, source?: CliParserSource) {
   return (value: string, previous: string[] = []): string[] => {
     if (value.length === 0) {
-      throw nonEmptyCliArgumentError(option);
+      throw nonEmptyCliArgumentError(option, source);
     }
     return [...previous, value];
   };
@@ -605,13 +624,22 @@ function parseBooleanDefault(value: unknown, fallback: boolean): boolean {
   return value === undefined ? fallback : Boolean(value);
 }
 
-function parseAgentOptions(options: { agent?: string; sessionId?: string; model?: string; deviceId?: string }) {
+function parseAgentOptions(options: { agent?: string; sessionId?: string; model?: string; deviceId?: string }, operation?: CliParserOperation) {
+  const source = operation === undefined ? undefined : { operation, argument: "agent" };
   return {
-    client: parseNonEmptyString(options.agent, "--agent") ?? "cli",
-    session_id: parseNonEmptyString(options.sessionId, "--session-id"),
-    model: parseNonEmptyString(options.model, "--model"),
-    device_id: parseNonEmptyString(options.deviceId, "--device-id")
+    client: parseNonEmptyCliString(options.agent, "--agent", source) ?? "cli",
+    session_id: parseNonEmptyCliString(options.sessionId, "--session-id", source),
+    model: parseNonEmptyCliString(options.model, "--model", source),
+    device_id: parseNonEmptyCliString(options.deviceId, "--device-id", source)
   };
+}
+
+function hasAgentOptions(options: { agent?: string; sessionId?: string; model?: string; deviceId?: string }): boolean {
+  return options.agent !== undefined || options.sessionId !== undefined || options.model !== undefined || options.deviceId !== undefined;
+}
+
+function lifecycleStringSource(operation: CliParserOperation, argument: string): CliParserSource {
+  return { operation, argument };
 }
 
 function compactUndefined<T extends Record<string, unknown>>(input: T): Record<string, unknown> {
@@ -1014,13 +1042,14 @@ agent.command("guide")
   .option("--model <model>")
   .option("--device-id <id>")
   .action(async (options) => {
+    const operation = "agent_guide";
     printJson(agentGuide({
       storePath: storePath(),
-      projectPath: options.project,
-      projectId: options.projectId,
-      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
-      agent: parseAgentOptions(options)
+      projectPath: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
+      projectId: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
+      syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+      currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+      agent: parseAgentOptions(options, operation)
     }));
   });
 
@@ -1037,14 +1066,15 @@ agent.command("enter")
   .option("--model <model>")
   .option("--device-id <id>")
   .action(async (options) => {
+    const operation = "agent_enter";
     const pull = parseBooleanDefault(options.pull, true);
-    const agentOptions = parseAgentOptions(options);
+    const agentOptions = parseAgentOptions(options, operation);
     const contextArguments = compactUndefined({
-      project_id: parseNonEmptyString(options.projectId, "--project-id"),
-      project_path: parseNonEmptyString(options.project, "--project"),
-      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
-      refresh_since: parseNonEmptyString(options.refreshSince, "--refresh-since"),
+      project_id: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
+      project_path: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
+      sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+      refresh_since: parseNonEmptyCliString(options.refreshSince, "--refresh-since", lifecycleStringSource(operation, "refresh_since")),
       ...(options.limit !== "20" ? { limit: parseLimit(options.limit, "agent_enter") } : {}),
       ...(pull === false ? { pull } : {}),
       agent: agentOptions
@@ -1059,9 +1089,9 @@ agent.command("enter")
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
-        syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-        currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
-        refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
+        syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+        currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+        refreshSince: parseNonEmptyCliString(options.refreshSince, "--refresh-since", lifecycleStringSource(operation, "refresh_since")),
         limit: parseLimit(options.limit, "agent_enter"),
         pull,
         agent: agentOptions
@@ -1082,13 +1112,14 @@ agent.command("doctor")
   .option("--model <model>")
   .option("--device-id <id>")
   .action(async (options) => {
+    const operation = "agent_doctor";
     printJson(await agentDoctor({
       storePath: storePath(),
-      projectPath: options.project,
-      projectId: options.projectId,
-      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
-      agent: parseAgentOptions(options)
+      projectPath: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
+      projectId: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
+      syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+      currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+      agent: parseAgentOptions(options, operation)
     }));
   });
 
@@ -1105,14 +1136,15 @@ agent.command("start")
   .option("--model <model>")
   .option("--device-id <id>")
   .action(async (options) => {
+    const operation = "agent_start";
     const pull = parseBooleanDefault(options.pull, true);
-    const agentOptions = parseAgentOptions(options);
+    const agentOptions = parseAgentOptions(options, operation);
     const contextArguments = compactUndefined({
-      project_id: parseNonEmptyString(options.projectId, "--project-id"),
-      project_path: parseNonEmptyString(options.project, "--project"),
-      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
-      refresh_since: parseNonEmptyString(options.refreshSince, "--refresh-since"),
+      project_id: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
+      project_path: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
+      sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+      refresh_since: parseNonEmptyCliString(options.refreshSince, "--refresh-since", lifecycleStringSource(operation, "refresh_since")),
       ...(options.limit !== "20" ? { limit: parseLimit(options.limit, "agent_start") } : {}),
       ...(pull === false ? { pull } : {}),
       agent: agentOptions
@@ -1127,9 +1159,9 @@ agent.command("start")
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
-        syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-        currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
-        refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
+        syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+        currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+        refreshSince: parseNonEmptyCliString(options.refreshSince, "--refresh-since", lifecycleStringSource(operation, "refresh_since")),
         limit: parseLimit(options.limit, "agent_start"),
         pull,
         agent: agentOptions
@@ -1152,14 +1184,15 @@ agent.command("status")
   .option("--model <model>")
   .option("--device-id <id>")
   .action(async (options) => {
+    const operation = "agent_status";
     const push = parseBooleanDefault(options.push, true);
-    const agentOptions = parseAgentOptions(options);
-    const status = parseNonEmptyString(options.status, "--status")!;
+    const agentOptions = parseAgentOptions(options, operation);
+    const status = parseNonEmptyCliString(options.status, "--status", lifecycleStringSource(operation, "status"))!;
     const contextInput = {
-      project_id: parseNonEmptyString(options.projectId, "--project-id"),
-      project_path: parseNonEmptyString(options.project, "--project"),
-      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
+      project_id: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
+      project_path: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
+      sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
       status,
       ...(push === false ? { push } : {}),
       agent: agentOptions
@@ -1175,8 +1208,8 @@ agent.command("status")
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
-        syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-        currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+        syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+        currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
         status,
         push,
         agent: agentOptions
@@ -1199,14 +1232,15 @@ agent.command("finish")
   .option("--model <model>")
   .option("--device-id <id>")
   .action(async (options) => {
+    const operation = "agent_finish";
     const push = parseBooleanDefault(options.push, true);
-    const agentOptions = parseAgentOptions(options);
-    const summary = parseNonEmptyString(options.summary, "--summary")!;
+    const agentOptions = parseAgentOptions(options, operation);
+    const summary = parseNonEmptyCliString(options.summary, "--summary", lifecycleStringSource(operation, "summary"))!;
     const contextInput = {
-      project_id: parseNonEmptyString(options.projectId, "--project-id"),
-      project_path: parseNonEmptyString(options.project, "--project"),
-      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
+      project_id: parseNonEmptyCliString(options.projectId, "--project-id", lifecycleStringSource(operation, "project_id")),
+      project_path: parseNonEmptyCliString(options.project, "--project", lifecycleStringSource(operation, "project_path")),
+      sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
       summary,
       ...(push === false ? { push } : {}),
       agent: agentOptions
@@ -1222,8 +1256,8 @@ agent.command("finish")
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
-        syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-        currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+        syncRemote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+        currentTask: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
         summary,
         push,
         agent: agentOptions
@@ -1268,13 +1302,13 @@ project.command("list")
   .option("--device-id <id>", "Agent device id to prefill in each agent_start next action")
   .action(async (options) => {
     const engine = createCliEngine();
+    const operation = "project_list";
+    const agentOptions = hasAgentOptions(options) ? parseAgentOptions(options, operation) : undefined;
     printJson(await engine.listProjects({
       limit: parseLimit(options.limit, "project_list"),
-      current_task: parseNonEmptyString(options.currentTask, "--current-task"),
-      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
-      agent: options.agent || options.sessionId || options.model || options.deviceId
-        ? parseAgentOptions(options)
-        : undefined
+      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
+      sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
+      agent: agentOptions
     }));
   });
 

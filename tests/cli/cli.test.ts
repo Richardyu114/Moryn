@@ -3289,6 +3289,97 @@ describe("moryn CLI", () => {
           argument: "message",
           message: "Invalid --message",
           option: "--message"
+        },
+        {
+          args: ["agent", "start", "--project-id", ""],
+          operation: "agent_start",
+          argument: "project_id",
+          message: "Invalid --project-id",
+          option: "--project-id"
+        },
+        {
+          args: ["agent", "start", "--current-task", ""],
+          operation: "agent_start",
+          argument: "current_task",
+          message: "Invalid --current-task",
+          option: "--current-task"
+        },
+        {
+          args: ["agent", "start", "--session-id", ""],
+          operation: "agent_start",
+          argument: "agent",
+          message: "Invalid --session-id",
+          option: "--session-id"
+        },
+        {
+          args: ["agent", "guide", "--sync-remote", ""],
+          operation: "agent_guide",
+          argument: "sync_remote",
+          message: "Invalid --sync-remote",
+          option: "--sync-remote"
+        },
+        {
+          args: ["agent", "guide", "--project-id", ""],
+          operation: "agent_guide",
+          argument: "project_id",
+          message: "Invalid --project-id",
+          option: "--project-id"
+        },
+        {
+          args: ["agent", "doctor", "--project", ""],
+          operation: "agent_doctor",
+          argument: "project_path",
+          message: "Invalid --project",
+          option: "--project"
+        },
+        {
+          args: ["agent", "enter", "--refresh-since", ""],
+          operation: "agent_enter",
+          argument: "refresh_since",
+          message: "Invalid --refresh-since",
+          option: "--refresh-since"
+        },
+        {
+          args: ["agent", "status", "--status", ""],
+          operation: "agent_status",
+          argument: "status",
+          message: "Invalid --status",
+          option: "--status"
+        },
+        {
+          args: ["agent", "finish", "--summary", ""],
+          operation: "agent_finish",
+          argument: "summary",
+          message: "Invalid --summary",
+          option: "--summary"
+        },
+        {
+          args: ["project", "list", "--current-task", ""],
+          operation: "project_list",
+          argument: "current_task",
+          message: "Invalid --current-task",
+          option: "--current-task"
+        },
+        {
+          args: ["project", "list", "--sync-remote", ""],
+          operation: "project_list",
+          argument: "sync_remote",
+          message: "Invalid --sync-remote",
+          option: "--sync-remote"
+        },
+        {
+          args: ["project", "list", "--agent", ""],
+          operation: "project_list",
+          argument: "agent",
+          message: "Invalid --agent",
+          option: "--agent"
+        },
+        {
+          args: ["project", "list", "--session-id", ""],
+          operation: "project_list",
+          argument: "agent",
+          message: "Invalid --session-id",
+          option: "--session-id"
         }
       ]) {
         try {

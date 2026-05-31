@@ -360,6 +360,10 @@ Deliverables:
   cursors, and sync push messages, plus malformed `revise --set` assignments,
   now expose operation contract and argument source hints before lower-level
   validation runs.
+- Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
+  fields, `agent_status --status`, `agent_finish --summary`, and `project list`
+  prefill fields now expose operation contract and argument source hints; empty
+  explicit agent prefill values are rejected instead of silently ignored.
 - Done: CLI sync parser failures for conflicting `--status`/`--push`/`--pull`
   flags now return operation contracts for each selectable sync operation, and
   `--message` without `--push` points at

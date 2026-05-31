@@ -812,10 +812,13 @@ read and lifecycle startup commands, plus enum options such as `--kind`,
 range failures, and missing write `--kind`/`--type`/`--scope` options expose the
 same operation contract and `arguments_by_name.<argument>` source before control
 reaches the core engine. Empty CLI strings for write text/tags/provenance,
-refresh cursors, and sync messages, plus malformed `revise --set` assignments,
-use the same source-backed recovery channel. Conflicting `moryn sync`
-operation flags now include `operation_contracts` for `sync_status`,
-`sync_push`, and `sync_pull`, and `--message` without `--push` points at
+refresh cursors, sync messages, lifecycle project/task/sync/agent/status/summary
+inputs, and `project list` task/sync/agent prefill inputs, plus malformed
+`revise --set` assignments, use the same source-backed recovery channel.
+Explicit empty agent prefill fields such as `project list --agent ""` are
+rejected instead of being ignored. Conflicting `moryn sync` operation flags now
+include `operation_contracts` for `sync_status`, `sync_push`, and `sync_pull`,
+and `--message` without `--push` points at
 `operations_by_id.sync_push.arguments_by_name.message`.
 CLI error envelopes recursively translate known `argument` fields in
 `recovery_hint` to command-line `option` names such as `--project`,
