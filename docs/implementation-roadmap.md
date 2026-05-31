@@ -339,6 +339,11 @@ Deliverables:
   `link_type`, `confirmed`, or `target_state` values; the mutation contracts
   include nested `source_client` metadata so MCP callers can repair
   `source.client` payloads without guessing object paths.
+- Done: Core read argument failures for `recall`, `boot`, `refresh`,
+  `list_recent`, and `project_list` now expose the matching operation contract
+  plus `argument_sources` for invalid filters, cursors, tasks, project ids, and
+  limits; RFC3339 refresh cursor errors also point at
+  `operations_by_id.refresh.arguments_by_name.cursor`.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

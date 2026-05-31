@@ -743,6 +743,12 @@ for invalid `record_id`, `linked_record_id`, `reason`, `source.client`,
 declare `arguments_by_name.source_client` with the nested MCP path
 `source.client`, so callers can retry source metadata without guessing the
 object shape.
+Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
+`project_list` also expose the matching operation contract and
+`argument_sources` for invalid filters, cursors, task context, project ids, and
+limits. RFC3339 cursor failures point to
+`operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
+through lifecycle refresh-since arguments.
 At the CLI boundary, known `argument` fields inside `error.recovery_hint` are
 recursively translated to command-line `option` fields such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`; MCP and package callers keep

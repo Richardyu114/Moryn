@@ -6286,8 +6286,10 @@ describe("moryn CLI", () => {
             recoverable: boolean;
             recommended_action: string;
             recovery_hint: {
+              operation_contract: string;
               rejected_argument: { option: string; value: string };
               expected: { kind: string; format: string; source: string };
+              argument_sources: Record<string, string>;
               retry_with: { option: string; value_source: string; value_placeholder: string };
             };
           };
@@ -6298,11 +6300,15 @@ describe("moryn CLI", () => {
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
         expect(parsed.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.refresh",
           rejected_argument: { option: "--cursor", value: "not-a-date" },
           expected: {
             kind: "iso_datetime",
             format: "RFC3339 timestamp with timezone",
             source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+          },
+          argument_sources: {
+            cursor: "operations_by_id.refresh.arguments_by_name.cursor"
           },
           retry_with: {
             option: "--cursor",
@@ -6339,8 +6345,10 @@ describe("moryn CLI", () => {
               code: string;
               recommended_action: string;
               recovery_hint: {
+                operation_contract: string;
                 rejected_argument: { option: string; value: string };
                 expected: { kind: string; format: string; source: string };
+                argument_sources: Record<string, string>;
                 retry_with: { option: string; value_source: string; value_placeholder: string };
               };
             };
@@ -6349,11 +6357,15 @@ describe("moryn CLI", () => {
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
           expect(parsed.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.refresh",
             rejected_argument: { option: "--refresh-since", value: "not-a-date" },
             expected: {
               kind: "iso_datetime",
               format: "RFC3339 timestamp with timezone",
               source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+            },
+            argument_sources: {
+              cursor: "operations_by_id.refresh.arguments_by_name.cursor"
             },
             retry_with: {
               option: "--refresh-since",

@@ -803,6 +803,10 @@ for `record_id`, `linked_record_id`, `reason`, `source.client`, `link_type`,
 `confirmed`, or `target_state` as applicable. Those mutation contracts expose a
 nested `source_client` entry under `arguments_by_name`, so MCP hosts can recover
 from invalid `source.client` payloads without inventing the nested path.
+Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
+`project_list` likewise include the matching operation contract plus
+`argument_sources` for invalid filters, cursors, tasks, project ids, and limits,
+including RFC3339 refresh cursor failures.
 CLI error envelopes recursively translate known `argument` fields in
 `recovery_hint` to command-line `option` names such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`, so CLI agents can render a

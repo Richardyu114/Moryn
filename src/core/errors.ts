@@ -94,6 +94,8 @@ export interface MorynErrorContext {
 
 const REFRESH_CURSOR_SOURCE = "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor";
 const REFRESH_CURSOR_RECOMMENDED_ACTION = "retry with a refresh cursor returned by Moryn";
+const REFRESH_OPERATION_CONTRACT_SOURCE = "operations_by_id.refresh";
+const REFRESH_CURSOR_ARGUMENT_SOURCE = "operations_by_id.refresh.arguments_by_name.cursor";
 const PROJECT_SCOPE_CONTEXT_REQUIRED_MESSAGE = "Invalid argument: project_id is required for project scope";
 const PROJECT_SCOPE_CONTEXT_REQUIRED_RECOMMENDED_ACTION = "run moryn project list, then retry with a known project_id";
 const PROJECT_CONTEXT_PROJECT_ID_SOURCE = "project_list.projects_by_id.<project_id>.project_id";
@@ -101,12 +103,14 @@ const PROJECT_CONTEXT_PROJECT_ID_SOURCE = "project_list.projects_by_id.<project_
 export class InvalidRefreshCursorError extends Error {
   readonly recommended_action = REFRESH_CURSOR_RECOMMENDED_ACTION;
   readonly recovery_hint: {
+    operation_contract: typeof REFRESH_OPERATION_CONTRACT_SOURCE;
     rejected_argument: { argument: "cursor"; value: string };
     expected: {
       kind: "iso_datetime";
       format: "RFC3339 timestamp with timezone";
       source: typeof REFRESH_CURSOR_SOURCE;
     };
+    argument_sources: { cursor: typeof REFRESH_CURSOR_ARGUMENT_SOURCE };
     retry_with: {
       argument: "cursor";
       value_source: "previous Moryn response cursor field";
@@ -118,12 +122,14 @@ export class InvalidRefreshCursorError extends Error {
     super("Invalid argument: Invalid cursor");
     this.name = "InvalidRefreshCursorError";
     this.recovery_hint = {
+      operation_contract: REFRESH_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "cursor", value },
       expected: {
         kind: "iso_datetime",
         format: "RFC3339 timestamp with timezone",
         source: REFRESH_CURSOR_SOURCE
       },
+      argument_sources: { cursor: REFRESH_CURSOR_ARGUMENT_SOURCE },
       retry_with: {
         argument: "cursor",
         value_source: "previous Moryn response cursor field",

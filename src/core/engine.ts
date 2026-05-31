@@ -363,6 +363,10 @@ interface LinkInput {
   source?: RecordSource;
 }
 
+type ReadOperation = "recall" | "boot" | "refresh" | "list_recent" | "project_list";
+type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
+type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.${string}`;
+
 type MutationOperation = "revise" | "promote" | "archive" | "quarantine" | "link";
 type MutationOperationContractSource = `operations_by_id.${MutationOperation}`;
 type MutationArgumentName = "record_id" | "linked_record_id" | "reason" | "source.client" | "link_type" | "confirmed" | "target_state";
@@ -376,10 +380,10 @@ function searchableText(record: MorynRecord): string {
   return searchableRecordText(record);
 }
 
-function validateLimit(limit: number | undefined, fallback: number): number {
+function validateLimit(limit: number | undefined, fallback: number, operation: ReadOperation): number {
   const resolved = limit ?? fallback;
   if (!Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
-    throw invalidReadLimitError(resolved);
+    throw invalidReadLimitError(operation, resolved);
   }
   return resolved;
 }
@@ -524,23 +528,31 @@ function invalidGenericSourceClientError(source: unknown, recommendedAction: str
 
 type ReadArgumentRecoveryHint =
   | {
+      operation_contract: ReadOperationContractSource;
       rejected_argument: { argument: string; value: unknown };
       expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: Record<string, ReadArgumentSource>;
       retry_with: { argument: string; value_placeholder: string };
     }
   | {
+      operation_contract: ReadOperationContractSource;
       rejected_argument: { argument: string; value: unknown };
       expected: { kind: "array_of_non_empty_strings" };
+      argument_sources: Record<string, ReadArgumentSource>;
       retry_with: { argument: string; value_placeholder: string[] };
     }
   | {
+      operation_contract: ReadOperationContractSource;
       rejected_argument: { argument: string; value: unknown };
       expected: { kind: "array_of_allowed_values"; allowed_values: string[] };
+      argument_sources: Record<string, ReadArgumentSource>;
       retry_with: { argument: string; value_placeholder: string[] };
     }
   | {
+      operation_contract: ReadOperationContractSource;
       rejected_argument: { argument: "limit"; value: unknown };
       expected: { kind: "integer_range"; min: 1; max: 100; integer: true };
+      argument_sources: { limit: ReadArgumentSource };
       retry_with: { argument: "limit"; value_placeholder: 10 };
     };
 
@@ -556,13 +568,23 @@ class ReadArgumentError extends Error {
   }
 }
 
-function invalidReadLimitError(limit: unknown): ReadArgumentError {
+function readOperationContractSource(operation: ReadOperation): ReadOperationContractSource {
+  return `operations_by_id.${operation}`;
+}
+
+function readArgumentSource(operation: ReadOperation, argument: string): ReadArgumentSource {
+  return `operations_by_id.${operation}.arguments_by_name.${argument}`;
+}
+
+function invalidReadLimitError(operation: ReadOperation, limit: unknown): ReadArgumentError {
   return new ReadArgumentError(
     "Invalid argument: Invalid limit; must be an integer between 1 and 100",
     "retry read with a limit between 1 and 100",
     {
+      operation_contract: readOperationContractSource(operation),
       rejected_argument: { argument: "limit", value: limit },
       expected: { kind: "integer_range", min: 1, max: 100, integer: true },
+      argument_sources: { limit: readArgumentSource(operation, "limit") },
       retry_with: { argument: "limit", value_placeholder: 10 }
     }
   );
@@ -572,32 +594,37 @@ function readPlaceholder(name: string): string {
   return `<${name}>`;
 }
 
-function invalidReadStringError(name: string, value: unknown): ReadArgumentError {
+function invalidReadStringError(operation: ReadOperation, name: string, value: unknown): ReadArgumentError {
   return new ReadArgumentError(
     `Invalid argument: Invalid ${name}`,
     `retry read with a non-empty ${name}`,
     {
+      operation_contract: readOperationContractSource(operation),
       rejected_argument: { argument: name, value },
       expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: { [name]: readArgumentSource(operation, name) },
       retry_with: { argument: name, value_placeholder: readPlaceholder(name) }
     }
   );
 }
 
-function invalidReadStringArrayError(name: string, value: unknown): ReadArgumentError {
+function invalidReadStringArrayError(operation: ReadOperation, name: string, value: unknown): ReadArgumentError {
   const singular = name.endsWith("s") ? name.slice(0, -1) : name;
   return new ReadArgumentError(
     `Invalid argument: Invalid ${name}`,
     `retry read with ${name} as non-empty strings`,
     {
+      operation_contract: readOperationContractSource(operation),
       rejected_argument: { argument: name, value },
       expected: { kind: "array_of_non_empty_strings" },
+      argument_sources: { [name]: readArgumentSource(operation, name) },
       retry_with: { argument: name, value_placeholder: [readPlaceholder(singular)] }
     }
   );
 }
 
 function invalidReadEnumArrayError<T extends string>(
+  operation: ReadOperation,
   name: string,
   value: unknown,
   allowedValues: readonly T[],
@@ -607,8 +634,10 @@ function invalidReadEnumArrayError<T extends string>(
     `Invalid argument: Invalid ${name}`,
     `retry read with supported ${name}`,
     {
+      operation_contract: readOperationContractSource(operation),
       rejected_argument: { argument: name, value },
       expected: { kind: "array_of_allowed_values", allowed_values: [...allowedValues] },
+      argument_sources: { [name]: readArgumentSource(operation, name) },
       retry_with: { argument: name, value_placeholder: [placeholder] }
     }
   );
@@ -647,17 +676,20 @@ function validateOptionalConfirmed(operation: MutationOperation, confirmed: unkn
   if (confirmed !== undefined && typeof confirmed !== "boolean") throw invalidMutationConfirmedError(operation, confirmed);
 }
 
-function validateOptionalString(value: unknown, name: string): void {
-  if (value !== undefined && (typeof value !== "string" || !value.length)) throw invalidReadStringError(name, value);
+function validateOptionalString(operation: ReadOperation, value: unknown, name: string): void {
+  if (value !== undefined && (typeof value !== "string" || !value.length)) {
+    throw invalidReadStringError(operation, name, value);
+  }
 }
 
-function validateOptionalStringArray(value: unknown, name: string): void {
+function validateOptionalStringArray(operation: ReadOperation, value: unknown, name: string): void {
   if (value !== undefined && (!Array.isArray(value) || !value.every((item) => typeof item === "string" && item.length > 0))) {
-    throw invalidReadStringArrayError(name, value);
+    throw invalidReadStringArrayError(operation, name, value);
   }
 }
 
 function validateOptionalEnumArray<T extends string>(
+  operation: ReadOperation,
   value: unknown,
   name: string,
   schema: { safeParse: (value: unknown) => { success: boolean } },
@@ -665,7 +697,7 @@ function validateOptionalEnumArray<T extends string>(
   placeholder: T
 ): void {
   if (value !== undefined && (!Array.isArray(value) || !value.every((item): item is T => schema.safeParse(item).success))) {
-    throw invalidReadEnumArrayError(name, value, allowedValues, placeholder);
+    throw invalidReadEnumArrayError(operation, name, value, allowedValues, placeholder);
   }
 }
 
@@ -1221,39 +1253,39 @@ function validateLinkInput(input: LinkInput): void {
 
 function validateRecallInput(input: RecallInput): void {
   assertPlainObject(input, "recall input");
-  validateOptionalStringArray(input.record_ids, "record_ids");
-  validateOptionalString(input.query, "query");
-  validateOptionalString(input.project_id, "project_id");
-  validateOptionalEnumArray<RecordKind>(input.kinds, "kinds", recordKindSchema, RECORD_KINDS, "memory");
-  validateOptionalEnumArray<RecordScope>(input.scopes, "scopes", recordScopeSchema, RECORD_SCOPES, "project");
-  validateOptionalStringArray(input.types, "types");
-  validateOptionalEnumArray<RecordState>(input.states, "states", recordStateSchema, RECORD_STATES, "canonical");
-  validateOptionalStringArray(input.tags, "tags");
-  validateOptionalStringArray(input.files, "files");
+  validateOptionalStringArray("recall", input.record_ids, "record_ids");
+  validateOptionalString("recall", input.query, "query");
+  validateOptionalString("recall", input.project_id, "project_id");
+  validateOptionalEnumArray<RecordKind>("recall", input.kinds, "kinds", recordKindSchema, RECORD_KINDS, "memory");
+  validateOptionalEnumArray<RecordScope>("recall", input.scopes, "scopes", recordScopeSchema, RECORD_SCOPES, "project");
+  validateOptionalStringArray("recall", input.types, "types");
+  validateOptionalEnumArray<RecordState>("recall", input.states, "states", recordStateSchema, RECORD_STATES, "canonical");
+  validateOptionalStringArray("recall", input.tags, "tags");
+  validateOptionalStringArray("recall", input.files, "files");
 }
 
 function validateBootInput(input: BootInput): void {
   assertPlainObject(input, "boot input");
-  validateOptionalString(input.project_id, "project_id");
-  validateOptionalStringArray(input.default_skills, "default_skills");
-  validateOptionalString(input.current_task, "current_task");
+  validateOptionalString("boot", input.project_id, "project_id");
+  validateOptionalStringArray("boot", input.default_skills, "default_skills");
+  validateOptionalString("boot", input.current_task, "current_task");
 }
 
 function validateRefreshInput(input: RefreshInput): void {
   assertPlainObject(input, "refresh input");
-  validateOptionalString(input.project_id, "project_id");
-  validateOptionalString(input.cursor, "cursor");
+  validateOptionalString("refresh", input.project_id, "project_id");
+  validateOptionalString("refresh", input.cursor, "cursor");
   const cursor = input.cursor;
   if (typeof cursor === "string" && !isoDateTimeSchema.safeParse(cursor).success) {
     throw new InvalidRefreshCursorError(cursor);
   }
-  validateOptionalString(input.current_task, "current_task");
+  validateOptionalString("refresh", input.current_task, "current_task");
 }
 
 function validateListProjectsInput(input: ListProjectsInput): void {
   assertPlainObject(input, "list projects input");
-  validateOptionalString(input.current_task, "current_task");
-  validateOptionalString(input.sync_remote, "sync_remote");
+  validateOptionalString("project_list", input.current_task, "current_task");
+  validateOptionalString("project_list", input.sync_remote, "sync_remote");
   validateOptionalSource(input.agent);
 }
 
@@ -2063,7 +2095,7 @@ export function createEngine(deps: EngineDeps) {
       for (const recordId of input.record_ids ?? []) {
         await requireRecord(recordId);
       }
-      const limit = validateLimit(input.limit, 10);
+      const limit = validateLimit(input.limit, 10, "recall");
       const records = (await currentRecords())
         .filter((record) => includesHiddenState(input) || includesRawState(input) || isVisibleInDefaultRecall(record))
         .filter((record) => recordProjectMatchesRecall(record, input))
@@ -2153,7 +2185,7 @@ export function createEngine(deps: EngineDeps) {
 
     async refresh(input: RefreshInput) {
       validateRefreshInput(input);
-      const limit = validateLimit(input.limit, 20);
+      const limit = validateLimit(input.limit, 20, "refresh");
       const records = (await currentRecords())
         .filter(isVisibleByDefault)
         .filter((record) => recordBootContextMatches(record, input.project_id))
@@ -2188,7 +2220,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async listRecent(limit = 20) {
-      const records = (await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20));
+      const records = (await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20, "list_recent"));
       return {
         records,
         selection_sources: LIST_RECENT_SELECTION_SOURCES,
@@ -2198,7 +2230,7 @@ export function createEngine(deps: EngineDeps) {
 
     async listProjects(input: ListProjectsInput = {}) {
       validateListProjectsInput(input);
-      const limit = validateLimit(input.limit, 20);
+      const limit = validateLimit(input.limit, 20, "project_list");
       const byProject = new Map<string, MorynRecord[]>();
 
       for (const record of (await currentRecords()).filter(isVisibleByDefault)) {

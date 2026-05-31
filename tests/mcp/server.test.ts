@@ -6528,8 +6528,10 @@ describe("MCP stdio server", () => {
             recoverable: boolean;
             recommended_action: string;
             recovery_hint: {
+              operation_contract: string;
               rejected_argument: { argument: string; value: string };
               expected: { kind: string; format: string; source: string };
+              argument_sources: Record<string, string>;
               retry_with: { argument: string; value_source: string; value_placeholder: string };
             };
           };
@@ -6540,11 +6542,15 @@ describe("MCP stdio server", () => {
         expect(invalidCursor.error.recoverable).toBe(true);
         expect(invalidCursor.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
         expect(invalidCursor.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.refresh",
           rejected_argument: { argument: "cursor", value: "not-a-date" },
           expected: {
             kind: "iso_datetime",
             format: "RFC3339 timestamp with timezone",
             source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+          },
+          argument_sources: {
+            cursor: "operations_by_id.refresh.arguments_by_name.cursor"
           },
           retry_with: {
             argument: "cursor",
@@ -6561,8 +6567,10 @@ describe("MCP stdio server", () => {
             code: string;
             recommended_action: string;
             recovery_hint: {
+              operation_contract: string;
               rejected_argument: { argument: string; value: string };
               expected: { kind: string; format: string; source: string };
+              argument_sources: Record<string, string>;
               retry_with: { argument: string; value_source: string; value_placeholder: string };
             };
           };
@@ -6571,11 +6579,15 @@ describe("MCP stdio server", () => {
         expect(invalidAgentCursor.error.code).toBe("INVALID_ARGUMENT");
         expect(invalidAgentCursor.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
         expect(invalidAgentCursor.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.refresh",
           rejected_argument: { argument: "refresh_since", value: "not-a-date" },
           expected: {
             kind: "iso_datetime",
             format: "RFC3339 timestamp with timezone",
             source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+          },
+          argument_sources: {
+            cursor: "operations_by_id.refresh.arguments_by_name.cursor"
           },
           retry_with: {
             argument: "refresh_since",
@@ -6591,11 +6603,15 @@ describe("MCP stdio server", () => {
         expect(invalidAgentEnterCursor.error.code).toBe("INVALID_ARGUMENT");
         expect(invalidAgentEnterCursor.error.recommended_action).toBe("retry with a refresh cursor returned by Moryn");
         expect(invalidAgentEnterCursor.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.refresh",
           rejected_argument: { argument: "refresh_since", value: "not-a-date" },
           expected: {
             kind: "iso_datetime",
             format: "RFC3339 timestamp with timezone",
             source: "refresh.cursor, boot.sync.cursor, agent_start.refresh.cursor, or agent_enter.start.refresh.cursor"
+          },
+          argument_sources: {
+            cursor: "operations_by_id.refresh.arguments_by_name.cursor"
           },
           retry_with: {
             argument: "refresh_since",
