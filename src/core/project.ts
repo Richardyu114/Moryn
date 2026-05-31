@@ -34,16 +34,19 @@ export interface ProjectContext {
 }
 
 export interface InitializeProjectConfigInput {
-  project_id?: string;
+  project_id?: unknown;
   tags?: unknown;
   default_skills?: unknown;
-  sync?: { mode?: SyncMode };
-  repair?: boolean;
+  sync?: { mode?: unknown };
+  repair?: unknown;
 }
 
 type ValidatedInitializeProjectConfigInput = InitializeProjectConfigInput & {
+  project_id?: string;
   tags?: string[];
   default_skills?: string[];
+  sync?: { mode?: SyncMode };
+  repair?: boolean;
 };
 
 export const PROJECT_INIT_SELECTION_SOURCES = {
@@ -409,7 +412,7 @@ export async function readProjectConfig(projectPath: string): Promise<ProjectCon
   return (await findProjectConfig(projectPath))?.config;
 }
 
-export async function initializeProjectConfig(projectPath: string, input: InitializeProjectConfigInput = {}): Promise<InitializeProjectConfigResult> {
+export async function initializeProjectConfig(projectPath: unknown, input: InitializeProjectConfigInput = {}): Promise<InitializeProjectConfigResult> {
   validateRequiredString(projectPath, "projectPath", "project_init");
   validateInitializeProjectConfigInput(input);
   const resolved = resolve(projectPath);

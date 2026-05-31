@@ -49,6 +49,7 @@ const syncModeSchema = z.union([z.enum(SYNC_MODES), stringSchema]);
 const numberSchema = z.number();
 const coreValidatedNumberSchema = z.unknown();
 const coreValidatedBooleanSchema = z.unknown();
+const coreValidatedSyncModeSchema = z.unknown();
 const coreValidatedRecordKindSchema = z.unknown();
 const coreValidatedRecordScopeSchema = z.unknown();
 const coreValidatedRecordStateSchema = z.unknown();
@@ -221,11 +222,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Initialize Moryn Project Config",
       description: "Create or update a .moryn.json project config.",
       inputSchema: {
-        path: stringSchema,
-        project_id: stringSchema.optional(),
+        path: coreValidatedStringSchema,
+        project_id: coreValidatedStringSchema.optional(),
         tags: z.unknown().optional(),
         default_skills: z.unknown().optional(),
-        sync_mode: syncModeSchema.optional(),
+        sync_mode: coreValidatedSyncModeSchema.optional(),
         repair: coreValidatedBooleanSchema.optional()
       }
     },

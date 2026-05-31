@@ -8325,6 +8325,68 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "path", value_placeholder: "<path>" }
         });
 
+        const invalidProjectInitPathShape = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: 123
+          }
+        })) as typeof invalidRepair;
+        expect(invalidProjectInitPathShape.ok).toBe(false);
+        expect(invalidProjectInitPathShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProjectInitPathShape.error.message).toContain("Invalid projectPath");
+        expect(invalidProjectInitPathShape.error.recommended_action).toBe("retry project init with a non-empty path");
+        expect(invalidProjectInitPathShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_init",
+          rejected_argument: { argument: "path", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            path: "operations_by_id.project_init.arguments_by_name.path"
+          },
+          retry_with: { argument: "path", value_placeholder: "<path>" }
+        });
+
+        const invalidProjectInitProjectIdShape = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: projectPath,
+            project_id: 123
+          }
+        })) as typeof invalidRepair;
+        expect(invalidProjectInitProjectIdShape.ok).toBe(false);
+        expect(invalidProjectInitProjectIdShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProjectInitProjectIdShape.error.message).toContain("Invalid project_id");
+        expect(invalidProjectInitProjectIdShape.error.recommended_action).toBe("retry project init with a non-empty project_id");
+        expect(invalidProjectInitProjectIdShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_init",
+          rejected_argument: { argument: "project_id", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            project_id: "operations_by_id.project_init.arguments_by_name.project_id"
+          },
+          retry_with: { argument: "project_id", value_placeholder: "<project_id>" }
+        });
+
+        const invalidProjectInitSyncModeShape = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: projectPath,
+            sync_mode: 123
+          }
+        })) as typeof invalidRepair;
+        expect(invalidProjectInitSyncModeShape.ok).toBe(false);
+        expect(invalidProjectInitSyncModeShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProjectInitSyncModeShape.error.message).toContain("Invalid sync_mode");
+        expect(invalidProjectInitSyncModeShape.error.recommended_action).toBe("retry project init with a supported sync_mode");
+        expect(invalidProjectInitSyncModeShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_init",
+          rejected_argument: { argument: "sync_mode", value: 123 },
+          expected: { kind: "allowed_values", allowed_values: ["manual", "session", "interval", "auto"] },
+          argument_sources: {
+            sync_mode: "operations_by_id.project_init.arguments_by_name.sync_mode"
+          },
+          retry_with: { argument: "sync_mode", value_placeholder: "session" }
+        });
+
         const invalidProjectInitTags = parseTextContent(await client.callTool({
           name: "project_init",
           arguments: {

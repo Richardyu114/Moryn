@@ -377,8 +377,9 @@ Deliverables:
   validation runs.
 - Done: `project_init` setup argument failures for path/project id/tags/default
   skills/sync mode/repair now expose `operations_by_id.project_init` recovery
-  hints and argument sources; MCP `path` failures pass through core validation
-  instead of host-side schema text, and CLI renders the retry field as `--path`.
+  hints and argument sources; MCP `path`, `project_id`, and `sync_mode` shape
+  failures pass through core validation instead of host-side schema text, and
+  CLI renders the retry field as `--path`.
 - Done: `init` repair argument failures now expose `operations_by_id.init`
   recovery hints and `arguments_by_name.repair`; MCP `repair` failures pass
   through core validation instead of host-side schema text, preventing string
@@ -448,9 +449,11 @@ Deliverables:
   `operations_by_id.boot.arguments_by_name.current_task` or
   `operations_by_id.refresh.arguments_by_name.current_task` instead of
   host-side schema text.
-- Done: MCP `project_init.tags` and `project_init.default_skills` shape
-  failures now pass through core validation, including single-string tag and
-  skill selector values, and expose the matching
+- Done: MCP `project_init.path`, `project_init.project_id`,
+  `project_init.sync_mode`, `project_init.tags`, and
+  `project_init.default_skills` shape failures now pass through core
+  validation, including numeric path/project/sync-mode values and
+  single-string tag or skill selector values, and expose the matching
   `operations_by_id.project_init.arguments_by_name.*` sources instead of
   host-side schema text.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
