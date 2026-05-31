@@ -281,9 +281,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Return stable CLI/MCP operation contracts, safety metadata, and required fields.",
       inputSchema: {
         index: coreValidatedBooleanSchema.optional(),
-        operation: stringSchema.optional(),
-        mcp_tool: stringSchema.optional(),
-        cli_command: stringSchema.optional()
+        operation: coreValidatedStringSchema.optional(),
+        mcp_tool: coreValidatedStringSchema.optional(),
+        cli_command: coreValidatedStringSchema.optional()
       }
     },
     async ({ index, operation, mcp_tool, cli_command }) => {
@@ -305,30 +305,33 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           return jsonResult(getOperationContractIndex(), { pretty: false });
         }
         if (operation !== undefined) {
-          const contract = getOperationContract(operation);
+          const lookup = String(operation);
+          const contract = getOperationContract(lookup);
           if (!contract) {
             return {
-              ...jsonResult(toErrorEnvelope(new OperationContractLookupError("operation", operation))),
+              ...jsonResult(toErrorEnvelope(new OperationContractLookupError("operation", lookup))),
               isError: true
             };
           }
           return jsonResult(contract, { pretty: false });
         }
         if (mcp_tool !== undefined) {
-          const contract = getOperationContractByMcpTool(mcp_tool);
+          const lookup = String(mcp_tool);
+          const contract = getOperationContractByMcpTool(lookup);
           if (!contract) {
             return {
-              ...jsonResult(toErrorEnvelope(new OperationContractLookupError("mcp_tool", mcp_tool))),
+              ...jsonResult(toErrorEnvelope(new OperationContractLookupError("mcp_tool", lookup))),
               isError: true
             };
           }
           return jsonResult(contract, { pretty: false });
         }
         if (cli_command !== undefined) {
-          const contract = getOperationContractByCliCommand(cli_command);
+          const lookup = String(cli_command);
+          const contract = getOperationContractByCliCommand(lookup);
           if (!contract) {
             return {
-              ...jsonResult(toErrorEnvelope(new OperationContractLookupError("cli_command", cli_command))),
+              ...jsonResult(toErrorEnvelope(new OperationContractLookupError("cli_command", lookup))),
               isError: true
             };
           }

@@ -387,6 +387,10 @@ Deliverables:
   `operations_by_id.operation_contracts` recovery hints and
   `arguments_by_name.index`, so contract discovery itself remains recoverable
   when an agent sends a non-boolean index value.
+- Done: `operation_contracts.operation`, `operation_contracts.mcp_tool`, and
+  `operation_contracts.cli_command` MCP lookup shape failures now pass through
+  the contract lookup recovery channel, including numeric values, so agents get
+  the compact index and retry templates instead of host-side schema text.
 - Done: Lifecycle MCP `pull`/`push` boolean failures for `agent_enter`,
   `agent_start`, `agent_finish`, and `agent_status` now pass through core
   validation and expose operation contract argument sources instead of

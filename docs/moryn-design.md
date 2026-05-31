@@ -667,7 +667,10 @@ compact index lookup calls, and retry templates, so agents can recover without
 parsing prose. The recovery hint keeps the existing `retry_with_operation`
 shortcut and adds `retry_with_lookup_modes` for operation id, MCP tool, and CLI
 command retries. Those templates include package helper, CLI, and MCP forms, so
-library hosts do not need to infer helper names from command examples. If a
+library hosts do not need to infer helper names from command examples. MCP
+lookup shape failures for `operation`, `mcp_tool`, and `cli_command` also pass
+through this channel, including numeric values, so contract discovery remains
+self-recovering. If a
 caller sends more than one lookup mode, the error envelope uses the same
 recovery channel to return `recovery_hint.rejected_lookup.provided` plus
 `accepted_lookup_modes`, each with package, CLI, and MCP retry forms, letting

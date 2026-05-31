@@ -728,7 +728,10 @@ without parsing the error message. The recovery hint keeps the existing
 `retry_with_operation` shortcut and also includes `retry_with_lookup_modes` for
 operation id, MCP tool, and CLI command retries. Those templates include package
 helper, CLI, and MCP forms, so library hosts can call the correct helper without
-deriving it from a command string. If a host accidentally mixes lookup modes, for
+deriving it from a command string. MCP lookup shape failures for `operation`,
+`mcp_tool`, and `cli_command` also pass through this recovery channel, including
+numeric values, so contract discovery remains self-recovering. If a host
+accidentally mixes lookup modes, for
 example `--index` plus `--operation` or `operation` plus `mcp_tool`, the same
 envelope includes `recovery_hint.rejected_lookup.provided` and
 `accepted_lookup_modes` with the same package, CLI, and MCP retry forms, so the
