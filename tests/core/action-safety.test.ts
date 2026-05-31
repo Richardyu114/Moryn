@@ -31,7 +31,8 @@ const collectRequiredInputsStep = {
   required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
   required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value",
   required_inputs_by_field: "execution.required_inputs_by_field",
-  required_inputs_by_argument_path: "execution.required_inputs_by_argument_path"
+  required_inputs_by_argument_path: "execution.required_inputs_by_argument_path",
+  required_input_paths_by_value_path: "execution.required_input_paths_by_value_path"
 };
 
 const askUserConfirmationStep = {

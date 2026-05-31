@@ -432,7 +432,8 @@ full ordered recipe with stable object paths such as
 `execution.required_inputs[].collect.choices_by_option.<option>.apply_to`,
 `execution.required_inputs[].collect.choices[].apply_to`,
 `execution.required_inputs_by_argument_path`, `interfaces.mcp`, and
-`interfaces.cli.exec_file` in the order a host should follow. Each
+`execution.required_input_paths_by_value_path`, and `interfaces.cli.exec_file`
+in the order a host should follow. Each
 `required_inputs[]` entry names the field,
 original `argument_path`, split `argument_paths`, optional argument source,
 optional `selection_sources.required_input` and
@@ -673,7 +674,8 @@ ask for user confirmation when required, then call the returned MCP interface or
 includes direct paths for `collect.expected_value`,
 `collect.choice_options[]`, `collect.preferred_choice`, `collect.choices[]`,
 keyed `collect.choices_by_option`, each choice's `apply_to`, and each choice's
-`expected_value`, so hosts can follow the input recipe without exploring the
+`expected_value`, plus `required_input_paths_by_value_path` for value-path
+reverse lookups, so hosts can follow the input recipe without exploring the
 response shape.
 Each entry includes `selection_sources.required_input`,
 `selection_sources.required_input_argument_path`, `collect`, `mcp_targets`, and

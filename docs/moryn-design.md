@@ -1385,8 +1385,9 @@ The collect runbook step also names the stable paths for `collect.expected_value
 the aggregate `collect.apply_to` assignments, aggregate
 `collect.apply_to.assignment_mode`, `collect.choice_options[]`,
 `collect.preferred_choice`, `collect.choices[]`, keyed `collect.choices_by_option`,
-each choice's `apply_to`, and each choice's `expected_value`, so a host can
-follow the recipe without discovering nested fields dynamically.
+each choice's `apply_to`, each choice's `expected_value`, and
+`execution.required_input_paths_by_value_path`, so a host can follow the recipe
+without discovering nested fields dynamically.
 `execution.required_inputs_by_field` exposes the same metadata keyed by field
 name. `execution.required_input_paths_by_value_path` maps collected value paths
 back to canonical `execution.required_inputs_by_field.<field>` paths, including

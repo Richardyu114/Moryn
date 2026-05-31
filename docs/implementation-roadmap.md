@@ -340,7 +340,9 @@ Deliverables:
 - Done: `execution.runbook.step_paths_by_step` indexes ordered runbook steps by
   step name, so agents can jump to later descriptors such as `call_mcp` or
   `ask_user_confirmation` without inferring array positions or duplicating step
-  payloads.
+  payloads. The collect step also names
+  `execution.required_input_paths_by_value_path`, so hosts can jump from a
+  collected `user_input.*` value path back to the canonical required-input entry.
 - Done: `execution.required_inputs[]` joins required field names to argument
   paths, split alternative argument paths, argument sources, placeholders,
   required-input selection sources, MCP target argument/path/type hints, CLI

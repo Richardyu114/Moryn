@@ -281,7 +281,8 @@ describe("published package smoke", () => {
                 required_input_choice_apply_to: "execution.required_inputs[].collect.choices[].apply_to",
                 required_input_choice_expected_value: "execution.required_inputs[].collect.choices[].expected_value",
                 required_input_choice_by_option_apply_to: "execution.required_inputs[].collect.choices_by_option.<option>.apply_to",
-                required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value"
+                required_input_choice_by_option_expected_value: "execution.required_inputs[].collect.choices_by_option.<option>.expected_value",
+                required_input_paths_by_value_path: "execution.required_input_paths_by_value_path"
               }),
               expect.objectContaining({ step: "call_mcp" })
             ]
