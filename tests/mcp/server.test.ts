@@ -1224,6 +1224,24 @@ describe("MCP stdio server", () => {
               cli: { flag: "--content-json" },
               mcp: { argument: "content" },
               alternatives: ["text"]
+            },
+            content_text: {
+              name: "content_text",
+              type: "string",
+              required: false,
+              cli: { flag: "--content-json" },
+              mcp: { argument: "content", path: "content.text" },
+              parent_argument: "content"
+            },
+            content_format: {
+              name: "content_format",
+              type: "string",
+              required: false,
+              default: "text",
+              cli: { flag: "--content-json" },
+              mcp: { argument: "content", path: "content.format" },
+              allowed_values: ["text", "json"],
+              parent_argument: "content"
             }
           },
           required_fields_by_name: {
@@ -6069,8 +6087,12 @@ describe("MCP stdio server", () => {
         expect(emptyContent.error.message).toContain("Invalid content");
         expect(emptyContent.error.recommended_action).toBe("retry write with valid content");
         expect(emptyContent.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
           rejected_argument: { argument: "content", value: {} },
           expected: { kind: "non_empty_content_object", required: true },
+          argument_sources: {
+            content: "operations_by_id.write.arguments_by_name.content"
+          },
           retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
         });
 
@@ -6090,8 +6112,12 @@ describe("MCP stdio server", () => {
         expect(emptyStructuredText.error.message).toContain("Invalid content.text");
         expect(emptyStructuredText.error.recommended_action).toBe("retry write with valid content");
         expect(emptyStructuredText.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
           rejected_argument: { argument: "content.text", value: "" },
           expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "content.text": "operations_by_id.write.arguments_by_name.content_text"
+          },
           retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
         });
 

@@ -1180,6 +1180,24 @@ describe("moryn CLI", () => {
           cli: { flag: "--content-json" },
           mcp: { argument: "content" },
           alternatives: ["text"]
+        },
+        content_text: {
+          name: "content_text",
+          type: "string",
+          required: false,
+          cli: { flag: "--content-json" },
+          mcp: { argument: "content", path: "content.text" },
+          parent_argument: "content"
+        },
+        content_format: {
+          name: "content_format",
+          type: "string",
+          required: false,
+          default: "text",
+          cli: { flag: "--content-json" },
+          mcp: { argument: "content", path: "content.format" },
+          allowed_values: ["text", "json"],
+          parent_argument: "content"
         }
       },
       required_fields_by_name: {

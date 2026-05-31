@@ -76,6 +76,10 @@ interface ListProjectsInput {
 const START_LISTED_PROJECT_WHEN = "After choosing this project from project_list results.";
 const RECALL_REFRESH_CHANGE_WHEN = "After refresh reports this change and the agent needs the full record content.";
 const WRITE_CANDIDATE_RECORD_ID_SOURCE = "write.record.id";
+const WRITE_OPERATION_CONTRACT_SOURCE = "operations_by_id.write";
+const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content";
+const WRITE_CONTENT_TEXT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content_text";
+const WRITE_CONTENT_FORMAT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content_format";
 
 export const WRITE_SELECTION_SOURCES = {
   record: "record",
@@ -589,18 +593,24 @@ function validateOptionalEnumArray<T extends string>(
 
 type WriteContentRecoveryHint =
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "content"; value: unknown };
       expected: { kind: "content_object" | "non_empty_content_object"; required: true };
+      argument_sources: { content: typeof WRITE_CONTENT_ARGUMENT_SOURCE };
       retry_with: { argument: "content"; value_placeholder: { text: "<text>"; format: "text" } };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "content.text"; value: unknown };
       expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: { "content.text": typeof WRITE_CONTENT_TEXT_ARGUMENT_SOURCE };
       retry_with: { argument: "content.text"; value_placeholder: "<non-empty text>" };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { argument: "content.format"; value: unknown };
       expected: { kind: "allowed_values"; allowed_values: ["text", "json"] };
+      argument_sources: { "content.format": typeof WRITE_CONTENT_FORMAT_ARGUMENT_SOURCE };
       retry_with: { argument: "content.format"; value_placeholder: "text" };
     };
 
@@ -619,8 +629,10 @@ function invalidWriteContentError(content: unknown, expectedKind: "content_objec
   return new WriteContentError(
     "Invalid argument: Invalid content",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "content", value: content },
       expected: { kind: expectedKind, required: true },
+      argument_sources: { content: WRITE_CONTENT_ARGUMENT_SOURCE },
       retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
     }
   );
@@ -630,8 +642,10 @@ function invalidWriteContentTextError(text: unknown): WriteContentError {
   return new WriteContentError(
     "Invalid argument: Invalid content.text",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "content.text", value: text },
       expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: { "content.text": WRITE_CONTENT_TEXT_ARGUMENT_SOURCE },
       retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
     }
   );
@@ -641,8 +655,10 @@ function invalidWriteContentFormatError(format: unknown): WriteContentError {
   return new WriteContentError(
     "Invalid argument: Invalid content.format",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { argument: "content.format", value: format },
       expected: { kind: "allowed_values", allowed_values: ["text", "json"] },
+      argument_sources: { "content.format": WRITE_CONTENT_FORMAT_ARGUMENT_SOURCE },
       retry_with: { argument: "content.format", value_placeholder: "text" }
     }
   );

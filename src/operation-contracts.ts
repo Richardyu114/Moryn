@@ -84,6 +84,7 @@ export type OperationArgumentMetadata = {
   default?: unknown;
   allowed_values?: readonly string[];
   alternatives?: readonly string[];
+  parent_argument?: string;
 };
 
 type OperationArgumentMetadataInput = Omit<OperationArgumentMetadata, "name"> & {
@@ -1027,6 +1028,22 @@ export const OPERATION_CONTRACTS = [
         cli: { flag: "--content-json" },
         mcp: { argument: "content" },
         alternatives: ["text"]
+      },
+      content_text: {
+        type: "string",
+        required: false,
+        cli: { flag: "--content-json" },
+        mcp: { argument: "content", path: "content.text" },
+        parent_argument: "content"
+      },
+      content_format: {
+        type: "string",
+        required: false,
+        default: "text",
+        cli: { flag: "--content-json" },
+        mcp: { argument: "content", path: "content.format" },
+        allowed_values: ["text", "json"],
+        parent_argument: "content"
       },
       ...projectContextArguments,
       tags: {

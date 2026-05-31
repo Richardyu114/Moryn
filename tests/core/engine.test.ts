@@ -896,8 +896,12 @@ describe("core engine", () => {
         content: "Invalid content." as never,
         source: { client: "test" }
       }, "Invalid content", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "content", value: "Invalid content." },
         expected: { kind: "content_object", required: true },
+        argument_sources: {
+          content: "operations_by_id.write.arguments_by_name.content"
+        },
         retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
       });
       await expectInvalidContentArgument({
@@ -908,8 +912,12 @@ describe("core engine", () => {
         content: {},
         source: { client: "test" }
       }, "Invalid content", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "content", value: {} },
         expected: { kind: "non_empty_content_object", required: true },
+        argument_sources: {
+          content: "operations_by_id.write.arguments_by_name.content"
+        },
         retry_with: { argument: "content", value_placeholder: { text: "<text>", format: "text" } }
       });
       await expectInvalidContentArgument({
@@ -920,8 +928,12 @@ describe("core engine", () => {
         content: { text: "", format: "text" },
         source: { client: "test" }
       }, "Invalid content.text", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "content.text", value: "" },
         expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          "content.text": "operations_by_id.write.arguments_by_name.content_text"
+        },
         retry_with: { argument: "content.text", value_placeholder: "<non-empty text>" }
       });
       await expectInvalidContentArgument({
@@ -932,8 +944,12 @@ describe("core engine", () => {
         content: { text: "Invalid format.", format: "markdown" as never },
         source: { client: "test" }
       }, "Invalid content.format", {
+        operation_contract: "operations_by_id.write",
         rejected_argument: { argument: "content.format", value: "markdown" },
         expected: { kind: "allowed_values", allowed_values: ["text", "json"] },
+        argument_sources: {
+          "content.format": "operations_by_id.write.arguments_by_name.content_format"
+        },
         retry_with: { argument: "content.format", value_placeholder: "text" }
       });
       await expectInvalidWriteShapeArgument({
