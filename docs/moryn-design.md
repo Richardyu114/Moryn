@@ -881,9 +881,12 @@ malformed `revise --set` assignments, use the same source-backed recovery
 channel. MCP `project_list.agent` and lifecycle `agent` shape failures also
 pass through core validation, including single-string agent values.
 Explicit empty agent prefill fields such as `project list --agent ""` are
-rejected instead of being ignored. Conflicting `moryn sync` operation flags
-include `operation_contracts` for `sync_status`, `sync_push`, and `sync_pull`,
-and `--message` without `--push` points at
+rejected instead of being ignored. Empty CLI agent identity flags point at the
+concrete operation argument (`agent_client`, `agent_session_id`, `agent_model`,
+or `agent_device_id`) instead of the aggregate `agent` object, so retry logic can
+repair the exact field. Conflicting `moryn sync` operation flags include
+`operation_contracts` for `sync_status`, `sync_push`, and `sync_pull`, and
+`--message` without `--push` points at
 `operations_by_id.sync_push.arguments_by_name.message`.
 Empty CLI `sync init ""` remotes point at
 `operations_by_id.sync_init.arguments_by_name.remote` before Git remote

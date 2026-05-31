@@ -774,13 +774,16 @@ function parseBooleanDefault(value: unknown, fallback: boolean): boolean {
   return value === undefined ? fallback : Boolean(value);
 }
 
+function agentOptionSource(operation: CliParserOperation | undefined, argument: string): CliParserSource | undefined {
+  return operation === undefined ? undefined : { operation, argument };
+}
+
 function parseAgentOptions(options: { agent?: string; sessionId?: string; model?: string; deviceId?: string }, operation?: CliParserOperation) {
-  const source = operation === undefined ? undefined : { operation, argument: "agent" };
   return {
-    client: parseNonEmptyCliString(options.agent, "--agent", source) ?? "cli",
-    session_id: parseNonEmptyCliString(options.sessionId, "--session-id", source),
-    model: parseNonEmptyCliString(options.model, "--model", source),
-    device_id: parseNonEmptyCliString(options.deviceId, "--device-id", source)
+    client: parseNonEmptyCliString(options.agent, "--agent", agentOptionSource(operation, "agent_client")) ?? "cli",
+    session_id: parseNonEmptyCliString(options.sessionId, "--session-id", agentOptionSource(operation, "agent_session_id")),
+    model: parseNonEmptyCliString(options.model, "--model", agentOptionSource(operation, "agent_model")),
+    device_id: parseNonEmptyCliString(options.deviceId, "--device-id", agentOptionSource(operation, "agent_device_id"))
   };
 }
 

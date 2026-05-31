@@ -3549,9 +3549,23 @@ describe("moryn CLI", () => {
         {
           args: ["agent", "start", "--session-id", ""],
           operation: "agent_start",
-          argument: "agent",
+          argument: "agent_session_id",
           message: "Invalid --session-id",
           option: "--session-id"
+        },
+        {
+          args: ["agent", "status", "--status", "Working", "--model", ""],
+          operation: "agent_status",
+          argument: "agent_model",
+          message: "Invalid --model",
+          option: "--model"
+        },
+        {
+          args: ["project", "list", "--device-id", ""],
+          operation: "project_list",
+          argument: "agent_device_id",
+          message: "Invalid --device-id",
+          option: "--device-id"
         },
         {
           args: ["agent", "guide", "--sync-remote", ""],
@@ -3635,14 +3649,14 @@ describe("moryn CLI", () => {
         {
           args: ["project", "list", "--agent", ""],
           operation: "project_list",
-          argument: "agent",
+          argument: "agent_client",
           message: "Invalid --agent",
           option: "--agent"
         },
         {
           args: ["project", "list", "--session-id", ""],
           operation: "project_list",
-          argument: "agent",
+          argument: "agent_session_id",
           message: "Invalid --session-id",
           option: "--session-id"
         }

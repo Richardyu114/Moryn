@@ -724,6 +724,10 @@ Deliverables:
   `agent_enter.needs_setup` now include top-level `required_when`,
   `required_fields`, and single-step `next.workflow` metadata for
   `project_init`, `project_list`, and `sync_status`.
+- Done: Empty CLI agent identity flags now return concrete
+  `agent_client`/`agent_session_id`/`agent_model`/`agent_device_id` argument
+  sources instead of the aggregate `agent` source, so retry logic can repair the
+  exact malformed lifecycle or project-list field.
 - Done: `npm run release:check` runs build, typecheck, tests, package-content
   safety checks, and optional private Git remote validation through
   `MORYN_PRIVATE_GIT_REMOTE`.
