@@ -1438,12 +1438,13 @@ project.command("init")
   .option("--sync-mode <mode>", "Sync mode")
   .option("--repair", "Replace an invalid existing .moryn.json after explicit confirmation")
   .action(async (options) => {
+    const projectPath = parseNonEmptyCliString(options.path, "--path", { operation: "project_init", argument: "path" })!;
     const projectId = parseNonEmptyCliString(options.projectId, "--project-id", { operation: "project_init", argument: "project_id" });
     const syncMode = options.syncMode === undefined
       ? undefined
       : parseEnum(options.syncMode, syncModes, "--sync-mode", { operation: "project_init", argument: "sync_mode" });
     const contextArguments = compactUndefined({
-      path: options.path,
+      path: projectPath,
       project_id: projectId,
       tags: options.tag.length ? options.tag : undefined,
       default_skills: options.defaultSkill.length ? options.defaultSkill : undefined,
@@ -1458,7 +1459,7 @@ project.command("init")
     try {
       printJson({
         ok: true,
-        ...await initializeProjectConfig(options.path, {
+        ...await initializeProjectConfig(projectPath, {
           project_id: projectId,
           tags: options.tag,
           default_skills: options.defaultSkill,

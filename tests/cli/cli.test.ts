@@ -3620,10 +3620,9 @@ describe("moryn CLI", () => {
           args: ["project", "init", "--path", ""],
           operation: "project_init",
           argument: "path",
-          message: "Invalid projectPath",
+          message: "Invalid --path",
           option: "--path",
-          recommendedAction: "retry project init with a non-empty path",
-          valuePlaceholder: "<path>"
+          valuePlaceholder: "<non-empty path>"
         },
         {
           args: ["project", "init", "--project-id", ""],
