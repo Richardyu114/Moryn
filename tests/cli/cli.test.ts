@@ -6224,10 +6224,13 @@ describe("moryn CLI", () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
 
-      for (const args of [
-        ["recall", "anything", "--limit", "abc"],
-        ["refresh", "--limit", "0"],
-        ["list-recent", "--limit", "101"]
+      for (const { args, operation } of [
+        { args: ["recall", "anything", "--limit", "abc"], operation: "recall" },
+        { args: ["refresh", "--limit", "0"], operation: "refresh" },
+        { args: ["list-recent", "--limit", "101"], operation: "list_recent" },
+        { args: ["project", "list", "--limit", "101"], operation: "project_list" },
+        { args: ["agent", "enter", "--limit", "0"], operation: "agent_enter" },
+        { args: ["agent", "start", "--limit", "101"], operation: "agent_start" }
       ]) {
         try {
           await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
@@ -6243,8 +6246,10 @@ describe("moryn CLI", () => {
               recoverable: boolean;
               recommended_action: string;
               recovery_hint: {
+                operation_contract: string;
                 rejected_argument: { option: string; value: string };
                 expected: { kind: string; min: number; max: number; integer: boolean };
+                argument_sources: Record<string, string>;
                 retry_with: { option: string; value_placeholder: string };
               };
             };
@@ -6256,8 +6261,12 @@ describe("moryn CLI", () => {
           expect(parsed.error.recommended_action).toBe("retry with a valid --limit value");
           const rejectedLimit = args[args.length - 1]!;
           expect(parsed.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
             rejected_argument: { option: "--limit", value: rejectedLimit },
             expected: { kind: "integer_range", min: 1, max: 100, integer: true },
+            argument_sources: {
+              limit: `operations_by_id.${operation}.arguments_by_name.limit`
+            },
             retry_with: { option: "--limit", value_placeholder: "<integer 1-100>" }
           });
         }

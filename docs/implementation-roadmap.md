@@ -344,6 +344,10 @@ Deliverables:
   plus `argument_sources` for invalid filters, cursors, tasks, project ids, and
   limits; RFC3339 refresh cursor errors also point at
   `operations_by_id.refresh.arguments_by_name.cursor`.
+- Done: CLI `--limit` parser failures for read and lifecycle startup commands
+  now expose the matching operation contract and
+  `operations_by_id.<operation>.arguments_by_name.limit` source before the core
+  engine runs.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

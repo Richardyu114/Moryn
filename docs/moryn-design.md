@@ -748,7 +748,9 @@ Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 `argument_sources` for invalid filters, cursors, task context, project ids, and
 limits. RFC3339 cursor failures point to
 `operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
-through lifecycle refresh-since arguments.
+through lifecycle refresh-since arguments. CLI `--limit` parser failures for
+read and lifecycle startup commands also carry the matching operation contract
+and `arguments_by_name.limit` source before the core engine runs.
 At the CLI boundary, known `argument` fields inside `error.recovery_hint` are
 recursively translated to command-line `option` fields such as `--project`,
 `--project-id`, `--cursor`, or `--refresh-since`; MCP and package callers keep

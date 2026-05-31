@@ -55,8 +55,18 @@ const CLI_ARGUMENT_RECOVERY_ACTION_PREFIX = "retry with a valid" as const;
 const WRITE_OPERATION_CONTRACT_SOURCE = "operations_by_id.write";
 const WRITE_TEXT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.text";
 const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content";
+type CliLimitOperation = "recall" | "refresh" | "list_recent" | "project_list" | "agent_enter" | "agent_start";
+type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
+type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 
 type CliArgumentRecoveryHint =
+  | {
+      operation_contract: CliLimitOperationContractSource;
+      rejected_argument: { option: string; value: string };
+      expected: { kind: "integer_range"; min: number; max: number; integer: true };
+      argument_sources: { limit: CliLimitArgumentSource };
+      retry_with: { option: string; value_placeholder: string };
+    }
   | {
       rejected_argument: { option: string; value: string };
       expected: { kind: "integer_range"; min: number; max: number; integer: true };
@@ -394,15 +404,17 @@ function parseContentJson(value: string | undefined): Record<string, unknown> | 
   return parsed as Record<string, unknown>;
 }
 
-function parseLimit(value: string, option = "--limit"): number {
+function parseLimit(value: string, operation?: CliLimitOperation, option = "--limit"): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
     throw new CliArgumentError(
       `Invalid argument: Invalid ${option}; must be an integer between 1 and 100`,
       `${CLI_ARGUMENT_RECOVERY_ACTION_PREFIX} ${option} value`,
       {
+        ...(operation !== undefined ? { operation_contract: `operations_by_id.${operation}` as const } : {}),
         rejected_argument: { option, value },
         expected: { kind: "integer_range", min: 1, max: 100, integer: true },
+        ...(operation !== undefined ? { argument_sources: { limit: `operations_by_id.${operation}.arguments_by_name.limit` as const } } : {}),
         retry_with: { option, value_placeholder: "<integer 1-100>" }
       }
     );
@@ -583,7 +595,7 @@ program.command("recall")
   .action(async (query, options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options);
-    const limit = parseLimit(options.limit);
+    const limit = parseLimit(options.limit, "recall");
     const recallInput = {
       record_ids: options.recordId,
       query: parseNonEmptyString(query, "query"),
@@ -775,7 +787,7 @@ program.command("list-recent")
   .option("--limit <n>", "Result limit", "20")
   .action(async (options) => {
     const engine = createCliEngine();
-    printJson(await engine.listRecent(parseLimit(options.limit)));
+    printJson(await engine.listRecent(parseLimit(options.limit, "list_recent")));
   });
 
 program.command("refresh")
@@ -789,7 +801,7 @@ program.command("refresh")
     const projectId = await resolveOptionalProject(options);
     const cursor = parseNonEmptyString(options.cursor, "--cursor");
     const currentTask = parseNonEmptyString(options.currentTask, "--current-task");
-    const limit = parseLimit(options.limit);
+    const limit = parseLimit(options.limit, "refresh");
     const contextArguments = compactUndefined({
       ...(projectId !== undefined ? { project_id: projectId } : {}),
       cursor,
@@ -922,7 +934,7 @@ agent.command("enter")
       sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
       current_task: parseNonEmptyString(options.currentTask, "--current-task"),
       refresh_since: parseNonEmptyString(options.refreshSince, "--refresh-since"),
-      ...(options.limit !== "20" ? { limit: parseLimit(options.limit) } : {}),
+      ...(options.limit !== "20" ? { limit: parseLimit(options.limit, "agent_enter") } : {}),
       ...(pull === false ? { pull } : {}),
       agent: agentOptions
     });
@@ -939,7 +951,7 @@ agent.command("enter")
         syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
         currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
         refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
-        limit: parseLimit(options.limit),
+        limit: parseLimit(options.limit, "agent_enter"),
         pull,
         agent: agentOptions
       }));
@@ -990,7 +1002,7 @@ agent.command("start")
       sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
       current_task: parseNonEmptyString(options.currentTask, "--current-task"),
       refresh_since: parseNonEmptyString(options.refreshSince, "--refresh-since"),
-      ...(options.limit !== "20" ? { limit: parseLimit(options.limit) } : {}),
+      ...(options.limit !== "20" ? { limit: parseLimit(options.limit, "agent_start") } : {}),
       ...(pull === false ? { pull } : {}),
       agent: agentOptions
     });
@@ -1007,7 +1019,7 @@ agent.command("start")
         syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
         currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
         refreshSince: parseNonEmptyString(options.refreshSince, "--refresh-since"),
-        limit: parseLimit(options.limit),
+        limit: parseLimit(options.limit, "agent_start"),
         pull,
         agent: agentOptions
       }));
@@ -1146,7 +1158,7 @@ project.command("list")
   .action(async (options) => {
     const engine = createCliEngine();
     printJson(await engine.listProjects({
-      limit: parseLimit(options.limit),
+      limit: parseLimit(options.limit, "project_list"),
       current_task: parseNonEmptyString(options.currentTask, "--current-task"),
       sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
       agent: options.agent || options.sessionId || options.model || options.deviceId
