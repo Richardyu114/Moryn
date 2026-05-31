@@ -291,8 +291,9 @@ Deliverables:
   and MCP empty-string, unknown enum-like, numeric range, nested
   `source.client`, or contract-backed boolean values without parsing SDK
   validation prose, because common MCP string, enum-like, numeric range,
-  selected nested source-client fields, and selected boolean fields now reach
-  the Moryn operation validator before returning a tool error,
+  selected nested source-client fields, and selected boolean fields such as
+  write/project-init/selected mutation confirmations now reach the Moryn
+  operation validator before returning a tool error,
   invalid boot/refresh `current_task`/`default_skills`/`cursor`, invalid or
   empty project init `projectPath`/`project_id`/`tags`/`default_skills`/
   `sync.mode`/`repair`, invalid local store `storePath`, invalid event path

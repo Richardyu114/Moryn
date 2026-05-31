@@ -685,9 +685,9 @@ MCP string, enum-like, numeric range, and contract-backed boolean fields are
 intentionally loose enough to reach the Moryn operation validator, so empty
 strings, unknown enum values, out-of-range numbers, nested `source.client`
 mistakes on core write and mutation tools, and boolean mistakes on fields such
-as write `confirmed` or project-init `repair` return structured JSON
-`error.recovery_hint` instead of only a host-side validation message when the
-core operation has a recovery contract.
+as write `confirmed`, mutation `confirmed`, or project-init `repair` return
+structured JSON `error.recovery_hint` instead of only a host-side validation
+message when the core operation has a recovery contract.
 `error.recovery_hint.missing_argument` identifies omitted required options,
 `missing_one_of` identifies a missing alternative group, `rejected_argument`
 or `rejected_arguments` identifies invalid or conflicting values,

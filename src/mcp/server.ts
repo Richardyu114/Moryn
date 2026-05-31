@@ -477,7 +477,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         record_id: stringSchema,
         patch: z.record(z.string(), z.unknown()),
         reason: stringSchema.optional(),
-        confirmed: z.boolean().optional(),
+        confirmed: coreValidatedBooleanSchema.optional(),
         source: coreValidatedSourceSchema.optional()
       }
     },
@@ -485,7 +485,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         record_id,
         patch,
         reason,
-        confirmed,
+        confirmed: confirmed as boolean | undefined,
         source: (source ?? { client: "mcp" }) as RecordSource
       }), {
         tool: "revise",
@@ -508,7 +508,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         record_id: stringSchema,
         target_state: recordStateSchema,
         reason: stringSchema.optional(),
-        confirmed: z.boolean().optional(),
+        confirmed: coreValidatedBooleanSchema.optional(),
         source: coreValidatedSourceSchema.optional()
       }
     },
@@ -517,7 +517,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       target_state: target_state as RecordState,
       reason,
       source: (source ?? { client: "mcp" }) as RecordSource,
-      confirmed
+      confirmed: confirmed as boolean | undefined
     }), {
       tool: "promote",
       command: commandForPromoteContext({ record_id, target_state, reason }),

@@ -7041,6 +7041,80 @@ describe("MCP stdio server", () => {
           expected: { kind: "boolean" },
           retry_with: { argument: "repair", value_placeholder: true }
         });
+
+        const target = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Mutation confirmed target.",
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+
+        const invalidReviseConfirmed = parseTextContent(await client.callTool({
+          name: "revise",
+          arguments: {
+            record_id: target.record.id,
+            patch: { "content.text": "Updated mutation target." },
+            confirmed: "yes",
+            source: { client: "mcp-test" }
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(invalidReviseConfirmed.ok).toBe(false);
+        expect(invalidReviseConfirmed.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidReviseConfirmed.error.message).toContain("Invalid confirmed");
+        expect(invalidReviseConfirmed.error.recommended_action).toBe("retry mutation with a boolean confirmed value");
+        expect(invalidReviseConfirmed.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.revise",
+          rejected_argument: { argument: "confirmed", value: "yes" },
+          expected: { kind: "boolean" },
+          argument_sources: {
+            confirmed: "operations_by_id.revise.arguments_by_name.confirmed"
+          },
+          retry_with: { argument: "confirmed", value_placeholder: true }
+        });
+
+        const invalidPromoteConfirmed = parseTextContent(await client.callTool({
+          name: "promote",
+          arguments: {
+            record_id: target.record.id,
+            target_state: "canonical",
+            confirmed: "yes",
+            source: { client: "mcp-test" }
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(invalidPromoteConfirmed.ok).toBe(false);
+        expect(invalidPromoteConfirmed.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidPromoteConfirmed.error.message).toContain("Invalid confirmed");
+        expect(invalidPromoteConfirmed.error.recommended_action).toBe("retry mutation with a boolean confirmed value");
+        expect(invalidPromoteConfirmed.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.promote",
+          rejected_argument: { argument: "confirmed", value: "yes" },
+          expected: { kind: "boolean" },
+          argument_sources: {
+            confirmed: "operations_by_id.promote.arguments_by_name.confirmed"
+          },
+          retry_with: { argument: "confirmed", value_placeholder: true }
+        });
       });
     } finally {
       await rm(root, { recursive: true, force: true });
