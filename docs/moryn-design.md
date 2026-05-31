@@ -821,6 +821,9 @@ shape failures for `boot`, `recall`, `write`, `refresh`, and lifecycle tools
 also pass through shared project-context validation, including numeric
 `project_id`/`project_path` values, and point at operation-specific argument
 sources with `project_list` retry guidance instead of host-side schema text.
+Empty CLI `--project-id` and `--project` values on `write`, `recall`, `boot`,
+and `refresh` point at the same operation-specific project selector contracts
+before project-context resolution runs.
 Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and
 `project_init` path/project id/tags/default skills/sync mode/repair inputs also

@@ -396,6 +396,9 @@ Deliverables:
   `--record-id`, `--tag`, and `--file` now expose the matching
   `operations_by_id.recall.arguments_by_name.*` sources instead of generic or
   write-operation hints.
+- Done: CLI empty `--project-id` and `--project` failures for `write`,
+  `recall`, `boot`, and `refresh` now expose operation-specific project
+  selector sources before project-context resolution runs.
 - Done: `project_init` setup argument failures for path/project id/tags/default
   skills/sync mode/repair now expose `operations_by_id.project_init` recovery
   hints and argument sources; MCP `path`, `project_id`, and `sync_mode` shape

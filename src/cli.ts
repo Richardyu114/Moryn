@@ -619,14 +619,18 @@ function createCliEngine() {
   });
 }
 
-async function resolveOptionalProject(options: { project?: string; projectId?: string }): Promise<string | undefined> {
-  if (!options.project && !options.projectId) return undefined;
-  return (await resolveProjectContext({ projectPath: options.project, projectId: options.projectId })).project_id;
+async function resolveOptionalProject(options: { project?: string; projectId?: string }, operation: CliParserOperation): Promise<string | undefined> {
+  const projectPath = parseNonEmptyCliString(options.project, "--project", { operation, argument: "project_path" });
+  const projectId = parseNonEmptyCliString(options.projectId, "--project-id", { operation, argument: "project_id" });
+  if (!projectPath && !projectId) return undefined;
+  return (await resolveProjectContext({ projectPath, projectId })).project_id;
 }
 
-async function resolveProjectOptions(options: { project?: string; projectId?: string }): Promise<{ project_id?: string; default_skills?: string[] }> {
-  if (!options.project && !options.projectId) return {};
-  const project = await resolveProjectContext({ projectPath: options.project, projectId: options.projectId });
+async function resolveProjectOptions(options: { project?: string; projectId?: string }, operation: CliParserOperation): Promise<{ project_id?: string; default_skills?: string[] }> {
+  const projectPath = parseNonEmptyCliString(options.project, "--project", { operation, argument: "project_path" });
+  const projectId = parseNonEmptyCliString(options.projectId, "--project-id", { operation, argument: "project_id" });
+  if (!projectPath && !projectId) return {};
+  const project = await resolveProjectContext({ projectPath, projectId });
   return {
     project_id: project.project_id,
     default_skills: project.config?.default_skills
@@ -825,8 +829,10 @@ program.command("write")
   .option("--content-json <json>", "Structured JSON object content")
   .action(async (options) => {
     const engine = createCliEngine();
-    const projectId = await resolveOptionalProject(options);
-    const project = options.project ? await resolveProjectContext({ projectPath: options.project, projectId: options.projectId }) : undefined;
+    const projectId = await resolveOptionalProject(options, "write");
+    const projectPath = parseNonEmptyCliString(options.project, "--project", { operation: "write", argument: "project_path" });
+    const optionProjectId = parseNonEmptyCliString(options.projectId, "--project-id", { operation: "write", argument: "project_id" });
+    const project = projectPath ? await resolveProjectContext({ projectPath, projectId: optionProjectId }) : undefined;
     const type = options.type ?? (options.kind === "session_summary" ? "summary" : undefined);
     const scope = options.scope ?? (options.kind === "session_summary" ? "project" : undefined);
     if (!type) throw requiredCliOptionError("--type", "<type>", undefined, { operation: "write", argument: "type" });
@@ -879,7 +885,7 @@ program.command("recall")
   .option("--limit <n>", "Result limit", "10")
   .action(async (query, options) => {
     const engine = createCliEngine();
-    const projectId = await resolveOptionalProject(options);
+    const projectId = await resolveOptionalProject(options, "recall");
     const limit = parseLimit(options.limit, "recall");
     const recallInput = {
       record_ids: options.recordId,
@@ -924,7 +930,7 @@ program.command("boot")
   .option("--current-task <task>")
   .action(async (options) => {
     const engine = createCliEngine();
-    const project = await resolveProjectOptions(options);
+    const project = await resolveProjectOptions(options, "boot");
     printJson(await engine.boot({
       project_id: project.project_id,
       default_skills: project.default_skills,
@@ -1086,7 +1092,7 @@ program.command("refresh")
   .option("--limit <n>", "Change limit", "20")
   .action(async (options) => {
     const engine = createCliEngine();
-    const projectId = await resolveOptionalProject(options);
+    const projectId = await resolveOptionalProject(options, "refresh");
     const cursor = parseNonEmptyString(options.cursor, "--cursor");
     const currentTask = parseNonEmptyCliString(options.currentTask, "--current-task", { operation: "refresh", argument: "current_task" });
     const limit = parseLimit(options.limit, "refresh");

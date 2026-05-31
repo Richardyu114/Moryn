@@ -3469,6 +3469,34 @@ describe("moryn CLI", () => {
           option: "--file"
         },
         {
+          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--project-id", "", "--text", "Valid text"],
+          operation: "write",
+          argument: "project_id",
+          message: "Invalid --project-id",
+          option: "--project-id"
+        },
+        {
+          args: ["recall", "--project", ""],
+          operation: "recall",
+          argument: "project_path",
+          message: "Invalid --project",
+          option: "--project"
+        },
+        {
+          args: ["boot", "--project-id", ""],
+          operation: "boot",
+          argument: "project_id",
+          message: "Invalid --project-id",
+          option: "--project-id"
+        },
+        {
+          args: ["refresh", "--project", ""],
+          operation: "refresh",
+          argument: "project_path",
+          message: "Invalid --project",
+          option: "--project"
+        },
+        {
           args: ["refresh", "--project-id", "moryn", "--cursor", ""],
           operation: "refresh",
           argument: "cursor",

@@ -878,6 +878,10 @@ MCP project selector
 shape failures for `boot`, `recall`, `write`, `refresh`, and lifecycle tools
 also return operation-specific `project_id`/`project_path` sources and tell
 agents to select project ids from `project_list` instead of inventing them. MCP lifecycle
+Empty CLI `--project-id` and `--project` values on `write`, `recall`, `boot`,
+and `refresh` return the same operation-specific project selector sources
+before project-context resolution runs.
+MCP lifecycle
 `current_task` shape failures for
 `agent_doctor`, `agent_guide`, `agent_enter`, `agent_start`, `agent_status`, and
 `agent_finish` pass through lifecycle validation too and return
