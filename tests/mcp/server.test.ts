@@ -7125,6 +7125,29 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
         });
 
+        for (const operation of ["boot", "refresh"] as const) {
+          const invalidReadCurrentTask = parseTextContent(await client.callTool({
+            name: operation,
+            arguments: {
+              project_id: "moryn",
+              current_task: 123
+            }
+          })) as McpInvalidArgument;
+          expect(invalidReadCurrentTask.ok).toBe(false);
+          expect(invalidReadCurrentTask.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidReadCurrentTask.error.message).toContain("Invalid current_task");
+          expect(invalidReadCurrentTask.error.recommended_action).toBe("retry read with a non-empty current_task");
+          expect(invalidReadCurrentTask.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument: "current_task", value: 123 },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              current_task: `operations_by_id.${operation}.arguments_by_name.current_task`
+            },
+            retry_with: { argument: "current_task", value_placeholder: "<current_task>" }
+          });
+        }
+
         const invalidProjectListSyncRemote = parseTextContent(await client.callTool({
           name: "project_list",
           arguments: {

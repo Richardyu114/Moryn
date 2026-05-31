@@ -435,6 +435,11 @@ Deliverables:
   validation, including single-string skill selector values, and expose
   `operations_by_id.boot.arguments_by_name.default_skills` instead of host-side
   schema text.
+- Done: MCP `boot.current_task` and `refresh.current_task` shape failures now
+  pass through core validation, including numeric values, and expose
+  `operations_by_id.boot.arguments_by_name.current_task` or
+  `operations_by_id.refresh.arguments_by_name.current_task` instead of
+  host-side schema text.
 - Done: MCP `project_init.tags` and `project_init.default_skills` shape
   failures now pass through core validation, including single-string tag and
   skill selector values, and expose the matching

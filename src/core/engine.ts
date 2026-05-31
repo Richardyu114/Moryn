@@ -56,19 +56,19 @@ interface RecallInput {
 interface RefreshInput {
   project_id?: string;
   cursor?: unknown;
-  current_task?: string;
+  current_task?: unknown;
   limit?: unknown;
 }
 
-type ValidatedRefreshInput = RefreshInput & { cursor?: string };
+type ValidatedRefreshInput = RefreshInput & { cursor?: string; current_task?: string };
 
 interface BootInput {
   project_id?: string;
   default_skills?: unknown;
-  current_task?: string;
+  current_task?: unknown;
 }
 
-type ValidatedBootInput = BootInput & { default_skills?: string[] };
+type ValidatedBootInput = BootInput & { default_skills?: string[]; current_task?: string };
 
 interface ListProjectsInput {
   limit?: unknown;
@@ -2405,7 +2405,7 @@ export function createEngine(deps: EngineDeps) {
         .filter((record) => !refreshInput.cursor || record.updated_at > refreshInput.cursor)
         .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
       const allChanges = records.map((record) => {
-        const importance = refreshImportance(record, input.current_task);
+        const importance = refreshImportance(record, refreshInput.current_task);
         return {
           record,
           change: {

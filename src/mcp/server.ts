@@ -348,7 +348,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
         sync_remote: stringSchema.optional(),
-        current_task: stringSchema.optional(),
+        current_task: z.unknown().optional(),
         default_skills: z.unknown().optional()
       }
     },
@@ -357,7 +357,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       return engine.boot({
         project_id: project.project_id,
         default_skills: default_skills ?? project.default_skills,
-        current_task
+        current_task: current_task as string | undefined
       });
     })
   );
@@ -640,7 +640,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: stringSchema.optional(),
         project_path: stringSchema.optional(),
         cursor: stringSchema.optional(),
-        current_task: stringSchema.optional(),
+        current_task: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional()
       }
     },
@@ -649,7 +649,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       return engine.refresh({
         project_id: project.project_id,
         cursor,
-        current_task,
+        current_task: current_task as string | undefined,
         limit
       });
     })

@@ -771,7 +771,10 @@ limits. MCP `recall.tags`, `recall.record_ids`, `recall.files`,
 failures also pass through core validation, including single-string tag, record
 id, file, kind, scope, type, and state values. MCP `boot.default_skills` shape
 failures likewise pass through core validation, including single-string skill
-selector values.
+selector values. MCP `boot.current_task` and `refresh.current_task` shape
+failures pass through core validation too, including numeric task values, and
+point at the matching `operations_by_id.<operation>.arguments_by_name.current_task`
+contract.
 RFC3339 cursor failures point to
 `operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
 through lifecycle refresh-since arguments. Project setup argument failures for

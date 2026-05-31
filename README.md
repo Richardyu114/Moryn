@@ -832,7 +832,11 @@ state values. MCP `project_list.current_task` and `project_list.sync_remote`
 shape failures also pass through core validation, including numeric values, and
 return `operations_by_id.project_list.arguments_by_name.current_task` or
 `operations_by_id.project_list.arguments_by_name.sync_remote` instead of
-host-side schema text. MCP lifecycle `current_task` shape failures for
+host-side schema text. MCP `boot.current_task` and `refresh.current_task`
+shape failures also pass through core validation and return
+`operations_by_id.boot.arguments_by_name.current_task` or
+`operations_by_id.refresh.arguments_by_name.current_task`. MCP lifecycle
+`current_task` shape failures for
 `agent_doctor`, `agent_guide`, `agent_enter`, `agent_start`, `agent_status`, and
 `agent_finish` pass through lifecycle validation too and return
 `operations_by_id.<operation>.arguments_by_name.current_task`. MCP
