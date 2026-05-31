@@ -6609,6 +6609,64 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "tags", value_placeholder: ["<tag>"] }
         });
 
+        const emptySourceClient = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid source client should return structured recovery.",
+            source: { client: "" }
+          }
+        })) as McpInvalidArgument;
+        expect(emptySourceClient.ok).toBe(false);
+        expect(emptySourceClient.error.code).toBe("INVALID_ARGUMENT");
+        expect(emptySourceClient.error.message).toContain("Invalid source.client");
+        expect(emptySourceClient.error.recommended_action).toBe("retry write with a valid source client");
+        expect(emptySourceClient.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "source.client", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "source.client": "operations_by_id.write.arguments_by_name.source_client"
+          },
+          retry_with: { argument: "source.client", value_placeholder: "<client>" }
+        });
+
+        const sourceTarget = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Valid source target.",
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+        const emptyMutationSourceClient = parseTextContent(await client.callTool({
+          name: "revise",
+          arguments: {
+            record_id: sourceTarget.record.id,
+            patch: { "content.text": "Updated target." },
+            source: { client: "" }
+          }
+        })) as McpInvalidArgument;
+        expect(emptyMutationSourceClient.ok).toBe(false);
+        expect(emptyMutationSourceClient.error.code).toBe("INVALID_ARGUMENT");
+        expect(emptyMutationSourceClient.error.message).toContain("Invalid source.client");
+        expect(emptyMutationSourceClient.error.recommended_action).toBe("retry mutation with a valid source client");
+        expect(emptyMutationSourceClient.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.revise",
+          rejected_argument: { argument: "source.client", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "source.client": "operations_by_id.revise.arguments_by_name.source_client"
+          },
+          retry_with: { argument: "source.client", value_placeholder: "<client>" }
+        });
+
         const emptyQuery = parseTextContent(await client.callTool({
           name: "recall",
           arguments: { project_id: "moryn", query: "" }

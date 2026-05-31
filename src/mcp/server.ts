@@ -135,6 +135,12 @@ const sourceSchema = z.object({
   model: nonEmptyStringSchema.optional(),
   device_id: nonEmptyStringSchema.optional()
 });
+const coreValidatedSourceSchema = z.object({
+  client: z.unknown().optional().default("mcp"),
+  session_id: nonEmptyStringSchema.optional(),
+  model: nonEmptyStringSchema.optional(),
+  device_id: nonEmptyStringSchema.optional()
+});
 
 async function resolveProjectInput(input: { project_id?: string; project_path?: string }): Promise<{ project_id?: string; tags: string[]; default_skills: string[] }> {
   if (input.project_id === undefined && input.project_path === undefined) {
@@ -419,7 +425,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
           reason: stringSchema.optional()
         }).optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
-        source: sourceSchema.optional()
+        source: coreValidatedSourceSchema.optional()
       }
     },
     async (input) => toolResult(async () => {
@@ -469,7 +475,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         patch: z.record(z.string(), z.unknown()),
         reason: stringSchema.optional(),
         confirmed: z.boolean().optional(),
-        source: sourceSchema.optional()
+        source: coreValidatedSourceSchema.optional()
       }
     },
     async ({ record_id, patch, reason, confirmed, source }) => toolResult(async () => engine.revise({
@@ -500,7 +506,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         target_state: recordStateSchema,
         reason: stringSchema.optional(),
         confirmed: z.boolean().optional(),
-        source: sourceSchema.optional()
+        source: coreValidatedSourceSchema.optional()
       }
     },
     async ({ record_id, target_state, reason, confirmed, source }) => toolResult(async () => engine.promote({
@@ -529,7 +535,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         record_id: stringSchema,
         reason: stringSchema.optional(),
-        source: sourceSchema.optional()
+        source: coreValidatedSourceSchema.optional()
       }
     },
     async ({ record_id, reason, source }) => toolResult(async () => engine.archive({
@@ -555,7 +561,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         record_id: stringSchema,
         reason: stringSchema.optional(),
-        source: sourceSchema.optional()
+        source: coreValidatedSourceSchema.optional()
       }
     },
     async ({ record_id, reason, source }) => toolResult(async () => engine.quarantine({
@@ -582,7 +588,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         record_id: stringSchema,
         linked_record_id: stringSchema,
         link_type: stringSchema,
-        source: sourceSchema.optional()
+        source: coreValidatedSourceSchema.optional()
       }
     },
     async ({ record_id, linked_record_id, link_type, source }) => toolResult(async () => engine.link({

@@ -683,8 +683,9 @@ arguments such as
 inputs, revise patches, and refresh cursor formats follow the same pattern:
 MCP string, enum-like, numeric range, and contract-backed boolean fields are
 intentionally loose enough to reach the Moryn operation validator, so empty
-strings, unknown enum values, out-of-range numbers, and boolean mistakes on
-fields such as write `confirmed` or project-init `repair` return structured JSON
+strings, unknown enum values, out-of-range numbers, nested `source.client`
+mistakes on core write and mutation tools, and boolean mistakes on fields such
+as write `confirmed` or project-init `repair` return structured JSON
 `error.recovery_hint` instead of only a host-side validation message when the
 core operation has a recovery contract.
 `error.recovery_hint.missing_argument` identifies omitted required options,
@@ -2325,11 +2326,12 @@ Sensitive patterns to detect:
 ## Error Handling
 
 CLI runtime failures and MCP tool failures return structured JSON errors.
-For common MCP string, enum-like, numeric range, and contract-backed boolean
-fields, validation is routed through the Moryn operation validator so invalid
-values return `recovery_hint` with `operation_contract`, `argument_sources`, and
-`retry_with`. MCP protocol-level validation errors can still be reported by the
-MCP host before Moryn tool logic runs for shape and type failures.
+For common MCP string, enum-like, numeric range, nested source-client, and
+contract-backed boolean fields, validation is routed through the Moryn operation
+validator so invalid values return `recovery_hint` with `operation_contract`,
+`argument_sources`, and `retry_with`. MCP protocol-level validation errors can
+still be reported by the MCP host before Moryn tool logic runs for shape and
+type failures.
 
 Example:
 
