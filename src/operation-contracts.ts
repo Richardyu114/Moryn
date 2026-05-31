@@ -77,6 +77,7 @@ export type OperationArgumentMetadata = {
     repeatable?: boolean;
     default?: unknown;
     negative_flag?: string;
+    required_when?: string;
   };
   mcp?: {
     argument: string;
@@ -938,7 +939,11 @@ export const OPERATION_CONTRACTS = [
       path: {
         type: "string",
         required: true,
-        cli: { flag: "--path", default: "." },
+        cli: {
+          flag: "--path",
+          default: ".",
+          required_when: "Required in CLI only when initializing a path other than the current directory."
+        },
         mcp: { argument: "path" }
       },
       project_id: {

@@ -907,7 +907,11 @@ describe("action execution readiness", () => {
         path: {
           type: "string",
           required: true,
-          cli: { flag: "--path", default: "." },
+          cli: {
+            flag: "--path",
+            default: ".",
+            required_when: "Required in CLI only when initializing a path other than the current directory."
+          },
           mcp: { argument: "path" }
         }
       },
@@ -923,6 +927,15 @@ describe("action execution readiness", () => {
       value_encoding: "string",
       type: "string",
       required: true,
+      required_when: "Required in CLI only when initializing a path other than the current directory.",
+      default: ".",
+      preferred: true
+    }]);
+    expect(execution.required_inputs_by_field.path.cli_targets).toEqual([{
+      flag: "--path",
+      type: "string",
+      required: true,
+      required_when: "Required in CLI only when initializing a path other than the current directory.",
       default: ".",
       preferred: true
     }]);

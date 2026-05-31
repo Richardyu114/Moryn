@@ -211,6 +211,9 @@ Supported sync modes are `manual`, `session`, and `interval`. Legacy `auto` is
 accepted as an alias for `interval`. The default is `session`.
 When updating an existing `.moryn.json`, omitted `--tag`, `--default-skill`, and
 `--sync-mode` values keep the existing config instead of clearing it.
+The CLI defaults `--path` to the current directory; MCP callers still provide
+`path`, and operation-contract CLI targets include `required_when` for that
+interface-specific difference.
 Successful `moryn project init` output includes
 `artifacts.config: ".moryn.json"` and `selection_sources` for `path`, `config`,
 `config.project_id`, `config.tags`, `config.default_skills`, and
@@ -470,8 +473,8 @@ turns those targets into direct write-back instructions with `argument`,
 optional nested `path`, `value_path`, and preferred flag. `cli_targets` tells CLI
 hosts which flag or positional to fill; `collect.apply_to.cli_assignments` turns
 those targets into direct write-back instructions with flag or positional,
-`value_path`, `argv_template`, `value_encoding`, type, repeatable/default
-metadata, and preferred flag.
+`value_path`, `argv_template`, `value_encoding`, type, interface-specific
+`required_when`, repeatable/default metadata, and preferred flag.
 Lifecycle responses with unique follow-up action ids keep `next.actions` for
 ordered display and also expose `next.actions_by_id`, keyed by ids such as
 `publish_status`, `finish_session`, `refresh_context`, and

@@ -501,7 +501,7 @@ can resolve stored input without scanning arrays. `mcp_targets` names the MCP
 argument, optional nested path, type,
 required flag, and preferred alternative for each fillable target.
 `cli_targets` names equivalent CLI flags, positionals, repeatability, defaults,
-types, and preferred alternatives.
+interface-specific `required_when`, types, and preferred alternatives.
 The operation selection source registry names that keyed input path as
 `operations_by_id.<operation>.execution.required_inputs_by_field.<field>` and
 the value-path index as
@@ -1001,6 +1001,10 @@ the package entrypoint as the canonical field-path contract.
 
 Supported `sync_mode` inputs are `manual`, `session`, `interval`, and legacy
 `auto`; `auto` is stored as `interval`.
+
+The CLI defaults `--path` to the current directory, while MCP callers still
+provide `path`; operation-contract CLI targets include `required_when` so hosts
+can distinguish that interface-specific rule.
 
 When updating an existing `.moryn.json`, omitted `tags`, `default_skills`, and
 `sync_mode` inputs keep the existing config instead of clearing it.

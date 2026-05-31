@@ -1495,6 +1495,13 @@ describe("moryn CLI", () => {
           allowed_values: ["manual", "session", "interval", "auto"]
         }
       },
+      arguments_by_name: {
+        path: {
+          cli: {
+            required_when: "Required in CLI only when initializing a path other than the current directory."
+          }
+        }
+      },
       argument_sources: {
         path: "user_input.path"
       },

@@ -72,6 +72,10 @@ Deliverables:
 - Done: CLI, MCP, and operation contracts all accept legacy project
   `sync_mode: "auto"` as an alias for `interval`, so agents do not see
   contradictory allowed values across interfaces.
+- Done: Operation-contract CLI targets and assignments can carry
+  interface-specific `required_when`, and `project_init.path` now explains that
+  the CLI defaults `--path` to the current directory while MCP still requires
+  `path`.
 - Done: CLI `project init` updates preserve existing tags, default skills, and
   sync mode when those inputs are omitted, so an agent rerun does not silently
   clear project defaults.
@@ -601,6 +605,9 @@ Deliverables:
   confirmation requirements, so agents can choose between running, collecting
   input, asking for approval, or blocking automation without recomputing policy
   from several fields.
+- Done: Required-input CLI targets and assignments now preserve
+  interface-specific `required_when`, so hosts can explain defaults or
+  CLI-only conditions without weakening MCP required fields.
 - Done: `execution.runbook.step_paths_by_step` indexes ordered runbook steps by
   step name, so agents can jump to later descriptors such as `call_mcp` or
   `ask_user_confirmation` without inferring array positions or duplicating step

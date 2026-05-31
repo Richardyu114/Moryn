@@ -90,6 +90,7 @@ export interface ActionCliTarget {
   positional?: string;
   type?: string;
   required?: boolean;
+  required_when?: string;
   repeatable?: boolean;
   default?: unknown;
   preferred: boolean;
@@ -216,6 +217,7 @@ type ArgumentInputMetadata = {
     repeatable?: boolean;
     default?: unknown;
     negative_flag?: string;
+    required_when?: string;
   };
   mcp?: {
     argument: string;
@@ -284,6 +286,7 @@ function cliTargets(
       ...(metadata.cli.positional ? { positional: metadata.cli.positional } : {}),
       ...(metadata.type ? { type: metadata.type } : {}),
       ...(typeof metadata.required === "boolean" ? { required: metadata.required } : {}),
+      ...(metadata.cli.required_when ? { required_when: metadata.cli.required_when } : {}),
       ...(typeof metadata.cli.repeatable === "boolean" ? { repeatable: metadata.cli.repeatable } : {}),
       ...("default" in metadata.cli ? { default: metadata.cli.default } : {}),
       preferred: index === 0
@@ -356,6 +359,7 @@ function cliAssignments(targets: ActionCliTarget[] | undefined, valuePath: strin
       ...(flag_value_paths ? { flag_value_paths } : {}),
       ...(target.type ? { type: target.type } : {}),
       ...(typeof target.required === "boolean" ? { required: target.required } : {}),
+      ...(target.required_when ? { required_when: target.required_when } : {}),
       ...(typeof target.repeatable === "boolean" ? { repeatable: target.repeatable } : {}),
       ...("default" in target ? { default: target.default } : {}),
       preferred: target.preferred
