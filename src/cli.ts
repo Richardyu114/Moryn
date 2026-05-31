@@ -105,6 +105,7 @@ type CliParserOperation =
   | "agent_start"
   | "agent_status"
   | "agent_finish"
+  | "project_init"
   | "project_list";
 type CliParserArgumentSource = `operations_by_id.${CliParserOperation}.arguments_by_name.${string}`;
 type CliParserSource = {
@@ -1420,8 +1421,8 @@ const project = program.command("project");
 project.command("init")
   .option("--path <path>", "Project path", process.cwd())
   .option("--project-id <id>")
-  .option("--tag <tag>", "Project tag", collectNonEmptyOption("--tag"), [])
-  .option("--default-skill <selector>", "Default skill selector", collectNonEmptyOption("--default-skill"), [])
+  .option("--tag <tag>", "Project tag", collectNonEmptyOption("--tag", { operation: "project_init", argument: "tags" }), [])
+  .option("--default-skill <selector>", "Default skill selector", collectNonEmptyOption("--default-skill", { operation: "project_init", argument: "default_skills" }), [])
   .option("--sync-mode <mode>", "Sync mode")
   .option("--repair", "Replace an invalid existing .moryn.json after explicit confirmation")
   .action(async (options) => {

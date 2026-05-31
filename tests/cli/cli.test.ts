@@ -3569,6 +3569,20 @@ describe("moryn CLI", () => {
           valuePlaceholder: "<path>"
         },
         {
+          args: ["project", "init", "--tag", ""],
+          operation: "project_init",
+          argument: "tags",
+          message: "Invalid --tag",
+          option: "--tag"
+        },
+        {
+          args: ["project", "init", "--default-skill", ""],
+          operation: "project_init",
+          argument: "default_skills",
+          message: "Invalid --default-skill",
+          option: "--default-skill"
+        },
+        {
           args: ["project", "list", "--current-task", ""],
           operation: "project_list",
           argument: "current_task",

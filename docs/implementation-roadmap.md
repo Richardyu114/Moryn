@@ -401,6 +401,9 @@ Deliverables:
   hints and argument sources; MCP `path`, `project_id`, and `sync_mode` shape
   failures pass through core validation instead of host-side schema text, and
   CLI renders the retry field as `--path`.
+- Done: CLI empty `project init --tag` and `project init --default-skill`
+  failures now expose project-init `tags`/`default_skills` sources instead of
+  generic or write-operation hints.
 - Done: `init` repair argument failures now expose `operations_by_id.init`
   recovery hints and `arguments_by_name.repair`; MCP `repair` failures pass
   through core validation instead of host-side schema text, preventing string

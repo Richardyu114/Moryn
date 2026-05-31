@@ -889,7 +889,9 @@ host-side schema text. MCP
 including single-string skill selector values. Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and
 `project_init` path/project id/tags/default skills/sync mode/repair inputs also
-point at `operations_by_id.project_init.arguments_by_name.<argument>`. MCP
+point at `operations_by_id.project_init.arguments_by_name.<argument>`. Empty CLI
+`project init --tag` and `project init --default-skill` values use those
+project-init sources instead of generic or write-operation hints. MCP
 `project_init.path`, `project_init.project_id`, `project_init.sync_mode`,
 `project_init.tags`, and `project_init.default_skills` shape failures pass
 through core validation too, including numeric path/project/sync-mode values and
