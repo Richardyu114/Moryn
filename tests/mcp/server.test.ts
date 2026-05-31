@@ -6787,6 +6787,80 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("returns structured JSON errors for invalid MCP numeric inputs", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-numeric-input-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const invalidConfidence = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Invalid confidence should return structured recovery.",
+            confidence: 2,
+            source: { client: "mcp-test" }
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(invalidConfidence.ok).toBe(false);
+        expect(invalidConfidence.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidConfidence.error.message).toContain("Invalid confidence");
+        expect(invalidConfidence.error.recommended_action).toBe("retry write with confidence between 0 and 1");
+        expect(invalidConfidence.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "confidence", value: 2 },
+          expected: { kind: "number_range", min: 0, max: 1, inclusive: true },
+          argument_sources: {
+            confidence: "operations_by_id.write.arguments_by_name.confidence"
+          },
+          retry_with: { argument: "confidence", value_placeholder: 0.5 }
+        });
+
+        const invalidLimit = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            project_id: "moryn",
+            limit: 0
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(invalidLimit.ok).toBe(false);
+        expect(invalidLimit.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidLimit.error.message).toContain("Invalid limit");
+        expect(invalidLimit.error.recommended_action).toBe("retry read with a limit between 1 and 100");
+        expect(invalidLimit.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "limit", value: 0 },
+          expected: { kind: "integer_range", min: 1, max: 100, integer: true },
+          argument_sources: {
+            limit: "operations_by_id.recall.arguments_by_name.limit"
+          },
+          retry_with: { argument: "limit", value_placeholder: 10 }
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("marks conflicting MCP canonical writes as candidates", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-conflict-"));
     try {
