@@ -106,7 +106,8 @@ type CliParserOperation =
   | "agent_status"
   | "agent_finish"
   | "project_init"
-  | "project_list";
+  | "project_list"
+  | "sync_init";
 type CliParserArgumentSource = `operations_by_id.${CliParserOperation}.arguments_by_name.${string}`;
 type CliParserSource = {
   operation: CliParserOperation;
@@ -1484,7 +1485,8 @@ const sync = program.command("sync");
 sync.command("init")
   .argument("<remote>")
   .action(async (remote) => {
-    printJson(await initializeGitSync(storePath(), remote));
+    const syncRemote = parseNonEmptyCliString(remote, "remote", { operation: "sync_init", argument: "remote" })!;
+    printJson(await initializeGitSync(storePath(), syncRemote));
   });
 
 sync

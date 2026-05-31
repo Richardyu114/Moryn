@@ -561,6 +561,9 @@ Deliverables:
   flags now return operation contracts for each selectable sync operation, and
   `--message` without `--push` points at
   `operations_by_id.sync_push.arguments_by_name.message`.
+- Done: CLI empty `sync init ""` remotes now expose
+  `operations_by_id.sync_init.arguments_by_name.remote` before Git remote
+  initialization runs.
 - Done: MCP `sync_init.remote` and `sync_push.message` shape failures now pass
   through sync validation, including numeric values, and expose
   `operations_by_id.sync_init.arguments_by_name.remote` or

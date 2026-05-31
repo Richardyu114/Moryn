@@ -3497,6 +3497,14 @@ describe("moryn CLI", () => {
           option: "--message"
         },
         {
+          args: ["sync", "init", ""],
+          operation: "sync_init",
+          argument: "remote",
+          message: "Invalid remote",
+          option: "remote",
+          valuePlaceholder: "<non-empty remote>"
+        },
+        {
           args: ["agent", "start", "--project-id", ""],
           operation: "agent_start",
           argument: "project_id",
