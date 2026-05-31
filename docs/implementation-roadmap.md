@@ -321,7 +321,10 @@ Deliverables:
   patches, conflicting write content or sync operation inputs, invalid sync
   option dependencies such as `--message` without `--push`, invalid refresh
   cursors, or hallucinated flags such as invalid `--state`, `--limit`, and
-  `--confidence` without parsing English error text.
+  `--confidence` without parsing English error text. MCP write argument
+  failures also point at `operation_contract: "operations_by_id.write"` and
+  expose `argument_sources` for `type`, `scope`, `text`, and `content`, so
+  agents can fetch the contract fields before retrying.
 - Done: Static operation CLI interfaces expose explicit `executable` plus
   `args` fields alongside display command strings and compatibility `argv`
   arrays, with selection sources for each CLI execution field, so programmatic

@@ -6290,8 +6290,12 @@ describe("MCP stdio server", () => {
         expect(missingType.error.message).toContain("write requires type");
         expect(missingType.error.recommended_action).toBe("retry write with required type");
         expect(missingType.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
           missing_argument: { argument: "type" },
           expected: { kind: "required_argument", required: true },
+          argument_sources: {
+            type: "operations_by_id.write.arguments_by_name.type"
+          },
           retry_with: { argument: "type", value_placeholder: "<record type>" }
         });
 
@@ -6309,8 +6313,12 @@ describe("MCP stdio server", () => {
         expect(missingScope.error.message).toContain("write requires scope");
         expect(missingScope.error.recommended_action).toBe("retry write with required scope");
         expect(missingScope.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
           missing_argument: { argument: "scope" },
           expected: { kind: "required_argument", required: true },
+          argument_sources: {
+            scope: "operations_by_id.write.arguments_by_name.scope"
+          },
           retry_with: { argument: "scope", value_placeholder: "<record scope>" }
         });
 
@@ -6328,11 +6336,16 @@ describe("MCP stdio server", () => {
         expect(missingContent.error.message).toContain("write requires text or content");
         expect(missingContent.error.recommended_action).toBe("retry write with exactly one content input");
         expect(missingContent.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
           missing_one_of: [
             { argument: "text", value_placeholder: "<text>" },
             { argument: "content", value_placeholder: "<content object>" }
           ],
           expected: { kind: "choose_one", arguments: ["text", "content"] },
+          argument_sources: {
+            text: "operations_by_id.write.arguments_by_name.text",
+            content: "operations_by_id.write.arguments_by_name.content"
+          },
           retry_with: [
             { argument: "text", value_placeholder: "<text>" },
             { argument: "content", value_placeholder: "<content object>" }
@@ -6355,11 +6368,16 @@ describe("MCP stdio server", () => {
         expect(conflictingContent.error.message).toContain("use either text or content");
         expect(conflictingContent.error.recommended_action).toBe("retry write with exactly one content input");
         expect(conflictingContent.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
           rejected_arguments: [
             { argument: "text", value: "Plain text" },
             { argument: "content", value: { text: "Structured text", format: "text" } }
           ],
           expected: { kind: "choose_one", arguments: ["text", "content"] },
+          argument_sources: {
+            text: "operations_by_id.write.arguments_by_name.text",
+            content: "operations_by_id.write.arguments_by_name.content"
+          },
           retry_with: [
             { argument: "text", value_placeholder: "<text>" },
             { argument: "content", value_placeholder: "<content object>" }

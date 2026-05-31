@@ -46,21 +46,27 @@ const WRITE_CONTENT_RETRY_ARGUMENTS = [
 
 type McpArgumentRecoveryHint =
   | {
+      operation_contract: "operations_by_id.write";
       missing_argument: { argument: "type" | "scope" };
       expected: { kind: "required_argument"; required: true };
+      argument_sources: Partial<Record<"type" | "scope", string>>;
       retry_with: { argument: "type" | "scope"; value_placeholder: string };
     }
   | {
+      operation_contract: "operations_by_id.write";
       missing_one_of: Array<{ argument: "text" | "content"; value_placeholder: string }>;
       expected: { kind: "choose_one"; arguments: ["text", "content"] };
+      argument_sources: Record<"text" | "content", string>;
       retry_with: Array<{ argument: "text" | "content"; value_placeholder: string }>;
     }
   | {
+      operation_contract: "operations_by_id.write";
       rejected_arguments: Array<
         | { argument: "text"; value: string }
         | { argument: "content"; value: Record<string, unknown> }
       >;
       expected: { kind: "choose_one"; arguments: ["text", "content"] };
+      argument_sources: Record<"text" | "content", string>;
       retry_with: Array<{ argument: "text" | "content"; value_placeholder: string }>;
     };
 
@@ -77,12 +83,18 @@ class McpArgumentError extends Error {
 }
 
 function writeRequiredArgumentError(argument: "type" | "scope"): McpArgumentError {
+  const argumentSources = {
+    [argument]: `operations_by_id.write.arguments_by_name.${argument}`
+  } satisfies Partial<Record<typeof argument, string>>;
+
   return new McpArgumentError(
     `Invalid argument: write requires ${argument}`,
     `retry write with required ${argument}`,
     {
+      operation_contract: "operations_by_id.write",
       missing_argument: { argument },
       expected: { kind: "required_argument", required: true },
+      argument_sources: argumentSources,
       retry_with: { argument, value_placeholder: `<record ${argument}>` }
     }
   );
@@ -98,10 +110,15 @@ function writeContentChoiceError(rejectedArguments?: Array<
       : "Invalid argument: write requires text or content",
     "retry write with exactly one content input",
     {
+      operation_contract: "operations_by_id.write",
       ...(rejectedArguments
         ? { rejected_arguments: rejectedArguments }
         : { missing_one_of: [...WRITE_CONTENT_RETRY_ARGUMENTS] }),
       expected: { kind: "choose_one", arguments: ["text", "content"] },
+      argument_sources: {
+        text: "operations_by_id.write.arguments_by_name.text",
+        content: "operations_by_id.write.arguments_by_name.content"
+      },
       retry_with: [...WRITE_CONTENT_RETRY_ARGUMENTS]
     }
   );
