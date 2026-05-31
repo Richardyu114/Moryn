@@ -1566,7 +1566,8 @@ and emits the corresponding flag, such as `--agent`, while the generated MCP
 interface emits the nested argument, such as `agent.client`. Action
 interfaces also JSON-encode object-valued CLI flags, so a structured `content`
 payload becomes a single runnable `--content-json` value rather than
-`[object Object]` or duplicate field flags. Action
+`[object Object]` or duplicate field flags, including when the host filled
+flattened `content_text`/`content_format` fields. Action
 templates also include `safety`, a machine-readable
 explanation of `safe_to_run` with `safe_to_auto_run`,
 `requires_user_confirmation`, `requires_authored_input`, `writes_local_config`,

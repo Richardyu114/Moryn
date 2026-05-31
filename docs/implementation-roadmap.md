@@ -752,6 +752,9 @@ Deliverables:
 - Done: Generated action CLI interfaces now JSON-encode object-valued flags such
   as `--content-json`, so returned actions are runnable without hosts converting
   `{ text, format }` payloads or removing duplicate nested field flags.
+- Done: Generated action CLI interfaces now merge flattened object subfields
+  such as `content_text`/`content_format` into the parent `--content-json`
+  argument, matching MCP normalization for hosts that fill contract field names.
 - Done: Empty CLI `link --type` values now return a CLI-shaped `--type`
   recovery hint backed by `operations_by_id.link.arguments_by_name.link_type`,
   so shell agents can retry the exact flag instead of translating a lower-level

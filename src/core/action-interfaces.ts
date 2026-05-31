@@ -90,18 +90,12 @@ function shouldSkipNestedCliArgument(
   operationArguments: OperationArgumentMetadata[]
 ): boolean {
   if (!argument.parent_argument || !argument.cli || !argument.mcp?.path) return false;
-  const parent = argumentsByName[argument.parent_argument];
-  if (typeof parent !== "object" || parent === null || Array.isArray(parent)) return false;
   const parentArgument = operationArguments.find((candidate) => candidate.name === argument.parent_argument);
-  return Boolean(parentArgument?.cli);
+  return Boolean(parentArgument?.cli && cliArgumentValue(argumentsByName, parentArgument, operationArguments) !== undefined);
 }
 
 function cliArgumentValue(argumentsByName: Record<string, unknown>, argument: OperationArgumentMetadata, operationArguments: OperationArgumentMetadata[]): unknown {
-  return Boolean(
-    argument.cli?.flags?.length
-    && argument.mcp
-    && argument.mcp.argument === argument.name
-  )
+  return Boolean(argument.cli && argument.mcp && argument.mcp.argument === argument.name)
     ? parentObjectValueForArguments(argumentsByName, argument, operationArguments)
     : argumentValue(argumentsByName, argument);
 }
@@ -112,8 +106,10 @@ function parentObjectValueForArguments(
   operationArguments: OperationArgumentMetadata[]
 ): unknown {
   const parentValue = argumentValue(argumentsByName, argument);
-  if (typeof parentValue !== "object" || parentValue === null || Array.isArray(parentValue)) return parentValue;
-  const mergedValue = { ...parentValue as Record<string, unknown> };
+  if (parentValue !== undefined && (typeof parentValue !== "object" || parentValue === null || Array.isArray(parentValue))) return parentValue;
+  const mergedValue = typeof parentValue === "object" && parentValue !== null && !Array.isArray(parentValue)
+    ? { ...parentValue as Record<string, unknown> }
+    : {};
   for (const childArgument of operationArguments) {
     if (childArgument.parent_argument !== argument.name || !childArgument.mcp?.path) continue;
     const key = childArgument.mcp.path.split(".").at(-1);
@@ -121,7 +117,7 @@ function parentObjectValueForArguments(
     const childValue = argumentsByName[childArgument.name];
     if (childValue !== undefined) mergedValue[key] = childValue;
   }
-  return mergedValue;
+  return Object.keys(mergedValue).length > 0 ? mergedValue : undefined;
 }
 
 function pushFlagValue(argv: string[], flag: string, value: unknown): void {

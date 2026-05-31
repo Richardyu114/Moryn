@@ -216,6 +216,34 @@ describe("action interfaces", () => {
     expect(interfaces.cli.command_line).toContain("--content-json '{\"text\":\"Use structured memory.\",\"format\":\"json\"}'");
   });
 
+  it("merges flattened content fields into one JSON CLI flag", () => {
+    const interfaces = actionInterfaces({
+      tool: "write",
+      command: "moryn write --kind memory --type decision --scope project --content-json <content>",
+      arguments: {
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        content_text: "Use flattened content.",
+        content_format: "json"
+      }
+    });
+
+    expect(interfaces.cli.argv).toEqual([
+      "write",
+      "--kind", "memory",
+      "--type", "decision",
+      "--scope", "project",
+      "--content-json", "{\"text\":\"Use flattened content.\",\"format\":\"json\"}"
+    ]);
+    expect(interfaces.mcp.arguments).toEqual({
+      kind: "memory",
+      type: "decision",
+      scope: "project",
+      content: { text: "Use flattened content.", format: "json" }
+    });
+  });
+
   it("uses the direct executable when runtime actions are not launched through moryn", () => {
     const interfaces = actionInterfaces({
       tool: "moryn-agent-smoke",
