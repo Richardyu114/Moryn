@@ -493,7 +493,9 @@ the same nested path, Moryn rejects the call with a structured
 `INVALID_ARGUMENT` recovery hint rather than silently selecting one value.
 The same conflict rule applies to literal path and flattened agent identity
 aliases in `project_list` and lifecycle tools, such as `"agent.client"` versus
-`agent_client`. A scalar parent paired with a child alias, such as
+`agent_client`. Recovery hints distinguish nested object paths from top-level
+literal path keys by reporting the literal key as `"\"agent.client\""`, so a
+caller can remove the exact duplicate input. A scalar parent paired with a child alias, such as
 `source: "codex"` plus `source_client` or `agent: "codex"` plus `agent_client`,
 is rejected as the same single-value conflict so invalid object shape is not
 hidden by alias normalization.
@@ -786,9 +788,11 @@ source-backed `recovery_hint` instead of being silently dropped. Conflicting
 direct MCP aliases for the same nested write field, such as `source.client` and
 `source_client` with different values, including literal path keys such as
 `"source.client"`, are rejected with `expected.kind: "single_value"` and
-contract-backed retry guidance. Scalar parent values combined with child
-aliases are rejected the same way instead of being coerced into partial nested
-objects.
+contract-backed retry guidance. When both `source: { client: ... }` and the
+top-level literal key `"source.client"` are present, `values_by_input` preserves
+them as `source.client` and `"\"source.client\""`. Scalar parent values combined
+with child aliases are rejected the same way instead of being coerced into
+partial nested objects.
 Empty CLI `write --reason` values point at
 `operations_by_id.write.arguments_by_name.reason`, matching the write
 provenance contract instead of a generic non-empty-string hint.

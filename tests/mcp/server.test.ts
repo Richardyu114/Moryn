@@ -7438,8 +7438,41 @@ describe("MCP stdio server", () => {
           conflicting_argument: {
             argument: "source.client",
             values_by_input: {
-              "source.client": "mcp-test",
+              "\"source.client\"": "mcp-test",
               source_client: "codex"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            "source.client": "operations_by_id.write.arguments_by_name.source_client"
+          },
+          retry_with: { argument: "source.client", value_placeholder: "<client>" },
+          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+        });
+
+        const conflictingWriteSourceNestedLiteral = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Conflicting source nested literal should fail.",
+            source: { client: "mcp-test" },
+            "source.client": "codex"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingWriteSourceNestedLiteral.ok).toBe(false);
+        expect(conflictingWriteSourceNestedLiteral.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingWriteSourceNestedLiteral.error.message).toContain("Conflicting source.client aliases");
+        expect(conflictingWriteSourceNestedLiteral.error.recommended_action).toBe("retry write with one source.client value");
+        expect(conflictingWriteSourceNestedLiteral.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          conflicting_argument: {
+            argument: "source.client",
+            values_by_input: {
+              "source.client": "mcp-test",
+              "\"source.client\"": "codex"
             }
           },
           expected: { kind: "single_value" },
@@ -8267,8 +8300,35 @@ describe("MCP stdio server", () => {
           conflicting_argument: {
             argument: "agent.client",
             values_by_input: {
-              "agent.client": "codex",
+              "\"agent.client\"": "codex",
               agent_client: "claude"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            "agent.client": "operations_by_id.agent_enter.arguments_by_name.agent_client"
+          },
+          retry_with: { argument: "agent.client", value_placeholder: "<client>" },
+          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+        });
+        const conflictingLifecycleAgentNestedLiteral = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            agent: { client: "codex" },
+            "agent.client": "claude"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingLifecycleAgentNestedLiteral.ok).toBe(false);
+        expect(conflictingLifecycleAgentNestedLiteral.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingLifecycleAgentNestedLiteral.error.message).toContain("Conflicting agent.client aliases");
+        expect(conflictingLifecycleAgentNestedLiteral.error.recommended_action).toBe("retry agent_enter with one agent.client value");
+        expect(conflictingLifecycleAgentNestedLiteral.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.agent_enter",
+          conflicting_argument: {
+            argument: "agent.client",
+            values_by_input: {
+              "agent.client": "codex",
+              "\"agent.client\"": "claude"
             }
           },
           expected: { kind: "single_value" },

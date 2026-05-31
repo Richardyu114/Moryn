@@ -780,6 +780,10 @@ Deliverables:
   as `"source.client"` versus `source_client`, with a structured
   `INVALID_ARGUMENT` recovery hint, so agents must retry with one value instead
   of relying on silent overwrite order.
+- Done: Direct MCP alias conflict hints now preserve top-level literal path keys
+  separately from nested object paths, reporting entries like
+  `"\"source.client\""` beside `source.client` so agents can remove the exact
+  duplicate input.
 - Done: Direct MCP alias normalization also rejects scalar parent arguments
   mixed with child aliases, such as `source: "codex"` plus `source_client` or
   `agent: "codex"` plus `agent_client`, so invalid nested object shapes are not

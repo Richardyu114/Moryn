@@ -446,10 +446,11 @@ function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArg
   if (!argument.parent_argument || !argument.mcp?.path) return undefined;
   const parentValue = input[argument.mcp.argument];
   const nestedInputValue = input[argument.mcp.path];
+  const literalPathInputName = JSON.stringify(argument.mcp.path);
   const flattenedValue = input[argument.name];
   if (parentValue !== undefined && !isMcpObject(parentValue) && (nestedInputValue !== undefined || flattenedValue !== undefined)) {
     const valuesByInput: Record<string, unknown> = { [argument.mcp.argument]: parentValue };
-    if (nestedInputValue !== undefined) valuesByInput[argument.mcp.path] = nestedInputValue;
+    if (nestedInputValue !== undefined) valuesByInput[literalPathInputName] = nestedInputValue;
     if (flattenedValue !== undefined) valuesByInput[argument.name] = flattenedValue;
     return {
       argument: argument.mcp.argument,
@@ -461,7 +462,7 @@ function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArg
   const valuesByInput: Record<string, unknown> = {};
   const nestedValue = mcpPathValue(input, argument.mcp.path);
   if (nestedValue !== undefined) valuesByInput[argument.mcp.path] = nestedValue;
-  if (nestedInputValue !== undefined) valuesByInput[argument.mcp.path] = nestedInputValue;
+  if (nestedInputValue !== undefined) valuesByInput[literalPathInputName] = nestedInputValue;
   if (flattenedValue !== undefined) valuesByInput[argument.name] = flattenedValue;
   if (Object.keys(valuesByInput).length <= 1) return undefined;
   const distinctValues = new Set(Object.values(valuesByInput).map(stableMcpValueKey));
