@@ -415,6 +415,10 @@ Deliverables:
   including non-object values and malformed `provenance.derived_from` source
   ids, and expose the write contract argument sources instead of host-side
   schema text.
+- Done: MCP mutation `source` shape failures now pass through core validation,
+  including single-string source values for `revise`, `promote`, `archive`,
+  `quarantine`, and `link`, and expose mutation `source_client` argument
+  sources instead of host-side schema text.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty

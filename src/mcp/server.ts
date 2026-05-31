@@ -503,7 +503,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         patch: z.record(z.string(), z.unknown()),
         reason: stringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
-        source: coreValidatedSourceSchema.optional()
+        source: z.unknown().optional()
       }
     },
     async ({ record_id, patch, reason, confirmed, source }) => toolResult(async () => engine.revise({
@@ -511,7 +511,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         patch,
         reason,
         confirmed: confirmed as boolean | undefined,
-        source: (source ?? { client: "mcp" }) as RecordSource
+        source: withDefaultSource(source) as RecordSource
       }), {
         tool: "revise",
         command: commandForReviseContext({ record_id, patch, reason }),
@@ -534,14 +534,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         target_state: recordStateSchema,
         reason: stringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
-        source: coreValidatedSourceSchema.optional()
+        source: z.unknown().optional()
       }
     },
     async ({ record_id, target_state, reason, confirmed, source }) => toolResult(async () => engine.promote({
       record_id,
       target_state: target_state as RecordState,
       reason,
-      source: (source ?? { client: "mcp" }) as RecordSource,
+      source: withDefaultSource(source) as RecordSource,
       confirmed: confirmed as boolean | undefined
     }), {
       tool: "promote",
@@ -563,13 +563,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         record_id: stringSchema,
         reason: stringSchema.optional(),
-        source: coreValidatedSourceSchema.optional()
+        source: z.unknown().optional()
       }
     },
     async ({ record_id, reason, source }) => toolResult(async () => engine.archive({
       record_id,
       reason,
-      source: (source ?? { client: "mcp" }) as RecordSource
+      source: withDefaultSource(source) as RecordSource
     }), {
       tool: "archive",
       command: commandForArchiveContext({ record_id, reason }),
@@ -589,13 +589,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         record_id: stringSchema,
         reason: stringSchema.optional(),
-        source: coreValidatedSourceSchema.optional()
+        source: z.unknown().optional()
       }
     },
     async ({ record_id, reason, source }) => toolResult(async () => engine.quarantine({
       record_id,
       reason,
-      source: (source ?? { client: "mcp" }) as RecordSource
+      source: withDefaultSource(source) as RecordSource
     }), {
       tool: "quarantine",
       command: commandForQuarantineContext({ record_id, reason }),
@@ -616,14 +616,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         record_id: stringSchema,
         linked_record_id: stringSchema,
         link_type: stringSchema,
-        source: coreValidatedSourceSchema.optional()
+        source: z.unknown().optional()
       }
     },
     async ({ record_id, linked_record_id, link_type, source }) => toolResult(async () => engine.link({
       record_id,
       linked_record_id,
       link_type,
-      source: (source ?? { client: "mcp" }) as RecordSource
+      source: withDefaultSource(source) as RecordSource
     }), {
       tool: "link",
       command: commandForLinkContext({ record_id, linked_record_id, link_type }),

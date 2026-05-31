@@ -6942,6 +6942,29 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "source.client", value_placeholder: "<client>" }
         });
+
+        const invalidMutationSourceShape = parseTextContent(await client.callTool({
+          name: "revise",
+          arguments: {
+            record_id: sourceTarget.record.id,
+            patch: { "content.text": "Updated target." },
+            source: "codex"
+          }
+        })) as McpInvalidArgument;
+        expect(invalidMutationSourceShape.ok).toBe(false);
+        expect(invalidMutationSourceShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidMutationSourceShape.error.message).toContain("Invalid source.client");
+        expect(invalidMutationSourceShape.error.recommended_action).toBe("retry mutation with a valid source client");
+        expect(invalidMutationSourceShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.revise",
+          rejected_argument: { argument: "source.client", value: undefined },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "source.client": "operations_by_id.revise.arguments_by_name.source_client"
+          },
+          retry_with: { argument: "source.client", value_placeholder: "<client>" }
+        });
+
         for (const { field, argumentName, placeholder } of [
           { field: "session_id", argumentName: "source_session_id", placeholder: "<source session id>" },
           { field: "model", argumentName: "source_model", placeholder: "<source model>" },
