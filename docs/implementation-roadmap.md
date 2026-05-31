@@ -383,6 +383,10 @@ Deliverables:
   validation and return structured recovery hints pointing at `agent_client`,
   `agent_session_id`, `agent_model`, or `agent_device_id` operation contract
   arguments.
+- Done: MCP `project_list` agent prefill identity metadata failures now pass
+  through core validation and return structured recovery hints pointing at
+  `agent_client`, `agent_session_id`, `agent_model`, or `agent_device_id`
+  operation contract arguments instead of host-side MCP schema text.
 - Done: MCP write and mutation `source.session_id`, `source.model`, and
   `source.device_id` failures now pass through core validation and return
   structured recovery hints pointing at `source_session_id`, `source_model`, or

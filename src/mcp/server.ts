@@ -44,7 +44,6 @@ const syncModeSchema = z.union([z.enum(SYNC_MODES), stringSchema]);
 const provenanceMethodSchema = z.union([z.enum(["agent-proposed", "rule-promoted", "user-confirmed"]), stringSchema]);
 const numberSchema = z.number();
 const coreValidatedBooleanSchema = z.unknown();
-const nonEmptyStringSchema = stringSchema.min(1);
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
   { argument: "text", value_placeholder: "<text>" },
   { argument: "content", value_placeholder: "<content object>" }
@@ -130,12 +129,6 @@ function writeContentChoiceError(rejectedArguments?: Array<
   );
 }
 
-const sourceSchema = z.object({
-  client: nonEmptyStringSchema.default("mcp"),
-  session_id: nonEmptyStringSchema.optional(),
-  model: nonEmptyStringSchema.optional(),
-  device_id: nonEmptyStringSchema.optional()
-});
 const coreValidatedAgentSchema = z.object({
   client: z.unknown().optional().default("mcp"),
   session_id: z.unknown().optional(),
@@ -244,15 +237,18 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit: numberSchema.optional(),
         current_task: stringSchema.optional(),
         sync_remote: stringSchema.optional(),
-        agent: sourceSchema.optional()
+        agent: coreValidatedAgentSchema.optional()
       }
     },
-    async ({ limit, current_task, sync_remote, agent }) => toolResult(async () => engine.listProjects({
-      limit,
-      current_task,
-      sync_remote,
-      agent
-    }))
+    async ({ limit, current_task, sync_remote, agent }) => {
+      const projectListAgent = lifecycleAgentInput(agent);
+      return toolResult(async () => engine.listProjects({
+        limit,
+        current_task,
+        sync_remote,
+        agent: projectListAgent
+      }));
+    }
   );
 
   server.registerTool(

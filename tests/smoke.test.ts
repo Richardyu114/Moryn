@@ -808,6 +808,36 @@ describe("package smoke test", () => {
       mcp: { argument: "agent", path: "agent.device_id" },
       parent_argument: "agent"
     });
+    for (const operation of ["project_list", "agent_enter"] as const) {
+      expect(response.operations_by_id[operation].arguments_by_name.agent_client).toMatchObject({
+        type: "string",
+        required: false,
+        cli: { flag: "--agent" },
+        mcp: { argument: "agent", path: "agent.client" },
+        parent_argument: "agent"
+      });
+      expect(response.operations_by_id[operation].arguments_by_name.agent_session_id).toMatchObject({
+        type: "string",
+        required: false,
+        cli: { flag: "--session-id" },
+        mcp: { argument: "agent", path: "agent.session_id" },
+        parent_argument: "agent"
+      });
+      expect(response.operations_by_id[operation].arguments_by_name.agent_model).toMatchObject({
+        type: "string",
+        required: false,
+        cli: { flag: "--model" },
+        mcp: { argument: "agent", path: "agent.model" },
+        parent_argument: "agent"
+      });
+      expect(response.operations_by_id[operation].arguments_by_name.agent_device_id).toMatchObject({
+        type: "string",
+        required: false,
+        cli: { flag: "--device-id" },
+        mcp: { argument: "agent", path: "agent.device_id" },
+        parent_argument: "agent"
+      });
+    }
     expect(response.operations_by_id.agent_finish.required_fields).toEqual(["summary"]);
     expect(response.operations_by_id.agent_finish.required_fields_by_name.summary).toMatchObject({
       argument_path: "summary",

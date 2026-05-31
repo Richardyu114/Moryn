@@ -1146,6 +1146,40 @@ describe("MCP stdio server", () => {
           mcp: { argument: "agent", path: "agent.device_id" },
           parent_argument: "agent"
         });
+        for (const operation of ["project_list", "agent_enter"] as const) {
+          expect(parsed.operations_by_id[operation].arguments_by_name.agent_client).toMatchObject({
+            name: "agent_client",
+            type: "string",
+            required: false,
+            cli: { flag: "--agent" },
+            mcp: { argument: "agent", path: "agent.client" },
+            parent_argument: "agent"
+          });
+          expect(parsed.operations_by_id[operation].arguments_by_name.agent_session_id).toMatchObject({
+            name: "agent_session_id",
+            type: "string",
+            required: false,
+            cli: { flag: "--session-id" },
+            mcp: { argument: "agent", path: "agent.session_id" },
+            parent_argument: "agent"
+          });
+          expect(parsed.operations_by_id[operation].arguments_by_name.agent_model).toMatchObject({
+            name: "agent_model",
+            type: "string",
+            required: false,
+            cli: { flag: "--model" },
+            mcp: { argument: "agent", path: "agent.model" },
+            parent_argument: "agent"
+          });
+          expect(parsed.operations_by_id[operation].arguments_by_name.agent_device_id).toMatchObject({
+            name: "agent_device_id",
+            type: "string",
+            required: false,
+            cli: { flag: "--device-id" },
+            mcp: { argument: "agent", path: "agent.device_id" },
+            parent_argument: "agent"
+          });
+        }
         expect(parsed.operations_by_id.agent_finish).toMatchObject({
           safe_to_run: false,
           required_fields: ["summary"],
@@ -7049,6 +7083,46 @@ describe("MCP stdio server", () => {
             expected: { kind: "non_empty_string", min_length: 1 },
             argument_sources: {
               [`agent.${field}`]: `operations_by_id.agent_enter.arguments_by_name.${argumentName}`
+            },
+            retry_with: { argument: `agent.${field}`, value_placeholder: placeholder }
+          });
+        }
+        const invalidProjectListAgentClient = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: { agent: { client: "" } }
+        })) as McpInvalidArgument;
+        expect(invalidProjectListAgentClient.ok).toBe(false);
+        expect(invalidProjectListAgentClient.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidProjectListAgentClient.error.message).toContain("Invalid agent.client");
+        expect(invalidProjectListAgentClient.error.recommended_action).toBe("retry project_list with a valid agent client");
+        expect(invalidProjectListAgentClient.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_list",
+          rejected_argument: { argument: "agent.client", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "agent.client": "operations_by_id.project_list.arguments_by_name.agent_client"
+          },
+          retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
+        });
+        for (const { field, argumentName, placeholder } of [
+          { field: "session_id", argumentName: "agent_session_id", placeholder: "<agent session id>" },
+          { field: "model", argumentName: "agent_model", placeholder: "<agent model>" },
+          { field: "device_id", argumentName: "agent_device_id", placeholder: "<agent device id>" }
+        ]) {
+          const invalidProjectListAgentField = parseTextContent(await client.callTool({
+            name: "project_list",
+            arguments: { agent: { client: "codex", [field]: "" } }
+          })) as McpInvalidArgument;
+          expect(invalidProjectListAgentField.ok).toBe(false);
+          expect(invalidProjectListAgentField.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidProjectListAgentField.error.message).toContain(`Invalid agent.${field}`);
+          expect(invalidProjectListAgentField.error.recommended_action).toBe("retry project_list with valid agent identity metadata");
+          expect(invalidProjectListAgentField.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.project_list",
+            rejected_argument: { argument: `agent.${field}`, value: "" },
+            expected: { kind: "non_empty_string", min_length: 1 },
+            argument_sources: {
+              [`agent.${field}`]: `operations_by_id.project_list.arguments_by_name.${argumentName}`
             },
             retry_with: { argument: `agent.${field}`, value_placeholder: placeholder }
           });

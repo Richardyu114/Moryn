@@ -369,6 +369,8 @@ interface LinkInput {
 type ReadOperation = "recall" | "boot" | "refresh" | "list_recent" | "project_list";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
 type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.${string}`;
+type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
+type AgentIdentityArgument = `agent.${AgentIdentityField}`;
 
 type MutationOperation = "revise" | "promote" | "archive" | "quarantine" | "link";
 type MutationOperationContractSource = `operations_by_id.${MutationOperation}`;
@@ -400,6 +402,33 @@ const SOURCE_IDENTITY_FIELDS = {
   }
 } as const satisfies Record<SourceIdentityField, {
   argument: SourceIdentityArgument;
+  contractArgument: string;
+  placeholder: string;
+}>;
+
+const AGENT_IDENTITY_FIELDS = {
+  client: {
+    argument: "agent.client",
+    contractArgument: "agent_client",
+    placeholder: "<agent client>"
+  },
+  session_id: {
+    argument: "agent.session_id",
+    contractArgument: "agent_session_id",
+    placeholder: "<agent session id>"
+  },
+  model: {
+    argument: "agent.model",
+    contractArgument: "agent_model",
+    placeholder: "<agent model>"
+  },
+  device_id: {
+    argument: "agent.device_id",
+    contractArgument: "agent_device_id",
+    placeholder: "<agent device id>"
+  }
+} as const satisfies Record<AgentIdentityField, {
+  argument: AgentIdentityArgument;
   contractArgument: string;
   placeholder: string;
 }>;
@@ -601,6 +630,13 @@ type ReadArgumentRecoveryHint =
       expected: { kind: "integer_range"; min: 1; max: 100; integer: true };
       argument_sources: { limit: ReadArgumentSource };
       retry_with: { argument: "limit"; value_placeholder: 10 };
+    }
+  | {
+      operation_contract: "operations_by_id.project_list";
+      rejected_argument: { argument: AgentIdentityArgument; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: Record<AgentIdentityArgument, ReadArgumentSource>;
+      retry_with: { argument: AgentIdentityArgument; value_placeholder: string };
     };
 
 class ReadArgumentError extends Error {
@@ -688,6 +724,45 @@ function invalidReadEnumArrayError<T extends string>(
       retry_with: { argument: name, value_placeholder: [placeholder] }
     }
   );
+}
+
+function agentIdentityValue(agent: unknown, field: AgentIdentityField): unknown {
+  return typeof agent === "object" && agent !== null && field in agent
+    ? (agent as Partial<Record<AgentIdentityField, unknown>>)[field]
+    : undefined;
+}
+
+function invalidProjectListAgentIdentityError(agent: unknown, field: AgentIdentityField): ReadArgumentError {
+  const metadata = AGENT_IDENTITY_FIELDS[field];
+  return new ReadArgumentError(
+    `Invalid argument: Invalid ${metadata.argument}`,
+    field === "client"
+      ? "retry project_list with a valid agent client"
+      : "retry project_list with valid agent identity metadata",
+    {
+      operation_contract: "operations_by_id.project_list",
+      rejected_argument: { argument: metadata.argument, value: agentIdentityValue(agent, field) },
+      expected: { kind: "non_empty_string", min_length: 1 },
+      argument_sources: {
+        [metadata.argument]: readArgumentSource("project_list", metadata.contractArgument)
+      },
+      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
+    }
+  );
+}
+
+function validateProjectListAgent(agent: unknown): void {
+  if (agent === undefined) return;
+  if (typeof agent !== "object" || agent === null || Array.isArray(agent)) {
+    throw invalidProjectListAgentIdentityError(agent, "client");
+  }
+  const rawAgent = agent as Partial<Record<AgentIdentityField, unknown>>;
+  for (const field of Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[]) {
+    const value = rawAgent[field];
+    if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
+      throw invalidProjectListAgentIdentityError(agent, field);
+    }
+  }
 }
 
 function validateRecordId(
@@ -1379,7 +1454,7 @@ function validateListProjectsInput(input: ListProjectsInput): void {
   assertPlainObject(input, "list projects input");
   validateOptionalString("project_list", input.current_task, "current_task");
   validateOptionalString("project_list", input.sync_remote, "sync_remote");
-  validateOptionalSource(input.agent);
+  validateProjectListAgent(input.agent);
 }
 
 function shellQuote(value: string): string {

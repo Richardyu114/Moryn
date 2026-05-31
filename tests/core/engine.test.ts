@@ -3594,6 +3594,29 @@ describe("core engine", () => {
         },
         retry_with: { argument: "sync_remote", value_placeholder: "<sync_remote>" }
       });
+      await expectInvalidReadShapeArgument(() => engine.listProjects({ agent: { client: "" } }), "Invalid agent.client", "retry project_list with a valid agent client", {
+        operation_contract: "operations_by_id.project_list",
+        rejected_argument: { argument: "agent.client", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          "agent.client": "operations_by_id.project_list.arguments_by_name.agent_client"
+        },
+        retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
+      });
+      await expectInvalidReadShapeArgument(
+        () => engine.listProjects({ agent: { client: "codex", session_id: "" } }),
+        "Invalid agent.session_id",
+        "retry project_list with valid agent identity metadata",
+        {
+          operation_contract: "operations_by_id.project_list",
+          rejected_argument: { argument: "agent.session_id", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            "agent.session_id": "operations_by_id.project_list.arguments_by_name.agent_session_id"
+          },
+          retry_with: { argument: "agent.session_id", value_placeholder: "<agent session id>" }
+        }
+      );
     });
   });
 
