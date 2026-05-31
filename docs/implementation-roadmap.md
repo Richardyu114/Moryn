@@ -486,6 +486,9 @@ Deliverables:
   through core validation, including numeric values, and expose the matching
   `operations_by_id.<operation>.arguments_by_name.*` sources instead of
   host-side schema text.
+- Done: MCP mutation `promote.target_state` and `link.link_type` shape failures
+  now pass through core validation, including numeric values, and expose the
+  matching operation contract sources for state enum and link-type retries.
 - Done: CLI sync parser failures for conflicting `--status`/`--push`/`--pull`
   flags now return operation contracts for each selectable sync operation, and
   `--message` without `--push` points at

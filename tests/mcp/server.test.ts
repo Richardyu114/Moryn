@@ -7538,6 +7538,24 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "target_state", value_placeholder: "canonical" }
         });
 
+        const invalidTargetStateShape = parseTextContent(await client.callTool({
+          name: "promote",
+          arguments: { record_id: "rec_missing", target_state: 123 }
+        })) as McpInvalidArgument;
+        expect(invalidTargetStateShape.ok).toBe(false);
+        expect(invalidTargetStateShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidTargetStateShape.error.message).toContain("Invalid target_state");
+        expect(invalidTargetStateShape.error.recommended_action).toBe("retry mutation with a supported target_state");
+        expect(invalidTargetStateShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.promote",
+          rejected_argument: { argument: "target_state", value: 123 },
+          expected: { kind: "allowed_values", allowed_values: ["raw", "candidate", "canonical", "archived", "quarantined"] },
+          argument_sources: {
+            target_state: "operations_by_id.promote.arguments_by_name.target_state"
+          },
+          retry_with: { argument: "target_state", value_placeholder: "canonical" }
+        });
+
         const emptyReason = parseTextContent(await client.callTool({
           name: "promote",
           arguments: { record_id: "rec_missing", target_state: "canonical", reason: "" }
@@ -7605,6 +7623,28 @@ describe("MCP stdio server", () => {
             linked_record_id: "operations_by_id.link.arguments_by_name.linked_record_id"
           },
           retry_with: { argument: "linked_record_id", value_placeholder: "<linked_record_id>" }
+        });
+
+        const invalidLinkTypeShape = parseTextContent(await client.callTool({
+          name: "link",
+          arguments: {
+            record_id: "rec_missing",
+            linked_record_id: "rec_other",
+            link_type: 123
+          }
+        })) as McpInvalidArgument;
+        expect(invalidLinkTypeShape.ok).toBe(false);
+        expect(invalidLinkTypeShape.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidLinkTypeShape.error.message).toContain("Invalid link_type");
+        expect(invalidLinkTypeShape.error.recommended_action).toBe("retry link with a non-empty link_type");
+        expect(invalidLinkTypeShape.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.link",
+          rejected_argument: { argument: "link_type", value: 123 },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            link_type: "operations_by_id.link.arguments_by_name.link_type"
+          },
+          retry_with: { argument: "link_type", value_placeholder: "<link_type>" }
         });
       });
     } finally {

@@ -764,7 +764,11 @@ MCP `revise.patch` shape failures also pass through core validation, including
 single-string patch values, and return `rejected_patch` plus a safe patch
 placeholder. MCP mutation `record_id` shape failures for `revise`, `promote`,
 `archive`, `quarantine`, and `link`, plus `link.linked_record_id`, pass through
-core validation too and point at the matching mutation argument contract.
+core validation too and point at the matching mutation argument contract. MCP
+mutation `promote.target_state` and `link.link_type` shape failures also pass
+through core validation, including numeric values, so callers get the same
+contract-backed state and link-type repair hints instead of host-side schema
+text.
 Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 `project_list` also expose the matching operation contract and
 `argument_sources` for invalid filters, cursors, task context, project ids, and

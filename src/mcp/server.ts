@@ -49,6 +49,8 @@ const syncModeSchema = z.union([z.enum(SYNC_MODES), stringSchema]);
 const numberSchema = z.number();
 const coreValidatedNumberSchema = z.unknown();
 const coreValidatedBooleanSchema = z.unknown();
+const coreValidatedRecordStateSchema = z.unknown();
+const coreValidatedStringSchema = z.unknown();
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
   { argument: "text", value_placeholder: "<text>" },
   { argument: "content", value_placeholder: "<content object>" }
@@ -526,7 +528,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Change a record state by appending a promotion/state event.",
       inputSchema: {
         record_id: z.unknown(),
-        target_state: recordStateSchema,
+        target_state: coreValidatedRecordStateSchema,
         reason: stringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
         source: z.unknown().optional()
@@ -534,7 +536,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     },
     async ({ record_id, target_state, reason, confirmed, source }) => toolResult(async () => engine.promote({
       record_id,
-      target_state: target_state as RecordState,
+      target_state,
       reason,
       source: withDefaultSource(source) as RecordSource,
       confirmed: confirmed as boolean | undefined
@@ -610,7 +612,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: {
         record_id: z.unknown(),
         linked_record_id: z.unknown(),
-        link_type: stringSchema,
+        link_type: coreValidatedStringSchema,
         source: z.unknown().optional()
       }
     },

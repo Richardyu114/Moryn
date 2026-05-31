@@ -365,7 +365,7 @@ interface RevisionInput {
 
 interface PromoteInput {
   record_id: unknown;
-  target_state: RecordState;
+  target_state: unknown;
   reason?: string;
   source?: RecordSource;
   confirmed?: boolean;
@@ -374,14 +374,14 @@ interface PromoteInput {
 interface LinkInput {
   record_id: unknown;
   linked_record_id: unknown;
-  link_type: string;
+  link_type: unknown;
   source?: RecordSource;
 }
 
 type ValidatedStateChangeInput = StateChangeInput & { record_id: string };
 type ValidatedRevisionInput = RevisionInput & { record_id: string };
-type ValidatedPromoteInput = PromoteInput & { record_id: string };
-type ValidatedLinkInput = LinkInput & { record_id: string; linked_record_id: string };
+type ValidatedPromoteInput = PromoteInput & { record_id: string; target_state: RecordState };
+type ValidatedLinkInput = LinkInput & { record_id: string; linked_record_id: string; link_type: string };
 
 type ReadOperation = "recall" | "boot" | "refresh" | "list_recent" | "project_list";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
@@ -2216,13 +2216,13 @@ export function createEngine(deps: EngineDeps) {
       const promoteInput = input as ValidatedPromoteInput;
       const record = await requireRecord(promoteInput.record_id);
       const source = input.source ?? { client: "moryn" };
-      const conflicts = input.target_state === "canonical" ? semanticConflicts(await currentRecords(), record) : [];
-      if (input.target_state === "canonical"
+      const conflicts = promoteInput.target_state === "canonical" ? semanticConflicts(await currentRecords(), record) : [];
+      if (promoteInput.target_state === "canonical"
         && requiresCanonicalConfirmation(record)
         && !isUserConfirmed(source, input.confirmed)) {
         throw new Error("Confirmation required: canonical state requires explicit user confirmation");
       }
-      if (input.target_state === "canonical"
+      if (promoteInput.target_state === "canonical"
         && conflicts.length > 0
         && !isUserConfirmed(source, input.confirmed)) {
         throw new Error("Confirmation required: conflicting canonical memory requires explicit user confirmation");
@@ -2232,7 +2232,7 @@ export function createEngine(deps: EngineDeps) {
         event_id: id("evt"),
         op: "promote_record",
         record_id: promoteInput.record_id,
-        target_state: input.target_state,
+        target_state: promoteInput.target_state,
         reason: input.reason,
         confirmed: input.confirmed,
         conflict: conflicts.length
@@ -2290,7 +2290,7 @@ export function createEngine(deps: EngineDeps) {
         op: "link_records",
         record_id: linkInput.record_id,
         linked_record_id: linkInput.linked_record_id,
-        link_type: input.link_type,
+        link_type: linkInput.link_type,
         created_at: createdAt,
         source: input.source ?? { client: "moryn" }
       };

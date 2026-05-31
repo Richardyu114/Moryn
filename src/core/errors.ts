@@ -946,10 +946,10 @@ function confirmationNextAction(context?: MorynErrorContext): MorynErrorNextActi
   });
 }
 
-export function commandForPromoteContext(input: { record_id: unknown; target_state: string; reason?: string }): string {
+export function commandForPromoteContext(input: { record_id: unknown; target_state: unknown; reason?: string }): string {
   const parts = ["moryn", "promote"];
   appendCommandValue(parts, input.record_id);
-  parts.push("--state", shellQuote(input.target_state));
+  appendCommandOptionValue(parts, "--state", input.target_state);
   if (input.reason !== undefined) {
     parts.push("--reason", shellQuote(input.reason));
   }
@@ -1035,11 +1035,11 @@ export function commandForQuarantineContext(input: { record_id: unknown; reason?
   return parts.join(" ");
 }
 
-export function commandForLinkContext(input: { record_id: unknown; linked_record_id: unknown; link_type: string }): string {
+export function commandForLinkContext(input: { record_id: unknown; linked_record_id: unknown; link_type: unknown }): string {
   const parts = ["moryn", "link"];
   appendCommandValue(parts, input.record_id);
   appendCommandValue(parts, input.linked_record_id);
-  parts.push("--type", shellQuote(input.link_type));
+  appendCommandOptionValue(parts, "--type", input.link_type);
   return parts.join(" ");
 }
 
