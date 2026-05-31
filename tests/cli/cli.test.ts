@@ -3108,8 +3108,12 @@ describe("moryn CLI", () => {
           expect(parsed.error.message).toContain("Invalid --content-json");
           expect(parsed.error.recommended_action).toBe("retry with a valid --content-json JSON object");
           expect(parsed.error.recovery_hint).toEqual({
+            operation_contract: "operations_by_id.write",
             rejected_argument: { option: "--content-json", value: args[1]! },
             expected: { kind: expectedKind },
+            argument_sources: {
+              "--content-json": "operations_by_id.write.arguments_by_name.content"
+            },
             retry_with: { option: "--content-json", value_placeholder: "<json object>" }
           });
         }
@@ -3123,11 +3127,16 @@ describe("moryn CLI", () => {
         {
           args: ["--text", "Plain text", "--content-json", "{\"text\":\"Structured\"}"],
           recoveryHint: {
+            operation_contract: "operations_by_id.write",
             rejected_arguments: [
               { option: "--text", value: "Plain text" },
               { option: "--content-json", value: "{\"text\":\"Structured\"}" }
             ],
             expected: { kind: "choose_one", options: ["--text", "--content-json"] },
+            argument_sources: {
+              "--text": "operations_by_id.write.arguments_by_name.text",
+              "--content-json": "operations_by_id.write.arguments_by_name.content"
+            },
             retry_with: [
               { option: "--text", value_placeholder: "<text>" },
               { option: "--content-json", value_placeholder: "<json object>" }
@@ -3137,11 +3146,16 @@ describe("moryn CLI", () => {
         {
           args: [],
           recoveryHint: {
+            operation_contract: "operations_by_id.write",
             missing_one_of: [
               { option: "--text", value_placeholder: "<text>" },
               { option: "--content-json", value_placeholder: "<json object>" }
             ],
             expected: { kind: "choose_one", options: ["--text", "--content-json"] },
+            argument_sources: {
+              "--text": "operations_by_id.write.arguments_by_name.text",
+              "--content-json": "operations_by_id.write.arguments_by_name.content"
+            },
             retry_with: [
               { option: "--text", value_placeholder: "<text>" },
               { option: "--content-json", value_placeholder: "<json object>" }

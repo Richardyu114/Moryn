@@ -52,6 +52,9 @@ const recordPriorities = RECORD_PRIORITIES;
 const syncModes = SYNC_MODES;
 
 const CLI_ARGUMENT_RECOVERY_ACTION_PREFIX = "retry with a valid" as const;
+const WRITE_OPERATION_CONTRACT_SOURCE = "operations_by_id.write";
+const WRITE_TEXT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.text";
+const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content";
 
 type CliArgumentRecoveryHint =
   | {
@@ -80,18 +83,30 @@ type CliArgumentRecoveryHint =
       retry_with: { option: string; value_placeholder: string };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_argument: { option: "--content-json"; value: string };
       expected: { kind: "valid_json_object" | "json_object" };
+      argument_sources: { "--content-json": typeof WRITE_CONTENT_ARGUMENT_SOURCE };
       retry_with: { option: "--content-json"; value_placeholder: "<json object>" };
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       missing_one_of: Array<{ option: "--text" | "--content-json"; value_placeholder: string }>;
       expected: { kind: "choose_one"; options: ["--text", "--content-json"] };
+      argument_sources: {
+        "--text": typeof WRITE_TEXT_ARGUMENT_SOURCE;
+        "--content-json": typeof WRITE_CONTENT_ARGUMENT_SOURCE;
+      };
       retry_with: Array<{ option: "--text" | "--content-json"; value_placeholder: string }>;
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
       rejected_arguments: Array<{ option: "--text" | "--content-json"; value: string }>;
       expected: { kind: "choose_one"; options: ["--text", "--content-json"] };
+      argument_sources: {
+        "--text": typeof WRITE_TEXT_ARGUMENT_SOURCE;
+        "--content-json": typeof WRITE_CONTENT_ARGUMENT_SOURCE;
+      };
       retry_with: Array<{ option: "--text" | "--content-json"; value_placeholder: string }>;
     }
   | {
@@ -239,8 +254,10 @@ function contentJsonCliArgumentError(value: string, expectedKind: "valid_json_ob
     `Invalid argument: Invalid --content-json${detail ? `; ${detail}` : ""}`,
     "retry with a valid --content-json JSON object",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       rejected_argument: { option: "--content-json", value },
       expected: { kind: expectedKind },
+      argument_sources: { "--content-json": WRITE_CONTENT_ARGUMENT_SOURCE },
       retry_with: { option: "--content-json", value_placeholder: "<json object>" }
     }
   );
@@ -259,10 +276,15 @@ function writeContentChoiceCliArgumentError(
     `Invalid argument: ${message}`,
     "retry with exactly one write content input",
     {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
       ...(rejectedArguments
         ? { rejected_arguments: rejectedArguments }
         : { missing_one_of: [...WRITE_CONTENT_RETRY_OPTIONS] }),
       expected: { kind: "choose_one", options: ["--text", "--content-json"] },
+      argument_sources: {
+        "--text": WRITE_TEXT_ARGUMENT_SOURCE,
+        "--content-json": WRITE_CONTENT_ARGUMENT_SOURCE
+      },
       retry_with: [...WRITE_CONTENT_RETRY_OPTIONS]
     }
   );
