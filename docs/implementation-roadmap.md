@@ -379,6 +379,9 @@ Deliverables:
   cursors, and sync push messages, plus malformed `revise --set` assignments,
   now expose operation contract and argument source hints before lower-level
   validation runs.
+- Done: CLI empty `write --reason` failures now expose
+  `operations_by_id.write.arguments_by_name.reason`, matching the write
+  provenance contract instead of a generic non-empty-string hint.
 - Done: CLI empty `--reason` failures for `revise`, `promote`, `archive`, and
   `quarantine` now expose the matching
   `operations_by_id.<operation>.arguments_by_name.reason` source before record

@@ -820,6 +820,9 @@ write contract before retrying. The write operation contract exposes
 source, and allowed values. MCP write calls preserve `provenance.method` and
 `provenance.promoted_at`, and invalid values for those nested fields return the
 same source-backed `recovery_hint` instead of being silently dropped.
+Empty CLI `write --reason` values return
+`operations_by_id.write.arguments_by_name.reason`, matching the write
+provenance contract instead of a generic non-empty-string hint.
 Core mutation argument failures for `revise`, `promote`, `archive`,
 `quarantine`, and `link` also include the matching
 `operation_contract: "operations_by_id.<operation>"` plus `argument_sources`

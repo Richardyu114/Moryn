@@ -829,7 +829,7 @@ program.command("write")
     if (!scope) throw requiredCliOptionError("--scope", "<scope>", undefined, { operation: "write", argument: "scope" });
     const content = parseContentJson(options.contentJson);
     const text = parseNonEmptyString(options.text, "--text");
-    const reason = parseNonEmptyString(options.reason, "--reason");
+    const reason = parseNonEmptyCliString(options.reason, "--reason", { operation: "write", argument: "reason" });
     if (content && text !== undefined) {
       throw writeContentChoiceCliArgumentError(
         "use either --text or --content-json, not both",

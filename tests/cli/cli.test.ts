@@ -2031,6 +2031,57 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("returns operation contract argument hints for empty write CLI provenance reason", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+
+      try {
+        await exec("node", [
+          "--import", tsxLoader, cliPath, "--store", dir,
+          "write",
+          "--kind", "memory",
+          "--type", "decision",
+          "--scope", "global",
+          "--text", "Prefer explicit recovery sources.",
+          "--reason", ""
+        ]);
+        throw new Error("Expected moryn write to reject an empty provenance reason");
+      } catch (error) {
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: {
+              operation_contract: string;
+              rejected_argument: { option: string; value: string };
+              expected: { kind: string; min_length: number };
+              argument_sources: Record<string, string>;
+              retry_with: { option: string; value_placeholder: string };
+            };
+          };
+        };
+
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.message).toBe("Invalid argument: Invalid --reason; must not be empty");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("retry with a non-empty --reason value");
+        expect(parsed.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { option: "--reason", value: "" },
+          expected: { kind: "non_empty_string", min_length: 1 },
+          argument_sources: {
+            reason: "operations_by_id.write.arguments_by_name.reason"
+          },
+          retry_with: { option: "--reason", value_placeholder: "<non-empty reason>" }
+        });
+      }
+    });
+  });
+
   it("returns machine-readable agent guide from the CLI", async () => {
     await withTempDir(async (dir) => {
       const guide = await exec("node", [

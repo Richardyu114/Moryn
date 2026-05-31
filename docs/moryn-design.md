@@ -761,6 +761,9 @@ write argument contract instead of inferring it from prose. The contract's
 `provenance.method` and `provenance.promoted_at`, and invalid nested provenance
 values return the same source-backed `recovery_hint` instead of being silently
 dropped.
+Empty CLI `write --reason` values point at
+`operations_by_id.write.arguments_by_name.reason`, matching the write
+provenance contract instead of a generic non-empty-string hint.
 Core mutation argument failures for `revise`, `promote`, `archive`,
 `quarantine`, and `link` also include the current
 `operation_contract: "operations_by_id.<operation>"` plus `argument_sources`
