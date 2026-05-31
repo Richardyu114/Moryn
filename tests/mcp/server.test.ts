@@ -7358,6 +7358,61 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "confirmed", value_placeholder: true }
         });
 
+        const invalidPull = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            pull: "yes"
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(invalidPull.ok).toBe(false);
+        expect(invalidPull.error.code).toBe("INVALID_ARGUMENT");
+        expect(invalidPull.error.message).toContain("Invalid pull");
+        expect(invalidPull.error.recommended_action).toBe("retry agent lifecycle with a boolean pull value");
+        expect(invalidPull.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.agent_enter",
+          rejected_argument: { argument: "pull", value: "yes" },
+          expected: { kind: "boolean" },
+          argument_sources: {
+            pull: "operations_by_id.agent_enter.arguments_by_name.pull"
+          },
+          retry_with: { argument: "pull", value_placeholder: true }
+        });
+
+        for (const { tool, operation, argument, baseArguments } of [
+          { tool: "agent_start", operation: "agent_start", argument: "pull", baseArguments: {} },
+          { tool: "agent_finish", operation: "agent_finish", argument: "push", baseArguments: { summary: "done" } },
+          { tool: "agent_status", operation: "agent_status", argument: "push", baseArguments: { status: "working" } }
+        ] as const) {
+          const invalidLifecycleBoolean = parseTextContent(await client.callTool({
+            name: tool,
+            arguments: {
+              ...baseArguments,
+              [argument]: "yes"
+            }
+          })) as typeof invalidPull;
+          expect(invalidLifecycleBoolean.ok).toBe(false);
+          expect(invalidLifecycleBoolean.error.code).toBe("INVALID_ARGUMENT");
+          expect(invalidLifecycleBoolean.error.message).toContain(`Invalid ${argument}`);
+          expect(invalidLifecycleBoolean.error.recommended_action).toBe(`retry agent lifecycle with a boolean ${argument} value`);
+          expect(invalidLifecycleBoolean.error.recovery_hint).toEqual({
+            operation_contract: `operations_by_id.${operation}`,
+            rejected_argument: { argument, value: "yes" },
+            expected: { kind: "boolean" },
+            argument_sources: {
+              [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
+            },
+            retry_with: { argument, value_placeholder: true }
+          });
+        }
+
         const invalidRepair = parseTextContent(await client.callTool({
           name: "project_init",
           arguments: {

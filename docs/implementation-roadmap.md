@@ -387,6 +387,10 @@ Deliverables:
   `operations_by_id.operation_contracts` recovery hints and
   `arguments_by_name.index`, so contract discovery itself remains recoverable
   when an agent sends a non-boolean index value.
+- Done: Lifecycle MCP `pull`/`push` boolean failures for `agent_enter`,
+  `agent_start`, `agent_finish`, and `agent_status` now pass through core
+  validation and expose operation contract argument sources instead of
+  host-side schema text.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty

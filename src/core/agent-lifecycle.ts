@@ -203,6 +203,32 @@ class AgentIdentityError extends Error {
   }
 }
 
+class AgentLifecycleBooleanArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: {
+    operation_contract: `operations_by_id.${LifecycleOperation}`;
+    rejected_argument: { argument: "pull" | "push"; value: unknown };
+    expected: { kind: "boolean" };
+    argument_sources: Record<"pull" | "push", `operations_by_id.${LifecycleOperation}.arguments_by_name.${"pull" | "push"}`>;
+    retry_with: { argument: "pull" | "push"; value_placeholder: true };
+  };
+
+  constructor(operation: LifecycleOperation, argument: "pull" | "push", value: unknown) {
+    super(`Invalid argument: Invalid ${argument}`);
+    this.name = "AgentLifecycleBooleanArgumentError";
+    this.recommended_action = `retry agent lifecycle with a boolean ${argument} value`;
+    this.recovery_hint = {
+      operation_contract: `operations_by_id.${operation}`,
+      rejected_argument: { argument, value },
+      expected: { kind: "boolean" },
+      argument_sources: {
+        [argument]: `operations_by_id.${operation}.arguments_by_name.${argument}`
+      } as Record<"pull" | "push", `operations_by_id.${LifecycleOperation}.arguments_by_name.${"pull" | "push"}`>,
+      retry_with: { argument, value_placeholder: true }
+    };
+  }
+}
+
 type HandoffRecordIdArgumentSource =
   "handoff.inbox_by_record_id.<record_id>.record_id"
   | "handoff.active_sessions_by_record_id.<record_id>.record_id";
@@ -538,6 +564,12 @@ function validateAgentIdentity(agent: AgentIdentity | undefined, operation: Life
     if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
       throw new AgentIdentityError(operation, field, value);
     }
+  }
+}
+
+function validateLifecycleBoolean(value: unknown, argument: "pull" | "push", operation: LifecycleOperation): void {
+  if (value !== undefined && typeof value !== "boolean") {
+    throw new AgentLifecycleBooleanArgumentError(operation, argument, value);
   }
 }
 
@@ -2103,6 +2135,7 @@ export async function agentDoctor(input: AgentDoctorInput) {
 
 export async function agentEnter(input: AgentEnterInput) {
   validateAgentIdentity(input.agent, "agent_enter");
+  validateLifecycleBoolean(input.pull, "pull", "agent_enter");
   const bootstrap = await enterDiscoveryBootstrap(input);
   const doctor = await agentDoctor(input);
   if (doctor.next.tool === "project_list") {
@@ -2216,6 +2249,7 @@ export function agentGuide(input: AgentGuideInput) {
 
 export async function agentStart(input: AgentStartInput) {
   validateAgentIdentity(input.agent, "agent_start");
+  validateLifecycleBoolean(input.pull, "pull", "agent_start");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
@@ -2285,6 +2319,7 @@ export async function agentStart(input: AgentStartInput) {
 
 export async function agentFinish(input: AgentFinishInput) {
   validateAgentIdentity(input.agent, "agent_finish");
+  validateLifecycleBoolean(input.push, "push", "agent_finish");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);
@@ -2342,6 +2377,7 @@ export async function agentFinish(input: AgentFinishInput) {
 
 export async function agentStatus(input: AgentStatusInput) {
   validateAgentIdentity(input.agent, "agent_status");
+  validateLifecycleBoolean(input.push, "push", "agent_status");
   const bootstrap = await ensureLifecycleBootstrap(input);
   const project = await resolveLifecycleProjectContext(input, { requireExplicitProject: true });
   const actionInput = portableLifecycleInput(input, project);

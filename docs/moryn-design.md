@@ -770,8 +770,12 @@ point at `operations_by_id.project_init.arguments_by_name.<argument>`. That
 includes MCP setup failures that would otherwise stop at host schema validation.
 Contract discovery argument failures such as MCP `operation_contracts.index`
 also point at `operations_by_id.operation_contracts.arguments_by_name.index`,
-so agents can recover while looking up the registry itself. CLI parser failures
-for `--limit` on read and lifecycle startup commands, plus enum
+so agents can recover while looking up the registry itself. Lifecycle boolean
+failures for MCP `agent_enter`/`agent_start` `pull` and
+`agent_finish`/`agent_status` `push` also point at their
+`operations_by_id.<operation>.arguments_by_name.<argument>` contracts instead
+of stopping at host schema validation. CLI parser failures for `--limit` on read
+and lifecycle startup commands, plus enum
 options such as `--kind`, `--scope`, `--state`, `--priority`, and `--sync-mode`,
 write `--confidence` range failures, and missing write
 `--kind`/`--type`/`--scope` options also carry the matching operation contract
