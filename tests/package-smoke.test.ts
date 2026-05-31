@@ -718,6 +718,7 @@ describe("published package smoke", () => {
           cli_command_operation: "operations_by_cli_command.<command>",
           ordered_operation: "operations[]",
           execution_hint: "operations_by_id.<operation>.execution_hint",
+          execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
           full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
           full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
           full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
@@ -741,7 +742,8 @@ describe("published package smoke", () => {
             missing_required_fields: ["summary"],
             required_input_sources: {
               by_field: "execution.required_inputs_by_field.<field>",
-              by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>"
+              by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>",
+              by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
             }
           },
           full_contract_lookup: {

@@ -240,10 +240,11 @@ Deliverables:
   MCP tools, CLI commands, and exact next lookup recipes, so agents can discover
   which single operation contract to fetch without loading the full static
   directory. Each entry carries an `execution_hint` with the ready-to-run guard,
-  next step, missing fields, and keyed required-input paths, plus concrete
+  next step, missing fields, keyed required-input paths, and value-path reverse
+  lookup hints for collected `user_input.*` values, plus concrete
   `full_contract_lookup` package, CLI, and MCP calls for that operation. The
   index response carries its own compact `selection_sources` for those
-  index-only fields, package users can import
+  index-only fields including the value-path hint, package users can import
   `OPERATION_CONTRACT_INDEX_SELECTION_SOURCES`, and `operation_contracts`
   declares `index` in `arguments_by_name` and `interfaces.mcp.arguments` so the
   first-pass filter is machine-discoverable.
