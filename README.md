@@ -1051,6 +1051,10 @@ normalizing them into the nested `agent` object used by follow-up action
 templates. Lifecycle tools also accept camelCase context aliases including
 `projectId`, `projectPath`, `currentTask`, `syncRemote`, `refreshSince`,
 `agentClient`, and `agentSessionId`.
+MCP `project_list`, `boot`, and lifecycle calls also accept sync remotes in the
+natural sync shape `sync: { "remote": "git@..." }` or literal path form
+`"sync.remote"` and normalize both to the canonical `sync_remote` argument;
+conflicting sync remote forms are rejected with `single_value` alias recovery.
 Alias conflicts in those direct MCP tools also classify the conflict with
 `conflicting_argument.conflict_kind` and emit a matching `do_not` guardrail, so
 callers can distinguish nested-vs-flattened, literal-vs-flattened,

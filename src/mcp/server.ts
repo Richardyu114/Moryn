@@ -146,6 +146,25 @@ function recallRepeatableAlias(alias: string, target: string): McpExplicitAlias 
   };
 }
 
+function syncRemoteObjectPathAliases(): McpObjectPathAlias[] {
+  return [
+    {
+      alias: "sync",
+      target: "sync_remote",
+      contractArgument: "sync_remote",
+      conflictKind: "nested_vs_flattened",
+      normalize: syncRemoteFromSyncObject
+    },
+    {
+      alias: "sync.remote",
+      target: "sync_remote",
+      contractArgument: "sync_remote",
+      conflictKind: "nested_vs_literal_path",
+      normalize: (value) => value
+    }
+  ];
+}
+
 const explicitMcpAliasesByTool: Record<string, McpExplicitAlias[]> = {
   recall: [
     recallRepeatableAlias("record_id", "record_ids"),
@@ -160,6 +179,13 @@ const explicitMcpAliasesByTool: Record<string, McpExplicitAlias[]> = {
 };
 
 const objectPathMcpAliasesByTool: Record<string, McpObjectPathAlias[]> = {
+  agent_doctor: syncRemoteObjectPathAliases(),
+  agent_enter: syncRemoteObjectPathAliases(),
+  agent_finish: syncRemoteObjectPathAliases(),
+  agent_guide: syncRemoteObjectPathAliases(),
+  agent_start: syncRemoteObjectPathAliases(),
+  agent_status: syncRemoteObjectPathAliases(),
+  boot: syncRemoteObjectPathAliases(),
   project_init: [
     {
       alias: "sync",
@@ -175,7 +201,8 @@ const objectPathMcpAliasesByTool: Record<string, McpObjectPathAlias[]> = {
       conflictKind: "nested_vs_literal_path",
       normalize: (value) => value
     }
-  ]
+  ],
+  project_list: syncRemoteObjectPathAliases()
 };
 
 function repeatableAliasValue(value: unknown): unknown {
@@ -184,6 +211,10 @@ function repeatableAliasValue(value: unknown): unknown {
 
 function syncModeFromProjectSyncObject(value: unknown): unknown {
   return isMcpObject(value) ? value.mode : value;
+}
+
+function syncRemoteFromSyncObject(value: unknown): unknown {
+  return isMcpObject(value) ? value.remote : value;
 }
 
 function snakeToCamel(value: string): string {
@@ -1025,6 +1056,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         current_task: z.unknown().optional(),
         sync_remote: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional(),
+        ...objectPathAliasInputSchema("project_list"),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("project_list")
       })
@@ -1140,6 +1172,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         default_skills: z.unknown().optional(),
+        ...objectPathAliasInputSchema("boot"),
         ...camelCaseAliasInputSchema("boot")
       })
     },
@@ -1482,6 +1515,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional(),
+        ...objectPathAliasInputSchema("agent_doctor"),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_doctor")
       })
@@ -1512,6 +1546,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit: coreValidatedNumberSchema.optional(),
         pull: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
+        ...objectPathAliasInputSchema("agent_enter"),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_enter")
       })
@@ -1561,6 +1596,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional(),
+        ...objectPathAliasInputSchema("agent_guide"),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_guide")
       })
@@ -1591,6 +1627,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit: coreValidatedNumberSchema.optional(),
         pull: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
+        ...objectPathAliasInputSchema("agent_start"),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_start")
       })
@@ -1642,6 +1679,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
+        ...objectPathAliasInputSchema("agent_finish"),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_finish")
       })
@@ -1692,6 +1730,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
+        ...objectPathAliasInputSchema("agent_status"),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_status")
       })

@@ -629,6 +629,11 @@ Deliverables:
   values, and expose the matching
   `operations_by_id.<operation>.arguments_by_name.sync_remote` source instead
   of host-side schema text.
+- Done: MCP `project_list`, `boot`, and lifecycle calls now accept sync remotes
+  as canonical `sync_remote`, natural sync object shape `sync: { remote: ... }`,
+  or literal path `"sync.remote"`, normalize all forms to `sync_remote`, expose
+  those aliases in MCP tool schemas, and reject conflicting forms with
+  `single_value` alias recovery.
 - Done: MCP project selector shape failures for `boot`, `recall`, `write`,
   `refresh`, and lifecycle tools now pass through shared project-context
   validation, including numeric `project_id`/`project_path` values, and expose

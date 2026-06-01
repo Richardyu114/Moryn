@@ -2713,7 +2713,7 @@ describe("MCP stdio server", () => {
         const guide = parseTextContent(await client.callTool({
           name: "agent_guide",
           arguments: {
-            sync_remote: "git@github.com:user/moryn-store.git",
+            "sync.remote": "git@github.com:user/moryn-store.git",
             current_task: "find MCP project",
             agent: { client: "gemini", session_id: "gemini-mcp-guide-discovery" }
           }
@@ -2879,6 +2879,8 @@ describe("MCP stdio server", () => {
           "refreshSince",
           "agentClient",
           "agentSessionId",
+          "sync",
+          "sync.remote",
           "agent_client",
           "agent.client",
           "agent_session_id",
@@ -2890,6 +2892,8 @@ describe("MCP stdio server", () => {
         expect(Object.keys(projectListTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
           "currentTask",
           "syncRemote",
+          "sync",
+          "sync.remote",
           "agentClient",
           "agentSessionId",
           "agent_client",
@@ -4534,6 +4538,22 @@ describe("MCP stdio server", () => {
 
         expect(listed.projects[0]?.next.command).toBe("moryn agent start --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task 'continue MCP handoff' --agent gemini --session-id gemini-mcp-list-next");
         expect(listed.projects[0]?.next.arguments).toMatchObject({
+          project_id: "moryn",
+          sync_remote: "git@github.com:user/moryn-store.git",
+          current_task: "continue MCP handoff",
+          agent: { client: "gemini", session_id: "gemini-mcp-list-next" }
+        });
+
+        const nestedSyncListed = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: {
+            current_task: "continue MCP handoff",
+            sync: { remote: "git@github.com:user/moryn-store.git" },
+            agent: { client: "gemini", session_id: "gemini-mcp-list-next" }
+          }
+        })) as typeof listed;
+
+        expect(nestedSyncListed.projects[0]?.next.arguments).toMatchObject({
           project_id: "moryn",
           sync_remote: "git@github.com:user/moryn-store.git",
           current_task: "continue MCP handoff",
@@ -8885,6 +8905,34 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "agent.client", value_placeholder: "<client>" },
           do_not: ["provide_parent_scalar_with_child_aliases", "retry_with_conflicting_alias_values"]
+        });
+        const conflictingLifecycleSyncRemote = parseTextContent(await client.callTool({
+          name: "agent_enter",
+          arguments: {
+            sync_remote: "git@github.com:user/moryn-store.git",
+            sync: { remote: "git@github.com:user/other-store.git" }
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingLifecycleSyncRemote.ok).toBe(false);
+        expect(conflictingLifecycleSyncRemote.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingLifecycleSyncRemote.error.message).toContain("Conflicting sync_remote aliases");
+        expect(conflictingLifecycleSyncRemote.error.recommended_action).toBe("retry agent_enter with one sync_remote value");
+        expect(conflictingLifecycleSyncRemote.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.agent_enter",
+          conflicting_argument: {
+            argument: "sync_remote",
+            conflict_kind: "nested_vs_flattened",
+            values_by_input: {
+              sync_remote: "git@github.com:user/moryn-store.git",
+              sync: { remote: "git@github.com:user/other-store.git" }
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            sync_remote: "operations_by_id.agent_enter.arguments_by_name.sync_remote"
+          },
+          retry_with: { argument: "sync_remote", value_placeholder: "<sync remote>" },
+          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
         });
         const invalidProjectListAgentClient = parseTextContent(await client.callTool({
           name: "project_list",

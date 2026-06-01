@@ -2038,6 +2038,11 @@ also apply it to `sync_remote`, so malformed lifecycle remotes point at
 host-side schema text. Malformed lifecycle `project_id` and `project_path`
 values use the same operation-specific recovery channel and direct agents back
 to `project_list` rather than guessing project identity.
+MCP `project_list`, `boot`, and lifecycle callers can also provide the natural
+sync object shape `sync: { "remote": "git@..." }` or literal path form
+`"sync.remote": "git@..."`; both normalize to the canonical `sync_remote`
+argument, and conflicting sync remote forms return `single_value` alias
+recovery instead of silently choosing one.
 The response keeps `projects[]` as the ordered display list and also returns
 `projects_by_id` for direct keyed selection. Each
 `projects_by_id.<project_id>` value mirrors the matching `projects[]` record,
