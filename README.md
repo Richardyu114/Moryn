@@ -893,8 +893,8 @@ can remove misspelled fields such as `projectID` instead of assuming the call's
 result included that input.
 Known identity objects are strict too. MCP `write` and mutation `source`
 objects only accept `client`, `session_id`, `model`, and `device_id`, and
-lifecycle `agent` objects use the same field set. Unknown nested fields such as
-`source.clientId` or `agent.sessionId` return `expected.kind:
+lifecycle and `project_list` `agent` objects use the same field set. Unknown
+nested fields such as `source.clientId` or `agent.sessionId` return `expected.kind:
 "known_object_field"` with the allowed fields, a nearest contract-backed
 `argument_sources` entry such as `source.client` or `agent.session_id`, and
 `do_not` guardrails against retrying the same unknown nested field.

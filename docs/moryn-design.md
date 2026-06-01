@@ -825,8 +825,8 @@ when the tool has a likely matching argument, or `expected.kind:
 `projectID` instead of assuming those fields influenced the result.
 Known identity objects are also strict. MCP `write` and mutation `source`
 objects only accept `client`, `session_id`, `model`, and `device_id`, and
-lifecycle `agent` objects use the same field set. Unknown nested fields such as
-`source.clientId` or `agent.sessionId` return `expected.kind:
+lifecycle and `project_list` `agent` objects use the same field set. Unknown
+nested fields such as `source.clientId` or `agent.sessionId` return `expected.kind:
 "known_object_field"` with the allowed fields, a nearest contract-backed
 `argument_sources` entry such as `source.client` or `agent.session_id`, and
 `do_not` guardrails against sending or retrying the same unknown nested field.

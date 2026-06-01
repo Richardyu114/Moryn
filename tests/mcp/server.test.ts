@@ -8777,6 +8777,24 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "agent.client", value_placeholder: "<agent client>" }
         });
+        const unknownProjectListAgentField = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: { agent: { client: "codex", sessionId: "wrong-session-key" } }
+        })) as McpInvalidArgument;
+        expect(unknownProjectListAgentField.ok).toBe(false);
+        expect(unknownProjectListAgentField.error.code).toBe("INVALID_ARGUMENT");
+        expect(unknownProjectListAgentField.error.message).toContain("Unknown agent.sessionId");
+        expect(unknownProjectListAgentField.error.recommended_action).toBe("retry project_list with supported agent identity fields");
+        expect(unknownProjectListAgentField.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_list",
+          rejected_argument: { argument: "agent.sessionId", value: "wrong-session-key" },
+          expected: { kind: "known_object_field", allowed_fields: ["client", "session_id", "model", "device_id"] },
+          argument_sources: {
+            "agent.session_id": "operations_by_id.project_list.arguments_by_name.agent_session_id"
+          },
+          retry_with: { argument: "agent.session_id", value_placeholder: "<agent session id>" },
+          do_not: ["send_unknown_agent_fields", "retry_with_same_unknown_field"]
+        });
         for (const { field, argumentName, placeholder } of [
           { field: "session_id", argumentName: "agent_session_id", placeholder: "<agent session id>" },
           { field: "model", argumentName: "agent_model", placeholder: "<agent model>" },

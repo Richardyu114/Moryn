@@ -763,6 +763,14 @@ type ReadArgumentRecoveryHint =
       expected: { kind: "non_empty_string"; min_length: 1 };
       argument_sources: Record<AgentIdentityArgument, ReadArgumentSource>;
       retry_with: { argument: AgentIdentityArgument; value_placeholder: string };
+    }
+  | {
+      operation_contract: "operations_by_id.project_list";
+      rejected_argument: { argument: `agent.${string}`; value: unknown };
+      expected: { kind: "known_object_field"; allowed_fields: AgentIdentityField[] };
+      argument_sources: Partial<Record<AgentIdentityArgument, ReadArgumentSource>>;
+      retry_with: { argument: AgentIdentityArgument; value_placeholder: string };
+      do_not: ["send_unknown_agent_fields", "retry_with_same_unknown_field"];
     };
 
 class ReadArgumentError extends Error {
@@ -877,12 +885,37 @@ function invalidProjectListAgentIdentityError(agent: unknown, field: AgentIdenti
   );
 }
 
+function invalidProjectListAgentUnknownFieldError(agent: Record<string, unknown>, field: string): ReadArgumentError {
+  const retryField = closestIdentityField(field);
+  const metadata = AGENT_IDENTITY_FIELDS[retryField];
+  const argument = `agent.${field}` as `agent.${string}`;
+  return new ReadArgumentError(
+    `Invalid argument: Unknown agent.${field}`,
+    "retry project_list with supported agent identity fields",
+    {
+      operation_contract: "operations_by_id.project_list",
+      rejected_argument: { argument, value: agent[field] },
+      expected: { kind: "known_object_field", allowed_fields: Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[] },
+      argument_sources: {
+        [metadata.argument]: readArgumentSource("project_list", metadata.contractArgument)
+      },
+      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder },
+      do_not: ["send_unknown_agent_fields", "retry_with_same_unknown_field"]
+    }
+  );
+}
+
 function validateProjectListAgent(agent: unknown): void {
   if (agent === undefined) return;
   if (typeof agent !== "object" || agent === null || Array.isArray(agent)) {
     throw invalidProjectListAgentIdentityError(agent, "client");
   }
   const rawAgent = agent as Partial<Record<AgentIdentityField, unknown>>;
+  for (const field of Object.keys(agent)) {
+    if (!(field in AGENT_IDENTITY_FIELDS)) {
+      throw invalidProjectListAgentUnknownFieldError(agent as Record<string, unknown>, field);
+    }
+  }
   for (const field of Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[]) {
     const value = rawAgent[field];
     if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
