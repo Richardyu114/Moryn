@@ -123,6 +123,7 @@ export type OperationContractLookupRecoveryHint = {
     kind: OperationContractLookupKind;
     value: string;
   };
+  suggested_matches: OperationContractLookupSuggestion[];
   recommended_action: typeof OPERATION_CONTRACT_LOOKUP_RECOVERY_ACTION;
   available_operations: string[];
   available_mcp_tools: string[];
@@ -148,6 +149,23 @@ export type OperationContractLookupRecoveryHint = {
   };
   retry_with_lookup_modes: Omit<OperationContractLookupConflictRecoveryHint["accepted_lookup_modes"], "index">;
   selection_sources: typeof OPERATION_CONTRACT_INDEX_SELECTION_SOURCES;
+};
+
+export type OperationContractLookupSuggestion = {
+  value: string;
+  operation: string;
+  operation_source: string;
+  retry_with: {
+    package_helper: string;
+    cli: string;
+    mcp: {
+      tool: "operation_contracts";
+      arguments:
+        | { operation: string }
+        | { mcp_tool: string }
+        | { cli_command: string };
+    };
+  };
 };
 
 export type OperationContractLookupConflictRecoveryHint = {
@@ -432,6 +450,7 @@ function operationLookupKindLabel(kind: OperationContractLookupKind): string {
 function operationContractLookupRecoveryHint(kind: OperationContractLookupKind, value: string): OperationContractLookupRecoveryHint {
   return {
     rejected_lookup: { kind, value },
+    suggested_matches: operationContractLookupSuggestions(kind, value),
     recommended_action: OPERATION_CONTRACT_LOOKUP_RECOVERY_ACTION,
     available_operations: OPERATION_CONTRACTS.map((operation) => operation.operation),
     available_mcp_tools: OPERATION_CONTRACTS.map((operation) => operation.interfaces.mcp.tool),
@@ -483,6 +502,127 @@ function operationContractLookupRecoveryHint(kind: OperationContractLookupKind, 
     },
     selection_sources: OPERATION_CONTRACT_INDEX_SELECTION_SOURCES
   };
+}
+
+function operationContractLookupSuggestions(kind: OperationContractLookupKind, value: string): OperationContractLookupSuggestion[] {
+  return OPERATION_CONTRACTS
+    .map((operation, index) => ({
+      operation,
+      index,
+      score: operationContractLookupSuggestionScore(value, lookupValueForOperation(kind, operation))
+    }))
+    .sort((left, right) => left.score - right.score || left.index - right.index)
+    .slice(0, 3)
+    .map(({ operation }) => operationContractLookupSuggestion(kind, operation));
+}
+
+function lookupValueForOperation(kind: OperationContractLookupKind, operation: OperationContract): string {
+  if (kind === "mcp_tool") return operation.interfaces.mcp.tool;
+  if (kind === "cli_command") return operation.interfaces.cli.command;
+  return operation.operation;
+}
+
+function operationContractLookupSuggestion(kind: OperationContractLookupKind, operation: OperationContract): OperationContractLookupSuggestion {
+  const value = lookupValueForOperation(kind, operation);
+  return {
+    value,
+    operation: operation.operation,
+    operation_source: `operations_by_id.${operation.operation}`,
+    retry_with: operationContractLookupSuggestionRetry(kind, value)
+  };
+}
+
+function operationContractLookupSuggestionRetry(kind: OperationContractLookupKind, value: string): OperationContractLookupSuggestion["retry_with"] {
+  if (kind === "mcp_tool") {
+    return {
+      package_helper: `getOperationContractByMcpTool('${value}')`,
+      cli: `moryn contracts operations --mcp-tool ${value}`,
+      mcp: {
+        tool: "operation_contracts",
+        arguments: { mcp_tool: value }
+      }
+    };
+  }
+  if (kind === "cli_command") {
+    return {
+      package_helper: `getOperationContractByCliCommand('${value}')`,
+      cli: `moryn contracts operations --cli-command ${JSON.stringify(value)}`,
+      mcp: {
+        tool: "operation_contracts",
+        arguments: { cli_command: value }
+      }
+    };
+  }
+  return {
+    package_helper: `getOperationContract('${value}')`,
+    cli: `moryn contracts operations --operation ${value}`,
+    mcp: {
+      tool: "operation_contracts",
+      arguments: { operation: value }
+    }
+  };
+}
+
+function operationContractLookupSuggestionScore(query: string, candidate: string): number {
+  const normalizedQuery = normalizeLookupValue(query);
+  const normalizedCandidate = normalizeLookupValue(candidate);
+  const comparableQuery = comparableLookupValue(query);
+  const comparableCandidate = comparableLookupValue(candidate);
+  let score = Math.min(
+    levenshteinDistance(normalizedQuery, normalizedCandidate),
+    levenshteinDistance(comparableQuery, comparableCandidate) + tokenLookupDistance(comparableQuery, comparableCandidate)
+  );
+  if (normalizedCandidate.startsWith(normalizedQuery) || normalizedQuery.startsWith(normalizedCandidate)) {
+    score -= 8;
+  } else if (normalizedCandidate.includes(normalizedQuery) || normalizedQuery.includes(normalizedCandidate)) {
+    score -= 4;
+  }
+  const queryTokens = new Set(normalizedQuery.split(/[\s_-]+/u).filter(Boolean));
+  for (const token of normalizedCandidate.split(/[\s_-]+/u)) {
+    if (token && queryTokens.has(token)) score -= 3;
+  }
+  return score;
+}
+
+function normalizeLookupValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function comparableLookupValue(value: string): string {
+  return normalizeLookupValue(value)
+    .replace(/<[^>]*>/gu, " ")
+    .replace(/--[a-z0-9_-]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function tokenLookupDistance(query: string, candidate: string): number {
+  const queryTokens = query.split(/[\s_-]+/u).filter(Boolean);
+  const candidateTokens = candidate.split(/[\s_-]+/u).filter(Boolean);
+  return queryTokens.reduce((total, queryToken) => {
+    const bestTokenDistance = candidateTokens.reduce(
+      (best, candidateToken) => Math.min(best, levenshteinDistance(queryToken, candidateToken)),
+      Number.POSITIVE_INFINITY
+    );
+    return total + (Number.isFinite(bestTokenDistance) ? bestTokenDistance : queryToken.length);
+  }, Math.max(0, candidateTokens.length - queryTokens.length));
+}
+
+function levenshteinDistance(left: string, right: string): number {
+  const distances = Array.from({ length: left.length + 1 }, () => Array(right.length + 1).fill(0) as number[]);
+  for (let index = 0; index <= left.length; index += 1) distances[index][0] = index;
+  for (let index = 0; index <= right.length; index += 1) distances[0][index] = index;
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      distances[leftIndex][rightIndex] = Math.min(
+        distances[leftIndex - 1][rightIndex] + 1,
+        distances[leftIndex][rightIndex - 1] + 1,
+        distances[leftIndex - 1][rightIndex - 1] + substitutionCost
+      );
+    }
+  }
+  return distances[left.length][right.length];
 }
 
 function operationContractLookupConflictRecoveryHint(provided: OperationContractLookupOption[]): OperationContractLookupConflictRecoveryHint {

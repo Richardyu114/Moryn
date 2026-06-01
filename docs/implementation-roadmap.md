@@ -277,6 +277,10 @@ Deliverables:
   lookup, available operation ids, compact index lookup calls, and retry
   templates that include package helper, CLI, and MCP forms, including
   `retry_with_lookup_modes` for all three single-operation lookup modes.
+  Unknown lookup hints now also include up to three `suggested_matches` with the
+  candidate value, canonical operation source, and exact retry templates in the
+  same lookup mode, so agents can recover from typo-like hallucinations without
+  loading the full index first.
   Ambiguous lookup calls that provide more than one filter now return
   `error.recovery_hint.rejected_lookup.provided` plus `accepted_lookup_modes`
   with the same package, CLI, and MCP retry forms, so agents can drop the extra
@@ -285,6 +289,9 @@ Deliverables:
   including numeric values and empty strings, with exported
   `OperationContractLookupArgumentError` recovery fields while preserving
   `undefined` for well-formed but unknown lookup strings.
+- Done: `OperationContractLookupError` is exported from the package entrypoint,
+  so package hosts can inspect the same unknown-lookup `suggested_matches` that
+  CLI and MCP envelopes return.
 - Done: CLI and MCP required-option, option-dependency, non-empty string, enum,
   integer/number-range, JSON-object, read-filter, project-init, sync-argument,
   store-path, event-path-component, schema-validation, write-core-field,
@@ -440,6 +447,9 @@ Deliverables:
   core validation, including numeric values and empty strings, so agents get the
   matching `operations_by_id.operation_contracts.arguments_by_name.*` source
   instead of host-side schema text or a misleading unknown-lookup error.
+- Done: Unknown `operation_contracts` lookup values now return ranked
+  `suggested_matches` with package, CLI, and MCP retry forms for the nearest
+  known operation id, MCP tool, or CLI command.
 - Done: Empty CLI contract lookup flags (`--operation`, `--mcp-tool`, and
   `--cli-command`) now return the same
   `operations_by_id.operation_contracts.arguments_by_name.*` recovery sources

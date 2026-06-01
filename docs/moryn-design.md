@@ -703,7 +703,12 @@ compact index lookup calls, and retry templates, so agents can recover without
 parsing prose. The recovery hint keeps the existing `retry_with_operation`
 shortcut and adds `retry_with_lookup_modes` for operation id, MCP tool, and CLI
 command retries. Those templates include package helper, CLI, and MCP forms, so
-library hosts do not need to infer helper names from command examples. MCP
+library hosts do not need to infer helper names from command examples. Unknown
+lookup hints also include up to three `suggested_matches`, each with the
+candidate lookup value, canonical operation id/source, and package/CLI/MCP retry
+forms in the same lookup mode, so small typos can be repaired without first
+loading the full index. `OperationContractLookupError` is exported for package
+hosts that want to inspect those suggestions directly. MCP
 lookup shape failures for `operation`, `mcp_tool`, and `cli_command` also pass
 through core validation, including numeric values and empty strings, and point
 at the matching `operations_by_id.operation_contracts.arguments_by_name.*`
@@ -887,7 +892,9 @@ Contract discovery argument failures such as MCP `operation_contracts.index`
 also point at `operations_by_id.operation_contracts.arguments_by_name.index`,
 and `operation_contracts.operation`/`mcp_tool`/`cli_command` shape failures point
 at their matching lookup arguments, so agents can recover while looking up the
-registry itself. Lifecycle boolean
+registry itself. Unknown operation-contract lookups include `suggested_matches`
+with exact retry templates for the nearest known operation id, MCP tool, or CLI
+command. Lifecycle boolean
 failures for MCP `agent_enter`/`agent_start` `pull` and
 `agent_finish`/`agent_status` `push` also point at their
 `operations_by_id.<operation>.arguments_by_name.<argument>` contracts instead

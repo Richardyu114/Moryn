@@ -1849,7 +1849,7 @@ describe("moryn CLI", () => {
       await exec("node", [
         "--import", tsxLoader, cliPath,
         "contracts", "operations",
-        "--operation", "missing_operation"
+        "--operation", "agent_finsh"
       ]);
       throw new Error("Expected unknown operation lookup to fail");
     } catch (error) {
@@ -1862,6 +1862,16 @@ describe("moryn CLI", () => {
           recommended_action: string;
           recovery_hint: {
             rejected_lookup: { kind: string; value: string };
+            suggested_matches: Array<{
+              value: string;
+              operation: string;
+              operation_source: string;
+              retry_with: {
+                package_helper: string;
+                cli: string;
+                mcp: { tool: string; arguments: { operation: string } };
+              };
+            }>;
             available_operations: string[];
             index_lookup: {
               package_helper: string;
@@ -1885,10 +1895,24 @@ describe("moryn CLI", () => {
 
       expect(parsed.ok).toBe(false);
       expect(parsed.error.code).toBe("INVALID_ARGUMENT");
-      expect(parsed.error.message).toBe("Invalid argument: Unknown operation: missing_operation");
+      expect(parsed.error.message).toBe("Invalid argument: Unknown operation: agent_finsh");
       expect(parsed.error.recoverable).toBe(true);
       expect(parsed.error.recommended_action).toBe("fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command");
-      expect(parsed.error.recovery_hint.rejected_lookup).toEqual({ kind: "operation", value: "missing_operation" });
+      expect(parsed.error.recovery_hint.rejected_lookup).toEqual({ kind: "operation", value: "agent_finsh" });
+      expect(parsed.error.recovery_hint.suggested_matches[0]).toEqual({
+        value: "agent_finish",
+        operation: "agent_finish",
+        operation_source: "operations_by_id.agent_finish",
+        retry_with: {
+          package_helper: "getOperationContract('agent_finish')",
+          cli: "moryn contracts operations --operation agent_finish",
+          mcp: {
+            tool: "operation_contracts",
+            arguments: { operation: "agent_finish" }
+          }
+        }
+      });
+      expect(parsed.error.recovery_hint.suggested_matches.length).toBeLessThanOrEqual(3);
       expect(parsed.error.recovery_hint.available_operations).toContain("agent_finish");
       expect(parsed.error.recovery_hint.index_lookup).toEqual({
         package_helper: "getOperationContractIndex()",

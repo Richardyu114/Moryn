@@ -15,6 +15,7 @@ import {
   MUTATION_EVENT_SELECTION_SOURCES,
   NEXT_ACTION_SELECTION_SOURCES,
   OperationContractLookupArgumentError,
+  OperationContractLookupError,
   PROJECT_INIT_SELECTION_SOURCES,
   PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES,
   PROJECT_LIST_SELECTION_SOURCES,
@@ -298,6 +299,21 @@ describe("package smoke test", () => {
     expect(getOperationContract("missing_operation")).toBeUndefined();
     expect(getOperationContractByMcpTool("missing_tool")).toBeUndefined();
     expect(getOperationContractByCliCommand("moryn missing")).toBeUndefined();
+    const lookupError = new OperationContractLookupError("cli_command", "moryn agent finsh");
+    expect(lookupError.recovery_hint.suggested_matches[0]).toEqual({
+      value: "moryn agent finish --summary <summary>",
+      operation: "agent_finish",
+      operation_source: "operations_by_id.agent_finish",
+      retry_with: {
+        package_helper: "getOperationContractByCliCommand('moryn agent finish --summary <summary>')",
+        cli: "moryn contracts operations --cli-command \"moryn agent finish --summary <summary>\"",
+        mcp: {
+          tool: "operation_contracts",
+          arguments: { cli_command: "moryn agent finish --summary <summary>" }
+        }
+      }
+    });
+    expect(lookupError.recovery_hint.suggested_matches.length).toBeLessThanOrEqual(3);
     for (const { helper, argument, value, placeholder } of [
       { helper: getOperationContract, argument: "operation", value: 123, placeholder: "<operation>" },
       { helper: getOperationContractByMcpTool, argument: "mcp_tool", value: 123, placeholder: "<mcp_tool>" },

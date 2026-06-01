@@ -2087,7 +2087,7 @@ describe("MCP stdio server", () => {
       await withMcpClient(store, async (client) => {
         const result = await client.callTool({
           name: "operation_contracts",
-          arguments: { mcp_tool: "missing_tool" }
+          arguments: { mcp_tool: "agent_statuz" }
         });
         const first = "content" in result ? result.content[0] : undefined;
         if (!first || first.type !== "text") {
@@ -2101,6 +2101,16 @@ describe("MCP stdio server", () => {
             recommended_action: string;
             recovery_hint: {
               rejected_lookup: { kind: string; value: string };
+              suggested_matches: Array<{
+                value: string;
+                operation: string;
+                operation_source: string;
+                retry_with: {
+                  package_helper: string;
+                  cli: string;
+                  mcp: { tool: string; arguments: { mcp_tool: string } };
+                };
+              }>;
               available_operations: string[];
               index_lookup: {
                 package_helper: string;
@@ -2127,7 +2137,21 @@ describe("MCP stdio server", () => {
         expect(parsed.error.code).toBe("INVALID_ARGUMENT");
         expect(parsed.error.recoverable).toBe(true);
         expect(parsed.error.recommended_action).toBe("fetch the compact operation index and retry with a known operation id, MCP tool, or CLI command");
-        expect(parsed.error.recovery_hint.rejected_lookup).toEqual({ kind: "mcp_tool", value: "missing_tool" });
+        expect(parsed.error.recovery_hint.rejected_lookup).toEqual({ kind: "mcp_tool", value: "agent_statuz" });
+        expect(parsed.error.recovery_hint.suggested_matches[0]).toEqual({
+          value: "agent_status",
+          operation: "agent_status",
+          operation_source: "operations_by_id.agent_status",
+          retry_with: {
+            package_helper: "getOperationContractByMcpTool('agent_status')",
+            cli: "moryn contracts operations --mcp-tool agent_status",
+            mcp: {
+              tool: "operation_contracts",
+              arguments: { mcp_tool: "agent_status" }
+            }
+          }
+        });
+        expect(parsed.error.recovery_hint.suggested_matches.length).toBeLessThanOrEqual(3);
         expect(parsed.error.recovery_hint.available_operations).toContain("agent_finish");
         expect(parsed.error.recovery_hint.index_lookup).toEqual({
           package_helper: "getOperationContractIndex()",
