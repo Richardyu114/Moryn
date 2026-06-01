@@ -7477,6 +7477,117 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("maps natural positional mutation values to required CLI options", async () => {
+    await withTempDir(async (dir) => {
+      for (const { args, message, recommendedAction, hint } of [
+        {
+          args: ["revise", "rec_missing", "content.text=Updated"],
+          message: "too many arguments for 'revise'",
+          recommendedAction: "retry revise with --set instead of positional patch assignments",
+          hint: {
+            operation_contract: "operations_by_id.revise",
+            rejected_arguments: {
+              positional_values: ["content.text=Updated"],
+              command_path: ["revise"]
+            },
+            expected: { kind: "required_option", required_option: "--set" },
+            positional_mapping: [
+              {
+                value: "content.text=Updated",
+                option: "--set",
+                argument: "patch",
+                argument_source: "operations_by_id.revise.arguments_by_name.patch"
+              }
+            ],
+            retry_with: {
+              args: ["revise", "rec_missing", "--set", "content.text=Updated"],
+              cli: "moryn revise rec_missing --set content.text=Updated",
+              mcp: { tool: "revise", arguments: { record_id: "rec_missing", patch: { "content.text": "Updated" } } }
+            },
+            do_not: ["retry_mutation_positional_values", "invent_positional_arguments"]
+          }
+        },
+        {
+          args: ["promote", "rec_missing", "canonical"],
+          message: "required option '--state <state>' not specified",
+          recommendedAction: "retry promote with --state instead of positional state",
+          hint: {
+            operation_contract: "operations_by_id.promote",
+            rejected_arguments: {
+              positional_values: ["canonical"],
+              command_path: ["promote"]
+            },
+            expected: { kind: "required_option", required_option: "--state" },
+            positional_mapping: [
+              {
+                value: "canonical",
+                option: "--state",
+                argument: "target_state",
+                argument_source: "operations_by_id.promote.arguments_by_name.target_state"
+              }
+            ],
+            retry_with: {
+              args: ["promote", "rec_missing", "--state", "canonical"],
+              cli: "moryn promote rec_missing --state canonical",
+              mcp: { tool: "promote", arguments: { record_id: "rec_missing", target_state: "canonical" } }
+            },
+            do_not: ["retry_mutation_positional_values", "invent_positional_arguments"]
+          }
+        },
+        {
+          args: ["link", "rec_a", "rec_b", "supersedes"],
+          message: "required option '--type <type>' not specified",
+          recommendedAction: "retry link with --type instead of positional link type",
+          hint: {
+            operation_contract: "operations_by_id.link",
+            rejected_arguments: {
+              positional_values: ["supersedes"],
+              command_path: ["link"]
+            },
+            expected: { kind: "required_option", required_option: "--type" },
+            positional_mapping: [
+              {
+                value: "supersedes",
+                option: "--type",
+                argument: "link_type",
+                argument_source: "operations_by_id.link.arguments_by_name.link_type"
+              }
+            ],
+            retry_with: {
+              args: ["link", "rec_a", "rec_b", "--type", "supersedes"],
+              cli: "moryn link rec_a rec_b --type supersedes",
+              mcp: { tool: "link", arguments: { record_id: "rec_a", linked_record_id: "rec_b", link_type: "supersedes" } }
+            },
+            do_not: ["retry_mutation_positional_values", "invent_positional_arguments"]
+          }
+        }
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject positional mutation values`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recoverable: boolean;
+              recommended_action: string;
+              recovery_hint: unknown;
+            };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain(message);
+          expect(parsed.error.recoverable).toBe(true);
+          expect(parsed.error.recommended_action).toBe(recommendedAction);
+          expect(parsed.error.recovery_hint).toEqual(hint);
+        }
+      }
+    });
+  });
+
   it("returns structured recovery hints for unknown CLI commands and options", async () => {
     await withTempDir(async (dir) => {
       for (const { args, message, hint } of [

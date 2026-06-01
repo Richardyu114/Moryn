@@ -64,6 +64,9 @@ const WRITE_OPERATION_CONTRACT_SOURCE = "operations_by_id.write";
 const RECALL_OPERATION_CONTRACT_SOURCE = "operations_by_id.recall";
 const AGENT_STATUS_OPERATION_CONTRACT_SOURCE = "operations_by_id.agent_status";
 const AGENT_FINISH_OPERATION_CONTRACT_SOURCE = "operations_by_id.agent_finish";
+const REVISE_OPERATION_CONTRACT_SOURCE = "operations_by_id.revise";
+const PROMOTE_OPERATION_CONTRACT_SOURCE = "operations_by_id.promote";
+const LINK_OPERATION_CONTRACT_SOURCE = "operations_by_id.link";
 const WRITE_TEXT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.text";
 const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content";
 const RECALL_FILTER_OPTIONS = ["--record-id", "--kind", "--scope", "--type", "--state", "--tag", "--file"] as const;
@@ -145,6 +148,13 @@ type CliAgentLifecycleArgument = "status" | "summary";
 type CliAgentLifecycleMcpRetry =
   | { tool: "agent_status"; arguments: { status: string } }
   | { tool: "agent_finish"; arguments: { summary: string } };
+type CliMutationPositionalCommandPath = ["revise"] | ["promote"] | ["link"];
+type CliMutationPositionalOption = "--set" | "--state" | "--type";
+type CliMutationPositionalArgument = "patch" | "target_state" | "link_type";
+type CliMutationPositionalMcpRetry =
+  | { tool: "revise"; arguments: { record_id: string; patch: Record<string, unknown> } }
+  | { tool: "promote"; arguments: { record_id: string; target_state: string } }
+  | { tool: "link"; arguments: { record_id: string; linked_record_id: string; link_type: string } };
 type CliRecallFilterPositionalMapping = {
   value: string;
   option: CliRecallFilterOption;
@@ -155,6 +165,12 @@ type CliAgentLifecyclePositionalMapping = {
   value: string;
   option: CliAgentLifecycleOption;
   argument: CliAgentLifecycleArgument;
+  argument_source: CliArgumentContractSource;
+};
+type CliMutationPositionalMapping = {
+  value: string;
+  option: CliMutationPositionalOption;
+  argument: CliMutationPositionalArgument;
   argument_source: CliArgumentContractSource;
 };
 type CliUnknownOptionSuggestion =
@@ -260,6 +276,21 @@ type CliArgumentRecoveryHint =
         mcp: CliAgentLifecycleMcpRetry;
       };
       do_not: ["retry_agent_lifecycle_positional_values", "invent_positional_arguments"];
+    }
+  | {
+      operation_contract: typeof REVISE_OPERATION_CONTRACT_SOURCE | typeof PROMOTE_OPERATION_CONTRACT_SOURCE | typeof LINK_OPERATION_CONTRACT_SOURCE;
+      rejected_arguments: { positional_values: string[]; command_path: CliMutationPositionalCommandPath };
+      expected: {
+        kind: "required_option";
+        required_option: CliMutationPositionalOption;
+      };
+      positional_mapping: CliMutationPositionalMapping[];
+      retry_with: {
+        args: string[];
+        cli: string;
+        mcp: CliMutationPositionalMcpRetry;
+      };
+      do_not: ["retry_mutation_positional_values", "invent_positional_arguments"];
     }
   | {
       operation_contract: CliLimitOperationContractSource;
@@ -511,6 +542,8 @@ function cliRequiredOptionError(message: string, args = process.argv.slice(2)): 
   if (positionalWriteHint !== undefined) return positionalWriteHint;
   const positionalAgentLifecycleHint = naturalAgentLifecyclePositionalCliArgumentError(message, args, option);
   if (positionalAgentLifecycleHint !== undefined) return positionalAgentLifecycleHint;
+  const positionalMutationHint = naturalMutationRequiredOptionPositionalCliArgumentError(message, args, option);
+  if (positionalMutationHint !== undefined) return positionalMutationHint;
   return requiredCliOptionError(option, placeholder, message, requiredCliOptionSource(option, args));
 }
 
@@ -645,6 +678,131 @@ function naturalAgentLifecyclePositionalMapping(
   };
 }
 
+function naturalMutationRequiredOptionPositionalCliArgumentError(
+  message: string,
+  args: readonly string[],
+  missingOption: string
+): CliArgumentError | undefined {
+  const commandPath = cliCommandPath([...args]);
+  if (commandPath[0] === "promote" && missingOption === "--state") {
+    const positionalValues = cliPositionalsAfterCommandPath(args, ["promote"]);
+    const [recordId, state] = positionalValues;
+    if (!recordId || !state) return undefined;
+    return naturalPromotePositionalCliArgumentError(message, recordId, state, [state]);
+  }
+  if (commandPath[0] === "link" && missingOption === "--type") {
+    const positionalValues = cliPositionalsAfterCommandPath(args, ["link"]);
+    const [recordId, linkedRecordId, linkType] = positionalValues;
+    if (!recordId || !linkedRecordId || !linkType) return undefined;
+    return naturalLinkPositionalCliArgumentError(message, recordId, linkedRecordId, linkType, [linkType]);
+  }
+  return undefined;
+}
+
+function naturalMutationExtraPositionalsCliArgumentError(
+  message: string,
+  args: readonly string[],
+  commandPath: readonly string[],
+  extraPositionals: readonly string[]
+): CliArgumentError | undefined {
+  if (commandPath.length === 1 && commandPath[0] === "revise") {
+    const positionalValues = cliPositionalsAfterCommandPath(args, ["revise"]);
+    const [recordId] = positionalValues;
+    if (!recordId || extraPositionals.length === 0) return undefined;
+    const patch = patchFromAssignments(extraPositionals);
+    if (patch === undefined) return undefined;
+    const retryArgs = ["revise", recordId, ...extraPositionals.flatMap((assignment) => ["--set", assignment])];
+    return new CliArgumentError(
+      `Invalid argument: ${message}`,
+      "retry revise with --set instead of positional patch assignments",
+      {
+        operation_contract: REVISE_OPERATION_CONTRACT_SOURCE,
+        rejected_arguments: { positional_values: [...extraPositionals], command_path: ["revise"] },
+        expected: { kind: "required_option", required_option: "--set" },
+        positional_mapping: extraPositionals.map((assignment) =>
+          naturalMutationPositionalMapping(assignment, "--set", "patch", "revise")
+        ),
+        retry_with: {
+          args: retryArgs,
+          cli: commandLineForCliInterface("moryn", retryArgs),
+          mcp: { tool: "revise", arguments: { record_id: recordId, patch } }
+        },
+        do_not: ["retry_mutation_positional_values", "invent_positional_arguments"]
+      }
+    );
+  }
+  return undefined;
+}
+
+function naturalPromotePositionalCliArgumentError(
+  message: string,
+  recordId: string,
+  state: string,
+  positionalValues: string[]
+): CliArgumentError {
+  const retryArgs = ["promote", recordId, "--state", state];
+  return new CliArgumentError(
+    `Invalid argument: ${message}`,
+    "retry promote with --state instead of positional state",
+    {
+      operation_contract: PROMOTE_OPERATION_CONTRACT_SOURCE,
+      rejected_arguments: { positional_values: positionalValues, command_path: ["promote"] },
+      expected: { kind: "required_option", required_option: "--state" },
+      positional_mapping: [
+        naturalMutationPositionalMapping(state, "--state", "target_state", "promote")
+      ],
+      retry_with: {
+        args: retryArgs,
+        cli: commandLineForCliInterface("moryn", retryArgs),
+        mcp: { tool: "promote", arguments: { record_id: recordId, target_state: state } }
+      },
+      do_not: ["retry_mutation_positional_values", "invent_positional_arguments"]
+    }
+  );
+}
+
+function naturalLinkPositionalCliArgumentError(
+  message: string,
+  recordId: string,
+  linkedRecordId: string,
+  linkType: string,
+  positionalValues: string[]
+): CliArgumentError {
+  const retryArgs = ["link", recordId, linkedRecordId, "--type", linkType];
+  return new CliArgumentError(
+    `Invalid argument: ${message}`,
+    "retry link with --type instead of positional link type",
+    {
+      operation_contract: LINK_OPERATION_CONTRACT_SOURCE,
+      rejected_arguments: { positional_values: positionalValues, command_path: ["link"] },
+      expected: { kind: "required_option", required_option: "--type" },
+      positional_mapping: [
+        naturalMutationPositionalMapping(linkType, "--type", "link_type", "link")
+      ],
+      retry_with: {
+        args: retryArgs,
+        cli: commandLineForCliInterface("moryn", retryArgs),
+        mcp: { tool: "link", arguments: { record_id: recordId, linked_record_id: linkedRecordId, link_type: linkType } }
+      },
+      do_not: ["retry_mutation_positional_values", "invent_positional_arguments"]
+    }
+  );
+}
+
+function naturalMutationPositionalMapping(
+  value: string,
+  option: CliMutationPositionalOption,
+  argument: CliMutationPositionalArgument,
+  operation: "revise" | "promote" | "link"
+): CliMutationPositionalMapping {
+  return {
+    value,
+    option,
+    argument,
+    argument_source: `operations_by_id.${operation}.arguments_by_name.${argument}` as const
+  };
+}
+
 function cliUnknownCommandError(message: string, args = process.argv.slice(2)): CliArgumentError | undefined {
   const match = /^unknown command '([^']+)'/.exec(message);
   if (!match) return undefined;
@@ -708,6 +866,8 @@ function cliExtraPositionalsError(message: string, args: string[], commandPath =
   if (extraPositionals.length === 0) return undefined;
   const positionalRecallHint = naturalRecallFilterPositionalCliArgumentError(message, args, commandPath);
   if (positionalRecallHint !== undefined) return positionalRecallHint;
+  const positionalMutationHint = naturalMutationExtraPositionalsCliArgumentError(message, args, commandPath, extraPositionals);
+  if (positionalMutationHint !== undefined) return positionalMutationHint;
   return new CliArgumentError(
     `Invalid argument: ${message}`,
     "retry without extra positional arguments",
@@ -1496,10 +1656,29 @@ function parseAssignmentValue(value: string): unknown {
   }
 }
 
-function parseAssignments(assignments: string[]): Record<string, unknown> {
-  return Object.fromEntries(assignments.map((assignment) => {
+function patchFromAssignments(assignments: readonly string[]): Record<string, unknown> | undefined {
+  const entries: Array<[string, unknown]> = [];
+  for (const assignment of assignments) {
     const [key, ...rest] = assignment.split("=");
-    if (!key || !isValidPatchPath(key) || !rest.length) {
+    if (!key || !isValidPatchPath(key) || !rest.length) return undefined;
+    entries.push([key, parseAssignmentValue(rest.join("="))]);
+  }
+  return Object.fromEntries(entries);
+}
+
+function parseAssignments(assignments: string[]): Record<string, unknown> {
+  const patch = patchFromAssignments(assignments);
+  if (patch === undefined) {
+    for (const assignment of assignments) {
+      const [key, ...rest] = assignment.split("=");
+      if (!key || !isValidPatchPath(key) || !rest.length) {
+        throw setAssignmentCliArgumentError(assignment);
+      }
+    }
+  }
+  return patch ?? Object.fromEntries(assignments.map((assignment) => {
+    const [key, ...rest] = assignment.split("=");
+    if (!key || !rest.length) {
       throw setAssignmentCliArgumentError(assignment);
     }
     return [key, parseAssignmentValue(rest.join("="))];

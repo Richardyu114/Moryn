@@ -430,6 +430,10 @@ Deliverables:
   `agent finish "Done..."` now maps to `--status` or `--summary` with exact CLI
   and MCP retry forms, so agents can recover common handoff/status mistakes
   without parsing Commander prose.
+- Done: Mutation positional shortcuts such as
+  `revise <record-id> content.text=Updated`, `promote <record-id> canonical`,
+  and `link <record-id> <linked-record-id> supersedes` now map trailing values
+  to `--set`, `--state`, or `--type` with exact CLI and MCP retry forms.
 - Done: Natural positional recovery retry forms now keep `retry_with.args` as
   the machine-preferred argv array and render `retry_with.cli` with shell-safe
   quoting, so copy/paste recovery preserves values with spaces or quotes.

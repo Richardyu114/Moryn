@@ -1048,8 +1048,12 @@ return a `positional_mapping` from each value to `--kind`, `--type`, `--scope`,
 and `--text`, plus exact CLI and MCP retry forms. Agent lifecycle positional
 text such as `agent status "Working..."` and `agent finish "Done..."` maps the
 text to `--status` or `--summary` with exact CLI and MCP retry forms. These
-retry forms keep `retry_with.args` as the machine-preferred argv array and
-render `retry_with.cli` as a shell-safe command line for copy/paste recovery.
+same positional-to-option hints cover mutation shortcuts such as
+`revise <record-id> content.text=Updated`, `promote <record-id> canonical`, and
+`link <record-id> <linked-record-id> supersedes`, mapping the trailing values to
+`--set`, `--state`, or `--type`. These retry forms keep `retry_with.args` as
+the machine-preferred argv array and render `retry_with.cli` as a shell-safe
+command line for copy/paste recovery.
 Option typos include `suggested_options[]` with the matched `arguments_by_name.<argument>`
 source and a one-option retry template, so an agent can replace `--txt` with
 `--text` without parsing Commander text. Global option typos such as `--stor`
