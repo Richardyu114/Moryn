@@ -453,6 +453,32 @@ function cliUnknownCommandError(message: string, args = process.argv.slice(2)): 
   );
 }
 
+function cliTooManyArgumentsCommandError(message: string, args = process.argv.slice(2)): CliArgumentError | undefined {
+  const match = /^too many arguments for '([^']+)'/.exec(message);
+  if (!match) return undefined;
+  const commandPath = cliCommandPath(args);
+  if (commandPath.length < 2 || !cliCommandGroupTokens().has(commandPath[0]!)) return undefined;
+  const suggestions = cliUnknownCommandSuggestions(commandPath.join(" "), undefined, { commandGroup: commandPath[0] });
+  if (suggestions.length === 0) return undefined;
+  return new CliArgumentError(
+    `Invalid argument: ${message}`,
+    CLI_UNKNOWN_INPUT_RECOVERY_ACTION,
+    {
+      rejected_command: {
+        command: commandPath.join(" "),
+        command_path: commandPath
+      },
+      suggested_commands: suggestions,
+      index_lookup: {
+        command: "moryn contracts operations --index",
+        args: ["contracts", "operations", "--index"],
+        mcp: { tool: "operation_contracts", arguments: { index: true } }
+      },
+      do_not: ["retry_unknown_command", "invent_command_names"]
+    }
+  );
+}
+
 function cliCommanderSuggestedCommand(message: string): string | undefined {
   const match = /\(Did you mean ([^)]+)\?\)/.exec(message);
   return match?.[1];
@@ -597,7 +623,7 @@ function cliOperationsForCommandPath(commandPath: readonly string[]): OperationC
   });
 }
 
-function cliUnknownCommandSuggestions(query: string, preferredCommand?: string): Array<{
+function cliUnknownCommandSuggestions(query: string, preferredCommand?: string, filter?: { commandGroup?: string }): Array<{
   command: string;
   operation: string;
   operation_source: CliOperationContractSource;
@@ -612,6 +638,7 @@ function cliUnknownCommandSuggestions(query: string, preferredCommand?: string):
     .flatMap((operation, order) => {
       const command = cliCommandTokens(operation).join(" ");
       if (!command || seenCommands.has(command)) return [];
+      if (filter?.commandGroup !== undefined && !command.startsWith(`${filter.commandGroup} `)) return [];
       seenCommands.add(command);
       const preferredCandidate = preferredCommand === undefined
         ? undefined
@@ -1940,6 +1967,7 @@ program.parseAsync().catch((error: unknown) => {
       cliRequiredOptionError(message)
         ?? cliRequiredArgumentError(message)
         ?? cliUnknownCommandError(message)
+        ?? cliTooManyArgumentsCommandError(message)
         ?? cliUnknownOptionError(message)
         ?? new Error(`Invalid argument: ${message}`)
     );

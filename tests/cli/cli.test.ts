@@ -7265,6 +7265,29 @@ describe("moryn CLI", () => {
           }
         },
         {
+          args: ["sync", "int", "git@example.com:repo.git"],
+          message: "too many arguments for 'sync'",
+          hint: {
+            rejected_command: { command: "sync int", command_path: ["sync", "int"] },
+            suggested_commands: [{
+              command: "sync init",
+              operation: "sync_init",
+              operation_source: "operations_by_id.sync_init",
+              retry_with: {
+                cli: "moryn sync init <remote>",
+                args: ["sync", "init", "<remote>"],
+                mcp: { tool: "sync_init", arguments: { remote: "<remote>" } }
+              }
+            }],
+            index_lookup: {
+              command: "moryn contracts operations --index",
+              args: ["contracts", "operations", "--index"],
+              mcp: { tool: "operation_contracts", arguments: { index: true } }
+            },
+            do_not: ["retry_unknown_command", "invent_command_names"]
+          }
+        },
+        {
           args: ["--stor", dir, "recall", "hello"],
           message: "unknown option '--stor'",
           hint: {

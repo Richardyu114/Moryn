@@ -1034,7 +1034,9 @@ retry arguments, an `index_lookup` fallback for `moryn contracts operations
 command groups preserve a valid trailing subcommand when ranking suggestions,
 so `agnt status`, `contrcts operations`, and `sycn init` recover to the matching
 nested operation instead of falling back to an unrelated top-level command.
-Option typos
+Group commands that otherwise surface as "too many arguments", such as
+`sync int <remote>`, use the same command suggestion path when the extra token
+looks like a misspelled known subcommand. Option typos
 include `suggested_options[]` with the matched `arguments_by_name.<argument>`
 source and a one-option retry template, so an agent can replace `--txt` with
 `--text` without parsing Commander text. Global option typos such as `--stor`

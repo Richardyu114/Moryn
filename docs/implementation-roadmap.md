@@ -410,6 +410,9 @@ Deliverables:
   `contrcts operations`, and `sycn init` now preserve the trailing subcommand
   while ranking suggestions, so recovery points to the matching nested
   operation instead of an unrelated top-level command.
+- Done: Command-group parser failures that surface as "too many arguments",
+  such as `sync int <remote>`, now enter the same structured command-suggestion
+  recovery path when the extra token looks like a misspelled known subcommand.
 - Done: Global CLI option typos such as `--stor` or `--hep` now prefer global
   retry hints like `--store <path>` or `--help` with
   `position: "before_command"` instead of being misclassified as operation
