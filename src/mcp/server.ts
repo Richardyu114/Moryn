@@ -48,6 +48,7 @@ type McpAliasConflict = {
   path: string;
   contractArgument: string;
   camelAlias?: string;
+  aliasConflictKind?: McpAliasConflictKind;
   valuesByInput: Record<string, unknown>;
 };
 type McpAliasConflictKind =
@@ -56,13 +57,22 @@ type McpAliasConflictKind =
   | "nested_vs_literal_path"
   | "parent_scalar_vs_child_alias"
   | "camelcase_vs_contract_alias"
+  | "singular_vs_plural_alias"
   | "multiple_aliases";
 type McpAliasConflictDoNot =
   | "provide_both_nested_and_flattened_aliases"
   | "provide_both_literal_path_and_flattened_aliases"
   | "provide_both_nested_and_literal_path_aliases"
   | "provide_parent_scalar_with_child_aliases"
-  | "provide_both_camelcase_and_contract_aliases";
+  | "provide_both_camelcase_and_contract_aliases"
+  | "provide_both_singular_and_plural_aliases";
+type McpExplicitAlias = {
+  alias: string;
+  target: string;
+  contractArgument: string;
+  conflictKind: McpAliasConflictKind;
+  normalize: (value: unknown) => unknown;
+};
 
 const stringSchema = z.string();
 const recordKindSchema = z.union([z.enum(RECORD_KINDS), stringSchema]);
@@ -115,6 +125,33 @@ const agentAliasInputSchema = {
   "agent.device_id": z.unknown().optional()
 } as const;
 
+function recallRepeatableAlias(alias: string, target: string): McpExplicitAlias {
+  return {
+    alias,
+    target,
+    contractArgument: target,
+    conflictKind: "singular_vs_plural_alias",
+    normalize: repeatableAliasValue
+  };
+}
+
+const explicitMcpAliasesByTool: Record<string, McpExplicitAlias[]> = {
+  recall: [
+    recallRepeatableAlias("record_id", "record_ids"),
+    recallRepeatableAlias("recordId", "record_ids"),
+    recallRepeatableAlias("kind", "kinds"),
+    recallRepeatableAlias("scope", "scopes"),
+    recallRepeatableAlias("type", "types"),
+    recallRepeatableAlias("state", "states"),
+    recallRepeatableAlias("tag", "tags"),
+    recallRepeatableAlias("file", "files")
+  ]
+};
+
+function repeatableAliasValue(value: unknown): unknown {
+  return Array.isArray(value) ? value : [value];
+}
+
 function snakeToCamel(value: string): string {
   return value.replace(/_([a-z0-9])/g, (_match, character: string) => character.toUpperCase());
 }
@@ -134,6 +171,10 @@ function camelCaseAliasInputSchema(tool: string): Record<string, z.ZodOptional<z
     const alias = mcpCamelCaseAliasName(argument);
     return alias ? [[alias, z.unknown().optional()] as const] : [];
   }));
+}
+
+function explicitAliasInputSchema(tool: string): Record<string, z.ZodOptional<z.ZodUnknown>> {
+  return Object.fromEntries((explicitMcpAliasesByTool[tool] ?? []).map((alias) => [alias.alias, z.unknown().optional()]));
 }
 
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
@@ -469,7 +510,7 @@ function compactUndefined<T extends Record<string, unknown>>(input: T): Record<s
 
 function normalizeMcpToolArguments(tool: string, input: Record<string, unknown>): Record<string, unknown> {
   assertNoMcpAliasConflicts(tool, input);
-  return mcpArgumentsForAction(tool, normalizeMcpCamelCaseAliases(tool, input));
+  return mcpArgumentsForAction(tool, normalizeExplicitMcpAliases(tool, normalizeMcpCamelCaseAliases(tool, input)));
 }
 
 function normalizeMcpCamelCaseAliases(tool: string, input: Record<string, unknown>): Record<string, unknown> {
@@ -484,12 +525,66 @@ function normalizeMcpCamelCaseAliases(tool: string, input: Record<string, unknow
   return normalized;
 }
 
+function normalizeExplicitMcpAliases(tool: string, input: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...input };
+  for (const alias of explicitMcpAliasesByTool[tool] ?? []) {
+    if (normalized[alias.alias] === undefined) continue;
+    if (normalized[alias.target] === undefined) normalized[alias.target] = alias.normalize(normalized[alias.alias]);
+    delete normalized[alias.alias];
+  }
+  return normalized;
+}
+
 function assertNoMcpAliasConflicts(tool: string, input: Record<string, unknown>): void {
+  const explicitAliasConflict = mcpExplicitAliasConflict(tool, input);
+  if (explicitAliasConflict) throw new McpAliasConflictError(tool, explicitAliasConflict);
   const operationArguments = Object.values(operationArgumentsByTool(tool));
   for (const argument of operationArguments) {
     const conflict = mcpAliasConflict(input, argument);
     if (conflict) throw new McpAliasConflictError(tool, conflict);
   }
+}
+
+function mcpExplicitAliasConflict(tool: string, input: Record<string, unknown>): McpAliasConflict | undefined {
+  const aliasesByTarget = new Map<string, McpExplicitAlias[]>();
+  for (const alias of explicitMcpAliasesByTool[tool] ?? []) {
+    aliasesByTarget.set(alias.target, [...(aliasesByTarget.get(alias.target) ?? []), alias]);
+  }
+  for (const [target, aliases] of aliasesByTarget) {
+    const targetAliases = mcpInputAliasesForTarget(tool, target);
+    const valuesByInput: Record<string, unknown> = {};
+    const stableValues: string[] = [];
+    for (const inputName of [target, ...targetAliases]) {
+      const targetValue = input[inputName];
+      if (targetValue === undefined) continue;
+      valuesByInput[inputName] = targetValue;
+      stableValues.push(stableMcpValueKey(targetValue));
+    }
+    for (const alias of aliases) {
+      const aliasValue = input[alias.alias];
+      if (aliasValue === undefined) continue;
+      valuesByInput[alias.alias] = aliasValue;
+      stableValues.push(stableMcpValueKey(alias.normalize(aliasValue)));
+    }
+    if (Object.keys(valuesByInput).length <= 1) continue;
+    if (new Set(stableValues).size <= 1) continue;
+    const alias = aliases[0]!;
+    return {
+      argument: target,
+      path: target,
+      contractArgument: alias.contractArgument,
+      aliasConflictKind: alias.conflictKind,
+      valuesByInput
+    };
+  }
+  return undefined;
+}
+
+function mcpInputAliasesForTarget(tool: string, target: string): string[] {
+  return Object.values(operationArgumentsByTool(tool)).flatMap((argument) => {
+    const alias = mcpCamelCaseAliasName(argument);
+    return alias && mcpCamelCaseAliasTarget(argument) === target ? [alias] : [];
+  });
 }
 
 function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArgumentMetadata): McpAliasConflict | undefined {
@@ -574,6 +669,7 @@ function placeholderForAliasConflict(conflict: McpAliasConflict): string {
 }
 
 function conflictKindForAliasConflict(conflict: McpAliasConflict): McpAliasConflictKind {
+  if (conflict.aliasConflictKind) return conflict.aliasConflictKind;
   const inputs = new Set(Object.keys(conflict.valuesByInput));
   const hasParentScalar = conflict.argument !== conflict.path && inputs.has(conflict.argument);
   const hasNestedPath = inputs.has(conflict.path);
@@ -595,6 +691,7 @@ function doNotForAliasConflict(conflict: McpAliasConflict): [McpAliasConflictDoN
     nested_vs_literal_path: "provide_both_nested_and_literal_path_aliases",
     parent_scalar_vs_child_alias: "provide_parent_scalar_with_child_aliases",
     camelcase_vs_contract_alias: "provide_both_camelcase_and_contract_aliases",
+    singular_vs_plural_alias: "provide_both_singular_and_plural_aliases",
     multiple_aliases: "provide_both_nested_and_flattened_aliases"
   };
   return [doNotByKind[conflictKindForAliasConflict(conflict)], "retry_with_conflicting_alias_values"];
@@ -805,7 +902,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         tags: z.unknown().optional(),
         files: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional(),
-        ...camelCaseAliasInputSchema("recall")
+        ...camelCaseAliasInputSchema("recall"),
+        ...explicitAliasInputSchema("recall")
       }
     },
     async (input) => toolResultWithNormalizedInput("recall", input, async (normalizedInput) => {

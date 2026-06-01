@@ -2897,6 +2897,17 @@ describe("MCP stdio server", () => {
           "agent_session_id",
           "agent.session_id"
         ]));
+        const recallTool = tools.tools.find((tool) => tool.name === "recall");
+        expect(Object.keys(recallTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "recordId",
+          "record_id",
+          "kind",
+          "scope",
+          "type",
+          "state",
+          "tag",
+          "file"
+        ]));
         const reviseTool = tools.tools.find((tool) => tool.name === "revise");
         expect(Object.keys(reviseTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
           "recordId",
@@ -6605,6 +6616,64 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("accepts singular MCP recall filter aliases without broadening the query", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-recall-singular-aliases-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const target = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            tags: ["recall-singular", "src/recall-singular.ts"],
+            text: "Recall singular aliases should find this decision.",
+            state: "canonical"
+          }
+        })) as { record: { id: string } };
+        const other = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "skill",
+            type: "procedure",
+            scope: "global",
+            tags: ["recall-singular"],
+            text: "Recall singular aliases should not return this skill.",
+            state: "canonical"
+          }
+        })) as { record: { id: string } };
+
+        const filtered = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            projectId: "moryn",
+            kind: "memory",
+            scope: "project",
+            type: "decision",
+            state: "canonical",
+            tag: "recall-singular",
+            file: "src/recall-singular.ts"
+          }
+        })) as { results: Array<{ record: { id: string } }> };
+        const exact = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            recordId: target.record.id
+          }
+        })) as { results: Array<{ record: { id: string } }> };
+
+        expect(filtered.results.map((result) => result.record.id)).toEqual([target.record.id]);
+        expect(filtered.results.map((result) => result.record.id)).not.toContain(other.record.id);
+        expect(exact.results.map((result) => result.record.id)).toEqual([target.record.id]);
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("uses MCP as the default source for mutation events", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-default-source-"));
     try {
@@ -8674,6 +8743,90 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "project_id", value_placeholder: "<project id>" },
           do_not: ["provide_both_camelcase_and_contract_aliases", "retry_with_conflicting_alias_values"]
+        });
+        const conflictingRecallKindAlias = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            kinds: ["memory"],
+            kind: "skill"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingRecallKindAlias.ok).toBe(false);
+        expect(conflictingRecallKindAlias.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingRecallKindAlias.error.message).toContain("Conflicting kinds aliases");
+        expect(conflictingRecallKindAlias.error.recommended_action).toBe("retry recall with one kinds value");
+        expect(conflictingRecallKindAlias.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          conflicting_argument: {
+            argument: "kinds",
+            conflict_kind: "singular_vs_plural_alias",
+            values_by_input: {
+              kinds: ["memory"],
+              kind: "skill"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            kinds: "operations_by_id.recall.arguments_by_name.kinds"
+          },
+          retry_with: { argument: "kinds", value_placeholder: "<kinds>" },
+          do_not: ["provide_both_singular_and_plural_aliases", "retry_with_conflicting_alias_values"]
+        });
+        const conflictingRecallRecordIdAliases = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            record_id: "rec_a",
+            recordId: "rec_b"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingRecallRecordIdAliases.ok).toBe(false);
+        expect(conflictingRecallRecordIdAliases.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingRecallRecordIdAliases.error.message).toContain("Conflicting record_ids aliases");
+        expect(conflictingRecallRecordIdAliases.error.recommended_action).toBe("retry recall with one record_ids value");
+        expect(conflictingRecallRecordIdAliases.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          conflicting_argument: {
+            argument: "record_ids",
+            conflict_kind: "singular_vs_plural_alias",
+            values_by_input: {
+              record_id: "rec_a",
+              recordId: "rec_b"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            record_ids: "operations_by_id.recall.arguments_by_name.record_ids"
+          },
+          retry_with: { argument: "record_ids", value_placeholder: "<record ids>" },
+          do_not: ["provide_both_singular_and_plural_aliases", "retry_with_conflicting_alias_values"]
+        });
+        const conflictingRecallCamelPluralRecordIdAlias = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            recordIds: ["rec_a"],
+            recordId: "rec_b"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingRecallCamelPluralRecordIdAlias.ok).toBe(false);
+        expect(conflictingRecallCamelPluralRecordIdAlias.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingRecallCamelPluralRecordIdAlias.error.message).toContain("Conflicting record_ids aliases");
+        expect(conflictingRecallCamelPluralRecordIdAlias.error.recommended_action).toBe("retry recall with one record_ids value");
+        expect(conflictingRecallCamelPluralRecordIdAlias.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          conflicting_argument: {
+            argument: "record_ids",
+            conflict_kind: "singular_vs_plural_alias",
+            values_by_input: {
+              recordIds: ["rec_a"],
+              recordId: "rec_b"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            record_ids: "operations_by_id.recall.arguments_by_name.record_ids"
+          },
+          retry_with: { argument: "record_ids", value_placeholder: "<record ids>" },
+          do_not: ["provide_both_singular_and_plural_aliases", "retry_with_conflicting_alias_values"]
         });
         const invalidTargetState = parseTextContent(await client.callTool({
           name: "promote",

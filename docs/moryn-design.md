@@ -753,7 +753,7 @@ object expectations, write content object/text/format requirements, tag array
 shape, source client requirements, write core field requirements, write metadata
 requirements, mutation record id/state/reason/confirmation/link requirements,
 read filter requirements such as `query`, `record_ids`, `kinds`, `scopes`,
-`states`, `tags`, `files`, and `limit`, boot/refresh read inputs such as
+`types`, `states`, `tags`, `files`, and `limit`, boot/refresh read inputs such as
 `current_task`, `default_skills`, and `cursor`, project init requirements such
 as `projectPath`, `project_id`, `tags`, `default_skills`, `sync.mode`, and
 `repair`, local store path requirements such as `storePath`, event path
@@ -852,7 +852,13 @@ Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
 limits. MCP `recall.tags`, `recall.record_ids`, `recall.files`,
 `recall.kinds`, `recall.scopes`, `recall.types`, and `recall.states` shape
 failures also pass through core validation, including single-string tag, record
-id, file, kind, scope, type, and state values. MCP `boot.default_skills` shape
+id, file, kind, scope, type, and state values. Direct MCP `recall` also accepts
+singular filter aliases (`record_id`, `recordId`, `kind`, `scope`, `type`,
+`state`, `tag`, and `file`) and normalizes them into the plural array
+arguments, so JavaScript-style or CLI-style callers do not accidentally broaden
+a query by sending an unknown field. Conflicting singular and plural recall
+aliases return `conflicting_argument.conflict_kind: "singular_vs_plural_alias"`
+instead of silently choosing one value. MCP `boot.default_skills` shape
 failures likewise pass through core validation, including single-string skill
 selector values. MCP `boot.current_task` and `refresh.current_task` shape
 failures pass through core validation too, including numeric task values, and
@@ -938,7 +944,8 @@ actions. Lifecycle tools also accept camelCase context aliases including
 Alias conflicts in those direct MCP tools classify the conflict with
 `conflicting_argument.conflict_kind` and emit a matching `do_not` guardrail for
 nested-vs-flattened, literal-vs-flattened, nested-vs-literal, and
-camelCase-vs-contract, and parent-scalar-vs-child-alias retries.
+camelCase-vs-contract, singular-vs-plural, and parent-scalar-vs-child-alias
+retries.
 MCP write `tags` shape failures also pass through core validation, including
 single-string tag values, and return `operations_by_id.write.arguments_by_name.tags`.
 MCP write `provenance` failures also pass through core validation, including

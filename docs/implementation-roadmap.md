@@ -546,6 +546,11 @@ Deliverables:
   `operations_by_id.recall.arguments_by_name.files` plus the matching
   `kinds`/`scopes`/`types`/`states` argument sources instead of host-side
   schema text.
+- Done: Direct MCP `recall` now exposes and normalizes singular filter aliases
+  (`record_id`, `recordId`, `kind`, `scope`, `type`, `state`, `tag`, and
+  `file`) into the plural filter arrays, and conflicting singular/plural
+  inputs return a `singular_vs_plural_alias` recovery hint instead of silently
+  broadening recall results.
 - Done: MCP `boot.default_skills` shape failures now pass through core
   validation, including single-string skill selector values, and expose
   `operations_by_id.boot.arguments_by_name.default_skills` instead of host-side
