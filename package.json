@@ -12,8 +12,8 @@
     }
   },
   "bin": {
-    "moryn": "./dist/cli.js",
-    "moryn-agent-smoke": "./scripts/agent-lifecycle-smoke.js"
+    "moryn": "dist/cli.js",
+    "moryn-agent-smoke": "scripts/agent-lifecycle-smoke.js"
   },
   "files": [
     "dist",
