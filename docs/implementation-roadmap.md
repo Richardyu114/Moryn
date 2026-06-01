@@ -417,6 +417,10 @@ Deliverables:
   `project list extra` or `recall memory decision`, now return
   `rejected_arguments.extra_positionals`, accepted CLI arguments/options, and
   `retry_with.remove_positionals` instead of generic parser advice.
+- Done: Natural positional write attempts such as
+  `write memory decision project hello` now return a positional-to-option
+  mapping for `--kind`, `--type`, `--scope`, and `--text`, plus exact CLI and
+  MCP retry forms, so agents can recover without inventing positional syntax.
 - Done: Global CLI option typos such as `--stor` or `--hep` now prefer global
   retry hints like `--store <path>` or `--help` with
   `position: "before_command"` instead of being misclassified as operation

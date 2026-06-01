@@ -185,6 +185,27 @@ type CliArgumentRecoveryHint =
       do_not: ["retry_extra_positionals", "invent_positional_arguments"];
     }
   | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
+      rejected_arguments: { positional_values: string[]; command_path: ["write"] };
+      expected: {
+        kind: "required_options";
+        required_options: ["--kind", "--type", "--scope"];
+        content_options: ["--text", "--content-json"];
+      };
+      positional_mapping: Array<{
+        value: string;
+        option: "--kind" | "--type" | "--scope" | "--text";
+        argument: "kind" | "type" | "scope" | "text";
+        argument_source: CliArgumentContractSource;
+      }>;
+      retry_with: {
+        args: string[];
+        cli: string;
+        mcp: { tool: "write"; arguments: { kind: string; type: string; scope: string; text: string } };
+      };
+      do_not: ["retry_write_positional_values", "invent_positional_arguments"];
+    }
+  | {
       operation_contract: CliLimitOperationContractSource;
       rejected_argument: { option: string; value: string };
       expected: { kind: "integer_range"; min: number; max: number; integer: true };
@@ -378,6 +399,10 @@ function cliOptionForCoreArgument(argument: string, context?: MorynErrorContext)
 }
 
 function cliArgumentObjectToOption(value: Record<string, unknown>, context?: MorynErrorContext): Record<string, unknown> {
+  if (value.cli_preserve_argument === true) {
+    const { cli_preserve_argument: _preserve, ...rest } = value;
+    return rest;
+  }
   if (typeof value.argument !== "string") return value;
   const option = cliOptionForCoreArgument(value.argument, context);
   if (!option) return value;
@@ -426,6 +451,8 @@ function cliRequiredOptionError(message: string, args = process.argv.slice(2)): 
   if (!match) return undefined;
   const [, option, placeholder] = match;
   if (!option || !placeholder) return undefined;
+  const positionalWriteHint = naturalWritePositionalCliArgumentError(message, args);
+  if (positionalWriteHint !== undefined) return positionalWriteHint;
   return requiredCliOptionError(option, placeholder, message, requiredCliOptionSource(option, args));
 }
 
@@ -435,6 +462,58 @@ function cliRequiredArgumentError(message: string, args = process.argv.slice(2))
   const [, positional] = match;
   if (!positional) return undefined;
   return requiredCliPositionalArgumentError(positional, `<${positional}>`, message, requiredCliPositionalArgumentSource(positional, args));
+}
+
+function naturalWritePositionalCliArgumentError(message: string, args = process.argv.slice(2)): CliArgumentError | undefined {
+  if (cliCommandPath(args).join(" ") !== "write") return undefined;
+  const positionalValues = cliCommandPositionals(args, "write");
+  if (positionalValues.length < 3) return undefined;
+  const [kind, type, scope, ...textParts] = positionalValues;
+  if (!kind || !type || !scope || textParts.length === 0) return undefined;
+  const text = textParts.join(" ");
+  const retryArgs = ["write", "--kind", kind, "--type", type, "--scope", scope, "--text", text];
+  return new CliArgumentError(
+    `Invalid argument: ${message}`,
+    "retry write with required CLI options instead of positional values",
+    {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+      rejected_arguments: {
+        positional_values: positionalValues,
+        command_path: ["write"]
+      },
+      expected: {
+        kind: "required_options",
+        required_options: ["--kind", "--type", "--scope"],
+        content_options: ["--text", "--content-json"]
+      },
+      positional_mapping: [
+        naturalWritePositionalMapping(kind, "--kind", "kind"),
+        naturalWritePositionalMapping(type, "--type", "type"),
+        naturalWritePositionalMapping(scope, "--scope", "scope"),
+        naturalWritePositionalMapping(text, "--text", "text")
+      ],
+      retry_with: {
+        args: retryArgs,
+        cli: `moryn ${retryArgs.join(" ")}`,
+        mcp: { tool: "write", arguments: { kind, type, scope, text } }
+      },
+      do_not: ["retry_write_positional_values", "invent_positional_arguments"]
+    }
+  );
+}
+
+function naturalWritePositionalMapping(
+  value: string,
+  option: "--kind" | "--type" | "--scope" | "--text",
+  argument: "kind" | "type" | "scope" | "text"
+) {
+  return {
+    value,
+    option,
+    argument,
+    argument_source: `operations_by_id.write.arguments_by_name.${argument}` as const,
+    cli_preserve_argument: true
+  };
 }
 
 function cliUnknownCommandError(message: string, args = process.argv.slice(2)): CliArgumentError | undefined {
@@ -658,6 +737,32 @@ function cliOperationsForCommandPath(commandPath: readonly string[]): OperationC
     const tokens = cliCommandTokens(operation);
     return tokens.length === commandPath.length && tokens.every((token, index) => token === commandPath[index]);
   });
+}
+
+function cliCommandPositionals(args: readonly string[], command: string): string[] {
+  const positionals: string[] = [];
+  let inCommand = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (!arg) continue;
+    if (arg === "--store") {
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--store=") || arg === "--help" || arg === "-h" || arg === "--version" || arg === "-V") {
+      continue;
+    }
+    if (!inCommand) {
+      if (arg === command) inCommand = true;
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      if (args[index + 1] && !args[index + 1]!.startsWith("-")) index += 1;
+      continue;
+    }
+    positionals.push(arg);
+  }
+  return positionals;
 }
 
 function cliExtraPositionals(args: readonly string[], operation: OperationContract): string[] {

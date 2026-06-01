@@ -7121,6 +7121,76 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("maps natural positional write input to required CLI options", async () => {
+    await withTempDir(async (dir) => {
+      try {
+        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "memory", "decision", "project", "hello"]);
+        throw new Error("Expected positional write input to reject with option mapping guidance");
+      } catch (error) {
+        if (!("stderr" in (error as object))) throw error;
+        const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recoverable: boolean;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(parsed.ok).toBe(false);
+        expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+        expect(parsed.error.message).toContain("required option '--kind <kind>'");
+        expect(parsed.error.recoverable).toBe(true);
+        expect(parsed.error.recommended_action).toBe("retry write with required CLI options instead of positional values");
+        expect(parsed.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_arguments: {
+            positional_values: ["memory", "decision", "project", "hello"],
+            command_path: ["write"]
+          },
+          expected: {
+            kind: "required_options",
+            required_options: ["--kind", "--type", "--scope"],
+            content_options: ["--text", "--content-json"]
+          },
+          positional_mapping: [
+            {
+              value: "memory",
+              option: "--kind",
+              argument: "kind",
+              argument_source: "operations_by_id.write.arguments_by_name.kind"
+            },
+            {
+              value: "decision",
+              option: "--type",
+              argument: "type",
+              argument_source: "operations_by_id.write.arguments_by_name.type"
+            },
+            {
+              value: "project",
+              option: "--scope",
+              argument: "scope",
+              argument_source: "operations_by_id.write.arguments_by_name.scope"
+            },
+            {
+              value: "hello",
+              option: "--text",
+              argument: "text",
+              argument_source: "operations_by_id.write.arguments_by_name.text"
+            }
+          ],
+          retry_with: {
+            args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--text", "hello"],
+            cli: "moryn write --kind memory --type decision --scope project --text hello",
+            mcp: { tool: "write", arguments: { kind: "memory", type: "decision", scope: "project", text: "hello" } }
+          },
+          do_not: ["retry_write_positional_values", "invent_positional_arguments"]
+        });
+      }
+    });
+  });
+
   it("returns structured JSON errors for missing CLI positional arguments", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
