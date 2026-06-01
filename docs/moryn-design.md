@@ -823,6 +823,13 @@ when the tool has a likely matching argument, or `expected.kind:
 `do_not` guardrails are `send_unknown_mcp_arguments` and
 `retry_with_same_unknown_argument`, so callers remove misspelled fields such as
 `projectID` instead of assuming those fields influenced the result.
+Known identity objects are also strict. MCP `write` and mutation `source`
+objects only accept `client`, `session_id`, `model`, and `device_id`, and
+lifecycle `agent` objects use the same field set. Unknown nested fields such as
+`source.clientId` or `agent.sessionId` return `expected.kind:
+"known_object_field"` with the allowed fields, a nearest contract-backed
+`argument_sources` entry such as `source.client` or `agent.session_id`, and
+`do_not` guardrails against sending or retrying the same unknown nested field.
 Empty CLI `write --reason` values point at
 `operations_by_id.write.arguments_by_name.reason`, matching the write
 provenance contract instead of a generic non-empty-string hint.

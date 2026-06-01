@@ -556,6 +556,11 @@ Deliverables:
   including `known_argument` suggestions for misspelled inputs like
   `projectID` and `no_arguments` retry templates for zero-argument tools such
   as `sync_status`.
+- Done: MCP `write`/mutation `source` objects and lifecycle `agent` objects now
+  reject unknown nested identity fields such as `source.clientId` and
+  `agent.sessionId` with `known_object_field` recovery hints, allowed identity
+  field lists, nearest contract-backed `argument_sources`, and `do_not`
+  guardrails against retrying the same unknown nested field.
 - Done: MCP `boot.default_skills` shape failures now pass through core
   validation, including single-string skill selector values, and expose
   `operations_by_id.boot.arguments_by_name.default_skills` instead of host-side

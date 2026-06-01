@@ -507,6 +507,14 @@ type MutationArgumentRecoveryHint =
       rejected_argument: { argument: SourceIdentityArgument; value: unknown };
       expected: { kind: "non_empty_string"; min_length: 1 };
       retry_with: { argument: SourceIdentityArgument; value_placeholder: string };
+    }
+  | {
+      operation_contract: MutationOperationContractSource;
+      rejected_argument: { argument: `source.${string}`; value: unknown };
+      expected: { kind: "known_object_field"; allowed_fields: SourceIdentityField[] };
+      argument_sources: Partial<Record<SourceIdentityArgument, MutationArgumentSource>>;
+      retry_with: { argument: SourceIdentityArgument; value_placeholder: string };
+      do_not: ["send_unknown_source_fields", "retry_with_same_unknown_field"];
     };
 
 class MutationArgumentError extends Error {
@@ -610,6 +618,27 @@ function invalidSourceIdentityError(
   );
 }
 
+function invalidSourceUnknownFieldError(
+  operation: MutationOperation,
+  source: Record<string, unknown>,
+  field: string
+): MutationArgumentError {
+  const retryField = closestIdentityField(field);
+  const metadata = SOURCE_IDENTITY_FIELDS[retryField];
+  return new MutationArgumentError(
+    `Invalid argument: Unknown source.${field}`,
+    "retry mutation with supported source metadata fields",
+    {
+      operation_contract: mutationOperationContractSource(operation),
+      rejected_argument: { argument: `source.${field}`, value: source[field] },
+      expected: { kind: "known_object_field", allowed_fields: Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[] },
+      argument_sources: { [metadata.argument]: mutationArgumentSource(operation, metadata.argument) },
+      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder },
+      do_not: ["send_unknown_source_fields", "retry_with_same_unknown_field"]
+    }
+  );
+}
+
 function invalidGenericSourceIdentityError(
   source: unknown,
   field: SourceIdentityField,
@@ -626,6 +655,42 @@ function invalidGenericSourceIdentityError(
       retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
     }
   );
+}
+
+function closestIdentityField(field: string): SourceIdentityField {
+  const normalized = normalizeIdentityFieldName(field);
+  return (Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[])
+    .sort((left, right) => {
+      const leftScore = identityFieldSuggestionScore(normalized, normalizeIdentityFieldName(left));
+      const rightScore = identityFieldSuggestionScore(normalized, normalizeIdentityFieldName(right));
+      return rightScore - leftScore || left.localeCompare(right);
+    })[0] ?? "client";
+}
+
+function normalizeIdentityFieldName(field: string): string {
+  return field.replace(/[._-]/g, "").toLowerCase();
+}
+
+function identityFieldSuggestionScore(unknownField: string, knownField: string): number {
+  if (unknownField === knownField) return Number.MAX_SAFE_INTEGER;
+  const longest = Math.max(unknownField.length, knownField.length);
+  if (longest === 0) return 0;
+  return longestCommonSubsequenceLength(unknownField, knownField) / longest;
+}
+
+function longestCommonSubsequenceLength(left: string, right: string): number {
+  const previous = Array(right.length + 1).fill(0) as number[];
+  const current = Array(right.length + 1).fill(0) as number[];
+  for (const leftCharacter of left) {
+    for (let index = 0; index < right.length; index += 1) {
+      current[index + 1] = leftCharacter === right[index]
+        ? previous[index] + 1
+        : Math.max(previous[index + 1] ?? 0, current[index] ?? 0);
+    }
+    previous.splice(0, previous.length, ...current);
+    current.fill(0);
+  }
+  return previous[right.length] ?? 0;
 }
 
 type ReadArgumentRecoveryHint =
@@ -820,6 +885,11 @@ function validateOptionalSource(
     throw invalidSourceIdentityError(operation, source, "client", recommendedAction);
   }
   const rawSource = source as Partial<Record<SourceIdentityField, unknown>>;
+  for (const field of Object.keys(source)) {
+    if (!(field in SOURCE_IDENTITY_FIELDS) && operation !== undefined) {
+      throw invalidSourceUnknownFieldError(operation, source as Record<string, unknown>, field);
+    }
+  }
   for (const field of Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[]) {
     const value = rawSource[field];
     if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
@@ -1064,13 +1134,22 @@ type WriteSourceArgumentSource =
   | typeof WRITE_SOURCE_MODEL_ARGUMENT_SOURCE
   | typeof WRITE_SOURCE_DEVICE_ID_ARGUMENT_SOURCE;
 
-type WriteSourceRecoveryHint = {
-  operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
-  rejected_argument: { argument: SourceIdentityArgument; value: unknown };
-  expected: { kind: "non_empty_string"; min_length: 1 };
-  argument_sources: Partial<Record<SourceIdentityArgument, WriteSourceArgumentSource>>;
-  retry_with: { argument: SourceIdentityArgument; value_placeholder: string };
-};
+type WriteSourceRecoveryHint =
+  | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
+      rejected_argument: { argument: SourceIdentityArgument; value: unknown };
+      expected: { kind: "non_empty_string"; min_length: 1 };
+      argument_sources: Partial<Record<SourceIdentityArgument, WriteSourceArgumentSource>>;
+      retry_with: { argument: SourceIdentityArgument; value_placeholder: string };
+    }
+  | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
+      rejected_argument: { argument: `source.${string}`; value: unknown };
+      expected: { kind: "known_object_field"; allowed_fields: SourceIdentityField[] };
+      argument_sources: Partial<Record<SourceIdentityArgument, WriteSourceArgumentSource>>;
+      retry_with: { argument: SourceIdentityArgument; value_placeholder: string };
+      do_not: ["send_unknown_source_fields", "retry_with_same_unknown_field"];
+    };
 
 class WriteSourceError extends Error {
   readonly recommended_action: string;
@@ -1089,6 +1168,26 @@ class WriteSourceError extends Error {
       expected: { kind: "non_empty_string", min_length: 1 },
       argument_sources: { [metadata.argument]: writeSourceArgumentSource(field) },
       retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
+    };
+  }
+}
+
+class WriteUnknownSourceFieldError extends Error {
+  readonly recommended_action = "retry write with supported source metadata fields";
+  readonly recovery_hint: WriteSourceRecoveryHint;
+
+  constructor(source: Record<string, unknown>, field: string) {
+    const retryField = closestIdentityField(field);
+    const metadata = SOURCE_IDENTITY_FIELDS[retryField];
+    super(`Invalid argument: Unknown source.${field}`);
+    this.name = "WriteUnknownSourceFieldError";
+    this.recovery_hint = {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+      rejected_argument: { argument: `source.${field}`, value: source[field] },
+      expected: { kind: "known_object_field", allowed_fields: Object.keys(SOURCE_IDENTITY_FIELDS) as SourceIdentityField[] },
+      argument_sources: { [metadata.argument]: writeSourceArgumentSource(retryField) },
+      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder },
+      do_not: ["send_unknown_source_fields", "retry_with_same_unknown_field"]
     };
   }
 }
@@ -1362,10 +1461,21 @@ function validateWriteInput(input: WriteInput): void {
     throw invalidWriteConfidenceError(input.confidence);
   }
   if (input.priority !== undefined && !recordPrioritySchema.safeParse(input.priority).success) throw invalidWritePriorityError(input.priority);
+  if (typeof input.source === "object" && input.source !== null && !Array.isArray(input.source)) {
+    const sourceRecord = input.source as unknown as Record<string, unknown>;
+    const unknownField = Object.keys(sourceRecord).find((field) => !(field in SOURCE_IDENTITY_FIELDS));
+    if (unknownField !== undefined) {
+      throw new WriteUnknownSourceFieldError(sourceRecord, unknownField);
+    }
+  }
   try {
     validateOptionalSource(input.source);
   } catch (error) {
     if (error instanceof MutationArgumentError) {
+      if (error.recovery_hint.expected.kind === "known_object_field" && typeof input.source === "object" && input.source !== null && !Array.isArray(input.source)) {
+        const field = error.recovery_hint.rejected_argument.argument.slice("source.".length);
+        throw new WriteUnknownSourceFieldError(input.source as unknown as Record<string, unknown>, field);
+      }
       const argument = error.recovery_hint.rejected_argument.argument;
       const field = argument.slice("source.".length) as SourceIdentityField;
       throw new WriteSourceError(input.source, field);

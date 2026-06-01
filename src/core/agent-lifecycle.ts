@@ -176,13 +176,22 @@ const AGENT_IDENTITY_FIELDS = {
 
 class AgentIdentityError extends Error {
   readonly recommended_action: string;
-  readonly recovery_hint: {
-    operation_contract: `operations_by_id.${LifecycleOperation}`;
-    rejected_argument: { argument: `agent.${string}`; value: unknown };
-    expected: { kind: "non_empty_string"; min_length: 1 };
-    argument_sources: Record<`agent.${string}`, `operations_by_id.${LifecycleOperation}.arguments_by_name.${string}`>;
-    retry_with: { argument: `agent.${string}`; value_placeholder: string };
-  };
+  readonly recovery_hint:
+    | {
+        operation_contract: `operations_by_id.${LifecycleOperation}`;
+        rejected_argument: { argument: `agent.${string}`; value: unknown };
+        expected: { kind: "non_empty_string"; min_length: 1 };
+        argument_sources: Record<`agent.${string}`, `operations_by_id.${LifecycleOperation}.arguments_by_name.${string}`>;
+        retry_with: { argument: `agent.${string}`; value_placeholder: string };
+      }
+    | {
+        operation_contract: `operations_by_id.${LifecycleOperation}`;
+        rejected_argument: { argument: `agent.${string}`; value: unknown };
+        expected: { kind: "known_object_field"; allowed_fields: AgentIdentityField[] };
+        argument_sources: Record<`agent.${string}`, `operations_by_id.${LifecycleOperation}.arguments_by_name.${string}`>;
+        retry_with: { argument: `agent.${string}`; value_placeholder: string };
+        do_not: ["send_unknown_agent_fields", "retry_with_same_unknown_field"];
+      };
 
   constructor(operation: LifecycleOperation, field: AgentIdentityField, value: unknown) {
     const metadata = AGENT_IDENTITY_FIELDS[field];
@@ -201,6 +210,64 @@ class AgentIdentityError extends Error {
       retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder }
     };
   }
+}
+
+class AgentUnknownIdentityFieldError extends Error {
+  readonly recommended_action = "retry agent lifecycle with supported agent identity fields";
+  readonly recovery_hint: AgentIdentityError["recovery_hint"];
+
+  constructor(operation: LifecycleOperation, agent: Record<string, unknown>, field: string) {
+    const retryField = closestAgentIdentityField(field);
+    const metadata = AGENT_IDENTITY_FIELDS[retryField];
+    super(`Invalid argument: Unknown agent.${field}`);
+    this.name = "AgentUnknownIdentityFieldError";
+    this.recovery_hint = {
+      operation_contract: `operations_by_id.${operation}`,
+      rejected_argument: { argument: `agent.${field}`, value: agent[field] },
+      expected: { kind: "known_object_field", allowed_fields: Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[] },
+      argument_sources: {
+        [metadata.argument]: `operations_by_id.${operation}.arguments_by_name.${metadata.contractArgument}`
+      },
+      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder },
+      do_not: ["send_unknown_agent_fields", "retry_with_same_unknown_field"]
+    };
+  }
+}
+
+function closestAgentIdentityField(field: string): AgentIdentityField {
+  const normalized = normalizeAgentIdentityFieldName(field);
+  return (Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[])
+    .sort((left, right) => {
+      const leftScore = agentIdentityFieldSuggestionScore(normalized, normalizeAgentIdentityFieldName(left));
+      const rightScore = agentIdentityFieldSuggestionScore(normalized, normalizeAgentIdentityFieldName(right));
+      return rightScore - leftScore || left.localeCompare(right);
+    })[0] ?? "client";
+}
+
+function normalizeAgentIdentityFieldName(field: string): string {
+  return field.replace(/[._-]/g, "").toLowerCase();
+}
+
+function agentIdentityFieldSuggestionScore(unknownField: string, knownField: string): number {
+  if (unknownField === knownField) return Number.MAX_SAFE_INTEGER;
+  const longest = Math.max(unknownField.length, knownField.length);
+  if (longest === 0) return 0;
+  return longestCommonSubsequenceLength(unknownField, knownField) / longest;
+}
+
+function longestCommonSubsequenceLength(left: string, right: string): number {
+  const previous = Array(right.length + 1).fill(0) as number[];
+  const current = Array(right.length + 1).fill(0) as number[];
+  for (const leftCharacter of left) {
+    for (let index = 0; index < right.length; index += 1) {
+      current[index + 1] = leftCharacter === right[index]
+        ? previous[index] + 1
+        : Math.max(previous[index + 1] ?? 0, current[index] ?? 0);
+    }
+    previous.splice(0, previous.length, ...current);
+    current.fill(0);
+  }
+  return previous[right.length] ?? 0;
 }
 
 class AgentLifecycleBooleanArgumentError extends Error {
@@ -645,6 +712,11 @@ function validateAgentIdentity(agent: unknown, operation: LifecycleOperation): v
     throw new AgentIdentityError(operation, "client", undefined);
   }
   const rawAgent = agent as Partial<Record<AgentIdentityField, unknown>>;
+  for (const field of Object.keys(agent)) {
+    if (!(field in AGENT_IDENTITY_FIELDS)) {
+      throw new AgentUnknownIdentityFieldError(operation, agent as Record<string, unknown>, field);
+    }
+  }
   for (const field of Object.keys(AGENT_IDENTITY_FIELDS) as AgentIdentityField[]) {
     const value = rawAgent[field];
     if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
