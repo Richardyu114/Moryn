@@ -50,6 +50,7 @@ export function assertPackageFilesComplete(files: string[]): void {
     "package.json",
     "LICENSE",
     "README.md",
+    "docs/agent-install-prompt.md",
     "docs/agent-workflow.md",
     "docs/contracts.md",
     "docs/development.md",

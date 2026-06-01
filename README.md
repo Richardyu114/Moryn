@@ -12,6 +12,33 @@ CLI or a real stdio MCP server.
 > Status: first-version MVP. Local memory operations, Git sync, lifecycle
 > handoffs, package smoke tests, and MCP stdio access are implemented.
 
+## Use With An Agent
+
+Moryn is primarily meant to be operated by agents. Most users should not need to
+learn the command catalog. Copy this prompt into an agent with shell access:
+
+```text
+Install and use Moryn for this project.
+
+Work autonomously: install Moryn if needed, initialize the local store, attach
+this repo as a Moryn project, and register `moryn mcp` if this host supports
+MCP. If the npm package is unavailable, use the source repo at
+`https://github.com/Richardyu114/Moryn`.
+
+Do not ask me to choose Moryn commands. Learn the command surface from
+`moryn agent guide` and `moryn contracts operations --index`, then decide when
+to call `moryn` yourself. Use Moryn for recall, durable memory, status, sync
+when configured, and final handoff.
+
+Ask me only for decisions that require my authority or private information:
+sync remote URL, credentials, overwriting or repairing configs, ambiguous
+project identity, sensitive memory, sync conflicts, or high-risk canonical
+promotion. Never store secrets.
+```
+
+For a longer copy-paste prompt and setup expectations, see
+[Agent Install Prompt](docs/agent-install-prompt.md).
+
 ## What It Stores
 
 - `memory`: project facts, decisions, warnings, preferences, and active state.
@@ -65,12 +92,12 @@ flowchart LR
   Git <--> Remote
 ```
 
-## Install
+## Manual Install
 
 From source:
 
 ```bash
-git clone git@github.com:Richardyu114/Moryn.git
+git clone https://github.com/Richardyu114/Moryn.git
 cd Moryn
 npm install
 npm run build
@@ -85,87 +112,20 @@ npm install -g @richardyu114/moryn
 
 The executable is `moryn`.
 
-## Quick Start
+## Agent Command Surface
 
-Initialize the local store:
-
-```bash
-moryn init
-```
-
-Initialize a project:
+Agents can discover the current command surface instead of relying on README
+examples:
 
 ```bash
-cd /path/to/project
-moryn project init --project-id my-project --tag typescript --default-skill release
+moryn agent guide
+moryn contracts operations --index
+moryn contracts operations --operation agent_enter
+moryn contracts selection-sources
 ```
 
-Write a project decision:
-
-```bash
-moryn write \
-  --kind memory \
-  --type decision \
-  --scope project \
-  --project . \
-  --state canonical \
-  --text "Use append-only events as the source of truth."
-```
-
-Recall it later:
-
-```bash
-moryn recall "append-only events" --project .
-```
-
-Boot an agent context:
-
-```bash
-moryn boot --project . --current-task "ship the release"
-```
-
-## Agent Lifecycle
-
-Agents should usually start with `agent enter`. It diagnoses setup, discovers
-known projects when needed, or starts the known project session directly.
-
-```bash
-moryn agent enter \
-  --project . \
-  --sync-remote git@github.com:yourname/moryn-store.git \
-  --current-task "current task" \
-  --agent codex
-```
-
-During meaningful work, publish status:
-
-```bash
-moryn agent status \
-  --project . \
-  --sync-remote git@github.com:yourname/moryn-store.git \
-  --current-task "current task" \
-  --agent codex \
-  --status "Currently tracing the failing release check."
-```
-
-At the end, write a handoff:
-
-```bash
-moryn agent finish \
-  --project . \
-  --sync-remote git@github.com:yourname/moryn-store.git \
-  --agent codex \
-  --summary "Finished the release check cleanup and left follow-up notes."
-```
-
-For setup diagnostics without writes:
-
-```bash
-moryn agent doctor --project . --sync-remote git@github.com:yourname/moryn-store.git
-```
-
-See [Agent Workflow](docs/agent-workflow.md) for lifecycle details, handoff
-semantics, recovery actions, and smoke tests.
+See [Contracts](docs/contracts.md) for operation contracts, selection-source
+paths, action templates, and structured recovery metadata.
 
 ## MCP
 
@@ -175,7 +135,7 @@ Start the MCP server:
 moryn mcp
 ```
 
-Configure an MCP host to run:
+Generic MCP host config:
 
 ```json
 {
@@ -188,37 +148,25 @@ Configure an MCP host to run:
 }
 ```
 
-Codex CLI example:
+Codex CLI:
 
 ```bash
 codex mcp add moryn -- moryn mcp
 ```
 
-Gemini CLI example:
+Gemini CLI:
 
 ```bash
 gemini mcp add moryn moryn mcp --scope project
 ```
 
-The MCP server exposes the same core operations as the CLI, including `boot`,
-`recall`, `write`, `revise`, `promote`, `archive`, `quarantine`, `link`,
-`refresh`, `rebuild`, `sync_*`, `project_*`, and agent lifecycle tools.
-
 ## Git Sync
 
-Connect a private sync repo:
+Sync is optional and should use a dedicated private repository for Moryn data.
+Do not use the source code repository as the memory data store.
 
 ```bash
 moryn sync init git@github.com:yourname/moryn-store.git
-```
-
-Use a dedicated private repository for Moryn data. Do not use the source code
-repository as the data store.
-
-```bash
-moryn sync --status
-moryn sync --pull
-moryn sync --push --message "sync after session"
 ```
 
 Local `config.json`, snapshots, and indexes are not synced. Event history is
@@ -227,49 +175,6 @@ the source of truth; derived views can be rebuilt at any time:
 ```bash
 moryn rebuild
 ```
-
-## Command Overview
-
-```bash
-moryn init
-moryn project init
-moryn project list
-moryn agent guide
-moryn agent enter
-moryn agent doctor
-moryn agent start
-moryn agent status
-moryn agent finish
-moryn boot
-moryn recall
-moryn write
-moryn revise
-moryn promote
-moryn archive
-moryn quarantine
-moryn link
-moryn list-recent
-moryn refresh
-moryn rebuild
-moryn sync init <remote>
-moryn sync --status
-moryn sync --pull
-moryn sync --push
-moryn contracts operations
-moryn contracts selection-sources
-moryn mcp
-```
-
-For machine-readable command metadata:
-
-```bash
-moryn contracts operations --index
-moryn contracts operations --operation agent_enter
-moryn contracts selection-sources
-```
-
-See [Contracts](docs/contracts.md) for operation contracts, selection-source
-paths, action templates, and structured recovery metadata.
 
 ## Safety Model
 
@@ -292,6 +197,7 @@ High-risk canonical writes require explicit confirmation.
 
 ## Documentation
 
+- [Agent Install Prompt](docs/agent-install-prompt.md)
 - [Agent Workflow](docs/agent-workflow.md)
 - [Contracts](docs/contracts.md)
 - [Development](docs/development.md)

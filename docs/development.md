@@ -111,14 +111,14 @@ npm pack --dry-run --json
 README should stay short and user-facing:
 
 - what Moryn is
-- install
-- quick start
+- copy-paste agent install prompt
+- short manual install
 - MCP setup
-- common commands
 - links to deeper docs
 
 Long protocol details belong in:
 
+- `docs/agent-install-prompt.md`
 - `docs/agent-workflow.md`
 - `docs/contracts.md`
 - `docs/moryn-design.md`
