@@ -426,6 +426,10 @@ Deliverables:
   `write memory decision project hello` now return a positional-to-option
   mapping for `--kind`, `--type`, `--scope`, and `--text`, plus exact CLI and
   MCP retry forms, so agents can recover without inventing positional syntax.
+- Done: Agent lifecycle positional text such as `agent status "Working..."` and
+  `agent finish "Done..."` now maps to `--status` or `--summary` with exact CLI
+  and MCP retry forms, so agents can recover common handoff/status mistakes
+  without parsing Commander prose.
 - Done: Natural positional recovery retry forms now keep `retry_with.args` as
   the machine-preferred argv array and render `retry_with.cli` with shell-safe
   quoting, so copy/paste recovery preserves values with spaces or quotes.

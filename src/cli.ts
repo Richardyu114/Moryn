@@ -62,6 +62,8 @@ const CLI_ARGUMENT_RECOVERY_ACTION_PREFIX = "retry with a valid" as const;
 const CLI_UNKNOWN_INPUT_RECOVERY_ACTION = "retry with a known CLI command or option from operation contracts" as const;
 const WRITE_OPERATION_CONTRACT_SOURCE = "operations_by_id.write";
 const RECALL_OPERATION_CONTRACT_SOURCE = "operations_by_id.recall";
+const AGENT_STATUS_OPERATION_CONTRACT_SOURCE = "operations_by_id.agent_status";
+const AGENT_FINISH_OPERATION_CONTRACT_SOURCE = "operations_by_id.agent_finish";
 const WRITE_TEXT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.text";
 const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content";
 const RECALL_FILTER_OPTIONS = ["--record-id", "--kind", "--scope", "--type", "--state", "--tag", "--file"] as const;
@@ -137,10 +139,22 @@ type CliOperationContractSource = `operations_by_id.${string}`;
 type CliArgumentContractSource = `operations_by_id.${string}.arguments_by_name.${string}`;
 type CliRecallFilterOption = typeof RECALL_FILTER_OPTIONS[number];
 type CliRecallFilterArgument = "record_ids" | "kinds" | "scopes" | "types" | "states" | "tags" | "files";
+type CliAgentLifecycleCommandPath = ["agent", "status"] | ["agent", "finish"];
+type CliAgentLifecycleOption = "--status" | "--summary";
+type CliAgentLifecycleArgument = "status" | "summary";
+type CliAgentLifecycleMcpRetry =
+  | { tool: "agent_status"; arguments: { status: string } }
+  | { tool: "agent_finish"; arguments: { summary: string } };
 type CliRecallFilterPositionalMapping = {
   value: string;
   option: CliRecallFilterOption;
   argument: CliRecallFilterArgument;
+  argument_source: CliArgumentContractSource;
+};
+type CliAgentLifecyclePositionalMapping = {
+  value: string;
+  option: CliAgentLifecycleOption;
+  argument: CliAgentLifecycleArgument;
   argument_source: CliArgumentContractSource;
 };
 type CliUnknownOptionSuggestion =
@@ -231,6 +245,21 @@ type CliArgumentRecoveryHint =
         mcp: { tool: "recall"; arguments: Partial<Record<CliRecallFilterArgument, string[]>> };
       };
       do_not: ["retry_recall_filter_positionals", "invent_positional_arguments"];
+    }
+  | {
+      operation_contract: typeof AGENT_STATUS_OPERATION_CONTRACT_SOURCE | typeof AGENT_FINISH_OPERATION_CONTRACT_SOURCE;
+      rejected_arguments: { positional_values: string[]; command_path: CliAgentLifecycleCommandPath };
+      expected: {
+        kind: "required_option";
+        required_option: CliAgentLifecycleOption;
+      };
+      positional_mapping: CliAgentLifecyclePositionalMapping[];
+      retry_with: {
+        args: string[];
+        cli: string;
+        mcp: CliAgentLifecycleMcpRetry;
+      };
+      do_not: ["retry_agent_lifecycle_positional_values", "invent_positional_arguments"];
     }
   | {
       operation_contract: CliLimitOperationContractSource;
@@ -480,6 +509,8 @@ function cliRequiredOptionError(message: string, args = process.argv.slice(2)): 
   if (!option || !placeholder) return undefined;
   const positionalWriteHint = naturalWritePositionalCliArgumentError(message, args);
   if (positionalWriteHint !== undefined) return positionalWriteHint;
+  const positionalAgentLifecycleHint = naturalAgentLifecyclePositionalCliArgumentError(message, args, option);
+  if (positionalAgentLifecycleHint !== undefined) return positionalAgentLifecycleHint;
   return requiredCliOptionError(option, placeholder, message, requiredCliOptionSource(option, args));
 }
 
@@ -540,6 +571,77 @@ function naturalWritePositionalMapping(
     argument,
     argument_source: `operations_by_id.write.arguments_by_name.${argument}` as const,
     cli_preserve_argument: true
+  };
+}
+
+function naturalAgentLifecyclePositionalCliArgumentError(
+  message: string,
+  args: readonly string[],
+  missingOption: string
+): CliArgumentError | undefined {
+  const commandPath = cliCommandPath([...args]);
+  if (commandPath[0] === "agent" && commandPath[1] === "status" && missingOption === "--status") {
+    const positionalValues = cliPositionalsAfterCommandPath(args, ["agent", "status"]);
+    if (positionalValues.length === 0) return undefined;
+    const status = positionalValues.join(" ");
+    const retryArgs = ["agent", "status", "--status", status];
+    return new CliArgumentError(
+      `Invalid argument: ${message}`,
+      "retry agent status with --status instead of positional text",
+      {
+        operation_contract: AGENT_STATUS_OPERATION_CONTRACT_SOURCE,
+        rejected_arguments: { positional_values: positionalValues, command_path: ["agent", "status"] },
+        expected: { kind: "required_option", required_option: "--status" },
+        positional_mapping: [
+          naturalAgentLifecyclePositionalMapping(status, "--status", "status", "agent_status")
+        ],
+        retry_with: {
+          args: retryArgs,
+          cli: commandLineForCliInterface("moryn", retryArgs),
+          mcp: { tool: "agent_status", arguments: { status } }
+        },
+        do_not: ["retry_agent_lifecycle_positional_values", "invent_positional_arguments"]
+      }
+    );
+  }
+  if (commandPath[0] === "agent" && commandPath[1] === "finish" && missingOption === "--summary") {
+    const positionalValues = cliPositionalsAfterCommandPath(args, ["agent", "finish"]);
+    if (positionalValues.length === 0) return undefined;
+    const summary = positionalValues.join(" ");
+    const retryArgs = ["agent", "finish", "--summary", summary];
+    return new CliArgumentError(
+      `Invalid argument: ${message}`,
+      "retry agent finish with --summary instead of positional text",
+      {
+        operation_contract: AGENT_FINISH_OPERATION_CONTRACT_SOURCE,
+        rejected_arguments: { positional_values: positionalValues, command_path: ["agent", "finish"] },
+        expected: { kind: "required_option", required_option: "--summary" },
+        positional_mapping: [
+          naturalAgentLifecyclePositionalMapping(summary, "--summary", "summary", "agent_finish")
+        ],
+        retry_with: {
+          args: retryArgs,
+          cli: commandLineForCliInterface("moryn", retryArgs),
+          mcp: { tool: "agent_finish", arguments: { summary } }
+        },
+        do_not: ["retry_agent_lifecycle_positional_values", "invent_positional_arguments"]
+      }
+    );
+  }
+  return undefined;
+}
+
+function naturalAgentLifecyclePositionalMapping(
+  value: string,
+  option: CliAgentLifecycleOption,
+  argument: CliAgentLifecycleArgument,
+  operation: "agent_status" | "agent_finish"
+): CliAgentLifecyclePositionalMapping {
+  return {
+    value,
+    option,
+    argument,
+    argument_source: `operations_by_id.${operation}.arguments_by_name.${argument}` as const
   };
 }
 
@@ -859,6 +961,34 @@ function cliCommandPositionals(args: readonly string[], command: string): string
     }
     if (!inCommand) {
       if (arg === command) inCommand = true;
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      if (args[index + 1] && !args[index + 1]!.startsWith("-")) index += 1;
+      continue;
+    }
+    positionals.push(arg);
+  }
+  return positionals;
+}
+
+function cliPositionalsAfterCommandPath(args: readonly string[], commandPath: readonly string[]): string[] {
+  const positionals: string[] = [];
+  let commandIndex = 0;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (!arg) continue;
+    if (arg === "--store") {
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--store=") || arg === "--help" || arg === "-h" || arg === "--version" || arg === "-V") {
+      continue;
+    }
+    if (commandIndex < commandPath.length) {
+      if (arg === commandPath[commandIndex]) {
+        commandIndex += 1;
+      }
       continue;
     }
     if (arg.startsWith("-")) {

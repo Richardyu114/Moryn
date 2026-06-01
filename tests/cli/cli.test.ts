@@ -7399,6 +7399,84 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("maps natural positional agent lifecycle text to required CLI options", async () => {
+    await withTempDir(async (dir) => {
+      for (const { args, message, recommendedAction, hint } of [
+        {
+          args: ["agent", "status", "Working on auth"],
+          message: "required option '--status <text>' not specified",
+          recommendedAction: "retry agent status with --status instead of positional text",
+          hint: {
+            operation_contract: "operations_by_id.agent_status",
+            rejected_arguments: { positional_values: ["Working on auth"], command_path: ["agent", "status"] },
+            expected: { kind: "required_option", required_option: "--status" },
+            positional_mapping: [
+              {
+                value: "Working on auth",
+                option: "--status",
+                argument: "status",
+                argument_source: "operations_by_id.agent_status.arguments_by_name.status"
+              }
+            ],
+            retry_with: {
+              args: ["agent", "status", "--status", "Working on auth"],
+              cli: "moryn agent status --status 'Working on auth'",
+              mcp: { tool: "agent_status", arguments: { status: "Working on auth" } }
+            },
+            do_not: ["retry_agent_lifecycle_positional_values", "invent_positional_arguments"]
+          }
+        },
+        {
+          args: ["agent", "finish", "Done with auth"],
+          message: "required option '--summary <text>' not specified",
+          recommendedAction: "retry agent finish with --summary instead of positional text",
+          hint: {
+            operation_contract: "operations_by_id.agent_finish",
+            rejected_arguments: { positional_values: ["Done with auth"], command_path: ["agent", "finish"] },
+            expected: { kind: "required_option", required_option: "--summary" },
+            positional_mapping: [
+              {
+                value: "Done with auth",
+                option: "--summary",
+                argument: "summary",
+                argument_source: "operations_by_id.agent_finish.arguments_by_name.summary"
+              }
+            ],
+            retry_with: {
+              args: ["agent", "finish", "--summary", "Done with auth"],
+              cli: "moryn agent finish --summary 'Done with auth'",
+              mcp: { tool: "agent_finish", arguments: { summary: "Done with auth" } }
+            },
+            do_not: ["retry_agent_lifecycle_positional_values", "invent_positional_arguments"]
+          }
+        }
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject positional lifecycle text`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recoverable: boolean;
+              recommended_action: string;
+              recovery_hint: unknown;
+            };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain(message);
+          expect(parsed.error.recoverable).toBe(true);
+          expect(parsed.error.recommended_action).toBe(recommendedAction);
+          expect(parsed.error.recovery_hint).toEqual(hint);
+        }
+      }
+    });
+  });
+
   it("returns structured recovery hints for unknown CLI commands and options", async () => {
     await withTempDir(async (dir) => {
       for (const { args, message, hint } of [
