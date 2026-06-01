@@ -120,6 +120,41 @@ const WRITE_PROVENANCE_REASON_ARGUMENT_SOURCE = "operations_by_id.write.argument
 const WRITE_PROVENANCE_METHOD_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.provenance_method";
 const WRITE_PROVENANCE_PROMOTED_AT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.provenance_promoted_at";
 
+type WriteProvenanceField = "derived_from" | "reason" | "method" | "promoted_at";
+type WriteProvenanceArgument = `provenance.${WriteProvenanceField}`;
+type WriteProvenanceArgumentSource =
+  | typeof WRITE_PROVENANCE_DERIVED_FROM_ARGUMENT_SOURCE
+  | typeof WRITE_PROVENANCE_REASON_ARGUMENT_SOURCE
+  | typeof WRITE_PROVENANCE_METHOD_ARGUMENT_SOURCE
+  | typeof WRITE_PROVENANCE_PROMOTED_AT_ARGUMENT_SOURCE;
+
+const WRITE_PROVENANCE_FIELDS: Record<WriteProvenanceField, {
+  argument: WriteProvenanceArgument;
+  source: WriteProvenanceArgumentSource;
+  placeholder: unknown;
+}> = {
+  derived_from: {
+    argument: "provenance.derived_from",
+    source: WRITE_PROVENANCE_DERIVED_FROM_ARGUMENT_SOURCE,
+    placeholder: ["<record_id>"]
+  },
+  reason: {
+    argument: "provenance.reason",
+    source: WRITE_PROVENANCE_REASON_ARGUMENT_SOURCE,
+    placeholder: "<reason>"
+  },
+  method: {
+    argument: "provenance.method",
+    source: WRITE_PROVENANCE_METHOD_ARGUMENT_SOURCE,
+    placeholder: "agent-proposed"
+  },
+  promoted_at: {
+    argument: "provenance.promoted_at",
+    source: WRITE_PROVENANCE_PROMOTED_AT_ARGUMENT_SOURCE,
+    placeholder: "<ISO datetime>"
+  }
+};
+
 export const WRITE_SELECTION_SOURCES = {
   record: "record",
   record_id: "record.id",
@@ -1345,6 +1380,14 @@ type WriteProvenanceRecoveryHint =
         "provenance.promoted_at": typeof WRITE_PROVENANCE_PROMOTED_AT_ARGUMENT_SOURCE;
       };
       retry_with: { argument: "provenance.promoted_at"; value_placeholder: "<ISO datetime>" };
+    }
+  | {
+      operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
+      rejected_argument: { argument: `provenance.${string}`; value: unknown };
+      expected: { kind: "known_object_field"; allowed_fields: WriteProvenanceField[] };
+      argument_sources: Partial<Record<WriteProvenanceArgument, WriteProvenanceArgumentSource>>;
+      retry_with: { argument: WriteProvenanceArgument; value_placeholder: unknown };
+      do_not: ["send_unknown_provenance_fields", "retry_with_same_unknown_field"];
     };
 
 class WriteProvenanceError extends Error {
@@ -1429,6 +1472,47 @@ function invalidWriteProvenancePromotedAtError(promotedAt: unknown): WriteProven
   );
 }
 
+function invalidWriteProvenanceUnknownFieldError(
+  provenance: Record<string, unknown>,
+  field: string
+): WriteProvenanceError {
+  const retryField = closestWriteProvenanceField(field);
+  const metadata = WRITE_PROVENANCE_FIELDS[retryField];
+  return new WriteProvenanceError(
+    `Invalid argument: Unknown provenance.${field}`,
+    "retry write with supported provenance fields",
+    {
+      operation_contract: WRITE_OPERATION_CONTRACT_SOURCE,
+      rejected_argument: { argument: `provenance.${field}`, value: provenance[field] },
+      expected: { kind: "known_object_field", allowed_fields: Object.keys(WRITE_PROVENANCE_FIELDS) as WriteProvenanceField[] },
+      argument_sources: { [metadata.argument]: metadata.source },
+      retry_with: { argument: metadata.argument, value_placeholder: metadata.placeholder },
+      do_not: ["send_unknown_provenance_fields", "retry_with_same_unknown_field"]
+    }
+  );
+}
+
+function closestWriteProvenanceField(field: string): WriteProvenanceField {
+  const normalized = normalizeWriteProvenanceFieldName(field);
+  return (Object.keys(WRITE_PROVENANCE_FIELDS) as WriteProvenanceField[])
+    .sort((left, right) => {
+      const leftScore = writeProvenanceFieldSuggestionScore(normalized, normalizeWriteProvenanceFieldName(left));
+      const rightScore = writeProvenanceFieldSuggestionScore(normalized, normalizeWriteProvenanceFieldName(right));
+      return rightScore - leftScore || left.localeCompare(right);
+    })[0] ?? "derived_from";
+}
+
+function normalizeWriteProvenanceFieldName(field: string): string {
+  return field.replace(/[._-]/g, "").toLowerCase();
+}
+
+function writeProvenanceFieldSuggestionScore(unknownField: string, knownField: string): number {
+  if (unknownField === knownField) return Number.MAX_SAFE_INTEGER;
+  const longest = Math.max(unknownField.length, knownField.length);
+  if (longest === 0) return 0;
+  return longestCommonSubsequenceLength(unknownField, knownField) / longest;
+}
+
 function validateWriteInput(input: WriteInput): void {
   assertPlainObject(input, "write input");
   if (!recordKindSchema.safeParse(input.kind).success) throw invalidWriteKindError(input.kind);
@@ -1488,6 +1572,11 @@ function validateWriteInput(input: WriteInput): void {
       throw invalidWriteProvenanceError(input.provenance);
     }
     const provenance = input.provenance as Partial<RecordProvenance>;
+    const provenanceRecord = input.provenance as Record<string, unknown>;
+    const unknownField = Object.keys(provenanceRecord).find((field) => !(field in WRITE_PROVENANCE_FIELDS));
+    if (unknownField !== undefined) {
+      throw invalidWriteProvenanceUnknownFieldError(provenanceRecord, unknownField);
+    }
     if (provenance.derived_from !== undefined && (!Array.isArray(provenance.derived_from) || !provenance.derived_from.every((recordId) => typeof recordId === "string" && recordId.length > 0))) {
       throw invalidWriteProvenanceDerivedFromError(provenance.derived_from);
     }

@@ -830,6 +830,10 @@ lifecycle `agent` objects use the same field set. Unknown nested fields such as
 "known_object_field"` with the allowed fields, a nearest contract-backed
 `argument_sources` entry such as `source.client` or `agent.session_id`, and
 `do_not` guardrails against sending or retrying the same unknown nested field.
+Known write provenance objects are strict as well. `provenance` only accepts
+`derived_from`, `reason`, `method`, and `promoted_at`; unknown nested fields
+such as `provenance.derivedFrom` return `known_object_field` guidance with a
+nearest contract-backed path such as `provenance.derived_from`.
 Empty CLI `write --reason` values point at
 `operations_by_id.write.arguments_by_name.reason`, matching the write
 provenance contract instead of a generic non-empty-string hint.

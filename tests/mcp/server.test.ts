@@ -8010,6 +8010,33 @@ describe("MCP stdio server", () => {
           retry_with: { argument: "provenance.derived_from", value_placeholder: ["<record_id>"] }
         });
 
+        const unknownProvenanceField = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "Unknown provenance fields should not be ignored.",
+            provenance: { derivedFrom: ["rec_source"] },
+            source: { client: "mcp-test" }
+          }
+        })) as McpInvalidArgument;
+        expect(unknownProvenanceField.ok).toBe(false);
+        expect(unknownProvenanceField.error.code).toBe("INVALID_ARGUMENT");
+        expect(unknownProvenanceField.error.message).toContain("Unknown provenance.derivedFrom");
+        expect(unknownProvenanceField.error.recommended_action).toBe("retry write with supported provenance fields");
+        expect(unknownProvenanceField.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.write",
+          rejected_argument: { argument: "provenance.derivedFrom", value: ["rec_source"] },
+          expected: { kind: "known_object_field", allowed_fields: ["derived_from", "reason", "method", "promoted_at"] },
+          argument_sources: {
+            "provenance.derived_from": "operations_by_id.write.arguments_by_name.derived_from"
+          },
+          retry_with: { argument: "provenance.derived_from", value_placeholder: ["<record_id>"] },
+          do_not: ["send_unknown_provenance_fields", "retry_with_same_unknown_field"]
+        });
+
         const invalidProvenanceMethod = parseTextContent(await client.callTool({
           name: "write",
           arguments: {
