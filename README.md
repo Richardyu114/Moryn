@@ -1030,7 +1030,11 @@ sources instead of generic command-argument advice. Unknown CLI commands and
 unknown options also return structured `recovery_hint` payloads. Command typos
 include `suggested_commands[]` with `operation_source`, exact CLI args, MCP
 retry arguments, an `index_lookup` fallback for `moryn contracts operations
---index`, and `do_not` guardrails against inventing command names. Option typos
+--index`, and `do_not` guardrails against inventing command names. Misspelled
+command groups preserve a valid trailing subcommand when ranking suggestions,
+so `agnt status`, `contrcts operations`, and `sycn init` recover to the matching
+nested operation instead of falling back to an unrelated top-level command.
+Option typos
 include `suggested_options[]` with the matched `arguments_by_name.<argument>`
 source and a one-option retry template, so an agent can replace `--txt` with
 `--text` without parsing Commander text. Global option typos such as `--stor`

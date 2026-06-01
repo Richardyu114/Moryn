@@ -406,6 +406,10 @@ Deliverables:
   operation-contract-backed `recovery_hint` payloads with suggested commands or
   options, exact retry forms, index lookup fallback, and `do_not` guardrails so
   agents do not need to parse Commander prose or invent replacement flags.
+- Done: Misspelled CLI command groups such as `agnt status`,
+  `contrcts operations`, and `sycn init` now preserve the trailing subcommand
+  while ranking suggestions, so recovery points to the matching nested
+  operation instead of an unrelated top-level command.
 - Done: Global CLI option typos such as `--stor` or `--hep` now prefer global
   retry hints like `--store <path>` or `--help` with
   `position: "before_command"` instead of being misclassified as operation

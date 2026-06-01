@@ -7242,6 +7242,29 @@ describe("moryn CLI", () => {
           }
         },
         {
+          args: ["agnt", "status", "--status", "busy"],
+          message: "unknown command 'agnt'",
+          hint: {
+            rejected_command: { command: "agnt status", command_path: ["agnt", "status"] },
+            suggested_commands: [{
+              command: "agent status",
+              operation: "agent_status",
+              operation_source: "operations_by_id.agent_status",
+              retry_with: {
+                cli: "moryn agent status --status <status>",
+                args: ["agent", "status", "--status", "<status>"],
+                mcp: { tool: "agent_status", arguments: { status: "<status>" } }
+              }
+            }],
+            index_lookup: {
+              command: "moryn contracts operations --index",
+              args: ["contracts", "operations", "--index"],
+              mcp: { tool: "operation_contracts", arguments: { index: true } }
+            },
+            do_not: ["retry_unknown_command", "invent_command_names"]
+          }
+        },
+        {
           args: ["--stor", dir, "recall", "hello"],
           message: "unknown option '--stor'",
           hint: {

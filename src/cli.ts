@@ -430,9 +430,10 @@ function cliUnknownCommandError(message: string, args = process.argv.slice(2)): 
   if (!match) return undefined;
   const [, rejectedCommand] = match;
   if (!rejectedCommand) return undefined;
-  const commandPath = cliCommandPath(args);
+  const preferredCommand = cliCommanderSuggestedCommand(message);
+  const commandPath = cliCommandPath(args, { rejectedCommand });
   const rejectedCommandPath = commandPath.length > 0 ? commandPath : [rejectedCommand];
-  const suggestions = cliUnknownCommandSuggestions(rejectedCommandPath.join(" "));
+  const suggestions = cliUnknownCommandSuggestions(rejectedCommandPath.join(" "), preferredCommand);
   return new CliArgumentError(
     `Invalid argument: ${message}`,
     CLI_UNKNOWN_INPUT_RECOVERY_ACTION,
@@ -450,6 +451,11 @@ function cliUnknownCommandError(message: string, args = process.argv.slice(2)): 
       do_not: ["retry_unknown_command", "invent_command_names"]
     }
   );
+}
+
+function cliCommanderSuggestedCommand(message: string): string | undefined {
+  const match = /\(Did you mean ([^)]+)\?\)/.exec(message);
+  return match?.[1];
 }
 
 function cliUnknownOptionError(message: string, args = process.argv.slice(2)): CliArgumentError | undefined {
@@ -528,7 +534,7 @@ function requiredCliPositionalArgumentSource(positional: string, args = process.
 
 function cliCommandPath(
   args: string[],
-  options: { rejectedOption?: string; skipRejectedOptionValue?: boolean } = {}
+  options: { rejectedCommand?: string; rejectedOption?: string; skipRejectedOptionValue?: boolean } = {}
 ): string[] {
   const path: string[] = [];
   for (let index = 0; index < args.length; index += 1) {
@@ -551,13 +557,23 @@ function cliCommandPath(
       continue;
     }
     path.push(arg);
-    if (path[0] === "agent" || path[0] === "project" || path[0] === "contracts" || path[0] === "sync") {
+    if (path.length === 1 && arg === options.rejectedCommand && args[index + 1] && !args[index + 1]!.startsWith("-")) {
+      continue;
+    }
+    if (cliCommandGroupTokens().has(path[0]!)) {
       if (path.length >= 2) break;
       continue;
     }
     break;
   }
   return path;
+}
+
+function cliCommandGroupTokens(): Set<string> {
+  return new Set(cliOperationContracts().flatMap((operation) => {
+    const tokens = cliCommandTokens(operation);
+    return tokens.length > 1 ? [tokens[0]!] : [];
+  }));
 }
 
 function cliOperationContracts(): readonly OperationContract[] {
@@ -581,7 +597,7 @@ function cliOperationsForCommandPath(commandPath: readonly string[]): OperationC
   });
 }
 
-function cliUnknownCommandSuggestions(query: string): Array<{
+function cliUnknownCommandSuggestions(query: string, preferredCommand?: string): Array<{
   command: string;
   operation: string;
   operation_source: CliOperationContractSource;
@@ -597,7 +613,15 @@ function cliUnknownCommandSuggestions(query: string): Array<{
       const command = cliCommandTokens(operation).join(" ");
       if (!command || seenCommands.has(command)) return [];
       seenCommands.add(command);
-      return [{ operation, command, order, score: cliSuggestionScore(query, command) }];
+      const preferredCandidate = preferredCommand === undefined
+        ? undefined
+        : [preferredCommand, ...query.split(/\s+/u).slice(1)].join(" ");
+      return [{
+        operation,
+        command,
+        order,
+        score: command === preferredCandidate ? Number.NEGATIVE_INFINITY : cliSuggestionScore(query, command)
+      }];
     })
     .sort((left, right) => left.score - right.score || left.order - right.order)
     .slice(0, 1)

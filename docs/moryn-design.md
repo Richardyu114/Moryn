@@ -948,7 +948,10 @@ are normalized into the same JSON error channel instead of requiring the caller
 to parse Commander prose. Command typos return `suggested_commands[]` with the
 matched operation id, `operation_source`, exact CLI retry args, MCP retry
 arguments, an operation-contract index lookup, and `do_not` guardrails. Option
-typos return `suggested_options[]` with the matched
+Misspelled command groups preserve a valid trailing subcommand when ranking
+suggestions, so `agnt status`, `contrcts operations`, and `sycn init` recover
+to the matching nested operation instead of falling back to an unrelated
+top-level command. Option typos return `suggested_options[]` with the matched
 `arguments_by_name.<argument>` source and a one-option retry template. Global
 option typos such as `--stor` or `--hep` prefer global retry hints like
 `--store <path>` or `--help` with `position: "before_command"`, so the caller
