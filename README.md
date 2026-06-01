@@ -22,8 +22,8 @@ Install and use Moryn for this project.
 
 Work autonomously: install Moryn if needed, initialize the local store, attach
 this repo as a Moryn project, and register `moryn mcp` if this host supports
-MCP. If the npm package is unavailable, use the source repo at
-`https://github.com/Richardyu114/Moryn`.
+MCP. Prefer `npm install -g @richardyu114/moryn`; use the source repo at
+`https://github.com/Richardyu114/Moryn` only when source development is needed.
 
 Do not ask me to choose Moryn commands. Learn the command surface from
 `moryn agent guide` and `moryn contracts operations --index`, then decide when
@@ -94,6 +94,12 @@ flowchart LR
 
 ## Manual Install
 
+From npm:
+
+```bash
+npm install -g @richardyu114/moryn
+```
+
 From source:
 
 ```bash
@@ -102,12 +108,6 @@ cd Moryn
 npm install
 npm run build
 npm link
-```
-
-After npm publication:
-
-```bash
-npm install -g @richardyu114/moryn
 ```
 
 The executable is `moryn`.

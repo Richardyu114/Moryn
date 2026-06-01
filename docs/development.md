@@ -136,3 +136,21 @@ Before publishing:
 3. Inspect `npm pack --dry-run --json`.
 4. Confirm no private memory store data is included.
 5. Confirm README and docs describe the current public interface.
+6. Publish only to the official npm registry:
+
+   ```bash
+   npm publish --dry-run --access public --registry https://registry.npmjs.org
+   npm publish --access public --registry https://registry.npmjs.org
+   ```
+
+7. If npm requires two-factor auth for publishing, use a granular access token
+   with publish permission and bypass-2FA enabled, or publish from a session
+   that can satisfy the account's configured 2FA policy.
+8. After publishing, verify the public package and both bins:
+
+   ```bash
+   npm view @richardyu114/moryn version --registry https://registry.npmjs.org
+   npm install -g @richardyu114/moryn --registry https://registry.npmjs.org
+   moryn --version
+   moryn-agent-smoke --dist
+   ```

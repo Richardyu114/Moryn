@@ -17,7 +17,8 @@ describe("package metadata", () => {
       repository?: { type: string; url: string };
       bugs?: { url: string };
       homepage?: string;
-      publishConfig?: { access: string };
+      keywords?: string[];
+      publishConfig?: { access: string; registry?: string };
     };
     const license = await readFile("LICENSE", "utf8");
 
@@ -31,11 +32,13 @@ describe("package metadata", () => {
     expect(packageJson.license).toBe("MIT");
     expect(packageJson.repository).toEqual({
       type: "git",
-      url: "git+ssh://git@github.com/Richardyu114/Moryn.git"
+      url: "git+https://github.com/Richardyu114/Moryn.git"
     });
     expect(packageJson.bugs?.url).toBe("https://github.com/Richardyu114/Moryn/issues");
     expect(packageJson.homepage).toBe("https://github.com/Richardyu114/Moryn#readme");
+    expect(packageJson.keywords).toEqual(expect.arrayContaining(["agent", "memory", "mcp"]));
     expect(packageJson.publishConfig?.access).toBe("public");
+    expect(packageJson.publishConfig?.registry).toBe("https://registry.npmjs.org");
     expect(license).toContain("MIT License");
     expect(license).toContain("Richard Yu");
   });

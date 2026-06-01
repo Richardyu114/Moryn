@@ -1,7 +1,7 @@
 {
   "name": "@richardyu114/moryn",
   "version": "0.1.0",
-  "description": "A personal memory, skill, and soul layer for AI agents.",
+  "description": "Local-first memory, skill, and handoff layer for AI agents.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,6 +15,14 @@
     "moryn": "dist/cli.js",
     "moryn-agent-smoke": "scripts/agent-lifecycle-smoke.js"
   },
+  "keywords": [
+    "agent",
+    "memory",
+    "mcp",
+    "handoff",
+    "cli",
+    "local-first"
+  ],
   "files": [
     "dist",
     "README.md",
@@ -47,13 +55,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/Richardyu114/Moryn.git"
+    "url": "git+https://github.com/Richardyu114/Moryn.git"
   },
   "bugs": {
     "url": "https://github.com/Richardyu114/Moryn/issues"
   },
   "homepage": "https://github.com/Richardyu114/Moryn#readme",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   }
 }
