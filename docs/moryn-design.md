@@ -1143,6 +1143,11 @@ the package entrypoint as the canonical field-path contract.
 
 Supported `sync_mode` inputs are `manual`, `session`, `interval`, and legacy
 `auto`; `auto` is stored as `interval`.
+MCP callers can also provide the natural config shape `sync: { "mode":
+"session" }` or literal path form `"sync.mode": "session"`; both normalize to
+the canonical `sync_mode` argument, and conflicting forms return `single_value`
+alias recovery instead of silently choosing one, including mixed `syncMode` and
+nested `sync` inputs.
 
 The CLI defaults `--path` to the current directory, while MCP callers still
 provide `path`; operation-contract CLI targets include `required_when` so hosts

@@ -2897,6 +2897,12 @@ describe("MCP stdio server", () => {
           "agent_session_id",
           "agent.session_id"
         ]));
+        const projectInitTool = tools.tools.find((tool) => tool.name === "project_init");
+        expect(Object.keys(projectInitTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "syncMode",
+          "sync",
+          "sync.mode"
+        ]));
         const recallTool = tools.tools.find((tool) => tool.name === "recall");
         expect(Object.keys(recallTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
           "recordId",
@@ -5780,6 +5786,143 @@ describe("MCP stdio server", () => {
         });
         expect(init.artifacts.config).toBe(".moryn.json");
         expect(init.selection_sources).toEqual(PROJECT_INIT_SELECTION_SOURCES);
+
+        const nestedSyncProject = join(root, "nested-sync-project");
+        const nestedSync = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: nestedSyncProject,
+            project_id: "moryn-nested-sync",
+            sync: { mode: "manual" }
+          }
+        })) as {
+          ok: boolean;
+          config: { project_id: string; sync: { mode: string } };
+        };
+        expect(nestedSync.ok).toBe(true);
+        expect(nestedSync.config).toMatchObject({
+          project_id: "moryn-nested-sync",
+          sync: { mode: "manual" }
+        });
+
+        const literalSyncProject = join(root, "literal-sync-project");
+        const literalSync = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: literalSyncProject,
+            project_id: "moryn-literal-sync",
+            "sync.mode": "auto"
+          }
+        })) as {
+          ok: boolean;
+          config: { project_id: string; sync: { mode: string } };
+        };
+        expect(literalSync.ok).toBe(true);
+        expect(literalSync.config).toMatchObject({
+          project_id: "moryn-literal-sync",
+          sync: { mode: "interval" }
+        });
+
+        const conflictingSync = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: join(root, "conflicting-sync-project"),
+            project_id: "moryn-conflicting-sync",
+            sync_mode: "session",
+            sync: { mode: "manual" }
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(conflictingSync.ok).toBe(false);
+        expect(conflictingSync.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingSync.error.message).toContain("Conflicting sync_mode aliases");
+        expect(conflictingSync.error.recommended_action).toBe("retry project_init with one sync_mode value");
+        expect(conflictingSync.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_init",
+          conflicting_argument: {
+            argument: "sync_mode",
+            conflict_kind: "nested_vs_flattened",
+            values_by_input: {
+              sync_mode: "session",
+              sync: { mode: "manual" }
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            sync_mode: "operations_by_id.project_init.arguments_by_name.sync_mode"
+          },
+          retry_with: { argument: "sync_mode", value_placeholder: "<sync mode>" },
+          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+        });
+
+        const conflictingCamelSync = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: join(root, "conflicting-camel-sync-project"),
+            project_id: "moryn-conflicting-camel-sync",
+            syncMode: "session",
+            sync: { mode: "manual" }
+          }
+        })) as typeof conflictingSync;
+        expect(conflictingCamelSync.ok).toBe(false);
+        expect(conflictingCamelSync.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingCamelSync.error.message).toContain("Conflicting sync_mode aliases");
+        expect(conflictingCamelSync.error.recommended_action).toBe("retry project_init with one sync_mode value");
+        expect(conflictingCamelSync.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_init",
+          conflicting_argument: {
+            argument: "sync_mode",
+            conflict_kind: "nested_vs_flattened",
+            values_by_input: {
+              syncMode: "session",
+              sync: { mode: "manual" }
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            sync_mode: "operations_by_id.project_init.arguments_by_name.sync_mode"
+          },
+          retry_with: { argument: "sync_mode", value_placeholder: "<sync mode>" },
+          do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+        });
+
+        const conflictingLiteralSync = parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: {
+            path: join(root, "conflicting-literal-sync-project"),
+            project_id: "moryn-conflicting-literal-sync",
+            sync_mode: "session",
+            "sync.mode": "manual"
+          }
+        })) as typeof conflictingSync;
+        expect(conflictingLiteralSync.ok).toBe(false);
+        expect(conflictingLiteralSync.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingLiteralSync.error.message).toContain("Conflicting sync_mode aliases");
+        expect(conflictingLiteralSync.error.recommended_action).toBe("retry project_init with one sync_mode value");
+        expect(conflictingLiteralSync.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_init",
+          conflicting_argument: {
+            argument: "sync_mode",
+            conflict_kind: "literal_path_vs_flattened",
+            values_by_input: {
+              sync_mode: "session",
+              "\"sync.mode\"": "manual"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            sync_mode: "operations_by_id.project_init.arguments_by_name.sync_mode"
+          },
+          retry_with: { argument: "sync_mode", value_placeholder: "<sync mode>" },
+          do_not: ["provide_both_literal_path_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+        });
       });
     } finally {
       await rm(root, { recursive: true, force: true });

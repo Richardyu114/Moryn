@@ -586,6 +586,11 @@ Deliverables:
   single-string tag or skill selector values, and expose the matching
   `operations_by_id.project_init.arguments_by_name.*` sources instead of
   host-side schema text.
+- Done: MCP `project_init` now accepts sync mode as `sync_mode`, natural config
+  shape `sync: { mode: ... }`, or literal path `"sync.mode"`, normalizes all of
+  them to the canonical `sync_mode` contract argument, and rejects conflicting
+  sync-mode forms, including mixed `syncMode` and nested `sync` values, with
+  `single_value` alias recovery.
 - Done: Lifecycle CLI non-empty string failures for project/task/sync/agent
   fields, `agent_status --status`, `agent_finish --summary`, and `project list`
   prefill fields now expose operation contract and argument source hints; empty

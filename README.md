@@ -995,6 +995,11 @@ project-init sources instead of generic or write-operation hints. MCP
 through core validation too, including numeric path/project/sync-mode values and
 single-string tag or skill selector values. That includes MCP setup failures
 that would otherwise stop at host schema validation.
+MCP `project_init` also accepts sync mode in the natural config shape
+`sync: { "mode": "session" }` or literal path form `"sync.mode"` and normalizes
+both to the canonical `sync_mode` contract argument; conflicting sync-mode
+forms are rejected with `single_value` alias recovery instead of silently
+choosing one, including mixed `syncMode` and nested `sync` inputs.
 Contract discovery argument failures such as MCP `operation_contracts.index`
 also point at `operations_by_id.operation_contracts.arguments_by_name.index`,
 and `operation_contracts.operation`/`mcp_tool`/`cli_command` shape failures point
