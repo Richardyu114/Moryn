@@ -7215,6 +7215,68 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("returns structured recovery hints for extra CLI positional arguments", async () => {
+    await withTempDir(async (dir) => {
+      for (const { args, message, hint } of [
+        {
+          args: ["project", "list", "extra"],
+          message: "too many arguments for 'list'",
+          hint: {
+            operation_contract: "operations_by_id.project_list",
+            rejected_arguments: { extra_positionals: ["extra"], command_path: ["project", "list"] },
+            expected: {
+              kind: "no_extra_positionals",
+              accepted_cli_arguments: ["project", "list"],
+              accepted_options: ["--limit", "--current-task", "--sync-remote", "--agent", "--session-id", "--model", "--device-id"]
+            },
+            command: "moryn project list",
+            retry_with: { remove_positionals: ["extra"], args: ["project", "list"] },
+            do_not: ["retry_extra_positionals", "invent_positional_arguments"]
+          }
+        },
+        {
+          args: ["recall", "memory", "decision"],
+          message: "too many arguments for 'recall'",
+          hint: {
+            operation_contract: "operations_by_id.recall",
+            rejected_arguments: { extra_positionals: ["decision"], command_path: ["recall"] },
+            expected: {
+              kind: "no_extra_positionals",
+              accepted_cli_arguments: ["recall"],
+              accepted_options: ["--record-id", "--project-id", "--project", "--kind", "--scope", "--type", "--state", "--tag", "--file", "--limit"]
+            },
+            command: "moryn recall",
+            retry_with: { remove_positionals: ["decision"], args: ["recall"] },
+            do_not: ["retry_extra_positionals", "invent_positional_arguments"]
+          }
+        }
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject extra positional input`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recoverable: boolean;
+              recommended_action: string;
+              recovery_hint: unknown;
+            };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain(message);
+          expect(parsed.error.recoverable).toBe(true);
+          expect(parsed.error.recommended_action).toBe("retry without extra positional arguments");
+          expect(parsed.error.recovery_hint).toEqual(hint);
+        }
+      }
+    });
+  });
+
   it("returns structured recovery hints for unknown CLI commands and options", async () => {
     await withTempDir(async (dir) => {
       for (const { args, message, hint } of [

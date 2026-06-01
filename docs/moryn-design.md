@@ -953,7 +953,11 @@ suggestions, so `agnt status`, `contrcts operations`, and `sycn init` recover
 to the matching nested operation instead of falling back to an unrelated
 top-level command. Group commands that otherwise surface as "too many
 arguments", such as `sync int <remote>`, use the same command suggestion path
-when the extra token looks like a misspelled known subcommand. Option typos
+when the extra token looks like a misspelled known subcommand. Extra positional
+arguments on known commands, such as `project list extra` or
+`recall memory decision`, return `recovery_hint.rejected_arguments.extra_positionals`,
+accepted CLI arguments and options, and `retry_with.remove_positionals` instead
+of a generic parser error. Option typos
 return `suggested_options[]` with the matched
 `arguments_by_name.<argument>` source and a one-option retry template. Global
 option typos such as `--stor` or `--hep` prefer global retry hints like

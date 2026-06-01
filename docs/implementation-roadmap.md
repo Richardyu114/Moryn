@@ -413,6 +413,10 @@ Deliverables:
 - Done: Command-group parser failures that surface as "too many arguments",
   such as `sync int <remote>`, now enter the same structured command-suggestion
   recovery path when the extra token looks like a misspelled known subcommand.
+- Done: Extra positional arguments on known CLI commands, such as
+  `project list extra` or `recall memory decision`, now return
+  `rejected_arguments.extra_positionals`, accepted CLI arguments/options, and
+  `retry_with.remove_positionals` instead of generic parser advice.
 - Done: Global CLI option typos such as `--stor` or `--hep` now prefer global
   retry hints like `--store <path>` or `--help` with
   `position: "before_command"` instead of being misclassified as operation

@@ -173,6 +173,18 @@ type CliArgumentRecoveryHint =
       do_not: ["retry_unknown_option", "invent_cli_flags"];
     }
   | {
+      operation_contract: CliOperationContractSource;
+      rejected_arguments: { extra_positionals: string[]; command_path: string[] };
+      expected: {
+        kind: "no_extra_positionals";
+        accepted_cli_arguments: string[];
+        accepted_options: string[];
+      };
+      command: string;
+      retry_with: { remove_positionals: string[]; args: string[] };
+      do_not: ["retry_extra_positionals", "invent_positional_arguments"];
+    }
+  | {
       operation_contract: CliLimitOperationContractSource;
       rejected_argument: { option: string; value: string };
       expected: { kind: "integer_range"; min: number; max: number; integer: true };
@@ -457,6 +469,8 @@ function cliTooManyArgumentsCommandError(message: string, args = process.argv.sl
   const match = /^too many arguments for '([^']+)'/.exec(message);
   if (!match) return undefined;
   const commandPath = cliCommandPath(args);
+  const extraPositionalsHint = cliExtraPositionalsError(message, args, commandPath);
+  if (extraPositionalsHint !== undefined) return extraPositionalsHint;
   if (commandPath.length < 2 || !cliCommandGroupTokens().has(commandPath[0]!)) return undefined;
   const suggestions = cliUnknownCommandSuggestions(commandPath.join(" "), undefined, { commandGroup: commandPath[0] });
   if (suggestions.length === 0) return undefined;
@@ -475,6 +489,29 @@ function cliTooManyArgumentsCommandError(message: string, args = process.argv.sl
         mcp: { tool: "operation_contracts", arguments: { index: true } }
       },
       do_not: ["retry_unknown_command", "invent_command_names"]
+    }
+  );
+}
+
+function cliExtraPositionalsError(message: string, args: string[], commandPath = cliCommandPath(args)): CliArgumentError | undefined {
+  const operation = cliOperationsForCommandPath(commandPath)[0];
+  if (operation === undefined) return undefined;
+  const extraPositionals = cliExtraPositionals(args, operation);
+  if (extraPositionals.length === 0) return undefined;
+  return new CliArgumentError(
+    `Invalid argument: ${message}`,
+    "retry without extra positional arguments",
+    {
+      operation_contract: `operations_by_id.${operation.operation}` as const,
+      rejected_arguments: { extra_positionals: extraPositionals, command_path: commandPath },
+      expected: {
+        kind: "no_extra_positionals",
+        accepted_cli_arguments: cliCommandTokens(operation),
+        accepted_options: cliOperationOptions(operation)
+      },
+      command: operation.interfaces.cli.command,
+      retry_with: { remove_positionals: extraPositionals, args: cliCommandTokens(operation) },
+      do_not: ["retry_extra_positionals", "invent_positional_arguments"]
     }
   );
 }
@@ -621,6 +658,62 @@ function cliOperationsForCommandPath(commandPath: readonly string[]): OperationC
     const tokens = cliCommandTokens(operation);
     return tokens.length === commandPath.length && tokens.every((token, index) => token === commandPath[index]);
   });
+}
+
+function cliExtraPositionals(args: readonly string[], operation: OperationContract): string[] {
+  const commandTokens = cliCommandTokens(operation);
+  const acceptedPositionals = new Set(
+    Object.values(operation.arguments_by_name).flatMap((argument) => argument.cli?.positional !== undefined ? [argument.cli.positional] : [])
+  );
+  const extras: string[] = [];
+  let commandIndex = 0;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (!arg) continue;
+    if (arg === "--store") {
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--store=") || arg === "--help" || arg === "-h" || arg === "--version" || arg === "-V") {
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      if (!isBooleanCliOption(operation, arg) && args[index + 1] && !args[index + 1]!.startsWith("-")) {
+        index += 1;
+      }
+      continue;
+    }
+    if (commandIndex < commandTokens.length && arg === commandTokens[commandIndex]) {
+      commandIndex += 1;
+      continue;
+    }
+    if (acceptedPositionals.size > 0) {
+      acceptedPositionals.delete(acceptedPositionals.values().next().value as string);
+      continue;
+    }
+    extras.push(arg);
+  }
+  return extras;
+}
+
+function cliOperationOptions(operation: OperationContract): string[] {
+  const options: string[] = [];
+  for (const argument of Object.values(operation.arguments_by_name)) {
+    if (argument.cli?.flag !== undefined) options.push(argument.cli.flag);
+    if (argument.cli?.negative_flag !== undefined) options.push(argument.cli.negative_flag);
+    for (const flag of argument.cli?.flags ?? []) options.push(flag);
+  }
+  return [...new Set(options)];
+}
+
+function isBooleanCliOption(operation: OperationContract, option: string): boolean {
+  return Object.values(operation.arguments_by_name).some((argument) =>
+    argument.type === "boolean" && (
+      argument.cli?.flag === option
+      || argument.cli?.negative_flag === option
+      || argument.cli?.flags?.includes(option)
+    )
+  );
 }
 
 function cliUnknownCommandSuggestions(query: string, preferredCommand?: string, filter?: { commandGroup?: string }): Array<{
