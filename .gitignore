@@ -2,3 +2,7 @@
 node_modules/
 dist/
 coverage/
+/.moryn/
+/.moryn.json
+/.gemini/
+*.tgz

@@ -30,7 +30,9 @@ export function assertSafePackageFiles(files: string[]): void {
   const unsafe = files.filter((file) => {
     const normalized = file.replace(/\\/g, "/").replace(/^package\//, "");
     return normalized === "config.json"
+      || normalized === ".moryn.json"
       || normalized.startsWith(".moryn/")
+      || normalized.startsWith(".gemini/")
       || normalized.startsWith("events/")
       || normalized.startsWith("snapshots/")
       || normalized.startsWith("indexes/")
@@ -48,6 +50,11 @@ export function assertPackageFilesComplete(files: string[]): void {
     "package.json",
     "LICENSE",
     "README.md",
+    "docs/agent-workflow.md",
+    "docs/contracts.md",
+    "docs/development.md",
+    "docs/implementation-roadmap.md",
+    "docs/moryn-design.md",
     "dist/cli.js",
     "dist/index.js",
     "dist/mcp/server.js",

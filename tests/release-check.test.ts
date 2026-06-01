@@ -16,6 +16,14 @@ describe("release check", () => {
     ])).toThrow(/private Moryn store data/);
 
     expect(() => assertSafePackageFiles([
+      "package/.moryn.json"
+    ])).toThrow(/private Moryn store data/);
+
+    expect(() => assertSafePackageFiles([
+      "package/.gemini/settings.json"
+    ])).toThrow(/private Moryn store data/);
+
+    expect(() => assertSafePackageFiles([
       "package/dist/cli.js",
       "package/docs/moryn-design.md",
       "package/assets/moryn-hero.png"
@@ -27,6 +35,11 @@ describe("release check", () => {
       "package/package.json",
       "package/LICENSE",
       "package/README.md",
+      "package/docs/agent-workflow.md",
+      "package/docs/contracts.md",
+      "package/docs/development.md",
+      "package/docs/implementation-roadmap.md",
+      "package/docs/moryn-design.md",
       "package/dist/cli.js",
       "package/dist/index.js",
       "package/dist/mcp/server.js",
@@ -37,18 +50,43 @@ describe("release check", () => {
       "package/package.json",
       "package/LICENSE",
       "package/README.md",
+      "package/docs/agent-workflow.md",
+      "package/docs/contracts.md",
+      "package/docs/development.md",
+      "package/docs/implementation-roadmap.md",
+      "package/docs/moryn-design.md",
       "package/dist/index.js",
-      "package/dist/mcp/server.js"
+      "package/dist/mcp/server.js",
+      "package/scripts/agent-lifecycle-smoke.js"
     ])).toThrow(/missing required package files: dist\/cli\.js/);
 
     expect(() => assertPackageFilesComplete([
       "package/package.json",
       "package/LICENSE",
       "package/README.md",
+      "package/docs/agent-workflow.md",
+      "package/docs/contracts.md",
+      "package/docs/development.md",
+      "package/docs/implementation-roadmap.md",
+      "package/docs/moryn-design.md",
       "package/dist/cli.js",
       "package/dist/index.js",
       "package/dist/mcp/server.js"
     ])).toThrow(/missing required package files: scripts\/agent-lifecycle-smoke\.js/);
+
+    expect(() => assertPackageFilesComplete([
+      "package/package.json",
+      "package/LICENSE",
+      "package/README.md",
+      "package/docs/agent-workflow.md",
+      "package/docs/contracts.md",
+      "package/docs/development.md",
+      "package/docs/implementation-roadmap.md",
+      "package/dist/cli.js",
+      "package/dist/index.js",
+      "package/dist/mcp/server.js",
+      "package/scripts/agent-lifecycle-smoke.js"
+    ])).toThrow(/missing required package files: docs\/moryn-design\.md/);
   });
 
   it("runs the local release gate and skips external Git validation without a remote", async () => {
