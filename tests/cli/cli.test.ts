@@ -7309,15 +7309,65 @@ describe("moryn CLI", () => {
           message: "too many arguments for 'recall'",
           hint: {
             operation_contract: "operations_by_id.recall",
-            rejected_arguments: { extra_positionals: ["decision"], command_path: ["recall"] },
+            rejected_arguments: { positional_values: ["memory", "decision"], command_path: ["recall"] },
             expected: {
-              kind: "no_extra_positionals",
-              accepted_cli_arguments: ["recall"],
-              accepted_options: ["--record-id", "--project-id", "--project", "--kind", "--scope", "--type", "--state", "--tag", "--file", "--limit"]
+              kind: "query_or_filter_options",
+              accepted_positionals: ["query"],
+              filter_options: ["--record-id", "--kind", "--scope", "--type", "--state", "--tag", "--file"]
             },
-            command: "moryn recall",
-            retry_with: { remove_positionals: ["decision"], args: ["recall"] },
-            do_not: ["retry_extra_positionals", "invent_positional_arguments"]
+            positional_mapping: [
+              {
+                value: "memory",
+                option: "--kind",
+                argument: "kinds",
+                argument_source: "operations_by_id.recall.arguments_by_name.kinds"
+              },
+              {
+                value: "decision",
+                option: "--type",
+                argument: "types",
+                argument_source: "operations_by_id.recall.arguments_by_name.types"
+              }
+            ],
+            retry_with: {
+              args: ["recall", "--kind", "memory", "--type", "decision"],
+              cli: "moryn recall --kind memory --type decision",
+              mcp: { tool: "recall", arguments: { kinds: ["memory"], types: ["decision"] } }
+            },
+            do_not: ["retry_recall_filter_positionals", "invent_positional_arguments"]
+          }
+        },
+        {
+          args: ["recall", "memory", "project"],
+          message: "too many arguments for 'recall'",
+          hint: {
+            operation_contract: "operations_by_id.recall",
+            rejected_arguments: { positional_values: ["memory", "project"], command_path: ["recall"] },
+            expected: {
+              kind: "query_or_filter_options",
+              accepted_positionals: ["query"],
+              filter_options: ["--record-id", "--kind", "--scope", "--type", "--state", "--tag", "--file"]
+            },
+            positional_mapping: [
+              {
+                value: "memory",
+                option: "--kind",
+                argument: "kinds",
+                argument_source: "operations_by_id.recall.arguments_by_name.kinds"
+              },
+              {
+                value: "project",
+                option: "--scope",
+                argument: "scopes",
+                argument_source: "operations_by_id.recall.arguments_by_name.scopes"
+              }
+            ],
+            retry_with: {
+              args: ["recall", "--kind", "memory", "--scope", "project"],
+              cli: "moryn recall --kind memory --scope project",
+              mcp: { tool: "recall", arguments: { kinds: ["memory"], scopes: ["project"] } }
+            },
+            do_not: ["retry_recall_filter_positionals", "invent_positional_arguments"]
           }
         }
       ]) {
@@ -7340,7 +7390,9 @@ describe("moryn CLI", () => {
           expect(parsed.error.code).toBe("INVALID_ARGUMENT");
           expect(parsed.error.message).toContain(message);
           expect(parsed.error.recoverable).toBe(true);
-          expect(parsed.error.recommended_action).toBe("retry without extra positional arguments");
+          expect(parsed.error.recommended_action).toBe(args[0] === "recall"
+            ? "retry recall with explicit filter options instead of positional values"
+            : "retry without extra positional arguments");
           expect(parsed.error.recovery_hint).toEqual(hint);
         }
       }

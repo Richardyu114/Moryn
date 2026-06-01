@@ -60,8 +60,10 @@ const projectSyncModeInputs = PROJECT_SYNC_MODE_INPUTS;
 const CLI_ARGUMENT_RECOVERY_ACTION_PREFIX = "retry with a valid" as const;
 const CLI_UNKNOWN_INPUT_RECOVERY_ACTION = "retry with a known CLI command or option from operation contracts" as const;
 const WRITE_OPERATION_CONTRACT_SOURCE = "operations_by_id.write";
+const RECALL_OPERATION_CONTRACT_SOURCE = "operations_by_id.recall";
 const WRITE_TEXT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.text";
 const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content";
+const RECALL_FILTER_OPTIONS = ["--record-id", "--kind", "--scope", "--type", "--state", "--tag", "--file"] as const;
 const CLI_GLOBAL_OPTIONS = [
   { option: "--store", value_placeholder: "<path>", position: "before_command" },
   { option: "--help", position: "before_command" },
@@ -132,6 +134,14 @@ type CliSyncOperation = "sync_status" | "sync_push" | "sync_pull";
 type CliSyncOperationContractSource = `operations_by_id.${CliSyncOperation}`;
 type CliOperationContractSource = `operations_by_id.${string}`;
 type CliArgumentContractSource = `operations_by_id.${string}.arguments_by_name.${string}`;
+type CliRecallFilterOption = typeof RECALL_FILTER_OPTIONS[number];
+type CliRecallFilterArgument = "record_ids" | "kinds" | "scopes" | "types" | "states" | "tags" | "files";
+type CliRecallFilterPositionalMapping = {
+  value: string;
+  option: CliRecallFilterOption;
+  argument: CliRecallFilterArgument;
+  argument_source: CliArgumentContractSource;
+};
 type CliUnknownOptionSuggestion =
   | {
       option: string;
@@ -204,6 +214,22 @@ type CliArgumentRecoveryHint =
         mcp: { tool: "write"; arguments: { kind: string; type: string; scope: string; text: string } };
       };
       do_not: ["retry_write_positional_values", "invent_positional_arguments"];
+    }
+  | {
+      operation_contract: typeof RECALL_OPERATION_CONTRACT_SOURCE;
+      rejected_arguments: { positional_values: string[]; command_path: ["recall"] };
+      expected: {
+        kind: "query_or_filter_options";
+        accepted_positionals: ["query"];
+        filter_options: typeof RECALL_FILTER_OPTIONS;
+      };
+      positional_mapping: CliRecallFilterPositionalMapping[];
+      retry_with: {
+        args: string[];
+        cli: string;
+        mcp: { tool: "recall"; arguments: Partial<Record<CliRecallFilterArgument, string[]>> };
+      };
+      do_not: ["retry_recall_filter_positionals", "invent_positional_arguments"];
     }
   | {
       operation_contract: CliLimitOperationContractSource;
@@ -577,6 +603,8 @@ function cliExtraPositionalsError(message: string, args: string[], commandPath =
   if (operation === undefined) return undefined;
   const extraPositionals = cliExtraPositionals(args, operation);
   if (extraPositionals.length === 0) return undefined;
+  const positionalRecallHint = naturalRecallFilterPositionalCliArgumentError(message, args, commandPath);
+  if (positionalRecallHint !== undefined) return positionalRecallHint;
   return new CliArgumentError(
     `Invalid argument: ${message}`,
     "retry without extra positional arguments",
@@ -593,6 +621,82 @@ function cliExtraPositionalsError(message: string, args: string[], commandPath =
       do_not: ["retry_extra_positionals", "invent_positional_arguments"]
     }
   );
+}
+
+function naturalRecallFilterPositionalCliArgumentError(
+  message: string,
+  args: string[],
+  commandPath: readonly string[]
+): CliArgumentError | undefined {
+  if (commandPath.length !== 1 || commandPath[0] !== "recall") return undefined;
+  const positionalValues = cliCommandPositionals(args, "recall");
+  if (positionalValues.length < 2) return undefined;
+  const positionalMapping = naturalRecallFilterPositionalMappings(positionalValues);
+  if (positionalMapping === undefined) return undefined;
+  const retryArgs = ["recall", ...positionalMapping.flatMap((mapping) => [mapping.option, mapping.value])];
+  return new CliArgumentError(
+    `Invalid argument: ${message}`,
+    "retry recall with explicit filter options instead of positional values",
+    {
+      operation_contract: RECALL_OPERATION_CONTRACT_SOURCE,
+      rejected_arguments: { positional_values: positionalValues, command_path: ["recall"] },
+      expected: {
+        kind: "query_or_filter_options",
+        accepted_positionals: ["query"],
+        filter_options: RECALL_FILTER_OPTIONS
+      },
+      positional_mapping: positionalMapping,
+      retry_with: {
+        args: retryArgs,
+        cli: `moryn ${retryArgs.join(" ")}`,
+        mcp: { tool: "recall", arguments: recallFilterMcpArguments(positionalMapping) }
+      },
+      do_not: ["retry_recall_filter_positionals", "invent_positional_arguments"]
+    }
+  );
+}
+
+function naturalRecallFilterPositionalMappings(positionalValues: readonly string[]): CliRecallFilterPositionalMapping[] | undefined {
+  const [kind, ...filters] = positionalValues;
+  if (!kind || filters.length === 0 || !(recordKinds as readonly string[]).includes(kind)) return undefined;
+  const mappings: CliRecallFilterPositionalMapping[] = [
+    naturalRecallFilterPositionalMapping(kind, "--kind", "kinds")
+  ];
+  for (const value of filters) {
+    if ((recordScopes as readonly string[]).includes(value)) {
+      mappings.push(naturalRecallFilterPositionalMapping(value, "--scope", "scopes"));
+      continue;
+    }
+    if ((recordStates as readonly string[]).includes(value)) {
+      mappings.push(naturalRecallFilterPositionalMapping(value, "--state", "states"));
+      continue;
+    }
+    mappings.push(naturalRecallFilterPositionalMapping(value, "--type", "types"));
+  }
+  return mappings;
+}
+
+function naturalRecallFilterPositionalMapping(
+  value: string,
+  option: CliRecallFilterOption,
+  argument: CliRecallFilterArgument
+): CliRecallFilterPositionalMapping {
+  return {
+    value,
+    option,
+    argument,
+    argument_source: `operations_by_id.recall.arguments_by_name.${argument}` as const
+  };
+}
+
+function recallFilterMcpArguments(
+  positionalMapping: readonly CliRecallFilterPositionalMapping[]
+): Partial<Record<CliRecallFilterArgument, string[]>> {
+  const args: Partial<Record<CliRecallFilterArgument, string[]>> = {};
+  for (const mapping of positionalMapping) {
+    args[mapping.argument] = [...(args[mapping.argument] ?? []), mapping.value];
+  }
+  return args;
 }
 
 function cliCommanderSuggestedCommand(message: string): string | undefined {

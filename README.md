@@ -1037,9 +1037,12 @@ nested operation instead of falling back to an unrelated top-level command.
 Group commands that otherwise surface as "too many arguments", such as
 `sync int <remote>`, use the same command suggestion path when the extra token
 looks like a misspelled known subcommand. Extra positional arguments on known
-commands, such as `project list extra` or `recall memory decision`, return
+commands, such as `project list extra` or `recall search extra`, return
 `recovery_hint.rejected_arguments.extra_positionals`, accepted CLI arguments and
 options, and `retry_with.remove_positionals` instead of a generic parser error.
+Recall filter positionals such as `recall memory decision` return a
+`positional_mapping` from each value to `--kind`, `--type`, and known
+`--scope`/`--state` filters, plus exact CLI and MCP retry forms.
 Natural positional write attempts such as `write memory decision project hello`
 return a `positional_mapping` from each value to `--kind`, `--type`, `--scope`,
 and `--text`, plus exact CLI and MCP retry forms. Option typos

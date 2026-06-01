@@ -414,9 +414,14 @@ Deliverables:
   such as `sync int <remote>`, now enter the same structured command-suggestion
   recovery path when the extra token looks like a misspelled known subcommand.
 - Done: Extra positional arguments on known CLI commands, such as
-  `project list extra` or `recall memory decision`, now return
+  `project list extra` or `recall search extra`, now return
   `rejected_arguments.extra_positionals`, accepted CLI arguments/options, and
   `retry_with.remove_positionals` instead of generic parser advice.
+- Done: Recall filter positionals such as `recall memory decision` now return a
+  positional-to-option mapping for `--kind`, `--type`, and known
+  `--scope`/`--state` filters, plus exact CLI and MCP retry forms, so agents can
+  recover common search-filter hallucinations without treating filters as
+  free-form query words.
 - Done: Natural positional write attempts such as
   `write memory decision project hello` now return a positional-to-option
   mapping for `--kind`, `--type`, `--scope`, and `--text`, plus exact CLI and
