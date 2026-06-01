@@ -815,6 +815,14 @@ partial nested objects. Those hints also include
 `conflicting_argument.conflict_kind` plus a shape-specific `do_not` guardrail, so
 agents can remove the nested object path, literal path key, flattened contract
 field, or scalar parent before retrying.
+Direct MCP tools also reject unknown top-level arguments before the SDK can
+strip them. Unknown argument errors return `expected.kind: "known_argument"`
+with contract-backed `argument_sources` and a concrete `retry_with.argument`
+when the tool has a likely matching argument, or `expected.kind:
+"no_arguments"` with `retry_with.arguments: {}` for zero-argument tools. The
+`do_not` guardrails are `send_unknown_mcp_arguments` and
+`retry_with_same_unknown_argument`, so callers remove misspelled fields such as
+`projectID` instead of assuming those fields influenced the result.
 Empty CLI `write --reason` values point at
 `operations_by_id.write.arguments_by_name.reason`, matching the write
 provenance contract instead of a generic non-empty-string hint.

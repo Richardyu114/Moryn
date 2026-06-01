@@ -551,6 +551,11 @@ Deliverables:
   `file`) into the plural filter arrays, and conflicting singular/plural
   inputs return a `singular_vs_plural_alias` recovery hint instead of silently
   broadening recall results.
+- Done: Direct MCP tools now preserve unknown top-level arguments long enough
+  for Moryn to reject them with structured `INVALID_ARGUMENT` recovery hints,
+  including `known_argument` suggestions for misspelled inputs like
+  `projectID` and `no_arguments` retry templates for zero-argument tools such
+  as `sync_status`.
 - Done: MCP `boot.default_skills` shape failures now pass through core
   validation, including single-string skill selector values, and expose
   `operations_by_id.boot.arguments_by_name.default_skills` instead of host-side

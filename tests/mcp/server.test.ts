@@ -6674,6 +6674,75 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("rejects unknown MCP arguments before they can be silently ignored", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-unknown-arguments-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const result = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            projectID: "moryn",
+            query: "unknown argument should not be ignored"
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe("INVALID_ARGUMENT");
+        expect(result.error.message).toContain("Unknown argument: projectID");
+        expect(result.error.recommended_action).toBe("retry recall with only contract arguments");
+        expect(result.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.recall",
+          rejected_argument: { argument: "projectID", value: "moryn" },
+          expected: { kind: "known_argument" },
+          argument_sources: {
+            project_id: "operations_by_id.recall.arguments_by_name.project_id",
+            project_path: "operations_by_id.recall.arguments_by_name.project_path"
+          },
+          retry_with: { argument: "project_id", value_placeholder: "<project id>" },
+          do_not: ["send_unknown_mcp_arguments", "retry_with_same_unknown_argument"]
+        });
+        const zeroArgResult = parseTextContent(await client.callTool({
+          name: "sync_status",
+          arguments: {
+            remote: "git@example.com:owner/store.git"
+          }
+        })) as {
+          ok: boolean;
+          error: {
+            code: string;
+            message: string;
+            recommended_action: string;
+            recovery_hint: unknown;
+          };
+        };
+        expect(zeroArgResult.ok).toBe(false);
+        expect(zeroArgResult.error.code).toBe("INVALID_ARGUMENT");
+        expect(zeroArgResult.error.message).toContain("Unknown argument: remote");
+        expect(zeroArgResult.error.recommended_action).toBe("retry sync_status with only contract arguments");
+        expect(zeroArgResult.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.sync_status",
+          rejected_argument: { argument: "remote", value: "git@example.com:owner/store.git" },
+          expected: { kind: "no_arguments" },
+          argument_sources: {},
+          retry_with: { arguments: {} },
+          do_not: ["send_unknown_mcp_arguments", "retry_with_same_unknown_argument"]
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("uses MCP as the default source for mutation events", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-default-source-"));
     try {

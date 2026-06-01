@@ -43,6 +43,7 @@ import type { RecordKind, RecordPriority, RecordProvenance, RecordScope, RecordS
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
 
 type Engine = ReturnType<typeof createEngine>;
+type McpInputShape = Record<string, z.ZodType>;
 type McpAliasConflict = {
   argument: string;
   path: string;
@@ -66,6 +67,9 @@ type McpAliasConflictDoNot =
   | "provide_parent_scalar_with_child_aliases"
   | "provide_both_camelcase_and_contract_aliases"
   | "provide_both_singular_and_plural_aliases";
+type McpUnknownArgumentDoNot =
+  | "send_unknown_mcp_arguments"
+  | "retry_with_same_unknown_argument";
 type McpExplicitAlias = {
   alias: string;
   target: string;
@@ -177,6 +181,10 @@ function explicitAliasInputSchema(tool: string): Record<string, z.ZodOptional<z.
   return Object.fromEntries((explicitMcpAliasesByTool[tool] ?? []).map((alias) => [alias.alias, z.unknown().optional()]));
 }
 
+function mcpInputSchema<TShape extends McpInputShape>(shape: TShape): z.ZodObject<TShape> {
+  return z.object(shape).passthrough();
+}
+
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
   { argument: "text", value_placeholder: "<text>" },
   { argument: "content", value_placeholder: "<content object>" }
@@ -254,6 +262,22 @@ type McpArgumentRecoveryHint =
         value_placeholder: "<project_id_from_project_list>";
       };
       do_not: ["invent_project_path", "assume_numeric_project_path_is_valid"];
+    }
+  | {
+      operation_contract: `operations_by_id.${string}`;
+      rejected_argument: { argument: string; value: unknown };
+      expected: { kind: "known_argument" };
+      argument_sources: Partial<Record<string, string>>;
+      retry_with: { argument: string; value_placeholder: string };
+      do_not: [McpUnknownArgumentDoNot, McpUnknownArgumentDoNot];
+    }
+  | {
+      operation_contract: `operations_by_id.${string}`;
+      rejected_argument: { argument: string; value: unknown };
+      expected: { kind: "no_arguments" };
+      argument_sources: Record<string, never>;
+      retry_with: { arguments: Record<string, never> };
+      do_not: [McpUnknownArgumentDoNot, McpUnknownArgumentDoNot];
     };
 
 class McpArgumentError extends Error {
@@ -290,6 +314,35 @@ class McpAliasConflictError extends Error {
       retry_with: { argument: conflict.path, value_placeholder: placeholderForAliasConflict(conflict) },
       do_not: doNotForAliasConflict(conflict)
     };
+  }
+}
+
+class McpUnknownArgumentError extends Error {
+  readonly recommended_action: string;
+  readonly recovery_hint: McpArgumentRecoveryHint;
+
+  constructor(tool: string, argument: string, value: unknown) {
+    super(`Invalid argument: Unknown argument: ${argument}`);
+    this.name = "McpUnknownArgumentError";
+    this.recommended_action = `retry ${tool} with only contract arguments`;
+    const retryArgument = closestMcpKnownArgument(tool, argument);
+    this.recovery_hint = retryArgument
+      ? {
+          operation_contract: `operations_by_id.${tool}`,
+          rejected_argument: { argument, value },
+          expected: { kind: "known_argument" },
+          argument_sources: mcpUnknownArgumentSources(tool, retryArgument),
+          retry_with: { argument: retryArgument, value_placeholder: placeholderForKnownArgument(retryArgument) },
+          do_not: ["send_unknown_mcp_arguments", "retry_with_same_unknown_argument"]
+        }
+      : {
+          operation_contract: `operations_by_id.${tool}`,
+          rejected_argument: { argument, value },
+          expected: { kind: "no_arguments" },
+          argument_sources: {},
+          retry_with: { arguments: {} },
+          do_not: ["send_unknown_mcp_arguments", "retry_with_same_unknown_argument"]
+        };
   }
 }
 
@@ -509,8 +562,34 @@ function compactUndefined<T extends Record<string, unknown>>(input: T): Record<s
 }
 
 function normalizeMcpToolArguments(tool: string, input: Record<string, unknown>): Record<string, unknown> {
+  assertKnownMcpArguments(tool, input);
   assertNoMcpAliasConflicts(tool, input);
   return mcpArgumentsForAction(tool, normalizeExplicitMcpAliases(tool, normalizeMcpCamelCaseAliases(tool, input)));
+}
+
+function assertKnownMcpArguments(tool: string, input: Record<string, unknown>): void {
+  const knownArguments = mcpKnownArguments(tool);
+  for (const [argument, value] of Object.entries(input)) {
+    if (knownArguments.has(argument)) continue;
+    throw new McpUnknownArgumentError(tool, argument, value);
+  }
+}
+
+function mcpKnownArguments(tool: string): Set<string> {
+  const known = new Set<string>();
+  for (const argument of Object.values(operationArgumentsByTool(tool))) {
+    if (argument.mcp) known.add(argument.mcp.argument);
+    if (argument.mcp?.path) {
+      known.add(argument.name);
+      known.add(argument.mcp.path);
+    }
+    const alias = mcpCamelCaseAliasName(argument);
+    if (alias) known.add(alias);
+  }
+  for (const alias of explicitMcpAliasesByTool[tool] ?? []) {
+    known.add(alias.alias);
+  }
+  return known;
 }
 
 function normalizeMcpCamelCaseAliases(tool: string, input: Record<string, unknown>): Record<string, unknown> {
@@ -668,6 +747,83 @@ function placeholderForAliasConflict(conflict: McpAliasConflict): string {
   return leaf ? `<${leaf.replace(/_/g, " ")}>` : "<value>";
 }
 
+function closestMcpKnownArgument(tool: string, argument: string): string | undefined {
+  const canonicalCandidates = mcpCanonicalArgumentCandidates(tool);
+  if (canonicalCandidates.length === 0) return undefined;
+  const normalizedArgument = normalizeArgumentNameForSuggestion(argument);
+  const directMatch = canonicalCandidates.find((known) => normalizeArgumentNameForSuggestion(known) === normalizedArgument);
+  if (directMatch) return directMatch;
+  return canonicalCandidates
+    .sort((left, right) => {
+      const leftScore = argumentSuggestionScore(normalizedArgument, normalizeArgumentNameForSuggestion(left));
+      const rightScore = argumentSuggestionScore(normalizedArgument, normalizeArgumentNameForSuggestion(right));
+      return rightScore - leftScore || left.localeCompare(right);
+    })[0];
+}
+
+function mcpCanonicalArgumentCandidates(tool: string): string[] {
+  return Object.values(operationArgumentsByTool(tool))
+    .map((candidate) => candidate.mcp?.path ?? candidate.mcp?.argument ?? candidate.name)
+    .filter((candidate, index, candidates): candidate is string => Boolean(candidate) && candidates.indexOf(candidate) === index);
+}
+
+function normalizeArgumentNameForSuggestion(argument: string): string {
+  return argument.replace(/[._-]/g, "").toLowerCase();
+}
+
+function argumentSuggestionScore(unknownArgument: string, knownArgument: string): number {
+  if (unknownArgument === knownArgument) return Number.MAX_SAFE_INTEGER;
+  const longest = Math.max(unknownArgument.length, knownArgument.length);
+  if (longest === 0) return 0;
+  return longestCommonSubsequenceLength(unknownArgument, knownArgument) / longest;
+}
+
+function longestCommonSubsequenceLength(left: string, right: string): number {
+  const previous = Array(right.length + 1).fill(0) as number[];
+  const current = Array(right.length + 1).fill(0) as number[];
+  for (const leftCharacter of left) {
+    for (let index = 0; index < right.length; index += 1) {
+      current[index + 1] = leftCharacter === right[index]
+        ? previous[index] + 1
+        : Math.max(previous[index + 1] ?? 0, current[index] ?? 0);
+    }
+    previous.splice(0, previous.length, ...current);
+    current.fill(0);
+  }
+  return previous[right.length] ?? 0;
+}
+
+function mcpUnknownArgumentSources(tool: string, retryArgument: string): Partial<Record<string, string>> {
+  if (retryArgument === "project_id") {
+    return {
+      project_id: `operations_by_id.${tool}.arguments_by_name.project_id`,
+      project_path: `operations_by_id.${tool}.arguments_by_name.project_path`
+    };
+  }
+  return {
+    [retryArgument]: `operations_by_id.${tool}.arguments_by_name.${contractArgumentForMcpInput(tool, retryArgument)}`
+  };
+}
+
+function contractArgumentForMcpInput(tool: string, inputArgument: string): string {
+  const explicitAlias = (explicitMcpAliasesByTool[tool] ?? []).find((alias) => alias.alias === inputArgument);
+  if (explicitAlias) return explicitAlias.contractArgument;
+  return Object.values(operationArgumentsByTool(tool)).find((argument) => {
+    return argument.name === inputArgument
+      || argument.mcp?.argument === inputArgument
+      || argument.mcp?.path === inputArgument
+      || mcpCamelCaseAliasName(argument) === inputArgument;
+  })?.name ?? inputArgument;
+}
+
+function placeholderForKnownArgument(argument: string): string {
+  if (argument === "project_id") return "<project id>";
+  if (argument === "project_path") return "<project path>";
+  if (argument.endsWith("_id")) return `<${argument.replace(/_/g, " ")}>`;
+  const leaf = argument.split(".").at(-1) ?? argument;
+  return `<${leaf.replace(/_/g, " ")}>`;
+}
+
 function conflictKindForAliasConflict(conflict: McpAliasConflict): McpAliasConflictKind {
   if (conflict.aliasConflictKind) return conflict.aliasConflictKind;
   const inputs = new Set(Object.keys(conflict.valuesByInput));
@@ -712,11 +868,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Initialize Moryn Store",
       description: "Create or update the local Moryn store configuration and directories.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         repair: coreValidatedBooleanSchema.optional()
-      }
+      })
     },
-    async ({ repair }) => toolResult(async () => ({ ok: true, ...await initializeStore(options.storePath, { repair: repair as boolean | undefined }) }))
+    async (input) => toolResultWithNormalizedInput("init", input, async (normalizedInput) => ({
+      ok: true,
+      ...await initializeStore(options.storePath, { repair: normalizedInput.repair as boolean | undefined })
+    }))
   );
 
   server.registerTool(
@@ -724,7 +883,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Initialize Moryn Project Config",
       description: "Create or update a .moryn.json project config.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         path: coreValidatedStringSchema,
         project_id: coreValidatedStringSchema.optional(),
         tags: z.unknown().optional(),
@@ -732,7 +891,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_mode: coreValidatedSyncModeSchema.optional(),
         repair: coreValidatedBooleanSchema.optional(),
         ...camelCaseAliasInputSchema("project_init")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("project_init", input, async (normalizedInput) => ({
       ok: true,
@@ -751,14 +910,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "List Moryn Projects",
       description: "Discover known project ids and recent project activity from the Moryn store.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         limit: coreValidatedNumberSchema.optional(),
         current_task: z.unknown().optional(),
         sync_remote: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional(),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("project_list")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("project_list", input, async (normalizedInput) => {
       const projectListAgent = lifecycleAgentInput(normalizedInput.agent);
@@ -776,9 +935,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Get Moryn Selection Source Contracts",
       description: "Return stable response field-path contracts for CLI, MCP, and library hosts.",
-      inputSchema: {}
+      inputSchema: mcpInputSchema({})
     },
-    async () => toolResult(async () => getSelectionSourceContracts())
+    async (input) => toolResultWithNormalizedInput("selection_source_contracts", input, async () => getSelectionSourceContracts())
   );
 
   server.registerTool(
@@ -786,13 +945,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Get Moryn Operation Contracts",
       description: "Return stable CLI/MCP operation contracts, safety metadata, and required fields.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         index: coreValidatedBooleanSchema.optional(),
         operation: coreValidatedStringSchema.optional(),
         mcp_tool: coreValidatedStringSchema.optional(),
         cli_command: coreValidatedStringSchema.optional(),
         ...camelCaseAliasInputSchema("operation_contracts")
-      }
+      })
     },
     async (input) => {
       try {
@@ -865,14 +1024,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Boot Moryn Context",
       description: "Return a bounded context package for an agent starting work.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         default_skills: z.unknown().optional(),
         ...camelCaseAliasInputSchema("boot")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("boot", input, async (normalizedInput) => {
       const project = await resolveProjectInput("boot", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
@@ -890,7 +1049,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Recall Moryn Records",
       description: "Search memory, skills, soul, session summaries, and agent notes.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         record_ids: z.unknown().optional(),
         query: coreValidatedStringSchema.optional(),
         project_id: coreValidatedStringSchema.optional(),
@@ -904,7 +1063,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit: coreValidatedNumberSchema.optional(),
         ...camelCaseAliasInputSchema("recall"),
         ...explicitAliasInputSchema("recall")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("recall", input, async (normalizedInput) => {
       const project = await resolveProjectInput("recall", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
@@ -956,7 +1115,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Write Moryn Record",
       description: "Append a new Moryn record event.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         kind: coreValidatedRecordKindSchema,
         type: coreValidatedStringSchema.optional(),
         scope: coreValidatedRecordScopeSchema.optional(),
@@ -973,7 +1132,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         source: z.unknown().optional(),
         ...writeAliasInputSchema,
         ...camelCaseAliasInputSchema("write")
-      }
+      })
     },
     async (input) => toolResult(async () => {
       const normalizedInput = normalizeMcpToolArguments("write", input);
@@ -1021,7 +1180,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Revise Moryn Record",
       description: "Append a logical revision event for an existing record.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         record_id: z.unknown().optional(),
         patch: z.unknown(),
         reason: coreValidatedStringSchema.optional(),
@@ -1029,7 +1188,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         source: z.unknown().optional(),
         ...sourceAliasInputSchema,
         ...camelCaseAliasInputSchema("revise")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("revise", input, async (normalizedInput) => engine.revise({
         record_id: normalizedInput.record_id,
@@ -1054,7 +1213,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Promote Moryn Record",
       description: "Change a record state by appending a promotion/state event.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         record_id: z.unknown().optional(),
         target_state: coreValidatedRecordStateSchema.optional(),
         reason: coreValidatedStringSchema.optional(),
@@ -1062,7 +1221,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         source: z.unknown().optional(),
         ...sourceAliasInputSchema,
         ...camelCaseAliasInputSchema("promote")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("promote", input, async (normalizedInput) => engine.promote({
         record_id: normalizedInput.record_id,
@@ -1091,13 +1250,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Archive Moryn Record",
       description: "Hide a record from default boot and recall while preserving history.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         record_id: z.unknown().optional(),
         reason: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
         ...sourceAliasInputSchema,
         ...camelCaseAliasInputSchema("archive")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("archive", input, async (normalizedInput) => engine.archive({
         record_id: normalizedInput.record_id,
@@ -1119,13 +1278,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Quarantine Moryn Record",
       description: "Mark a record as sensitive or unsafe so it is excluded by default.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         record_id: z.unknown().optional(),
         reason: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
         ...sourceAliasInputSchema,
         ...camelCaseAliasInputSchema("quarantine")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("quarantine", input, async (normalizedInput) => engine.quarantine({
         record_id: normalizedInput.record_id,
@@ -1147,14 +1306,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Link Moryn Records",
       description: "Append a relationship from one record to another.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         record_id: z.unknown().optional(),
         linked_record_id: z.unknown().optional(),
         link_type: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
         ...sourceAliasInputSchema,
         ...camelCaseAliasInputSchema("link")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("link", input, async (normalizedInput) => engine.link({
         record_id: normalizedInput.record_id,
@@ -1182,14 +1341,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Refresh Moryn Changes",
       description: "Return important changes since a cursor for periodic agent memory refresh.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
         cursor: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional(),
         ...camelCaseAliasInputSchema("refresh")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("refresh", input, async (normalizedInput) => {
       const project = await resolveProjectInput("refresh", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
@@ -1207,7 +1366,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Diagnose Moryn Agent Setup",
       description: "Read-only setup check that tells an agent whether store, project, and sync are ready and what to call next.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
@@ -1215,7 +1374,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: coreValidatedAgentSchema.optional(),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_doctor")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("agent_doctor", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
@@ -1234,7 +1393,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Enter Moryn Agent Session",
       description: "One-call agent entrypoint: diagnose setup, discover projects when needed, or start a known project session.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
@@ -1245,7 +1404,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: coreValidatedAgentSchema.optional(),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_enter")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("agent_enter", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
@@ -1286,7 +1445,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Guide Moryn Agent Workflow",
       description: "Return machine-readable lifecycle guidance and exact next tool arguments for agents.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
@@ -1294,7 +1453,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: coreValidatedAgentSchema.optional(),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_guide")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("agent_guide", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
@@ -1313,7 +1472,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Start Moryn Agent Session",
       description: "Low-friction agent startup: pull sync, resolve project context, boot context, and refresh recent changes.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
@@ -1324,7 +1483,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: coreValidatedAgentSchema.optional(),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_start")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("agent_start", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
@@ -1365,7 +1524,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Finish Moryn Agent Session",
       description: "Low-friction agent handoff: write a session summary and push sync.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         summary: z.unknown(),
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -1375,7 +1534,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: coreValidatedAgentSchema.optional(),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_finish")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("agent_finish", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
@@ -1415,7 +1574,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Publish Moryn Agent Status",
       description: "Low-friction in-progress update: write a project status checkpoint and push sync.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         status: z.unknown(),
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
@@ -1425,7 +1584,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         agent: coreValidatedAgentSchema.optional(),
         ...agentAliasInputSchema,
         ...camelCaseAliasInputSchema("agent_status")
-      }
+      })
     },
     async (input) => toolResultWithNormalizedInput("agent_status", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
@@ -1465,9 +1624,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Rebuild Moryn Derived Views",
       description: "Regenerate snapshots and indexes from append-only events.",
-      inputSchema: {}
+      inputSchema: mcpInputSchema({})
     },
-    async () => toolResult(async () => rebuildDerivedViews(options.storePath))
+    async (input) => toolResultWithNormalizedInput("rebuild", input, async () => rebuildDerivedViews(options.storePath))
   );
 
   server.registerTool(
@@ -1475,11 +1634,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Initialize Moryn Git Sync",
       description: "Initialize or connect the local Moryn store to a Git remote.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         remote: coreValidatedStringSchema
-      }
+      })
     },
-    async ({ remote }) => toolResult(async () => initializeGitSync(options.storePath, remote as string))
+    async (input) => toolResultWithNormalizedInput("sync_init", input, async (normalizedInput) => initializeGitSync(options.storePath, normalizedInput.remote as string))
   );
 
   server.registerTool(
@@ -1487,9 +1646,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Get Moryn Git Sync Status",
       description: "Return Git sync configuration and local/remote status.",
-      inputSchema: {}
+      inputSchema: mcpInputSchema({})
     },
-    async () => toolResult(async () => getGitSyncStatus(options.storePath))
+    async (input) => toolResultWithNormalizedInput("sync_status", input, async () => getGitSyncStatus(options.storePath))
   );
 
   server.registerTool(
@@ -1497,9 +1656,9 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Pull Moryn Git Sync",
       description: "Pull remote event history into the local Moryn store.",
-      inputSchema: {}
+      inputSchema: mcpInputSchema({})
     },
-    async () => toolResult(async () => pullGitSync(options.storePath))
+    async (input) => toolResultWithNormalizedInput("sync_pull", input, async () => pullGitSync(options.storePath))
   );
 
   server.registerTool(
@@ -1507,11 +1666,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Push Moryn Git Sync",
       description: "Commit and push local event history from the Moryn store.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         message: coreValidatedStringSchema.optional()
-      }
+      })
     },
-    async ({ message }) => toolResult(async () => pushGitSync(options.storePath, { message: message as string | undefined }))
+    async (input) => toolResultWithNormalizedInput("sync_push", input, async (normalizedInput) => pushGitSync(options.storePath, { message: normalizedInput.message as string | undefined }))
   );
 
   server.registerTool(
@@ -1519,11 +1678,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "List Recent Moryn Records",
       description: "Return recently updated records.",
-      inputSchema: {
+      inputSchema: mcpInputSchema({
         limit: coreValidatedNumberSchema.optional()
-      }
+      })
     },
-    async ({ limit }) => toolResult(async () => engine.listRecent(limit))
+    async (input) => toolResultWithNormalizedInput("list_recent", input, async (normalizedInput) => engine.listRecent(normalizedInput.limit))
   );
 
   await server.connect(new StdioServerTransport());
