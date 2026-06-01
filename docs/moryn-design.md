@@ -963,7 +963,9 @@ of a generic parser error. Recall filter positionals such as
 MCP retry forms. Natural positional write attempts such as
 `write memory decision project hello` return a `positional_mapping` from each
 value to `--kind`, `--type`, `--scope`, and `--text`, plus exact CLI and MCP
-retry forms. Option typos
+retry forms. These retry forms keep `retry_with.args` as the machine-preferred
+argv array and render `retry_with.cli` as a shell-safe command line for
+copy/paste recovery. Option typos
 return `suggested_options[]` with the matched
 `arguments_by_name.<argument>` source and a one-option retry template. Global
 option typos such as `--stor` or `--hep` prefer global retry hints like

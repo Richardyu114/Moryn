@@ -7124,7 +7124,7 @@ describe("moryn CLI", () => {
   it("maps natural positional write input to required CLI options", async () => {
     await withTempDir(async (dir) => {
       try {
-        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "memory", "decision", "project", "hello"]);
+        await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "write", "memory", "decision", "project", "hello world"]);
         throw new Error("Expected positional write input to reject with option mapping guidance");
       } catch (error) {
         if (!("stderr" in (error as object))) throw error;
@@ -7146,7 +7146,7 @@ describe("moryn CLI", () => {
         expect(parsed.error.recovery_hint).toEqual({
           operation_contract: "operations_by_id.write",
           rejected_arguments: {
-            positional_values: ["memory", "decision", "project", "hello"],
+            positional_values: ["memory", "decision", "project", "hello world"],
             command_path: ["write"]
           },
           expected: {
@@ -7174,16 +7174,16 @@ describe("moryn CLI", () => {
               argument_source: "operations_by_id.write.arguments_by_name.scope"
             },
             {
-              value: "hello",
+              value: "hello world",
               option: "--text",
               argument: "text",
               argument_source: "operations_by_id.write.arguments_by_name.text"
             }
           ],
           retry_with: {
-            args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--text", "hello"],
-            cli: "moryn write --kind memory --type decision --scope project --text hello",
-            mcp: { tool: "write", arguments: { kind: "memory", type: "decision", scope: "project", text: "hello" } }
+            args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--text", "hello world"],
+            cli: "moryn write --kind memory --type decision --scope project --text 'hello world'",
+            mcp: { tool: "write", arguments: { kind: "memory", type: "decision", scope: "project", text: "hello world" } }
           },
           do_not: ["retry_write_positional_values", "invent_positional_arguments"]
         });

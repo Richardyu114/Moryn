@@ -20,6 +20,7 @@ import {
   type OperationContractLookupOption
 } from "./operation-contracts.js";
 import { agentDoctor, agentEnter, agentFinish, agentGuide, agentStart, agentStatus } from "./core/agent-lifecycle.js";
+import { commandLineForCliInterface } from "./core/cli-command-line.js";
 import { initializeStore } from "./core/config.js";
 import { rebuildDerivedViews } from "./core/derived.js";
 import { createEngine } from "./core/engine.js";
@@ -520,7 +521,7 @@ function naturalWritePositionalCliArgumentError(message: string, args = process.
       ],
       retry_with: {
         args: retryArgs,
-        cli: `moryn ${retryArgs.join(" ")}`,
+        cli: commandLineForCliInterface("moryn", retryArgs),
         mcp: { tool: "write", arguments: { kind, type, scope, text } }
       },
       do_not: ["retry_write_positional_values", "invent_positional_arguments"]
@@ -648,7 +649,7 @@ function naturalRecallFilterPositionalCliArgumentError(
       positional_mapping: positionalMapping,
       retry_with: {
         args: retryArgs,
-        cli: `moryn ${retryArgs.join(" ")}`,
+        cli: commandLineForCliInterface("moryn", retryArgs),
         mcp: { tool: "recall", arguments: recallFilterMcpArguments(positionalMapping) }
       },
       do_not: ["retry_recall_filter_positionals", "invent_positional_arguments"]
