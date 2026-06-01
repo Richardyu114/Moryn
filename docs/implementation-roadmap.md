@@ -402,6 +402,10 @@ Deliverables:
 - Done: CLI missing positional argument parser failures for mutation record ids,
   linked record ids, and `sync init <remote>` now expose matching operation
   contracts and argument sources instead of generic command-argument advice.
+- Done: CLI unknown-command and unknown-option parser failures now return
+  operation-contract-backed `recovery_hint` payloads with suggested commands or
+  options, exact retry forms, index lookup fallback, and `do_not` guardrails so
+  agents do not need to parse Commander prose or invent replacement flags.
 - Done: CLI non-empty string failures for write text/tags/provenance, refresh
   cursors, and sync push messages, plus malformed `revise --set` assignments,
   now expose operation contract and argument source hints before lower-level

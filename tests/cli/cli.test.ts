@@ -7215,6 +7215,75 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("returns structured recovery hints for unknown CLI commands and options", async () => {
+    await withTempDir(async (dir) => {
+      for (const { args, message, hint } of [
+        {
+          args: ["writ", "--kind", "memory"],
+          message: "unknown command 'writ'",
+          hint: {
+            rejected_command: { command: "writ", command_path: ["writ"] },
+            suggested_commands: [{
+              command: "write",
+              operation: "write",
+              operation_source: "operations_by_id.write",
+              retry_with: {
+                cli: "moryn write --kind <kind> --type <type> --scope <scope> --text <text>",
+                args: ["write", "--kind", "<kind>", "--type", "<type>", "--scope", "<scope>", "--text", "<text>"],
+                mcp: { tool: "write", arguments: { kind: "<kind>", type: "<type>", scope: "<scope>", text: "<text>" } }
+              }
+            }],
+            index_lookup: {
+              command: "moryn contracts operations --index",
+              args: ["contracts", "operations", "--index"],
+              mcp: { tool: "operation_contracts", arguments: { index: true } }
+            },
+            do_not: ["retry_unknown_command", "invent_command_names"]
+          }
+        },
+        {
+          args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--txt", "hello"],
+          message: "unknown option '--txt'",
+          hint: {
+            operation_contract: "operations_by_id.write",
+            rejected_option: { option: "--txt", command_path: ["write"] },
+            suggested_options: [{
+              option: "--text",
+              argument: "text",
+              argument_source: "operations_by_id.write.arguments_by_name.text",
+              retry_with: { option: "--text", value_placeholder: "<text>" }
+            }],
+            command: "moryn write --kind <kind> --type <type> --scope <scope> --text <text>",
+            do_not: ["retry_unknown_option", "invent_cli_flags"]
+          }
+        }
+      ]) {
+        try {
+          await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, ...args]);
+          throw new Error(`Expected moryn ${args.join(" ")} to reject unknown CLI input`);
+        } catch (error) {
+          if (!("stderr" in (error as object))) throw error;
+          const parsed = JSON.parse((error as { stderr: string }).stderr) as {
+            ok: boolean;
+            error: {
+              code: string;
+              message: string;
+              recoverable: boolean;
+              recommended_action: string;
+              recovery_hint: unknown;
+            };
+          };
+          expect(parsed.ok).toBe(false);
+          expect(parsed.error.code).toBe("INVALID_ARGUMENT");
+          expect(parsed.error.message).toContain(message);
+          expect(parsed.error.recoverable).toBe(true);
+          expect(parsed.error.recommended_action).toBe("retry with a known CLI command or option from operation contracts");
+          expect(parsed.error.recovery_hint).toEqual(hint);
+        }
+      }
+    });
+  });
+
   it("returns structured JSON errors for malformed store config during init", async () => {
     await withTempDir(async (dir) => {
       const store = join(dir, "store");

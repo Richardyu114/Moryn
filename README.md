@@ -1026,8 +1026,15 @@ Missing required parser options for `revise --set`, `promote --state`,
 same source-backed recovery shape, so agents can inspect the exact operation
 contract before retrying. Missing positional arguments for mutation record ids,
 linked record ids, and `sync init <remote>` also return operation and argument
-sources instead of generic command-argument advice. Empty read and mutation
-positionals such as `recall ""`, `revise "" --set ...`, and
+sources instead of generic command-argument advice. Unknown CLI commands and
+unknown options also return structured `recovery_hint` payloads. Command typos
+include `suggested_commands[]` with `operation_source`, exact CLI args, MCP
+retry arguments, an `index_lookup` fallback for `moryn contracts operations
+--index`, and `do_not` guardrails against inventing command names. Option typos
+include `suggested_options[]` with the matched `arguments_by_name.<argument>`
+source and a one-option retry template, so an agent can replace `--txt` with
+`--text` without parsing Commander text. Empty read and mutation positionals
+such as `recall ""`, `revise "" --set ...`, and
 `link <record-id> "" --type ...` also fail at the CLI boundary with `query`,
 `record-id`, or `linked-record-id` recovery hints. Empty `sync init ""` remotes
 likewise fail with a positional `remote` recovery hint.

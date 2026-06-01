@@ -943,11 +943,17 @@ required parser options for `revise --set`, `promote --state`, `link --type`,
 recovery shape, so agents can inspect the exact operation contract before
 retrying. Missing positional arguments for mutation record ids, linked record
 ids, and `sync init <remote>` also return operation and argument sources instead
-of generic command-argument advice. Empty read and mutation positionals such as
-`recall ""`, `revise "" --set ...`, and `link <record-id> "" --type ...` also
-fail at the CLI boundary with `query`, `record-id`, or `linked-record-id`
-recovery hints. Empty `sync init ""` remotes likewise fail with a positional
-`remote` recovery hint.
+of generic command-argument advice. Unknown CLI commands and unknown options
+are normalized into the same JSON error channel instead of requiring the caller
+to parse Commander prose. Command typos return `suggested_commands[]` with the
+matched operation id, `operation_source`, exact CLI retry args, MCP retry
+arguments, an operation-contract index lookup, and `do_not` guardrails. Option
+typos return `suggested_options[]` with the matched
+`arguments_by_name.<argument>` source and a one-option retry template. Empty
+read and mutation positionals such as `recall ""`, `revise "" --set ...`, and
+`link <record-id> "" --type ...` also fail at the CLI boundary with `query`,
+`record-id`, or `linked-record-id` recovery hints. Empty `sync init ""` remotes
+likewise fail with a positional `remote` recovery hint.
 Empty CLI strings for write
 text/tags/provenance, refresh cursors, sync messages, lifecycle
 project/task/sync/agent/status/summary inputs, MCP source metadata and
@@ -2294,7 +2300,7 @@ Agents should follow this contract:
 14. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.recommended_start_action_source` to the next agent or device.
 15. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
 16. When a canonical write returns `warning.next_action.recommended_action: "ask_user_then_promote_candidate"`, take the candidate id from `write.record.id` or `warning.next_action.candidate_record_id`, ask the user, then run the returned promote action with confirmation instead of repeating the write.
-17. When a CLI call fails with `error.recovery_hint`, prefer its structured `rejected_argument`, `expected`, and `retry_with` fields over parsing `error.message`.
+17. When a CLI call fails with `error.recovery_hint`, prefer its structured `rejected_argument`, `rejected_command`, `rejected_option`, `expected`, and `retry_with` fields over parsing `error.message`.
 18. Write raw notes as `agent_note`, not canonical memory.
 19. Do not promote long-term preferences, soul records, or global skills without user confirmation.
 20. Treat sync `interrupt` results as a reason to pause and inspect related records.
