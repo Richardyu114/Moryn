@@ -488,12 +488,18 @@ the receiving tool can return its normal structured recovery hint. Direct MCP ca
 `agent_doctor`, `agent_guide`, `agent_enter`, `agent_start`, `agent_status`,
 and `agent_finish` expose and accept the same agent identity aliases
 (`agent_client`, `agent_session_id`, `agent_model`, `agent_device_id`, plus
-literal paths such as `"agent.client"` and `"agent.session_id"`), so hosts can
-reuse operation-contract fields without hand-building an `agent` object.
+literal paths such as `"agent.client"` and `"agent.session_id"`), plus
+camelCase spellings such as `agentClient`, `agentSessionId`, `projectId`,
+`currentTask`, and `syncRemote`, so hosts can reuse operation-contract fields
+without hand-building an `agent` object.
 Direct MCP mutation calls (`revise`, `promote`, `archive`, `quarantine`, and
 `link`) do the same for source identity aliases such as `source_client` and
-`"source.session_id"`. When a caller provides multiple aliases for the same
-nested field with different values, Moryn returns a structured
+`"source.session_id"`, and also accept camelCase spellings such as `recordId`,
+`linkedRecordId`, `targetState`, `linkType`, `sourceClient`, and
+`sourceSessionId`. Direct MCP `write` accepts `projectId`, `contentText`,
+`contentFormat`, `sourceClient`, `sourceSessionId`, and provenance camelCase
+aliases in the same normalization pass. When a caller provides multiple aliases
+for the same nested field with different values, Moryn returns a structured
 `INVALID_ARGUMENT` recovery hint instead of silently choosing one.
 This applies to agent identity aliases too: conflicting literal path and
 flattened aliases such as `"agent.client"` and `agent_client` in `project_list`
@@ -993,24 +999,32 @@ MCP write `content` shape failures also pass through core validation, including
 single-string content values, and return `operations_by_id.write.arguments_by_name.content`.
 MCP write accepts `content_text`/`content_format` and
 `"content.text"`/`"content.format"` as aliases for the same structured content
-object before that validation runs.
+object before that validation runs, with `contentText`/`contentFormat` accepted
+as lower-friction camelCase spellings.
 MCP write `source` shape failures also pass through core validation, including
 single-string source values, and return `operations_by_id.write.arguments_by_name.source_client`.
 MCP write accepts `source_client`/`source_session_id` and literal
-`"source.client"`/`"source.session_id"` alias fields before source validation runs.
+`"source.client"`/`"source.session_id"` alias fields, plus
+`sourceClient`/`sourceSessionId`, before source validation runs.
 Direct MCP mutation tools accept those same source alias fields before source
 validation runs, normalizing them into the nested `source` object used by
-mutation events. Conflicting mutation source aliases are rejected with the same
-single-value recovery shape instead of being silently overwritten.
+mutation events. They also accept common camelCase argument names such as
+`recordId`, `targetState`, `linkedRecordId`, and `linkType`, so agent MCP calls
+do not fail only because they used JavaScript-style names. Conflicting mutation
+source aliases are rejected with the same single-value recovery shape instead of
+being silently overwritten.
 Direct MCP `project_list` and lifecycle calls accept
 `agent_client`/`agent_session_id` and literal
 `"agent.client"`/`"agent.session_id"` alias fields before agent validation runs,
 normalizing them into the nested `agent` object used by follow-up action
-templates.
+templates. Lifecycle tools also accept camelCase context aliases including
+`projectId`, `projectPath`, `currentTask`, `syncRemote`, `refreshSince`,
+`agentClient`, and `agentSessionId`.
 Alias conflicts in those direct MCP tools also classify the conflict with
 `conflicting_argument.conflict_kind` and emit a matching `do_not` guardrail, so
 callers can distinguish nested-vs-flattened, literal-vs-flattened,
-nested-vs-literal, and parent-scalar-vs-child-alias retries.
+nested-vs-literal, camelCase-vs-contract, and parent-scalar-vs-child-alias
+retries.
 MCP write `tags` shape failures also pass through core validation, including
 single-string tag values, and return `operations_by_id.write.arguments_by_name.tags`.
 MCP write `provenance` failures also pass through core validation, including

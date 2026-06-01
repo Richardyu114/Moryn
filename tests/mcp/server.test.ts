@@ -2859,6 +2859,11 @@ describe("MCP stdio server", () => {
         ]);
         const writeTool = tools.tools.find((tool) => tool.name === "write");
         expect(Object.keys(writeTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "projectId",
+          "contentText",
+          "contentFormat",
+          "sourceClient",
+          "sourceSessionId",
           "content_text",
           "content.format",
           "source.client",
@@ -2869,6 +2874,11 @@ describe("MCP stdio server", () => {
         ]));
         const agentEnterTool = tools.tools.find((tool) => tool.name === "agent_enter");
         expect(Object.keys(agentEnterTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "projectId",
+          "currentTask",
+          "refreshSince",
+          "agentClient",
+          "agentSessionId",
           "agent_client",
           "agent.client",
           "agent_session_id",
@@ -2878,6 +2888,10 @@ describe("MCP stdio server", () => {
         ]));
         const projectListTool = tools.tools.find((tool) => tool.name === "project_list");
         expect(Object.keys(projectListTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "currentTask",
+          "syncRemote",
+          "agentClient",
+          "agentSessionId",
           "agent_client",
           "agent.client",
           "agent_session_id",
@@ -2885,6 +2899,9 @@ describe("MCP stdio server", () => {
         ]));
         const reviseTool = tools.tools.find((tool) => tool.name === "revise");
         expect(Object.keys(reviseTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "recordId",
+          "sourceClient",
+          "sourceSessionId",
           "source_client",
           "source.client",
           "source_session_id",
@@ -2892,6 +2909,11 @@ describe("MCP stdio server", () => {
         ]));
         const linkTool = tools.tools.find((tool) => tool.name === "link");
         expect(Object.keys(linkTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "recordId",
+          "linkedRecordId",
+          "linkType",
+          "sourceClient",
+          "sourceSessionId",
           "source_client",
           "source.client",
           "source_session_id",
@@ -6469,6 +6491,120 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("accepts camelCase MCP aliases for common agent-authored arguments", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-camel-aliases-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const write = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            projectId: "moryn",
+            contentText: "Accept camelCase MCP arguments from agents.",
+            contentFormat: "text",
+            sourceClient: "codex",
+            sourceSessionId: "camel-write-session"
+          }
+        })) as {
+          ok?: false;
+          error?: { message: string };
+          record: {
+            id: string;
+            project_id?: string;
+            content: { text: string; format: string };
+            source: { client: string; session_id?: string };
+          };
+        };
+        expect(write.error?.message).toBeUndefined();
+        expect(write.record).toBeDefined();
+        const linked = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            projectId: "moryn",
+            text: "Linked camelCase MCP target.",
+            state: "candidate"
+          }
+        })) as { record: { id: string } };
+
+        const revised = parseTextContent(await client.callTool({
+          name: "revise",
+          arguments: {
+            recordId: write.record.id,
+            patch: { "content.text": "CamelCase MCP aliases stay usable after revise." },
+            reason: "camelCase record id",
+            sourceClient: "codex"
+          }
+        })) as { event: { record_id: string; source: { client: string } } };
+        const promoted = parseTextContent(await client.callTool({
+          name: "promote",
+          arguments: {
+            recordId: write.record.id,
+            targetState: "canonical",
+            reason: "camelCase target state",
+            sourceClient: "codex"
+          }
+        })) as { event: { record_id: string; target_state: string; source: { client: string } } };
+        const link = parseTextContent(await client.callTool({
+          name: "link",
+          arguments: {
+            recordId: write.record.id,
+            linkedRecordId: linked.record.id,
+            linkType: "related",
+            sourceClient: "codex"
+          }
+        })) as { event: { record_id: string; linked_record_id: string; link_type: string; source: { client: string } } };
+        const status = parseTextContent(await client.callTool({
+          name: "agent_status",
+          arguments: {
+            projectId: "moryn",
+            currentTask: "test camelCase lifecycle aliases",
+            status: "CamelCase MCP lifecycle aliases are accepted.",
+            push: false,
+            agentClient: "codex",
+            agentSessionId: "camel-status-session"
+          }
+        })) as {
+          record: {
+            project_id?: string;
+            content: { text: string; current_task?: string };
+            source: { client: string; session_id?: string };
+          };
+          sync: { push?: unknown };
+        };
+
+        expect(write.record.project_id).toBe("moryn");
+        expect(write.record.content).toEqual({ text: "Accept camelCase MCP arguments from agents.", format: "text" });
+        expect(write.record.source).toMatchObject({ client: "codex", session_id: "camel-write-session" });
+        expect(revised.event).toMatchObject({ record_id: write.record.id, source: { client: "codex" } });
+        expect(promoted.event).toMatchObject({ record_id: write.record.id, target_state: "canonical", source: { client: "codex" } });
+        expect(link.event).toMatchObject({
+          record_id: write.record.id,
+          linked_record_id: linked.record.id,
+          link_type: "related",
+          source: { client: "codex" }
+        });
+        expect(status.record).toMatchObject({
+          project_id: "moryn",
+          content: {
+            text: "CamelCase MCP lifecycle aliases are accepted.",
+            current_task: "test camelCase lifecycle aliases"
+          },
+          source: { client: "codex", session_id: "camel-status-session" }
+        });
+        expect(status.sync.push).toBeUndefined();
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("uses MCP as the default source for mutation events", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-default-source-"));
     try {
@@ -8482,6 +8618,62 @@ describe("MCP stdio server", () => {
           },
           retry_with: { argument: "agent.client", value_placeholder: "<client>" },
           do_not: ["provide_both_nested_and_flattened_aliases", "retry_with_conflicting_alias_values"]
+        });
+        const conflictingCamelProjectListAgentClient = parseTextContent(await client.callTool({
+          name: "project_list",
+          arguments: {
+            agent_client: "codex",
+            agentClient: "claude"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingCamelProjectListAgentClient.ok).toBe(false);
+        expect(conflictingCamelProjectListAgentClient.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingCamelProjectListAgentClient.error.message).toContain("Conflicting agent.client aliases");
+        expect(conflictingCamelProjectListAgentClient.error.recommended_action).toBe("retry project_list with one agent.client value");
+        expect(conflictingCamelProjectListAgentClient.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.project_list",
+          conflicting_argument: {
+            argument: "agent.client",
+            conflict_kind: "camelcase_vs_contract_alias",
+            values_by_input: {
+              agent_client: "codex",
+              agentClient: "claude"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            "agent.client": "operations_by_id.project_list.arguments_by_name.agent_client"
+          },
+          retry_with: { argument: "agent.client", value_placeholder: "<client>" },
+          do_not: ["provide_both_camelcase_and_contract_aliases", "retry_with_conflicting_alias_values"]
+        });
+        const conflictingCamelProjectId = parseTextContent(await client.callTool({
+          name: "boot",
+          arguments: {
+            project_id: "moryn",
+            projectId: "other"
+          }
+        })) as McpInvalidArgument;
+        expect(conflictingCamelProjectId.ok).toBe(false);
+        expect(conflictingCamelProjectId.error.code).toBe("INVALID_ARGUMENT");
+        expect(conflictingCamelProjectId.error.message).toContain("Conflicting project_id aliases");
+        expect(conflictingCamelProjectId.error.recommended_action).toBe("retry boot with one project_id value");
+        expect(conflictingCamelProjectId.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.boot",
+          conflicting_argument: {
+            argument: "project_id",
+            conflict_kind: "camelcase_vs_contract_alias",
+            values_by_input: {
+              project_id: "moryn",
+              projectId: "other"
+            }
+          },
+          expected: { kind: "single_value" },
+          argument_sources: {
+            project_id: "operations_by_id.boot.arguments_by_name.project_id"
+          },
+          retry_with: { argument: "project_id", value_placeholder: "<project id>" },
+          do_not: ["provide_both_camelcase_and_contract_aliases", "retry_with_conflicting_alias_values"]
         });
         const invalidTargetState = parseTextContent(await client.callTool({
           name: "promote",

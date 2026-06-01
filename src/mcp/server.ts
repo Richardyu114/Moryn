@@ -47,6 +47,7 @@ type McpAliasConflict = {
   argument: string;
   path: string;
   contractArgument: string;
+  camelAlias?: string;
   valuesByInput: Record<string, unknown>;
 };
 type McpAliasConflictKind =
@@ -54,12 +55,14 @@ type McpAliasConflictKind =
   | "literal_path_vs_flattened"
   | "nested_vs_literal_path"
   | "parent_scalar_vs_child_alias"
+  | "camelcase_vs_contract_alias"
   | "multiple_aliases";
 type McpAliasConflictDoNot =
   | "provide_both_nested_and_flattened_aliases"
   | "provide_both_literal_path_and_flattened_aliases"
   | "provide_both_nested_and_literal_path_aliases"
-  | "provide_parent_scalar_with_child_aliases";
+  | "provide_parent_scalar_with_child_aliases"
+  | "provide_both_camelcase_and_contract_aliases";
 
 const stringSchema = z.string();
 const recordKindSchema = z.union([z.enum(RECORD_KINDS), stringSchema]);
@@ -111,6 +114,28 @@ const agentAliasInputSchema = {
   agent_device_id: z.unknown().optional(),
   "agent.device_id": z.unknown().optional()
 } as const;
+
+function snakeToCamel(value: string): string {
+  return value.replace(/_([a-z0-9])/g, (_match, character: string) => character.toUpperCase());
+}
+
+function mcpCamelCaseAliasName(argument: OperationArgumentMetadata): string | undefined {
+  const alias = snakeToCamel(argument.name);
+  return alias === argument.name ? undefined : alias;
+}
+
+function mcpCamelCaseAliasTarget(argument: OperationArgumentMetadata): string | undefined {
+  if (!argument.mcp) return undefined;
+  return argument.mcp.path ? argument.name : argument.mcp.argument;
+}
+
+function camelCaseAliasInputSchema(tool: string): Record<string, z.ZodOptional<z.ZodUnknown>> {
+  return Object.fromEntries(Object.values(operationArgumentsByTool(tool)).flatMap((argument) => {
+    const alias = mcpCamelCaseAliasName(argument);
+    return alias ? [[alias, z.unknown().optional()] as const] : [];
+  }));
+}
+
 const WRITE_CONTENT_RETRY_ARGUMENTS = [
   { argument: "text", value_placeholder: "<text>" },
   { argument: "content", value_placeholder: "<content object>" }
@@ -444,7 +469,19 @@ function compactUndefined<T extends Record<string, unknown>>(input: T): Record<s
 
 function normalizeMcpToolArguments(tool: string, input: Record<string, unknown>): Record<string, unknown> {
   assertNoMcpAliasConflicts(tool, input);
-  return mcpArgumentsForAction(tool, input);
+  return mcpArgumentsForAction(tool, normalizeMcpCamelCaseAliases(tool, input));
+}
+
+function normalizeMcpCamelCaseAliases(tool: string, input: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...input };
+  for (const argument of Object.values(operationArgumentsByTool(tool))) {
+    const alias = mcpCamelCaseAliasName(argument);
+    const target = mcpCamelCaseAliasTarget(argument);
+    if (!alias || !target || normalized[alias] === undefined) continue;
+    if (normalized[target] === undefined) normalized[target] = normalized[alias];
+    delete normalized[alias];
+  }
+  return normalized;
 }
 
 function assertNoMcpAliasConflicts(tool: string, input: Record<string, unknown>): void {
@@ -456,19 +493,38 @@ function assertNoMcpAliasConflicts(tool: string, input: Record<string, unknown>)
 }
 
 function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArgumentMetadata): McpAliasConflict | undefined {
-  if (!argument.parent_argument || !argument.mcp?.path) return undefined;
+  const camelAlias = mcpCamelCaseAliasName(argument);
+  const camelTarget = mcpCamelCaseAliasTarget(argument);
+  const camelValue = camelAlias ? input[camelAlias] : undefined;
+  if (!argument.parent_argument || !argument.mcp?.path) {
+    if (!camelAlias || !camelTarget || camelValue === undefined) return undefined;
+    const targetValue = input[camelTarget];
+    if (targetValue === undefined || stableMcpValueKey(targetValue) === stableMcpValueKey(camelValue)) return undefined;
+    return {
+      argument: camelTarget,
+      path: camelTarget,
+      contractArgument: camelTarget,
+      camelAlias,
+      valuesByInput: {
+        [camelTarget]: targetValue,
+        [camelAlias]: camelValue
+      }
+    };
+  }
   const parentValue = input[argument.mcp.argument];
   const nestedInputValue = input[argument.mcp.path];
   const literalPathInputName = JSON.stringify(argument.mcp.path);
   const flattenedValue = input[argument.name];
-  if (parentValue !== undefined && !isMcpObject(parentValue) && (nestedInputValue !== undefined || flattenedValue !== undefined)) {
+  if (parentValue !== undefined && !isMcpObject(parentValue) && (nestedInputValue !== undefined || flattenedValue !== undefined || camelValue !== undefined)) {
     const valuesByInput: Record<string, unknown> = { [argument.mcp.argument]: parentValue };
     if (nestedInputValue !== undefined) valuesByInput[literalPathInputName] = nestedInputValue;
     if (flattenedValue !== undefined) valuesByInput[argument.name] = flattenedValue;
+    if (camelAlias && camelValue !== undefined) valuesByInput[camelAlias] = camelValue;
     return {
       argument: argument.mcp.argument,
       path: argument.mcp.path,
       contractArgument: argument.name,
+      camelAlias,
       valuesByInput
     };
   }
@@ -477,6 +533,7 @@ function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArg
   if (nestedValue !== undefined) valuesByInput[argument.mcp.path] = nestedValue;
   if (nestedInputValue !== undefined) valuesByInput[literalPathInputName] = nestedInputValue;
   if (flattenedValue !== undefined) valuesByInput[argument.name] = flattenedValue;
+  if (camelAlias && camelValue !== undefined) valuesByInput[camelAlias] = camelValue;
   if (Object.keys(valuesByInput).length <= 1) return undefined;
   const distinctValues = new Set(Object.values(valuesByInput).map(stableMcpValueKey));
   if (distinctValues.size <= 1) return undefined;
@@ -484,6 +541,7 @@ function mcpAliasConflict(input: Record<string, unknown>, argument: OperationArg
     argument: argument.mcp.argument,
     path: argument.mcp.path,
     contractArgument: argument.name,
+    camelAlias,
     valuesByInput
   };
 }
@@ -517,11 +575,13 @@ function placeholderForAliasConflict(conflict: McpAliasConflict): string {
 
 function conflictKindForAliasConflict(conflict: McpAliasConflict): McpAliasConflictKind {
   const inputs = new Set(Object.keys(conflict.valuesByInput));
-  const hasParentScalar = inputs.has(conflict.argument);
+  const hasParentScalar = conflict.argument !== conflict.path && inputs.has(conflict.argument);
   const hasNestedPath = inputs.has(conflict.path);
   const hasLiteralPath = inputs.has(JSON.stringify(conflict.path));
   const hasFlattened = inputs.has(conflict.contractArgument);
+  const hasCamelCase = conflict.camelAlias ? inputs.has(conflict.camelAlias) : false;
   if (hasParentScalar) return "parent_scalar_vs_child_alias";
+  if (hasCamelCase) return "camelcase_vs_contract_alias";
   if (hasNestedPath && hasLiteralPath) return "nested_vs_literal_path";
   if (hasLiteralPath && hasFlattened) return "literal_path_vs_flattened";
   if (hasNestedPath && hasFlattened) return "nested_vs_flattened";
@@ -534,6 +594,7 @@ function doNotForAliasConflict(conflict: McpAliasConflict): [McpAliasConflictDoN
     literal_path_vs_flattened: "provide_both_literal_path_and_flattened_aliases",
     nested_vs_literal_path: "provide_both_nested_and_literal_path_aliases",
     parent_scalar_vs_child_alias: "provide_parent_scalar_with_child_aliases",
+    camelcase_vs_contract_alias: "provide_both_camelcase_and_contract_aliases",
     multiple_aliases: "provide_both_nested_and_flattened_aliases"
   };
   return [doNotByKind[conflictKindForAliasConflict(conflict)], "retry_with_conflicting_alias_values"];
@@ -572,17 +633,18 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         tags: z.unknown().optional(),
         default_skills: z.unknown().optional(),
         sync_mode: coreValidatedSyncModeSchema.optional(),
-        repair: coreValidatedBooleanSchema.optional()
+        repair: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("project_init")
       }
     },
-    async ({ path, project_id, tags, default_skills, sync_mode, repair }) => toolResult(async () => ({
+    async (input) => toolResultWithNormalizedInput("project_init", input, async (normalizedInput) => ({
       ok: true,
-      ...await initializeProjectConfig(path, {
-        project_id,
-        tags,
-        default_skills,
-        sync: sync_mode === undefined ? undefined : { mode: sync_mode as SyncMode },
-        repair: repair as boolean | undefined
+      ...await initializeProjectConfig(normalizedInput.path, {
+        project_id: normalizedInput.project_id,
+        tags: normalizedInput.tags,
+        default_skills: normalizedInput.default_skills,
+        sync: normalizedInput.sync_mode === undefined ? undefined : { mode: normalizedInput.sync_mode as SyncMode },
+        repair: normalizedInput.repair as boolean | undefined
       })
     }))
   );
@@ -597,7 +659,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         current_task: z.unknown().optional(),
         sync_remote: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional(),
-        ...agentAliasInputSchema
+        ...agentAliasInputSchema,
+        ...camelCaseAliasInputSchema("project_list")
       }
     },
     async (input) => toolResultWithNormalizedInput("project_list", input, async (normalizedInput) => {
@@ -630,11 +693,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         index: coreValidatedBooleanSchema.optional(),
         operation: coreValidatedStringSchema.optional(),
         mcp_tool: coreValidatedStringSchema.optional(),
-        cli_command: coreValidatedStringSchema.optional()
+        cli_command: coreValidatedStringSchema.optional(),
+        ...camelCaseAliasInputSchema("operation_contracts")
       }
     },
-    async ({ index, operation, mcp_tool, cli_command }) => {
+    async (input) => {
       try {
+        const normalizedInput = normalizeMcpToolArguments("operation_contracts", input);
+        const { index, operation, mcp_tool, cli_command } = normalizedInput;
         validateOperationContractIndexArgument(index);
         validateOperationContractLookupArgument("operation", operation);
         validateOperationContractLookupArgument("mcp_tool", mcp_tool);
@@ -707,16 +773,17 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_path: coreValidatedStringSchema.optional(),
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
-        default_skills: z.unknown().optional()
+        default_skills: z.unknown().optional(),
+        ...camelCaseAliasInputSchema("boot")
       }
     },
-    async ({ project_id, project_path, sync_remote, current_task, default_skills }) => toolResult(async () => {
-      const project = await resolveProjectInput("boot", { project_id, project_path });
+    async (input) => toolResultWithNormalizedInput("boot", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("boot", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
       return engine.boot({
         project_id: project.project_id,
-        default_skills: default_skills ?? project.default_skills,
-        current_task: current_task as string | undefined,
-        sync_remote
+        default_skills: normalizedInput.default_skills ?? project.default_skills,
+        current_task: normalizedInput.current_task as string | undefined,
+        sync_remote: normalizedInput.sync_remote
       });
     })
   );
@@ -737,52 +804,53 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         states: z.unknown().optional(),
         tags: z.unknown().optional(),
         files: z.unknown().optional(),
-        limit: coreValidatedNumberSchema.optional()
+        limit: coreValidatedNumberSchema.optional(),
+        ...camelCaseAliasInputSchema("recall")
       }
     },
-    async ({ record_ids, query, project_id, project_path, kinds, scopes, types, states, tags, files, limit }) => toolResult(async () => {
-      const project = await resolveProjectInput("recall", { project_id, project_path });
+    async (input) => toolResultWithNormalizedInput("recall", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("recall", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
       return engine.recall({
-        record_ids,
-        query,
+        record_ids: normalizedInput.record_ids,
+        query: normalizedInput.query,
         project_id: project.project_id,
-        kinds: kinds as RecordKind[] | undefined,
-        scopes: scopes as RecordScope[] | undefined,
-        types,
-        states: states as RecordState[] | undefined,
-        tags,
-        files,
-        limit
+        kinds: normalizedInput.kinds as RecordKind[] | undefined,
+        scopes: normalizedInput.scopes as RecordScope[] | undefined,
+        types: normalizedInput.types,
+        states: normalizedInput.states as RecordState[] | undefined,
+        tags: normalizedInput.tags,
+        files: normalizedInput.files,
+        limit: normalizedInput.limit
       });
-    }, {
+    }, (normalizedInput) => ({
       tool: "recall",
       command: commandForRecallContext({
-        record_ids,
-        query,
-        project_id,
-        project_path,
-        kinds,
-        scopes,
-        types,
-        states,
-        tags,
-        files,
-        limit
+        record_ids: normalizedInput.record_ids,
+        query: normalizedInput.query,
+        project_id: normalizedInput.project_id,
+        project_path: normalizedInput.project_path,
+        kinds: normalizedInput.kinds,
+        scopes: normalizedInput.scopes,
+        types: normalizedInput.types,
+        states: normalizedInput.states,
+        tags: normalizedInput.tags,
+        files: normalizedInput.files,
+        limit: normalizedInput.limit
       }),
       arguments: {
-        ...(record_ids !== undefined ? { record_ids } : {}),
-        ...(query !== undefined ? { query } : {}),
-        ...(project_id !== undefined ? { project_id } : {}),
-        ...(project_path !== undefined ? { project_path } : {}),
-        ...(kinds !== undefined ? { kinds } : {}),
-        ...(scopes !== undefined ? { scopes } : {}),
-        ...(types !== undefined ? { types } : {}),
-        ...(states !== undefined ? { states } : {}),
-        ...(tags !== undefined ? { tags } : {}),
-        ...(files !== undefined ? { files } : {}),
-        ...(limit !== undefined ? { limit } : {})
+        ...(normalizedInput.record_ids !== undefined ? { record_ids: normalizedInput.record_ids } : {}),
+        ...(normalizedInput.query !== undefined ? { query: normalizedInput.query } : {}),
+        ...(normalizedInput.project_id !== undefined ? { project_id: normalizedInput.project_id } : {}),
+        ...(normalizedInput.project_path !== undefined ? { project_path: normalizedInput.project_path } : {}),
+        ...(normalizedInput.kinds !== undefined ? { kinds: normalizedInput.kinds } : {}),
+        ...(normalizedInput.scopes !== undefined ? { scopes: normalizedInput.scopes } : {}),
+        ...(normalizedInput.types !== undefined ? { types: normalizedInput.types } : {}),
+        ...(normalizedInput.states !== undefined ? { states: normalizedInput.states } : {}),
+        ...(normalizedInput.tags !== undefined ? { tags: normalizedInput.tags } : {}),
+        ...(normalizedInput.files !== undefined ? { files: normalizedInput.files } : {}),
+        ...(normalizedInput.limit !== undefined ? { limit: normalizedInput.limit } : {})
       }
-    })
+    }))
   );
 
   server.registerTool(
@@ -805,7 +873,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         provenance: z.unknown().optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
         source: z.unknown().optional(),
-        ...writeAliasInputSchema
+        ...writeAliasInputSchema,
+        ...camelCaseAliasInputSchema("write")
       }
     },
     async (input) => toolResult(async () => {
@@ -855,12 +924,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Revise Moryn Record",
       description: "Append a logical revision event for an existing record.",
       inputSchema: {
-        record_id: z.unknown(),
+        record_id: z.unknown().optional(),
         patch: z.unknown(),
         reason: coreValidatedStringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
         source: z.unknown().optional(),
-        ...sourceAliasInputSchema
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("revise")
       }
     },
     async (input) => toolResultWithNormalizedInput("revise", input, async (normalizedInput) => engine.revise({
@@ -887,12 +957,13 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Promote Moryn Record",
       description: "Change a record state by appending a promotion/state event.",
       inputSchema: {
-        record_id: z.unknown(),
-        target_state: coreValidatedRecordStateSchema,
+        record_id: z.unknown().optional(),
+        target_state: coreValidatedRecordStateSchema.optional(),
         reason: coreValidatedStringSchema.optional(),
         confirmed: coreValidatedBooleanSchema.optional(),
         source: z.unknown().optional(),
-        ...sourceAliasInputSchema
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("promote")
       }
     },
     async (input) => toolResultWithNormalizedInput("promote", input, async (normalizedInput) => engine.promote({
@@ -923,10 +994,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Archive Moryn Record",
       description: "Hide a record from default boot and recall while preserving history.",
       inputSchema: {
-        record_id: z.unknown(),
+        record_id: z.unknown().optional(),
         reason: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
-        ...sourceAliasInputSchema
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("archive")
       }
     },
     async (input) => toolResultWithNormalizedInput("archive", input, async (normalizedInput) => engine.archive({
@@ -950,10 +1022,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Quarantine Moryn Record",
       description: "Mark a record as sensitive or unsafe so it is excluded by default.",
       inputSchema: {
-        record_id: z.unknown(),
+        record_id: z.unknown().optional(),
         reason: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
-        ...sourceAliasInputSchema
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("quarantine")
       }
     },
     async (input) => toolResultWithNormalizedInput("quarantine", input, async (normalizedInput) => engine.quarantine({
@@ -977,11 +1050,12 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Link Moryn Records",
       description: "Append a relationship from one record to another.",
       inputSchema: {
-        record_id: z.unknown(),
-        linked_record_id: z.unknown(),
-        link_type: coreValidatedStringSchema,
+        record_id: z.unknown().optional(),
+        linked_record_id: z.unknown().optional(),
+        link_type: coreValidatedStringSchema.optional(),
         source: z.unknown().optional(),
-        ...sourceAliasInputSchema
+        ...sourceAliasInputSchema,
+        ...camelCaseAliasInputSchema("link")
       }
     },
     async (input) => toolResultWithNormalizedInput("link", input, async (normalizedInput) => engine.link({
@@ -1015,16 +1089,17 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_path: coreValidatedStringSchema.optional(),
         cursor: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
-        limit: coreValidatedNumberSchema.optional()
+        limit: coreValidatedNumberSchema.optional(),
+        ...camelCaseAliasInputSchema("refresh")
       }
     },
-    async ({ project_id, project_path, cursor, current_task, limit }) => toolResult(async () => {
-      const project = await resolveProjectInput("refresh", { project_id, project_path });
+    async (input) => toolResultWithNormalizedInput("refresh", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("refresh", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
       return engine.refresh({
         project_id: project.project_id,
-        cursor,
-        current_task: current_task as string | undefined,
-        limit
+        cursor: normalizedInput.cursor,
+        current_task: normalizedInput.current_task as string | undefined,
+        limit: normalizedInput.limit
       });
     })
   );
@@ -1040,7 +1115,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional(),
-        ...agentAliasInputSchema
+        ...agentAliasInputSchema,
+        ...camelCaseAliasInputSchema("agent_doctor")
       }
     },
     async (input) => toolResultWithNormalizedInput("agent_doctor", input, async (normalizedInput) => {
@@ -1069,7 +1145,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit: coreValidatedNumberSchema.optional(),
         pull: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
-        ...agentAliasInputSchema
+        ...agentAliasInputSchema,
+        ...camelCaseAliasInputSchema("agent_enter")
       }
     },
     async (input) => toolResultWithNormalizedInput("agent_enter", input, async (normalizedInput) => {
@@ -1117,7 +1194,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         agent: coreValidatedAgentSchema.optional(),
-        ...agentAliasInputSchema
+        ...agentAliasInputSchema,
+        ...camelCaseAliasInputSchema("agent_guide")
       }
     },
     async (input) => toolResultWithNormalizedInput("agent_guide", input, async (normalizedInput) => {
@@ -1146,7 +1224,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         limit: coreValidatedNumberSchema.optional(),
         pull: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
-        ...agentAliasInputSchema
+        ...agentAliasInputSchema,
+        ...camelCaseAliasInputSchema("agent_start")
       }
     },
     async (input) => toolResultWithNormalizedInput("agent_start", input, async (normalizedInput) => {
@@ -1196,7 +1275,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
-        ...agentAliasInputSchema
+        ...agentAliasInputSchema,
+        ...camelCaseAliasInputSchema("agent_finish")
       }
     },
     async (input) => toolResultWithNormalizedInput("agent_finish", input, async (normalizedInput) => {
@@ -1245,7 +1325,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
-        ...agentAliasInputSchema
+        ...agentAliasInputSchema,
+        ...camelCaseAliasInputSchema("agent_status")
       }
     },
     async (input) => toolResultWithNormalizedInput("agent_status", input, async (normalizedInput) => {

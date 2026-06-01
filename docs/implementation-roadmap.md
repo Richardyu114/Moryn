@@ -851,6 +851,11 @@ Deliverables:
 - Done: Direct MCP lifecycle and `project_list` tests now lock the same
   conflict behavior for agent identity aliases, including `agent.client` versus
   `agent_client`.
+- Done: Direct MCP tools now expose and normalize camelCase aliases generated
+  from operation contracts, including `projectId`, `currentTask`,
+  `agentClient`, `contentText`, `sourceClient`, `recordId`, `targetState`,
+  `linkedRecordId`, and `linkType`, so JavaScript-style MCP callers can retry
+  without translating every argument back to snake_case.
 - Done: Empty CLI `link --type` values now return a CLI-shaped `--type`
   recovery hint backed by `operations_by_id.link.arguments_by_name.link_type`,
   so shell agents can retry the exact flag instead of translating a lower-level
