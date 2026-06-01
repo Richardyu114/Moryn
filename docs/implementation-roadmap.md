@@ -406,6 +406,10 @@ Deliverables:
   operation-contract-backed `recovery_hint` payloads with suggested commands or
   options, exact retry forms, index lookup fallback, and `do_not` guardrails so
   agents do not need to parse Commander prose or invent replacement flags.
+- Done: Global CLI option typos such as `--stor` or `--hep` now prefer global
+  retry hints like `--store <path>` or `--help` with
+  `position: "before_command"` instead of being misclassified as operation
+  flags such as `--tag`, `--scope`, or `--state`.
 - Done: CLI non-empty string failures for write text/tags/provenance, refresh
   cursors, and sync push messages, plus malformed `revise --set` assignments,
   now expose operation contract and argument source hints before lower-level

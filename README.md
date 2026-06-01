@@ -1033,8 +1033,11 @@ retry arguments, an `index_lookup` fallback for `moryn contracts operations
 --index`, and `do_not` guardrails against inventing command names. Option typos
 include `suggested_options[]` with the matched `arguments_by_name.<argument>`
 source and a one-option retry template, so an agent can replace `--txt` with
-`--text` without parsing Commander text. Empty read and mutation positionals
-such as `recall ""`, `revise "" --set ...`, and
+`--text` without parsing Commander text. Global option typos such as `--stor`
+or `--hep` prefer global retry hints like `--store <path>` or `--help` and mark
+them as `position: "before_command"`, instead of drifting into unrelated
+operation flags. Empty read and mutation positionals such as `recall ""`,
+`revise "" --set ...`, and
 `link <record-id> "" --type ...` also fail at the CLI boundary with `query`,
 `record-id`, or `linked-record-id` recovery hints. Empty `sync init ""` remotes
 likewise fail with a positional `remote` recovery hint.

@@ -62,6 +62,13 @@ const CLI_UNKNOWN_INPUT_RECOVERY_ACTION = "retry with a known CLI command or opt
 const WRITE_OPERATION_CONTRACT_SOURCE = "operations_by_id.write";
 const WRITE_TEXT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.text";
 const WRITE_CONTENT_ARGUMENT_SOURCE = "operations_by_id.write.arguments_by_name.content";
+const CLI_GLOBAL_OPTIONS = [
+  { option: "--store", value_placeholder: "<path>", position: "before_command" },
+  { option: "--help", position: "before_command" },
+  { option: "-h", position: "before_command" },
+  { option: "--version", position: "before_command" },
+  { option: "-V", position: "before_command" }
+] as const;
 type CliLimitOperation = "recall" | "refresh" | "list_recent" | "project_list" | "agent_enter" | "agent_start";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
@@ -125,6 +132,18 @@ type CliSyncOperation = "sync_status" | "sync_push" | "sync_pull";
 type CliSyncOperationContractSource = `operations_by_id.${CliSyncOperation}`;
 type CliOperationContractSource = `operations_by_id.${string}`;
 type CliArgumentContractSource = `operations_by_id.${string}.arguments_by_name.${string}`;
+type CliUnknownOptionSuggestion =
+  | {
+      option: string;
+      argument: string;
+      argument_source: CliArgumentContractSource;
+      retry_with: { option: string; value_placeholder?: string };
+    }
+  | {
+      option: string;
+      scope: "global";
+      retry_with: { option: string; value_placeholder?: string; position: "before_command" };
+    };
 
 type CliArgumentRecoveryHint =
   | {
@@ -149,12 +168,7 @@ type CliArgumentRecoveryHint =
   | {
       operation_contract?: CliOperationContractSource;
       rejected_option: { option: string; command_path: string[] };
-      suggested_options: Array<{
-        option: string;
-        argument: string;
-        argument_source: CliArgumentContractSource;
-        retry_with: { option: string; value_placeholder?: string };
-      }>;
+      suggested_options: CliUnknownOptionSuggestion[];
       command?: string;
       do_not: ["retry_unknown_option", "invent_cli_flags"];
     }
@@ -443,9 +457,11 @@ function cliUnknownOptionError(message: string, args = process.argv.slice(2)): C
   if (!match) return undefined;
   const [, rejectedOption] = match;
   if (!rejectedOption) return undefined;
-  const commandPath = cliCommandPath(args);
+  const preferredOption = cliCommanderSuggestedOption(message);
+  const skipRejectedOptionValue = cliOptionSuggestionNeedsValue(rejectedOption, preferredOption);
+  const commandPath = cliCommandPath(args, { rejectedOption, skipRejectedOptionValue });
   const matchingOperations = cliOperationsForCommandPath(commandPath);
-  const { suggestions, operation } = cliUnknownOptionSuggestions(rejectedOption, matchingOperations);
+  const { suggestions, operation } = cliUnknownOptionSuggestions(rejectedOption, matchingOperations, preferredOption);
   return new CliArgumentError(
     `Invalid argument: ${message}`,
     CLI_UNKNOWN_INPUT_RECOVERY_ACTION,
@@ -460,6 +476,11 @@ function cliUnknownOptionError(message: string, args = process.argv.slice(2)): C
       do_not: ["retry_unknown_option", "invent_cli_flags"]
     }
   );
+}
+
+function cliCommanderSuggestedOption(message: string): string | undefined {
+  const match = /\(Did you mean ([^)]+)\?\)/.exec(message);
+  return match?.[1];
 }
 
 function requiredCliOptionSource(option: string, args = process.argv.slice(2)): CliRequiredSource | undefined {
@@ -505,7 +526,10 @@ function requiredCliPositionalArgumentSource(positional: string, args = process.
   return undefined;
 }
 
-function cliCommandPath(args: string[]): string[] {
+function cliCommandPath(
+  args: string[],
+  options: { rejectedOption?: string; skipRejectedOptionValue?: boolean } = {}
+): string[] {
   const path: string[] = [];
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -517,6 +541,10 @@ function cliCommandPath(args: string[]): string[] {
       continue;
     }
     if (arg?.startsWith("--store=")) {
+      continue;
+    }
+    if (arg === options.rejectedOption && options.skipRejectedOptionValue === true && args[index + 1] && !args[index + 1]!.startsWith("-")) {
+      index += 1;
       continue;
     }
     if (!arg || arg.startsWith("-")) {
@@ -590,24 +618,21 @@ function cliUnknownCommandSuggestions(query: string): Array<{
 
 function cliUnknownOptionSuggestions(
   query: string,
-  commandOperations: readonly OperationContract[]
+  commandOperations: readonly OperationContract[],
+  preferredOption?: string
 ): {
-  suggestions: Array<{
-    option: string;
-    argument: string;
-    argument_source: CliArgumentContractSource;
-    retry_with: { option: string; value_placeholder?: string };
-  }>;
+  suggestions: CliUnknownOptionSuggestion[];
   operation?: OperationContract;
 } {
   const operations = commandOperations.length > 0 ? commandOperations : cliOperationContracts();
-  const candidates = cliOptionCandidates(operations)
-    .map((candidate, order) => ({
-      ...candidate,
-      order,
-      score: cliSuggestionScore(query, candidate.option)
-    }))
-    .sort((left, right) => left.score - right.score || left.directness - right.directness || left.order - right.order);
+  const candidates = [
+    ...cliGlobalOptionCandidates(),
+    ...cliOptionCandidates(operations)
+  ].map((candidate, order) => ({
+    ...candidate,
+    order,
+    score: candidate.option === preferredOption ? Number.NEGATIVE_INFINITY : cliSuggestionScore(query, candidate.option)
+  })).sort((left, right) => left.score - right.score || left.directness - right.directness || left.order - right.order);
   const selected = [];
   const seenOptions = new Set<string>();
   for (const candidate of candidates) {
@@ -616,9 +641,21 @@ function cliUnknownOptionSuggestions(
     selected.push(candidate);
     if (selected.length >= 1) break;
   }
-  const operation = commandOperations.length === 1 ? commandOperations[0] : selected[0]?.operation;
+  const firstSelected = selected[0];
+  const operation = firstSelected?.kind === "operation" ? firstSelected.operation : undefined;
   return {
     suggestions: selected.map((candidate) => {
+      if (candidate.kind === "global") {
+        return {
+          option: candidate.option,
+          scope: "global",
+          retry_with: {
+            option: candidate.option,
+            ...(candidate.value_placeholder !== undefined ? { value_placeholder: candidate.value_placeholder } : {}),
+            position: candidate.position
+          }
+        };
+      }
       const valuePlaceholder = cliOptionValuePlaceholder(candidate.argument, candidate.metadata, candidate.option);
       return {
         option: candidate.option,
@@ -634,7 +671,39 @@ function cliUnknownOptionSuggestions(
   };
 }
 
+function cliOptionSuggestionNeedsValue(query: string, preferredOption?: string): boolean {
+  const candidates = [
+    ...cliGlobalOptionCandidates(),
+    ...cliOptionCandidates(cliOperationContracts())
+  ].map((candidate, order) => ({
+    ...candidate,
+    order,
+    score: candidate.option === preferredOption ? Number.NEGATIVE_INFINITY : cliSuggestionScore(query, candidate.option)
+  })).sort((left, right) => left.score - right.score || left.directness - right.directness || left.order - right.order);
+  const candidate = candidates[0];
+  if (candidate === undefined) return false;
+  if (candidate.kind === "global") return candidate.value_placeholder !== undefined;
+  return cliOptionValuePlaceholder(candidate.argument, candidate.metadata, candidate.option) !== undefined;
+}
+
+function cliGlobalOptionCandidates(): Array<{
+  kind: "global";
+  option: string;
+  value_placeholder?: string;
+  position: "before_command";
+  directness: number;
+}> {
+  return CLI_GLOBAL_OPTIONS.map((option) => ({
+    kind: "global" as const,
+    option: option.option,
+    ...("value_placeholder" in option ? { value_placeholder: option.value_placeholder } : {}),
+    position: option.position,
+    directness: 0
+  }));
+}
+
 function cliOptionCandidates(operations: readonly OperationContract[]): Array<{
+  kind: "operation";
   operation: OperationContract;
   option: string;
   argument: string;
@@ -642,6 +711,7 @@ function cliOptionCandidates(operations: readonly OperationContract[]): Array<{
   directness: number;
 }> {
   const candidates: Array<{
+    kind: "operation";
     operation: OperationContract;
     option: string;
     argument: string;
@@ -651,13 +721,13 @@ function cliOptionCandidates(operations: readonly OperationContract[]): Array<{
   for (const operation of operations) {
     for (const [argument, metadata] of Object.entries(operation.arguments_by_name)) {
       if (metadata.cli?.flag !== undefined) {
-        candidates.push({ operation, option: metadata.cli.flag, argument, metadata, directness: 0 });
+        candidates.push({ kind: "operation", operation, option: metadata.cli.flag, argument, metadata, directness: 1 });
       }
       if (metadata.cli?.negative_flag !== undefined) {
-        candidates.push({ operation, option: metadata.cli.negative_flag, argument, metadata, directness: 0 });
+        candidates.push({ kind: "operation", operation, option: metadata.cli.negative_flag, argument, metadata, directness: 1 });
       }
       for (const option of metadata.cli?.flags ?? []) {
-        candidates.push({ operation, option, argument, metadata, directness: 1 });
+        candidates.push({ kind: "operation", operation, option, argument, metadata, directness: 2 });
       }
     }
   }

@@ -7242,6 +7242,32 @@ describe("moryn CLI", () => {
           }
         },
         {
+          args: ["--stor", dir, "recall", "hello"],
+          message: "unknown option '--stor'",
+          hint: {
+            rejected_option: { option: "--stor", command_path: ["recall"] },
+            suggested_options: [{
+              option: "--store",
+              scope: "global",
+              retry_with: { option: "--store", value_placeholder: "<path>", position: "before_command" }
+            }],
+            do_not: ["retry_unknown_option", "invent_cli_flags"]
+          }
+        },
+        {
+          args: ["--hep", "recall", "hello"],
+          message: "unknown option '--hep'",
+          hint: {
+            rejected_option: { option: "--hep", command_path: ["recall"] },
+            suggested_options: [{
+              option: "--help",
+              scope: "global",
+              retry_with: { option: "--help", position: "before_command" }
+            }],
+            do_not: ["retry_unknown_option", "invent_cli_flags"]
+          }
+        },
+        {
           args: ["write", "--kind", "memory", "--type", "decision", "--scope", "project", "--txt", "hello"],
           message: "unknown option '--txt'",
           hint: {

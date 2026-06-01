@@ -949,8 +949,11 @@ to parse Commander prose. Command typos return `suggested_commands[]` with the
 matched operation id, `operation_source`, exact CLI retry args, MCP retry
 arguments, an operation-contract index lookup, and `do_not` guardrails. Option
 typos return `suggested_options[]` with the matched
-`arguments_by_name.<argument>` source and a one-option retry template. Empty
-read and mutation positionals such as `recall ""`, `revise "" --set ...`, and
+`arguments_by_name.<argument>` source and a one-option retry template. Global
+option typos such as `--stor` or `--hep` prefer global retry hints like
+`--store <path>` or `--help` with `position: "before_command"`, so the caller
+does not confuse store selection or help/version controls with operation flags.
+Empty read and mutation positionals such as `recall ""`, `revise "" --set ...`, and
 `link <record-id> "" --type ...` also fail at the CLI boundary with `query`,
 `record-id`, or `linked-record-id` recovery hints. Empty `sync init ""` remotes
 likewise fail with a positional `remote` recovery hint.
