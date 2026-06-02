@@ -667,7 +667,7 @@ function recentValueCards(records: DashboardValueRecord[]): string {
             <span>${escapeHtml(record.state)}</span>
             <span>${escapeHtml(record.project_id ?? record.scope)}</span>
           </footer>
-          <details>
+          <details data-dashboard-detail="value:${escapeHtml(record.id)}">
             <summary>Details</summary>
             <dl>
               <div><dt>ID</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>
@@ -692,7 +692,7 @@ function recordsTable(records: DashboardRecordSummary[]): string {
       <td><span class="truncate" title="${escapeHtml(sourceLabel(record.source))}">${escapeHtml(humanSourceLabel(record.source))}</span></td>
       <td><time title="${escapeHtml(record.updated_at)}">${escapeHtml(record.updated_at)}</time></td>
       <td>
-        <details>
+        <details data-dashboard-detail="record:${escapeHtml(record.id)}">
           <summary>${escapeHtml(shortText(record.text))}</summary>
           <p>${escapeHtml(record.text)}</p>
         </details>
@@ -724,7 +724,7 @@ function eventsTimeline(events: DashboardEventSummary[]): string {
   return `
     <div class="event-list">
       ${events.map((event) => `
-        <details class="event-row">
+        <details class="event-row" data-dashboard-detail="event:${escapeHtml(event.event_id)}">
           <summary>
             <span>${escapeHtml(titleCase(event.op))}</span>
             <time>${escapeHtml(event.created_at)}</time>
@@ -797,15 +797,15 @@ function renderDashboardBody(data: DashboardData): string {
     <section class="panel">
       <h2>Debug Inspector</h2>
       <div class="inspector-grid">
-        <details open>
+        <details open data-dashboard-detail="inspector:records">
           <summary>Records</summary>
           ${recordsTable(data.recent_records)}
         </details>
-        <details>
+        <details data-dashboard-detail="inspector:events">
           <summary>Events</summary>
           ${eventsTimeline(data.recent_events)}
         </details>
-        <details>
+        <details data-dashboard-detail="inspector:sync">
           <summary>Sync</summary>
           <dl>
             <div><dt>Remote</dt><dd>${escapeHtml(sync.remote ?? "not configured")}</dd></div>
@@ -829,11 +829,26 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
       const main = document.querySelector("main[data-dashboard-refresh]");
       const interval = Number(main?.dataset.dashboardRefresh || 0);
       if (!main || !Number.isFinite(interval) || interval <= 0) return;
+      const captureDetailState = () => {
+        const state = new Map();
+        main.querySelectorAll("details[data-dashboard-detail]").forEach((detail) => {
+          state.set(detail.dataset.dashboardDetail, detail.open);
+        });
+        return state;
+      };
+      const restoreDetailState = (state) => {
+        main.querySelectorAll("details[data-dashboard-detail]").forEach((detail) => {
+          const key = detail.dataset.dashboardDetail;
+          if (state.has(key)) detail.open = state.get(key);
+        });
+      };
       const refresh = async () => {
         try {
+          const detailState = captureDetailState();
           const response = await fetch("fragment", { cache: "no-store" });
           if (!response.ok) return;
           main.innerHTML = await response.text();
+          restoreDetailState(detailState);
         } catch {
           // Keep the last successful render visible if a refresh fails.
         }
