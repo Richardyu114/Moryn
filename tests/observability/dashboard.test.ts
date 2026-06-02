@@ -269,6 +269,8 @@ describe("observability dashboard", () => {
         expect(page).toContain("data-dashboard-detail=\"value:rec_live_1\"");
         expect(page).toContain("captureDetailState");
         expect(page).toContain("restoreDetailState");
+        expect(page).toContain("detailState");
+        expect(page).toContain("main.addEventListener(\"toggle\"");
         expect(page).toContain("Initial live dashboard memory");
 
         const head = await fetch(server.url, { method: "HEAD" });

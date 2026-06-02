@@ -836,6 +836,13 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
         });
         return state;
       };
+      const detailState = captureDetailState();
+      main.addEventListener("toggle", (event) => {
+        const detail = event.target;
+        if (!(detail instanceof HTMLDetailsElement)) return;
+        const key = detail.dataset.dashboardDetail;
+        if (key) detailState.set(key, detail.open);
+      }, true);
       const restoreDetailState = (state) => {
         main.querySelectorAll("details[data-dashboard-detail]").forEach((detail) => {
           const key = detail.dataset.dashboardDetail;
@@ -844,7 +851,6 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
       };
       const refresh = async () => {
         try {
-          const detailState = captureDetailState();
           const response = await fetch("fragment", { cache: "no-store" });
           if (!response.ok) return;
           main.innerHTML = await response.text();
