@@ -3,7 +3,8 @@
 This roadmap tracks the public first-version status and the next cleanup work.
 Detailed protocol design lives in [moryn-design.md](moryn-design.md). Agent
 usage details live in [agent-workflow.md](agent-workflow.md). Machine-readable
-contracts are summarized in [contracts.md](contracts.md).
+contracts are summarized in [contracts.md](contracts.md). Dashboard usage lives
+in [dashboard.md](dashboard.md).
 
 ## Current Status
 
@@ -21,6 +22,8 @@ Moryn has reached a first-version MVP:
   rebuild after pull.
 - Agent lifecycle commands for setup diagnosis, session start, status,
   handoff, and workflow guidance.
+- Local dashboard server and static snapshots for sync, records, recent events,
+  and agent activity.
 - Operation contracts and selection-source contracts for agent hosts.
 - Package smoke tests and lifecycle smoke tests.
 

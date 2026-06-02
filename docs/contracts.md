@@ -66,9 +66,14 @@ For human monitoring, use the CLI server mode:
 moryn dashboard --serve --host 127.0.0.1 --port 8765
 ```
 
-The browser refreshes from the local event store on the configured interval. For
-automation or MCP hosts, the dashboard operation still supports static snapshot
-generation.
+Open `http://127.0.0.1:8765/` on the same machine. To view from another device
+on the same LAN, bind with `--host 0.0.0.0` and open
+`http://<machine-ip>:8765/`, assuming the network allows the port.
+
+The browser refreshes from the local event store on the configured interval.
+The server also exposes `/api/dashboard` for JSON inspection and `/healthz` for
+lightweight health checks. For automation or MCP hosts, the dashboard operation
+still supports static snapshot generation.
 
 The MCP equivalent is:
 
@@ -84,6 +89,9 @@ The MCP equivalent is:
 The MCP operation returns a local HTML snapshot path and file URL for
 `state/dashboard/index.html`. MCP hosts do not start a long-running server and
 do not open a browser unless `open` is set to `true`.
+
+See `docs/dashboard.md` for the full dashboard usage and implementation
+contract.
 
 ## Selection Sources
 

@@ -4,25 +4,47 @@ import { errorCode, nextAction, recommendedAction } from "../src/core/errors.js"
 
 describe("documentation contracts", () => {
   it("documents the observability dashboard server and static artifact", async () => {
-    const [readme, installPrompt, workflow, contracts] = await Promise.all([
+    const [readme, installPrompt, workflow, contracts, roadmap, dashboard] = await Promise.all([
       readFile("README.md", "utf8"),
       readFile("docs/agent-install-prompt.md", "utf8"),
       readFile("docs/agent-workflow.md", "utf8"),
-      readFile("docs/contracts.md", "utf8")
+      readFile("docs/contracts.md", "utf8"),
+      readFile("docs/implementation-roadmap.md", "utf8"),
+      readFile("docs/dashboard.md", "utf8")
     ]);
 
     expect(readme).toContain("moryn dashboard");
     expect(readme).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(readme).toContain("http://127.0.0.1:8765/");
+    expect(readme).toContain("docs/dashboard.md");
+    expect(readme).toContain("[Dashboard](docs/dashboard.md)");
     expect(readme).toContain("--no-open");
     expect(readme).toContain("state/dashboard/index.html");
     expect(installPrompt).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(installPrompt).toContain("http://127.0.0.1:8765/");
+    expect(installPrompt).toContain("--host 0.0.0.0");
     expect(installPrompt).toContain("moryn dashboard --no-open");
+    expect(installPrompt).toContain("[Dashboard](dashboard.md)");
     expect(workflow).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(workflow).toContain("http://127.0.0.1:8765/");
     expect(workflow).toContain("record quality");
     expect(workflow).toContain("open the static snapshot");
     expect(contracts).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(contracts).toContain("/api/dashboard");
+    expect(contracts).toContain("/healthz");
+    expect(contracts).toContain("docs/dashboard.md");
     expect(contracts).toContain("dashboard");
     expect(contracts).toContain('"tool": "dashboard"');
+    expect(roadmap).toContain("[dashboard.md](dashboard.md)");
+    expect(roadmap).toContain("Local dashboard server and static snapshots");
+    expect(dashboard).toContain("# Moryn Dashboard");
+    expect(dashboard).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(dashboard).toContain("http://127.0.0.1:8765/");
+    expect(dashboard).toContain("moryn dashboard --serve --host 0.0.0.0 --port 8765");
+    expect(dashboard).toContain("GET /fragment");
+    expect(dashboard).toContain("GET /api/dashboard");
+    expect(dashboard).toContain("MCP `dashboard` tool");
+    expect(dashboard).toContain("does not start a long-running HTTP server");
   });
 
   it("keeps the design spec error contract aligned with runtime envelopes", async () => {

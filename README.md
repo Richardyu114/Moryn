@@ -178,19 +178,26 @@ moryn rebuild
 
 ## Observability Dashboard
 
-Serve a local dashboard when you need to monitor sync state, records, recent
-events, and agent activity as the store changes:
+Serve a local dashboard when you need a browser view of sync state, records,
+recent events, and agent activity as the store changes:
 
 ```bash
 moryn dashboard --serve --host 127.0.0.1 --port 8765
 ```
 
-The server rebuilds dashboard data from local event history on each refresh.
-For static inspection, `moryn dashboard --no-open` still writes
-`state/dashboard/index.html` inside the local Moryn store; that snapshot is not
-synced. Interactive lifecycle and sync commands generate the same static
-snapshot and open it by default; pass `--no-open` in automation or when a
-browser should not be launched.
+Open `http://127.0.0.1:8765/` on the same machine. To view it from another
+device on the same LAN, bind to `0.0.0.0` and open
+`http://<machine-ip>:8765/`; firewall and network policy must allow the port.
+
+The server rebuilds dashboard data from local event history on each refresh and
+also exposes `/api/dashboard` for JSON inspection. For static inspection,
+`moryn dashboard --no-open` writes `state/dashboard/index.html` inside the local
+Moryn store; that snapshot is not synced. Interactive lifecycle and sync
+commands generate the same static snapshot and open it by default; pass
+`--no-open` in automation or when a browser should not be launched.
+
+See [Dashboard](docs/dashboard.md) for endpoints, access modes, and
+troubleshooting.
 
 ## Safety Model
 
@@ -216,6 +223,7 @@ High-risk canonical writes require explicit confirmation.
 - [Agent Install Prompt](docs/agent-install-prompt.md)
 - [Agent Workflow](docs/agent-workflow.md)
 - [Contracts](docs/contracts.md)
+- [Dashboard](docs/dashboard.md)
 - [Development](docs/development.md)
 - [Design Spec](docs/moryn-design.md)
 - [Implementation Roadmap](docs/implementation-roadmap.md)
