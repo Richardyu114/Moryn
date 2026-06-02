@@ -50,6 +50,11 @@ During agent work:
 - Promote only material that is stable enough to become canonical shared memory.
 - Use `moryn agent status` during long work when it helps future handoffs.
 - End with `moryn agent finish` and a concise handoff summary.
+- Use `moryn dashboard --serve --host 127.0.0.1 --port 8765` when a human needs
+  live browser monitoring of sync state, records, recent events, or agent
+  activity.
+- Use `moryn dashboard --no-open` when automation needs a static HTML snapshot
+  without launching a browser.
 - If derived views look stale, run `moryn refresh` or `moryn rebuild`.
 
 Sync:

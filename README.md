@@ -176,6 +176,22 @@ the source of truth; derived views can be rebuilt at any time:
 moryn rebuild
 ```
 
+## Observability Dashboard
+
+Serve a local dashboard when you need to monitor sync state, records, recent
+events, and agent activity as the store changes:
+
+```bash
+moryn dashboard --serve --host 127.0.0.1 --port 8765
+```
+
+The server rebuilds dashboard data from local event history on each refresh.
+For static inspection, `moryn dashboard --no-open` still writes
+`state/dashboard/index.html` inside the local Moryn store; that snapshot is not
+synced. Interactive lifecycle and sync commands generate the same static
+snapshot and open it by default; pass `--no-open` in automation or when a
+browser should not be launched.
+
 ## Safety Model
 
 Moryn separates source material from durable shared memory:

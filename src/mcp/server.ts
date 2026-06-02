@@ -23,6 +23,7 @@ import { mcpArgumentsForAction } from "../core/action-interfaces.js";
 import { initializeStore } from "../core/config.js";
 import { rebuildDerivedViews } from "../core/derived.js";
 import type { createEngine } from "../core/engine.js";
+import { openDashboard, writeDashboardSnapshot } from "../observability/dashboard.js";
 import {
   commandForAgentEnterContext,
   commandForAgentFinishContext,
@@ -44,6 +45,13 @@ import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from ".
 
 type Engine = ReturnType<typeof createEngine>;
 type McpInputShape = Record<string, z.ZodType>;
+type McpDashboardMetadata =
+  | Awaited<ReturnType<typeof writeDashboardSnapshot>>
+  | {
+      generated: false;
+      opened: false;
+      error: string;
+    };
 type McpAliasConflict = {
   argument: string;
   path: string;
@@ -620,6 +628,36 @@ async function toolResultWithNormalizedInput(
       isError: true
     };
   }
+}
+
+function validateMcpDashboardOpen(value: unknown): asserts value is boolean | undefined {
+  if (value !== undefined && typeof value !== "boolean") {
+    throw new Error("Invalid argument: Invalid dashboard open; must be boolean");
+  }
+}
+
+async function mcpDashboardMetadata(storePath: string, open: boolean): Promise<McpDashboardMetadata> {
+  try {
+    const snapshot = await writeDashboardSnapshot(storePath);
+    if (!open) return snapshot;
+    await openDashboard(snapshot.url);
+    return { ...snapshot, opened: true };
+  } catch (error) {
+    return {
+      generated: false,
+      opened: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+async function withOptionalMcpDashboard<T extends object>(storePath: string, result: T, open: unknown): Promise<T & { dashboard?: McpDashboardMetadata }> {
+  validateMcpDashboardOpen(open);
+  if (open === undefined) return result;
+  return {
+    ...result,
+    dashboard: await mcpDashboardMetadata(storePath, open)
+  };
 }
 
 function compactUndefined<T extends Record<string, unknown>>(input: T): Record<string, unknown> {
@@ -1545,6 +1583,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         refresh_since: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional(),
         pull: coreValidatedBooleanSchema.optional(),
+        open: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
         ...objectPathAliasInputSchema("agent_enter"),
         ...agentAliasInputSchema,
@@ -1554,7 +1593,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     async (input) => toolResultWithNormalizedInput("agent_enter", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPull = normalizedInput.pull as boolean | undefined;
-      return agentEnter({
+      const result = await agentEnter({
         storePath: options.storePath,
         ...lifecycleProjectContextInput("agent_enter", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
         syncRemote: normalizedInput.sync_remote as string | undefined,
@@ -1564,6 +1603,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         pull: coreValidatedPull,
         agent: lifecycleAgent
       });
+      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
     }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPull = normalizedInput.pull as boolean | undefined;
@@ -1626,6 +1666,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         refresh_since: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional(),
         pull: coreValidatedBooleanSchema.optional(),
+        open: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
         ...objectPathAliasInputSchema("agent_start"),
         ...agentAliasInputSchema,
@@ -1635,7 +1676,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     async (input) => toolResultWithNormalizedInput("agent_start", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPull = normalizedInput.pull as boolean | undefined;
-      return agentStart({
+      const result = await agentStart({
         storePath: options.storePath,
         ...lifecycleProjectContextInput("agent_start", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
         syncRemote: normalizedInput.sync_remote as string | undefined,
@@ -1645,6 +1686,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         pull: coreValidatedPull,
         agent: lifecycleAgent
       });
+      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
     }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPull = normalizedInput.pull as boolean | undefined;
@@ -1678,6 +1720,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
+        open: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
         ...objectPathAliasInputSchema("agent_finish"),
         ...agentAliasInputSchema,
@@ -1687,7 +1730,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     async (input) => toolResultWithNormalizedInput("agent_finish", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPush = normalizedInput.push as boolean | undefined;
-      return agentFinish({
+      const result = await agentFinish({
         storePath: options.storePath,
         ...lifecycleProjectContextInput("agent_finish", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
         syncRemote: normalizedInput.sync_remote as string | undefined,
@@ -1696,6 +1739,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         push: coreValidatedPush,
         agent: lifecycleAgent
       });
+      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
     }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPush = normalizedInput.push as boolean | undefined;
@@ -1729,6 +1773,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         push: coreValidatedBooleanSchema.optional(),
+        open: coreValidatedBooleanSchema.optional(),
         agent: coreValidatedAgentSchema.optional(),
         ...objectPathAliasInputSchema("agent_status"),
         ...agentAliasInputSchema,
@@ -1738,7 +1783,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     async (input) => toolResultWithNormalizedInput("agent_status", input, async (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPush = normalizedInput.push as boolean | undefined;
-      return agentStatus({
+      const result = await agentStatus({
         storePath: options.storePath,
         ...lifecycleProjectContextInput("agent_status", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path }),
         syncRemote: normalizedInput.sync_remote as string | undefined,
@@ -1747,6 +1792,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         push: coreValidatedPush,
         agent: lifecycleAgent
       });
+      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
     }, (normalizedInput) => {
       const lifecycleAgent = lifecycleAgentInput(normalizedInput.agent);
       const coreValidatedPush = normalizedInput.push as boolean | undefined;
@@ -1779,15 +1825,42 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   );
 
   server.registerTool(
+    "dashboard",
+    {
+      title: "Generate Moryn Dashboard",
+      description: "Generate a local static HTML dashboard for sync status, records, recent events, and agent activity.",
+      inputSchema: mcpInputSchema({
+        limit: coreValidatedNumberSchema.optional(),
+        open: coreValidatedBooleanSchema.optional()
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("dashboard", input, async (normalizedInput) => {
+      validateMcpDashboardOpen(normalizedInput.open);
+      const snapshot = await writeDashboardSnapshot(options.storePath, {
+        limit: normalizedInput.limit as number | undefined
+      });
+      if (normalizedInput.open === true) {
+        await openDashboard(snapshot.url);
+        return { ...snapshot, opened: true };
+      }
+      return snapshot;
+    })
+  );
+
+  server.registerTool(
     "sync_init",
     {
       title: "Initialize Moryn Git Sync",
       description: "Initialize or connect the local Moryn store to a Git remote.",
       inputSchema: mcpInputSchema({
-        remote: coreValidatedStringSchema
+        remote: coreValidatedStringSchema,
+        open: coreValidatedBooleanSchema.optional()
       })
     },
-    async (input) => toolResultWithNormalizedInput("sync_init", input, async (normalizedInput) => initializeGitSync(options.storePath, normalizedInput.remote as string))
+    async (input) => toolResultWithNormalizedInput("sync_init", input, async (normalizedInput) => {
+      const result = await initializeGitSync(options.storePath, normalizedInput.remote as string);
+      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
+    })
   );
 
   server.registerTool(
@@ -1805,9 +1878,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     {
       title: "Pull Moryn Git Sync",
       description: "Pull remote event history into the local Moryn store.",
-      inputSchema: mcpInputSchema({})
+      inputSchema: mcpInputSchema({
+        open: coreValidatedBooleanSchema.optional()
+      })
     },
-    async (input) => toolResultWithNormalizedInput("sync_pull", input, async () => pullGitSync(options.storePath))
+    async (input) => toolResultWithNormalizedInput("sync_pull", input, async (normalizedInput) => {
+      const result = await pullGitSync(options.storePath);
+      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
+    })
   );
 
   server.registerTool(
@@ -1816,10 +1894,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Push Moryn Git Sync",
       description: "Commit and push local event history from the Moryn store.",
       inputSchema: mcpInputSchema({
-        message: coreValidatedStringSchema.optional()
+        message: coreValidatedStringSchema.optional(),
+        open: coreValidatedBooleanSchema.optional()
       })
     },
-    async (input) => toolResultWithNormalizedInput("sync_push", input, async (normalizedInput) => pushGitSync(options.storePath, { message: normalizedInput.message as string | undefined }))
+    async (input) => toolResultWithNormalizedInput("sync_push", input, async (normalizedInput) => {
+      const result = await pushGitSync(options.storePath, { message: normalizedInput.message as string | undefined });
+      return withOptionalMcpDashboard(options.storePath, result, normalizedInput.open);
+    })
   );
 
   server.registerTool(

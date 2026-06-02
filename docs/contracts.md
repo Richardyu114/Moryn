@@ -54,6 +54,37 @@ The compact index is intended as the first lookup. It gives operation ids,
 categories, summaries, readiness, CLI commands, MCP tools, and exact lookup
 recipes for the full contract.
 
+The observability dashboard is also exposed through the same contract registry:
+
+```bash
+moryn contracts operations --operation dashboard
+```
+
+For human monitoring, use the CLI server mode:
+
+```bash
+moryn dashboard --serve --host 127.0.0.1 --port 8765
+```
+
+The browser refreshes from the local event store on the configured interval. For
+automation or MCP hosts, the dashboard operation still supports static snapshot
+generation.
+
+The MCP equivalent is:
+
+```json
+{
+  "tool": "dashboard",
+  "arguments": {
+    "limit": 20
+  }
+}
+```
+
+The MCP operation returns a local HTML snapshot path and file URL for
+`state/dashboard/index.html`. MCP hosts do not start a long-running server and
+do not open a browser unless `open` is set to `true`.
+
 ## Selection Sources
 
 Selection sources are stable response paths. They let hosts find the same field

@@ -10,7 +10,7 @@ import {
 } from "./core/schema.js";
 import { requiredFieldsByName, type RequiredFieldMetadata } from "./core/workflow.js";
 
-type OperationCategory = "setup" | "core" | "sync" | "lifecycle" | "contracts" | "maintenance";
+type OperationCategory = "setup" | "core" | "sync" | "lifecycle" | "contracts" | "maintenance" | "observability";
 
 type OperationInterfaces = {
   cli: {
@@ -334,7 +334,7 @@ export type OperationContractIndexEntry = {
     next_step: ActionExecution["next_step"];
     required_fields: string[];
     missing_required_fields: string[];
-    required_input_sources: {
+    required_input_sources?: {
       by_field: "execution.required_inputs_by_field.<field>";
       by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>";
       by_value_path: "execution.required_input_paths_by_value_path.<value_path>";
@@ -878,6 +878,12 @@ const startSessionArguments = {
     default: true,
     cli: { negative_flag: "--no-pull" },
     mcp: { argument: "pull" }
+  },
+  open: {
+    type: "boolean",
+    required: false,
+    cli: { flag: "--open", negative_flag: "--no-open" },
+    mcp: { argument: "open" }
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
@@ -889,6 +895,52 @@ const publishSessionArguments = {
     default: true,
     cli: { negative_flag: "--no-push" },
     mcp: { argument: "push" }
+  },
+  open: {
+    type: "boolean",
+    required: false,
+    cli: { flag: "--open", negative_flag: "--no-open" },
+    mcp: { argument: "open" }
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
+const dashboardArguments = {
+  open: {
+    type: "boolean",
+    required: false,
+    cli: { flag: "--open", negative_flag: "--no-open" },
+    mcp: { argument: "open" }
+  },
+  serve: {
+    type: "boolean",
+    required: false,
+    default: false,
+    cli: { flag: "--serve", default: false }
+  },
+  host: {
+    type: "string",
+    required: false,
+    default: "127.0.0.1",
+    cli: { flag: "--host", default: "127.0.0.1" }
+  },
+  port: {
+    type: "number",
+    required: false,
+    default: 8765,
+    cli: { flag: "--port", default: 8765 }
+  },
+  interval: {
+    type: "number",
+    required: false,
+    default: 2000,
+    cli: { flag: "--interval", default: 2000 }
+  },
+  limit: {
+    type: "number",
+    required: false,
+    default: 20,
+    cli: { flag: "--limit", default: 20 },
+    mcp: { argument: "limit" }
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
@@ -1711,7 +1763,8 @@ export const OPERATION_CONTRACTS = [
         required: true,
         cli: { positional: "remote" },
         mcp: { argument: "remote" }
-      }
+      },
+      open: dashboardArguments.open
     },
     interfaces: {
       cli: { command: "moryn sync init <remote>", argv: ["sync", "init", "<remote>"] },
@@ -1738,7 +1791,9 @@ export const OPERATION_CONTRACTS = [
     safe_to_run: false,
     required_when: "When the user wants a direct pull instead of using agent_start/agent_enter lifecycle sync.",
     required_fields: [],
-    arguments_by_name: {},
+    arguments_by_name: {
+      open: dashboardArguments.open
+    },
     interfaces: {
       cli: { command: "moryn sync --pull", argv: ["sync", "--pull"] },
       mcp: { tool: "sync_pull", arguments: {} }
@@ -1757,11 +1812,25 @@ export const OPERATION_CONTRACTS = [
         required: false,
         cli: { flag: "--message" },
         mcp: { argument: "message" }
-      }
+      },
+      open: dashboardArguments.open
     },
     interfaces: {
       cli: { command: "moryn sync --push", argv: ["sync", "--push"] },
       mcp: { tool: "sync_push", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "dashboard",
+    category: "observability",
+    summary: "Generate or serve a local HTML dashboard showing sync state, records, events, and agent activity.",
+    safe_to_run: true,
+    required_when: "When the user or agent needs to inspect what Moryn has synced or recently stored; use --serve for live browser monitoring.",
+    required_fields: [],
+    arguments_by_name: dashboardArguments,
+    interfaces: {
+      cli: { command: "moryn dashboard", argv: ["dashboard"] },
+      mcp: { tool: "dashboard", arguments: {} }
     }
   }),
   operationContract({
@@ -1849,11 +1918,11 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
       next_step: operation.execution.next_step,
       required_fields: operation.required_fields,
       missing_required_fields: operation.execution.missing_required_fields,
-      required_input_sources: {
+      ...(operation.required_fields.length > 0 ? { required_input_sources: {
         by_field: "execution.required_inputs_by_field.<field>",
         by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>",
         by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
-      }
+      } } : {})
     },
     full_contract_lookup: operationContractLookup(operation.operation)
   };

@@ -1879,6 +1879,9 @@ describe("MCP stdio server", () => {
           }
         });
         expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
+        expect(parsed.operations_by_id.dashboard.execution_hint).not.toHaveProperty("required_input_sources");
+        expect(parsed.operations_by_id.dashboard.cli_command).toBe("moryn dashboard");
+        expect(parsed.operations_by_id.dashboard.summary).toContain("serve a local HTML dashboard");
         expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
         expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("execution");
       });
@@ -2838,6 +2841,7 @@ describe("MCP stdio server", () => {
           "agent_status",
           "archive",
           "boot",
+          "dashboard",
           "init",
           "link",
           "list_recent",
@@ -2939,6 +2943,11 @@ describe("MCP stdio server", () => {
           "source.client",
           "source_session_id",
           "source.session_id"
+        ]));
+        const dashboardTool = tools.tools.find((tool) => tool.name === "dashboard");
+        expect(Object.keys(dashboardTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "limit",
+          "open"
         ]));
 
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
@@ -3199,6 +3208,25 @@ describe("MCP stdio server", () => {
         })) as { results: Array<{ record: { state: string } }> };
 
         expect(quarantinedRecall.results[0]?.record.state).toBe("quarantined");
+
+        const dashboard = parseTextContent(await client.callTool({
+          name: "dashboard",
+          arguments: { limit: 5 }
+        })) as {
+          generated: boolean;
+          opened: boolean;
+          path: string;
+          url: string;
+        };
+        expect(dashboard).toMatchObject({
+          generated: true,
+          opened: false,
+          path: join(store, "state", "dashboard", "index.html")
+        });
+        expect(dashboard.url).toMatch(/^file:\/\//);
+        const dashboardHtml = await readFile(dashboard.path, "utf8");
+        expect(dashboardHtml).toContain("Prefer concise MCP updates.");
+        expect(dashboardHtml).not.toContain("Use official MCP tools.");
       });
     } finally {
       await rm(store, { recursive: true, force: true });
@@ -3246,19 +3274,31 @@ describe("MCP stdio server", () => {
 
           const push = parseTextContent(await agentA.callTool({
             name: "sync_push",
-            arguments: { message: "sync from mcp agent a" }
-          })) as { ok: boolean; pushed?: boolean; selection_sources: Record<string, string> };
+            arguments: { message: "sync from mcp agent a", open: false }
+          })) as { ok: boolean; pushed?: boolean; selection_sources: Record<string, string>; dashboard: { generated: boolean; opened: boolean; path: string } };
           expect(push.ok).toBe(true);
           expect(push.pushed).toBe(true);
           expect(push.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
+          expect(push.dashboard).toMatchObject({
+            generated: true,
+            opened: false,
+            path: join(storeA, "state", "dashboard", "index.html")
+          });
+          await expect(readFile(push.dashboard.path, "utf8")).resolves.toContain("MCP sync shares events.");
 
           const pull = parseTextContent(await agentB.callTool({
             name: "sync_pull",
-            arguments: {}
-          })) as { ok: boolean; pulled?: boolean; selection_sources: Record<string, string> };
+            arguments: { open: false }
+          })) as { ok: boolean; pulled?: boolean; selection_sources: Record<string, string>; dashboard: { generated: boolean; opened: boolean; path: string } };
           expect(pull.ok).toBe(true);
           expect(pull.pulled).toBe(true);
           expect(pull.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
+          expect(pull.dashboard).toMatchObject({
+            generated: true,
+            opened: false,
+            path: join(storeB, "state", "dashboard", "index.html")
+          });
+          await expect(readFile(pull.dashboard.path, "utf8")).resolves.toContain("MCP sync shares events.");
 
           const rebuild = parseTextContent(await agentB.callTool({
             name: "rebuild",
@@ -3540,11 +3580,13 @@ describe("MCP stdio server", () => {
               project_path: project,
               current_task: "continue lifecycle handoff",
               refresh_since: "2000-01-01T00:00:00.000Z",
+              open: false,
               agent: { client: "gemini", session_id: "gemini-mcp", device_id: "device_b" }
             }
           })) as {
             project: { project_id: string };
             sync: { pull?: { pulled?: boolean } };
+            dashboard: { generated: boolean; opened: boolean; path: string };
             refresh: { cursor: string; changes: Array<{ summary: string; importance: string }> };
             handoff: {
               next_action: {
@@ -3594,6 +3636,12 @@ describe("MCP stdio server", () => {
           };
           expect(start.project.project_id).toBe("moryn");
           expect(start.sync.pull?.pulled).toBe(true);
+          expect(start.dashboard).toMatchObject({
+            generated: true,
+            opened: false,
+            path: join(storeB, "state", "dashboard", "index.html")
+          });
+          await expect(readFile(start.dashboard.path, "utf8")).resolves.toContain("MCP Codex left a lifecycle handoff.");
           expect(start.refresh.changes).toContainEqual(expect.objectContaining({
             summary: "MCP Codex left a lifecycle handoff.",
             importance: "notice"

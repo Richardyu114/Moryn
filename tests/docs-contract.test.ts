@@ -3,6 +3,28 @@ import { describe, expect, it } from "vitest";
 import { errorCode, nextAction, recommendedAction } from "../src/core/errors.js";
 
 describe("documentation contracts", () => {
+  it("documents the observability dashboard server and static artifact", async () => {
+    const [readme, installPrompt, workflow, contracts] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/agent-install-prompt.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/contracts.md", "utf8")
+    ]);
+
+    expect(readme).toContain("moryn dashboard");
+    expect(readme).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(readme).toContain("--no-open");
+    expect(readme).toContain("state/dashboard/index.html");
+    expect(installPrompt).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(installPrompt).toContain("moryn dashboard --no-open");
+    expect(workflow).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(workflow).toContain("record quality");
+    expect(workflow).toContain("open the static snapshot");
+    expect(contracts).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(contracts).toContain("dashboard");
+    expect(contracts).toContain('"tool": "dashboard"');
+  });
+
   it("keeps the design spec error contract aligned with runtime envelopes", async () => {
     const design = await readFile("docs/moryn-design.md", "utf8");
     const implementedCodes = [

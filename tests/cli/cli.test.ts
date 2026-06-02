@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +11,80 @@ const exec = promisify(execFile);
 const repoRoot = process.cwd();
 const tsxLoader = join(repoRoot, "node_modules/tsx/dist/loader.mjs");
 const cliPath = join(repoRoot, "src/cli.ts");
+
+async function execInTty(command: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): Promise<{ stdout: string; stderr: string }> {
+  const escaped = [command, ...args].map((part) => `'${part.replace(/'/g, `'\\''`)}'`).join(" ");
+  return new Promise((resolve, reject) => {
+    const child = spawn("script", ["-q", "-e", "-c", escaped, "/dev/null"], {
+      cwd: options.cwd ?? repoRoot,
+      env: options.env ?? process.env
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+      const error = new Error(`TTY command failed with exit ${code}`) as Error & { stdout: string; stderr: string };
+      error.stdout = stdout;
+      error.stderr = stderr;
+      reject(error);
+    });
+  });
+}
+
+async function waitForStdoutLine(child: ReturnType<typeof spawn>, pattern: RegExp, timeoutMs = 5000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let stdout = "";
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Timed out waiting for stdout pattern ${pattern}; stdout=${stdout}`));
+    }, timeoutMs);
+    const onData = (chunk: Buffer) => {
+      stdout += String(chunk);
+      if (pattern.test(stdout)) {
+        cleanup();
+        resolve(stdout);
+      }
+    };
+    const onError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    const onExit = (code: number | null) => {
+      cleanup();
+      reject(new Error(`Process exited before stdout matched ${pattern}; code=${code}; stdout=${stdout}`));
+    };
+    const cleanup = () => {
+      clearTimeout(timeout);
+      child.stdout.off("data", onData);
+      child.off("error", onError);
+      child.off("exit", onExit);
+    };
+    child.stdout.on("data", onData);
+    child.on("error", onError);
+    child.on("exit", onExit);
+  });
+}
+
+async function stopChild(child: ReturnType<typeof spawn>): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  await new Promise<void>((resolve) => {
+    child.once("exit", () => resolve());
+    child.kill("SIGTERM");
+    setTimeout(() => {
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    }, 1000).unref();
+  });
+}
 const LIST_PROJECTS_WHEN = "When the shared store has projects but this agent has no explicit project context.";
 const FIX_PROJECT_CONFIG_WHEN = "Before starting lifecycle work when project context is invalid or missing.";
 const INSPECT_SYNC_CONFLICT_WHEN = "Before retrying lifecycle writes or sync operations after a Git conflict.";
@@ -1710,6 +1785,9 @@ describe("moryn CLI", () => {
       }
     });
     expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
+    expect(parsed.operations_by_id.dashboard.execution_hint).not.toHaveProperty("required_input_sources");
+    expect(parsed.operations_by_id.dashboard.cli_command).toBe("moryn dashboard");
+    expect(parsed.operations_by_id.dashboard.summary).toContain("serve a local HTML dashboard");
     expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
     expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("execution");
   });
@@ -1740,6 +1818,49 @@ describe("moryn CLI", () => {
     expect(parsed.operation.execution.next_step).toBe("collect_required_fields");
     expect(parsed.operation.execution.required_input_paths_by_value_path["user_input.summary"]).toBe("execution.required_inputs_by_field.summary");
     expect(parsed.selection_sources).toEqual(OPERATION_CONTRACTS_SELECTION_SOURCES);
+  });
+
+  it("documents dashboard server arguments in the operation contract", async () => {
+    const result = await exec("node", [
+      "--import", tsxLoader, cliPath,
+      "contracts", "operations",
+      "--operation", "dashboard"
+    ]);
+    const parsed = JSON.parse(result.stdout) as {
+      operation: {
+        interfaces: { cli: { command: string } };
+        arguments_by_name: Record<string, {
+          type: string;
+          default?: unknown;
+          cli?: { flag?: string };
+          mcp?: { argument?: string };
+        }>;
+      };
+    };
+
+    expect(parsed.operation.interfaces.cli.command).toBe("moryn dashboard");
+    expect(parsed.operation.arguments_by_name.serve).toMatchObject({
+      type: "boolean",
+      default: false,
+      cli: { flag: "--serve" }
+    });
+    expect(parsed.operation.arguments_by_name.host).toMatchObject({
+      type: "string",
+      default: "127.0.0.1",
+      cli: { flag: "--host" }
+    });
+    expect(parsed.operation.arguments_by_name.port).toMatchObject({
+      type: "number",
+      default: 8765,
+      cli: { flag: "--port" }
+    });
+    expect(parsed.operation.arguments_by_name.interval).toMatchObject({
+      type: "number",
+      default: 2000,
+      cli: { flag: "--interval" }
+    });
+    expect(parsed.operation.arguments_by_name.limit.mcp).toEqual({ argument: "limit" });
+    expect(parsed.operation.arguments_by_name.open.mcp).toEqual({ argument: "open" });
   });
 
   it("returns one operation contract from the CLI by MCP tool or CLI command", async () => {
@@ -3754,7 +3875,7 @@ describe("moryn CLI", () => {
 
       await expect(readEvents(dir)).resolves.toHaveLength(0);
     });
-  }, 20000);
+  }, 30000);
 
   it("rejects empty CLI positionals before side effects", async () => {
     await withTempDir(async (dir) => {
@@ -4293,13 +4414,32 @@ describe("moryn CLI", () => {
 
       const push = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeA, "sync", "--push", "--message", "custom cli sync"]);
       expect(push.stdout).toContain("\"pushed\": true");
-      expect((JSON.parse(push.stdout) as { selection_sources: Record<string, string> }).selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
+      const parsedPush = JSON.parse(push.stdout) as {
+        selection_sources: Record<string, string>;
+        dashboard?: { generated: boolean; opened: boolean; path: string; url: string };
+      };
+      expect(parsedPush.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
+      expect(parsedPush.dashboard).toMatchObject({
+        generated: true,
+        opened: false,
+        path: join(storeA, "state", "dashboard", "index.html")
+      });
+      expect(parsedPush.dashboard?.url).toMatch(/^file:\/\//);
       const commitMessage = await exec("git", ["log", "-1", "--pretty=%s"], { cwd: storeA });
       expect(commitMessage.stdout.trim()).toBe("custom cli sync");
 
       const pull = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--pull"]);
       expect(pull.stdout).toContain("\"pulled\": true");
-      expect((JSON.parse(pull.stdout) as { selection_sources: Record<string, string> }).selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
+      const parsedPull = JSON.parse(pull.stdout) as {
+        selection_sources: Record<string, string>;
+        dashboard?: { generated: boolean; opened: boolean; path: string; url: string };
+      };
+      expect(parsedPull.selection_sources).toEqual(SYNC_RESULT_SELECTION_SOURCES);
+      expect(parsedPull.dashboard).toMatchObject({
+        generated: true,
+        opened: false,
+        path: join(storeB, "state", "dashboard", "index.html")
+      });
 
       const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "recall", "Git", "--project-id", "moryn"]);
       expect(recall.stdout).toContain("CLI sync uses Git");
@@ -4307,6 +4447,170 @@ describe("moryn CLI", () => {
       const status = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", storeB, "sync", "--status"]);
       expect(status.stdout).toContain("\"configured\": true");
       expect(status.stdout).toContain("\"dirty\": false");
+    });
+  }, 30000);
+
+  it("writes and opens dashboard snapshots from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--state", "canonical",
+        "--text", "Dashboard CLI snapshot memory"
+      ]);
+
+      const snapshot = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "dashboard",
+        "--no-open",
+        "--limit", "5"
+      ])).stdout) as { generated: boolean; opened: boolean; path: string; url: string };
+      expect(snapshot).toMatchObject({
+        generated: true,
+        opened: false,
+        path: join(store, "state", "dashboard", "index.html")
+      });
+      expect(snapshot.url).toMatch(/^file:\/\//);
+      await expect(readFile(snapshot.path, "utf8")).resolves.toContain("Dashboard CLI snapshot memory");
+
+      const opened = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "dashboard",
+        "--open"
+      ], { env: { ...process.env, MORYN_DASHBOARD_OPEN_COMMAND: "true" } })).stdout) as {
+        generated: boolean;
+        opened: boolean;
+        path: string;
+        url: string;
+      };
+      expect(opened.generated).toBe(true);
+      expect(opened.opened).toBe(true);
+      expect(opened.path).toBe(join(store, "state", "dashboard", "index.html"));
+
+      const defaultOpened = JSON.parse((await execInTty("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "dashboard"
+      ], { env: { ...process.env, MORYN_DASHBOARD_OPEN_COMMAND: "true" } })).stdout) as {
+        generated: boolean;
+        opened: boolean;
+        path: string;
+      };
+      expect(defaultOpened.generated).toBe(true);
+      expect(defaultOpened.opened).toBe(true);
+      expect(defaultOpened.path).toBe(join(store, "state", "dashboard", "index.html"));
+    });
+  });
+
+  it("serves the dashboard from the CLI with live refresh endpoints", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--state", "canonical",
+        "--text", "Dashboard CLI server memory"
+      ]);
+
+      const child = spawn("node", [
+        "--import", "tsx",
+        "src/cli.ts",
+        "--store", store,
+        "dashboard",
+        "--serve",
+        "--host", "127.0.0.1",
+        "--port", "0",
+        "--interval", "250",
+        "--limit", "5",
+        "--no-open"
+      ], {
+        cwd: repoRoot,
+        env: { ...process.env, CI: "true" },
+        stdio: ["ignore", "pipe", "pipe"]
+      });
+      try {
+        const output = await waitForStdoutLine(child, /"serving":\s*true/);
+        const served = JSON.parse(output) as {
+          serving: boolean;
+          opened: boolean;
+          url: string;
+          host: string;
+          port: number;
+          refresh_interval_ms: number;
+        };
+        expect(served).toMatchObject({
+          serving: true,
+          opened: false,
+          host: "127.0.0.1",
+          refresh_interval_ms: 250
+        });
+        expect(served.port).toBeGreaterThan(0);
+        expect(served.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
+
+        const page = await (await fetch(served.url)).text();
+        expect(page).toContain("Dashboard CLI server memory");
+        expect(page).toContain("data-dashboard-refresh=\"250\"");
+
+        await exec("node", [
+          "--import", "tsx", "src/cli.ts", "--store", store,
+          "write",
+          "--kind", "session_summary",
+          "--project-id", "moryn",
+          "--text", "Dashboard CLI server refreshed"
+        ]);
+
+        const fragment = await (await fetch(new URL("/fragment", served.url))).text();
+        expect(fragment).toContain("Dashboard CLI server refreshed");
+      } finally {
+        await stopChild(child);
+      }
+    });
+  });
+
+  it("opens dashboard after sync when explicitly requested", async () => {
+    await withTempDir(async (dir) => {
+      const remote = join(dir, "remote.git");
+      const store = join(dir, "store");
+      await exec("git", ["init", "--bare", remote]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "init"]);
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", store, "sync", "init", remote, "--no-open"]);
+      await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--state", "canonical",
+        "--text", "Explicit sync dashboard open"
+      ]);
+
+      const pushed = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", store,
+        "sync",
+        "--push",
+        "--open"
+      ], { env: { ...process.env, MORYN_DASHBOARD_OPEN_COMMAND: "true" } })).stdout) as {
+        pushed: boolean;
+        dashboard?: { generated: boolean; opened: boolean; path: string };
+      };
+
+      expect(pushed.pushed).toBe(true);
+      expect(pushed.dashboard).toMatchObject({
+        generated: true,
+        opened: true,
+        path: join(store, "state", "dashboard", "index.html")
+      });
     });
   }, 30000);
 

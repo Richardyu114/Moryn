@@ -40,6 +40,15 @@ export {
 } from "./operation-contracts.js";
 import { PROJECT_INIT_SELECTION_SOURCES } from "./core/project.js";
 export { parseRecord } from "./core/schema.js";
+import { DASHBOARD_SELECTION_SOURCES } from "./observability/dashboard.js";
+export {
+  buildDashboardData,
+  renderDashboardFragment,
+  renderDashboardHtml,
+  renderDashboardServerHtml,
+  startDashboardServer,
+  writeDashboardSnapshot
+} from "./observability/dashboard.js";
 import { SYNC_RESULT_SELECTION_SOURCES, SYNC_STATUS_SELECTION_SOURCES } from "./sync/git.js";
 export type { MorynRecord } from "./core/types.js";
 
@@ -70,6 +79,7 @@ export {
   WRITE_SELECTION_SOURCES,
   NEXT_ACTION_SELECTION_SOURCES,
   PROJECT_INIT_SELECTION_SOURCES,
+  DASHBOARD_SELECTION_SOURCES,
   SYNC_RESULT_SELECTION_SOURCES,
   SYNC_STATUS_SELECTION_SOURCES
 };
@@ -96,6 +106,9 @@ export const SELECTION_SOURCE_CONTRACTS = {
   sync: {
     status: SYNC_STATUS_SELECTION_SOURCES,
     result: SYNC_RESULT_SELECTION_SOURCES
+  },
+  observability: {
+    dashboard: DASHBOARD_SELECTION_SOURCES
   },
   lifecycle: {
     guide: GUIDE_SELECTION_SOURCES,

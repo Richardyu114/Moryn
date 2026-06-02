@@ -125,6 +125,22 @@ moryn agent finish \
 `agent finish` writes a `session_summary` handoff and pushes when sync is
 configured. The next agent can see it through `agent start` or `agent enter`.
 
+## Observability Dashboard
+
+Use the dashboard when a human or agent needs a quick local view of store
+health. For live monitoring, serve it locally:
+
+```bash
+moryn dashboard --serve --host 127.0.0.1 --port 8765
+```
+
+The browser refreshes from the current local store on the configured interval.
+For automation or static inspection, `moryn dashboard --no-open` writes
+`state/dashboard/index.html` inside the local Moryn store. The dashboard shows
+sync status, record quality, record types, recent value, and agent activity. In
+interactive terminals, lifecycle and sync commands open the static snapshot
+automatically; pass `--no-open` for automation.
+
 ## Recovery Actions
 
 Moryn error and warning envelopes include machine-readable recovery actions.

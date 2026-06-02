@@ -49,6 +49,13 @@ import {
   isValidPatchPath
 } from "./core/schema.js";
 import { runMcpServer } from "./mcp/server.js";
+import {
+  openDashboard,
+  startDashboardServer,
+  writeDashboardSnapshot,
+  type DashboardServerHandle,
+  type DashboardSnapshot
+} from "./observability/dashboard.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
 
 const program = new Command();
@@ -77,7 +84,7 @@ const CLI_GLOBAL_OPTIONS = [
   { option: "--version", position: "before_command" },
   { option: "-V", position: "before_command" }
 ] as const;
-type CliLimitOperation = "recall" | "refresh" | "list_recent" | "project_list" | "agent_enter" | "agent_start";
+type CliLimitOperation = "recall" | "refresh" | "list_recent" | "project_list" | "agent_enter" | "agent_start" | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
@@ -130,7 +137,8 @@ type CliParserOperation =
   | "agent_finish"
   | "project_init"
   | "project_list"
-  | "sync_init";
+  | "sync_init"
+  | "dashboard";
 type CliParserArgumentSource = `operations_by_id.${CliParserOperation}.arguments_by_name.${string}`;
 type CliParserSource = {
   operation: CliParserOperation;
@@ -1816,6 +1824,94 @@ function parseBooleanDefault(value: unknown, fallback: boolean): boolean {
   return value === undefined ? fallback : Boolean(value);
 }
 
+type DashboardCliOptions = {
+  open?: boolean;
+  limit?: string;
+  serve?: boolean;
+  host?: string;
+  port?: string;
+  interval?: string;
+};
+
+type DashboardCliMetadata =
+  | DashboardSnapshot
+  | (Omit<DashboardServerHandle, "close"> & {
+      opened: boolean;
+    })
+  | {
+      generated: false;
+      opened: false;
+      error: string;
+    };
+
+function dashboardOpenRequested(options: DashboardCliOptions): boolean {
+  if (options.open !== undefined) return options.open;
+  return Boolean(process.stdout.isTTY) && process.env.CI !== "true";
+}
+
+function parseDashboardPort(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error("Invalid argument: Invalid dashboard port; must be an integer between 0 and 65535");
+  }
+  return port;
+}
+
+function parseDashboardInterval(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const interval = Number(value);
+  if (!Number.isInteger(interval) || interval < 250 || interval > 60000) {
+    throw new Error("Invalid argument: Invalid dashboard interval; must be an integer between 250 and 60000");
+  }
+  return interval;
+}
+
+async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<DashboardCliMetadata> {
+  try {
+    const limit = options.limit === undefined ? undefined : parseLimit(options.limit, "dashboard");
+    if (options.serve) {
+      const server = await startDashboardServer(storePath(), {
+        host: options.host,
+        port: parseDashboardPort(options.port),
+        refreshIntervalMs: parseDashboardInterval(options.interval),
+        limit
+      });
+      const shouldOpen = dashboardOpenRequested(options);
+      if (shouldOpen) await openDashboard(server.url);
+      return {
+        serving: server.serving,
+        host: server.host,
+        port: server.port,
+        url: server.url,
+        refresh_interval_ms: server.refresh_interval_ms,
+        opened: shouldOpen
+      };
+    }
+    const snapshot = await writeDashboardSnapshot(storePath(), {
+      limit
+    });
+    const shouldOpen = dashboardOpenRequested(options);
+    if (!shouldOpen) return snapshot;
+    await openDashboard(snapshot.url);
+    return { ...snapshot, opened: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      generated: false,
+      opened: false,
+      error: message
+    };
+  }
+}
+
+async function withDashboard<T extends object>(result: T, options: DashboardCliOptions = {}): Promise<T & { dashboard: DashboardCliMetadata }> {
+  return {
+    ...result,
+    dashboard: await dashboardMetadata(options)
+  };
+}
+
 function agentOptionSource(operation: CliParserOperation | undefined, argument: string): CliParserSource | undefined {
   return operation === undefined ? undefined : { operation, argument };
 }
@@ -2178,6 +2274,30 @@ program.command("rebuild").action(async () => {
   printJson(await rebuildDerivedViews(storePath()));
 });
 
+program.command("dashboard")
+  .option("--open", "Open the generated dashboard in the default browser")
+  .option("--no-open", "Do not open the generated dashboard")
+  .option("--serve", "Serve the dashboard over local HTTP with live refresh")
+  .option("--host <host>", "Dashboard server bind host", "127.0.0.1")
+  .option("--port <port>", "Dashboard server port; use 0 to choose a free port", "8765")
+  .option("--interval <ms>", "Dashboard browser refresh interval in milliseconds", "2000")
+  .option("--limit <n>", "Recent record and event limit", "20")
+  .action(async (options) => {
+    const limit = parseLimit(options.limit, "dashboard");
+    const dashboard = await dashboardMetadata({
+      open: options.open,
+      limit: String(limit),
+      serve: options.serve,
+      host: options.host,
+      port: options.port,
+      interval: options.interval
+    });
+    if ("generated" in dashboard && dashboard.generated === false) {
+      throw new Error(dashboard.error);
+    }
+    printJson(dashboard);
+  });
+
 const contracts = program.command("contracts");
 
 contracts.command("selection-sources")
@@ -2270,6 +2390,8 @@ agent.command("enter")
   .option("--refresh-since <cursor>")
   .option("--limit <n>", "Refresh change or project discovery limit", "20")
   .option("--no-pull", "Do not pull sync before boot when starting a known project")
+  .option("--open", "Open the generated dashboard after startup")
+  .option("--no-open", "Do not open the generated dashboard after startup")
   .option("--agent <client>", "Agent client name")
   .option("--session-id <id>")
   .option("--model <model>")
@@ -2294,7 +2416,7 @@ agent.command("enter")
       arguments: contextArguments
     };
     try {
-      printJson(await agentEnter({
+      const result = await agentEnter({
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
@@ -2304,7 +2426,8 @@ agent.command("enter")
         limit: parseLimit(options.limit, "agent_enter"),
         pull,
         agent: agentOptions
-      }));
+      });
+      printJson(await withDashboard(result, { open: options.open }));
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -2340,6 +2463,8 @@ agent.command("start")
   .option("--refresh-since <cursor>")
   .option("--limit <n>", "Refresh change limit", "20")
   .option("--no-pull", "Do not pull sync before boot")
+  .option("--open", "Open the generated dashboard after startup")
+  .option("--no-open", "Do not open the generated dashboard after startup")
   .option("--agent <client>", "Agent client name")
   .option("--session-id <id>")
   .option("--model <model>")
@@ -2364,7 +2489,7 @@ agent.command("start")
       arguments: contextArguments
     };
     try {
-      printJson(await agentStart({
+      const result = await agentStart({
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
@@ -2374,7 +2499,8 @@ agent.command("start")
         limit: parseLimit(options.limit, "agent_start"),
         pull,
         agent: agentOptions
-      }));
+      });
+      printJson(await withDashboard(result, { open: options.open }));
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -2388,6 +2514,8 @@ agent.command("status")
   .option("--sync-remote <remote>", "Initialize or connect Git sync before publishing status")
   .option("--current-task <task>")
   .option("--no-push", "Do not push sync after writing the status")
+  .option("--open", "Open the generated dashboard after publishing status")
+  .option("--no-open", "Do not open the generated dashboard after publishing status")
   .option("--agent <client>", "Agent client name")
   .option("--session-id <id>")
   .option("--model <model>")
@@ -2413,7 +2541,7 @@ agent.command("status")
       arguments: contextArguments
     };
     try {
-      printJson(await agentStatus({
+      const result = await agentStatus({
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
@@ -2422,7 +2550,8 @@ agent.command("status")
         status,
         push,
         agent: agentOptions
-      }));
+      });
+      printJson(await withDashboard(result, { open: options.open }));
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -2436,6 +2565,8 @@ agent.command("finish")
   .option("--sync-remote <remote>", "Initialize or connect Git sync before handoff")
   .option("--current-task <task>")
   .option("--no-push", "Do not push sync after writing the handoff")
+  .option("--open", "Open the generated dashboard after publishing handoff")
+  .option("--no-open", "Do not open the generated dashboard after publishing handoff")
   .option("--agent <client>", "Agent client name")
   .option("--session-id <id>")
   .option("--model <model>")
@@ -2461,7 +2592,7 @@ agent.command("finish")
       arguments: contextArguments
     };
     try {
-      printJson(await agentFinish({
+      const result = await agentFinish({
         storePath: storePath(),
         projectPath: options.project,
         projectId: options.projectId,
@@ -2470,7 +2601,8 @@ agent.command("finish")
         summary,
         push,
         agent: agentOptions
-      }));
+      });
+      printJson(await withDashboard(result, { open: options.open }));
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;
@@ -2544,9 +2676,11 @@ const sync = program.command("sync");
 
 sync.command("init")
   .argument("<remote>")
-  .action(async (remote) => {
+  .option("--open", "Open the generated dashboard after sync initialization")
+  .option("--no-open", "Do not open the generated dashboard after sync initialization")
+  .action(async (remote, options) => {
     const syncRemote = parseNonEmptyCliPositional(remote, "remote", { operation: "sync_init", argument: "remote" });
-    printJson(await initializeGitSync(storePath(), syncRemote));
+    printJson(await withDashboard(await initializeGitSync(storePath(), syncRemote), { open: options.open }));
   });
 
 sync
@@ -2554,14 +2688,19 @@ sync
   .option("--push", "Commit and push local events")
   .option("--pull", "Pull remote events")
   .option("--message <message>", "Commit message for --push")
+  .option("--open", "Open the generated dashboard after sync")
+  .option("--no-open", "Do not open the generated dashboard after sync")
   .action(async (options) => {
     validateSyncOperationOptions(options);
     if (options.push) {
-      printJson(await pushGitSync(storePath(), { message: parseNonEmptyString(options.message, "--message") }));
+      printJson(await withDashboard(
+        await pushGitSync(storePath(), { message: parseNonEmptyString(options.message, "--message") }),
+        { open: options.open }
+      ));
       return;
     }
     if (options.pull) {
-      printJson(await pullGitSync(storePath()));
+      printJson(await withDashboard(await pullGitSync(storePath()), { open: options.open }));
       return;
     }
     printJson(await getGitSyncStatus(storePath()));
