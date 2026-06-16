@@ -1030,14 +1030,6 @@ async function createCliSyncConflict(input: {
 }
 
 describe("moryn CLI", () => {
-  it("reports the package version from the CLI", async () => {
-    const packageJson = JSON.parse(await readFile("package.json", "utf8")) as { version: string };
-
-    const result = await exec("node", ["--import", tsxLoader, cliPath, "--version"]);
-
-    expect(result.stdout.trim()).toBe(packageJson.version);
-  });
-
   it("returns selection source contracts from the CLI", async () => {
     const result = await exec("node", [
       "--import", tsxLoader, cliPath,

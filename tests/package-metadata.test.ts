@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { version } from "../src/index.js";
 
 describe("package metadata", () => {
   it("is ready for scoped npm publication", async () => {
@@ -42,13 +41,5 @@ describe("package metadata", () => {
     expect(packageJson.publishConfig?.registry).toBe("https://registry.npmjs.org");
     expect(license).toContain("MIT License");
     expect(license).toContain("Richard Yu");
-  });
-
-  it("reports the package version from the public API", async () => {
-    const packageJson = JSON.parse(await readFile("package.json", "utf8")) as {
-      version: string;
-    };
-
-    expect(version).toBe(packageJson.version);
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "@richardyu114/moryn",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Local-first memory, skill, and handoff layer for AI agents.",
   "type": "module",
   "main": "./dist/index.js",
