@@ -58,6 +58,7 @@ export interface DashboardEventSummary {
 
 export interface DashboardAgentActivity {
   client: string;
+  raw_clients: string[];
   events: number;
   records: number;
   latest_at: string;
@@ -226,23 +227,37 @@ function latestIso(left: string, right: string): string {
   return left.localeCompare(right) >= 0 ? left : right;
 }
 
+function displayClient(rawClient: string): string {
+  const normalized = rawClient.toLowerCase();
+  if (["agent", "cli", "codex", "codex-cli", "mcp"].includes(normalized)) return "Codex / Moryn Local";
+  if (normalized === "gemini") return "Gemini";
+  return titleCase(rawClient || "unknown");
+}
+
+function updateAgentActivity(
+  activity: Map<string, DashboardAgentActivity>,
+  rawClient: string,
+  field: "events" | "records",
+  latestAt: string
+) {
+  const client = displayClient(rawClient);
+  const existing = activity.get(client) ?? { client, raw_clients: [], events: 0, records: 0, latest_at: latestAt };
+  existing[field] += 1;
+  existing.latest_at = latestIso(existing.latest_at, latestAt);
+  if (!existing.raw_clients.includes(rawClient)) existing.raw_clients.push(rawClient);
+  existing.raw_clients.sort();
+  activity.set(client, existing);
+}
+
 function summarizeAgentActivity(events: MorynEvent[], records: MorynRecord[]): DashboardAgentActivity[] {
   const activity = new Map<string, DashboardAgentActivity>();
 
   for (const event of events) {
-    const client = event.source.client;
-    const existing = activity.get(client) ?? { client, events: 0, records: 0, latest_at: event.created_at };
-    existing.events += 1;
-    existing.latest_at = latestIso(existing.latest_at, event.created_at);
-    activity.set(client, existing);
+    updateAgentActivity(activity, event.source.client, "events", event.created_at);
   }
 
   for (const record of records) {
-    const client = record.source.client;
-    const existing = activity.get(client) ?? { client, events: 0, records: 0, latest_at: record.updated_at };
-    existing.records += 1;
-    existing.latest_at = latestIso(existing.latest_at, record.updated_at);
-    activity.set(client, existing);
+    updateAgentActivity(activity, record.source.client, "records", record.updated_at);
   }
 
   return [...activity.values()].sort((left, right) => {
@@ -255,7 +270,7 @@ function sourceLabel(source: RecordSource): string {
 }
 
 function humanSourceLabel(source: RecordSource): string {
-  return source.client || "unknown";
+  return displayClient(source.client || "unknown");
 }
 
 function humanSourceDetail(source: RecordSource): string {
@@ -519,8 +534,9 @@ function summarizeValueRecord(record: MorynRecord, generatedAt: string): Dashboa
 function buildRecentValue(records: MorynRecord[], generatedAt: string, limit: number): DashboardValueRecord[] {
   return [...records]
     .sort((left, right) => {
+      const timeDiff = right.updated_at.localeCompare(left.updated_at);
       const scoreDiff = recordValueScore(right) - recordValueScore(left);
-      return scoreDiff || right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id);
+      return timeDiff || scoreDiff || left.id.localeCompare(right.id);
     })
     .slice(0, limit)
     .map((record) => summarizeValueRecord(record, generatedAt));

@@ -74,8 +74,8 @@ describe("observability dashboard", () => {
       });
       expect(data.recent_events.map((event) => event.op)).toEqual(["upsert_record", "upsert_record"]);
       expect(data.agent_activity).toEqual([
-        { client: "codex", events: 1, records: 1, latest_at: "2026-06-01T00:01:00.000Z" },
-        { client: "gemini", events: 1, records: 1, latest_at: "2026-06-01T00:02:00.000Z" }
+        { client: "Codex / Moryn Local", raw_clients: ["codex"], events: 1, records: 1, latest_at: "2026-06-01T00:01:00.000Z" },
+        { client: "Gemini", raw_clients: ["gemini"], events: 1, records: 1, latest_at: "2026-06-01T00:02:00.000Z" }
       ]);
       expect(data.health).toMatchObject({
         status: "local_only",
@@ -87,7 +87,7 @@ describe("observability dashboard", () => {
           title: "Sync is not configured"
         })
       ]));
-      expect(data.charts.agent_activity.map((agent) => agent.client)).toEqual(["codex", "gemini"]);
+      expect(data.charts.agent_activity.map((agent) => agent.client)).toEqual(["Codex / Moryn Local", "Gemini"]);
       expect(data.charts.memory_states.map((state) => state.state)).toEqual(expect.arrayContaining([
         "canonical",
         "candidate"
@@ -103,11 +103,11 @@ describe("observability dashboard", () => {
         behind: 0
       });
       expect(data.recent_value[0]).toMatchObject({
-        title: "Decision",
-        kind: "memory",
-        type: "decision",
-        state: "canonical",
-        source_label: "codex"
+        title: "Status",
+        kind: "session_summary",
+        type: "status",
+        state: "candidate",
+        source_label: "Gemini"
       });
     });
   });
@@ -252,6 +252,122 @@ describe("observability dashboard", () => {
           title: "Quarantined records hidden"
         })
       ]));
+    });
+  });
+
+  it("groups local Codex and Moryn write paths into one agent activity row", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z",
+            "2026-06-01T00:05:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:06:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_agent_${++record}` : `evt_agent_${++event}`;
+        })()
+      });
+
+      for (const client of ["codex", "codex-cli", "cli", "agent", "mcp"]) {
+        await engine.write({
+          kind: "session_summary",
+          type: "status",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: `${client} wrote dashboard activity`, format: "text" },
+          source: { client }
+        });
+      }
+      await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "gemini wrote dashboard activity", format: "text" },
+        source: { client: "gemini" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 });
+
+      expect(data.agent_activity).toEqual([
+        expect.objectContaining({
+          client: "Codex / Moryn Local",
+          events: 5,
+          records: 5,
+          raw_clients: ["agent", "cli", "codex", "codex-cli", "mcp"],
+          latest_at: "2026-06-01T00:05:00.000Z"
+        }),
+        expect.objectContaining({
+          client: "Gemini",
+          events: 1,
+          records: 1,
+          raw_clients: ["gemini"],
+          latest_at: "2026-06-01T00:06:00.000Z"
+        })
+      ]);
+      expect(data.charts.agent_activity.map((agent) => agent.client)).toEqual(["Codex / Moryn Local", "Gemini"]);
+    });
+  });
+
+  it("orders Recent Value by newest updated time before value score", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_recent_${++record}` : `evt_recent_${++event}`;
+        })()
+      });
+
+      const olderDecision = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Older high-value decision", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      const newerStatus = await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Newer lower-score status", format: "text" },
+        source: { client: "mcp" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 });
+
+      expect(data.recent_value.map((record) => record.id)).toEqual([
+        newerStatus.record.id,
+        olderDecision.record.id
+      ]);
     });
   });
 
