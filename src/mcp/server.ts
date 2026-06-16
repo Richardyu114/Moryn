@@ -42,6 +42,7 @@ import { SYNC_MODES, initializeProjectConfig, resolveProjectContext, type SyncMo
 import { RECORD_KINDS, RECORD_PRIORITIES, RECORD_SCOPES, RECORD_STATES } from "../core/schema.js";
 import type { RecordKind, RecordPriority, RecordProvenance, RecordScope, RecordSource, RecordState } from "../core/types.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "../sync/git.js";
+import { version } from "../version.js";
 
 type Engine = ReturnType<typeof createEngine>;
 type McpInputShape = Record<string, z.ZodType>;
@@ -1038,7 +1039,7 @@ function lifecycleAgentInput(agent: unknown): RecordSource | undefined {
 export async function runMcpServer(engine: Engine, options: { storePath: string }): Promise<void> {
   const server = new McpServer({
     name: "moryn",
-    version: "0.1.0"
+    version
   });
 
   server.registerTool(
