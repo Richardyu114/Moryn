@@ -187,6 +187,74 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("does not mark health as needs_review for quarantined records superseded by safe indexes", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_${++record}` : `evt_${++event}`;
+        })()
+      });
+
+      const unsafe = await engine.write({
+        kind: "skill",
+        type: "codex_workflow_bundle",
+        scope: "global",
+        tags: ["full-content", "portable-install"],
+        content: { text: "sk-test_1234567890abcdefghijklmnopqrstuvwxyz", format: "text" },
+        priority: "high",
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "skill",
+        type: "codex_workflow_bundle_index",
+        scope: "global",
+        tags: ["portable-install", "index"],
+        content: {
+          format: "json",
+          name: "safe encoded replacement",
+          supersedes_quarantined_record: unsafe.record.id,
+          artifact_records: [
+            { record_id: "rec_artifact", path: "/tmp/artifact", sha256: "abc123", content_encoding: "utf8-hex" }
+          ]
+        },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 });
+
+      expect(data.totals.quarantined_records).toBe(1);
+      expect(data.health.status).toBe("local_only");
+      expect(data.attention_items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          severity: "info",
+          title: "Quarantined records superseded"
+        })
+      ]));
+      expect(data.attention_items).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          severity: "warning",
+          title: "Quarantined records hidden"
+        })
+      ]));
+    });
+  });
+
   it("writes a local-only static dashboard snapshot", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

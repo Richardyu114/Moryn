@@ -298,12 +298,38 @@ function kindCounts(records: MorynRecord[]): Map<RecordKind, number> {
   return counts;
 }
 
+function isQuarantined(record: MorynRecord): boolean {
+  return record.visibility === "quarantined" || record.state === "quarantined";
+}
+
+function supersededQuarantinedRecordIds(records: MorynRecord[]): Set<string> {
+  const ids = new Set<string>();
+  for (const record of records) {
+    if (isQuarantined(record) || record.visibility !== "active") continue;
+    const superseded = record.content.supersedes_quarantined_record;
+    if (typeof superseded === "string" && superseded.length > 0) {
+      ids.add(superseded);
+    }
+  }
+  return ids;
+}
+
+function unresolvedQuarantinedRecords(records: MorynRecord[]): MorynRecord[] {
+  const superseded = supersededQuarantinedRecordIds(records);
+  return records.filter((record) => isQuarantined(record) && !superseded.has(record.id));
+}
+
+function supersededQuarantinedCount(records: MorynRecord[]): number {
+  const superseded = supersededQuarantinedRecordIds(records);
+  return records.filter((record) => isQuarantined(record) && superseded.has(record.id)).length;
+}
+
 function quarantinedCount(records: MorynRecord[]): number {
-  return records.filter((record) => record.visibility === "quarantined" || record.state === "quarantined").length;
+  return records.filter(isQuarantined).length;
 }
 
 function buildHealth(sync: GitSyncStatus, records: MorynRecord[], generatedAt: string): DashboardHealth {
-  const hidden = quarantinedCount(records);
+  const hidden = unresolvedQuarantinedRecords(records).length;
   if (sync.sync_state === "conflict") {
     return {
       status: "conflict",
@@ -340,7 +366,8 @@ function buildAttentionItems(sync: GitSyncStatus, records: MorynRecord[]): Dashb
   const items: DashboardAttentionItem[] = [];
   const ahead = sync.ahead ?? 0;
   const behind = sync.behind ?? 0;
-  const hidden = quarantinedCount(records);
+  const hidden = unresolvedQuarantinedRecords(records).length;
+  const supersededHidden = supersededQuarantinedCount(records);
   const raw = records.filter((record) => record.state === "raw").length;
   const candidates = records.filter((record) => record.state === "candidate").length;
   const canonical = records.filter((record) => record.state === "canonical").length;
@@ -386,6 +413,13 @@ function buildAttentionItems(sync: GitSyncStatus, records: MorynRecord[]): Dashb
       severity: "warning",
       title: "Quarantined records hidden",
       description: `${hidden} record(s) are hidden because they may contain sensitive or unsafe content.`
+    });
+  }
+  if (supersededHidden > 0) {
+    items.push({
+      severity: "info",
+      title: "Quarantined records superseded",
+      description: `${supersededHidden} quarantined record(s) have active safe replacement index records.`
     });
   }
   if (raw > 0) {
