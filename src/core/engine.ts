@@ -502,6 +502,96 @@ function searchableText(record: MorynRecord): string {
   return searchableRecordText(record);
 }
 
+const COMPACT_CONTENT_OMIT_KEYS = new Set([
+  "content",
+  "content_hex",
+  "content_base64",
+  "artifact_content",
+  "artifacts",
+  "file_index"
+]);
+
+const COMPACT_CONTENT_KEEP_KEYS = new Set([
+  "format",
+  "text",
+  "summary",
+  "name",
+  "label",
+  "purpose",
+  "path",
+  "directory",
+  "install_path",
+  "content_encoding",
+  "path_encoding",
+  "sha256",
+  "bytes",
+  "size",
+  "restore",
+  "restore_instruction",
+  "restore_instructions",
+  "install_note",
+  "artifact_records",
+  "restore_order",
+  "current_notion_page_url",
+  "schema_version"
+]);
+
+function isLargeString(value: unknown): boolean {
+  return typeof value === "string" && value.length > 1200;
+}
+
+function shouldCompactContent(record: MorynRecord): boolean {
+  if (record.tags.some((tag) => ["full-content", "portable-install", "encoded-bundle", "hex-encoded"].includes(tag))) return true;
+  if (/(?:full_content|bundle|artifact)/i.test(record.type)) return true;
+  return Object.entries(record.content).some(([key, value]) => COMPACT_CONTENT_OMIT_KEYS.has(key) || isLargeString(value));
+}
+
+function compactSummaryText(record: MorynRecord, limit = 500): string {
+  const values: string[] = [];
+  for (const key of ["text", "summary", "name", "label", "purpose", "path", "directory", "install_path", "sha256"]) {
+    const value = record.content[key];
+    if (typeof value === "string" && value.trim()) values.push(value.trim());
+  }
+  if (!values.length) values.push(`${record.kind}:${record.type}`);
+  const text = [...new Set(values)].join(" ");
+  return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+function compactContent(record: MorynRecord): MorynRecord["content"] {
+  if (!shouldCompactContent(record)) return record.content;
+  const omittedFields: string[] = [];
+  const content: MorynRecord["content"] = {};
+
+  for (const [key, value] of Object.entries(record.content)) {
+    if (COMPACT_CONTENT_OMIT_KEYS.has(key) || isLargeString(value)) {
+      omittedFields.push(key);
+      continue;
+    }
+    if (COMPACT_CONTENT_KEEP_KEYS.has(key)) {
+      content[key] = value;
+    }
+  }
+
+  const summary = compactSummaryText(record);
+  if (!content.text && summary) content.text = summary.length > 500 ? `${summary.slice(0, 500)}...` : summary;
+  content.omitted_fields = omittedFields;
+  content.retrieve = {
+    record_id: record.id,
+    command: recallRecordCommand(record.id, record.project_id)
+  };
+  return content;
+}
+
+function compactRecord(record: MorynRecord): MorynRecord {
+  const content = compactContent(record);
+  if (content === record.content) return record;
+  return { ...record, content };
+}
+
+function compactRecords(records: MorynRecord[]): MorynRecord[] {
+  return records.map(compactRecord);
+}
+
 function validateLimit(limit: unknown, fallback: number, operation: ReadOperation): number {
   const resolved = limit ?? fallback;
   if (typeof resolved !== "number" || !Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
@@ -1975,6 +2065,7 @@ function matchesQuery(result: { reason: string[] }, input: ValidatedRecallInput)
 }
 
 function summarizeRecord(record: MorynRecord): string {
+  if (shouldCompactContent(record)) return compactSummaryText(record);
   return textOf(record) || `${record.kind}:${record.type}`;
 }
 
@@ -2601,13 +2692,14 @@ export function createEngine(deps: EngineDeps) {
           .filter((record) => record.kind === "memory" && record.scope === "project")
           .filter((record) => matchesCurrentTask(record, bootInput.current_task)))
         : [];
-      const userPreferences = boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "preference"));
-      const soul = boundedBootRecords(records.filter((record) => record.kind === "soul"));
-      const globalRules = boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule"));
-      const importantDecisions = boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "decision"));
-      const warnings = boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker"));
-      const skills = boundedBootRecords(bootSkills(records, bootInput));
-      const recentChanges = recent.filter((record) => record.kind !== "soul").slice(0, 5);
+      const compactTaskRelevant = compactRecords(taskRelevant);
+      const userPreferences = compactRecords(boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "preference")));
+      const soul = compactRecords(boundedBootRecords(records.filter((record) => record.kind === "soul")));
+      const globalRules = compactRecords(boundedBootRecords(records.filter((record) => record.kind === "memory" && record.scope === "global" && record.type === "rule")));
+      const importantDecisions = compactRecords(boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "decision")));
+      const warnings = compactRecords(boundedBootRecords(trustedProjectRecords.filter((record) => record.type === "warning" || record.type === "blocker")));
+      const skills = compactRecords(boundedBootRecords(bootSkills(records, bootInput)));
+      const recentChanges = compactRecords(recent.filter((record) => record.kind !== "soul").slice(0, 5));
       const cursor = [...visibleRecords].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.updated_at ?? new Date().toISOString();
       const remoteUpdates = await remoteHasUpdates();
       return {
@@ -2630,8 +2722,8 @@ export function createEngine(deps: EngineDeps) {
         },
         skills,
         skills_by_id: recordsById(skills),
-        task_relevant: taskRelevant,
-        task_relevant_by_id: recordsById(taskRelevant),
+        task_relevant: compactTaskRelevant,
+        task_relevant_by_id: recordsById(compactTaskRelevant),
         recent_changes: recentChanges,
         recent_changes_by_id: recordsById(recentChanges),
         selection_sources: BOOT_SELECTION_SOURCES,
@@ -2642,7 +2734,7 @@ export function createEngine(deps: EngineDeps) {
           ...importantDecisions,
           ...warnings,
           ...skills,
-          ...taskRelevant,
+          ...compactTaskRelevant,
           ...recentChanges
         ]),
         sync: { cursor, remote_has_updates: remoteUpdates }
@@ -2687,7 +2779,7 @@ export function createEngine(deps: EngineDeps) {
     },
 
     async listRecent(limit: unknown = 20) {
-      const records = (await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20, "list_recent"));
+      const records = compactRecords((await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20, "list_recent")));
       return {
         records,
         selection_sources: LIST_RECENT_SELECTION_SOURCES,

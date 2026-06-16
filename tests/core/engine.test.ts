@@ -2399,6 +2399,56 @@ describe("core engine", () => {
     });
   });
 
+  it("compacts artifact payloads in boot context while preserving record ids for retrieval", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:01:00.000Z" });
+
+      const artifact = await engine.write({
+        kind: "skill",
+        type: "codex_skill_bundle",
+        scope: "global",
+        tags: ["codex-skill", "portable-install", "encoded-bundle"],
+        content: {
+          format: "json",
+          name: "portable helper bundle",
+          path: "/home/user/.codex/skills/example/SKILL.md",
+          sha256: "abc123",
+          bytes: 4096,
+          content_hex: "aa".repeat(4096),
+          install_note: "Decode content_hex and write the file."
+        },
+        state: "canonical",
+        priority: "high",
+        source: { client: "test" },
+        confirmed: true
+      });
+
+      const boot = await engine.boot({ default_skills: ["codex_skill_bundle"] });
+
+      expect(boot.skills[0]).toMatchObject({
+        id: artifact.record.id,
+        content: {
+          format: "json",
+          name: "portable helper bundle",
+          path: "/home/user/.codex/skills/example/SKILL.md",
+          sha256: "abc123",
+          bytes: 4096,
+          omitted_fields: ["content_hex"],
+          retrieve: {
+            record_id: artifact.record.id,
+            command: `moryn recall --record-id ${artifact.record.id}`
+          }
+        }
+      });
+      expect(boot.skills[0]!.content).not.toHaveProperty("content_hex");
+      expect(boot.records_by_id[artifact.record.id]).toEqual(boot.skills[0]);
+
+      const recalled = await engine.recall({ record_ids: [artifact.record.id] });
+
+      expect(recalled.results[0]!.record.content.content_hex).toBe("aa".repeat(4096));
+    });
+  });
+
   it("marks boot sync status when the sync provider reports remote updates", async () => {
     await withInitializedTempStore(async (storePath) => {
       const engine = createEngine({
@@ -3359,6 +3409,49 @@ describe("core engine", () => {
       });
       expect(recent.records_by_id[second.record.id]).toEqual(recent.records[0]);
       expect(recent.records_by_id[first.record.id]).toEqual(recent.records[1]);
+    });
+  });
+
+  it("compacts artifact payloads in listRecent by default", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath, now: () => "2026-05-27T00:01:00.000Z" });
+      const artifact = await engine.write({
+        kind: "skill",
+        type: "codex_helper_full_content",
+        scope: "global",
+        tags: ["full-content", "portable-install"],
+        content: {
+          format: "json",
+          label: "helper",
+          path: "/home/user/helper.py",
+          sha256: "def456",
+          size: 2048,
+          content_hex: "bb".repeat(2048)
+        },
+        state: "candidate",
+        priority: "high",
+        source: { client: "test" }
+      });
+
+      const recent = await engine.listRecent(1);
+
+      expect(recent.records[0]).toMatchObject({
+        id: artifact.record.id,
+        content: {
+          format: "json",
+          label: "helper",
+          path: "/home/user/helper.py",
+          sha256: "def456",
+          size: 2048,
+          omitted_fields: ["content_hex"],
+          retrieve: {
+            record_id: artifact.record.id,
+            command: `moryn recall --record-id ${artifact.record.id}`
+          }
+        }
+      });
+      expect(recent.records[0]!.content).not.toHaveProperty("content_hex");
+      expect(recent.records_by_id[artifact.record.id]).toEqual(recent.records[0]);
     });
   });
 
