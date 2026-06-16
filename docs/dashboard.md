@@ -107,7 +107,7 @@ The first screen favors human-readable summaries over raw ids:
 - agent activity
 - record quality distribution
 - record type distribution
-- recent valuable records
+- recent valuable records, newest first
 
 Raw records, events, and sync details remain available in the lower Debug
 Inspector.
@@ -115,8 +115,8 @@ Inspector.
 Health badge states:
 
 - `Healthy`: sync is clean and no urgent safety signals were detected.
-- `Needs Review`: local changes, ahead/behind remote state, quarantined content,
-  or candidate buildup needs a look.
+- `Needs Review`: local changes, ahead/behind remote state, unresolved
+  quarantined content, or candidate buildup needs a look.
 - `Conflict`: sync reports a conflict.
 - `Local Only`: sync is not configured.
 
@@ -125,7 +125,8 @@ Attention items call out conditions such as:
 - sync conflict
 - dirty local store
 - ahead or behind remote counts
-- quarantined records
+- unresolved quarantined records
+- quarantined records that have active safe replacement indexes
 - raw records waiting for review
 - many candidate records relative to canonical records
 - missing sync remote
@@ -161,6 +162,24 @@ The JSON returned by `/api/dashboard` includes:
 
 This keeps raw data inspectable while giving the HTML renderer human-oriented
 fields.
+
+`Agent Activity` uses readable display groups instead of exposing every local
+write path as a separate actor. Local Moryn write paths such as `codex`,
+`codex-cli`, `cli`, `agent`, and `mcp` are grouped as `Codex / Moryn Local`.
+Other clients, such as `gemini`, keep their own display group. The JSON keeps
+`raw_clients` on each agent activity item so debugging can still trace the
+original source clients.
+
+`Recent Value` sorts records by `updated_at` descending before applying the
+value score tie-breaker. This keeps the newest useful writes at the top while
+still preserving deterministic ordering for records with the same timestamp.
+`source_label` contains the normalized readable source, while `source_detail`
+preserves the raw client and session details when available.
+
+Quarantined records normally count as unresolved safety signals. If an active
+safe replacement index explicitly declares `content.supersedes_quarantined_record`
+for the quarantined record id, the dashboard reports that condition as an info
+attention item instead of forcing `Needs Review`.
 
 ## Privacy And Safety
 
