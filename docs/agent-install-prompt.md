@@ -43,7 +43,11 @@ Then internalize how to use it:
 
 During agent work:
 - Start a session with
-  `moryn agent enter --project . --current-task "<current task>" --agent "<agent name>"`.
+  `moryn agent enter --project . --current-task "<current task>" --agent "<host client name>"`.
+- Use your actual host/client name for `--agent` and Moryn `source.client`
+  metadata, for example `codex`, `claude`, `kimi`, or `gemini`. Do not use
+  generic values such as `agent`, `cli`, or `mcp` when the real host identity is
+  known.
 - Use recall or boot before relying on memory.
 - Write or revise memory when you discover durable facts, decisions, warnings,
   reusable procedures, or handoff context.
@@ -92,6 +96,14 @@ only when the next step depends on user-owned information or authority:
 - whether a high-risk fact should become canonical memory.
 
 Routine command selection should stay internal to the agent.
+
+## Agent Identity
+
+Use stable, host-specific client names in lifecycle and write metadata. This
+lets the dashboard, handoff inbox, and future agents distinguish who wrote each
+record. Good values include `codex`, `claude`, `kimi`, and `gemini`. Generic
+transport names such as `agent`, `cli`, or `mcp` should be used only when the
+actual host is unknown.
 
 ## Host Setup Notes
 

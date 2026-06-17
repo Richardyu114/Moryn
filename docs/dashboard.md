@@ -170,6 +170,14 @@ Other clients, such as `gemini`, keep their own display group. The JSON keeps
 `raw_clients` on each agent activity item so debugging can still trace the
 original source clients.
 
+Agents should write a host-specific `source.client` whenever possible. For
+example, Claude should use `claude`, Kimi should use `kimi`, and Gemini should
+use `gemini` instead of generic values such as `agent`, `cli`, or `mcp`.
+Unknown client names are still displayed automatically by title-casing the raw
+value, so `claude-code` appears as `Claude Code`. If a host writes only a
+generic local value, the dashboard cannot infer the real agent and will group it
+with the local Moryn write paths.
+
 `Recent Value` sorts records by `updated_at` descending before applying the
 value score tie-breaker. This keeps the newest useful writes at the top while
 still preserving deterministic ordering for records with the same timestamp.

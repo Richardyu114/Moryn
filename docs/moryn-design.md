@@ -159,6 +159,9 @@ The core engine owns:
 - Snapshot and index rebuilds.
 
 The core engine treats agent clients as sources. It does not partition memory ownership by agent.
+Clients should still use stable, host-specific identities such as `codex`,
+`claude`, `kimi`, or `gemini` in `source.client` and lifecycle `agent.client`
+metadata so derived views can distinguish activity by real agent host.
 
 ### Local Store
 

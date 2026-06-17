@@ -23,6 +23,13 @@ moryn agent enter \
   --agent codex
 ```
 
+Use a stable host-specific value for `--agent`. Codex should use `codex`,
+Claude should use `claude`, Kimi should use `kimi`, and Gemini should use
+`gemini`. The same identity should be used as `source.client` on direct write,
+revise, promote, archive, quarantine, and link calls. Avoid generic values such
+as `agent`, `cli`, or `mcp` when the real host is known; those values are useful
+only as local transport fallbacks and make dashboard agent activity less clear.
+
 `agent enter` first runs setup diagnosis. If the target project is known, it
 starts the session by pulling sync, booting context, refreshing recent changes,
 and returning handoff data. If project context is unclear but the store contains
