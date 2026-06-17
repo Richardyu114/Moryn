@@ -319,12 +319,23 @@ function isQuarantined(record: MorynRecord): boolean {
 
 function supersededQuarantinedRecordIds(records: MorynRecord[]): Set<string> {
   const ids = new Set<string>();
-  for (const record of records) {
-    if (isQuarantined(record) || record.visibility !== "active") continue;
+  const byId = new Map(records.map((record) => [record.id, record]));
+  const addSupersededQuarantine = (record: MorynRecord, visited: Set<string>) => {
+    if (visited.has(record.id)) return;
+    visited.add(record.id);
     const superseded = record.content.supersedes_quarantined_record;
     if (typeof superseded === "string" && superseded.length > 0) {
       ids.add(superseded);
     }
+    const supersededIndex = record.content.supersedes_index_record;
+    if (typeof supersededIndex === "string" && supersededIndex.length > 0) {
+      const previous = byId.get(supersededIndex);
+      if (previous) addSupersededQuarantine(previous, visited);
+    }
+  };
+  for (const record of records) {
+    if (isQuarantined(record) || record.visibility !== "active") continue;
+    addSupersededQuarantine(record, new Set());
   }
   return ids;
 }
