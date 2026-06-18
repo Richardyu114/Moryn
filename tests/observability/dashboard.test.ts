@@ -74,7 +74,7 @@ describe("observability dashboard", () => {
       });
       expect(data.recent_events.map((event) => event.op)).toEqual(["upsert_record", "upsert_record"]);
       expect(data.agent_activity).toEqual([
-        expect.objectContaining({ client: "Codex / Moryn Local", raw_clients: ["codex"], events: 1, records: 1, latest_at: "2026-06-01T00:01:00.000Z" }),
+        expect.objectContaining({ client: "Codex", raw_clients: ["codex"], events: 1, records: 1, latest_at: "2026-06-01T00:01:00.000Z" }),
         expect.objectContaining({ client: "Gemini", raw_clients: ["gemini"], events: 1, records: 1, latest_at: "2026-06-01T00:02:00.000Z" })
       ]);
       expect(data.health).toMatchObject({
@@ -87,7 +87,7 @@ describe("observability dashboard", () => {
           title: "Sync is not configured"
         })
       ]));
-      expect(data.charts.agent_activity.map((agent) => agent.client)).toEqual(["Codex / Moryn Local", "Gemini"]);
+      expect(data.charts.agent_activity.map((agent) => agent.client)).toEqual(["Codex", "Gemini"]);
       expect(data.charts.memory_states.map((state) => state.state)).toEqual(expect.arrayContaining([
         "canonical",
         "candidate"
@@ -341,7 +341,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("groups local Codex and Moryn write paths into one agent activity row", async () => {
+  it("normalizes agent activity rows by host family", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -355,9 +355,12 @@ describe("observability dashboard", () => {
             "2026-06-01T00:02:00.000Z",
             "2026-06-01T00:03:00.000Z",
             "2026-06-01T00:04:00.000Z",
-            "2026-06-01T00:05:00.000Z"
+            "2026-06-01T00:05:00.000Z",
+            "2026-06-01T00:06:00.000Z",
+            "2026-06-01T00:07:00.000Z",
+            "2026-06-01T00:08:00.000Z"
           ];
-          return () => timestamps.shift() ?? "2026-06-01T00:06:00.000Z";
+          return () => timestamps.shift() ?? "2026-06-01T00:09:00.000Z";
         })(),
         id: (() => {
           let record = 0;
@@ -366,7 +369,7 @@ describe("observability dashboard", () => {
         })()
       });
 
-      for (const client of ["codex", "codex-cli", "cli", "agent", "mcp"]) {
+      for (const client of ["codex", "codex-cli", "cli", "agent", "mcp", "claude-code", "kimi-k2", "gemini"]) {
         await engine.write({
           kind: "session_summary",
           type: "status",
@@ -376,34 +379,47 @@ describe("observability dashboard", () => {
           source: { client }
         });
       }
-      await engine.write({
-        kind: "session_summary",
-        type: "status",
-        scope: "project",
-        project_id: "moryn",
-        content: { text: "gemini wrote dashboard activity", format: "text" },
-        source: { client: "gemini" }
-      });
 
       const data = await buildDashboardData(storePath, { limit: 10 });
 
       expect(data.agent_activity).toEqual([
         expect.objectContaining({
-          client: "Codex / Moryn Local",
-          events: 5,
-          records: 5,
-          raw_clients: ["agent", "cli", "codex", "codex-cli", "mcp"],
+          client: "Codex",
+          events: 2,
+          records: 2,
+          raw_clients: ["codex", "codex-cli"],
+          latest_at: "2026-06-01T00:02:00.000Z"
+        }),
+        expect.objectContaining({
+          client: "Moryn Local",
+          events: 3,
+          records: 3,
+          raw_clients: ["agent", "cli", "mcp"],
           latest_at: "2026-06-01T00:05:00.000Z"
+        }),
+        expect.objectContaining({
+          client: "Claude",
+          events: 1,
+          records: 1,
+          raw_clients: ["claude-code"],
+          latest_at: "2026-06-01T00:06:00.000Z"
+        }),
+        expect.objectContaining({
+          client: "Kimi",
+          events: 1,
+          records: 1,
+          raw_clients: ["kimi-k2"],
+          latest_at: "2026-06-01T00:07:00.000Z"
         }),
         expect.objectContaining({
           client: "Gemini",
           events: 1,
           records: 1,
           raw_clients: ["gemini"],
-          latest_at: "2026-06-01T00:06:00.000Z"
+          latest_at: "2026-06-01T00:08:00.000Z"
         })
       ]);
-      expect(data.charts.agent_activity.map((agent) => agent.client)).toEqual(["Codex / Moryn Local", "Gemini"]);
+      expect(data.charts.agent_activity.map((agent) => agent.client)).toEqual(["Codex", "Moryn Local", "Claude", "Kimi", "Gemini"]);
     });
   });
 

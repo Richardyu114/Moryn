@@ -29,7 +29,9 @@ Claude should use `claude`, Kimi should use `kimi`, and Gemini should use
 `gemini`. The same identity should be used as `source.client` on direct write,
 revise, promote, archive, quarantine, and link calls. Avoid generic values such
 as `agent`, `cli`, or `mcp` when the real host is known; those values are useful
-only as local transport fallbacks and make dashboard agent activity less clear.
+only as local transport fallbacks and show up as `Moryn Local` in dashboard
+agent activity. Host variants such as `codex-cli`, `claude-code`, and `kimi-k2`
+are normalized to their agent family.
 
 `agent enter` first runs setup diagnosis. If the target project is known, it
 starts the session by pulling sync, booting context, refreshing recent changes,

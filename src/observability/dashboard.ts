@@ -5,6 +5,7 @@ import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { normalizeAgentIdentity } from "../core/agent-identity.js";
 import { displayRecordText } from "../core/content-text.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
@@ -317,10 +318,7 @@ function latestIso(left: string, right: string): string {
 }
 
 function displayClient(rawClient: string): string {
-  const normalized = rawClient.toLowerCase();
-  if (["agent", "cli", "codex", "codex-cli", "mcp"].includes(normalized)) return "Codex / Moryn Local";
-  if (normalized === "gemini") return "Gemini";
-  return titleCase(rawClient || "unknown");
+  return normalizeAgentIdentity(rawClient).client;
 }
 
 function updateAgentActivity(

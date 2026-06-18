@@ -101,9 +101,10 @@ Routine command selection should stay internal to the agent.
 
 Use stable, host-specific client names in lifecycle and write metadata. This
 lets the dashboard, handoff inbox, and future agents distinguish who wrote each
-record. Good values include `codex`, `claude`, `kimi`, and `gemini`. Generic
-transport names such as `agent`, `cli`, or `mcp` should be used only when the
-actual host is unknown.
+record. Good values include `codex`, `claude`, `kimi`, and `gemini`; variants
+such as `claude-code`, `kimi-k2`, and `codex-cli` are recognized as the same
+agent families. Generic transport names such as `agent`, `cli`, or `mcp`
+should be used only when the actual host is unknown.
 
 ## Host Setup Notes
 

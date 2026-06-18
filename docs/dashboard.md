@@ -177,20 +177,21 @@ same provenance with `data-dashboard-citation` attributes and compact command
 snippets, so a human or agent can move from a dashboard item to `moryn timeline`
 or `moryn recall` without guessing ids.
 
-`Agent Activity` uses readable display groups instead of exposing every local
-write path as a separate actor. Local Moryn write paths such as `codex`,
-`codex-cli`, `cli`, `agent`, and `mcp` are grouped as `Codex / Moryn Local`.
-Other clients, such as `gemini`, keep their own display group. The JSON keeps
-`raw_clients` on each agent activity item so debugging can still trace the
-original source clients.
+`Agent Activity` uses a shared observer adapter instead of exposing every local
+write path as a separate actor. Known agent hosts are grouped by family:
+`codex` and `codex-cli` display as `Codex`, `claude` and `claude-code` display
+as `Claude`, `kimi` and `kimi-k2` display as `Kimi`, and `gemini` displays as
+`Gemini`. Generic local transport values such as `agent`, `cli`, `mcp`, and
+`moryn` display as `Moryn Local`. The JSON keeps `raw_clients` on each agent
+activity item so debugging can still trace the original source clients.
 
 Agents should write a host-specific `source.client` whenever possible. For
 example, Claude should use `claude`, Kimi should use `kimi`, and Gemini should
 use `gemini` instead of generic values such as `agent`, `cli`, or `mcp`.
 Unknown client names are still displayed automatically by title-casing the raw
-value, so `claude-code` appears as `Claude Code`. If a host writes only a
+value, so `openai-agent` appears as `Openai Agent`. If a host writes only a
 generic local value, the dashboard cannot infer the real agent and will group it
-with the local Moryn write paths.
+with `Moryn Local`.
 
 `Recent Value` sorts records by `updated_at` descending before applying the
 value score tie-breaker. This keeps the newest useful writes at the top while

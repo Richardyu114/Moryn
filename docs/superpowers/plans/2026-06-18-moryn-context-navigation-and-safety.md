@@ -71,10 +71,10 @@
 - Test: `tests/observability/dashboard.test.ts`
 - Docs: `docs/dashboard.md`, `docs/agent-install-prompt.md`, `docs/agent-workflow.md`
 
-- [ ] Add failing tests for normalizing `codex`, `codex-cli`, `claude`, `kimi`, `gemini`, and generic `agent` sources into clear display actors.
-- [ ] Implement a small observer adapter that derives display name, family, and confidence from source metadata without hard-coding dashboard-only behavior.
-- [ ] Surface unknown clients as stable title-cased actor names rather than merging them into generic buckets.
-- [ ] Update docs with source metadata expectations for future agents.
+- [x] Add failing tests for normalizing `codex`, `codex-cli`, `claude`, `kimi`, `gemini`, and generic `agent` sources into clear display actors.
+- [x] Implement a small observer adapter that derives display name, family, and confidence from source metadata without hard-coding dashboard-only behavior.
+- [x] Surface unknown clients as stable title-cased actor names rather than merging them into generic buckets.
+- [x] Update docs with source metadata expectations for future agents.
 
 ### Task 5: Final Verification And Sync
 
