@@ -118,6 +118,11 @@ moryn refresh \
 Changes are classified as `silent`, `notice`, or `interrupt`. Reportable
 changes include safe `recall` next actions for retrieving full records.
 
+Normal refresh reads exclude records tagged `private`, `secret`, or
+`sensitive`. Use `--include-private` only when the user has explicitly asked
+the agent to inspect private memory; returned `recall` next actions preserve
+that opt-in.
+
 ## Timeline Context
 
 Use `timeline` when a single recalled record is not enough to understand why it
@@ -135,6 +140,38 @@ Timeline accepts exactly one anchor: `--record-id`, `--event-id`, or `--query`.
 It returns ordered items plus keyed maps by event id and record id. Each item
 with a record includes a safe `recall` next action; agents should follow that
 action when full content is needed instead of reconstructing arguments.
+
+Timeline follows the same private read boundary as `recall`, `boot`,
+`refresh`, and `list-recent`: records tagged `private`, `secret`, or
+`sensitive` are hidden unless `--include-private` is passed or MCP
+`include_private` is set to `true`. If timeline is run with private reads
+enabled, its follow-up `recall` actions include the same opt-in.
+
+## Private Read Boundary
+
+Private markers are tag-based. The first-version contract treats `private`,
+`secret`, and `sensitive` tags as default-hidden active records. They remain in
+the store and can be synced, but normal agent reads do not surface them.
+
+Default-hidden read surfaces:
+
+- `boot`
+- `recall`
+- `refresh`
+- `timeline`
+- `list-recent`
+- dashboard data and HTML
+
+Explicit read examples:
+
+```bash
+moryn recall "credential rotation" --project . --include-private
+moryn timeline --record-id rec_... --project . --include-private
+moryn dashboard --serve --include-private
+```
+
+MCP hosts use `include_private: true`. Agents should not enable this flag as a
+general startup default; require explicit user intent for the specific read.
 
 ## Finish Handoff
 

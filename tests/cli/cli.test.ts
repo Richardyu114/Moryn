@@ -3047,6 +3047,116 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("hides private-tagged records from CLI reads unless explicitly included", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const publicWrite = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--state", "canonical",
+        "--tag", "public-boundary",
+        "--text", "CLI public boundary record.",
+        "--confirm"
+      ])).stdout) as { record: { id: string } };
+      const privateWrite = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--state", "canonical",
+        "--tag", "private",
+        "--text", "CLI private boundary record.",
+        "--confirm"
+      ])).stdout) as { record: { id: string } };
+
+      const defaultRecall = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "recall",
+        "private boundary",
+        "--project-id", "moryn"
+      ])).stdout) as { results: Array<{ record: { id: string } }> };
+      const privateRecall = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "recall",
+        "private boundary",
+        "--project-id", "moryn",
+        "--include-private"
+      ])).stdout) as { results: Array<{ record: { id: string } }> };
+
+      const defaultBoot = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "boot",
+        "--project-id", "moryn"
+      ])).stdout) as { project: { warnings: Array<{ id: string }> } };
+      const privateBoot = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "boot",
+        "--project-id", "moryn",
+        "--include-private"
+      ])).stdout) as { project: { warnings: Array<{ id: string }> } };
+
+      const defaultRefresh = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "refresh",
+        "--project-id", "moryn",
+        "--cursor", "2000-01-01T00:00:00.000Z"
+      ])).stdout) as { changes: Array<{ record_id: string }> };
+      const privateRefresh = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "refresh",
+        "--project-id", "moryn",
+        "--cursor", "2000-01-01T00:00:00.000Z",
+        "--include-private"
+      ])).stdout) as { changes: Array<{ record_id: string }> };
+      const defaultRecent = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "list-recent",
+        "--limit", "10"
+      ])).stdout) as { records: Array<{ id: string }> };
+      const privateRecent = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "list-recent",
+        "--limit", "10",
+        "--include-private"
+      ])).stdout) as { records: Array<{ id: string }> };
+      const privateTimeline = JSON.parse((await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "timeline",
+        "--record-id", privateWrite.record.id,
+        "--project-id", "moryn",
+        "--before", "1",
+        "--after", "0",
+        "--include-private"
+      ])).stdout) as { items: Array<{ record_id: string; next_action?: { command: string; arguments: Record<string, unknown> } }> };
+
+      expect(defaultRecall.results.map((result) => result.record.id)).not.toContain(privateWrite.record.id);
+      expect(privateRecall.results.map((result) => result.record.id)).toContain(privateWrite.record.id);
+      expect(defaultBoot.project.warnings.map((record) => record.id)).toContain(publicWrite.record.id);
+      expect(defaultBoot.project.warnings.map((record) => record.id)).not.toContain(privateWrite.record.id);
+      expect(privateBoot.project.warnings.map((record) => record.id)).toContain(privateWrite.record.id);
+      expect(defaultRefresh.changes.map((change) => change.record_id)).toContain(publicWrite.record.id);
+      expect(defaultRefresh.changes.map((change) => change.record_id)).not.toContain(privateWrite.record.id);
+      expect(privateRefresh.changes.map((change) => change.record_id)).toContain(privateWrite.record.id);
+      expect(defaultRecent.records.map((record) => record.id)).toEqual([publicWrite.record.id]);
+      expect(privateRecent.records.map((record) => record.id)).toContain(privateWrite.record.id);
+      expect(privateTimeline.items.map((item) => item.record_id)).toEqual([publicWrite.record.id, privateWrite.record.id]);
+      expect(privateTimeline.items.find((item) => item.record_id === privateWrite.record.id)?.next_action).toMatchObject({
+        command: `moryn recall --record-id ${privateWrite.record.id} --project-id moryn --include-private`,
+        arguments: {
+          record_ids: [privateWrite.record.id],
+          project_id: "moryn",
+          include_private: true
+        }
+      });
+    });
+  });
+
   it("returns timeline context from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

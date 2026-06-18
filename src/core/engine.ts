@@ -59,6 +59,7 @@ interface RecallInput {
   tags?: unknown;
   files?: unknown;
   limit?: unknown;
+  include_private?: unknown;
 }
 
 interface RefreshInput {
@@ -66,9 +67,10 @@ interface RefreshInput {
   cursor?: unknown;
   current_task?: unknown;
   limit?: unknown;
+  include_private?: unknown;
 }
 
-type ValidatedRefreshInput = RefreshInput & { cursor?: string; current_task?: string };
+type ValidatedRefreshInput = RefreshInput & { cursor?: string; current_task?: string; include_private?: boolean };
 
 interface TimelineInput {
   record_id?: unknown;
@@ -77,6 +79,7 @@ interface TimelineInput {
   project_id?: string;
   before?: unknown;
   after?: unknown;
+  include_private?: unknown;
 }
 
 type TimelineAnchorSource = "record_id" | "event_id" | "query";
@@ -88,6 +91,7 @@ type ValidatedTimelineInput = TimelineInput & {
   query?: string;
   before: number;
   after: number;
+  include_private?: boolean;
 };
 
 interface BootInput {
@@ -95,9 +99,17 @@ interface BootInput {
   default_skills?: unknown;
   current_task?: unknown;
   sync_remote?: unknown;
+  include_private?: unknown;
 }
 
-type ValidatedBootInput = BootInput & { default_skills?: string[]; current_task?: string; sync_remote?: string };
+type ValidatedBootInput = BootInput & { default_skills?: string[]; current_task?: string; sync_remote?: string; include_private?: boolean };
+
+interface ListRecentInput {
+  limit?: unknown;
+  include_private?: unknown;
+}
+
+type ValidatedListRecentInput = ListRecentInput & { include_private?: boolean };
 
 interface ListProjectsInput {
   limit?: unknown;
@@ -969,6 +981,13 @@ type ReadArgumentRecoveryHint =
       retry_with: { argument: "before" | "after"; value_placeholder: 5 };
     }
   | {
+      operation_contract: ReadOperationContractSource;
+      rejected_argument: { argument: "include_private"; value: unknown };
+      expected: { kind: "boolean" };
+      argument_sources: { include_private: ReadArgumentSource };
+      retry_with: { argument: "include_private"; value_placeholder: true };
+    }
+  | {
       operation_contract: "operations_by_id.timeline";
       rejected_argument: { argument: "anchor"; value: string[] };
       expected: { kind: "one_of"; allowed_arguments: ["record_id", "event_id", "query"] };
@@ -1035,6 +1054,20 @@ function invalidReadWindowError(operation: ReadOperation, argument: "before" | "
       expected: { kind: "integer_range", min: 0, max: 50, integer: true },
       argument_sources: { [argument]: readArgumentSource(operation, argument) },
       retry_with: { argument, value_placeholder: argument === "before" ? 5 : 5 }
+    }
+  );
+}
+
+function invalidReadBooleanError(operation: ReadOperation, argument: "include_private", value: unknown): ReadArgumentError {
+  return new ReadArgumentError(
+    `Invalid argument: Invalid ${argument}`,
+    `retry read with a boolean ${argument} value`,
+    {
+      operation_contract: readOperationContractSource(operation),
+      rejected_argument: { argument, value },
+      expected: { kind: "boolean" },
+      argument_sources: { [argument]: readArgumentSource(operation, argument) },
+      retry_with: { argument, value_placeholder: true }
     }
   );
 }
@@ -1243,6 +1276,12 @@ function validateOptionalString(operation: ReadOperation, value: unknown, name: 
 function validateOptionalStringArray(operation: ReadOperation, value: unknown, name: string): void {
   if (value !== undefined && (!Array.isArray(value) || !value.every((item) => typeof item === "string" && item.length > 0))) {
     throw invalidReadStringArrayError(operation, name, value);
+  }
+}
+
+function validateOptionalBoolean(operation: ReadOperation, value: unknown, name: "include_private"): void {
+  if (value !== undefined && typeof value !== "boolean") {
+    throw invalidReadBooleanError(operation, name, value);
   }
 }
 
@@ -1946,6 +1985,7 @@ function validateRecallInput(input: RecallInput): void {
   validateOptionalEnumArray<RecordState>("recall", input.states, "states", recordStateSchema, RECORD_STATES, "canonical");
   validateOptionalStringArray("recall", input.tags, "tags");
   validateOptionalStringArray("recall", input.files, "files");
+  validateOptionalBoolean("recall", input.include_private, "include_private");
 }
 
 function validateBootInput(input: BootInput): void {
@@ -1954,6 +1994,7 @@ function validateBootInput(input: BootInput): void {
   validateOptionalStringArray("boot", input.default_skills, "default_skills");
   validateOptionalString("boot", input.current_task, "current_task");
   validateOptionalString("boot", input.sync_remote, "sync_remote");
+  validateOptionalBoolean("boot", input.include_private, "include_private");
 }
 
 function validateRefreshInput(input: RefreshInput): void {
@@ -1965,6 +2006,7 @@ function validateRefreshInput(input: RefreshInput): void {
     throw new InvalidRefreshCursorError(cursor);
   }
   validateOptionalString("refresh", input.current_task, "current_task");
+  validateOptionalBoolean("refresh", input.include_private, "include_private");
 }
 
 function validateTimelineInput(input: TimelineInput): void {
@@ -1977,6 +2019,12 @@ function validateTimelineInput(input: TimelineInput): void {
   if (anchorCount !== 1) {
     throw invalidReadAnchorError(input);
   }
+  validateOptionalBoolean("timeline", input.include_private, "include_private");
+}
+
+function validateListRecentInput(input: ListRecentInput): void {
+  assertPlainObject(input, "list_recent input");
+  validateOptionalBoolean("list_recent", input.include_private, "include_private");
 }
 
 function validateListProjectsInput(input: ListProjectsInput): void {
@@ -2022,10 +2070,11 @@ function projectStartCommand(projectId: string, input: ValidatedListProjectsInpu
   return parts.join(" ");
 }
 
-function recallRecordCommand(recordId: string, projectId: string | undefined): string {
+function recallRecordCommand(recordId: string, projectId: string | undefined, includePrivate?: boolean): string {
   const parts = ["moryn", "recall"];
   appendCommandOption(parts, "--record-id", recordId);
   appendCommandOption(parts, "--project-id", projectId);
+  if (includePrivate === true) parts.push("--include-private");
   return parts.join(" ");
 }
 
@@ -2036,10 +2085,11 @@ function refreshChangeNextAction(record: MorynRecord, input: RefreshInput) {
     safe_to_run: true,
     required_when: RECALL_REFRESH_CHANGE_WHEN,
     required_fields: [],
-    command: recallRecordCommand(record.id, input.project_id),
+    command: recallRecordCommand(record.id, input.project_id, input.include_private === true),
     arguments: {
       record_ids: [record.id],
-      ...(input.project_id ? { project_id: input.project_id } : {})
+      ...(input.project_id ? { project_id: input.project_id } : {}),
+      ...(input.include_private === true ? { include_private: true } : {})
     },
     argument_sources: {
       record_ids: "refresh.changes_by_record_id.<record_id>.record_id"
@@ -2054,10 +2104,11 @@ function timelineItemNextAction(recordId: string, input: TimelineInput) {
     safe_to_run: true,
     required_when: "After timeline reports this item and the agent needs the full record content.",
     required_fields: [],
-    command: recallRecordCommand(recordId, input.project_id),
+    command: recallRecordCommand(recordId, input.project_id, input.include_private === true),
     arguments: {
       record_ids: [recordId],
-      ...(input.project_id ? { project_id: input.project_id } : {})
+      ...(input.project_id ? { project_id: input.project_id } : {}),
+      ...(input.include_private === true ? { include_private: true } : {})
     },
     argument_sources: {
       record_ids: "timeline.items_by_event_id.<event_id>.record_id"
@@ -2083,6 +2134,16 @@ function recordProjectMatchesRecall(record: MorynRecord, input: ValidatedRecallI
 
 function isVisibleByDefault(record: MorynRecord): boolean {
   return record.state !== "archived" && record.state !== "quarantined";
+}
+
+const PRIVATE_RECORD_TAGS = new Set(["private", "secret", "sensitive"]);
+
+function isPrivateRecord(record: MorynRecord): boolean {
+  return record.tags.some((tag) => PRIVATE_RECORD_TAGS.has(tag.toLowerCase()));
+}
+
+function isAllowedByPrivateBoundary(record: MorynRecord, includePrivate: boolean | undefined): boolean {
+  return includePrivate === true || !isPrivateRecord(record);
 }
 
 function isTrustedForBoot(record: MorynRecord): boolean {
@@ -2188,6 +2249,7 @@ type ValidatedRecallInput = RecallInput & {
   states?: RecordState[];
   tags?: string[];
   files?: string[];
+  include_private?: boolean;
 };
 
 function reasonAndScore(record: MorynRecord, input: ValidatedRecallInput): { score: number; reason: string[] } {
@@ -2270,9 +2332,15 @@ function eventProjectMatches(event: MorynEvent, records: Map<string, MorynRecord
   return recordProjectMatches(record, projectId);
 }
 
-function sortedTimelineEvents(events: MorynEvent[], records: Map<string, MorynRecord>, projectId: string | undefined): MorynEvent[] {
+function eventAllowedByPrivateBoundary(event: MorynEvent, records: Map<string, MorynRecord>, includePrivate: boolean | undefined): boolean {
+  const record = event.op === "upsert_record" ? event.record : records.get(event.record_id);
+  return !record || isAllowedByPrivateBoundary(record, includePrivate);
+}
+
+function sortedTimelineEvents(events: MorynEvent[], records: Map<string, MorynRecord>, input: ValidatedTimelineInput): MorynEvent[] {
   return events
-    .filter((event) => eventProjectMatches(event, records, projectId))
+    .filter((event) => eventProjectMatches(event, records, input.project_id))
+    .filter((event) => eventAllowedByPrivateBoundary(event, records, input.include_private))
     .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id));
 }
 
@@ -2288,6 +2356,7 @@ function timelineQueryAnchor(records: MorynRecord[], events: MorynEvent[], input
   const recallInput = { query: input.query, project_id: input.project_id } as ValidatedRecallInput;
   const match = records
     .filter(isVisibleInDefaultRecall)
+    .filter((record) => isAllowedByPrivateBoundary(record, input.include_private))
     .filter((record) => recordProjectMatches(record, input.project_id))
     .map((record) => ({ record, ...reasonAndScore(record, recallInput) }))
     .filter((result) => matchesQuery(result, recallInput))
@@ -2909,7 +2978,8 @@ export function createEngine(deps: EngineDeps) {
         types: Array.isArray(input.types) ? input.types : undefined,
         states: Array.isArray(input.states) ? input.states : undefined,
         tags: Array.isArray(input.tags) ? input.tags : undefined,
-        files: Array.isArray(input.files) ? input.files : undefined
+        files: Array.isArray(input.files) ? input.files : undefined,
+        include_private: input.include_private === true
       } as ValidatedRecallInput;
       for (const recordId of recallInput.record_ids ?? []) {
         await requireRecord(recordId);
@@ -2917,6 +2987,7 @@ export function createEngine(deps: EngineDeps) {
       const limit = validateLimit(recallInput.limit, 10, "recall");
       const records = (await currentRecords())
         .filter((record) => includesHiddenState(recallInput) || includesRawState(recallInput) || isVisibleInDefaultRecall(record))
+        .filter((record) => isAllowedByPrivateBoundary(record, recallInput.include_private))
         .filter((record) => recordProjectMatchesRecall(record, recallInput))
         .filter((record) => !recallInput.record_ids?.length || recallInput.record_ids.includes(record.id))
         .filter((record) => !recallInput.kinds?.length || recallInput.kinds.includes(record.kind))
@@ -2942,12 +3013,14 @@ export function createEngine(deps: EngineDeps) {
       const timelineInput = {
         ...input,
         before: validateTimelineWindow(input.before, 5, "before"),
-        after: validateTimelineWindow(input.after, 5, "after")
+        after: validateTimelineWindow(input.after, 5, "after"),
+        include_private: input.include_private === true
       } as ValidatedTimelineInput;
       const events = await readEvents(deps.storePath);
       const recordsMap = replayEvents(events);
-      const records = [...recordsMap.values()];
-      const orderedEvents = sortedTimelineEvents(events, recordsMap, timelineInput.project_id);
+      const records = [...recordsMap.values()]
+        .filter((record) => isAllowedByPrivateBoundary(record, timelineInput.include_private));
+      const orderedEvents = sortedTimelineEvents(events, recordsMap, timelineInput);
       const anchor = timelineAnchor(orderedEvents, records, timelineInput);
       const start = Math.max(0, anchor.index - timelineInput.before);
       const end = Math.min(orderedEvents.length, anchor.index + timelineInput.after + 1);
@@ -2987,10 +3060,12 @@ export function createEngine(deps: EngineDeps) {
       validateBootInput(input);
       const bootInput = {
         ...input,
-        default_skills: Array.isArray(input.default_skills) ? input.default_skills : undefined
+        default_skills: Array.isArray(input.default_skills) ? input.default_skills : undefined,
+        include_private: input.include_private === true
       } as ValidatedBootInput;
       const visibleRecords = (await currentRecords())
         .filter(isVisibleByDefault)
+        .filter((record) => isAllowedByPrivateBoundary(record, bootInput.include_private))
         .filter((record) => recordBootContextMatches(record, bootInput.project_id));
       const records = visibleRecords
         .filter(isTrustedForBoot)
@@ -3055,10 +3130,11 @@ export function createEngine(deps: EngineDeps) {
 
     async refresh(input: RefreshInput) {
       validateRefreshInput(input);
-      const refreshInput = input as ValidatedRefreshInput;
+      const refreshInput = { ...input, include_private: input.include_private === true } as ValidatedRefreshInput;
       const limit = validateLimit(input.limit, 20, "refresh");
       const records = (await currentRecords())
         .filter(isVisibleByDefault)
+        .filter((record) => isAllowedByPrivateBoundary(record, refreshInput.include_private))
         .filter((record) => recordBootContextMatches(record, input.project_id))
         .filter((record) => !refreshInput.cursor || record.updated_at > refreshInput.cursor)
         .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
@@ -3090,8 +3166,19 @@ export function createEngine(deps: EngineDeps) {
       };
     },
 
-    async listRecent(limit: unknown = 20) {
-      const records = compactRecords((await currentRecords()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, validateLimit(limit, 20, "list_recent")));
+    async listRecent(input: unknown = 20) {
+      const listRecentInput = (typeof input === "object" && input !== null && !Array.isArray(input))
+        ? input as ListRecentInput
+        : { limit: input };
+      validateListRecentInput(listRecentInput);
+      const resolvedInput = {
+        ...listRecentInput,
+        include_private: listRecentInput.include_private === true
+      } as ValidatedListRecentInput;
+      const records = compactRecords((await currentRecords())
+        .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private))
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        .slice(0, validateLimit(resolvedInput.limit, 20, "list_recent")));
       return {
         records,
         selection_sources: LIST_RECENT_SELECTION_SOURCES,

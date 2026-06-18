@@ -1212,6 +1212,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         sync_remote: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         default_skills: z.unknown().optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
         ...objectPathAliasInputSchema("boot"),
         ...camelCaseAliasInputSchema("boot")
       })
@@ -1222,7 +1223,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: project.project_id,
         default_skills: normalizedInput.default_skills ?? project.default_skills,
         current_task: normalizedInput.current_task as string | undefined,
-        sync_remote: normalizedInput.sync_remote
+        sync_remote: normalizedInput.sync_remote,
+        include_private: normalizedInput.include_private
       });
     })
   );
@@ -1244,6 +1246,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         tags: z.unknown().optional(),
         files: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
         ...camelCaseAliasInputSchema("recall"),
         ...explicitAliasInputSchema("recall")
       })
@@ -1260,7 +1263,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         states: normalizedInput.states as RecordState[] | undefined,
         tags: normalizedInput.tags,
         files: normalizedInput.files,
-        limit: normalizedInput.limit
+        limit: normalizedInput.limit,
+        include_private: normalizedInput.include_private
       });
     }, (normalizedInput) => ({
       tool: "recall",
@@ -1275,7 +1279,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         states: normalizedInput.states,
         tags: normalizedInput.tags,
         files: normalizedInput.files,
-        limit: normalizedInput.limit
+        limit: normalizedInput.limit,
+        include_private: normalizedInput.include_private
       }),
       arguments: {
         ...(normalizedInput.record_ids !== undefined ? { record_ids: normalizedInput.record_ids } : {}),
@@ -1288,7 +1293,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...(normalizedInput.states !== undefined ? { states: normalizedInput.states } : {}),
         ...(normalizedInput.tags !== undefined ? { tags: normalizedInput.tags } : {}),
         ...(normalizedInput.files !== undefined ? { files: normalizedInput.files } : {}),
-        ...(normalizedInput.limit !== undefined ? { limit: normalizedInput.limit } : {})
+        ...(normalizedInput.limit !== undefined ? { limit: normalizedInput.limit } : {}),
+        ...(normalizedInput.include_private !== undefined ? { include_private: normalizedInput.include_private } : {})
       }
     }))
   );
@@ -1306,6 +1312,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_path: coreValidatedStringSchema.optional(),
         before: coreValidatedNumberSchema.optional(),
         after: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
         ...camelCaseAliasInputSchema("timeline")
       })
     },
@@ -1317,7 +1324,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         query: normalizedInput.query,
         project_id: project.project_id,
         before: normalizedInput.before,
-        after: normalizedInput.after
+        after: normalizedInput.after,
+        include_private: normalizedInput.include_private
       });
     }, (normalizedInput) => ({
       tool: "timeline",
@@ -1328,7 +1336,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: normalizedInput.project_id,
         project_path: normalizedInput.project_path,
         before: normalizedInput.before,
-        after: normalizedInput.after
+        after: normalizedInput.after,
+        include_private: normalizedInput.include_private
       }),
       arguments: {
         ...(normalizedInput.record_id !== undefined ? { record_id: normalizedInput.record_id } : {}),
@@ -1337,7 +1346,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...(normalizedInput.project_id !== undefined ? { project_id: normalizedInput.project_id } : {}),
         ...(normalizedInput.project_path !== undefined ? { project_path: normalizedInput.project_path } : {}),
         ...(normalizedInput.before !== undefined ? { before: normalizedInput.before } : {}),
-        ...(normalizedInput.after !== undefined ? { after: normalizedInput.after } : {})
+        ...(normalizedInput.after !== undefined ? { after: normalizedInput.after } : {}),
+        ...(normalizedInput.include_private !== undefined ? { include_private: normalizedInput.include_private } : {})
       }
     }))
   );
@@ -1579,6 +1589,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         cursor: coreValidatedStringSchema.optional(),
         current_task: z.unknown().optional(),
         limit: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
         ...camelCaseAliasInputSchema("refresh")
       })
     },
@@ -1588,7 +1599,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: project.project_id,
         cursor: normalizedInput.cursor,
         current_task: normalizedInput.current_task as string | undefined,
-        limit: normalizedInput.limit
+        limit: normalizedInput.limit,
+        include_private: normalizedInput.include_private
       });
     })
   );
@@ -1882,13 +1894,15 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       description: "Generate a local static HTML dashboard for sync status, records, recent events, and agent activity.",
       inputSchema: mcpInputSchema({
         limit: coreValidatedNumberSchema.optional(),
-        open: coreValidatedBooleanSchema.optional()
+        open: coreValidatedBooleanSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional()
       })
     },
     async (input) => toolResultWithNormalizedInput("dashboard", input, async (normalizedInput) => {
       validateMcpDashboardOpen(normalizedInput.open);
       const snapshot = await writeDashboardSnapshot(options.storePath, {
-        limit: normalizedInput.limit as number | undefined
+        limit: normalizedInput.limit as number | undefined,
+        include_private: normalizedInput.include_private as boolean | undefined
       });
       if (normalizedInput.open === true) {
         await openDashboard(snapshot.url);
@@ -1961,10 +1975,14 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "List Recent Moryn Records",
       description: "Return recently updated records.",
       inputSchema: mcpInputSchema({
-        limit: coreValidatedNumberSchema.optional()
+        limit: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional()
       })
     },
-    async (input) => toolResultWithNormalizedInput("list_recent", input, async (normalizedInput) => engine.listRecent(normalizedInput.limit))
+    async (input) => toolResultWithNormalizedInput("list_recent", input, async (normalizedInput) => engine.listRecent({
+      limit: normalizedInput.limit,
+      include_private: normalizedInput.include_private
+    }))
   );
 
   await server.connect(new StdioServerTransport());

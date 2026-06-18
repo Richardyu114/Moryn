@@ -32,6 +32,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
 
 export interface DashboardOptions {
   limit?: number;
+  include_private?: boolean;
 }
 
 export interface DashboardRecordSummary {
@@ -215,6 +216,16 @@ function recordText(record: MorynRecord): string {
   return record.state === "quarantined" || record.visibility === "quarantined"
     ? "[quarantined]"
     : displayRecordText(record);
+}
+
+const PRIVATE_RECORD_TAGS = new Set(["private", "secret", "sensitive"]);
+
+function isPrivateRecord(record: MorynRecord): boolean {
+  return record.tags.some((tag) => PRIVATE_RECORD_TAGS.has(tag.toLowerCase()));
+}
+
+function isVisibleForDashboard(record: MorynRecord, includePrivate: boolean | undefined): boolean {
+  return includePrivate === true || !isPrivateRecord(record);
 }
 
 function targetRecordId(event: MorynEvent): string | undefined {
@@ -650,18 +661,24 @@ function buildRecentValue(records: MorynRecord[], generatedAt: string, limit: nu
 export async function buildDashboardData(storePath: string, options: DashboardOptions = {}): Promise<DashboardData> {
   const limit = dashboardLimit(options.limit);
   const events = await readEvents(storePath);
-  const recordsById = replayEvents(events);
-  const records = [...recordsById.values()];
-  const eventsByRecord = latestEventsByRecord(events);
+  const allRecordsById = replayEvents(events);
+  const records = [...allRecordsById.values()].filter((record) => isVisibleForDashboard(record, options.include_private));
+  const recordsById = new Map(records.map((record) => [record.id, record]));
+  const visibleRecordIds = new Set(records.map((record) => record.id));
+  const visibleEvents = events.filter((event) => {
+    const recordId = targetRecordId(event);
+    return !recordId || visibleRecordIds.has(recordId);
+  });
+  const eventsByRecord = latestEventsByRecord(visibleEvents);
   const recentRecords = [...records]
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))
     .slice(0, limit);
-  const recentEvents = [...events]
+  const recentEvents = [...visibleEvents]
     .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.event_id.localeCompare(right.event_id))
     .slice(0, limit);
   const generatedAt = new Date().toISOString();
   const sync = await getGitSyncStatus(storePath);
-  const agentActivity = summarizeAgentActivity(events, records, recordsById, eventsByRecord);
+  const agentActivity = summarizeAgentActivity(visibleEvents, records, recordsById, eventsByRecord);
 
   return {
     generated_at: generatedAt,
@@ -678,7 +695,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       sync_position: buildSyncPositionChart(sync)
     },
     totals: {
-      events: events.length,
+      events: visibleEvents.length,
       records: records.length,
       active_records: records.filter((record) => record.visibility === "active").length,
       quarantined_records: records.filter((record) => record.visibility === "quarantined").length
@@ -1368,6 +1385,7 @@ export async function startDashboardServer(storePath: string, options: Dashboard
   const requestedPort = dashboardServerPort(options.port);
   const refreshIntervalMs = dashboardRefreshInterval(options.refreshIntervalMs);
   const limit = dashboardLimit(options.limit);
+  const includePrivate = options.include_private;
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${requestedPort}`}`);
     const includeBody = request.method !== "HEAD";
@@ -1377,17 +1395,17 @@ export async function startDashboardServer(storePath: string, options: Dashboard
         return;
       }
       if (url.pathname === "/" || url.pathname === "/index.html") {
-        const data = await buildDashboardData(storePath, { limit });
+        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate });
         sendResponse(response, 200, renderDashboardServerHtml(data, refreshIntervalMs), "text/html; charset=utf-8", includeBody);
         return;
       }
       if (url.pathname === "/fragment") {
-        const data = await buildDashboardData(storePath, { limit });
+        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate });
         sendResponse(response, 200, renderDashboardFragment(data), "text/html; charset=utf-8", includeBody);
         return;
       }
       if (url.pathname === "/api/dashboard") {
-        const data = await buildDashboardData(storePath, { limit });
+        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate });
         sendResponse(response, 200, JSON.stringify(data), "application/json; charset=utf-8", includeBody);
         return;
       }

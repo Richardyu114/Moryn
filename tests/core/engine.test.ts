@@ -2155,6 +2155,121 @@ describe("core engine", () => {
     });
   });
 
+  it("hides private-tagged records from default reads unless explicitly included", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const timestamps = [
+        "2026-05-27T00:01:00.000Z",
+        "2026-05-27T00:02:00.000Z"
+      ];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:03:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      const publicRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["sync"],
+        content: { text: "Public sync decision.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const privateRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Private sync credential location.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const defaultRecall = await engine.recall({ query: "sync", project_id: "moryn", limit: 10 });
+      expect(defaultRecall.results.map((result) => result.record.id)).toEqual([publicRecord.record.id]);
+
+      const privateRecall = await engine.recall({
+        query: "sync",
+        project_id: "moryn",
+        include_private: true,
+        limit: 10
+      });
+      expect(privateRecall.results.map((result) => result.record.id)).toEqual([
+        privateRecord.record.id,
+        publicRecord.record.id
+      ]);
+
+      const boot = await engine.boot({ project_id: "moryn" });
+      expect(boot.records_by_id[privateRecord.record.id]).toBeUndefined();
+      expect(boot.recent_changes.map((record) => record.id)).toEqual([publicRecord.record.id]);
+
+      const privateBoot = await engine.boot({ project_id: "moryn", include_private: true });
+      expect(privateBoot.records_by_id[privateRecord.record.id]?.id).toBe(privateRecord.record.id);
+
+      const refresh = await engine.refresh({ project_id: "moryn", cursor: "2026-05-27T00:00:00.000Z" });
+      expect(refresh.changes.map((change) => change.record_id)).toEqual([publicRecord.record.id]);
+
+      const privateRefresh = await engine.refresh({
+        project_id: "moryn",
+        cursor: "2026-05-27T00:00:00.000Z",
+        include_private: true
+      });
+      expect(privateRefresh.changes.map((change) => change.record_id)).toEqual([
+        publicRecord.record.id,
+        privateRecord.record.id
+      ]);
+      expect(privateRefresh.changes.find((change) => change.record_id === privateRecord.record.id)?.next_action).toMatchObject({
+        command: `moryn recall --record-id ${privateRecord.record.id} --project-id moryn --include-private`,
+        arguments: {
+          record_ids: [privateRecord.record.id],
+          project_id: "moryn",
+          include_private: true
+        }
+      });
+
+      const recent = await engine.listRecent({ limit: 10 });
+      expect(recent.records.map((record) => record.id)).toEqual([publicRecord.record.id]);
+
+      const privateRecent = await engine.listRecent({ limit: 10, include_private: true });
+      expect(privateRecent.records.map((record) => record.id)).toEqual([
+        privateRecord.record.id,
+        publicRecord.record.id
+      ]);
+
+      await expect(engine.timeline({
+        record_id: privateRecord.record.id,
+        project_id: "moryn",
+        before: 0,
+        after: 0
+      })).rejects.toThrow(`Record not found: ${privateRecord.record.id}`);
+
+      const privateTimeline = await engine.timeline({
+        record_id: privateRecord.record.id,
+        project_id: "moryn",
+        before: 1,
+        after: 0,
+        include_private: true
+      });
+      expect(privateTimeline.items.map((item) => item.record_id)).toEqual([
+        publicRecord.record.id,
+        privateRecord.record.id
+      ]);
+      expect(privateTimeline.items_by_record_id[privateRecord.record.id]?.[0]?.next_action).toMatchObject({
+        command: `moryn recall --record-id ${privateRecord.record.id} --project-id moryn --include-private`,
+        arguments: {
+          record_ids: [privateRecord.record.id],
+          project_id: "moryn",
+          include_private: true
+        }
+      });
+    });
+  });
+
   it("anchors timeline by event id or query", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

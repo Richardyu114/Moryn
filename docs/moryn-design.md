@@ -62,7 +62,8 @@ Recommended package name:
 5. Recall is selective even when storage is fully synced.
 6. Durable memory requires promotion.
 7. Raw session material is useful but should not pollute boot context.
-8. The first version must work without semantic embeddings.
+8. Private-tagged records require explicit read intent.
+9. The first version must work without semantic embeddings.
 
 ## Architecture
 
@@ -156,6 +157,8 @@ The core engine owns:
 - Boot context generation.
 - Recall filtering and ranking.
 - Timeline windows around record, event, or query anchors.
+- Private read-boundary filtering for active records tagged `private`,
+  `secret`, or `sensitive`.
 - Sync cursor evaluation.
 - Promotion and state transitions.
 - Sensitive content checks.
@@ -165,6 +168,12 @@ The core engine treats agent clients as sources. It does not partition memory ow
 Clients should still use stable, host-specific identities such as `codex`,
 `claude`, `kimi`, or `gemini` in `source.client` and lifecycle `agent.client`
 metadata so derived views can distinguish activity by real agent host.
+
+Read APIs share one private boundary. Normal `boot`, `recall`, `refresh`,
+`timeline`, `list_recent`, and dashboard reads hide active records tagged
+`private`, `secret`, or `sensitive`. These records stay in event history and
+sync like other active records, but agents need an explicit `include_private`
+argument or `--include-private` flag to retrieve them.
 
 ### Local Store
 

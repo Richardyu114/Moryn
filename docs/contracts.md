@@ -81,6 +81,10 @@ The MCP equivalent is:
 }
 ```
 
+Add `"include_private": true` only when the user explicitly wants timeline to
+include records tagged `private`, `secret`, or `sensitive`. Private timeline
+items preserve that opt-in in their follow-up `recall` action.
+
 The observability dashboard is also exposed through the same contract registry:
 
 ```bash
@@ -119,6 +123,28 @@ do not open a browser unless `open` is set to `true`.
 
 See `docs/dashboard.md` for the full dashboard usage and implementation
 contract.
+
+## Private Read Boundary
+
+The private read boundary is part of the operation contracts for all read
+surfaces that can return active record content or event context. Records tagged
+`private`, `secret`, or `sensitive` are hidden by default from:
+
+- `boot`
+- `recall`
+- `refresh`
+- `timeline`
+- `list_recent`
+- `dashboard`
+
+Use CLI `--include-private` or MCP `include_private: true` only for an explicit
+private-memory read. The flag is discoverable in each operation contract:
+
+```bash
+moryn contracts operations --operation recall
+moryn contracts operations --operation timeline
+moryn contracts operations --operation dashboard
+```
 
 ## Selection Sources
 

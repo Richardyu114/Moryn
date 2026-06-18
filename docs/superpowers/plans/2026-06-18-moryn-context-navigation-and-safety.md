@@ -42,7 +42,7 @@
 - [x] Add failing dashboard tests that visible recent values and agent activity expose record/event identifiers and stable link targets.
 - [x] Render compact source links in dashboard data/HTML for records, recent events, and agent activity.
 - [x] Link dashboard source items to timeline commands where the static dashboard has enough identifier context.
-- [ ] Verify dashboard tests and the live dashboard API.
+- [x] Verify dashboard tests and the live dashboard API.
 
 ### Task 3: Private Tags / Safety Boundary
 
@@ -54,12 +54,14 @@
 - Modify: `src/mcp/server.ts`
 - Test: `tests/core/engine.test.ts`
 - Test: `tests/observability/dashboard.test.ts`
+- Test: `tests/cli/cli.test.ts`
+- Test: `tests/mcp/server.test.ts`
 - Docs: `docs/agent-workflow.md`, `docs/moryn-design.md`, `docs/contracts.md`
 
-- [ ] Define the default-hidden private marker contract, starting with tags such as `private`, `secret`, and `sensitive`.
-- [ ] Add failing tests proving boot, default recall, refresh, and dashboard hide private-tagged active records unless explicitly requested.
-- [ ] Add explicit opt-in flags/arguments for private reads.
-- [ ] Update docs so future agents know private content requires explicit intent.
+- [x] Define the default-hidden private marker contract, starting with tags such as `private`, `secret`, and `sensitive`.
+- [x] Add failing tests proving boot, default recall, refresh, timeline, list-recent, and dashboard hide private-tagged active records unless explicitly requested.
+- [x] Add explicit opt-in flags/arguments for private reads.
+- [x] Update docs so future agents know private content requires explicit intent.
 
 ### Task 4: Observer Adapter
 

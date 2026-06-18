@@ -1852,6 +1852,7 @@ type DashboardCliOptions = {
   host?: string;
   port?: string;
   interval?: string;
+  includePrivate?: boolean;
 };
 
 type DashboardCliMetadata =
@@ -1896,7 +1897,8 @@ async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<Das
         host: options.host,
         port: parseDashboardPort(options.port),
         refreshIntervalMs: parseDashboardInterval(options.interval),
-        limit
+        limit,
+        include_private: options.includePrivate
       });
       const shouldOpen = dashboardOpenRequested(options);
       if (shouldOpen) await openDashboard(server.url);
@@ -1910,7 +1912,8 @@ async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<Das
       };
     }
     const snapshot = await writeDashboardSnapshot(storePath(), {
-      limit
+      limit,
+      include_private: options.includePrivate
     });
     const shouldOpen = dashboardOpenRequested(options);
     if (!shouldOpen) return snapshot;
@@ -2045,6 +2048,7 @@ program.command("recall")
   .option("--tag <tag>", "Record tag", collectNonEmptyOption("--tag", { operation: "recall", argument: "tags" }), [])
   .option("--file <path>", "Related file path", collectNonEmptyOption("--file", { operation: "recall", argument: "files" }), [])
   .option("--limit <n>", "Result limit", "10")
+  .option("--include-private", "Include private-tagged records")
   .action(async (query, options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "recall");
@@ -2061,7 +2065,8 @@ program.command("recall")
       states: parseEnumList(options.state, recordStates, "--state", { operation: "recall", argument: "states" }),
       tags: options.tag,
       files: options.file,
-      limit
+      limit,
+      include_private: options.includePrivate
     };
     const contextArguments = {
       ...(options.recordId.length ? { record_ids: options.recordId } : {}),
@@ -2073,7 +2078,8 @@ program.command("recall")
       ...(recallInput.states.length ? { states: recallInput.states } : {}),
       ...(options.tag.length ? { tags: options.tag } : {}),
       ...(options.file.length ? { files: options.file } : {}),
-      ...(options.limit !== "10" ? { limit } : {})
+      ...(options.limit !== "10" ? { limit } : {}),
+      ...(options.includePrivate ? { include_private: true } : {})
     };
     const context = {
       tool: "recall",
@@ -2096,6 +2102,7 @@ program.command("timeline")
   .option("--project <path>")
   .option("--before <n>", "Events before the anchor", "5")
   .option("--after <n>", "Events after the anchor", "5")
+  .option("--include-private", "Include private-tagged records")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "timeline");
@@ -2111,7 +2118,8 @@ program.command("timeline")
       ...(projectId !== undefined ? { project_id: projectId } : {}),
       ...(options.project !== undefined ? { project_path: options.project } : {}),
       ...(options.before !== "5" ? { before } : {}),
-      ...(options.after !== "5" ? { after } : {})
+      ...(options.after !== "5" ? { after } : {}),
+      ...(options.includePrivate ? { include_private: true } : {})
     });
     const context = {
       tool: "timeline",
@@ -2125,7 +2133,8 @@ program.command("timeline")
         query,
         project_id: projectId,
         before,
-        after
+        after,
+        include_private: options.includePrivate
       }));
     } catch (error) {
       printError(error, context);
@@ -2137,13 +2146,15 @@ program.command("boot")
   .option("--project-id <id>")
   .option("--project <path>")
   .option("--current-task <task>")
+  .option("--include-private", "Include private-tagged records")
   .action(async (options) => {
     const engine = createCliEngine();
     const project = await resolveProjectOptions(options, "boot");
     printJson(await engine.boot({
       project_id: project.project_id,
       default_skills: project.default_skills,
-      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", { operation: "boot", argument: "current_task" })
+      current_task: parseNonEmptyCliString(options.currentTask, "--current-task", { operation: "boot", argument: "current_task" }),
+      include_private: options.includePrivate
     }));
   });
 
@@ -2295,9 +2306,13 @@ program.command("link")
 
 program.command("list-recent")
   .option("--limit <n>", "Result limit", "20")
+  .option("--include-private", "Include private-tagged records")
   .action(async (options) => {
     const engine = createCliEngine();
-    printJson(await engine.listRecent(parseLimit(options.limit, "list_recent")));
+    printJson(await engine.listRecent({
+      limit: parseLimit(options.limit, "list_recent"),
+      include_private: options.includePrivate
+    }));
   });
 
 program.command("refresh")
@@ -2306,6 +2321,7 @@ program.command("refresh")
   .option("--cursor <cursor>")
   .option("--current-task <task>")
   .option("--limit <n>", "Change limit", "20")
+  .option("--include-private", "Include private-tagged records")
   .action(async (options) => {
     const engine = createCliEngine();
     const projectId = await resolveOptionalProject(options, "refresh");
@@ -2316,7 +2332,8 @@ program.command("refresh")
       ...(projectId !== undefined ? { project_id: projectId } : {}),
       cursor,
       current_task: currentTask,
-      ...(options.limit !== "20" ? { limit } : {})
+      ...(options.limit !== "20" ? { limit } : {}),
+      ...(options.includePrivate ? { include_private: true } : {})
     });
     const context = {
       tool: "refresh",
@@ -2328,7 +2345,8 @@ program.command("refresh")
         project_id: projectId,
         cursor,
         current_task: currentTask,
-        limit
+        limit,
+        include_private: options.includePrivate
       }));
     } catch (error) {
       printError(error, context);
@@ -2348,6 +2366,7 @@ program.command("dashboard")
   .option("--port <port>", "Dashboard server port; use 0 to choose a free port", "8765")
   .option("--interval <ms>", "Dashboard browser refresh interval in milliseconds", "2000")
   .option("--limit <n>", "Recent record and event limit", "20")
+  .option("--include-private", "Include private-tagged records in dashboard data")
   .action(async (options) => {
     const limit = parseLimit(options.limit, "dashboard");
     const dashboard = await dashboardMetadata({
@@ -2356,7 +2375,8 @@ program.command("dashboard")
       serve: options.serve,
       host: options.host,
       port: options.port,
-      interval: options.interval
+      interval: options.interval,
+      includePrivate: options.includePrivate
     });
     if ("generated" in dashboard && dashboard.generated === false) {
       throw new Error(dashboard.error);

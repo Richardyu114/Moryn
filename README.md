@@ -135,7 +135,10 @@ moryn timeline --record-id rec_... --project-id moryn --before 5 --after 5
 
 Timeline can anchor on `--record-id`, `--event-id`, or `--query`. It returns
 chronological neighboring events, keyed item maps, and safe `recall` next
-actions for fetching full record content.
+actions for fetching full record content. Like other read surfaces, timeline
+hides `private`, `secret`, and `sensitive` tagged records by default; pass
+`--include-private` only when the user has explicitly asked to inspect private
+memory.
 
 ## MCP
 
@@ -204,7 +207,9 @@ also exposes `/api/dashboard` for JSON inspection. For static inspection,
 `moryn dashboard --no-open` writes `state/dashboard/index.html` inside the local
 Moryn store; that snapshot is not synced. Interactive lifecycle and sync
 commands generate the same static snapshot and open it by default; pass
-`--no-open` in automation or when a browser should not be launched.
+`--no-open` in automation or when a browser should not be launched. Dashboard
+reads also hide `private`, `secret`, and `sensitive` tagged records unless
+`--include-private` is passed.
 
 See [Dashboard](docs/dashboard.md) for endpoints, access modes, and
 troubleshooting.
@@ -225,8 +230,12 @@ raw -> candidate -> canonical
 - `archived`: preserved history, hidden by default.
 - `quarantined`: sensitive or unsafe content, hidden by default.
 
-Sensitive content is quarantined or redacted before it enters normal recall.
-High-risk canonical writes require explicit confirmation.
+Records tagged `private`, `secret`, or `sensitive` are active records, but they
+are excluded from normal `boot`, `recall`, `refresh`, `list-recent`, `timeline`,
+and dashboard reads. Use `--include-private` or MCP `include_private: true`
+only with explicit user intent. Sensitive content is quarantined or redacted
+before it enters normal recall. High-risk canonical writes require explicit
+confirmation.
 
 ## Documentation
 

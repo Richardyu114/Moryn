@@ -59,6 +59,7 @@ Defaults:
 - `--port 8765`
 - `--interval 2000`
 - `--limit 20`
+- private-tagged records hidden
 
 Server endpoints:
 
@@ -70,6 +71,10 @@ Server endpoints:
 The browser refreshes from `fragment` on the configured interval. The refresh
 URL is relative so the dashboard can also work behind a reverse proxy path such
 as `/moryn-dashboard/`.
+
+Pass `--include-private` only when the user explicitly wants private memory in
+the dashboard. The same flag applies to the server shell, `/fragment`, and
+`/api/dashboard`.
 
 ### Static Snapshot
 
@@ -203,8 +208,10 @@ attention item instead of forcing `Needs Review`.
 The dashboard reads local data only. It does not add a hosted backend or remote
 analytics.
 
-Redaction rules still apply:
+Default read-boundary and redaction rules still apply:
 
+- records tagged `private`, `secret`, or `sensitive` are hidden unless
+  `--include-private` or MCP `include_private: true` is used
 - quarantined records render as `[quarantined]`
 - sensitive text is not shown in overview cards
 - inspector tables also avoid exposing quarantined content

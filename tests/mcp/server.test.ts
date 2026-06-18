@@ -7412,6 +7412,128 @@ describe("MCP stdio server", () => {
     }
   });
 
+  it("hides private-tagged records from MCP reads unless explicitly included", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-private-boundary-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        const publicWrite = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "warning",
+            scope: "project",
+            project_id: "moryn",
+            state: "canonical",
+            tags: ["public-boundary"],
+            text: "MCP public boundary record.",
+            confirmed: true
+          }
+        })) as { record: { id: string } };
+        const privateWrite = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "warning",
+            scope: "project",
+            project_id: "moryn",
+            state: "canonical",
+            tags: ["private"],
+            text: "MCP private boundary record.",
+            confirmed: true
+          }
+        })) as { record: { id: string } };
+
+        const defaultRecall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            query: "private boundary",
+            project_id: "moryn"
+          }
+        })) as { results: Array<{ record: { id: string } }> };
+        const privateRecall = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            query: "private boundary",
+            project_id: "moryn",
+            include_private: true
+          }
+        })) as { results: Array<{ record: { id: string } }> };
+
+        const defaultBoot = parseTextContent(await client.callTool({
+          name: "boot",
+          arguments: { project_id: "moryn" }
+        })) as { project: { warnings: Array<{ id: string }> } };
+        const privateBoot = parseTextContent(await client.callTool({
+          name: "boot",
+          arguments: {
+            project_id: "moryn",
+            include_private: true
+          }
+        })) as { project: { warnings: Array<{ id: string }> } };
+
+        const defaultRefresh = parseTextContent(await client.callTool({
+          name: "refresh",
+          arguments: {
+            project_id: "moryn",
+            cursor: "2000-01-01T00:00:00.000Z"
+          }
+        })) as { changes: Array<{ record_id: string }> };
+        const privateRefresh = parseTextContent(await client.callTool({
+          name: "refresh",
+          arguments: {
+            project_id: "moryn",
+            cursor: "2000-01-01T00:00:00.000Z",
+            include_private: true
+          }
+        })) as { changes: Array<{ record_id: string }> };
+        const defaultRecent = parseTextContent(await client.callTool({
+          name: "list_recent",
+          arguments: { limit: 10 }
+        })) as { records: Array<{ id: string }> };
+        const privateRecent = parseTextContent(await client.callTool({
+          name: "list_recent",
+          arguments: {
+            limit: 10,
+            include_private: true
+          }
+        })) as { records: Array<{ id: string }> };
+        const privateTimeline = parseTextContent(await client.callTool({
+          name: "timeline",
+          arguments: {
+            record_id: privateWrite.record.id,
+            project_id: "moryn",
+            before: 1,
+            after: 0,
+            include_private: true
+          }
+        })) as { items: Array<{ record_id: string; next_action?: { command: string; arguments: Record<string, unknown> } }> };
+
+        expect(defaultRecall.results.map((result) => result.record.id)).not.toContain(privateWrite.record.id);
+        expect(privateRecall.results.map((result) => result.record.id)).toContain(privateWrite.record.id);
+        expect(defaultBoot.project.warnings.map((record) => record.id)).toContain(publicWrite.record.id);
+        expect(defaultBoot.project.warnings.map((record) => record.id)).not.toContain(privateWrite.record.id);
+        expect(privateBoot.project.warnings.map((record) => record.id)).toContain(privateWrite.record.id);
+        expect(defaultRefresh.changes.map((change) => change.record_id)).toContain(publicWrite.record.id);
+        expect(defaultRefresh.changes.map((change) => change.record_id)).not.toContain(privateWrite.record.id);
+        expect(privateRefresh.changes.map((change) => change.record_id)).toContain(privateWrite.record.id);
+        expect(defaultRecent.records.map((record) => record.id)).toEqual([publicWrite.record.id]);
+        expect(privateRecent.records.map((record) => record.id)).toContain(privateWrite.record.id);
+        expect(privateTimeline.items.map((item) => item.record_id)).toEqual([publicWrite.record.id, privateWrite.record.id]);
+        expect(privateTimeline.items.find((item) => item.record_id === privateWrite.record.id)?.next_action).toMatchObject({
+          command: `moryn recall --record-id ${privateWrite.record.id} --project-id moryn --include-private`,
+          arguments: {
+            record_ids: [privateWrite.record.id],
+            project_id: "moryn",
+            include_private: true
+          }
+        });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
   it("writes project session summaries with handoff defaults over MCP", async () => {
     const store = await mkdtemp(join(tmpdir(), "moryn-mcp-session-summary-"));
     try {

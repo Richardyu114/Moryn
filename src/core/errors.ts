@@ -983,6 +983,7 @@ export function commandForRecallContext(input: {
   tags?: unknown;
   files?: unknown;
   limit?: unknown;
+  include_private?: unknown;
 }): string {
   const parts = ["moryn", "recall"];
   if (typeof input.query === "string") {
@@ -998,6 +999,7 @@ export function commandForRecallContext(input: {
   appendRepeatedCommandOption(parts, "--tag", Array.isArray(input.tags) ? input.tags : undefined);
   appendRepeatedCommandOption(parts, "--file", Array.isArray(input.files) ? input.files : undefined);
   appendCommandOptionValue(parts, "--limit", input.limit);
+  if (input.include_private === true) parts.push("--include-private");
   return parts.join(" ");
 }
 
@@ -1007,6 +1009,7 @@ export function commandForRefreshContext(input: {
   cursor?: unknown;
   current_task?: unknown;
   limit?: unknown;
+  include_private?: unknown;
 }): string {
   const parts = ["moryn", "refresh"];
   appendCommandOptionValue(parts, "--project-id", input.project_id);
@@ -1014,6 +1017,7 @@ export function commandForRefreshContext(input: {
   appendCommandOptionValue(parts, "--cursor", input.cursor);
   appendCommandOptionValue(parts, "--current-task", input.current_task);
   appendCommandOptionValue(parts, "--limit", input.limit);
+  if (input.include_private === true) parts.push("--include-private");
   return parts.join(" ");
 }
 
@@ -1025,6 +1029,7 @@ export function commandForTimelineContext(input: {
   project_path?: unknown;
   before?: unknown;
   after?: unknown;
+  include_private?: unknown;
 }): string {
   const parts = ["moryn", "timeline"];
   appendCommandOptionValue(parts, "--record-id", input.record_id);
@@ -1034,6 +1039,7 @@ export function commandForTimelineContext(input: {
   appendCommandOptionValue(parts, "--project", input.project_path);
   appendCommandOptionValue(parts, "--before", input.before);
   appendCommandOptionValue(parts, "--after", input.after);
+  if (input.include_private === true) parts.push("--include-private");
   return parts.join(" ");
 }
 

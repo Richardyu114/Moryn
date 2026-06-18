@@ -550,6 +550,80 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("hides private-tagged records from the dashboard unless explicitly included", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_private_${++record}` : `evt_private_${++event}`;
+        })()
+      });
+
+      const publicRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Public dashboard memory.", format: "text" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+      const privateRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Private dashboard memory.", format: "text" },
+        state: "canonical",
+        source: { client: "codex" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 });
+      expect(data.recent_records.map((record) => record.id)).toEqual([publicRecord.record.id]);
+      expect(data.recent_value.map((record) => record.id)).toEqual([publicRecord.record.id]);
+      expect(data.recent_events.map((event) => event.record_id)).toEqual([publicRecord.record.id]);
+      expect(JSON.stringify(data)).not.toContain("Private dashboard memory.");
+
+      const withPrivate = await buildDashboardData(storePath, { limit: 10, include_private: true });
+      expect(withPrivate.recent_records.map((record) => record.id)).toEqual([
+        privateRecord.record.id,
+        publicRecord.record.id
+      ]);
+      expect(JSON.stringify(withPrivate)).toContain("Private dashboard memory.");
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10,
+        include_private: true
+      });
+      try {
+        const serverData = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+          recent_records: Array<{ id: string }>;
+        };
+        expect(serverData.recent_records.map((record) => record.id)).toContain(privateRecord.record.id);
+        await expect((await fetch(new URL("/fragment", server.url))).text()).resolves.toContain("Private dashboard memory.");
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
   it("writes a local-only static dashboard snapshot", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

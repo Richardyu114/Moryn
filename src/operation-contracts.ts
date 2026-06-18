@@ -840,6 +840,16 @@ const projectContextArguments = {
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
+const privateReadArgument = {
+  include_private: {
+    type: "boolean",
+    required: false,
+    default: false,
+    cli: { flag: "--include-private" },
+    mcp: { argument: "include_private" }
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
 const lifecycleContextArguments = {
   ...projectContextArguments,
   sync_remote: {
@@ -941,7 +951,8 @@ const dashboardArguments = {
     default: 20,
     cli: { flag: "--limit", default: 20 },
     mcp: { argument: "limit" }
-  }
+  },
+  ...privateReadArgument
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
 export const OPERATION_CONTRACTS = [
@@ -1240,7 +1251,8 @@ export const OPERATION_CONTRACTS = [
         type: "string",
         required: false,
         mcp: { argument: "sync_remote" }
-      }
+      },
+      ...privateReadArgument
     },
     interfaces: {
       cli: { command: "moryn boot", argv: ["boot"] },
@@ -1313,7 +1325,8 @@ export const OPERATION_CONTRACTS = [
         default: 10,
         cli: { flag: "--limit", default: 10 },
         mcp: { argument: "limit" }
-      }
+      },
+      ...privateReadArgument
     },
     interfaces: {
       cli: { command: "moryn recall", argv: ["recall"] },
@@ -1363,7 +1376,8 @@ export const OPERATION_CONTRACTS = [
         default: 5,
         cli: { flag: "--after", default: 5 },
         mcp: { argument: "after" }
-      }
+      },
+      ...privateReadArgument
     },
     interfaces: {
       cli: { command: "moryn timeline", argv: ["timeline"] },
@@ -1758,7 +1772,8 @@ export const OPERATION_CONTRACTS = [
         default: 20,
         cli: { flag: "--limit", default: 20 },
         mcp: { argument: "limit" }
-      }
+      },
+      ...privateReadArgument
     },
     interfaces: {
       cli: { command: "moryn list-recent", argv: ["list-recent"] },
@@ -1792,7 +1807,8 @@ export const OPERATION_CONTRACTS = [
         default: 20,
         cli: { flag: "--limit", default: 20 },
         mcp: { argument: "limit" }
-      }
+      },
+      ...privateReadArgument
     },
     interfaces: {
       cli: { command: "moryn refresh", argv: ["refresh"] },
