@@ -2859,6 +2859,7 @@ describe("MCP stdio server", () => {
           "sync_pull",
           "sync_push",
           "sync_status",
+          "timeline",
           "write"
         ]);
         const writeTool = tools.tools.find((tool) => tool.name === "write");
@@ -2982,6 +2983,32 @@ describe("MCP stdio server", () => {
           record_id: "results_by_id.<record_id>.record.id"
         });
         expect(recallResult.results_by_id[writeResult.record.id]).toEqual(recallResult.results[0]);
+
+        const timelineResult = parseTextContent(await client.callTool({
+          name: "timeline",
+          arguments: { record_id: writeResult.record.id, project_id: "moryn", before: 0, after: 0 }
+        })) as {
+          anchor: { record_id: string; source: string };
+          items: Array<{ record_id: string; relative: string; next_action?: { tool: string; command: string } }>;
+          items_by_record_id: Record<string, Array<{ record_id: string }>>;
+          selection_sources: Record<string, string>;
+        };
+
+        expect(timelineResult.anchor).toMatchObject({
+          record_id: writeResult.record.id,
+          source: "record_id"
+        });
+        expect(timelineResult.items).toHaveLength(1);
+        expect(timelineResult.items[0]).toMatchObject({
+          record_id: writeResult.record.id,
+          relative: "anchor",
+          next_action: {
+            tool: "recall",
+            command: `moryn recall --record-id ${writeResult.record.id} --project-id moryn`
+          }
+        });
+        expect(timelineResult.items_by_record_id[writeResult.record.id]).toEqual([timelineResult.items[0]]);
+        expect(timelineResult.selection_sources.anchor_record_id).toBe("anchor.record_id");
 
         const bootResult = parseTextContent(await client.callTool({
           name: "boot",

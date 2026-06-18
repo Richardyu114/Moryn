@@ -8,8 +8,9 @@ The short version:
 1. Use `agent enter` when a session starts.
 2. Use `agent status` during meaningful long-running work.
 3. Use `refresh` when checking for new context without a full restart.
-4. Use `agent finish` before stopping or handing off.
-5. Follow returned `next` actions instead of inventing command sequences.
+4. Use `timeline` when a recalled record needs surrounding event context.
+5. Use `agent finish` before stopping or handing off.
+6. Follow returned `next` actions instead of inventing command sequences.
 
 ## Startup
 
@@ -116,6 +117,24 @@ moryn refresh \
 
 Changes are classified as `silent`, `notice`, or `interrupt`. Reportable
 changes include safe `recall` next actions for retrieving full records.
+
+## Timeline Context
+
+Use `timeline` when a single recalled record is not enough to understand why it
+exists or what happened nearby:
+
+```bash
+moryn timeline \
+  --record-id rec_... \
+  --project . \
+  --before 5 \
+  --after 5
+```
+
+Timeline accepts exactly one anchor: `--record-id`, `--event-id`, or `--query`.
+It returns ordered items plus keyed maps by event id and record id. Each item
+with a record includes a safe `recall` next action; agents should follow that
+action when full content is needed instead of reconstructing arguments.
 
 ## Finish Handoff
 

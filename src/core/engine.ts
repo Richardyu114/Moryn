@@ -70,6 +70,26 @@ interface RefreshInput {
 
 type ValidatedRefreshInput = RefreshInput & { cursor?: string; current_task?: string };
 
+interface TimelineInput {
+  record_id?: unknown;
+  event_id?: unknown;
+  query?: unknown;
+  project_id?: string;
+  before?: unknown;
+  after?: unknown;
+}
+
+type TimelineAnchorSource = "record_id" | "event_id" | "query";
+type TimelineRelative = "before" | "anchor" | "after";
+
+type ValidatedTimelineInput = TimelineInput & {
+  record_id?: string;
+  event_id?: string;
+  query?: string;
+  before: number;
+  after: number;
+};
+
 interface BootInput {
   project_id?: string;
   default_skills?: unknown;
@@ -272,6 +292,48 @@ export const REFRESH_CHANGE_NEXT_ACTION_SELECTION_SOURCES = {
   ordered_argument_source: "refresh.changes[].next_action.argument_sources.<field>"
 };
 
+export const TIMELINE_SELECTION_SOURCES = {
+  anchor: "anchor",
+  anchor_event_id: "anchor.event_id",
+  anchor_record_id: "anchor.record_id",
+  item: "items_by_event_id.<event_id>",
+  item_event_id: "items_by_event_id.<event_id>.event_id",
+  item_record_id: "items_by_event_id.<event_id>.record_id",
+  item_next_action: "items_by_event_id.<event_id>.next_action",
+  record_item: "items_by_record_id.<record_id>[]",
+  ordered_item: "items[]",
+  ordered_next_action: "items[].next_action"
+};
+
+export const TIMELINE_ITEM_NEXT_ACTION_SELECTION_SOURCES = {
+  item: "timeline.items_by_event_id.<event_id>",
+  record_id: "timeline.items_by_event_id.<event_id>.record_id",
+  next_action: "timeline.items_by_event_id.<event_id>.next_action",
+  ordered_next_action: "timeline.items[].next_action",
+  cli_executable: "timeline.items_by_event_id.<event_id>.next_action.interfaces.cli.executable",
+  cli_argv: "timeline.items_by_event_id.<event_id>.next_action.interfaces.cli.argv[]",
+  cli_args: "timeline.items_by_event_id.<event_id>.next_action.interfaces.cli.args[]",
+  cli_exec_file: "timeline.items_by_event_id.<event_id>.next_action.interfaces.cli.exec_file",
+  cli_placeholder: "timeline.items_by_event_id.<event_id>.next_action.interfaces.cli.placeholders[]",
+  cli_command_line: "timeline.items_by_event_id.<event_id>.next_action.interfaces.cli.command_line",
+  ordered_cli_executable: "timeline.items[].next_action.interfaces.cli.executable",
+  ordered_cli_argv: "timeline.items[].next_action.interfaces.cli.argv[]",
+  ordered_cli_args: "timeline.items[].next_action.interfaces.cli.args[]",
+  ordered_cli_exec_file: "timeline.items[].next_action.interfaces.cli.exec_file",
+  ordered_cli_placeholder: "timeline.items[].next_action.interfaces.cli.placeholders[]",
+  ordered_cli_command_line: "timeline.items[].next_action.interfaces.cli.command_line",
+  argument: "timeline.items_by_event_id.<event_id>.next_action.arguments_by_name.<argument>",
+  ordered_argument: "timeline.items[].next_action.arguments_by_name.<argument>",
+  required_field: "timeline.items_by_event_id.<event_id>.next_action.required_fields_by_name.<field>",
+  ordered_required_field: "timeline.items[].next_action.required_fields_by_name.<field>",
+  required_input: "timeline.items_by_event_id.<event_id>.next_action.execution.required_inputs_by_field.<field>",
+  ordered_required_input: "timeline.items[].next_action.execution.required_inputs_by_field.<field>",
+  required_input_argument_path: "timeline.items_by_event_id.<event_id>.next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  ordered_required_input_argument_path: "timeline.items[].next_action.execution.required_inputs_by_argument_path.<argument_path>",
+  argument_source: "timeline.items_by_event_id.<event_id>.next_action.argument_sources.<field>",
+  ordered_argument_source: "timeline.items[].next_action.argument_sources.<field>"
+};
+
 function withActionInterfaces<T extends { tool: string; command: string; arguments: unknown; required_fields: string[] }>(
   action: T
 ): T & {
@@ -393,6 +455,50 @@ function withRefreshChangeNextActionMetadata<T extends {
   };
 }
 
+function withTimelineItemNextActionMetadata<T extends {
+  recommended_action: string;
+  tool: string;
+  command: string;
+  arguments: Record<string, unknown>;
+  safe_to_run: boolean;
+  required_when: string;
+  required_fields: string[];
+}>(
+  action: T
+) {
+  const actionWithInterfaces = withActionInterfaces(action);
+  const recordIds = action.arguments.record_ids;
+  const recordId = Array.isArray(recordIds) && typeof recordIds[0] === "string" ? recordIds[0] : "<record_id>";
+  return {
+    ...actionWithInterfaces,
+    action_source: `timeline.items_by_record_id.${recordId}.next_action`,
+    selection_sources: TIMELINE_ITEM_NEXT_ACTION_SELECTION_SOURCES,
+    safety: actionSafety(action),
+    execution: actionExecution({
+      ...action,
+      required_fields_by_name: actionWithInterfaces.required_fields_by_name,
+      arguments_by_name: actionWithInterfaces.arguments_by_name,
+      argument_sources: actionArgumentSources(action),
+      required_input_selection_sources: requiredInputSelectionSources(TIMELINE_ITEM_NEXT_ACTION_SELECTION_SOURCES)
+    }),
+    workflow: withPhasesByName({
+      version: 1,
+      start: "next_action",
+      continue_from: ["timeline.items_by_event_id.<event_id>.next_action", "timeline.items[].next_action"],
+      phases: [
+        {
+          phase: action.recommended_action,
+          order: 1,
+          action_source: "timeline.items_by_event_id.<event_id>.next_action",
+          tool: action.tool,
+          required_when: action.required_when,
+          required_fields: action.required_fields
+        }
+      ]
+    })
+  };
+}
+
 interface StateChangeInput {
   record_id: unknown;
   reason?: unknown;
@@ -427,7 +533,7 @@ type ValidatedRevisionInput = RevisionInput & { record_id: string; reason?: stri
 type ValidatedPromoteInput = PromoteInput & { record_id: string; target_state: RecordState; reason?: string };
 type ValidatedLinkInput = LinkInput & { record_id: string; linked_record_id: string; link_type: string };
 
-type ReadOperation = "recall" | "boot" | "refresh" | "list_recent" | "project_list";
+type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
 type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.${string}`;
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
@@ -596,6 +702,14 @@ function validateLimit(limit: unknown, fallback: number, operation: ReadOperatio
   const resolved = limit ?? fallback;
   if (typeof resolved !== "number" || !Number.isInteger(resolved) || resolved < 1 || resolved > 100) {
     throw invalidReadLimitError(operation, resolved);
+  }
+  return resolved;
+}
+
+function validateTimelineWindow(value: unknown, fallback: number, argument: "before" | "after"): number {
+  const resolved = value ?? fallback;
+  if (typeof resolved !== "number" || !Number.isInteger(resolved) || resolved < 0 || resolved > 50) {
+    throw invalidReadWindowError("timeline", argument, resolved);
   }
   return resolved;
 }
@@ -848,6 +962,20 @@ type ReadArgumentRecoveryHint =
       retry_with: { argument: "limit"; value_placeholder: 10 };
     }
   | {
+      operation_contract: ReadOperationContractSource;
+      rejected_argument: { argument: "before" | "after"; value: unknown };
+      expected: { kind: "integer_range"; min: 0; max: 50; integer: true };
+      argument_sources: Partial<Record<"before" | "after", ReadArgumentSource>>;
+      retry_with: { argument: "before" | "after"; value_placeholder: 5 };
+    }
+  | {
+      operation_contract: "operations_by_id.timeline";
+      rejected_argument: { argument: "anchor"; value: string[] };
+      expected: { kind: "one_of"; allowed_arguments: ["record_id", "event_id", "query"] };
+      argument_sources: Record<"record_id" | "event_id" | "query", ReadArgumentSource>;
+      retry_with: { argument: "record_id"; value_placeholder: "<record_id>" };
+    }
+  | {
       operation_contract: "operations_by_id.project_list";
       rejected_argument: { argument: AgentIdentityArgument; value: unknown };
       expected: { kind: "non_empty_string"; min_length: 1 };
@@ -893,6 +1021,43 @@ function invalidReadLimitError(operation: ReadOperation, limit: unknown): ReadAr
       expected: { kind: "integer_range", min: 1, max: 100, integer: true },
       argument_sources: { limit: readArgumentSource(operation, "limit") },
       retry_with: { argument: "limit", value_placeholder: 10 }
+    }
+  );
+}
+
+function invalidReadWindowError(operation: ReadOperation, argument: "before" | "after", value: unknown): ReadArgumentError {
+  return new ReadArgumentError(
+    `Invalid argument: Invalid ${argument}; must be an integer between 0 and 50`,
+    "retry read with a timeline window between 0 and 50",
+    {
+      operation_contract: readOperationContractSource(operation),
+      rejected_argument: { argument, value },
+      expected: { kind: "integer_range", min: 0, max: 50, integer: true },
+      argument_sources: { [argument]: readArgumentSource(operation, argument) },
+      retry_with: { argument, value_placeholder: argument === "before" ? 5 : 5 }
+    }
+  );
+}
+
+function invalidReadAnchorError(input: TimelineInput): ReadArgumentError {
+  const provided = [
+    input.record_id !== undefined ? "record_id" : undefined,
+    input.event_id !== undefined ? "event_id" : undefined,
+    input.query !== undefined ? "query" : undefined
+  ].filter((value): value is string => Boolean(value));
+  return new ReadArgumentError(
+    "Invalid argument: timeline requires exactly one anchor",
+    "retry timeline with exactly one of record_id, event_id, or query",
+    {
+      operation_contract: "operations_by_id.timeline",
+      rejected_argument: { argument: "anchor", value: provided },
+      expected: { kind: "one_of", allowed_arguments: ["record_id", "event_id", "query"] },
+      argument_sources: {
+        record_id: "operations_by_id.timeline.arguments_by_name.record_id",
+        event_id: "operations_by_id.timeline.arguments_by_name.event_id",
+        query: "operations_by_id.timeline.arguments_by_name.query"
+      },
+      retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
     }
   );
 }
@@ -1802,6 +1967,18 @@ function validateRefreshInput(input: RefreshInput): void {
   validateOptionalString("refresh", input.current_task, "current_task");
 }
 
+function validateTimelineInput(input: TimelineInput): void {
+  assertPlainObject(input, "timeline input");
+  validateOptionalString("timeline", input.record_id, "record_id");
+  validateOptionalString("timeline", input.event_id, "event_id");
+  validateOptionalString("timeline", input.query, "query");
+  validateOptionalString("timeline", input.project_id, "project_id");
+  const anchorCount = [input.record_id, input.event_id, input.query].filter((value) => value !== undefined).length;
+  if (anchorCount !== 1) {
+    throw invalidReadAnchorError(input);
+  }
+}
+
 function validateListProjectsInput(input: ListProjectsInput): void {
   assertPlainObject(input, "list projects input");
   validateOptionalString("project_list", input.current_task, "current_task");
@@ -1866,6 +2043,24 @@ function refreshChangeNextAction(record: MorynRecord, input: RefreshInput) {
     },
     argument_sources: {
       record_ids: "refresh.changes_by_record_id.<record_id>.record_id"
+    }
+  });
+}
+
+function timelineItemNextAction(recordId: string, input: TimelineInput) {
+  return withTimelineItemNextActionMetadata({
+    recommended_action: "call_recall_with_record_id",
+    tool: "recall",
+    safe_to_run: true,
+    required_when: "After timeline reports this item and the agent needs the full record content.",
+    required_fields: [],
+    command: recallRecordCommand(recordId, input.project_id),
+    arguments: {
+      record_ids: [recordId],
+      ...(input.project_id ? { project_id: input.project_id } : {})
+    },
+    argument_sources: {
+      record_ids: "timeline.items_by_event_id.<event_id>.record_id"
     }
   });
 }
@@ -2062,6 +2257,77 @@ function reasonAndScore(record: MorynRecord, input: ValidatedRecallInput): { sco
 function matchesQuery(result: { reason: string[] }, input: ValidatedRecallInput): boolean {
   if (!input.query || input.record_ids?.length) return true;
   return result.reason.some((reason) => reason.startsWith("text_match:"));
+}
+
+function recordIdFromEvent(event: MorynEvent): string {
+  return event.op === "upsert_record" ? event.record.id : event.record_id;
+}
+
+function eventProjectMatches(event: MorynEvent, records: Map<string, MorynRecord>, projectId: string | undefined): boolean {
+  if (!projectId) return true;
+  const record = event.op === "upsert_record" ? event.record : records.get(event.record_id);
+  if (!record) return true;
+  return recordProjectMatches(record, projectId);
+}
+
+function sortedTimelineEvents(events: MorynEvent[], records: Map<string, MorynRecord>, projectId: string | undefined): MorynEvent[] {
+  return events
+    .filter((event) => eventProjectMatches(event, records, projectId))
+    .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id));
+}
+
+function latestEventIndexForRecord(events: MorynEvent[], recordId: string): number {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    if (recordIdFromEvent(events[index]!) === recordId) return index;
+  }
+  return -1;
+}
+
+function timelineQueryAnchor(records: MorynRecord[], events: MorynEvent[], input: ValidatedTimelineInput): { index: number; record_id: string } | undefined {
+  if (!input.query) return undefined;
+  const recallInput = { query: input.query, project_id: input.project_id } as ValidatedRecallInput;
+  const match = records
+    .filter(isVisibleInDefaultRecall)
+    .filter((record) => recordProjectMatches(record, input.project_id))
+    .map((record) => ({ record, ...reasonAndScore(record, recallInput) }))
+    .filter((result) => matchesQuery(result, recallInput))
+    .filter((result) => result.score > 0)
+    .sort((a, b) => (b.score - a.score) || b.record.updated_at.localeCompare(a.record.updated_at) || a.record.id.localeCompare(b.record.id))[0];
+  if (!match) return undefined;
+  const index = latestEventIndexForRecord(events, match.record.id);
+  return index >= 0 ? { index, record_id: match.record.id } : undefined;
+}
+
+function timelineAnchor(events: MorynEvent[], records: MorynRecord[], input: ValidatedTimelineInput): {
+  index: number;
+  source: TimelineAnchorSource;
+  event_id: string;
+  record_id: string;
+} {
+  if (input.event_id) {
+    const index = events.findIndex((event) => event.event_id === input.event_id);
+    if (index < 0) throw new Error(`Event not found: ${input.event_id}`);
+    const event = events[index]!;
+    return { index, source: "event_id", event_id: event.event_id, record_id: recordIdFromEvent(event) };
+  }
+
+  if (input.record_id) {
+    const index = latestEventIndexForRecord(events, input.record_id);
+    if (index < 0) throw new Error(`Record not found: ${input.record_id}`);
+    const event = events[index]!;
+    return { index, source: "record_id", event_id: event.event_id, record_id: input.record_id };
+  }
+
+  const queryAnchor = timelineQueryAnchor(records, events, input);
+  if (!queryAnchor) throw new Error(`Timeline anchor not found for query: ${input.query ?? ""}`);
+  const event = events[queryAnchor.index]!;
+  return { index: queryAnchor.index, source: "query", event_id: event.event_id, record_id: queryAnchor.record_id };
+}
+
+function timelineRelative(index: number, anchorIndex: number): TimelineRelative {
+  if (index < anchorIndex) return "before";
+  if (index > anchorIndex) return "after";
+  return "anchor";
 }
 
 function summarizeRecord(record: MorynRecord): string {
@@ -2668,6 +2934,52 @@ export function createEngine(deps: EngineDeps) {
         results: records,
         selection_sources: RECALL_SELECTION_SOURCES,
         results_by_id: Object.fromEntries(records.map((result) => [result.record.id, result]))
+      };
+    },
+
+    async timeline(input: TimelineInput) {
+      validateTimelineInput(input);
+      const timelineInput = {
+        ...input,
+        before: validateTimelineWindow(input.before, 5, "before"),
+        after: validateTimelineWindow(input.after, 5, "after")
+      } as ValidatedTimelineInput;
+      const events = await readEvents(deps.storePath);
+      const recordsMap = replayEvents(events);
+      const records = [...recordsMap.values()];
+      const orderedEvents = sortedTimelineEvents(events, recordsMap, timelineInput.project_id);
+      const anchor = timelineAnchor(orderedEvents, records, timelineInput);
+      const start = Math.max(0, anchor.index - timelineInput.before);
+      const end = Math.min(orderedEvents.length, anchor.index + timelineInput.after + 1);
+      const items = orderedEvents.slice(start, end).map((event, offset) => {
+        const index = start + offset;
+        const recordId = recordIdFromEvent(event);
+        const record = event.op === "upsert_record" ? event.record : recordsMap.get(recordId);
+        return {
+          event_id: event.event_id,
+          op: event.op,
+          relative: timelineRelative(index, anchor.index),
+          created_at: event.created_at,
+          record_id: recordId,
+          source: event.source,
+          summary: record ? summarizeRecord(record) : event.op,
+          ...(record ? { record: compactRecord(record), next_action: timelineItemNextAction(recordId, timelineInput) } : {})
+        };
+      });
+      const itemsByRecordId: Record<string, typeof items> = {};
+      for (const item of items) {
+        itemsByRecordId[item.record_id] = [...(itemsByRecordId[item.record_id] ?? []), item];
+      }
+      return {
+        anchor: {
+          event_id: anchor.event_id,
+          record_id: anchor.record_id,
+          source: anchor.source
+        },
+        items,
+        selection_sources: TIMELINE_SELECTION_SOURCES,
+        items_by_event_id: Object.fromEntries(items.map((item) => [item.event_id, item])),
+        items_by_record_id: itemsByRecordId
       };
     },
 

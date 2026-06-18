@@ -127,6 +127,16 @@ moryn contracts selection-sources
 See [Contracts](docs/contracts.md) for operation contracts, selection-source
 paths, action templates, and structured recovery metadata.
 
+When recall returns a record but the surrounding history matters, use timeline:
+
+```bash
+moryn timeline --record-id rec_... --project-id moryn --before 5 --after 5
+```
+
+Timeline can anchor on `--record-id`, `--event-id`, or `--query`. It returns
+chronological neighboring events, keyed item maps, and safe `recall` next
+actions for fetching full record content.
+
 ## MCP
 
 Start the MCP server:

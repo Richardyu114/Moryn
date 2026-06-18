@@ -35,6 +35,7 @@ import {
   commandForRecallContext,
   commandForQuarantineContext,
   commandForReviseContext,
+  commandForTimelineContext,
   type MorynErrorContext,
   toErrorEnvelope
 } from "../core/errors.js";
@@ -480,6 +481,7 @@ function withDefaultSource(source: unknown): unknown {
 type McpProjectContextOperation =
   | "boot"
   | "recall"
+  | "timeline"
   | "write"
   | "refresh"
   | "agent_doctor"
@@ -1287,6 +1289,55 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         ...(normalizedInput.tags !== undefined ? { tags: normalizedInput.tags } : {}),
         ...(normalizedInput.files !== undefined ? { files: normalizedInput.files } : {}),
         ...(normalizedInput.limit !== undefined ? { limit: normalizedInput.limit } : {})
+      }
+    }))
+  );
+
+  server.registerTool(
+    "timeline",
+    {
+      title: "Timeline Around Moryn Record",
+      description: "Return chronological event context around a record, event, or query anchor.",
+      inputSchema: mcpInputSchema({
+        record_id: coreValidatedStringSchema.optional(),
+        event_id: coreValidatedStringSchema.optional(),
+        query: coreValidatedStringSchema.optional(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        before: coreValidatedNumberSchema.optional(),
+        after: coreValidatedNumberSchema.optional(),
+        ...camelCaseAliasInputSchema("timeline")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("timeline", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("timeline", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      return engine.timeline({
+        record_id: normalizedInput.record_id,
+        event_id: normalizedInput.event_id,
+        query: normalizedInput.query,
+        project_id: project.project_id,
+        before: normalizedInput.before,
+        after: normalizedInput.after
+      });
+    }, (normalizedInput) => ({
+      tool: "timeline",
+      command: commandForTimelineContext({
+        record_id: normalizedInput.record_id,
+        event_id: normalizedInput.event_id,
+        query: normalizedInput.query,
+        project_id: normalizedInput.project_id,
+        project_path: normalizedInput.project_path,
+        before: normalizedInput.before,
+        after: normalizedInput.after
+      }),
+      arguments: {
+        ...(normalizedInput.record_id !== undefined ? { record_id: normalizedInput.record_id } : {}),
+        ...(normalizedInput.event_id !== undefined ? { event_id: normalizedInput.event_id } : {}),
+        ...(normalizedInput.query !== undefined ? { query: normalizedInput.query } : {}),
+        ...(normalizedInput.project_id !== undefined ? { project_id: normalizedInput.project_id } : {}),
+        ...(normalizedInput.project_path !== undefined ? { project_path: normalizedInput.project_path } : {}),
+        ...(normalizedInput.before !== undefined ? { before: normalizedInput.before } : {}),
+        ...(normalizedInput.after !== undefined ? { after: normalizedInput.after } : {})
       }
     }))
   );

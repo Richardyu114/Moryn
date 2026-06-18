@@ -36,6 +36,7 @@ import {
   commandForQuarantineContext,
   commandForRefreshContext,
   commandForReviseContext,
+  commandForTimelineContext,
   type MorynErrorEnvelope,
   type MorynErrorContext,
   toErrorEnvelope
@@ -84,7 +85,7 @@ const CLI_GLOBAL_OPTIONS = [
   { option: "--version", position: "before_command" },
   { option: "-V", position: "before_command" }
 ] as const;
-type CliLimitOperation = "recall" | "refresh" | "list_recent" | "project_list" | "agent_enter" | "agent_start" | "dashboard";
+type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "agent_enter" | "agent_start" | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
@@ -121,6 +122,7 @@ type CliParserOperation =
   | "write"
   | "boot"
   | "recall"
+  | "timeline"
   | "refresh"
   | "sync_push"
   | "revise"
@@ -1726,6 +1728,25 @@ function parseLimit(value: string, operation?: CliLimitOperation, option = "--li
   return parsed;
 }
 
+function parseTimelineWindow(value: string, option: "--before" | "--after"): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 50) {
+    const argument = option.slice(2);
+    throw new CliArgumentError(
+      `Invalid argument: Invalid ${option}; must be an integer between 0 and 50`,
+      `${CLI_ARGUMENT_RECOVERY_ACTION_PREFIX} ${option} value`,
+      {
+        operation_contract: "operations_by_id.timeline",
+        rejected_argument: { option, value },
+        expected: { kind: "integer_range", min: 0, max: 50, integer: true },
+        argument_sources: { [argument]: `operations_by_id.timeline.arguments_by_name.${argument}` },
+        retry_with: { option, value_placeholder: "<integer 0-50>" }
+      }
+    );
+  }
+  return parsed;
+}
+
 function parseConfidence(value: string | undefined, option = "--confidence", source?: CliWriteSource): number | undefined {
   if (value === undefined) return undefined;
   const parsed = Number(value);
@@ -2061,6 +2082,51 @@ program.command("recall")
     };
     try {
       printJson(await engine.recall(recallInput));
+    } catch (error) {
+      printError(error, context);
+      process.exitCode = 1;
+    }
+  });
+
+program.command("timeline")
+  .option("--record-id <id>")
+  .option("--event-id <id>")
+  .option("--query <query>")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--before <n>", "Events before the anchor", "5")
+  .option("--after <n>", "Events after the anchor", "5")
+  .action(async (options) => {
+    const engine = createCliEngine();
+    const projectId = await resolveOptionalProject(options, "timeline");
+    const recordId = parseNonEmptyCliString(options.recordId, "--record-id", { operation: "timeline", argument: "record_id" });
+    const eventId = parseNonEmptyCliString(options.eventId, "--event-id", { operation: "timeline", argument: "event_id" });
+    const query = parseNonEmptyCliString(options.query, "--query", { operation: "timeline", argument: "query" });
+    const before = parseTimelineWindow(options.before, "--before");
+    const after = parseTimelineWindow(options.after, "--after");
+    const contextArguments = compactUndefined({
+      record_id: recordId,
+      event_id: eventId,
+      query,
+      ...(projectId !== undefined ? { project_id: projectId } : {}),
+      ...(options.project !== undefined ? { project_path: options.project } : {}),
+      ...(options.before !== "5" ? { before } : {}),
+      ...(options.after !== "5" ? { after } : {})
+    });
+    const context = {
+      tool: "timeline",
+      command: commandForTimelineContext(contextArguments),
+      arguments: contextArguments
+    };
+    try {
+      printJson(await engine.timeline({
+        record_id: recordId,
+        event_id: eventId,
+        query,
+        project_id: projectId,
+        before,
+        after
+      }));
     } catch (error) {
       printError(error, context);
       process.exitCode = 1;

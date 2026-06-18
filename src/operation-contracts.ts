@@ -1321,6 +1321,56 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "timeline",
+    category: "core",
+    summary: "Return chronological event context around a record, event, or query anchor.",
+    safe_to_run: true,
+    required_when: "When recall returns an isolated record and the agent needs nearby events or the record's recent mutation context.",
+    required_fields: [],
+    arguments_by_name: {
+      record_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--record-id" },
+        mcp: { argument: "record_id" },
+        alternatives: ["event_id", "query"]
+      },
+      event_id: {
+        type: "string",
+        required: false,
+        cli: { flag: "--event-id" },
+        mcp: { argument: "event_id" },
+        alternatives: ["record_id", "query"]
+      },
+      query: {
+        type: "string",
+        required: false,
+        cli: { flag: "--query" },
+        mcp: { argument: "query" },
+        alternatives: ["record_id", "event_id"]
+      },
+      ...projectContextArguments,
+      before: {
+        type: "number",
+        required: false,
+        default: 5,
+        cli: { flag: "--before", default: 5 },
+        mcp: { argument: "before" }
+      },
+      after: {
+        type: "number",
+        required: false,
+        default: 5,
+        cli: { flag: "--after", default: 5 },
+        mcp: { argument: "after" }
+      }
+    },
+    interfaces: {
+      cli: { command: "moryn timeline", argv: ["timeline"] },
+      mcp: { tool: "timeline", arguments: {} }
+    }
+  }),
+  operationContract({
     operation: "write",
     category: "core",
     summary: "Append a new memory, skill, soul, session summary, or agent note record.",

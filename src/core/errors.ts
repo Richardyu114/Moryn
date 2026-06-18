@@ -1017,6 +1017,26 @@ export function commandForRefreshContext(input: {
   return parts.join(" ");
 }
 
+export function commandForTimelineContext(input: {
+  record_id?: unknown;
+  event_id?: unknown;
+  query?: unknown;
+  project_id?: unknown;
+  project_path?: unknown;
+  before?: unknown;
+  after?: unknown;
+}): string {
+  const parts = ["moryn", "timeline"];
+  appendCommandOptionValue(parts, "--record-id", input.record_id);
+  appendCommandOptionValue(parts, "--event-id", input.event_id);
+  appendCommandOptionValue(parts, "--query", input.query);
+  appendCommandOptionValue(parts, "--project-id", input.project_id);
+  appendCommandOptionValue(parts, "--project", input.project_path);
+  appendCommandOptionValue(parts, "--before", input.before);
+  appendCommandOptionValue(parts, "--after", input.after);
+  return parts.join(" ");
+}
+
 export function commandForArchiveContext(input: { record_id: unknown; reason?: unknown }): string {
   const parts = ["moryn", "archive"];
   appendCommandValue(parts, input.record_id);

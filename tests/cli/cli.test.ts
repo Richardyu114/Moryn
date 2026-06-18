@@ -1608,6 +1608,24 @@ describe("moryn CLI", () => {
         mcp: { argument: "limit" }
       }
     });
+    expect(parsed.operations_by_id.timeline.arguments_by_name).toMatchObject({
+      record_id: {
+        name: "record_id",
+        type: "string",
+        required: false,
+        cli: { flag: "--record-id" },
+        mcp: { argument: "record_id" },
+        alternatives: ["event_id", "query"]
+      },
+      before: {
+        name: "before",
+        type: "number",
+        required: false,
+        default: 5,
+        cli: { flag: "--before", default: 5 },
+        mcp: { argument: "before" }
+      }
+    });
     expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command).toBe("moryn contracts selection-sources");
     expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.argv).toEqual(["contracts", "selection-sources"]);
     expect(parsed.operations_by_id.selection_source_contracts.interfaces.cli.command_line).toBe("moryn contracts selection-sources");
@@ -1680,6 +1698,7 @@ describe("moryn CLI", () => {
     expect(parsed.operations_by_id.agent_enter.selection_sources.ordered_operation).toBeUndefined();
     expect(parsed.operations_by_id.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
     expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
+    expect(parsed.operations.map((operation) => operation.operation)).toContain("timeline");
   });
 
   it("returns a compact operation contract index from the CLI", async () => {
@@ -3025,6 +3044,60 @@ describe("moryn CLI", () => {
         record_id: "records_by_id.<record_id>.id"
       });
       expect(parsedRecent.records_by_id[recordId]).toEqual(parsedRecent.records[0]);
+    });
+  });
+
+  it("returns timeline context from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);
+      const first = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--state", "canonical",
+        "--text", "CLI timeline setup context."
+      ]);
+      const second = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--state", "canonical",
+        "--text", "CLI timeline anchor context."
+      ]);
+      const firstId = (JSON.parse(first.stdout) as { record: { id: string } }).record.id;
+      const secondId = (JSON.parse(second.stdout) as { record: { id: string } }).record.id;
+
+      const timeline = await exec("node", [
+        "--import", "tsx", "src/cli.ts", "--store", dir,
+        "timeline",
+        "--record-id", secondId,
+        "--project-id", "moryn",
+        "--before", "1",
+        "--after", "0"
+      ]);
+      const parsed = JSON.parse(timeline.stdout) as {
+        anchor: { record_id: string; source: string };
+        items: Array<{ record_id: string; relative: string; next_action?: { tool: string; command: string } }>;
+        items_by_record_id: Record<string, Array<{ record_id: string }>>;
+        selection_sources: Record<string, string>;
+      };
+
+      expect(parsed.anchor).toMatchObject({ record_id: secondId, source: "record_id" });
+      expect(parsed.items.map((item) => item.relative)).toEqual(["before", "anchor"]);
+      expect(parsed.items.map((item) => item.record_id)).toEqual([firstId, secondId]);
+      expect(parsed.items[1]?.next_action).toMatchObject({
+        tool: "recall",
+        command: `moryn recall --record-id ${secondId} --project-id moryn`
+      });
+      expect(parsed.items_by_record_id[secondId]?.[0]?.record_id).toBe(secondId);
+      expect(parsed.selection_sources.anchor).toBe("anchor");
+      expect(parsed.selection_sources.item_next_action).toBe("items_by_event_id.<event_id>.next_action");
     });
   });
 

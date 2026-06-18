@@ -17,6 +17,8 @@ The first version is local-first and syncs through a user-owned GitHub private r
 - Support memory, skill, soul, session summary, and agent note records.
 - Let agents fetch a small boot context at task start.
 - Let agents recall relevant memory and skills on demand.
+- Let agents inspect event context around a recalled record when provenance or
+  ordering matters.
 - Let agents periodically sync and surface only important remote changes.
 - Prevent raw agent observations from polluting durable shared memory.
 - Sync all stored content across devices through GitHub private repos.
@@ -153,6 +155,7 @@ The core engine owns:
 - Logical record revision.
 - Boot context generation.
 - Recall filtering and ranking.
+- Timeline windows around record, event, or query anchors.
 - Sync cursor evaluation.
 - Promotion and state transitions.
 - Sensitive content checks.
@@ -868,10 +871,10 @@ mutation `promote.target_state` and `link.link_type` shape failures also pass
 through core validation, including numeric values, so callers get the same
 contract-backed state and link-type repair hints instead of host-side schema
 text.
-Core read argument failures for `recall`, `boot`, `refresh`, `list_recent`, and
-`project_list` also expose the matching operation contract and
-`argument_sources` for invalid filters, cursors, task context, project ids, and
-limits. MCP `recall.tags`, `recall.record_ids`, `recall.files`,
+Core read argument failures for `recall`, `timeline`, `boot`, `refresh`,
+`list_recent`, and `project_list` also expose the matching operation contract
+and `argument_sources` for invalid filters, timeline anchors/windows, cursors,
+task context, project ids, and limits. MCP `recall.tags`, `recall.record_ids`, `recall.files`,
 `recall.kinds`, `recall.scopes`, `recall.types`, and `recall.states` shape
 failures also pass through core validation, including single-string tag, record
 id, file, kind, scope, type, and state values. Direct MCP `recall` also accepts
@@ -897,6 +900,10 @@ Empty CLI recall filters such as `--record-id`, `--tag`, and `--file` point at
 the same recall argument contracts instead of generic non-empty-string hints.
 Empty `recall ""` queries return a positional `query` recovery hint backed by
 `operations_by_id.recall.arguments_by_name.query`.
+Timeline requires exactly one of `record_id`, `event_id`, or `query`; invalid
+anchors point at `operations_by_id.timeline.arguments_by_name.record_id`,
+`.event_id`, and `.query`. Timeline `before` and `after` windows must be
+integers from 0 to 50 and point at their matching operation arguments.
 RFC3339 cursor failures point to
 `operations_by_id.refresh.arguments_by_name.cursor`, including when surfaced
 through lifecycle refresh-since arguments. MCP `refresh.cursor` shape failures
@@ -1321,6 +1328,85 @@ array scanning. `selection_sources` names the keyed result, record, and
 record-id paths explicitly. Library hosts can reuse the exported
 `RECALL_SELECTION_SOURCES` map from the package entrypoint as the canonical
 field-path contract.
+
+### `timeline`
+
+Used to inspect chronological event context around one anchor.
+
+Input:
+
+```json
+{
+  "record_id": "rec_...",
+  "event_id": "evt_...",
+  "query": "dashboard provenance",
+  "project_id": "moryn",
+  "before": 5,
+  "after": 5
+}
+```
+
+Exactly one of `record_id`, `event_id`, or `query` must be provided. A
+`record_id` anchor resolves to that record's latest event in the filtered
+timeline. An `event_id` anchor resolves to the exact event. A `query` anchor
+uses the same text scoring style as recall to pick a visible record, then
+anchors on that record's latest event.
+
+Output:
+
+```json
+{
+  "anchor": {
+    "event_id": "evt_...",
+    "record_id": "rec_...",
+    "source": "record_id"
+  },
+  "items": [
+    {
+      "event_id": "evt_...",
+      "op": "upsert_record",
+      "relative": "anchor",
+      "record_id": "rec_...",
+      "summary": "Dashboard needs source links for review.",
+      "next_action": {
+        "tool": "recall",
+        "command": "moryn recall --record-id rec_... --project-id moryn"
+      }
+    }
+  ],
+  "items_by_event_id": {
+    "evt_...": {}
+  },
+  "items_by_record_id": {
+    "rec_...": [{}]
+  },
+  "selection_sources": {
+    "anchor": "anchor",
+    "anchor_event_id": "anchor.event_id",
+    "anchor_record_id": "anchor.record_id",
+    "item": "items_by_event_id.<event_id>",
+    "item_record_id": "items_by_event_id.<event_id>.record_id",
+    "item_next_action": "items_by_event_id.<event_id>.next_action",
+    "record_item": "items_by_record_id.<record_id>[]",
+    "ordered_item": "items[]"
+  }
+}
+```
+
+CLI:
+
+```bash
+moryn timeline --record-id rec_... --project . --before 5 --after 5
+moryn timeline --event-id evt_... --project-id moryn
+moryn timeline --query "dashboard provenance" --project .
+```
+
+MCP tool: `timeline`.
+
+Timeline does not replace recall. It gives the agent a compact before/anchor/
+after event window and safe `recall` next actions for fetching full record
+content. Hosts should prefer `items_by_event_id.<event_id>` or
+`items_by_record_id.<record_id>[]` when they already have an id.
 
 ### `write`
 
@@ -2369,13 +2455,14 @@ Agents should follow this contract:
 6. Inspect `agent_start.handoff.active_sessions` before overlapping another agent's work.
 7. Inspect `agent_start.handoff.inbox` before continuing from another agent's final handoff.
 8. Call `recall` when context is missing or uncertain.
-9. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.recommended_finish_action_source` or `agent_status.next.recommended_refresh_action_source`.
-10. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
-11. For each reportable non-raw refresh change that needs full context, prefer `refresh.changes_by_record_id.<record_id>.next_action` or follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
-12. When `agent_start.handoff.next_action` exists, use it for the prioritized recall action; for a different handoff entry, prefer `handoff.inbox_by_record_id.<record_id>.next_action` or `handoff.active_sessions_by_record_id.<record_id>.next_action`, and fill `record_ids` from `next_action.argument_sources.record_ids`, instead of manually composing a `recall` call.
-13. For lifecycle follow-up actions, prefer `next.actions_by_id.<action>` and fill replaceable arguments from `action.argument_sources` instead of parsing command strings or placeholders.
-14. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.recommended_start_action_source` to the next agent or device.
-15. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
+9. Call `timeline` with a returned `record_id`, `event_id`, or a narrow `query` when the record's surrounding event history matters.
+10. Call `agent_status` during meaningful long-running work or before handing off an unfinished thread, then follow `agent_status.next.recommended_finish_action_source` or `agent_status.next.recommended_refresh_action_source`.
+11. Call the `refresh_context` next action, or call `agent_start` again with a previous cursor, when the user asks to refresh memory.
+12. For each reportable non-raw refresh change that needs full context, prefer `refresh.changes_by_record_id.<record_id>.next_action` or follow `refresh.changes[].next_action` instead of manually composing a `recall` call.
+13. When `agent_start.handoff.next_action` exists, use it for the prioritized recall action; for a different handoff entry, prefer `handoff.inbox_by_record_id.<record_id>.next_action` or `handoff.active_sessions_by_record_id.<record_id>.next_action`, and fill `record_ids` from `next_action.argument_sources.record_ids`, instead of manually composing a `recall` call.
+14. For lifecycle follow-up actions, prefer `next.actions_by_id.<action>` and fill replaceable arguments from `action.argument_sources` instead of parsing command strings or placeholders.
+15. Call `agent_finish` at the end of meaningful work, then expose `agent_finish.next.recommended_start_action_source` to the next agent or device.
+16. Use `revise` when an existing memory, skill, or soul record needs correction or refinement.
 16. When a canonical write returns `warning.next_action.recommended_action: "ask_user_then_promote_candidate"`, take the candidate id from `write.record.id` or `warning.next_action.candidate_record_id`, ask the user, then run the returned promote action with confirmation instead of repeating the write.
 17. When a CLI call fails with `error.recovery_hint`, prefer its structured `rejected_argument`, `rejected_command`, `rejected_option`, `expected`, and `retry_with` fields over parsing `error.message`.
 18. Write raw notes as `agent_note`, not canonical memory.

@@ -2050,6 +2050,173 @@ describe("core engine", () => {
     });
   });
 
+  it("returns timeline context around a record anchor with recall next actions", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const timestamps = [
+        "2026-05-27T00:00:01.000Z",
+        "2026-05-27T00:00:02.000Z",
+        "2026-05-27T00:00:03.000Z"
+      ];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:00:09.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      const setup = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Keep dashboard generated from main.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const target = await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Dashboard needs source links for review.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const followup = await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Added dashboard provenance follow-up.", format: "text" },
+        state: "candidate",
+        source: { client: "test" }
+      });
+
+      const timeline = await engine.timeline({
+        record_id: target.record.id,
+        project_id: "moryn",
+        before: 1,
+        after: 1
+      });
+
+      expect(timeline.anchor).toEqual({
+        event_id: "evt_4",
+        record_id: target.record.id,
+        source: "record_id"
+      });
+      expect(timeline.items.map((item) => item.relative)).toEqual(["before", "anchor", "after"]);
+      expect(timeline.items.map((item) => item.record_id)).toEqual([setup.record.id, target.record.id, followup.record.id]);
+      expect(timeline.items[1]).toMatchObject({
+        event_id: "evt_4",
+        op: "upsert_record",
+        relative: "anchor",
+        record_id: target.record.id,
+        summary: "Dashboard needs source links for review.",
+        record: {
+          id: target.record.id,
+          kind: "memory",
+          type: "warning",
+          state: "canonical",
+          project_id: "moryn"
+        }
+      });
+      expect(timeline.items[1]?.next_action).toMatchObject({
+        recommended_action: "call_recall_with_record_id",
+        tool: "recall",
+        safe_to_run: true,
+        command: `moryn recall --record-id ${target.record.id} --project-id moryn`,
+        arguments: {
+          record_ids: [target.record.id],
+          project_id: "moryn"
+        },
+        argument_sources: {
+          record_ids: "timeline.items_by_event_id.<event_id>.record_id"
+        }
+      });
+      expectNextActionInterfaces(timeline.items[1]!.next_action);
+      expect(timeline.items_by_event_id.evt_4).toEqual(timeline.items[1]);
+      expect(timeline.items_by_record_id[target.record.id]).toEqual([timeline.items[1]]);
+      expect(timeline.selection_sources).toEqual({
+        anchor: "anchor",
+        anchor_event_id: "anchor.event_id",
+        anchor_record_id: "anchor.record_id",
+        item: "items_by_event_id.<event_id>",
+        item_event_id: "items_by_event_id.<event_id>.event_id",
+        item_record_id: "items_by_event_id.<event_id>.record_id",
+        item_next_action: "items_by_event_id.<event_id>.next_action",
+        record_item: "items_by_record_id.<record_id>[]",
+        ordered_item: "items[]",
+        ordered_next_action: "items[].next_action"
+      });
+    });
+  });
+
+  it("anchors timeline by event id or query", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let nextId = 0;
+      let nextTime = 0;
+      const timestamps = [
+        "2026-05-27T00:00:01.000Z",
+        "2026-05-27T00:00:02.000Z",
+        "2026-05-27T00:00:03.000Z"
+      ];
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:00:09.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      const setup = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Timeline should expose setup context.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      const target = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Unique provenance citation anchor.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "other",
+        content: { text: "Other project provenance citation anchor.", format: "text" },
+        state: "canonical",
+        source: { client: "test" }
+      });
+
+      const byEvent = await engine.timeline({ event_id: "evt_2", project_id: "moryn", before: 0, after: 1 });
+      expect(byEvent.anchor).toEqual({
+        event_id: "evt_2",
+        record_id: setup.record.id,
+        source: "event_id"
+      });
+      expect(byEvent.items.map((item) => item.record_id)).toEqual([setup.record.id, target.record.id]);
+
+      const byQuery = await engine.timeline({ query: "unique provenance", project_id: "moryn", before: 1, after: 0 });
+      expect(byQuery.anchor).toEqual({
+        event_id: "evt_4",
+        record_id: target.record.id,
+        source: "query"
+      });
+      expect(byQuery.items.map((item) => item.relative)).toEqual(["before", "anchor"]);
+      expect(byQuery.items.map((item) => item.record_id)).toEqual([setup.record.id, target.record.id]);
+    });
+  });
+
   it("does not recall records solely from structured content metadata values", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;
@@ -3484,6 +3651,25 @@ describe("core engine", () => {
       await expectInvalidLimit(() => engine.refresh({ limit: 101 }), "refresh", 101);
       await expectInvalidLimit(() => engine.listRecent(-1), "list_recent", -1);
       await expectInvalidLimit(() => engine.listProjects({ limit: 101 }), "project_list", 101);
+
+      try {
+        await engine.timeline({ record_id: "rec_1", before: -1 });
+        throw new Error("Expected timeline to reject invalid before");
+      } catch (error) {
+        const envelope = toErrorEnvelope(error);
+        expect(envelope.error.code).toBe("INVALID_ARGUMENT");
+        expect(envelope.error.message).toContain("Invalid before");
+        expect(envelope.error.recommended_action).toBe("retry read with a timeline window between 0 and 50");
+        expect(envelope.error.recovery_hint).toEqual({
+          operation_contract: "operations_by_id.timeline",
+          rejected_argument: { argument: "before", value: -1 },
+          expected: { kind: "integer_range", min: 0, max: 50, integer: true },
+          argument_sources: {
+            before: "operations_by_id.timeline.arguments_by_name.before"
+          },
+          retry_with: { argument: "before", value_placeholder: 5 }
+        });
+      }
     });
   });
 
@@ -3602,6 +3788,33 @@ describe("core engine", () => {
         },
         retry_with: { argument: "files", value_placeholder: ["<file>"] }
       });
+
+      await expectInvalidArgument(() => engine.timeline(null as never), "Invalid timeline input");
+      await expectInvalidReadShapeArgument(() => engine.timeline({ record_id: "" }), "Invalid record_id", "retry read with a non-empty record_id", {
+        operation_contract: "operations_by_id.timeline",
+        rejected_argument: { argument: "record_id", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: {
+          record_id: "operations_by_id.timeline.arguments_by_name.record_id"
+        },
+        retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
+      });
+      await expectInvalidReadShapeArgument(
+        () => engine.timeline({ record_id: "rec_1", event_id: "evt_1" }),
+        "timeline requires exactly one anchor",
+        "retry timeline with exactly one of record_id, event_id, or query",
+        {
+          operation_contract: "operations_by_id.timeline",
+          rejected_argument: { argument: "anchor", value: ["record_id", "event_id"] },
+          expected: { kind: "one_of", allowed_arguments: ["record_id", "event_id", "query"] },
+          argument_sources: {
+            record_id: "operations_by_id.timeline.arguments_by_name.record_id",
+            event_id: "operations_by_id.timeline.arguments_by_name.event_id",
+            query: "operations_by_id.timeline.arguments_by_name.query"
+          },
+          retry_with: { argument: "record_id", value_placeholder: "<record_id>" }
+        }
+      );
 
       await expectInvalidArgument(() => engine.boot(null as never), "Invalid boot input");
       await expectInvalidReadShapeArgument(() => engine.boot({ default_skills: ["release", 123] as never }), "Invalid default_skills", "retry read with default_skills as non-empty strings", {

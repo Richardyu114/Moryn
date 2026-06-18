@@ -54,6 +54,33 @@ The compact index is intended as the first lookup. It gives operation ids,
 categories, summaries, readiness, CLI commands, MCP tools, and exact lookup
 recipes for the full contract.
 
+The timeline read operation is available through the same registry:
+
+```bash
+moryn contracts operations --operation timeline
+```
+
+Use it after `recall` when an agent has a record id but needs nearby events,
+the latest mutation for that record, or a query-derived anchor:
+
+```bash
+moryn timeline --record-id rec_... --project-id moryn --before 5 --after 5
+```
+
+The MCP equivalent is:
+
+```json
+{
+  "tool": "timeline",
+  "arguments": {
+    "record_id": "rec_...",
+    "project_id": "moryn",
+    "before": 5,
+    "after": 5
+  }
+}
+```
+
 The observability dashboard is also exposed through the same contract registry:
 
 ```bash
@@ -115,6 +142,8 @@ Examples:
 
 - `boot.records_by_id.<record_id>`
 - `recall.results_by_id.<record_id>`
+- `timeline.items_by_event_id.<event_id>`
+- `timeline.items_by_record_id.<record_id>[]`
 - `list_recent.records_by_id.<record_id>`
 - `refresh.changes_by_record_id.<record_id>`
 - `agent_start.next.actions_by_id.<action>`
