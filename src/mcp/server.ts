@@ -7,7 +7,8 @@ import {
   getOperationContractByMcpTool,
   getOperationContractIndex,
   getOperationContracts,
-  getSelectionSourceContracts
+  getSelectionSourceContracts,
+  version
 } from "../index.js";
 import {
   OperationContractLookupConflictError,
@@ -1040,7 +1041,7 @@ function lifecycleAgentInput(agent: unknown): RecordSource | undefined {
 export async function runMcpServer(engine: Engine, options: { storePath: string }): Promise<void> {
   const server = new McpServer({
     name: "moryn",
-    version: "0.1.0"
+    version
   });
 
   server.registerTool(

@@ -54,7 +54,7 @@ export {
 import { SYNC_RESULT_SELECTION_SOURCES, SYNC_STATUS_SELECTION_SOURCES } from "./sync/git.js";
 export type { MorynRecord } from "./core/types.js";
 
-export const version = "0.1.0";
+export const version = "0.1.1";
 
 export {
   DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES,

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
+import { version } from "../src/index.js";
 
 describe("package metadata", () => {
   it("is ready for scoped npm publication", async () => {
@@ -18,11 +19,13 @@ describe("package metadata", () => {
       bugs?: { url: string };
       homepage?: string;
       keywords?: string[];
+      version: string;
       publishConfig?: { access: string; registry?: string };
     };
     const license = await readFile("LICENSE", "utf8");
 
     expect(packageJson.name).toBe("@richardyu114/moryn");
+    expect(packageJson.version).toBe(version);
     expect(packageJson.main).toBe("./dist/index.js");
     expect(packageJson.types).toBe("./dist/index.d.ts");
     expect(packageJson.exports?.["."]).toEqual({
