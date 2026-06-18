@@ -74,8 +74,8 @@ describe("observability dashboard", () => {
       });
       expect(data.recent_events.map((event) => event.op)).toEqual(["upsert_record", "upsert_record"]);
       expect(data.agent_activity).toEqual([
-        { client: "Codex / Moryn Local", raw_clients: ["codex"], events: 1, records: 1, latest_at: "2026-06-01T00:01:00.000Z" },
-        { client: "Gemini", raw_clients: ["gemini"], events: 1, records: 1, latest_at: "2026-06-01T00:02:00.000Z" }
+        expect.objectContaining({ client: "Codex / Moryn Local", raw_clients: ["codex"], events: 1, records: 1, latest_at: "2026-06-01T00:01:00.000Z" }),
+        expect.objectContaining({ client: "Gemini", raw_clients: ["gemini"], events: 1, records: 1, latest_at: "2026-06-01T00:02:00.000Z" })
       ]);
       expect(data.health).toMatchObject({
         status: "local_only",
@@ -454,6 +454,99 @@ describe("observability dashboard", () => {
         newerStatus.record.id,
         olderDecision.record.id
       ]);
+    });
+  });
+
+  it("adds dashboard citations and timeline links for records, events, and agent activity", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_cite_${++record}` : `evt_cite_${++event}`;
+        })()
+      });
+
+      const written = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Dashboard citation source", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex", session_id: "citation-session" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 });
+      const value = data.recent_value[0] as {
+        citation: {
+          record_id: string;
+          event_id?: string;
+          timeline_command: string;
+          recall_command: string;
+        };
+      };
+      const record = data.recent_records[0] as {
+        citation: {
+          record_id: string;
+          event_id?: string;
+          timeline_command: string;
+          recall_command: string;
+        };
+      };
+      const event = data.recent_events[0] as {
+        citation: {
+          record_id?: string;
+          event_id: string;
+          timeline_command: string;
+          recall_command?: string;
+        };
+      };
+      const agent = data.agent_activity[0] as {
+        citation: {
+          event_id: string;
+          record_id?: string;
+          timeline_command: string;
+        };
+      };
+
+      expect(value.citation).toEqual({
+        record_id: written.record.id,
+        event_id: "evt_cite_1",
+        timeline_command: `moryn timeline --record-id ${written.record.id} --project-id moryn`,
+        recall_command: `moryn recall --record-id ${written.record.id} --project-id moryn`
+      });
+      expect(record.citation).toEqual(value.citation);
+      expect(event.citation).toEqual({
+        record_id: written.record.id,
+        event_id: "evt_cite_1",
+        timeline_command: "moryn timeline --event-id evt_cite_1 --project-id moryn",
+        recall_command: `moryn recall --record-id ${written.record.id} --project-id moryn`
+      });
+      expect(agent.citation).toEqual({
+        event_id: "evt_cite_1",
+        record_id: written.record.id,
+        timeline_command: "moryn timeline --event-id evt_cite_1 --project-id moryn"
+      });
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain(`data-dashboard-citation="record:${written.record.id}"`);
+      expect(html).toContain(`data-dashboard-citation="event:evt_cite_1"`);
+      expect(html).toContain(`moryn timeline --event-id evt_cite_1 --project-id moryn`);
+      expect(html).toContain(`moryn recall --record-id ${written.record.id} --project-id moryn`);
     });
   });
 

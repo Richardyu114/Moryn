@@ -39,9 +39,9 @@
 - Test: `tests/observability/dashboard.test.ts`
 - Docs: `docs/dashboard.md`, `docs/moryn-design.md`
 
-- [ ] Add failing dashboard tests that visible recent values and agent activity expose record/event identifiers and stable link targets.
-- [ ] Render compact source links in dashboard data/HTML for records, recent events, and health findings.
-- [ ] Link dashboard source items to timeline commands/URLs where the static dashboard has enough identifier context.
+- [x] Add failing dashboard tests that visible recent values and agent activity expose record/event identifiers and stable link targets.
+- [x] Render compact source links in dashboard data/HTML for records, recent events, and agent activity.
+- [x] Link dashboard source items to timeline commands where the static dashboard has enough identifier context.
 - [ ] Verify dashboard tests and the live dashboard API.
 
 ### Task 3: Private Tags / Safety Boundary

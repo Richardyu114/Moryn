@@ -46,6 +46,7 @@ export interface DashboardRecordSummary {
   created_at: string;
   updated_at: string;
   text: string;
+  citation: DashboardRecordCitation;
 }
 
 export interface DashboardEventSummary {
@@ -54,6 +55,7 @@ export interface DashboardEventSummary {
   record_id?: string;
   source: RecordSource;
   created_at: string;
+  citation: DashboardEventCitation;
 }
 
 export interface DashboardAgentActivity {
@@ -62,6 +64,27 @@ export interface DashboardAgentActivity {
   events: number;
   records: number;
   latest_at: string;
+  citation?: DashboardAgentCitation;
+}
+
+export interface DashboardRecordCitation {
+  record_id: string;
+  event_id?: string;
+  timeline_command: string;
+  recall_command: string;
+}
+
+export interface DashboardEventCitation {
+  event_id: string;
+  record_id?: string;
+  timeline_command: string;
+  recall_command?: string;
+}
+
+export interface DashboardAgentCitation {
+  event_id: string;
+  record_id?: string;
+  timeline_command: string;
 }
 
 export type DashboardHealthStatus = "healthy" | "needs_review" | "conflict" | "local_only";
@@ -129,6 +152,7 @@ export interface DashboardValueRecord {
   type: string;
   scope: MorynRecord["scope"];
   project_id?: string;
+  citation: DashboardRecordCitation;
 }
 
 export interface DashboardData {
@@ -197,7 +221,59 @@ function targetRecordId(event: MorynEvent): string | undefined {
   return event.op === "upsert_record" ? event.record.id : event.record_id;
 }
 
-function summarizeRecord(record: MorynRecord): DashboardRecordSummary {
+function appendProjectId(parts: string[], projectId: string | undefined): void {
+  if (projectId) parts.push("--project-id", projectId);
+}
+
+function recallCommand(recordId: string, projectId: string | undefined): string {
+  const parts = ["moryn", "recall", "--record-id", recordId];
+  appendProjectId(parts, projectId);
+  return parts.join(" ");
+}
+
+function timelineRecordCommand(recordId: string, projectId: string | undefined): string {
+  const parts = ["moryn", "timeline", "--record-id", recordId];
+  appendProjectId(parts, projectId);
+  return parts.join(" ");
+}
+
+function timelineEventCommand(eventId: string, projectId: string | undefined): string {
+  const parts = ["moryn", "timeline", "--event-id", eventId];
+  appendProjectId(parts, projectId);
+  return parts.join(" ");
+}
+
+function latestEventsByRecord(events: MorynEvent[]): Map<string, MorynEvent> {
+  const byRecord = new Map<string, MorynEvent>();
+  for (const event of [...events].sort((left, right) => left.created_at.localeCompare(right.created_at) || left.event_id.localeCompare(right.event_id))) {
+    byRecord.set(targetRecordId(event) ?? "", event);
+  }
+  byRecord.delete("");
+  return byRecord;
+}
+
+function recordCitation(record: MorynRecord, eventsByRecord: Map<string, MorynEvent>): DashboardRecordCitation {
+  const event = eventsByRecord.get(record.id);
+  return {
+    record_id: record.id,
+    ...(event ? { event_id: event.event_id } : {}),
+    timeline_command: timelineRecordCommand(record.id, record.project_id),
+    recall_command: recallCommand(record.id, record.project_id)
+  };
+}
+
+function eventCitation(event: MorynEvent, recordsById: Map<string, MorynRecord>): DashboardEventCitation {
+  const recordId = targetRecordId(event);
+  const projectId = recordId ? recordsById.get(recordId)?.project_id : undefined;
+  return {
+    event_id: event.event_id,
+    ...(recordId ? { record_id: recordId } : {}),
+    timeline_command: timelineEventCommand(event.event_id, projectId),
+    ...(recordId ? { recall_command: recallCommand(recordId, projectId) } : {})
+  };
+}
+
+function summarizeRecord(record: MorynRecord, eventsByRecord: Map<string, MorynEvent>): DashboardRecordSummary {
   return {
     id: record.id,
     kind: record.kind,
@@ -209,17 +285,19 @@ function summarizeRecord(record: MorynRecord): DashboardRecordSummary {
     source: record.source,
     created_at: record.created_at,
     updated_at: record.updated_at,
-    text: recordText(record)
+    text: recordText(record),
+    citation: recordCitation(record, eventsByRecord)
   };
 }
 
-function summarizeEvent(event: MorynEvent): DashboardEventSummary {
+function summarizeEvent(event: MorynEvent, recordsById: Map<string, MorynRecord>): DashboardEventSummary {
   return {
     event_id: event.event_id,
     op: event.op,
     record_id: targetRecordId(event),
     source: event.source,
-    created_at: event.created_at
+    created_at: event.created_at,
+    citation: eventCitation(event, recordsById)
   };
 }
 
@@ -238,26 +316,41 @@ function updateAgentActivity(
   activity: Map<string, DashboardAgentActivity>,
   rawClient: string,
   field: "events" | "records",
-  latestAt: string
+  latestAt: string,
+  citation?: DashboardAgentCitation
 ) {
   const client = displayClient(rawClient);
   const existing = activity.get(client) ?? { client, raw_clients: [], events: 0, records: 0, latest_at: latestAt };
   existing[field] += 1;
-  existing.latest_at = latestIso(existing.latest_at, latestAt);
+  if (latestAt.localeCompare(existing.latest_at) >= 0) {
+    existing.latest_at = latestAt;
+    if (citation) existing.citation = citation;
+  }
   if (!existing.raw_clients.includes(rawClient)) existing.raw_clients.push(rawClient);
   existing.raw_clients.sort();
   activity.set(client, existing);
 }
 
-function summarizeAgentActivity(events: MorynEvent[], records: MorynRecord[]): DashboardAgentActivity[] {
+function agentEventCitation(event: MorynEvent, recordsById: Map<string, MorynRecord>): DashboardAgentCitation {
+  const recordId = targetRecordId(event);
+  const projectId = recordId ? recordsById.get(recordId)?.project_id : undefined;
+  return {
+    event_id: event.event_id,
+    ...(recordId ? { record_id: recordId } : {}),
+    timeline_command: timelineEventCommand(event.event_id, projectId)
+  };
+}
+
+function summarizeAgentActivity(events: MorynEvent[], records: MorynRecord[], recordsById: Map<string, MorynRecord>, eventsByRecord: Map<string, MorynEvent>): DashboardAgentActivity[] {
   const activity = new Map<string, DashboardAgentActivity>();
 
   for (const event of events) {
-    updateAgentActivity(activity, event.source.client, "events", event.created_at);
+    updateAgentActivity(activity, event.source.client, "events", event.created_at, agentEventCitation(event, recordsById));
   }
 
   for (const record of records) {
-    updateAgentActivity(activity, record.source.client, "records", record.updated_at);
+    const event = eventsByRecord.get(record.id);
+    updateAgentActivity(activity, record.source.client, "records", record.updated_at, event ? agentEventCitation(event, recordsById) : undefined);
   }
 
   return [...activity.values()].sort((left, right) => {
@@ -525,7 +618,7 @@ function recordValueScore(record: MorynRecord): number {
   return score;
 }
 
-function summarizeValueRecord(record: MorynRecord, generatedAt: string): DashboardValueRecord {
+function summarizeValueRecord(record: MorynRecord, generatedAt: string, eventsByRecord: Map<string, MorynEvent>): DashboardValueRecord {
   return {
     id: record.id,
     title: titleCase(record.type || record.kind),
@@ -538,11 +631,12 @@ function summarizeValueRecord(record: MorynRecord, generatedAt: string): Dashboa
     kind: record.kind,
     type: record.type,
     scope: record.scope,
-    project_id: record.project_id
+    project_id: record.project_id,
+    citation: recordCitation(record, eventsByRecord)
   };
 }
 
-function buildRecentValue(records: MorynRecord[], generatedAt: string, limit: number): DashboardValueRecord[] {
+function buildRecentValue(records: MorynRecord[], generatedAt: string, limit: number, eventsByRecord: Map<string, MorynEvent>): DashboardValueRecord[] {
   return [...records]
     .sort((left, right) => {
       const timeDiff = right.updated_at.localeCompare(left.updated_at);
@@ -550,13 +644,15 @@ function buildRecentValue(records: MorynRecord[], generatedAt: string, limit: nu
       return timeDiff || scoreDiff || left.id.localeCompare(right.id);
     })
     .slice(0, limit)
-    .map((record) => summarizeValueRecord(record, generatedAt));
+    .map((record) => summarizeValueRecord(record, generatedAt, eventsByRecord));
 }
 
 export async function buildDashboardData(storePath: string, options: DashboardOptions = {}): Promise<DashboardData> {
   const limit = dashboardLimit(options.limit);
   const events = await readEvents(storePath);
-  const records = [...replayEvents(events).values()];
+  const recordsById = replayEvents(events);
+  const records = [...recordsById.values()];
+  const eventsByRecord = latestEventsByRecord(events);
   const recentRecords = [...records]
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))
     .slice(0, limit);
@@ -565,7 +661,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     .slice(0, limit);
   const generatedAt = new Date().toISOString();
   const sync = await getGitSyncStatus(storePath);
-  const agentActivity = summarizeAgentActivity(events, records);
+  const agentActivity = summarizeAgentActivity(events, records, recordsById, eventsByRecord);
 
   return {
     generated_at: generatedAt,
@@ -587,9 +683,9 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       active_records: records.filter((record) => record.visibility === "active").length,
       quarantined_records: records.filter((record) => record.visibility === "quarantined").length
     },
-    recent_value: buildRecentValue(records, generatedAt, Math.min(limit, RECENT_VALUE_LIMIT)),
-    recent_records: recentRecords.map(summarizeRecord),
-    recent_events: recentEvents.map(summarizeEvent),
+    recent_value: buildRecentValue(records, generatedAt, Math.min(limit, RECENT_VALUE_LIMIT), eventsByRecord),
+    recent_records: recentRecords.map((record) => summarizeRecord(record, eventsByRecord)),
+    recent_events: recentEvents.map((event) => summarizeEvent(event, recordsById)),
     agent_activity: agentActivity,
     selection_sources: DASHBOARD_SELECTION_SOURCES
   };
@@ -653,12 +749,13 @@ function agentBars(agents: DashboardAgentChartItem[]): string {
   return `
     <div class="agent-bars">
       ${agents.map((agent) => `
-        <div class="bar-row">
+        <div class="bar-row"${agent.citation ? ` data-dashboard-citation="event:${escapeHtml(agent.citation.event_id)}"` : ""}>
           <div class="bar-label">
             <strong>${escapeHtml(agent.client)}</strong>
             <span>${escapeHtml(agent.events)} events | ${escapeHtml(agent.records)} records | ${escapeHtml(agent.relative_time)}</span>
           </div>
           <div class="bar-track" aria-hidden="true"><span style="width: ${escapeHtml(agent.weight)}%"></span></div>
+          ${agent.citation ? `<small>${escapeHtml(agent.citation.timeline_command)}</small>` : ""}
         </div>
       `).join("")}
     </div>
@@ -712,12 +809,21 @@ function syncRail(sync: DashboardSyncPositionChart): string {
   `;
 }
 
+function citationCommands(citation: DashboardRecordCitation | DashboardEventCitation | DashboardAgentCitation): string {
+  return `
+    <div class="citation-links">
+      <code>${escapeHtml(citation.timeline_command)}</code>
+      ${"recall_command" in citation && citation.recall_command ? `<code>${escapeHtml(citation.recall_command)}</code>` : ""}
+    </div>
+  `;
+}
+
 function recentValueCards(records: DashboardValueRecord[]): string {
   if (records.length === 0) return `<div class="empty-state">No recent records to summarize.</div>`;
   return `
     <div class="value-grid">
       ${records.map((record) => `
-        <article class="value-card">
+        <article class="value-card" data-dashboard-citation="record:${escapeHtml(record.id)}">
           <div class="value-card-head">
             <span class="pill state-${escapeHtml(record.state)}">${escapeHtml(record.title)}</span>
             <time title="${escapeHtml(record.exact_time)}">${escapeHtml(record.relative_time)}</time>
@@ -732,8 +838,10 @@ function recentValueCards(records: DashboardValueRecord[]): string {
             <summary>Details</summary>
             <dl>
               <div><dt>ID</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>
+              ${record.citation.event_id ? `<div><dt>Event</dt><dd><code>${escapeHtml(record.citation.event_id)}</code></dd></div>` : ""}
               <div><dt>Source</dt><dd>${escapeHtml(record.source_detail)}</dd></div>
               <div><dt>Kind</dt><dd>${escapeHtml(record.kind)} / ${escapeHtml(record.type)}</dd></div>
+              <div><dt>Trace</dt><dd>${citationCommands(record.citation)}</dd></div>
             </dl>
           </details>
         </article>
@@ -744,7 +852,7 @@ function recentValueCards(records: DashboardValueRecord[]): string {
 
 function recordsTable(records: DashboardRecordSummary[]): string {
   const rows = records.map((record) => `
-    <tr>
+    <tr data-dashboard-citation="record:${escapeHtml(record.id)}">
       <td><code class="copy-id" title="${escapeHtml(record.id)}">${escapeHtml(record.id)}</code></td>
       <td>${escapeHtml(record.kind)}</td>
       <td>${escapeHtml(record.type)}</td>
@@ -756,6 +864,7 @@ function recordsTable(records: DashboardRecordSummary[]): string {
         <details data-dashboard-detail="record:${escapeHtml(record.id)}">
           <summary>${escapeHtml(shortText(record.text))}</summary>
           <p>${escapeHtml(record.text)}</p>
+          ${citationCommands(record.citation)}
         </details>
       </td>
     </tr>
@@ -785,7 +894,7 @@ function eventsTimeline(events: DashboardEventSummary[]): string {
   return `
     <div class="event-list">
       ${events.map((event) => `
-        <details class="event-row" data-dashboard-detail="event:${escapeHtml(event.event_id)}">
+        <details class="event-row" data-dashboard-detail="event:${escapeHtml(event.event_id)}" data-dashboard-citation="event:${escapeHtml(event.event_id)}">
           <summary>
             <span>${escapeHtml(titleCase(event.op))}</span>
             <time>${escapeHtml(event.created_at)}</time>
@@ -794,6 +903,7 @@ function eventsTimeline(events: DashboardEventSummary[]): string {
             <div><dt>Event</dt><dd><code>${escapeHtml(event.event_id)}</code></dd></div>
             ${event.record_id ? `<div><dt>Record</dt><dd><code>${escapeHtml(event.record_id)}</code></dd></div>` : ""}
             <div><dt>Source</dt><dd>${escapeHtml(sourceLabel(event.source))}</dd></div>
+            <div><dt>Trace</dt><dd>${citationCommands(event.citation)}</dd></div>
           </dl>
         </details>
       `).join("")}
@@ -1161,6 +1271,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       overflow-wrap: anywhere;
     }
     .value-card footer { margin-top: 10px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+    .citation-links { display: grid; gap: 5px; min-width: 0; }
+    .citation-links code { width: 100%; }
     .inspector-grid { display: grid; gap: 12px; }
     .table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
     table { width: 100%; min-width: 940px; table-layout: fixed; border-collapse: collapse; }

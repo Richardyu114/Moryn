@@ -163,6 +163,15 @@ The JSON returned by `/api/dashboard` includes:
 This keeps raw data inspectable while giving the HTML renderer human-oriented
 fields.
 
+Recent values, recent records, recent events, and agent activity entries carry
+`citation` metadata when an event or record can be traced. Record citations
+include `record_id`, the latest known `event_id`, a `timeline_command`, and a
+`recall_command`. Event citations anchor timeline on `event_id` and include a
+recall command when the event points at a record. The HTML renderer exposes the
+same provenance with `data-dashboard-citation` attributes and compact command
+snippets, so a human or agent can move from a dashboard item to `moryn timeline`
+or `moryn recall` without guessing ids.
+
 `Agent Activity` uses readable display groups instead of exposing every local
 write path as a separate actor. Local Moryn write paths such as `codex`,
 `codex-cli`, `cli`, `agent`, and `mcp` are grouped as `Codex / Moryn Local`.
