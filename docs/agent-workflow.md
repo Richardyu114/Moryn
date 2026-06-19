@@ -12,8 +12,9 @@ The short version:
 2. Use `agent status` during meaningful long-running work.
 3. Use `refresh` when checking for new context without a full restart.
 4. Use `timeline` when a recalled record needs surrounding event context.
-5. Use `agent finish` before stopping or handing off.
-6. Follow returned `next` actions instead of inventing command sequences.
+5. Use `memory doctor` when memory quality or project identity looks stale.
+6. Use `agent finish` before stopping or handing off.
+7. Follow returned `next` actions instead of inventing command sequences.
 
 ## Host Adapter Flow
 
@@ -191,6 +192,22 @@ Timeline follows the same private read boundary as `recall`, `boot`,
 `include_private` is set to `true`. If timeline is run with private reads
 enabled, its follow-up `recall` actions include the same opt-in.
 
+## Memory Governance
+
+Use `memory doctor` for a read-only audit before promoting or archiving memory:
+
+```bash
+moryn memory doctor \
+  --project . \
+  --limit 20
+```
+
+The result reports candidate backlog, high-confidence candidates ready for user
+promotion review, likely smoke/e2e marker noise, and related records under
+other project ids. It returns keyed `findings_by_id` and
+`suggested_actions_by_id`; mutation suggestions remain `safe_to_run: false`
+until the user confirms promotion or archive. MCP hosts call `memory_doctor`.
+
 ## Private Read Boundary
 
 Private markers are tag-based. The first-version contract treats `private`,
@@ -204,6 +221,7 @@ Default-hidden read surfaces:
 - `refresh`
 - `timeline`
 - `list-recent`
+- `memory doctor`
 - dashboard data and HTML
 
 Explicit read examples:
@@ -211,6 +229,7 @@ Explicit read examples:
 ```bash
 moryn recall "credential rotation" --project . --include-private
 moryn timeline --record-id rec_... --project . --include-private
+moryn memory doctor --project . --include-private
 moryn dashboard --serve --include-private
 ```
 

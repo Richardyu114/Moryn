@@ -23,6 +23,14 @@ const SENSITIVE_REVISE_SELECTION_SOURCES = {
   quarantine_event: "quarantine_event",
   quarantine_event_id: "quarantine_event.event_id"
 };
+const MEMORY_DOCTOR_SELECTION_SOURCES = {
+  finding: "findings_by_id.<finding_id>",
+  finding_id: "findings_by_id.<finding_id>.id",
+  action: "suggested_actions_by_id.<action_id>",
+  action_id: "suggested_actions_by_id.<action_id>.action_id",
+  record: "records_by_id.<record_id>",
+  record_id: "records_by_id.<record_id>.id"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -345,6 +353,143 @@ function expectRefreshChangeRecallAction(action: {
 }
 
 describe("core engine", () => {
+  it("diagnoses candidate backlog, promotable rules, noise, and project identity splits without mutating records", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-19T00:00:${String(tick++).padStart(2, "0")}.000Z`
+      });
+      const durableRule = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn", "repository-policy", "local-only-docs"],
+        content: { text: "docs/superpowers must remain local-only and never be committed.", format: "text" },
+        confidence: 1,
+        priority: "high",
+        source: { client: "user" }
+      });
+      const marker = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn", "e2e"],
+        content: { text: "moryn host e2e codex marker completed.", format: "text" },
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn", "doctor"],
+        content: { text: "Memory doctor should stay read-only.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Recent implementation checkpoint.", format: "text" },
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn", "doctor"],
+        content: { text: "Older project id still contains Moryn memories.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const privateRecord = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn", "private"],
+        content: { text: "Private rule should be hidden by default.", format: "text" },
+        source: { client: "user" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const doctor = await engine.memoryDoctor({
+        project_id: "repo-e6f0166fd942",
+        limit: 20
+      });
+      const afterEvents = await readEvents(storePath);
+
+      expect(afterEvents).toHaveLength(beforeEvents.length);
+      expect(doctor.read_only).toBe(true);
+      expect(doctor.stats.total_records).toBe(5);
+      expect(doctor.stats.excluded_private_records).toBe(1);
+      expect(doctor.stats.states).toMatchObject({ candidate: 3, canonical: 2 });
+      expect(doctor.stats.projects).toMatchObject({ "repo-e6f0166fd942": 4, moryn: 1 });
+      expect(doctor.selection_sources).toEqual(MEMORY_DOCTOR_SELECTION_SOURCES);
+      expect(doctor.records_by_id[durableRule.record.id]?.id).toBe(durableRule.record.id);
+      expect(doctor.records_by_id[privateRecord.record.id]).toBeUndefined();
+
+      expect(doctor.findings_by_id.candidate_backlog).toMatchObject({
+        id: "candidate_backlog",
+        category: "backlog",
+        severity: "warning"
+      });
+      expect(doctor.findings_by_id.project_identity_split).toMatchObject({
+        id: "project_identity_split",
+        category: "project_identity",
+        severity: "warning",
+        project_id: "repo-e6f0166fd942",
+        related_project_ids: ["moryn"]
+      });
+
+      const promoteAction = doctor.suggested_actions_by_id[`promote:${durableRule.record.id}`];
+      expect(promoteAction).toMatchObject({
+        action_id: `promote:${durableRule.record.id}`,
+        recommended_action: "promote_candidate",
+        tool: "promote",
+        command: `moryn promote ${durableRule.record.id} --state canonical --reason 'Memory doctor: confirmed/high-confidence candidate review' --confirm`,
+        arguments: {
+          record_id: durableRule.record.id,
+          target_state: "canonical",
+          reason: "Memory doctor: confirmed/high-confidence candidate review",
+          confirmed: true
+        },
+        safe_to_run: false,
+        required_fields: []
+      });
+      expect(promoteAction.interfaces?.mcp).toEqual({
+        tool: "promote",
+        arguments: {
+          record_id: durableRule.record.id,
+          target_state: "canonical",
+          reason: "Memory doctor: confirmed/high-confidence candidate review",
+          confirmed: true
+        }
+      });
+
+      expect(doctor.suggested_actions_by_id[`archive:${marker.record.id}`]).toMatchObject({
+        action_id: `archive:${marker.record.id}`,
+        recommended_action: "archive_record",
+        tool: "archive",
+        command: `moryn archive ${marker.record.id} --reason 'Memory doctor: e2e marker/noise candidate'`,
+        arguments: {
+          record_id: marker.record.id,
+          reason: "Memory doctor: e2e marker/noise candidate"
+        },
+        safe_to_run: false
+      });
+    });
+  });
+
   it("writes, recalls, revises, and promotes records", async () => {
     await withInitializedTempStore(async (storePath) => {
       let nextId = 0;

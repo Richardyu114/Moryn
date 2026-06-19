@@ -137,6 +137,124 @@ store:
 - Document large source files as refactor candidates without destabilizing the
   first-version MVP.
 
+## Product Positioning Guardrail
+
+Moryn is a local-first, user-owned, auditable context store and handoff layer
+for agents. It is not an agent platform, not a vector-memory SDK, and
+not a hosted cloud service. Agents remain clients of the store; the durable
+context belongs to the user and can move across agents, devices, and projects.
+
+```text
+Default path
+  moryn setup / context pack / capture / recall
+  -> fast, boring, hard to misuse
+
+Power path
+  review / timeline / memory doctor / eval / sync repair / dashboard
+  -> optional, auditable, useful when the user needs governance
+
+Core boundary
+  append-only events / recall / state transitions / sync / project identity
+  privacy boundary / lifecycle handoff
+  -> stable substrate, not a growing agent runtime
+```
+
+Phase decision gate: before starting any larger phase, check whether the work
+strengthens automatic-but-auditable capture, memory governance, installation
+trust, recall quality, public clarity, or sync reliability without making the
+default path heavier. If a phase mostly expands Moryn toward a general agent
+runtime, hosted service, vector database, or broad RAG product, defer it.
+
+```text
+Candidate phase
+      |
+      v
+Does it reinforce the user-owned context store?
+      | yes
+      v
+Can it stay optional or keep the daily path simple?
+      | yes
+      v
+Can it be verified with contracts, tests, docs, and dogfood?
+      | yes
+      v
+Implement in a focused slice
+
+Any "no" -> defer, redesign, or keep as documentation only
+```
+
+### Phase 1: Auditable Autocapture
+
+Do not start this phase until the host-specific capture path can stay
+reviewable by default. The goal is better capture reliability, not background
+memory writes that silently become canonical.
+
+- Build only if it produces raw or candidate capture records with source,
+  project, task, summary, touched files, and risk tags.
+- Keep automatic canonical promotion out of scope unless the user explicitly
+  confirms it.
+- Prefer host adapter hints and reversible local hooks over opaque background
+  services.
+- Verify with CLI, MCP, package smoke, and dashboard/private-boundary tests.
+
+### Phase 2: Memory Governance
+
+Do not start this phase until there are enough candidate, conflict, stale, or
+duplicate records in dogfood data to justify a new surface. The goal is trust,
+not another dashboard tab.
+
+- Start with review inbox and memory doctor output before adding broad editing
+  workflows.
+- Preserve old records through archive, revise, link, or supersede metadata
+  instead of destructive merge.
+- Keep machine-readable actions for promote, archive, quarantine, revise, and
+  timeline follow-up.
+- Verify that private, secret, and sensitive records stay hidden by default.
+
+### Phase 3: Setup Wizard
+
+Do not start this phase until normal agent install still requires too much
+manual command selection. The goal is a safe one-command path, not host config
+magic.
+
+- Dry-run must list every planned local change.
+- Apply must only perform approved Moryn-local or documented host setup.
+- Any host mutation needs a rollback receipt and a smoke test.
+- Failure output must include executable next actions rather than prose-only
+  troubleshooting.
+
+### Phase 4: Recall Eval
+
+Do not start this phase until recall quality is difficult to judge from normal
+ranking reasons and dogfood queries. The goal is measurable recall quality, not
+turning Moryn into a vector-memory SDK.
+
+- Start with golden queries, expected record ids, privacy checks, freshness,
+  conflict detection, and provenance coverage.
+- Optional semantic or embedding indexes must be plugins, not required core.
+- Reports should recommend memory hygiene actions such as revise, archive,
+  promote, or add tags.
+
+### Phase 5: Public Polish
+
+Do not start this phase until the product story or onboarding causes confusion.
+The goal is clearer adoption, not marketing bulk.
+
+- Keep README short and show one multi-agent handoff demo.
+- Add examples only when they are runnable and covered by smoke-style checks.
+- Compare with adjacent tools by positioning, not by claiming feature parity.
+- Preserve the phrase: user-owned, auditable context store and handoff layer.
+
+### Phase 6: Release Gate
+
+Do not start this phase as a separate feature. It is the checklist that closes
+any release-worthy slice.
+
+- Run typecheck, tests, build, release check, lifecycle smoke, and diff check.
+- Confirm package contents exclude local-only docs and memory-store data.
+- Confirm public docs describe any new command and its contracts.
+- Confirm Moryn store sync is clean after durable memory writes.
+
 ## Next Engineering Work
 
 These are not required for the first MVP, but they are good next steps:

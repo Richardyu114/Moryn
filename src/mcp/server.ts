@@ -492,6 +492,7 @@ type McpProjectContextOperation =
   | "timeline"
   | "write"
   | "refresh"
+  | "memory_doctor"
   | "capture_session"
   | "context_pack"
   | "agent_doctor"
@@ -1709,6 +1710,29 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: project.project_id,
         cursor: normalizedInput.cursor,
         current_task: normalizedInput.current_task as string | undefined,
+        limit: normalizedInput.limit,
+        include_private: normalizedInput.include_private
+      });
+    })
+  );
+
+  server.registerTool(
+    "memory_doctor",
+    {
+      title: "Diagnose Moryn Memory Health",
+      description: "Read-only memory audit for candidate backlog, promotable records, marker noise, and project-id splits.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        limit: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("memory_doctor")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("memory_doctor", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("memory_doctor", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      return engine.memoryDoctor({
+        project_id: project.project_id,
         limit: normalizedInput.limit,
         include_private: normalizedInput.include_private
       });

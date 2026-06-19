@@ -73,6 +73,54 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Host adapter registry and autocapture");
   });
 
+  it("documents the product positioning guardrail and phase decision gate", async () => {
+    const [readme, design, roadmap] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/moryn-design.md", "utf8"),
+      readFile("docs/implementation-roadmap.md", "utf8")
+    ]);
+
+    for (const document of [readme, design, roadmap]) {
+      expect(document).toContain("user-owned");
+      expect(document).toContain("auditable");
+      expect(document).toContain("context store");
+      expect(document).toContain("not an agent platform");
+      expect(document).toContain("not a vector-memory SDK");
+      expect(document).toContain("not a hosted cloud service");
+    }
+
+    expect(roadmap).toContain("Default path");
+    expect(roadmap).toContain("Power path");
+    expect(roadmap).toContain("Core boundary");
+    expect(roadmap).toContain("Phase decision gate");
+    expect(roadmap).toContain("Phase 1: Auditable Autocapture");
+    expect(roadmap).toContain("Phase 2: Memory Governance");
+    expect(roadmap).toContain("Phase 3: Setup Wizard");
+    expect(roadmap).toContain("Phase 4: Recall Eval");
+    expect(roadmap).toContain("Phase 5: Public Polish");
+    expect(roadmap).toContain("Phase 6: Release Gate");
+    expect(roadmap).toContain("Do not start this phase until");
+  });
+
+  it("documents the read-only memory doctor governance surface", async () => {
+    const [readme, workflow, contracts] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/contracts.md", "utf8")
+    ]);
+
+    for (const document of [readme, workflow, contracts]) {
+      expect(document).toContain("moryn memory doctor");
+      expect(document).toContain("memory_doctor");
+      expect(document).toContain("read-only");
+      expect(document).toContain("safe_to_run: false");
+    }
+    expect(contracts).toContain("moryn contracts operations --operation memory_doctor");
+    expect(contracts).toContain('"tool": "memory_doctor"');
+    expect(contracts).toContain("memory_doctor.findings_by_id.<finding_id>");
+    expect(contracts).toContain("memory_doctor.suggested_actions_by_id.<action_id>");
+  });
+
   it("keeps the design spec error contract aligned with runtime envelopes", async () => {
     const design = await readFile("docs/moryn-design.md", "utf8");
     const implementedCodes = [

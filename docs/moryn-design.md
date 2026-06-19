@@ -5,9 +5,11 @@ Date: 2026-05-27
 
 ## Summary
 
-Moryn is a personal, multi-agent, multi-device memory, skill, and soul layer for AI agents. It lets one user run multiple agents across multiple projects while sharing a common operating context. Agents can read relevant context, write session outcomes, propose durable memories, reuse skills, and sync the store across devices.
+Moryn is a personal, multi-agent, multi-device, user-owned, auditable context store and handoff layer for AI agents. It lets one user run multiple agents across multiple projects while sharing a common operating context. Agents can read relevant context, write session outcomes, propose durable memories, reuse skills, and sync the store across devices.
 
 Moryn is not an agent-specific memory store. Agents are readers and writers. The durable context belongs to the user, projects, topics, and artifacts.
+
+Moryn is not an agent platform, not a vector-memory SDK, and not a hosted cloud service. It should remain an agent-agnostic memory bus: daily use stays simple, while provenance, review, timeline, sync, and evaluation tools exist as optional governance layers.
 
 The first version is local-first and syncs through a user-owned GitHub private repository. It uses structured, agent-friendly storage instead of human-oriented note files.
 
@@ -66,6 +68,13 @@ Recommended package name:
 7. Raw session material is useful but should not pollute boot context.
 8. Private-tagged records require explicit read intent.
 9. The first version must work without semantic embeddings.
+10. Default path: setup, context pack, capture, and recall should stay fast and
+    simple.
+11. Power path: review, timeline, memory doctor, eval, sync repair, and
+    dashboard should stay optional and auditable.
+12. Core boundary: append-only events, recall, state transitions, sync, project
+    identity, privacy boundaries, and lifecycle handoff must stay boring and
+    stable. Optional features must not make the core or daily path heavy.
 
 ## Architecture
 
@@ -217,7 +226,7 @@ Clients should still use stable, host-specific identities such as `codex`,
 metadata so derived views can distinguish activity by real agent host.
 
 Read APIs share one private boundary. Normal `boot`, `recall`, `refresh`,
-`timeline`, `list_recent`, and dashboard reads hide active records tagged
+`timeline`, `list_recent`, `memory_doctor`, and dashboard reads hide active records tagged
 `private`, `secret`, or `sensitive`. These records stay in event history and
 sync like other active records, but agents need an explicit `include_private`
 argument or `--include-private` flag to retrieve them.
@@ -928,7 +937,7 @@ through core validation, including numeric values, so callers get the same
 contract-backed state and link-type repair hints instead of host-side schema
 text.
 Core read argument failures for `recall`, `timeline`, `boot`, `refresh`,
-`list_recent`, and `project_list` also expose the matching operation contract
+`list_recent`, `memory_doctor`, and `project_list` also expose the matching operation contract
 and `argument_sources` for invalid filters, timeline anchors/windows, cursors,
 task context, project ids, and limits. MCP `recall.tags`, `recall.record_ids`, `recall.files`,
 `recall.kinds`, `recall.scopes`, `recall.types`, and `recall.states` shape
@@ -965,12 +974,12 @@ RFC3339 cursor failures point to
 through lifecycle refresh-since arguments. MCP `refresh.cursor` shape failures
 also pass through core validation, including numeric values, and point at the
 same cursor contract instead of host-side schema text. MCP project selector
-shape failures for `boot`, `recall`, `write`, `refresh`, and lifecycle tools
+shape failures for `boot`, `recall`, `write`, `refresh`, `memory_doctor`, and lifecycle tools
 also pass through shared project-context validation, including numeric
 `project_id`/`project_path` values, and point at operation-specific argument
 sources with `project_list` retry guidance instead of host-side schema text.
 Empty CLI `--project-id` and `--project` values on `write`, `recall`, `boot`,
-and `refresh` point at the same operation-specific project selector contracts
+`refresh`, and `memory doctor` point at the same operation-specific project selector contracts
 before project-context resolution runs.
 Project setup argument failures for
 `init.repair` point at `operations_by_id.init.arguments_by_name.repair`, and

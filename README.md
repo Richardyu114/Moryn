@@ -2,13 +2,19 @@
 
 ![Moryn hero](assets/moryn-hero.png)
 
-Moryn is a local-first, multi-agent, multi-device memory, skill, and handoff
-layer for AI agents.
+Moryn is a local-first, user-owned, auditable context store and handoff layer
+for multi-agent, multi-device AI work.
 
 It gives Codex, Claude, Cursor, Gemini, shell agents, and scripts one durable
 context store without making memory belong to any single agent. The user owns
 the store. Agents read, write, revise, promote, and hand off context through the
 CLI or a real stdio MCP server.
+
+Moryn is not an agent platform, not a vector-memory SDK, and
+not a hosted cloud service. It is the memory bus between agents: simple on the
+default path, and fully
+traceable when a user or agent needs review, provenance, sync, or handoff
+history.
 
 > Status: first-version MVP. Local memory operations, Git sync, lifecycle
 > handoffs, package smoke tests, and MCP stdio access are implemented.
@@ -159,6 +165,17 @@ hides `private`, `secret`, and `sensitive` tagged records by default; pass
 `--include-private` only when the user has explicitly asked to inspect private
 memory.
 
+When memory quality looks stale, use the read-only doctor:
+
+```bash
+moryn memory doctor --project . --limit 20
+```
+
+It reports candidate backlog, promotable user-confirmed records, likely
+smoke/e2e marker noise, and related records under other project ids. Suggested
+promote/archive actions remain `safe_to_run: false` until the user confirms.
+The MCP tool name is `memory_doctor`.
+
 ## MCP
 
 Start the MCP server:
@@ -251,7 +268,7 @@ raw -> candidate -> canonical
 
 Records tagged `private`, `secret`, or `sensitive` are active records, but they
 are excluded from normal `boot`, `recall`, `refresh`, `list-recent`, `timeline`,
-and dashboard reads. Use `--include-private` or MCP `include_private: true`
+`memory doctor`, and dashboard reads. Use `--include-private` or MCP `include_private: true`
 only with explicit user intent. Sensitive content is quarantined or redacted
 before it enters normal recall. High-risk canonical writes require explicit
 confirmation.

@@ -2848,6 +2848,7 @@ describe("MCP stdio server", () => {
           "install",
           "link",
           "list_recent",
+          "memory_doctor",
           "operation_contracts",
           "project_init",
           "project_list",
@@ -6311,6 +6312,79 @@ describe("MCP stdio server", () => {
         expect(repaired.config.device_id).toMatch(/^device_/);
         expect(repaired.artifacts.config).toBe("config.json");
         expect(repaired.selection_sources).toEqual(STORE_INIT_SELECTION_SOURCES);
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("runs a read-only memory doctor over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-memory-doctor-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        const durableRule = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "rule",
+            scope: "project",
+            project_id: "repo-e6f0166fd942",
+            tags: ["moryn", "repository-policy"],
+            text: "docs/superpowers must remain local-only and never be committed.",
+            confidence: 1,
+            priority: "high",
+            source: { client: "user" }
+          }
+        })) as { record: { id: string } };
+        const marker = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "session_summary",
+            project_id: "repo-e6f0166fd942",
+            tags: ["moryn"],
+            text: "moryn host e2e codex marker completed.",
+            source: { client: "codex" }
+          }
+        })) as { record: { id: string } };
+        parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            tags: ["moryn"],
+            text: "Older project id still contains Moryn memories.",
+            state: "canonical",
+            confirmed: true,
+            source: { client: "user" }
+          }
+        }));
+
+        const doctor = parseTextContent(await client.callTool({
+          name: "memory_doctor",
+          arguments: {
+            project_id: "repo-e6f0166fd942",
+            limit: 20
+          }
+        })) as {
+          read_only: boolean;
+          findings_by_id: Record<string, { category: string }>;
+          suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
+        };
+
+        expect(doctor.read_only).toBe(true);
+        expect(doctor.findings_by_id.project_identity_split).toMatchObject({ category: "project_identity" });
+        expect(doctor.suggested_actions_by_id[`promote:${durableRule.record.id}`]).toMatchObject({
+          tool: "promote",
+          command: `moryn promote ${durableRule.record.id} --state canonical --reason 'Memory doctor: confirmed/high-confidence candidate review' --confirm`,
+          safe_to_run: false
+        });
+        expect(doctor.suggested_actions_by_id[`archive:${marker.record.id}`]).toMatchObject({
+          tool: "archive",
+          safe_to_run: false
+        });
       });
     } finally {
       await rm(store, { recursive: true, force: true });

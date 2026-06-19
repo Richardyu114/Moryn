@@ -111,6 +111,30 @@ Add `"include_private": true` only when the user explicitly wants timeline to
 include records tagged `private`, `secret`, or `sensitive`. Private timeline
 items preserve that opt-in in their follow-up `recall` action.
 
+The read-only memory governance audit is also available through the registry:
+
+```bash
+moryn contracts operations --operation memory_doctor
+moryn memory doctor --project . --limit 20
+```
+
+The MCP equivalent is:
+
+```json
+{
+  "tool": "memory_doctor",
+  "arguments": {
+    "project_path": ".",
+    "limit": 20
+  }
+}
+```
+
+`memory_doctor` returns summary counts, keyed findings, and suggested promote,
+archive, or project-identity review actions. It does not mutate records; any
+returned mutation action has `safe_to_run: false` (`safe_to_run: false`) and
+requires user authority.
+
 The observability dashboard is also exposed through the same contract registry:
 
 ```bash
@@ -161,6 +185,7 @@ surfaces that can return active record content or event context. Records tagged
 - `refresh`
 - `timeline`
 - `list_recent`
+- `memory_doctor`
 - `dashboard`
 
 Use CLI `--include-private` or MCP `include_private: true` only for an explicit
@@ -169,6 +194,7 @@ private-memory read. The flag is discoverable in each operation contract:
 ```bash
 moryn contracts operations --operation recall
 moryn contracts operations --operation timeline
+moryn contracts operations --operation memory_doctor
 moryn contracts operations --operation dashboard
 ```
 
@@ -197,6 +223,8 @@ Examples:
 - `timeline.items_by_event_id.<event_id>`
 - `timeline.items_by_record_id.<record_id>[]`
 - `list_recent.records_by_id.<record_id>`
+- `memory_doctor.findings_by_id.<finding_id>`
+- `memory_doctor.suggested_actions_by_id.<action_id>`
 - `refresh.changes_by_record_id.<record_id>`
 - `agent_start.next.actions_by_id.<action>`
 - `project_list.projects_by_id.<project_id>.next`

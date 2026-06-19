@@ -3286,6 +3286,84 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("runs a read-only memory doctor from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+      const durableRule = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "rule",
+        "--scope", "project",
+        "--project-id", "repo-e6f0166fd942",
+        "--tag", "moryn",
+        "--tag", "repository-policy",
+        "--confidence", "1",
+        "--priority", "high",
+        "--text", "docs/superpowers must remain local-only and never be committed."
+      ])).stdout) as { record: { id: string } };
+      const marker = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "repo-e6f0166fd942",
+        "--tag", "moryn",
+        "--text", "moryn host e2e codex marker completed."
+      ])).stdout) as { record: { id: string } };
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--tag", "moryn",
+        "--state", "canonical",
+        "--confirm",
+        "--text", "Older project id still contains Moryn memories."
+      ]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "rule",
+        "--scope", "project",
+        "--project-id", "repo-e6f0166fd942",
+        "--tag", "private",
+        "--text", "Hidden rule should not appear in default doctor output."
+      ]);
+
+      const doctor = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "memory", "doctor",
+        "--project-id", "repo-e6f0166fd942",
+        "--limit", "20"
+      ]);
+      const parsed = JSON.parse(doctor.stdout) as {
+        read_only: boolean;
+        stats: { total_records: number; excluded_private_records: number };
+        findings_by_id: Record<string, { category: string }>;
+        suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
+        records_by_id: Record<string, unknown>;
+      };
+
+      expect(parsed.read_only).toBe(true);
+      expect(parsed.stats.total_records).toBe(3);
+      expect(parsed.stats.excluded_private_records).toBe(1);
+      expect(parsed.findings_by_id.project_identity_split).toMatchObject({ category: "project_identity" });
+      expect(parsed.suggested_actions_by_id[`promote:${durableRule.record.id}`]).toMatchObject({
+        tool: "promote",
+        command: `moryn promote ${durableRule.record.id} --state canonical --reason 'Memory doctor: confirmed/high-confidence candidate review' --confirm`,
+        safe_to_run: false
+      });
+      expect(parsed.suggested_actions_by_id[`archive:${marker.record.id}`]).toMatchObject({
+        tool: "archive",
+        safe_to_run: false
+      });
+      expect(JSON.stringify(parsed.records_by_id)).not.toContain("Hidden rule should not appear");
+    });
+  });
+
   it("hides private-tagged records from CLI reads unless explicitly included", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "init"]);

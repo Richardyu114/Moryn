@@ -88,7 +88,7 @@ const CLI_GLOBAL_OPTIONS = [
   { option: "--version", position: "before_command" },
   { option: "-V", position: "before_command" }
 ] as const;
-type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
+type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
@@ -131,6 +131,7 @@ type CliParserOperation =
   | "recall"
   | "timeline"
   | "refresh"
+  | "memory_doctor"
   | "sync_push"
   | "revise"
   | "promote"
@@ -1510,6 +1511,11 @@ function cliParserArgumentSource(option: string): CliParserSource | undefined {
     if (option === "--model") return { operation: "context_pack", argument: "agent_model" };
     if (option === "--device-id") return { operation: "context_pack", argument: "agent_device_id" };
   }
+  if (commandPath[0] === "memory" && commandPath[1] === "doctor") {
+    if (option === "--project") return { operation: "memory_doctor", argument: "project_path" };
+    if (option === "--project-id") return { operation: "memory_doctor", argument: "project_id" };
+    if (option === "--limit") return { operation: "memory_doctor", argument: "limit" };
+  }
   if (commandPath[0] === "contracts" && commandPath[1] === "operations") {
     if (option === "--operation") return { operation: "operation_contracts", argument: "operation" };
     if (option === "--mcp-tool") return { operation: "operation_contracts", argument: "mcp_tool" };
@@ -2424,6 +2430,23 @@ program.command("list-recent")
     const engine = createCliEngine();
     printJson(await engine.listRecent({
       limit: parseLimit(options.limit, "list_recent"),
+      include_private: options.includePrivate
+    }));
+  });
+
+const memory = program.command("memory");
+
+memory.command("doctor")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--limit <n>", "Finding/action limit", "20")
+  .option("--include-private", "Include private-tagged records")
+  .action(async (options) => {
+    const engine = createCliEngine();
+    const projectId = await resolveOptionalProject(options, "memory_doctor");
+    printJson(await engine.memoryDoctor({
+      project_id: projectId,
+      limit: parseLimit(options.limit, "memory_doctor"),
       include_private: options.includePrivate
     }));
   });

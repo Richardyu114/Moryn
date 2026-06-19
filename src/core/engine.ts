@@ -11,6 +11,7 @@ import { actionExecution, actionSafety } from "./action-safety.js";
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool } from "../operation-contracts.js";
+import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 
 interface EngineDeps {
   storePath: string;
@@ -117,6 +118,16 @@ interface ListProjectsInput {
   sync_remote?: unknown;
   agent?: unknown;
 }
+
+interface MemoryDoctorInput {
+  project_id?: string;
+  limit?: unknown;
+  include_private?: unknown;
+}
+
+type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
+  include_private?: boolean;
+};
 
 type ProjectListAgent = Partial<RecordSource>;
 
@@ -249,6 +260,8 @@ export const LIST_RECENT_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
   record_id: "records_by_id.<record_id>.id"
 };
+
+export { MEMORY_DOCTOR_SELECTION_SOURCES };
 
 export const RECALL_SELECTION_SOURCES = {
   result: "results_by_id.<record_id>",
@@ -545,7 +558,7 @@ type ValidatedRevisionInput = RevisionInput & { record_id: string; reason?: stri
 type ValidatedPromoteInput = PromoteInput & { record_id: string; target_state: RecordState; reason?: string };
 type ValidatedLinkInput = LinkInput & { record_id: string; linked_record_id: string; link_type: string };
 
-type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list";
+type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
 type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.${string}`;
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
@@ -2034,6 +2047,12 @@ function validateListProjectsInput(input: ListProjectsInput): void {
   validateProjectListAgent(input.agent);
 }
 
+function validateMemoryDoctorInput(input: MemoryDoctorInput): void {
+  assertPlainObject(input, "memory doctor input");
+  validateOptionalString("memory_doctor", input.project_id, "project_id");
+  validateOptionalBoolean("memory_doctor", input.include_private, "include_private");
+}
+
 function shellQuote(value: string): string {
   if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
@@ -3184,6 +3203,25 @@ export function createEngine(deps: EngineDeps) {
         selection_sources: LIST_RECENT_SELECTION_SOURCES,
         records_by_id: recordsById(records)
       };
+    },
+
+    async memoryDoctor(input: MemoryDoctorInput = {}) {
+      validateMemoryDoctorInput(input);
+      const resolvedInput = {
+        ...input,
+        include_private: input.include_private === true
+      } as ValidatedMemoryDoctorInput;
+      const limit = validateLimit(resolvedInput.limit, 20, "memory_doctor");
+      const allRecords = await currentRecords();
+      const records = allRecords
+        .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private));
+      return diagnoseMemory({
+        records,
+        project_id: resolvedInput.project_id,
+        limit,
+        include_private: resolvedInput.include_private,
+        excluded_private_records: allRecords.length - records.length
+      });
     },
 
     async listProjects(input: ListProjectsInput = {}) {

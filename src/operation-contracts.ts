@@ -1881,6 +1881,29 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "memory_doctor",
+    category: "core",
+    summary: "Read-only memory health check that surfaces candidate backlog, promotable records, marker noise, and project-id splits.",
+    safe_to_run: true,
+    required_when: "When an agent or user wants to audit memory quality before promoting, archiving, or repairing project identity.",
+    required_fields: [],
+    arguments_by_name: {
+      ...projectContextArguments,
+      limit: {
+        type: "number",
+        required: false,
+        default: 20,
+        cli: { flag: "--limit", default: 20 },
+        mcp: { argument: "limit" }
+      },
+      ...privateReadArgument
+    },
+    interfaces: {
+      cli: { command: "moryn memory doctor", argv: ["memory", "doctor"] },
+      mcp: { tool: "memory_doctor", arguments: {} }
+    }
+  }),
+  operationContract({
     operation: "refresh",
     category: "core",
     summary: "Return important changes since a cursor for periodic memory refresh.",
