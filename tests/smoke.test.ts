@@ -19,6 +19,7 @@ import {
   PROJECT_INIT_SELECTION_SOURCES,
   PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES,
   PROJECT_LIST_SELECTION_SOURCES,
+  PROJECT_MIGRATE_SELECTION_SOURCES,
   REBUILD_SELECTION_SOURCES,
   RECALL_SELECTION_SOURCES,
   REFRESH_SELECTION_SOURCES,
@@ -149,6 +150,7 @@ describe("package smoke test", () => {
     expect(SELECTION_SOURCE_CONTRACTS.setup.store_init).toBe(STORE_INIT_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.core.boot).toBe(BOOT_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.core.project_list_next_action).toBe(PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES);
+    expect(SELECTION_SOURCE_CONTRACTS.core.project_migrate).toBe(PROJECT_MIGRATE_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.sync.result).toBe(SYNC_RESULT_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.guide).toBe(GUIDE_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.handoff).toBe(HANDOFF_SELECTION_SOURCES);
@@ -205,7 +207,6 @@ describe("package smoke test", () => {
       operation_source_lookup: "operation_source_lookup",
       ordered_operation: "operations[]",
       execution_hint: "operations_by_id.<operation>.execution_hint",
-      execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
       full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
       full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
       full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
@@ -233,7 +234,6 @@ describe("package smoke test", () => {
       operation: "agent_finish",
       operation_source: "operations_by_id.agent_finish",
       category: "lifecycle",
-      summary: "Write a final session summary and push sync when appropriate.",
       safe_to_run: false,
       ready_to_run: false,
       next_step: "collect_required_fields",
@@ -246,12 +246,7 @@ describe("package smoke test", () => {
         ready_to_run: false,
         next_step: "collect_required_fields",
         required_fields: ["summary"],
-        missing_required_fields: ["summary"],
-        required_input_sources: {
-          by_field: "execution.required_inputs_by_field.<field>",
-          by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>",
-          by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
-        }
+        missing_required_fields: ["summary"]
       },
       full_contract_lookup: {
         package_helper: "getOperationContract('agent_finish')",

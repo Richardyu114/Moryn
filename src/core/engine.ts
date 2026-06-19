@@ -227,6 +227,13 @@ export const PROJECT_LIST_SELECTION_SOURCES = {
   next_action: "projects_by_id.<project_id>.next"
 };
 
+export const PROJECT_MIGRATE_SELECTION_SOURCES = {
+  record: "records_by_id.<record_id>",
+  record_id: "records_by_id.<record_id>.id",
+  event: "events_by_record_id.<record_id>",
+  event_id: "events_by_record_id.<record_id>.event_id"
+};
+
 export const PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES = {
   project: "project_list.projects_by_id.<project_id>",
   project_id: "project_list.projects_by_id.<project_id>.project_id",
@@ -553,10 +560,26 @@ interface LinkInput {
   source?: RecordSource;
 }
 
+interface ProjectMigrateInput {
+  from_project_id?: unknown;
+  to_project_id?: unknown;
+  dry_run?: unknown;
+  confirmed?: unknown;
+  include_private?: unknown;
+  source?: RecordSource;
+}
+
 type ValidatedStateChangeInput = StateChangeInput & { record_id: string; reason?: string };
 type ValidatedRevisionInput = RevisionInput & { record_id: string; reason?: string };
 type ValidatedPromoteInput = PromoteInput & { record_id: string; target_state: RecordState; reason?: string };
 type ValidatedLinkInput = LinkInput & { record_id: string; linked_record_id: string; link_type: string };
+type ValidatedProjectMigrateInput = ProjectMigrateInput & {
+  from_project_id: string;
+  to_project_id: string;
+  dry_run: boolean;
+  confirmed?: boolean;
+  include_private: boolean;
+};
 
 type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
@@ -2053,6 +2076,29 @@ function validateMemoryDoctorInput(input: MemoryDoctorInput): void {
   validateOptionalBoolean("memory_doctor", input.include_private, "include_private");
 }
 
+function validateProjectMigrateInput(input: ProjectMigrateInput): void {
+  assertPlainObject(input, "project migrate input");
+  if (typeof input.from_project_id !== "string" || !input.from_project_id.length) {
+    throw new Error("Invalid argument: Invalid from_project_id");
+  }
+  if (typeof input.to_project_id !== "string" || !input.to_project_id.length) {
+    throw new Error("Invalid argument: Invalid to_project_id");
+  }
+  if (input.from_project_id === input.to_project_id) {
+    throw new Error("Invalid argument: from_project_id and to_project_id must differ");
+  }
+  if (input.dry_run !== undefined && typeof input.dry_run !== "boolean") {
+    throw new Error("Invalid argument: Invalid dry_run");
+  }
+  if (input.confirmed !== undefined && typeof input.confirmed !== "boolean") {
+    throw new Error("Invalid argument: Invalid confirmed");
+  }
+  if (input.include_private !== undefined && typeof input.include_private !== "boolean") {
+    throw new Error("Invalid argument: Invalid include_private");
+  }
+  validateOptionalSource(input.source, undefined, "retry project_migrate with a valid source client");
+}
+
 function shellQuote(value: string): string {
   if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
@@ -3224,13 +3270,71 @@ export function createEngine(deps: EngineDeps) {
       });
     },
 
+    async migrateProject(input: ProjectMigrateInput = {}) {
+      validateProjectMigrateInput(input);
+      const resolvedInput = {
+        ...input,
+        dry_run: input.dry_run !== false,
+        include_private: input.include_private === true
+      } as ValidatedProjectMigrateInput;
+      const allRecords = await currentRecords();
+      const matchingRecords = allRecords
+        .filter((record) => record.project_id === resolvedInput.from_project_id)
+        .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
+      const records = matchingRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private));
+      const skippedPrivateRecords = matchingRecords.length - records.length;
+      const compactedRecords = compactRecords(records);
+      const base = {
+        dry_run: resolvedInput.dry_run,
+        from_project_id: resolvedInput.from_project_id,
+        to_project_id: resolvedInput.to_project_id,
+        matched_records: records.length,
+        migrated_records: 0,
+        skipped_private_records: skippedPrivateRecords,
+        records: compactedRecords,
+        records_by_id: recordsById(compactedRecords),
+        events: [] as MorynEvent[],
+        events_by_record_id: {} as Record<string, MorynEvent>,
+        selection_sources: PROJECT_MIGRATE_SELECTION_SOURCES
+      };
+      if (resolvedInput.dry_run) return base;
+      if (resolvedInput.confirmed !== true) {
+        throw new Error("Confirmation required: project migration requires explicit confirmation");
+      }
+
+      const source = resolvedInput.source ?? { client: "moryn" };
+      const events: Array<Extract<MorynEvent, { op: "revise_record" }>> = records.map((record) => ({
+        event_id: id("evt"),
+        op: "revise_record",
+        record_id: record.id,
+        patch: { project_id: resolvedInput.to_project_id },
+        reason: `Project identity migration: ${resolvedInput.from_project_id} -> ${resolvedInput.to_project_id}`,
+        confirmed: resolvedInput.confirmed,
+        created_at: nextMutationTimestamp(record, now()),
+        source
+      }));
+      for (const event of events) {
+        await appendEvent(deps.storePath, event);
+      }
+      if (events.length > 0) {
+        await rebuildDerivedViews(deps.storePath);
+      }
+      return {
+        ...base,
+        dry_run: false,
+        migrated_records: events.length,
+        events,
+        events_by_record_id: Object.fromEntries(events.map((event) => [event.record_id, event]))
+      };
+    },
+
     async listProjects(input: ListProjectsInput = {}) {
       validateListProjectsInput(input);
       const limit = validateLimit(input.limit, 20, "project_list");
       const listProjectsInput = input as ValidatedListProjectsInput;
       const byProject = new Map<string, MorynRecord[]>();
 
-      for (const record of (await currentRecords()).filter(isVisibleByDefault)) {
+      for (const record of (await currentRecords()).filter(isVisibleByDefault).filter((record) => isAllowedByPrivateBoundary(record, false))) {
         if (record.scope !== "project" || !record.project_id) continue;
         byProject.set(record.project_id, [...(byProject.get(record.project_id) ?? []), record]);
       }

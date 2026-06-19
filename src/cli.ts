@@ -113,6 +113,7 @@ type CliRequiredOperation =
   | "capture_session"
   | "agent_status"
   | "agent_finish"
+  | "project_migrate"
   | "sync_init";
 type CliRequiredArgumentSource = `operations_by_id.${CliRequiredOperation}.arguments_by_name.${string}`;
 type CliRequiredSource = {
@@ -147,6 +148,7 @@ type CliParserOperation =
   | "agent_finish"
   | "project_init"
   | "project_list"
+  | "project_migrate"
   | "sync_init"
   | "dashboard";
 type CliParserArgumentSource = `operations_by_id.${CliParserOperation}.arguments_by_name.${string}`;
@@ -1515,6 +1517,14 @@ function cliParserArgumentSource(option: string): CliParserSource | undefined {
     if (option === "--project") return { operation: "memory_doctor", argument: "project_path" };
     if (option === "--project-id") return { operation: "memory_doctor", argument: "project_id" };
     if (option === "--limit") return { operation: "memory_doctor", argument: "limit" };
+  }
+  if (commandPath[0] === "project" && commandPath[1] === "migrate") {
+    if (option === "--from") return { operation: "project_migrate", argument: "from_project_id" };
+    if (option === "--to") return { operation: "project_migrate", argument: "to_project_id" };
+    if (option === "--dry-run") return { operation: "project_migrate", argument: "dry_run" };
+    if (option === "--apply") return { operation: "project_migrate", argument: "dry_run" };
+    if (option === "--confirm") return { operation: "project_migrate", argument: "confirmed" };
+    if (option === "--include-private") return { operation: "project_migrate", argument: "include_private" };
   }
   if (commandPath[0] === "contracts" && commandPath[1] === "operations") {
     if (option === "--operation") return { operation: "operation_contracts", argument: "operation" };
@@ -2891,6 +2901,29 @@ project.command("list")
       current_task: parseNonEmptyCliString(options.currentTask, "--current-task", lifecycleStringSource(operation, "current_task")),
       sync_remote: parseNonEmptyCliString(options.syncRemote, "--sync-remote", lifecycleStringSource(operation, "sync_remote")),
       agent: agentOptions
+    }));
+  });
+
+project.command("migrate")
+  .option("--from <project-id>", "Project id to migrate records from")
+  .option("--to <project-id>", "Project id to migrate records to")
+  .option("--dry-run", "Preview matching records without writing events", true)
+  .option("--apply", "Append migration events")
+  .option("--confirm", "Confirm project id migration")
+  .option("--include-private", "Include private-tagged records in migration")
+  .action(async (options) => {
+    const engine = createCliEngine();
+    const fromProjectId = parseNonEmptyCliString(options.from, "--from", { operation: "project_migrate", argument: "from_project_id" });
+    const toProjectId = parseNonEmptyCliString(options.to, "--to", { operation: "project_migrate", argument: "to_project_id" });
+    if (fromProjectId === undefined) throw requiredCliOptionError("--from", "<from_project_id>", undefined, { operation: "project_migrate", argument: "from_project_id" });
+    if (toProjectId === undefined) throw requiredCliOptionError("--to", "<to_project_id>", undefined, { operation: "project_migrate", argument: "to_project_id" });
+    printJson(await engine.migrateProject({
+      from_project_id: fromProjectId,
+      to_project_id: toProjectId,
+      dry_run: options.apply ? false : options.dryRun,
+      confirmed: options.confirm,
+      include_private: options.includePrivate,
+      source: { client: "cli" }
     }));
   });
 

@@ -1813,7 +1813,6 @@ describe("MCP stdio server", () => {
           operation_source_lookup: "operation_source_lookup",
           ordered_operation: "operations[]",
           execution_hint: "operations_by_id.<operation>.execution_hint",
-          execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
           full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
           full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
           full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
@@ -1829,7 +1828,6 @@ describe("MCP stdio server", () => {
           operation: "agent_finish",
           operation_source: "operations_by_id.agent_finish",
           category: "lifecycle",
-          summary: "Write a final session summary and push sync when appropriate.",
           safe_to_run: false,
           ready_to_run: false,
           next_step: "collect_required_fields",
@@ -1842,12 +1840,7 @@ describe("MCP stdio server", () => {
             ready_to_run: false,
             next_step: "collect_required_fields",
             required_fields: ["summary"],
-            missing_required_fields: ["summary"],
-            required_input_sources: {
-              by_field: "execution.required_inputs_by_field.<field>",
-              by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>",
-              by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
-            }
+            missing_required_fields: ["summary"]
           },
           full_contract_lookup: {
             package_helper: "getOperationContract('agent_finish')",
@@ -1881,7 +1874,6 @@ describe("MCP stdio server", () => {
         expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
         expect(parsed.operations_by_id.dashboard.execution_hint).not.toHaveProperty("required_input_sources");
         expect(parsed.operations_by_id.dashboard.cli_command).toBe("moryn dashboard");
-        expect(parsed.operations_by_id.dashboard.summary).toContain("serve a local HTML dashboard");
         expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
         expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("execution");
       });
@@ -2852,6 +2844,7 @@ describe("MCP stdio server", () => {
           "operation_contracts",
           "project_init",
           "project_list",
+          "project_migrate",
           "promote",
           "quarantine",
           "rebuild",
@@ -2915,6 +2908,16 @@ describe("MCP stdio server", () => {
           "syncMode",
           "sync",
           "sync.mode"
+        ]));
+        const projectMigrateTool = tools.tools.find((tool) => tool.name === "project_migrate");
+        expect(Object.keys(projectMigrateTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "fromProjectId",
+          "toProjectId",
+          "from_project_id",
+          "to_project_id",
+          "dryRun",
+          "dry_run",
+          "confirmed"
         ]));
         const recallTool = tools.tools.find((tool) => tool.name === "recall");
         expect(Object.keys(recallTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
@@ -5870,6 +5873,88 @@ describe("MCP stdio server", () => {
         expectActionSafety(listed.projects[0]!.next);
         expectProjectListNextWorkflow(listed.projects[0]!.next);
         expect(listed.projects_by_id.beta.next.workflow).toEqual(listed.projects[0]!.next.workflow);
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("dry-runs and applies project migration through MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-project-migrate-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        const oldRecord = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "repo-e6f0166fd942",
+            tags: ["moryn"],
+            text: "MCP old project id should migrate.",
+            source: { client: "mcp-test" }
+          }
+        })) as { record: { id: string } };
+        parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            tags: ["moryn"],
+            text: "MCP target project id exists.",
+            source: { client: "mcp-test" }
+          }
+        }));
+
+        const beforeEvents = await readEvents(store);
+        const dryRun = parseTextContent(await client.callTool({
+          name: "project_migrate",
+          arguments: {
+            from_project_id: "repo-e6f0166fd942",
+            to_project_id: "moryn"
+          }
+        })) as {
+          dry_run: boolean;
+          matched_records: number;
+          migrated_records: number;
+          records_by_id: Record<string, { project_id: string }>;
+        };
+
+        expect(dryRun.dry_run).toBe(true);
+        expect(dryRun.matched_records).toBe(1);
+        expect(dryRun.migrated_records).toBe(0);
+        expect(dryRun.records_by_id[oldRecord.record.id]?.project_id).toBe("repo-e6f0166fd942");
+        expect(await readEvents(store)).toHaveLength(beforeEvents.length);
+
+        const applied = parseTextContent(await client.callTool({
+          name: "project_migrate",
+          arguments: {
+            fromProjectId: "repo-e6f0166fd942",
+            toProjectId: "moryn",
+            dryRun: false,
+            confirmed: true
+          }
+        })) as {
+          dry_run: boolean;
+          migrated_records: number;
+          events_by_record_id: Record<string, { patch: { project_id: string } }>;
+        };
+
+        expect(applied.dry_run).toBe(false);
+        expect(applied.migrated_records).toBe(1);
+        expect(applied.events_by_record_id[oldRecord.record.id]?.patch.project_id).toBe("moryn");
+
+        const recalled = parseTextContent(await client.callTool({
+          name: "recall",
+          arguments: {
+            record_id: oldRecord.record.id,
+            project_id: "moryn"
+          }
+        })) as { results: Array<{ record: { id: string; project_id: string } }> };
+        expect(recalled.results[0]?.record).toMatchObject({ id: oldRecord.record.id, project_id: "moryn" });
       });
     } finally {
       await rm(store, { recursive: true, force: true });

@@ -132,8 +132,21 @@ The MCP equivalent is:
 
 `memory_doctor` returns summary counts, keyed findings, and suggested promote,
 archive, or project-identity review actions. It does not mutate records; any
-returned mutation action has `safe_to_run: false` (`safe_to_run: false`) and
-requires user authority.
+returned mutation action has `safe_to_run: false` and requires user authority.
+
+Project identity migration is the explicit repair operation for confirmed
+splits:
+
+```bash
+moryn contracts operations --operation project_migrate
+moryn project migrate --from repo-e6f0166fd942 --to moryn
+moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm
+```
+
+The default run is a dry run. The apply form is `safe_to_run: false` and writes
+one auditable `revise_record` event per migrated record. MCP hosts call
+`project_migrate` with `from_project_id`, `to_project_id`, and, for mutation,
+`dry_run: false` plus `confirmed: true`.
 
 The observability dashboard is also exposed through the same contract registry:
 

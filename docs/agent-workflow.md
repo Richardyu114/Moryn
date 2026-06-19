@@ -208,6 +208,23 @@ other project ids. It returns keyed `findings_by_id` and
 `suggested_actions_by_id`; mutation suggestions remain `safe_to_run: false`
 until the user confirms promotion or archive. MCP hosts call `memory_doctor`.
 
+If the project identity finding points at an obvious old id and a chosen
+canonical id, run the repair as a dry run first:
+
+```bash
+moryn project migrate --from repo-e6f0166fd942 --to moryn
+```
+
+Apply only after user confirmation:
+
+```bash
+moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm
+```
+
+The migration appends `revise_record` events rather than editing history in
+place. Private records stay out of the default migration unless the user
+explicitly asks for `--include-private`. MCP hosts call `project_migrate`.
+
 ## Private Read Boundary
 
 Private markers are tag-based. The first-version contract treats `private`,

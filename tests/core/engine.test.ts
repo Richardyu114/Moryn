@@ -31,6 +31,12 @@ const MEMORY_DOCTOR_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
   record_id: "records_by_id.<record_id>.id"
 };
+const PROJECT_MIGRATE_SELECTION_SOURCES = {
+  record: "records_by_id.<record_id>",
+  record_id: "records_by_id.<record_id>.id",
+  event: "events_by_record_id.<record_id>",
+  event_id: "events_by_record_id.<record_id>.event_id"
+};
 
 function withPhasesByName<TWorkflow extends { phases: Array<{ phase: string }> }>(workflow: TWorkflow) {
   return {
@@ -720,6 +726,126 @@ describe("core engine", () => {
           }
         }
       });
+    });
+  });
+
+  it("dry-runs and applies project identity migration", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const timestamps = [
+        "2026-05-27T00:00:00.000Z",
+        "2026-05-27T00:01:00.000Z",
+        "2026-05-27T00:02:00.000Z",
+        "2026-05-27T00:03:00.000Z",
+        "2026-05-27T00:04:00.000Z"
+      ];
+      let nextId = 0;
+      let nextTime = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => timestamps[nextTime++] ?? "2026-05-27T00:05:00.000Z",
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      const oldProject = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Old id should migrate.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const oldArchived = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Archived old id should migrate too.", format: "text" },
+        state: "archived",
+        source: { client: "test" }
+      });
+      const targetProject = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Target id already exists.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["private"],
+        content: { text: "Private old id stays unless explicitly included.", format: "text" },
+        source: { client: "test" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const dryRun = await engine.migrateProject({
+        from_project_id: "repo-e6f0166fd942",
+        to_project_id: "moryn"
+      });
+
+      expect(dryRun).toMatchObject({
+        dry_run: true,
+        from_project_id: "repo-e6f0166fd942",
+        to_project_id: "moryn",
+        matched_records: 2,
+        migrated_records: 0,
+        skipped_private_records: 1,
+        selection_sources: PROJECT_MIGRATE_SELECTION_SOURCES
+      });
+      expect(dryRun.records.map((record) => record.id)).toEqual([oldArchived.record.id, oldProject.record.id]);
+      expect(dryRun.records_by_id[oldProject.record.id]).toEqual(expect.objectContaining({ project_id: "repo-e6f0166fd942" }));
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+
+      await expect(engine.migrateProject({
+        from_project_id: "repo-e6f0166fd942",
+        to_project_id: "moryn",
+        dry_run: false
+      })).rejects.toThrow("Confirmation required");
+
+      const applied = await engine.migrateProject({
+        from_project_id: "repo-e6f0166fd942",
+        to_project_id: "moryn",
+        dry_run: false,
+        confirmed: true,
+        source: { client: "test", session_id: "project-migrate" }
+      });
+
+      expect(applied).toMatchObject({
+        dry_run: false,
+        from_project_id: "repo-e6f0166fd942",
+        to_project_id: "moryn",
+        matched_records: 2,
+        migrated_records: 2,
+        skipped_private_records: 1,
+        selection_sources: PROJECT_MIGRATE_SELECTION_SOURCES
+      });
+      expect(Object.keys(applied.events_by_record_id).sort()).toEqual([oldArchived.record.id, oldProject.record.id].sort());
+      expect(applied.events).toHaveLength(2);
+      expect(applied.events[0]).toMatchObject({
+        op: "revise_record",
+        patch: { project_id: "moryn" },
+        reason: "Project identity migration: repo-e6f0166fd942 -> moryn",
+        confirmed: true,
+        source: { client: "test", session_id: "project-migrate" }
+      });
+
+      const projects = await engine.listProjects({ limit: 10 });
+      expect(projects.projects.map((project) => project.project_id)).toEqual(["moryn"]);
+      expect(projects.projects_by_id.moryn.records).toBe(2);
+      expect((await engine.recall({ record_ids: [oldProject.record.id], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
+      expect((await engine.recall({ record_ids: [oldArchived.record.id], states: ["archived"], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
+      expect((await engine.recall({ record_ids: [targetProject.record.id], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
     });
   });
 

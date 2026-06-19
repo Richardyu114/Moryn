@@ -320,7 +320,6 @@ export type OperationContractIndexEntry = {
   operation: string;
   operation_source: string;
   category: OperationCategory;
-  summary: string;
   safe_to_run: boolean;
   ready_to_run: boolean;
   next_step: string;
@@ -334,11 +333,6 @@ export type OperationContractIndexEntry = {
     next_step: ActionExecution["next_step"];
     required_fields: string[];
     missing_required_fields: string[];
-    required_input_sources?: {
-      by_field: "execution.required_inputs_by_field.<field>";
-      by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>";
-      by_value_path: "execution.required_input_paths_by_value_path.<value_path>";
-    };
   };
   full_contract_lookup: {
     package_helper: string;
@@ -430,7 +424,6 @@ export const OPERATION_CONTRACT_INDEX_SELECTION_SOURCES = {
   operation_source_lookup: "operation_source_lookup",
   ordered_operation: OPERATION_CONTRACTS_SELECTION_SOURCES.ordered_operation,
   execution_hint: "operations_by_id.<operation>.execution_hint",
-  execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
   full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
   full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
   full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
@@ -1328,6 +1321,61 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "project_migrate",
+    category: "maintenance",
+    summary: "Move records from one project id to another by appending auditable revision events.",
+    safe_to_run: false,
+    required_when: "After memory_doctor or project_list reveals split project identity and the user has chosen the canonical project id.",
+    required_fields: ["from_project_id", "to_project_id"],
+    argument_sources: userInputSources(["from_project_id", "to_project_id"]),
+    arguments_by_name: {
+      from_project_id: {
+        type: "string",
+        required: true,
+        cli: { flag: "--from" },
+        mcp: { argument: "from_project_id" }
+      },
+      to_project_id: {
+        type: "string",
+        required: true,
+        cli: { flag: "--to" },
+        mcp: { argument: "to_project_id" }
+      },
+      dry_run: {
+        type: "boolean",
+        required: false,
+        default: true,
+        cli: { flag: "--dry-run", default: true },
+        mcp: { argument: "dry_run" }
+      },
+      confirmed: {
+        type: "boolean",
+        required: false,
+        cli: { flag: "--confirm" },
+        mcp: { argument: "confirmed" }
+      },
+      include_private: {
+        type: "boolean",
+        required: false,
+        cli: { flag: "--include-private" },
+        mcp: { argument: "include_private" }
+      }
+    },
+    interfaces: {
+      cli: {
+        command: "moryn project migrate --from <from_project_id> --to <to_project_id>",
+        argv: ["project", "migrate", "--from", "<from_project_id>", "--to", "<to_project_id>"]
+      },
+      mcp: {
+        tool: "project_migrate",
+        arguments: {
+          from_project_id: "<from_project_id>",
+          to_project_id: "<to_project_id>"
+        }
+      }
+    }
+  }),
+  operationContract({
     operation: "boot",
     category: "core",
     summary: "Return bounded memory, skill, project, and task context for a known project.",
@@ -2093,7 +2141,6 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
     operation: operation.operation,
     operation_source: `operations_by_id.${operation.operation}`,
     category: operation.category,
-    summary: operation.summary,
     safe_to_run: operation.safe_to_run,
     ready_to_run: operation.execution.ready_to_run,
     next_step: operation.execution.next_step,
@@ -2106,12 +2153,7 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
       ready_to_run: operation.execution.ready_to_run,
       next_step: operation.execution.next_step,
       required_fields: operation.required_fields,
-      missing_required_fields: operation.execution.missing_required_fields,
-      ...(operation.required_fields.length > 0 ? { required_input_sources: {
-        by_field: "execution.required_inputs_by_field.<field>",
-        by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>",
-        by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
-      } } : {})
+      missing_required_fields: operation.execution.missing_required_fields
     },
     full_contract_lookup: operationContractLookup(operation.operation, {
       includeExecFile: operation.operation === "agent_finish"

@@ -119,6 +119,12 @@ describe("documentation contracts", () => {
     expect(contracts).toContain('"tool": "memory_doctor"');
     expect(contracts).toContain("memory_doctor.findings_by_id.<finding_id>");
     expect(contracts).toContain("memory_doctor.suggested_actions_by_id.<action_id>");
+    for (const document of [readme, workflow, contracts]) {
+      expect(document).toContain("moryn project migrate --from");
+      expect(document).toContain("--apply --confirm");
+      expect(document).toContain("project_migrate");
+    }
+    expect(contracts).toContain("moryn contracts operations --operation project_migrate");
   });
 
   it("keeps the design spec error contract aligned with runtime envelopes", async () => {

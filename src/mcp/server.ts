@@ -1124,6 +1124,30 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
   );
 
   server.registerTool(
+    "project_migrate",
+    {
+      title: "Migrate Moryn Project Identity",
+      description: "Move records from one project id to another by appending auditable revision events.",
+      inputSchema: mcpInputSchema({
+        from_project_id: coreValidatedStringSchema.optional(),
+        to_project_id: coreValidatedStringSchema.optional(),
+        dry_run: coreValidatedBooleanSchema.optional(),
+        confirmed: coreValidatedBooleanSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("project_migrate")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("project_migrate", input, async (normalizedInput) => engine.migrateProject({
+      from_project_id: normalizedInput.from_project_id,
+      to_project_id: normalizedInput.to_project_id,
+      dry_run: normalizedInput.dry_run,
+      confirmed: normalizedInput.confirmed,
+      include_private: normalizedInput.include_private,
+      source: { client: "mcp" }
+    }))
+  );
+
+  server.registerTool(
     "install",
     {
       title: "Plan Moryn Host Adapter Setup",

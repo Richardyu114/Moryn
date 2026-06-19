@@ -176,6 +176,18 @@ smoke/e2e marker noise, and related records under other project ids. Suggested
 promote/archive actions remain `safe_to_run: false` until the user confirms.
 The MCP tool name is `memory_doctor`.
 
+When the doctor reports split project identity and the canonical id is clear,
+preview an auditable migration first:
+
+```bash
+moryn project migrate --from repo-e6f0166fd942 --to moryn
+moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm
+```
+
+The first command is a dry run. The apply form appends `revise_record` events;
+private-tagged records are skipped unless `--include-private` is explicit.
+The MCP tool name is `project_migrate`.
+
 ## MCP
 
 Start the MCP server:

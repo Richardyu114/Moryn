@@ -1682,9 +1682,17 @@ describe("moryn CLI", () => {
       operation: "operation_contracts",
       operation_source: "operations_by_id.operation_contracts"
     });
+    expect(parsed.operations_by_mcp_tool.project_migrate).toEqual({
+      operation: "project_migrate",
+      operation_source: "operations_by_id.project_migrate"
+    });
     expect(parsed.operations_by_cli_command["moryn agent enter"]).toEqual({
       operation: "agent_enter",
       operation_source: "operations_by_id.agent_enter"
+    });
+    expect(parsed.operations_by_cli_command["moryn project migrate --from <from_project_id> --to <to_project_id>"]).toEqual({
+      operation: "project_migrate",
+      operation_source: "operations_by_id.project_migrate"
     });
     expect(parsed.operations_by_cli_command["moryn contracts operations"]).toEqual({
       operation: "operation_contracts",
@@ -1699,6 +1707,51 @@ describe("moryn CLI", () => {
     expect(parsed.operations_by_id.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
     expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
     expect(parsed.operations.map((operation) => operation.operation)).toContain("timeline");
+    expect(parsed.operations_by_id.project_migrate).toMatchObject({
+      operation: "project_migrate",
+      category: "maintenance",
+      safe_to_run: false,
+      required_fields: ["from_project_id", "to_project_id"],
+      interfaces: {
+        cli: { command: "moryn project migrate --from <from_project_id> --to <to_project_id>" },
+        mcp: { tool: "project_migrate", arguments: { from_project_id: "<from_project_id>", to_project_id: "<to_project_id>" } }
+      },
+      argument_sources: {
+        from_project_id: "user_input.from_project_id",
+        to_project_id: "user_input.to_project_id"
+      },
+      arguments_by_name: {
+        from_project_id: {
+          name: "from_project_id",
+          type: "string",
+          required: true,
+          cli: { flag: "--from" },
+          mcp: { argument: "from_project_id" }
+        },
+        to_project_id: {
+          name: "to_project_id",
+          type: "string",
+          required: true,
+          cli: { flag: "--to" },
+          mcp: { argument: "to_project_id" }
+        },
+        dry_run: {
+          name: "dry_run",
+          type: "boolean",
+          required: false,
+          default: true,
+          cli: { flag: "--dry-run", default: true },
+          mcp: { argument: "dry_run" }
+        },
+        confirmed: {
+          name: "confirmed",
+          type: "boolean",
+          required: false,
+          cli: { flag: "--confirm" },
+          mcp: { argument: "confirmed" }
+        }
+      }
+    });
     expect(parsed.operations_by_id.install).toMatchObject({
       operation: "install",
       category: "setup",
@@ -1832,7 +1885,6 @@ describe("moryn CLI", () => {
       operation_source_lookup: "operation_source_lookup",
       ordered_operation: "operations[]",
       execution_hint: "operations_by_id.<operation>.execution_hint",
-      execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
       full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
       full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
       full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
@@ -1848,7 +1900,6 @@ describe("moryn CLI", () => {
       operation: "agent_finish",
       operation_source: "operations_by_id.agent_finish",
       category: "lifecycle",
-      summary: "Write a final session summary and push sync when appropriate.",
       safe_to_run: false,
       ready_to_run: false,
       next_step: "collect_required_fields",
@@ -1861,12 +1912,7 @@ describe("moryn CLI", () => {
         ready_to_run: false,
         next_step: "collect_required_fields",
         required_fields: ["summary"],
-        missing_required_fields: ["summary"],
-        required_input_sources: {
-          by_field: "execution.required_inputs_by_field.<field>",
-          by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>",
-          by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
-        }
+        missing_required_fields: ["summary"]
       },
       full_contract_lookup: {
         package_helper: "getOperationContract('agent_finish')",
@@ -1900,7 +1946,6 @@ describe("moryn CLI", () => {
     expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
     expect(parsed.operations_by_id.dashboard.execution_hint).not.toHaveProperty("required_input_sources");
     expect(parsed.operations_by_id.dashboard.cli_command).toBe("moryn dashboard");
-    expect(parsed.operations_by_id.dashboard.summary).toContain("serve a local HTML dashboard");
     expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
     expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("execution");
   });
@@ -3361,6 +3406,76 @@ describe("moryn CLI", () => {
         safe_to_run: false
       });
       expect(JSON.stringify(parsed.records_by_id)).not.toContain("Hidden rule should not appear");
+    });
+  });
+
+  it("dry-runs and applies project migration from the CLI", async () => {
+    await withTempDir(async (store) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      const oldRecord = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "repo-e6f0166fd942",
+        "--tag", "moryn",
+        "--text", "Old project id should migrate."
+      ])).stdout) as { record: { id: string } };
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--tag", "moryn",
+        "--text", "Target project id exists."
+      ]);
+
+      const beforeEvents = await readEvents(store);
+      const dryRun = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "project", "migrate",
+        "--from", "repo-e6f0166fd942",
+        "--to", "moryn"
+      ])).stdout) as {
+        dry_run: boolean;
+        matched_records: number;
+        migrated_records: number;
+        records_by_id: Record<string, { project_id: string }>;
+      };
+
+      expect(dryRun.dry_run).toBe(true);
+      expect(dryRun.matched_records).toBe(1);
+      expect(dryRun.migrated_records).toBe(0);
+      expect(dryRun.records_by_id[oldRecord.record.id]?.project_id).toBe("repo-e6f0166fd942");
+      expect(await readEvents(store)).toHaveLength(beforeEvents.length);
+
+      const applied = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "project", "migrate",
+        "--from", "repo-e6f0166fd942",
+        "--to", "moryn",
+        "--apply",
+        "--confirm"
+      ])).stdout) as {
+        dry_run: boolean;
+        migrated_records: number;
+        events_by_record_id: Record<string, { patch: { project_id: string } }>;
+      };
+
+      expect(applied.dry_run).toBe(false);
+      expect(applied.migrated_records).toBe(1);
+      expect(applied.events_by_record_id[oldRecord.record.id]?.patch.project_id).toBe("moryn");
+
+      const recalled = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", store,
+        "recall",
+        "--record-id", oldRecord.record.id,
+        "--project-id", "moryn"
+      ])).stdout) as { results: Array<{ record: { id: string; project_id: string } }> };
+      expect(recalled.results[0]?.record).toMatchObject({ id: oldRecord.record.id, project_id: "moryn" });
     });
   });
 
