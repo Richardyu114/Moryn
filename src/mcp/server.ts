@@ -8,6 +8,9 @@ import {
   getOperationContractIndex,
   getOperationContracts,
   getSelectionSourceContracts,
+  captureSession,
+  contextPack,
+  planInstall,
   version
 } from "../index.js";
 import {
@@ -196,6 +199,9 @@ const objectPathMcpAliasesByTool: Record<string, McpObjectPathAlias[]> = {
   agent_start: syncRemoteObjectPathAliases(),
   agent_status: syncRemoteObjectPathAliases(),
   boot: syncRemoteObjectPathAliases(),
+  capture_session: syncRemoteObjectPathAliases(),
+  context_pack: syncRemoteObjectPathAliases(),
+  install: syncRemoteObjectPathAliases(),
   project_init: [
     {
       alias: "sync",
@@ -480,11 +486,14 @@ function withDefaultSource(source: unknown): unknown {
 }
 
 type McpProjectContextOperation =
+  | "install"
   | "boot"
   | "recall"
   | "timeline"
   | "write"
   | "refresh"
+  | "capture_session"
+  | "context_pack"
   | "agent_doctor"
   | "agent_guide"
   | "agent_enter"
@@ -1109,6 +1118,106 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         current_task: normalizedInput.current_task,
         sync_remote: normalizedInput.sync_remote,
         agent: projectListAgent
+      });
+    })
+  );
+
+  server.registerTool(
+    "install",
+    {
+      title: "Plan Moryn Host Adapter Setup",
+      description: "Plan and optionally run safe Moryn-local host adapter setup without mutating host configuration files.",
+      inputSchema: mcpInputSchema({
+        host: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        sync_remote: z.unknown().optional(),
+        apply: coreValidatedBooleanSchema.optional(),
+        ...objectPathAliasInputSchema("install"),
+        ...camelCaseAliasInputSchema("install")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("install", input, async (normalizedInput) => {
+      const projectPath = validateProjectContextInput("install", {
+        project_path: normalizedInput.project_path
+      }).project_path;
+      const plan = planInstall({
+        host: normalizedInput.host as string | undefined,
+        projectPath,
+        syncRemote: normalizedInput.sync_remote as string | undefined,
+        apply: normalizedInput.apply as boolean | undefined
+      });
+      if (normalizedInput.apply === true) {
+        await initializeStore(options.storePath);
+        if (projectPath) {
+          await initializeProjectConfig(projectPath, {});
+        }
+      }
+      return plan;
+    })
+  );
+
+  server.registerTool(
+    "capture_session",
+    {
+      title: "Capture Moryn Session Handoff",
+      description: "Capture a host-normalized session handoff summary for reuse by other agents and devices.",
+      inputSchema: mcpInputSchema({
+        summary: coreValidatedStringSchema,
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        sync_remote: z.unknown().optional(),
+        current_task: z.unknown().optional(),
+        agent: coreValidatedAgentSchema.optional(),
+        ...objectPathAliasInputSchema("capture_session"),
+        ...agentAliasInputSchema,
+        ...camelCaseAliasInputSchema("capture_session")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("capture_session", input, async (normalizedInput) => {
+      const project = lifecycleProjectContextInput("capture_session", normalizedInput);
+      return captureSession({
+        storePath: options.storePath,
+        projectPath: project.projectPath,
+        projectId: project.projectId,
+        syncRemote: normalizedInput.sync_remote as string | undefined,
+        summary: normalizedInput.summary as string,
+        currentTask: normalizedInput.current_task as string | undefined,
+        agent: lifecycleAgentInput(normalizedInput.agent)
+      });
+    })
+  );
+
+  server.registerTool(
+    "context_pack",
+    {
+      title: "Build Moryn Host Context Pack",
+      description: "Build a host-normalized startup context pack with boot, refresh, handoff context, and a required capture next action.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        sync_remote: z.unknown().optional(),
+        current_task: z.unknown().optional(),
+        limit: coreValidatedNumberSchema.optional(),
+        pull: coreValidatedBooleanSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        agent: coreValidatedAgentSchema.optional(),
+        ...objectPathAliasInputSchema("context_pack"),
+        ...agentAliasInputSchema,
+        ...camelCaseAliasInputSchema("context_pack")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("context_pack", input, async (normalizedInput) => {
+      const project = lifecycleProjectContextInput("context_pack", normalizedInput);
+      return contextPack({
+        storePath: options.storePath,
+        projectPath: project.projectPath,
+        projectId: project.projectId,
+        syncRemote: normalizedInput.sync_remote as string | undefined,
+        currentTask: normalizedInput.current_task as string | undefined,
+        limit: normalizedInput.limit as number | undefined,
+        includePrivate: normalizedInput.include_private as boolean | undefined,
+        pull: normalizedInput.pull as boolean | undefined,
+        agent: lifecycleAgentInput(normalizedInput.agent)
       });
     })
   );

@@ -346,7 +346,7 @@ export type OperationContractIndexEntry = {
       command: string;
       executable: "moryn";
       args: string[];
-      exec_file: {
+      exec_file?: {
         executable: "moryn";
         args: string[];
       };
@@ -914,6 +914,66 @@ const publishSessionArguments = {
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
+const hostAdapterIds = ["claude", "codex", "gemini", "cursor", "shell"] as const;
+
+const installArguments = {
+  host: {
+    type: "string",
+    required: false,
+    cli: { flag: "--host" },
+    mcp: { argument: "host" },
+    allowed_values: hostAdapterIds
+  },
+  project_path: {
+    type: "string",
+    required: false,
+    cli: { flag: "--project" },
+    mcp: { argument: "project_path" }
+  },
+  sync_remote: {
+    type: "string",
+    required: false,
+    cli: { flag: "--sync-remote" },
+    mcp: { argument: "sync_remote" }
+  },
+  apply: {
+    type: "boolean",
+    required: false,
+    default: false,
+    cli: { flag: "--apply", default: false },
+    mcp: { argument: "apply" }
+  }
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
+const captureSessionArguments = {
+  summary: {
+    type: "string",
+    required: true,
+    cli: { flag: "--summary" },
+    mcp: { argument: "summary" }
+  },
+  ...lifecycleContextArguments
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
+const contextPackArguments = {
+  ...lifecycleContextArguments,
+  limit: {
+    type: "number",
+    required: false,
+    default: 20,
+    cli: { flag: "--limit", default: 20 },
+    mcp: { argument: "limit" }
+  },
+  pull: {
+    type: "boolean",
+    required: false,
+    default: true,
+    cli: { negative_flag: "--no-pull" },
+    mcp: { argument: "pull" }
+  },
+  ...privateReadArgument
+} as const satisfies Record<string, OperationArgumentMetadataInput>;
+
 const dashboardArguments = {
   open: {
     type: "boolean",
@@ -1053,6 +1113,33 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "context_pack",
+    category: "lifecycle",
+    summary: "Build a host-normalized startup context pack with boot, refresh, handoff context, and a required capture next action.",
+    safe_to_run: true,
+    required_when: "At the start of a host session when an agent wants the simplest Moryn entrypoint.",
+    required_fields: [],
+    arguments_by_name: contextPackArguments,
+    interfaces: {
+      cli: { command: "moryn context pack", argv: ["context", "pack"] },
+      mcp: { tool: "context_pack", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "capture_session",
+    category: "lifecycle",
+    summary: "Capture a host-normalized session handoff summary for reuse by other agents and devices.",
+    safe_to_run: false,
+    required_when: "Before ending a host session or handing work to another agent/device.",
+    required_fields: ["summary"],
+    argument_sources: userInputSources(["summary"]),
+    arguments_by_name: captureSessionArguments,
+    interfaces: {
+      cli: { command: "moryn capture session --summary <summary>", argv: ["capture", "session", "--summary", "<summary>"] },
+      mcp: { tool: "capture_session", arguments: { summary: "<summary>" } }
+    }
+  }),
+  operationContract({
     operation: "selection_source_contracts",
     category: "contracts",
     summary: "Return stable response field-path contracts grouped by setup, core, sync, lifecycle, and recovery.",
@@ -1128,6 +1215,19 @@ export const OPERATION_CONTRACTS = [
     interfaces: {
       cli: { command: "moryn init", argv: ["init"] },
       mcp: { tool: "init", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "install",
+    category: "setup",
+    summary: "Plan and optionally run safe Moryn-local host adapter setup without mutating host configuration files.",
+    safe_to_run: true,
+    required_when: "When a host needs an adoption plan for Moryn MCP registration, context packs, and session capture.",
+    required_fields: [],
+    arguments_by_name: installArguments,
+    interfaces: {
+      cli: { command: "moryn install", argv: ["install"] },
+      mcp: { tool: "install", arguments: {} }
     }
   }),
   operationContract({
@@ -1945,7 +2045,7 @@ function singleOperationContractResponse(contract: OperationContract, matchedSou
   };
 }
 
-function operationContractLookup(operation: string): OperationContractIndexEntry["full_contract_lookup"] {
+function operationContractLookup(operation: string, options: { includeExecFile?: boolean } = {}): OperationContractIndexEntry["full_contract_lookup"] {
   const args = ["contracts", "operations", "--operation", operation];
   return {
     package_helper: `getOperationContract('${operation}')`,
@@ -1953,10 +2053,10 @@ function operationContractLookup(operation: string): OperationContractIndexEntry
       command: commandLineForCliInterface("moryn", args),
       executable: "moryn",
       args,
-      exec_file: {
+      ...(options.includeExecFile ? { exec_file: {
         executable: "moryn",
         args
-      }
+      } } : {})
     },
     mcp: {
       tool: "operation_contracts",
@@ -1990,7 +2090,9 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
         by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
       } } : {})
     },
-    full_contract_lookup: operationContractLookup(operation.operation)
+    full_contract_lookup: operationContractLookup(operation.operation, {
+      includeExecFile: operation.operation === "agent_finish"
+    })
   };
 }
 

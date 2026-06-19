@@ -54,6 +54,32 @@ The compact index is intended as the first lookup. It gives operation ids,
 categories, summaries, readiness, CLI commands, MCP tools, and exact lookup
 recipes for the full contract.
 
+## Host Adapter Contracts
+
+The host adapter operations make Moryn easier to adopt while preserving the
+product position: one multi-agent, multi-device store for memory, skills,
+session summaries, and handoff context.
+
+```bash
+moryn contracts operations --operation install
+moryn contracts operations --operation context_pack
+moryn contracts operations --operation capture_session
+```
+
+The normal CLI flow is:
+
+```bash
+moryn install --host codex --project . --apply
+moryn context pack --project . --agent codex
+moryn capture session --project . --agent codex --summary "handoff summary"
+```
+
+The MCP tools are `install`, `context_pack`, and `capture_session`. `install`
+returns a safe setup plan and host-specific MCP registration hints.
+`context_pack` returns boot context, refresh changes, handoff inbox, and
+`next.actions_by_id.capture_session`. `capture_session` writes an autocapture
+`session_summary` with normalized host provenance.
+
 The timeline read operation is available through the same registry:
 
 ```bash

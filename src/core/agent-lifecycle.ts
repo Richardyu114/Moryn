@@ -31,6 +31,7 @@ export interface AgentStartInput extends AgentLifecycleInput {
   pull?: boolean;
   refreshSince?: unknown;
   limit?: unknown;
+  includePrivate?: boolean;
 }
 
 export interface AgentFinishInput extends AgentLifecycleInput {
@@ -2125,12 +2126,13 @@ function buildHandoff(records: MorynRecord[], projectId: string, input: AgentLif
   };
 }
 
-async function agentHandoff(engine: ReturnType<typeof createEngine>, projectId: string, input: AgentLifecycleInput) {
+async function agentHandoff(engine: ReturnType<typeof createEngine>, projectId: string, input: AgentLifecycleInput & { includePrivate?: boolean }) {
   const summaries = await engine.recall({
     project_id: projectId,
     kinds: ["session_summary"],
     scopes: ["project"],
-    limit: 100
+    limit: 100,
+    include_private: input.includePrivate
   });
   return buildHandoff(summaries.results.map((result) => result.record), projectId, input);
 }
@@ -2466,13 +2468,15 @@ export async function agentStart(input: AgentStartInput) {
   const boot = await engine.boot({
     project_id: project.project_id,
     default_skills: projectInfo.default_skills,
-    current_task: input.currentTask
+    current_task: input.currentTask,
+    include_private: input.includePrivate
   });
   const refresh = await engine.refresh({
     project_id: project.project_id,
     cursor: input.refreshSince,
     current_task: input.currentTask,
-    limit: input.limit
+    limit: input.limit,
+    include_private: input.includePrivate
   });
   const handoff = await agentHandoff(engine, project.project_id, input);
   const actions = nextActions(actionInput, refresh.cursor);

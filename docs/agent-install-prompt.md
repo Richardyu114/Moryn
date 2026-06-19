@@ -1,8 +1,9 @@
 # Agent Install Prompt
 
-Moryn is designed for agents to operate directly. Give the agent a goal and let
-it choose when to call `moryn`; the user should only be interrupted for choices
-that require user authority or private information.
+Moryn is designed for agents to operate directly across a multi-agent,
+multi-device store. Give the agent a goal and let it choose when to call
+`moryn`; the user should only be interrupted for choices that require user
+authority or private information.
 
 ## Copy-Paste Prompt
 
@@ -10,7 +11,8 @@ that require user authority or private information.
 Install and use Moryn for this machine and project.
 
 Purpose:
-- Moryn is the local-first memory, skill, and handoff layer for agents.
+- Moryn is the local-first, multi-agent, multi-device memory, skill, and
+  handoff layer for agents.
 - You should operate it yourself through CLI or MCP.
 - Do not ask me to choose Moryn commands. Learn the command surface from Moryn
   itself and decide which command is appropriate.
@@ -25,11 +27,14 @@ First, inspect the environment:
      `https://github.com/Richardyu114/Moryn.git`, build it, and link it;
    - if none of those paths are possible, ask me for a source path or install
      permission.
-3. Run `moryn init` if the local store is not initialized.
-4. In the current repo, run `moryn project init --project-id <repo-name>` if
-   there is no project config. Infer `<repo-name>` from the Git repository or
-   current directory. Ask me only if the project id is ambiguous or changing an
-   existing config would be required.
+3. Run `moryn install --project . --host "<host client name>" --apply`.
+   This host adapter step initializes Moryn-local state and prints safe MCP,
+   context, and autocapture commands. It must not mutate host configuration
+   files unless the host command is explicit and safe for you to run.
+4. If `moryn install` reports missing project context, run
+   `moryn project init --path . --project-id <repo-name>`. Infer
+   `<repo-name>` from the Git repository or current directory. Ask me only if
+   the project id is ambiguous or changing an existing config would be required.
 5. If this host supports MCP, configure it to run `moryn mcp`. For example:
    `codex mcp add moryn -- moryn mcp` or
    `gemini mcp add moryn moryn mcp --scope project`.
@@ -42,6 +47,10 @@ Then internalize how to use it:
 - Prefer MCP tools when available; otherwise use the CLI.
 
 During agent work:
+- Prefer the host adapter flow for normal sessions:
+  `moryn context pack --project . --agent "<host client name>" --current-task "<current task>"`.
+- Before ending, use autocapture:
+  `moryn capture session --project . --agent "<host client name>" --summary "<handoff summary>"`.
 - Start a session with
   `moryn agent enter --project . --current-task "<current task>" --agent "<host client name>"`.
 - Use your actual host/client name for `--agent` and Moryn `source.client`
@@ -127,6 +136,10 @@ Generic MCP config:
   }
 }
 ```
+
+The host adapter and autocapture path is the low-friction entrypoint; the
+`agent enter` / `agent finish` lifecycle remains the fuller protocol when a
+host needs diagnosis, status, sync push behavior, or explicit workflow actions.
 
 For deeper command semantics, use [Agent Workflow](agent-workflow.md),
 [Contracts](contracts.md), and [Dashboard](dashboard.md).

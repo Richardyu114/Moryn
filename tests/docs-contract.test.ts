@@ -47,6 +47,32 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("does not start a long-running HTTP server");
   });
 
+  it("documents the host adapter and autocapture path without changing Moryn positioning", async () => {
+    const [readme, installPrompt, workflow, design, roadmap] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/agent-install-prompt.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/moryn-design.md", "utf8"),
+      readFile("docs/implementation-roadmap.md", "utf8")
+    ]);
+
+    for (const document of [readme, installPrompt, workflow, design, roadmap]) {
+      expect(document).toContain("multi-agent");
+      expect(document).toContain("multi-device");
+      expect(document).toContain("moryn install");
+      expect(document).toContain("moryn context pack");
+      expect(document).toContain("moryn capture session");
+    }
+    expect(readme).toContain("moryn install --host codex --project . --apply");
+    expect(readme).toContain("moryn context pack --project . --agent codex");
+    expect(readme).toContain("moryn capture session --project . --agent codex --summary");
+    expect(installPrompt).toContain("host adapter");
+    expect(installPrompt).toContain("autocapture");
+    expect(workflow).toContain("Host Adapter Flow");
+    expect(design).toContain("Host Adapter / Autocapture Layer");
+    expect(roadmap).toContain("Host adapter registry and autocapture");
+  });
+
   it("keeps the design spec error contract aligned with runtime envelopes", async () => {
     const design = await readFile("docs/moryn-design.md", "utf8");
     const implementedCodes = [

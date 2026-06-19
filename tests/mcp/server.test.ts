@@ -2841,8 +2841,11 @@ describe("MCP stdio server", () => {
           "agent_status",
           "archive",
           "boot",
+          "capture_session",
+          "context_pack",
           "dashboard",
           "init",
+          "install",
           "link",
           "list_recent",
           "operation_contracts",
@@ -2950,8 +2953,74 @@ describe("MCP stdio server", () => {
           "limit",
           "open"
         ]));
+        const captureTool = tools.tools.find((tool) => tool.name === "capture_session");
+        expect(Object.keys(captureTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "summary",
+          "projectPath",
+          "project_path",
+          "syncRemote",
+          "sync_remote",
+          "agent",
+          "agentClient",
+          "agent_client"
+        ]));
 
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+
+        const projectPath = join(store, "host-project");
+        await mkdir(projectPath, { recursive: true });
+        const installPlan = parseTextContent(await client.callTool({
+          name: "install",
+          arguments: { host: "codex", project_path: projectPath }
+        })) as {
+          mode: string;
+          adapters: Array<{ id: string }>;
+          next: { command: string };
+        };
+        expect(installPlan.mode).toBe("dry_run");
+        expect(installPlan.adapters[0]?.id).toBe("codex");
+        expect(installPlan.next.command).toContain("moryn context pack");
+
+        parseTextContent(await client.callTool({
+          name: "project_init",
+          arguments: { path: projectPath, project_id: "host-project" }
+        }));
+
+        const capture = parseTextContent(await client.callTool({
+          name: "capture_session",
+          arguments: {
+            project_path: projectPath,
+            summary: "MCP host finished the setup path.",
+            agent: { client: "claude-code", session_id: "mcp-host" },
+            current_task: "host adapter smoke",
+            sync_remote: "git@github.com:user/moryn-store.git"
+          }
+        })) as {
+          mode: string;
+          record: { source: { client: string; session_id: string }; tags: string[]; content: { text: string } };
+        };
+        expect(capture.mode).toBe("capture_session");
+        expect(capture.record.source).toMatchObject({ client: "claude", session_id: "mcp-host" });
+        expect(capture.record.tags).toContain("host:claude");
+        expect(capture.record.content.text).toBe("MCP host finished the setup path.");
+
+        const pack = parseTextContent(await client.callTool({
+          name: "context_pack",
+          arguments: {
+            project_path: projectPath,
+            agent: { client: "gemini-cli", session_id: "gemini-mcp" },
+            current_task: "continue via MCP",
+            pull: false
+          }
+        })) as {
+          kind: string;
+          agent: { client: string; session_id: string };
+          next: { required_end_action_id: string; actions_by_id: { capture_session: { command: string } } };
+        };
+        expect(pack.kind).toBe("context_pack");
+        expect(pack.agent).toMatchObject({ client: "gemini", session_id: "gemini-mcp" });
+        expect(pack.next.required_end_action_id).toBe("capture_session");
+        expect(pack.next.actions_by_id.capture_session.command).toContain("moryn capture session");
 
         const writeResult = parseTextContent(await client.callTool({
           name: "write",

@@ -1699,6 +1699,100 @@ describe("moryn CLI", () => {
     expect(parsed.operations_by_id.write.selection_sources.required_input_path_by_value_path).toBeUndefined();
     expect(parsed.operations.map((operation) => operation.operation)).toContain("operation_contracts");
     expect(parsed.operations.map((operation) => operation.operation)).toContain("timeline");
+    expect(parsed.operations_by_id.install).toMatchObject({
+      operation: "install",
+      category: "setup",
+      safe_to_run: true,
+      interfaces: {
+        cli: { command: "moryn install" },
+        mcp: { tool: "install" }
+      },
+      arguments_by_name: {
+        host: {
+          name: "host",
+          type: "string",
+          required: false,
+          cli: { flag: "--host" },
+          mcp: { argument: "host" },
+          allowed_values: ["claude", "codex", "gemini", "cursor", "shell"]
+        },
+        apply: {
+          name: "apply",
+          type: "boolean",
+          required: false,
+          cli: { flag: "--apply" },
+          mcp: { argument: "apply" }
+        }
+      }
+    });
+    expect(parsed.operations_by_id.capture_session).toMatchObject({
+      operation: "capture_session",
+      category: "lifecycle",
+      safe_to_run: false,
+      required_fields: ["summary"],
+      interfaces: {
+        cli: { command: "moryn capture session --summary <summary>" },
+        mcp: { tool: "capture_session", arguments: { summary: "<summary>" } }
+      },
+      arguments_by_name: {
+        summary: {
+          name: "summary",
+          type: "string",
+          required: true,
+          cli: { flag: "--summary" },
+          mcp: { argument: "summary" }
+        },
+        sync_remote: {
+          name: "sync_remote",
+          type: "string",
+          required: false,
+          cli: { flag: "--sync-remote" },
+          mcp: { argument: "sync_remote" }
+        },
+        agent_client: {
+          name: "agent_client",
+          type: "string",
+          required: false,
+          cli: { flag: "--agent" },
+          mcp: { argument: "agent", path: "agent.client" },
+          parent_argument: "agent"
+        }
+      }
+    });
+    expect(parsed.operations_by_id.context_pack).toMatchObject({
+      operation: "context_pack",
+      category: "lifecycle",
+      safe_to_run: true,
+      interfaces: {
+        cli: { command: "moryn context pack" },
+        mcp: { tool: "context_pack" }
+      },
+      arguments_by_name: {
+        sync_remote: {
+          name: "sync_remote",
+          type: "string",
+          required: false,
+          cli: { flag: "--sync-remote" },
+          mcp: { argument: "sync_remote" }
+        },
+        pull: {
+          name: "pull",
+          type: "boolean",
+          required: false,
+          default: true,
+          cli: { negative_flag: "--no-pull" },
+          mcp: { argument: "pull" }
+        }
+      }
+    });
+    expect(parsed.operations_by_mcp_tool.capture_session).toEqual({
+      operation: "capture_session",
+      operation_source: "operations_by_id.capture_session"
+    });
+    expect(parsed.operations_by_cli_command["moryn context pack"]).toEqual({
+      operation: "context_pack",
+      operation_source: "operations_by_id.context_pack"
+    });
   });
 
   it("returns a compact operation contract index from the CLI", async () => {
@@ -2814,6 +2908,151 @@ describe("moryn CLI", () => {
       expect(write.stdout).toContain("rec_");
       const recall = await exec("node", ["--import", "tsx", "src/cli.ts", "--store", dir, "recall", "events", "--project-id", "moryn"]);
       expect(recall.stdout).toContain("Use events");
+    });
+  });
+
+  it("prints a safe host adapter install plan from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+
+      const result = await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "--store", store,
+        "install",
+        "--host", "codex",
+        "--project", project,
+        "--sync-remote", "git@github.com:user/moryn-store.git"
+      ]);
+      const parsed = JSON.parse(result.stdout) as {
+        mode: string;
+        adapters: Array<{ id: string; normalized_client: string }>;
+        actions: Array<{ action: string; safe_to_auto_run: boolean; command: string }>;
+        next: { command: string };
+        selection_sources: Record<string, string>;
+      };
+
+      expect(parsed.mode).toBe("dry_run");
+      expect(parsed.adapters).toEqual([
+        expect.objectContaining({ id: "codex", normalized_client: "codex" })
+      ]);
+      expect(parsed.actions).toContainEqual(expect.objectContaining({
+        action: "register_mcp",
+        safe_to_auto_run: false,
+        command: "codex mcp add moryn -- moryn mcp"
+      }));
+      expect(parsed.actions).toContainEqual(expect.objectContaining({
+        action: "capture_session",
+        safe_to_auto_run: true
+      }));
+      expect(parsed.next.command).toContain("moryn context pack");
+      expect(parsed.next.command).toContain("--agent codex");
+      expect(parsed.selection_sources.action).toBe("actions_by_id.<action>");
+    });
+  });
+
+  it("captures a session summary from the CLI with normalized host identity", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "project", "init",
+        "--path", project,
+        "--project-id", "moryn"
+      ]);
+
+      const result = await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "--store", store,
+        "capture", "session",
+        "--project", project,
+        "--sync-remote", "git@github.com:user/moryn-store.git",
+        "--agent", "claude-code",
+        "--session-id", "s1",
+        "--current-task", "design host adapter",
+        "--summary", "Finished planner"
+      ]);
+      const parsed = JSON.parse(result.stdout) as {
+        mode: string;
+        record: {
+          kind: string;
+          type: string;
+          project_id: string;
+          tags: string[];
+          source: { client: string; session_id: string };
+          content: { text: string; capture: { host: string; current_task: string } };
+        };
+      };
+
+      expect(parsed.mode).toBe("capture_session");
+      expect(parsed.record.kind).toBe("session_summary");
+      expect(parsed.record.type).toBe("summary");
+      expect(parsed.record.project_id).toBe("moryn");
+      expect(parsed.record.tags).toContain("autocapture");
+      expect(parsed.record.source).toMatchObject({ client: "claude", session_id: "s1" });
+      expect(parsed.record.content.text).toBe("Finished planner");
+      expect(parsed.record.content.capture).toMatchObject({
+        host: "claude",
+        current_task: "design host adapter"
+      });
+
+      const events = await readEvents(store);
+      expect(events.filter((event) => event.op === "upsert_record")).toHaveLength(1);
+    });
+  });
+
+  it("prints a context pack from the CLI with capture next action", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "project", "init",
+        "--path", project,
+        "--project-id", "moryn"
+      ]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "--store", store,
+        "capture", "session",
+        "--project", project,
+        "--agent", "claude",
+        "--session-id", "claude-1",
+        "--summary", "Claude finished adapter research."
+      ]);
+
+      const result = await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "--store", store,
+        "context", "pack",
+        "--project", project,
+        "--agent", "gemini-cli",
+        "--session-id", "gemini-1",
+        "--current-task", "continue work",
+        "--no-pull"
+      ]);
+      const parsed = JSON.parse(result.stdout) as {
+        kind: string;
+        agent: { client: string; session_id: string };
+        project: { project_id: string };
+        sections: { handoff: { inbox: Array<{ text: string }> } };
+        next: { required_end_action_id: string; actions_by_id: { capture_session: { command: string } } };
+        selection_sources: { context_pack: string };
+      };
+
+      expect(parsed.kind).toBe("context_pack");
+      expect(parsed.agent).toMatchObject({ client: "gemini", session_id: "gemini-1" });
+      expect(parsed.project.project_id).toBe("moryn");
+      expect(parsed.sections.handoff.inbox[0]?.text).toContain("Claude finished adapter research.");
+      expect(parsed.next.required_end_action_id).toBe("capture_session");
+      expect(parsed.next.actions_by_id.capture_session.command).toContain("moryn capture session");
+      expect(parsed.selection_sources.context_pack).toBe("context_pack");
     });
   });
 

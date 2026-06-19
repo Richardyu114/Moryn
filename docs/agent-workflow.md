@@ -1,7 +1,10 @@
 # Agent Workflow
 
 Moryn exposes a lifecycle protocol for agents that need reliable setup,
-context bootstrapping, status updates, and handoffs across tools.
+context bootstrapping, status updates, and handoffs across tools. The store is
+multi-agent and multi-device: host identity is provenance, while memory,
+skills, session summaries, and handoff context belong to the user-owned Moryn
+store.
 
 The short version:
 
@@ -11,6 +14,45 @@ The short version:
 4. Use `timeline` when a recalled record needs surrounding event context.
 5. Use `agent finish` before stopping or handing off.
 6. Follow returned `next` actions instead of inventing command sequences.
+
+## Host Adapter Flow
+
+For normal host sessions, the low-friction path is:
+
+```bash
+moryn install --host codex --project . --apply
+moryn context pack --project . --agent codex --current-task "current task"
+moryn capture session --project . --agent codex --summary "handoff summary"
+```
+
+ASCII view:
+
+```text
+Codex / Claude / Gemini / Cursor / shell
+        |
+        |  moryn install
+        v
+Safe setup plan + MCP registration hints
+        |
+        |  moryn context pack
+        v
+boot context + refresh + handoff inbox + capture_session next action
+        |
+        |  work happens in the host
+        v
+moryn capture session
+        |
+        v
+session_summary tagged autocapture + host:<client>
+        |
+        v
+Next agent or device reads it through context pack / agent start / recall
+```
+
+`context pack` is intentionally a convenience wrapper around the same Moryn
+core and lifecycle data. Use `agent enter`, `agent start`, `agent status`, and
+`agent finish` when a host needs fuller setup diagnosis, status checkpoints,
+explicit sync push behavior, or detailed lifecycle action templates.
 
 ## Startup
 

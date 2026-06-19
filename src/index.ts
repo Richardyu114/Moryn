@@ -12,6 +12,7 @@ import {
 import { STORE_INIT_SELECTION_SOURCES } from "./core/config.js";
 import { REBUILD_SELECTION_SOURCES } from "./core/derived.js";
 export { createEngine } from "./core/engine.js";
+export { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "./core/host-adapters.js";
 import {
   BOOT_SELECTION_SOURCES,
   LINK_EVENT_SELECTION_SOURCES,

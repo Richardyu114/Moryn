@@ -5,7 +5,7 @@ Date: 2026-05-27
 
 ## Summary
 
-Moryn is a personal memory, skill, and soul layer for AI agents. It lets one user run multiple agents across multiple projects while sharing a common operating context. Agents can read relevant context, write session outcomes, propose durable memories, reuse skills, and sync the store across devices.
+Moryn is a personal, multi-agent, multi-device memory, skill, and soul layer for AI agents. It lets one user run multiple agents across multiple projects while sharing a common operating context. Agents can read relevant context, write session outcomes, propose durable memories, reuse skills, and sync the store across devices.
 
 Moryn is not an agent-specific memory store. Agents are readers and writers. The durable context belongs to the user, projects, topics, and artifacts.
 
@@ -16,6 +16,8 @@ The first version is local-first and syncs through a user-owned GitHub private r
 - Provide a shared personal context layer for multiple AI agents.
 - Support memory, skill, soul, session summary, and agent note records.
 - Let agents fetch a small boot context at task start.
+- Let common hosts adopt Moryn through a host adapter flow with setup planning,
+  startup context packs, and session autocapture.
 - Let agents recall relevant memory and skills on demand.
 - Let agents inspect event context around a recalled record when provenance or
   ordering matters.
@@ -67,10 +69,11 @@ Recommended package name:
 
 ## Architecture
 
-Moryn has four layers:
+Moryn has five layers:
 
 ```text
 Agent clients
+  -> Host adapter / autocapture layer
   -> MCP server / CLI
   -> Core memory engine
   -> Local store
@@ -82,8 +85,15 @@ flowchart LR
   subgraph ClientLayer["Agent clients"]
     A1["Codex"]
     A2["Claude"]
-    A3["Cursor"]
-    A4["Scripts"]
+    A3["Gemini"]
+    A4["Cursor"]
+    A5["Shell / scripts"]
+  end
+
+  subgraph AdapterLayer["Host Adapter / Autocapture Layer"]
+    Install["moryn install"]
+    ContextPack["moryn context pack"]
+    Capture["moryn capture session"]
   end
 
   subgraph AccessLayer["Access layer"]
@@ -105,10 +115,16 @@ flowchart LR
     GitHub["User-owned GitHub private repo"]
   end
 
-  A1 --> MCP
-  A2 --> MCP
-  A3 --> MCP
-  A4 --> CLI
+  A1 --> Install
+  A2 --> Install
+  A3 --> Install
+  A4 --> Install
+  A5 --> Install
+
+  Install --> ContextPack
+  ContextPack --> Capture
+  ContextPack --> MCP
+  Capture --> CLI
 
   MCP --> Engine
   CLI --> Engine
@@ -124,17 +140,48 @@ flowchart LR
   Git -->|"merge event history"| Events
 
   classDef clients fill:#eef2ff,stroke:#6366f1,color:#111827
+  classDef adapter fill:#fef9c3,stroke:#ca8a04,color:#111827
   classDef access fill:#ecfeff,stroke:#0891b2,color:#111827
   classDef engine fill:#f0fdf4,stroke:#16a34a,color:#111827
   classDef store fill:#fff7ed,stroke:#ea580c,color:#111827
   classDef sync fill:#fdf2f8,stroke:#db2777,color:#111827
 
-  class A1,A2,A3,A4 clients
+  class A1,A2,A3,A4,A5 clients
+  class Install,ContextPack,Capture adapter
   class MCP,CLI access
   class Engine engine
   class Events,Derived store
   class Git,GitHub sync
 ```
+
+### Host Adapter / Autocapture Layer
+
+The host adapter layer is an adoption layer, not a new ownership model. It
+normalizes common host identities such as `codex`, `claude`, `gemini`,
+`cursor`, and `shell`, then returns safe setup plans, startup context packs,
+and required end-of-session capture actions.
+
+```text
+moryn install
+  -> safe host setup plan
+  -> MCP registration instructions
+  -> suggested context pack and capture commands
+
+moryn context pack
+  -> boot context
+  -> refresh changes
+  -> handoff inbox
+  -> next.actions_by_id.capture_session
+
+moryn capture session
+  -> session_summary
+  -> tags: autocapture, host:<client>
+  -> source.client: normalized host
+```
+
+The layer borrows the usability advantage of single-host memory tools while
+preserving Moryn's product position: memory, skills, and session summaries are
+reused across multiple agents and devices through one user-owned store.
 
 ### Agent Access Layer
 

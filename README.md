@@ -2,7 +2,8 @@
 
 ![Moryn hero](assets/moryn-hero.png)
 
-Moryn is a local-first memory, skill, and handoff layer for AI agents.
+Moryn is a local-first, multi-agent, multi-device memory, skill, and handoff
+layer for AI agents.
 
 It gives Codex, Claude, Cursor, Gemini, shell agents, and scripts one durable
 context store without making memory belong to any single agent. The user owns
@@ -38,6 +39,24 @@ promotion. Never store secrets.
 
 For a longer copy-paste prompt and setup expectations, see
 [Agent Install Prompt](docs/agent-install-prompt.md).
+
+## Fast Host Adapter Path
+
+For Codex, Claude, Gemini, Cursor, or a shell-based agent, start with the host
+adapter path. It keeps Moryn's positioning broad: one user-owned store reused
+across multiple agents and devices, not a memory silo for a single host.
+
+```bash
+moryn install --host codex --project . --apply
+moryn context pack --project . --agent codex
+moryn capture session --project . --agent codex --summary "Finished the task and left handoff notes."
+```
+
+`moryn install` prints or applies only safe Moryn-local setup; it does not edit
+host configuration files. `moryn context pack` returns boot, refresh, and
+handoff context plus a required `capture_session` next action. `moryn capture
+session` records an autocapture handoff so the next agent, host, or device can
+resume from the same store.
 
 ## What It Stores
 

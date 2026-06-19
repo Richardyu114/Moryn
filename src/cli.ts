@@ -10,6 +10,9 @@ import {
   getOperationContractIndex,
   getOperationContracts,
   getSelectionSourceContracts,
+  captureSession,
+  contextPack,
+  planInstall,
   version
 } from "./index.js";
 import {
@@ -85,7 +88,7 @@ const CLI_GLOBAL_OPTIONS = [
   { option: "--version", position: "before_command" },
   { option: "-V", position: "before_command" }
 ] as const;
-type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "agent_enter" | "agent_start" | "dashboard";
+type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
@@ -107,6 +110,7 @@ type CliRequiredOperation =
   | "archive"
   | "quarantine"
   | "link"
+  | "capture_session"
   | "agent_status"
   | "agent_finish"
   | "sync_init";
@@ -119,6 +123,9 @@ type CliRequiredPositionalSource = CliRequiredSource & {
   positional: string;
 };
 type CliParserOperation =
+  | "install"
+  | "capture_session"
+  | "context_pack"
   | "write"
   | "boot"
   | "recall"
@@ -1024,6 +1031,9 @@ function requiredCliOptionSource(option: string, args = process.argv.slice(2)): 
   if (commandPath[0] === "agent" && commandPath[1] === "finish" && option === "--summary") {
     return { operation: "agent_finish", argument: "summary" };
   }
+  if (commandPath[0] === "capture" && commandPath[1] === "session" && option === "--summary") {
+    return { operation: "capture_session", argument: "summary" };
+  }
   return undefined;
 }
 
@@ -1476,7 +1486,30 @@ function cliParserArgumentSource(option: string): CliParserSource | undefined {
   if (option === "--derived-from") return { operation: "write", argument: "derived_from" };
   if (option === "--cursor") return { operation: "refresh", argument: "cursor" };
   if (option === "--message") return { operation: "sync_push", argument: "message" };
+  if (option === "--host") return { operation: "install", argument: "host" };
   const commandPath = cliCommandPath(process.argv.slice(2));
+  if (commandPath[0] === "capture" && commandPath[1] === "session") {
+    if (option === "--summary") return { operation: "capture_session", argument: "summary" };
+    if (option === "--project") return { operation: "capture_session", argument: "project_path" };
+    if (option === "--project-id") return { operation: "capture_session", argument: "project_id" };
+    if (option === "--sync-remote") return { operation: "capture_session", argument: "sync_remote" };
+    if (option === "--current-task") return { operation: "capture_session", argument: "current_task" };
+    if (option === "--agent") return { operation: "capture_session", argument: "agent_client" };
+    if (option === "--session-id") return { operation: "capture_session", argument: "agent_session_id" };
+    if (option === "--model") return { operation: "capture_session", argument: "agent_model" };
+    if (option === "--device-id") return { operation: "capture_session", argument: "agent_device_id" };
+  }
+  if (commandPath[0] === "context" && commandPath[1] === "pack") {
+    if (option === "--project") return { operation: "context_pack", argument: "project_path" };
+    if (option === "--project-id") return { operation: "context_pack", argument: "project_id" };
+    if (option === "--sync-remote") return { operation: "context_pack", argument: "sync_remote" };
+    if (option === "--current-task") return { operation: "context_pack", argument: "current_task" };
+    if (option === "--limit") return { operation: "context_pack", argument: "limit" };
+    if (option === "--agent") return { operation: "context_pack", argument: "agent_client" };
+    if (option === "--session-id") return { operation: "context_pack", argument: "agent_session_id" };
+    if (option === "--model") return { operation: "context_pack", argument: "agent_model" };
+    if (option === "--device-id") return { operation: "context_pack", argument: "agent_device_id" };
+  }
   if (commandPath[0] === "contracts" && commandPath[1] === "operations") {
     if (option === "--operation") return { operation: "operation_contracts", argument: "operation" };
     if (option === "--mcp-tool") return { operation: "operation_contracts", argument: "mcp_tool" };
@@ -1975,6 +2008,86 @@ program.command("init")
   .option("--repair", "Replace an invalid local config.json after explicit confirmation")
   .action(async (options) => {
     printJson({ ok: true, ...await initializeStore(storePath(), { repair: options.repair }) });
+  });
+
+program.command("install")
+  .option("--host <host>", "Agent host to prepare: claude, codex, gemini, cursor, or shell")
+  .option("--project <path>", "Project path to attach to Moryn")
+  .option("--sync-remote <remote>", "User-owned Git remote to include in generated commands")
+  .option("--apply", "Run safe Moryn-local setup; never mutates host configuration files")
+  .action(async (options) => {
+    const host = parseNonEmptyString(options.host, "--host");
+    const projectPath = parseNonEmptyString(options.project, "--project");
+    const syncRemote = parseNonEmptyString(options.syncRemote, "--sync-remote");
+    const plan = planInstall({
+      host,
+      projectPath,
+      syncRemote,
+      apply: Boolean(options.apply)
+    });
+    if (options.apply) {
+      await initializeStore(storePath());
+      if (projectPath) {
+        await initializeProjectConfig(projectPath, {});
+      }
+    }
+    printJson(plan);
+  });
+
+const capture = program.command("capture");
+
+capture.command("session")
+  .requiredOption("--summary <text>", "Session handoff summary to capture")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--sync-remote <remote>")
+  .option("--current-task <task>")
+  .option("--agent <client>", "Agent host/client name")
+  .option("--session-id <id>")
+  .option("--model <model>")
+  .option("--device-id <id>")
+  .action(async (options) => {
+    const summary = parseNonEmptyString(options.summary, "--summary")!;
+    const result = await captureSession({
+      storePath: storePath(),
+      projectPath: parseNonEmptyString(options.project, "--project"),
+      projectId: parseNonEmptyString(options.projectId, "--project-id"),
+      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+      summary,
+      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+      agent: parseAgentOptions(options)
+    });
+    printJson(result);
+  });
+
+const context = program.command("context");
+
+context.command("pack")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--sync-remote <remote>")
+  .option("--current-task <task>")
+  .option("--limit <n>", "Refresh change limit", "20")
+  .option("--no-pull", "Do not pull sync before building the context pack")
+  .option("--include-private", "Reserved for explicit private context requests")
+  .option("--agent <client>", "Agent host/client name")
+  .option("--session-id <id>")
+  .option("--model <model>")
+  .option("--device-id <id>")
+  .action(async (options) => {
+    const pull = parseBooleanDefault(options.pull, true);
+    const result = await contextPack({
+      storePath: storePath(),
+      projectPath: parseNonEmptyString(options.project, "--project"),
+      projectId: parseNonEmptyString(options.projectId, "--project-id"),
+      syncRemote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
+      currentTask: parseNonEmptyString(options.currentTask, "--current-task"),
+      limit: parseLimit(options.limit, "context_pack"),
+      includePrivate: Boolean(options.includePrivate),
+      pull,
+      agent: parseAgentOptions(options)
+    });
+    printJson(result);
   });
 
 program.command("write")

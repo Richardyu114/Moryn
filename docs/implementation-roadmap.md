@@ -8,7 +8,8 @@ in [dashboard.md](dashboard.md).
 
 ## Current Status
 
-Moryn has reached a first-version MVP:
+Moryn has reached a first-version MVP for a multi-agent, multi-device memory
+store:
 
 - TypeScript package and `moryn` CLI.
 - Real stdio MCP server using the official MCP TypeScript SDK.
@@ -22,6 +23,9 @@ Moryn has reached a first-version MVP:
   rebuild after pull.
 - Agent lifecycle commands for setup diagnosis, session start, status,
   handoff, and workflow guidance.
+- Host adapter registry and autocapture path for Codex, Claude, Gemini,
+  Cursor, and shell hosts through `moryn install`, `moryn context pack`, and
+  `moryn capture session`.
 - Local dashboard server and static snapshots for sync, records, recent events,
   and agent activity.
 - Operation contracts and selection-source contracts for agent hosts.
@@ -42,6 +46,8 @@ Moryn has reached a first-version MVP:
 - [x] Sync can initialize a user-owned Git repo, pull, commit local events,
   push, report status, and expose conflict diagnostics.
 - [x] Periodic refresh can be driven by agents or scripts.
+- [x] Host adapter setup planning, startup context packs, and session
+  autocapture work through CLI and MCP.
 - [x] Snapshots and indexes are rebuildable from events.
 - [x] Sensitive records stay out of default boot and recall.
 - [x] README includes real installation and agent-connection instructions.
@@ -93,6 +99,17 @@ Moryn has reached a first-version MVP:
 - Project discovery instead of guessed project ids.
 - Sync-conflict guardrails before lifecycle writes.
 - Runtime `next` actions with safety metadata and execution readiness.
+
+### Host adapter registry and autocapture
+
+- Host descriptors for Codex, Claude, Gemini, Cursor, and shell agents.
+- `moryn install` safe setup planning with host-specific MCP registration
+  hints.
+- `moryn context pack` startup context that bundles boot context, refresh
+  changes, handoff inbox, and a required capture next action.
+- `moryn capture session` session-summary autocapture with normalized
+  `source.client` and `host:<client>` tags.
+- CLI and MCP exposure for install, context pack, and capture session.
 
 ### Contracts and Recovery
 
