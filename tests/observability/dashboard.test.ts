@@ -1087,9 +1087,22 @@ describe("observability dashboard", () => {
       const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
         capture_inbox: {
           policy: {
+            id: string;
+            version: number;
             mode: "manual_review";
             auto_canonical: false;
             trust_policy: "disabled_by_default";
+            canonical_requires_user_action: true;
+            grouping: {
+              enabled: boolean;
+              group_by: string[];
+              stale_batch_protection: boolean;
+            };
+            noise_rules: Array<{
+              id: string;
+              label: string;
+              suggested_action: string;
+            }>;
           };
           groups: Array<{
             id: string;
@@ -1098,20 +1111,40 @@ describe("observability dashboard", () => {
             source_detail: string;
             approve_endpoint: string;
             reject_endpoint: string;
-            noise: { level: string; reasons: string[]; suggested_action: string };
+            noise: { level: string; reasons: string[]; rule_ids: string[]; suggested_action: string };
           }>;
           items: Array<{
             id: string;
             group_id: string;
-            noise: { level: string; reasons: string[]; suggested_action: string };
+            noise: { level: string; reasons: string[]; rule_ids: string[]; suggested_action: string };
           }>;
         };
       };
 
       expect(data.capture_inbox.policy).toMatchObject({
+        id: "default_capture_review_policy",
+        version: 1,
         mode: "manual_review",
         auto_canonical: false,
-        trust_policy: "disabled_by_default"
+        trust_policy: "disabled_by_default",
+        canonical_requires_user_action: true,
+        grouping: {
+          enabled: true,
+          group_by: ["project_or_scope", "source_client", "source_session", "capture_day"],
+          stale_batch_protection: true
+        },
+        noise_rules: expect.arrayContaining([
+          expect.objectContaining({
+            id: "smoke_test_marker",
+            label: "Smoke/test marker",
+            suggested_action: "archive"
+          }),
+          expect.objectContaining({
+            id: "duplicate_text",
+            label: "Duplicate capture text",
+            suggested_action: "archive"
+          })
+        ])
       });
       expect(data.capture_inbox.groups).toHaveLength(2);
       const codexGroup = data.capture_inbox.groups.find((group) => group.source_detail === "codex / codex-session-1");
@@ -1120,7 +1153,7 @@ describe("observability dashboard", () => {
         record_ids: [secondCodex.record.id, firstCodex.record.id],
         approve_endpoint: expect.stringMatching(/^api\/capture-inbox\/groups\/capture_group_[a-f0-9]+\/approve$/),
         reject_endpoint: expect.stringMatching(/^api\/capture-inbox\/groups\/capture_group_[a-f0-9]+\/reject$/),
-        noise: { level: "normal", suggested_action: "review" }
+        noise: { level: "normal", rule_ids: [], suggested_action: "review" }
       });
       expect(data.capture_inbox.items.filter((item) => item.group_id === codexGroup?.id).map((item) => item.id)).toEqual([
         secondCodex.record.id,
@@ -1134,6 +1167,7 @@ describe("observability dashboard", () => {
         noise: {
           level: "likely_noise",
           suggested_action: "archive",
+          rule_ids: ["smoke_test_marker", "duplicate_text"],
           reasons: expect.arrayContaining([
             "Looks like smoke, test, or fixture output.",
             "Duplicate capture text appears in this batch."
@@ -1147,8 +1181,15 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Review Policy");
+      expect(html).toContain("Capture Policy");
+      expect(html).toContain("default_capture_review_policy");
       expect(html).toContain("Manual review");
       expect(html).toContain("No auto-canonical");
+      expect(html).toContain("Trust disabled");
+      expect(html).toContain("User action required");
+      expect(html).toContain("stale batch protection");
+      expect(html).toContain("smoke_test_marker");
+      expect(html).toContain("duplicate_text");
       expect(html).toContain("2 groups");
       expect(html).toContain("Approve Group");
       expect(html).toContain("Reject Group");

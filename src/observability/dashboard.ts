@@ -18,6 +18,35 @@ const exec = promisify(execFile);
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const RECENT_VALUE_LIMIT = 8;
+const CAPTURE_NOISE_RULES: DashboardCaptureNoiseRule[] = [
+  {
+    id: "smoke_test_marker",
+    label: "Smoke/test marker",
+    suggested_action: "archive",
+    description: "Matches smoke, test, fixture, e2e, or marker language in tags, type, or text."
+  },
+  {
+    id: "duplicate_text",
+    label: "Duplicate capture text",
+    suggested_action: "archive",
+    description: "Matches repeated normalized capture text in the current dashboard batch."
+  }
+];
+const CAPTURE_INBOX_POLICY: DashboardCaptureInboxPolicy = {
+  id: "default_capture_review_policy",
+  version: 1,
+  mode: "manual_review",
+  auto_canonical: false,
+  trust_policy: "disabled_by_default",
+  canonical_requires_user_action: true,
+  grouping: {
+    enabled: true,
+    group_by: ["project_or_scope", "source_client", "source_session", "capture_day"],
+    stale_batch_protection: true
+  },
+  noise_rules: CAPTURE_NOISE_RULES,
+  explanation: "Capture Inbox groups reduce review clicks, but candidates become canonical only after explicit user approval."
+};
 
 export const DASHBOARD_SELECTION_SOURCES = {
   store: "store",
@@ -185,6 +214,7 @@ export interface DashboardCaptureInboxItem {
 export interface DashboardCaptureNoise {
   level: "normal" | "likely_noise";
   reasons: string[];
+  rule_ids: string[];
   suggested_action: "review" | "archive";
 }
 
@@ -204,10 +234,26 @@ export interface DashboardCaptureInboxGroup {
 }
 
 export interface DashboardCaptureInboxPolicy {
+  id: "default_capture_review_policy";
+  version: 1;
   mode: "manual_review";
   auto_canonical: false;
   trust_policy: "disabled_by_default";
+  canonical_requires_user_action: true;
+  grouping: {
+    enabled: true;
+    group_by: ["project_or_scope", "source_client", "source_session", "capture_day"];
+    stale_batch_protection: true;
+  };
+  noise_rules: DashboardCaptureNoiseRule[];
   explanation: string;
+}
+
+export interface DashboardCaptureNoiseRule {
+  id: "smoke_test_marker" | "duplicate_text";
+  label: string;
+  suggested_action: "archive";
+  description: string;
 }
 
 export interface DashboardCaptureInbox {
@@ -768,25 +814,31 @@ function normalizedCaptureText(record: MorynRecord): string {
 
 function captureNoiseForRecord(record: MorynRecord, duplicateTexts: Set<string>): DashboardCaptureNoise {
   const reasons: string[] = [];
+  const ruleIds: DashboardCaptureNoiseRule["id"][] = [];
   const searchable = `${record.tags.join(" ")} ${record.type} ${recordText(record)}`.toLowerCase();
   if (/\b(smoke|test|fixture|e2e|marker)\b/.test(searchable)) {
+    ruleIds.push("smoke_test_marker");
     reasons.push("Looks like smoke, test, or fixture output.");
   }
   if (duplicateTexts.has(normalizedCaptureText(record))) {
+    ruleIds.push("duplicate_text");
     reasons.push("Duplicate capture text appears in this batch.");
   }
   return {
     level: reasons.length > 0 ? "likely_noise" : "normal",
     reasons,
+    rule_ids: ruleIds,
     suggested_action: reasons.length > 0 ? "archive" : "review"
   };
 }
 
 function mergeCaptureNoise(noises: DashboardCaptureNoise[]): DashboardCaptureNoise {
   const reasons = [...new Set(noises.flatMap((noise) => noise.reasons))];
+  const ruleIds = [...new Set(noises.flatMap((noise) => noise.rule_ids))];
   return {
     level: reasons.length > 0 ? "likely_noise" : "normal",
     reasons,
+    rule_ids: ruleIds,
     suggested_action: reasons.length > 0 ? "archive" : "review"
   };
 }
@@ -873,12 +925,7 @@ function buildCaptureInbox(records: MorynRecord[], generatedAt: string, limit: n
   return {
     total: candidates.length,
     group_total: grouped.length,
-    policy: {
-      mode: "manual_review",
-      auto_canonical: false,
-      trust_policy: "disabled_by_default",
-      explanation: "Capture Inbox groups reduce review clicks, but candidates become canonical only after explicit user approval."
-    },
+    policy: CAPTURE_INBOX_POLICY,
     groups: groupSummaries,
     items: displayedItems
       .map((record) => {
@@ -1213,10 +1260,36 @@ function captureInbox(items: DashboardCaptureInbox): string {
         <span>${escapeHtml(pluralize(items.total, "candidate"))} | ${escapeHtml(pluralize(items.group_total, "group"))}</span>
       </div>
       <div class="capture-policy">
-        <strong>Review Policy</strong>
+        <div>
+          <strong>Capture Policy</strong>
+          <code>${escapeHtml(items.policy.id)}</code>
+        </div>
+        <span>Review Policy</span>
         <span>Manual review</span>
         <span>No auto-canonical</span>
+        <span>Trust disabled</span>
+        <span>User action required</span>
+        <span>${escapeHtml(items.policy.grouping.group_by.join(" / "))}</span>
+        <span>stale batch protection</span>
       </div>
+      <details class="capture-policy-rules" data-dashboard-detail="capture-policy:${escapeHtml(items.policy.id)}">
+        <summary>Policy rules</summary>
+        <p>${escapeHtml(items.policy.explanation)}</p>
+        <dl>
+          <div><dt>Version</dt><dd>${escapeHtml(items.policy.version)}</dd></div>
+          <div><dt>Mode</dt><dd>${escapeHtml(items.policy.mode)}</dd></div>
+          <div><dt>Grouping</dt><dd>${escapeHtml(items.policy.grouping.group_by.join(", "))}</dd></div>
+        </dl>
+        <ul class="capture-policy-rule-list">
+          ${items.policy.noise_rules.map((rule) => `
+            <li>
+              <code>${escapeHtml(rule.id)}</code>
+              <strong>${escapeHtml(rule.label)}</strong>
+              <span>${escapeHtml(rule.description)}</span>
+            </li>
+          `).join("")}
+        </ul>
+      </details>
       <div class="capture-inbox-list">
         ${items.groups.map((group) => {
           const groupItems = items.items.filter((item) => item.group_id === group.id);
@@ -1240,6 +1313,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
               <dl>
                 <div><dt>Group</dt><dd><code>${escapeHtml(group.id)}</code></dd></div>
                 <div><dt>Records</dt><dd>${group.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
+                <div><dt>Rules</dt><dd>${group.noise.rule_ids.length ? group.noise.rule_ids.map((ruleId) => `<code>${escapeHtml(ruleId)}</code>`).join(" ") : "none"}</dd></div>
                 <div><dt>Noise</dt><dd>${escapeHtml(group.noise.reasons.length ? group.noise.reasons.join(" ") : "No noise signals detected.")}</dd></div>
               </dl>
               <div class="capture-inbox-items">
@@ -1813,6 +1887,12 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--muted);
       font-size: 12px;
     }
+    .capture-policy div {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      align-items: center;
+    }
     .capture-policy strong {
       color: var(--ink);
       font-weight: 760;
@@ -1824,6 +1904,32 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface-2);
       font-weight: 700;
     }
+    .capture-policy-rules {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 10px;
+      margin: 0 0 12px;
+      background: var(--surface-2);
+    }
+    .capture-policy-rules summary { font-weight: 760; color: var(--ink); }
+    .capture-policy-rule-list {
+      display: grid;
+      gap: 7px;
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .capture-policy-rule-list li {
+      display: grid;
+      grid-template-columns: minmax(120px, auto) minmax(120px, auto) minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px;
+      background: var(--surface);
+    }
+    .capture-policy-rule-list strong { color: var(--ink); }
     .maintenance-plan, .capture-inbox-group, .capture-inbox-item {
       border: 1px solid var(--border);
       border-radius: 8px;

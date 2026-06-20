@@ -105,6 +105,18 @@ Each card shows:
 - grouping by source, session, project, and capture day
 - likely noise signals such as smoke/test output or duplicate text
 
+The Capture Inbox also exposes a default Capture Policy:
+
+- `default_capture_review_policy` version 1
+- manual review mode
+- no auto-canonical promotion
+- trust policy disabled by default
+- canonical memory requires explicit user action
+- grouping by `project_or_scope`, `source_client`, `source_session`, and
+  `capture_day`
+- stale batch protection for group approval/rejection
+- noise rule ids `smoke_test_marker` and `duplicate_text`
+
 `Approve Memory` posts to:
 
 ```text
@@ -142,6 +154,7 @@ review auditable without turning it into silent automation.
 Capture Inbox uses a manual review policy: **No auto-canonical**. Noise signals
 can suggest archive for likely smoke/test or duplicate captures, but the user
 still decides through Approve Memory, Approve Group, Reject, or Reject Group.
+The rule id appears next to the signal so the suggestion stays explainable.
 
 ### Review Queue
 

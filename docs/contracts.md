@@ -184,8 +184,13 @@ endpoints require the rendered `record_ids[]` and reject stale batches when any
 selected candidate changed state.
 
 `/api/dashboard` also returns `capture_inbox.policy`, `capture_inbox.groups[]`,
-and item-level noise signals. The policy is manual review with no
-auto-canonical promotion by default.
+and item-level noise signals. The default policy is
+`default_capture_review_policy` version 1: manual review, no auto-canonical
+promotion, trust disabled by default, canonical memory requires explicit user
+action, grouping by `project_or_scope`, `source_client`, `source_session`, and
+`capture_day`, and stale batch protection for group approval/rejection. Noise
+signals include stable rule ids such as `smoke_test_marker` and
+`duplicate_text` so dashboard suggestions remain explainable.
 
 Dashboard maintenance approval uses one separate local endpoint:
 

@@ -208,7 +208,8 @@ event. Neither action rewrites history or silently promotes agent output.
 Candidates from the same source/session are grouped for batch review, and likely
 smoke/test or duplicate captures are marked as noise. Group actions reduce
 clicks, but the default policy remains manual review with no auto-canonical
-promotion.
+promotion. The dashboard exposes the active Capture Policy and stable noise rule
+ids, so users can see why a capture was grouped or marked likely noise.
 
 ## MCP
 

@@ -56,6 +56,11 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("manual review");
     expect(dashboard).toContain("No auto-canonical");
     expect(dashboard).toContain("likely noise");
+    expect(dashboard).toContain("default_capture_review_policy");
+    expect(dashboard).toContain("smoke_test_marker");
+    expect(dashboard).toContain("duplicate_text");
+    expect(contracts).toContain("default_capture_review_policy");
+    expect(contracts).toContain("canonical memory requires explicit user");
     expect(dashboard).toContain("Review Queue");
     expect(dashboard).toContain("POST /api/maintenance/plans/:plan_id/approve");
     expect(dashboard).toContain("plan_hash");
