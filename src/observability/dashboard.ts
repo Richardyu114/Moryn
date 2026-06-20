@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { normalizeAgentIdentity } from "../core/agent-identity.js";
+import { DEFAULT_AUTOCAPTURE_POLICY, type AutocapturePolicyRuleId } from "../core/autocapture-policy.js";
 import { displayRecordText } from "../core/content-text.js";
 import { createEngine } from "../core/engine.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
@@ -263,8 +264,26 @@ export interface DashboardCaptureInbox {
   total: number;
   group_total: number;
   policy: DashboardCaptureInboxPolicy;
+  autocapture_policy: DashboardAutocapturePolicySummary;
   groups: DashboardCaptureInboxGroup[];
   items: DashboardCaptureInboxItem[];
+}
+
+export interface DashboardAutocapturePolicySummary {
+  id: typeof DEFAULT_AUTOCAPTURE_POLICY.id;
+  version: typeof DEFAULT_AUTOCAPTURE_POLICY.version;
+  mode: typeof DEFAULT_AUTOCAPTURE_POLICY.mode;
+  auto_canonical: false;
+  canonical_requires_user_action: true;
+  archive_noise_without_review: true;
+  archived_total: number;
+  archived_by_rule: Partial<Record<AutocapturePolicyRuleId, number>>;
+  archived_examples: Array<{
+    id: string;
+    text: string;
+    rule_ids: AutocapturePolicyRuleId[];
+    reason?: string;
+  }>;
 }
 
 export interface DashboardData {
@@ -840,6 +859,56 @@ function captureNoiseForRecord(record: MorynRecord, duplicateTexts: Set<string>)
   };
 }
 
+function capturePolicyRuleIds(record: MorynRecord): AutocapturePolicyRuleId[] {
+  const capture = record.content.capture;
+  if (typeof capture !== "object" || capture === null || Array.isArray(capture)) return [];
+  const policy = (capture as Record<string, unknown>).policy;
+  if (typeof policy !== "object" || policy === null || Array.isArray(policy)) return [];
+  const ruleIds = (policy as Record<string, unknown>).rule_ids;
+  if (!Array.isArray(ruleIds)) return [];
+  return ruleIds.filter((ruleId): ruleId is AutocapturePolicyRuleId => {
+    return ruleId === "default_review_for_agent_handoff"
+      || ruleId === "smoke_test_marker"
+      || ruleId === "duplicate_text";
+  });
+}
+
+function isPolicyArchivedAutocapture(record: MorynRecord): boolean {
+  return record.state === "archived"
+    && record.visibility === "archived"
+    && record.tags.some((tag) => tag.toLowerCase() === "autocapture")
+    && record.tags.some((tag) => tag.toLowerCase() === "policy-archived");
+}
+
+function buildAutocapturePolicySummary(records: MorynRecord[], limit: number): DashboardAutocapturePolicySummary {
+  const archived = records
+    .filter(isPolicyArchivedAutocapture)
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
+  const archivedByRule: Partial<Record<AutocapturePolicyRuleId, number>> = {};
+  for (const record of archived) {
+    const ruleIds = capturePolicyRuleIds(record);
+    for (const ruleId of ruleIds) {
+      archivedByRule[ruleId] = (archivedByRule[ruleId] ?? 0) + 1;
+    }
+  }
+  return {
+    id: DEFAULT_AUTOCAPTURE_POLICY.id,
+    version: DEFAULT_AUTOCAPTURE_POLICY.version,
+    mode: DEFAULT_AUTOCAPTURE_POLICY.mode,
+    auto_canonical: DEFAULT_AUTOCAPTURE_POLICY.auto_canonical,
+    canonical_requires_user_action: DEFAULT_AUTOCAPTURE_POLICY.canonical_requires_user_action,
+    archive_noise_without_review: DEFAULT_AUTOCAPTURE_POLICY.archive_noise_without_review,
+    archived_total: archived.length,
+    archived_by_rule: archivedByRule,
+    archived_examples: archived.slice(0, limit).map((record) => ({
+      id: record.id,
+      text: recordText(record),
+      rule_ids: capturePolicyRuleIds(record),
+      reason: record.provenance?.reason
+    }))
+  };
+}
+
 function mergeCaptureNoise(noises: DashboardCaptureNoise[]): DashboardCaptureNoise {
   const reasons = [...new Set(noises.flatMap((noise) => noise.reasons))];
   const ruleIds = [...new Set(noises.flatMap((noise) => noise.rule_ids))];
@@ -934,6 +1003,7 @@ function buildCaptureInbox(records: MorynRecord[], generatedAt: string, limit: n
     total: candidates.length,
     group_total: grouped.length,
     policy: CAPTURE_INBOX_POLICY,
+    autocapture_policy: buildAutocapturePolicySummary(records, limit),
     groups: groupSummaries,
     items: displayedItems
       .map((record) => {
@@ -1354,7 +1424,7 @@ function recentValueCards(records: DashboardValueRecord[]): string {
 }
 
 function captureInbox(items: DashboardCaptureInbox): string {
-  if (items.total === 0) return "";
+  if (items.total === 0 && items.autocapture_policy.archived_total === 0) return "";
   return `
     <section class="panel capture-inbox" aria-label="Capture Inbox">
       <div class="capture-inbox-heading">
@@ -1374,6 +1444,29 @@ function captureInbox(items: DashboardCaptureInbox): string {
         <span>${escapeHtml(items.policy.grouping.group_by.join(" / "))}</span>
         <span>stale batch protection</span>
       </div>
+      <div class="capture-policy">
+        <div>
+          <strong>Autocapture Policy</strong>
+          <code>${escapeHtml(items.autocapture_policy.id)}</code>
+        </div>
+        <span>No auto-canonical</span>
+        <span>Policy archived ${escapeHtml(items.autocapture_policy.archived_total)}</span>
+        <span>${escapeHtml(Object.entries(items.autocapture_policy.archived_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no archived noise")}</span>
+      </div>
+      ${items.autocapture_policy.archived_examples.length ? `
+        <details class="capture-policy-rules" data-dashboard-detail="autocapture-policy:${escapeHtml(items.autocapture_policy.id)}">
+          <summary>Policy archived captures</summary>
+          <ul class="capture-policy-rule-list">
+            ${items.autocapture_policy.archived_examples.map((example) => `
+              <li>
+                <code>${escapeHtml(example.id)}</code>
+                <strong>${escapeHtml(example.rule_ids.join(", ") || "policy")}</strong>
+                <span>${escapeHtml(example.text)}${example.reason ? ` ${escapeHtml(example.reason)}` : ""}</span>
+              </li>
+            `).join("")}
+          </ul>
+        </details>
+      ` : ""}
       <details class="capture-policy-rules" data-dashboard-detail="capture-policy:${escapeHtml(items.policy.id)}">
         <summary>Policy rules</summary>
         <p>${escapeHtml(items.policy.explanation)}</p>

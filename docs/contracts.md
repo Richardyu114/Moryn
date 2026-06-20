@@ -81,8 +81,11 @@ context, refresh changes, raw handoff inbox evidence, and
 `next.actions_by_id.capture_session`. The pack keeps stable evidence paths such
 as `sections.boot.project.important_decisions[]`,
 `sections.handoff.inbox[]`, and `next.actions_by_id.capture_session`.
-`capture_session` writes an autocapture `session_summary` with normalized host
-provenance.
+`capture_session` evaluates `default_autocapture_policy`, returns
+`policy_decision`, and writes an autocapture `session_summary` with normalized
+host provenance. Normal handoffs enter Capture Inbox as candidates; obvious
+smoke/test or duplicate captures are archived with policy evidence. The policy
+never makes canonical memory automatically.
 
 The timeline read operation is available through the same registry:
 
@@ -239,13 +242,19 @@ endpoints require the rendered `record_ids[]` and reject stale batches when any
 selected candidate changed state.
 
 `/api/dashboard` also returns `capture_inbox.policy`, `capture_inbox.groups[]`,
-and item-level noise signals. The default policy is
+`capture_inbox.autocapture_policy`, and item-level noise signals. The default
+review policy is
 `default_capture_review_policy` version 1: manual review, no auto-canonical
 promotion, trust disabled by default, canonical memory requires explicit user
 action, grouping by `project_or_scope`, `source_client`, `source_session`, and
 `capture_day`, and stale batch protection for group approval/rejection. Noise
 signals include stable rule ids such as `smoke_test_marker` and
 `duplicate_text` so dashboard suggestions remain explainable.
+`default_autocapture_policy` is the write-time policy used by
+`capture_session`: normal captures are routed to review, while obvious
+smoke/test or duplicate captures are policy-archived without entering the
+review queue. These archived examples stay inspectable through
+`capture_inbox.autocapture_policy.archived_examples[]`.
 
 `/api/dashboard` also returns `memory_lifecycle`, the same read-only report
 shape as `moryn memory lifecycle` and MCP `memory_lifecycle`. The dashboard

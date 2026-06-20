@@ -81,7 +81,108 @@ describe("host adapters", () => {
           host: "claude",
           adapter: "claude",
           session_id: "s1",
-          current_task: "design host adapter"
+          current_task: "design host adapter",
+          policy: {
+            id: "default_autocapture_policy",
+            decision: "review",
+            review_required: true,
+            auto_canonical: false
+          }
+        }
+      });
+      expect(result.policy_decision).toMatchObject({
+        policy_id: "default_autocapture_policy",
+        decision: "review",
+        review_required: true,
+        auto_canonical: false,
+        target_state: "candidate",
+        tags: expect.arrayContaining(["autocapture", "review", "host:claude"])
+      });
+      expect(result.policy_decision.reasons).toContain("default_review_for_agent_handoff");
+    });
+  });
+
+  it("policy-archives obvious autocapture noise without entering the review inbox", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      await mkdir(projectPath, { recursive: true });
+      await initializeProjectConfig(projectPath, { project_id: "moryn" });
+
+      const result = await captureSession({
+        storePath,
+        projectPath,
+        summary: "Smoke test marker only.",
+        agent: { client: "codex", session_id: "noise-session" },
+        currentTask: "dashboard smoke test"
+      });
+
+      expect(result.record.state).toBe("archived");
+      expect(result.record.visibility).toBe("archived");
+      expect(result.record.tags).toEqual(expect.arrayContaining([
+        "autocapture",
+        "host:codex",
+        "policy-archived",
+        "noise:smoke_test_marker"
+      ]));
+      expect(result.record.tags).not.toContain("review");
+      expect(result.policy_decision).toMatchObject({
+        policy_id: "default_autocapture_policy",
+        decision: "archive",
+        review_required: false,
+        auto_canonical: false,
+        target_state: "archived",
+        rule_ids: ["smoke_test_marker"]
+      });
+      expect(result.record.content.capture).toMatchObject({
+        policy: {
+          id: "default_autocapture_policy",
+          decision: "archive",
+          review_required: false
+        }
+      });
+    });
+  });
+
+  it("policy-archives duplicate autocapture text after the first review candidate", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      await mkdir(projectPath, { recursive: true });
+      await initializeProjectConfig(projectPath, { project_id: "moryn" });
+
+      const first = await captureSession({
+        storePath,
+        projectPath,
+        summary: "Codex finished the same handoff summary.",
+        agent: { client: "codex", session_id: "dup-1" }
+      });
+      const duplicate = await captureSession({
+        storePath,
+        projectPath,
+        summary: "Codex finished the same handoff summary.",
+        agent: { client: "codex", session_id: "dup-2" }
+      });
+
+      expect(first.record.state).toBe("candidate");
+      expect(first.record.tags).toContain("review");
+      expect(duplicate.record.state).toBe("archived");
+      expect(duplicate.record.visibility).toBe("archived");
+      expect(duplicate.record.tags).toEqual(expect.arrayContaining([
+        "autocapture",
+        "host:codex",
+        "policy-archived",
+        "noise:duplicate_text"
+      ]));
+      expect(duplicate.record.tags).not.toContain("review");
+      expect(duplicate.policy_decision).toMatchObject({
+        decision: "archive",
+        target_state: "archived",
+        duplicate_of_record_id: first.record.id,
+        rule_ids: ["duplicate_text"]
+      });
+      expect(duplicate.record.content.capture).toMatchObject({
+        policy: {
+          decision: "archive",
+          duplicate_of_record_id: first.record.id
         }
       });
     });

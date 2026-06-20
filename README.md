@@ -63,10 +63,12 @@ host configuration files. `moryn context pack` returns Handoff Pack v0.2: a
 small handoff index with the current goal, recent decisions, open threads,
 risks, user preferences, important files, and next actions, plus the raw boot,
 refresh, and handoff evidence it came from. It also includes the required
-`capture_session` next action. `moryn capture session` records an autocapture
-handoff so the next agent, host, or device can resume from the same store.
-Captured handoffs enter the dashboard Capture Inbox as candidates; they become
-canonical memory only after a user approves them.
+`capture_session` next action. `moryn capture session` evaluates
+`default_autocapture_policy` and records an autocapture handoff so the next
+agent, host, or device can resume from the same store. Useful handoffs enter
+the dashboard Capture Inbox as candidates; obvious smoke/test or duplicate
+captures are archived with policy evidence. Nothing becomes canonical memory
+without user approval.
 
 ## What It Stores
 
@@ -234,8 +236,9 @@ event. Neither action rewrites history or silently promotes agent output.
 Candidates from the same source/session are grouped for batch review, and likely
 smoke/test or duplicate captures are marked as noise. Group actions reduce
 clicks, but the default policy remains manual review with no auto-canonical
-promotion. The dashboard exposes the active Capture Policy and stable noise rule
-ids, so users can see why a capture was grouped or marked likely noise.
+promotion. `default_autocapture_policy` can archive obvious smoke/test or
+duplicate captures before they enter the inbox, and the dashboard exposes those
+policy-archived examples with stable rule ids.
 
 ## MCP
 

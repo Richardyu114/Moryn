@@ -110,6 +110,8 @@ store:
   action.
 - `moryn capture session` session-summary autocapture with normalized
   `source.client` and `host:<client>` tags.
+- `default_autocapture_policy` routes useful handoffs to Capture Inbox while
+  policy-archiving obvious smoke/test or duplicate captures.
 - CLI and MCP exposure for install, context pack, and capture session.
 
 ### Contracts and Recovery

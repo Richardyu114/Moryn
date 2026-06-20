@@ -1402,6 +1402,123 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("surfaces policy-archived autocaptures without putting them back in the Capture Inbox", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T10:01:00.000Z",
+            "2026-06-01T10:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T10:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_capture_policy_${++record}` : `evt_capture_policy_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: {
+          format: "json",
+          text: "Useful handoff still needs user review.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "review",
+              review_required: true,
+              auto_canonical: false,
+              rule_ids: ["default_review_for_agent_handoff"]
+            }
+          }
+        },
+        source: { client: "codex", session_id: "policy-review" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "policy-archived", "host:codex", "noise:smoke_test_marker"],
+        content: {
+          format: "json",
+          text: "Smoke test marker only.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "archive",
+              review_required: false,
+              auto_canonical: false,
+              rule_ids: ["smoke_test_marker"],
+              reasons: ["smoke_test_marker"]
+            }
+          }
+        },
+        state: "archived",
+        confidence: 0.1,
+        source: { client: "codex", session_id: "policy-archive" },
+        provenance: {
+          method: "agent-proposed",
+          reason: "Autocapture policy archived this handoff: smoke_test_marker."
+        }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        capture_inbox: {
+          total: number;
+          policy: {
+            id: string;
+          };
+          autocapture_policy: {
+            id: string;
+            archived_total: number;
+            archived_by_rule: Record<string, number>;
+            archived_examples: Array<{ id: string; text: string; rule_ids: string[]; reason?: string }>;
+          };
+          items: Array<{ text: string }>;
+        };
+      };
+
+      expect(data.capture_inbox.total).toBe(1);
+      expect(data.capture_inbox.items.map((item) => item.text)).toEqual(["Useful handoff still needs user review."]);
+      expect(data.capture_inbox.policy.id).toBe("default_capture_review_policy");
+      expect(data.capture_inbox.autocapture_policy).toMatchObject({
+        id: "default_autocapture_policy",
+        archived_total: 1,
+        archived_by_rule: { smoke_test_marker: 1 },
+        archived_examples: [
+          expect.objectContaining({
+            text: "Smoke test marker only.",
+            rule_ids: ["smoke_test_marker"],
+            reason: "Autocapture policy archived this handoff: smoke_test_marker."
+          })
+        ]
+      });
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain("default_autocapture_policy");
+      expect(html).toContain("Policy archived");
+      expect(html).toContain("smoke_test_marker");
+      expect(html).toContain("Smoke test marker only.");
+      expect(html).toContain("Useful handoff still needs user review.");
+    });
+  });
+
   it("writes a local-only static dashboard snapshot", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

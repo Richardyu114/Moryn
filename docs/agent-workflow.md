@@ -47,6 +47,9 @@ moryn capture session
 session_summary tagged autocapture + host:<client>
         |
         v
+default_autocapture_policy archives obvious noise or duplicate captures
+        |
+        v
 Dashboard Capture Inbox reviews candidate
         |
         v
@@ -283,6 +286,9 @@ For autocaptured session handoffs, use the dashboard `Capture Inbox` instead of
 asking the agent to promote its own output. `Approve Memory` promotes a current
 candidate to canonical memory with user confirmation. `Reject` archives the
 candidate. Both actions append events and preserve the audit trail.
+`default_autocapture_policy` may archive obvious smoke/test or duplicate
+captures before they enter the inbox, but the dashboard still shows the
+policy-archived count, rule ids, and recent examples.
 
 ## Private Read Boundary
 

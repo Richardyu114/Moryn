@@ -61,9 +61,13 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("No auto-canonical");
     expect(dashboard).toContain("likely noise");
     expect(dashboard).toContain("default_capture_review_policy");
+    expect(dashboard).toContain("default_autocapture_policy");
+    expect(dashboard).toContain("capture_inbox.autocapture_policy");
     expect(dashboard).toContain("smoke_test_marker");
     expect(dashboard).toContain("duplicate_text");
     expect(contracts).toContain("default_capture_review_policy");
+    expect(contracts).toContain("default_autocapture_policy");
+    expect(contracts).toContain("policy_decision");
     expect(contracts).toContain("canonical memory requires explicit user");
     expect(dashboard).toContain("Memory Lifecycle");
     expect(dashboard).toContain("moryn memory lifecycle");
@@ -113,6 +117,10 @@ describe("documentation contracts", () => {
     expect(installPrompt).toContain("host adapter");
     expect(installPrompt).toContain("autocapture");
     expect(workflow).toContain("Host Adapter Flow");
+    expect(readme).toContain("default_autocapture_policy");
+    expect(workflow).toContain("default_autocapture_policy");
+    expect(roadmap).toContain("default_autocapture_policy");
+    expectText(readme, "Nothing becomes canonical memory without user approval");
     expect(design).toContain("Host Adapter / Autocapture Layer");
     expect(roadmap).toContain("Host adapter registry and autocapture");
   });

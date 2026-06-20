@@ -3076,6 +3076,13 @@ describe("moryn CLI", () => {
       ]);
       const parsed = JSON.parse(result.stdout) as {
         mode: string;
+        policy_decision: {
+          policy_id: string;
+          decision: string;
+          review_required: boolean;
+          auto_canonical: boolean;
+          target_state: string;
+        };
         record: {
           kind: string;
           type: string;
@@ -3087,6 +3094,13 @@ describe("moryn CLI", () => {
       };
 
       expect(parsed.mode).toBe("capture_session");
+      expect(parsed.policy_decision).toMatchObject({
+        policy_id: "default_autocapture_policy",
+        decision: "review",
+        review_required: true,
+        auto_canonical: false,
+        target_state: "candidate"
+      });
       expect(parsed.record.kind).toBe("session_summary");
       expect(parsed.record.type).toBe("summary");
       expect(parsed.record.project_id).toBe("moryn");
@@ -3095,7 +3109,11 @@ describe("moryn CLI", () => {
       expect(parsed.record.content.text).toBe("Finished planner");
       expect(parsed.record.content.capture).toMatchObject({
         host: "claude",
-        current_task: "design host adapter"
+        current_task: "design host adapter",
+        policy: {
+          id: "default_autocapture_policy",
+          decision: "review"
+        }
       });
 
       const events = await readEvents(store);

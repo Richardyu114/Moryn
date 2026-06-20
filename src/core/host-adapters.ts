@@ -1,4 +1,5 @@
 import { agentStart } from "./agent-lifecycle.js";
+import { evaluateAutocapturePolicy, type AutocapturePolicyResult } from "./autocapture-policy.js";
 import { createEngine } from "./engine.js";
 import { resolveProjectContext } from "./project.js";
 import type { MorynRecord, RecordSource } from "./types.js";
@@ -72,6 +73,7 @@ export type CaptureSessionResult = {
   mode: "capture_session";
   adapter: HostAdapter;
   record: MorynRecord;
+  policy_decision: AutocapturePolicyResult;
   next: {
     recommended_action: "run_context_pack";
     command: string;
@@ -172,6 +174,9 @@ export const CAPTURE_SESSION_SELECTION_SOURCES = {
   record: "record",
   record_id: "record.id",
   adapter: "adapter",
+  policy_decision: "policy_decision",
+  policy_decision_id: "policy_decision.policy_id",
+  policy_decision_action: "policy_decision.decision",
   next: "next"
 } as const;
 
@@ -435,12 +440,26 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
     device_id: input.agent?.device_id
   };
   const engine = createEngine({ storePath: input.storePath });
+  const existing = await engine.recall({
+    query: summary,
+    project_id: project.project_id,
+    states: ["candidate", "archived"],
+    tags: ["autocapture"],
+    limit: 20
+  });
+  const policyDecision = evaluateAutocapturePolicy({
+    summary,
+    project_id: project.project_id,
+    host: adapter.normalized_client,
+    current_task: input.currentTask,
+    existing_records: existing.results.map((result) => result.record)
+  });
   const written = await engine.write({
     kind: "session_summary",
     type: "summary",
     scope: "project",
     project_id: project.project_id,
-    tags: ["autocapture", "review", `host:${adapter.normalized_client}`],
+    tags: policyDecision.tags,
     content: {
       format: "json",
       text: summary,
@@ -449,13 +468,27 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
         host: adapter.normalized_client,
         adapter: adapter.id,
         session_id: input.agent?.session_id,
-        current_task: input.currentTask
+        current_task: input.currentTask,
+        policy: {
+          id: policyDecision.policy_id,
+          version: policyDecision.version,
+          decision: policyDecision.decision,
+          review_required: policyDecision.review_required,
+          auto_canonical: policyDecision.auto_canonical,
+          rule_ids: policyDecision.rule_ids,
+          reasons: policyDecision.reasons,
+          ...(policyDecision.duplicate_of_record_id ? { duplicate_of_record_id: policyDecision.duplicate_of_record_id } : {})
+        }
       }
     },
+    state: policyDecision.target_state,
+    confidence: policyDecision.confidence,
     source,
     provenance: {
       method: "agent-proposed",
-      reason: "Captured through Moryn host adapter autocapture."
+      reason: policyDecision.decision === "archive"
+        ? `Autocapture policy archived this handoff: ${policyDecision.reasons.join(", ")}.`
+        : "Captured through Moryn host adapter autocapture."
     }
   });
 
@@ -471,6 +504,7 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
     mode: "capture_session",
     adapter,
     record: written.record,
+    policy_decision: policyDecision,
     next: {
       recommended_action: "run_context_pack",
       command: `moryn context pack${projectArg}${syncArg}${taskArg} --agent ${adapter.normalized_client}`,

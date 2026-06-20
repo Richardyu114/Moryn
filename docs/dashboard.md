@@ -157,6 +157,14 @@ can suggest archive for likely smoke/test or duplicate captures, but the user
 still decides through Approve Memory, Approve Group, Reject, or Reject Group.
 The rule id appears next to the signal so the suggestion stays explainable.
 
+`moryn capture session` also applies `default_autocapture_policy` before a
+capture reaches the inbox. Useful handoffs still enter Capture Inbox as
+reviewable candidates. Obvious smoke/test or duplicate captures are
+policy-archived immediately with append-only record evidence, so the user does
+not have to click through routine noise. The dashboard shows the archived count,
+rule ids, and recent examples under the Autocapture Policy summary. The policy
+never promotes anything to canonical memory automatically.
+
 ### Memory Lifecycle
 
 The dashboard includes a read-only `Memory Lifecycle` panel built from the same
@@ -303,6 +311,7 @@ The JSON returned by `/api/dashboard` includes:
 - `charts.sync_position`
 - `totals`
 - `capture_inbox`
+- `capture_inbox.autocapture_policy`
 - `memory_lifecycle`
 - `recent_value`
 - `recent_records`

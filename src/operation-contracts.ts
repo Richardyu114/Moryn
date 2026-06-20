@@ -1129,9 +1129,9 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "capture_session",
     category: "lifecycle",
-    summary: "Capture a host-normalized session handoff summary for reuse by other agents and devices.",
+    summary: "Capture a host-normalized session handoff summary, evaluate default_autocapture_policy, and keep canonical promotion under user control.",
     safe_to_run: false,
-    required_when: "Before ending a host session or handing work to another agent/device.",
+    required_when: "Before ending a host session or handing work to another agent/device; policy may archive obvious noise or route useful handoffs to Capture Inbox.",
     required_fields: ["summary"],
     argument_sources: userInputSources(["summary"]),
     arguments_by_name: captureSessionArguments,

@@ -10,12 +10,13 @@ import {
   LIFECYCLE_NEXT_SELECTION_SOURCES
 } from "./core/agent-lifecycle.js";
 import { STORE_INIT_SELECTION_SOURCES } from "./core/config.js";
+import { DEFAULT_AUTOCAPTURE_POLICY } from "./core/autocapture-policy.js";
 import { REBUILD_SELECTION_SOURCES } from "./core/derived.js";
 import { DOGFOOD_REPORT_SELECTION_SOURCES } from "./core/dogfood-report.js";
 import { MEMORY_LIFECYCLE_SELECTION_SOURCES } from "./core/memory-lifecycle.js";
 export { createEngine } from "./core/engine.js";
 export { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "./core/host-adapters.js";
-import { HANDOFF_PACK_SELECTION_SOURCES } from "./core/host-adapters.js";
+import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES } from "./core/host-adapters.js";
 import {
   BOOT_SELECTION_SOURCES,
   LINK_EVENT_SELECTION_SOURCES,
@@ -95,6 +96,8 @@ export {
   SYNC_RESULT_SELECTION_SOURCES,
   SYNC_STATUS_SELECTION_SOURCES,
   HANDOFF_PACK_SELECTION_SOURCES,
+  CAPTURE_SESSION_SELECTION_SOURCES,
+  DEFAULT_AUTOCAPTURE_POLICY,
   DOGFOOD_REPORT_SELECTION_SOURCES,
   MEMORY_LIFECYCLE_SELECTION_SOURCES
 };
@@ -141,6 +144,7 @@ export const SELECTION_SOURCE_CONTRACTS = {
     discovered_lifecycle_step: DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES,
     handoff: HANDOFF_SELECTION_SOURCES,
     handoff_pack: HANDOFF_PACK_SELECTION_SOURCES,
+    capture_session: CAPTURE_SESSION_SELECTION_SOURCES,
     doctor: DOCTOR_SELECTION_SOURCES
   },
   recovery: {

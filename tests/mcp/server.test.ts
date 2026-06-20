@@ -3012,12 +3012,23 @@ describe("MCP stdio server", () => {
           }
         })) as {
           mode: string;
-          record: { source: { client: string; session_id: string }; tags: string[]; content: { text: string } };
+          policy_decision: { policy_id: string; decision: string; review_required: boolean; auto_canonical: boolean };
+          record: { source: { client: string; session_id: string }; tags: string[]; content: { text: string; capture?: { policy?: { id: string; decision: string } } } };
         };
         expect(capture.mode).toBe("capture_session");
+        expect(capture.policy_decision).toMatchObject({
+          policy_id: "default_autocapture_policy",
+          decision: "review",
+          review_required: true,
+          auto_canonical: false
+        });
         expect(capture.record.source).toMatchObject({ client: "claude", session_id: "mcp-host" });
         expect(capture.record.tags).toContain("host:claude");
         expect(capture.record.content.text).toBe("MCP host finished the setup path.");
+        expect(capture.record.content.capture?.policy).toMatchObject({
+          id: "default_autocapture_policy",
+          decision: "review"
+        });
 
         const pack = parseTextContent(await client.callTool({
           name: "context_pack",
