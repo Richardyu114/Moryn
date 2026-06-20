@@ -188,6 +188,16 @@ The first command is a dry run. The apply form appends `revise_record` events;
 private-tagged records are skipped unless `--include-private` is explicit.
 The MCP tool name is `project_migrate`.
 
+For browser-mediated review, serve the dashboard with the canonical project id:
+
+```bash
+moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn
+```
+
+The local Review Queue shows generated repair plans, the dry-run hash, private
+record counts, and an Approve Repair button. Approval re-runs the plan server
+side before writing append-only migration events.
+
 ## MCP
 
 Start the MCP server:
@@ -258,6 +268,12 @@ commands generate the same static snapshot and open it by default; pass
 `--no-open` in automation or when a browser should not be launched. Dashboard
 reads also hide `private`, `secret`, and `sensitive` tagged records unless
 `--include-private` is passed.
+
+When `memory doctor` detects a project identity split, the live dashboard can
+show a local `Review Queue`. The first interactive repair flow is intentionally
+narrow: review the dry-run plan, inspect `plan_hash` and safety checks, then
+approve the append-only project migration from the browser. The server re-runs
+the dry run before applying and rejects stale approvals.
 
 See [Dashboard](docs/dashboard.md) for endpoints, access modes, and
 troubleshooting.

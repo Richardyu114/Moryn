@@ -1902,6 +1902,8 @@ type DashboardCliOptions = {
   port?: string;
   interval?: string;
   includePrivate?: boolean;
+  project?: string;
+  projectId?: string;
 };
 
 type DashboardCliMetadata =
@@ -1941,13 +1943,15 @@ function parseDashboardInterval(value: string | undefined): number | undefined {
 async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<DashboardCliMetadata> {
   try {
     const limit = options.limit === undefined ? undefined : parseLimit(options.limit, "dashboard");
+    const projectId = await resolveOptionalProject(options, "dashboard");
     if (options.serve) {
       const server = await startDashboardServer(storePath(), {
         host: options.host,
         port: parseDashboardPort(options.port),
         refreshIntervalMs: parseDashboardInterval(options.interval),
         limit,
-        include_private: options.includePrivate
+        include_private: options.includePrivate,
+        project_id: projectId
       });
       const shouldOpen = dashboardOpenRequested(options);
       if (shouldOpen) await openDashboard(server.url);
@@ -1962,7 +1966,8 @@ async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<Das
     }
     const snapshot = await writeDashboardSnapshot(storePath(), {
       limit,
-      include_private: options.includePrivate
+      include_private: options.includePrivate,
+      project_id: projectId
     });
     const shouldOpen = dashboardOpenRequested(options);
     if (!shouldOpen) return snapshot;
@@ -2505,6 +2510,8 @@ program.command("rebuild").action(async () => {
 });
 
 program.command("dashboard")
+  .option("--project <path>", "Resolve dashboard project context from a project path")
+  .option("--project-id <id>", "Use an explicit dashboard project id")
   .option("--open", "Open the generated dashboard in the default browser")
   .option("--no-open", "Do not open the generated dashboard")
   .option("--serve", "Serve the dashboard over local HTTP with live refresh")
@@ -2522,7 +2529,9 @@ program.command("dashboard")
       host: options.host,
       port: options.port,
       interval: options.interval,
-      includePrivate: options.includePrivate
+      includePrivate: options.includePrivate,
+      project: options.project,
+      projectId: options.projectId
     });
     if ("generated" in dashboard && dashboard.generated === false) {
       throw new Error(dashboard.error);

@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
-import { createServer, type Server, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -11,6 +11,7 @@ import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/types.js";
 import { getGitSyncStatus, type GitSyncStatus } from "../sync/git.js";
+import { approveMaintenancePlan, buildDashboardMaintenance, type DashboardMaintenanceData, type DashboardMaintenancePlan } from "./dashboard-maintenance.js";
 
 const exec = promisify(execFile);
 const DEFAULT_LIMIT = 20;
@@ -34,6 +35,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
 export interface DashboardOptions {
   limit?: number;
   include_private?: boolean;
+  project_id?: string;
 }
 
 export interface DashboardRecordSummary {
@@ -176,6 +178,7 @@ export interface DashboardData {
   recent_records: DashboardRecordSummary[];
   recent_events: DashboardEventSummary[];
   agent_activity: DashboardAgentActivity[];
+  maintenance: DashboardMaintenanceData;
   selection_sources: typeof DASHBOARD_SELECTION_SOURCES;
 }
 
@@ -702,6 +705,10 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     recent_records: recentRecords.map((record) => summarizeRecord(record, eventsByRecord)),
     recent_events: recentEvents.map((event) => summarizeEvent(event, recordsById)),
     agent_activity: agentActivity,
+    maintenance: buildDashboardMaintenance([...allRecordsById.values()], {
+      project_id: options.project_id,
+      include_private: options.include_private
+    }),
     selection_sources: DASHBOARD_SELECTION_SOURCES
   };
 }
@@ -756,6 +763,81 @@ function attentionItems(items: DashboardAttentionItem[]): string {
         </article>
       `).join("")}
     </div>
+  `;
+}
+
+function maintenancePlanEndpoint(plan: DashboardMaintenancePlan): string {
+  return `/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`;
+}
+
+function maintenanceStateSummary(states: DashboardMaintenancePlan["dry_run"]["states"]): string {
+  const order: Array<keyof typeof states> = ["canonical", "candidate", "raw", "archived", "quarantined"];
+  return order
+    .filter((state) => states[state])
+    .map((state) => `${state} ${states[state]}`)
+    .join(" | ");
+}
+
+function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
+  if (plans.length === 0) return "";
+  return `
+    <section class="panel maintenance-review" aria-label="Maintenance review queue">
+      <div class="maintenance-heading">
+        <h2>Review Queue</h2>
+        <span>${escapeHtml(plans.length)} item${plans.length === 1 ? "" : "s"}</span>
+      </div>
+      <div class="maintenance-list">
+        ${plans.map((plan) => `
+          <article
+            class="maintenance-plan"
+            data-maintenance-plan="${escapeHtml(plan.plan_id)}"
+            data-plan-hash="${escapeHtml(plan.plan_hash)}"
+          >
+            <div class="maintenance-plan-main">
+              <div>
+                <h3>Project identity split</h3>
+                <p><code>${escapeHtml(plan.from_project_id)}</code> -> <code>${escapeHtml(plan.to_project_id)}</code></p>
+              </div>
+              <div class="maintenance-stats">
+                <span>${escapeHtml(plan.dry_run.matched_records)} records matched</span>
+                <span>${escapeHtml(plan.dry_run.skipped_private_records)} private skipped</span>
+                <span>${escapeHtml(plan.dry_run.included_private_records)} private included</span>
+                <span>append-only repair</span>
+              </div>
+            </div>
+            <details data-dashboard-detail="maintenance:${escapeHtml(plan.plan_id)}">
+              <summary>Review details</summary>
+              <dl>
+                <div><dt>Plan</dt><dd><code>${escapeHtml(plan.plan_id)}</code></dd></div>
+                <div><dt>plan_hash</dt><dd><code>${escapeHtml(plan.plan_hash)}</code></dd></div>
+                <div><dt>Records</dt><dd>${escapeHtml(maintenanceStateSummary(plan.dry_run.states) || "none")}</dd></div>
+                <div><dt>Command</dt><dd><code>${escapeHtml(plan.command)}</code></dd></div>
+              </dl>
+              <ul class="maintenance-checks">
+                ${plan.safety_checks.map((check) => `
+                  <li class="${check.ok ? "good" : "warning"}">
+                    <span>${check.ok ? "ok" : "review"}</span>
+                    ${escapeHtml(check.label)}
+                  </li>
+                `).join("")}
+              </ul>
+            </details>
+            <div class="maintenance-actions">
+              <button type="button" data-maintenance-reject>Reject</button>
+              <button type="button" data-maintenance-copy data-command="${escapeHtml(plan.command)}">Copy command</button>
+              <button
+                type="button"
+                class="primary"
+                data-maintenance-approve
+                data-endpoint="${escapeHtml(maintenancePlanEndpoint(plan))}"
+                data-plan-hash="${escapeHtml(plan.plan_hash)}"
+              >Approve Repair</button>
+            </div>
+            <p class="maintenance-status" data-maintenance-status></p>
+          </article>
+        `).join("")}
+      </div>
+    </section>
   `;
 }
 
@@ -956,6 +1038,8 @@ function renderDashboardBody(data: DashboardData): string {
       ${attentionItems(data.attention_items)}
     </section>
 
+    ${maintenanceReviewQueue(data.maintenance.plans)}
+
     <section class="visual-grid">
       <div class="panel">
         <h2>Agent Activity</h2>
@@ -1046,6 +1130,74 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
         }
       };
       window.setInterval(refresh, interval);
+    })();
+  </script>`;
+}
+
+function dashboardMaintenanceScript(): string {
+  return `
+  <script>
+    (() => {
+      const main = document.querySelector("main");
+      if (!main) return;
+      const hiddenKey = "moryn.dashboard.hiddenMaintenancePlans";
+      const hidden = new Set(JSON.parse(sessionStorage.getItem(hiddenKey) || "[]"));
+      const persistHidden = () => sessionStorage.setItem(hiddenKey, JSON.stringify([...hidden]));
+      const hideRejectedPlans = () => {
+        main.querySelectorAll("[data-maintenance-plan]").forEach((plan) => {
+          if (hidden.has(plan.dataset.maintenancePlan)) plan.hidden = true;
+        });
+      };
+      const refreshFragment = async () => {
+        const response = await fetch("fragment", { cache: "no-store" });
+        if (!response.ok) return;
+        main.innerHTML = await response.text();
+        hideRejectedPlans();
+      };
+      hideRejectedPlans();
+      main.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const plan = target.closest("[data-maintenance-plan]");
+        if (!(plan instanceof HTMLElement)) return;
+        const status = plan.querySelector("[data-maintenance-status]");
+        if (target.closest("[data-maintenance-reject]")) {
+          hidden.add(plan.dataset.maintenancePlan || "");
+          persistHidden();
+          plan.hidden = true;
+          return;
+        }
+        const copy = target.closest("[data-maintenance-copy]");
+        if (copy instanceof HTMLElement) {
+          await navigator.clipboard?.writeText(copy.dataset.command || "");
+          if (status) status.textContent = "Command copied.";
+          return;
+        }
+        const approve = target.closest("[data-maintenance-approve]");
+        if (!(approve instanceof HTMLButtonElement)) return;
+        const message = "Approve project identity repair? Moryn will append revise_record events and preserve history.";
+        if (!window.confirm(message)) return;
+        approve.disabled = true;
+        if (status) status.textContent = "Re-running dry-run before approval...";
+        try {
+          const response = await fetch(approve.dataset.endpoint || "", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ plan_hash: approve.dataset.planHash })
+          });
+          const result = await response.json();
+          if (!response.ok || result.ok === false) {
+            if (status) status.textContent = result.message || "Approval failed.";
+            approve.disabled = false;
+            return;
+          }
+          if (status) status.textContent = "Applied. Refreshing dashboard...";
+          await refreshFragment();
+        } catch (error) {
+          if (status) status.textContent = error instanceof Error ? error.message : "Approval failed.";
+          approve.disabled = false;
+        }
+      });
     })();
   </script>`;
 }
@@ -1214,6 +1366,49 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .attention.warning { border-left-color: var(--warning); }
     .attention.critical { border-left-color: var(--critical); }
     .empty-state { border: 1px dashed var(--border); border-radius: 7px; padding: 14px; color: var(--muted); background: var(--surface-2); }
+    .maintenance-review { border-left: 4px solid var(--signal-green); }
+    .maintenance-heading, .maintenance-plan-main, .maintenance-actions, .maintenance-stats {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+    .maintenance-heading span, .maintenance-stats span, .maintenance-status { color: var(--muted); font-size: 12px; font-weight: 650; }
+    .maintenance-list { display: grid; gap: 10px; }
+    .maintenance-plan {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      background: var(--surface-2);
+    }
+    .maintenance-plan-main { align-items: flex-start; }
+    .maintenance-stats { flex-wrap: wrap; justify-content: flex-end; }
+    .maintenance-checks { display: grid; gap: 6px; padding-left: 0; list-style: none; }
+    .maintenance-checks li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 8px;
+      background: var(--surface);
+    }
+    .maintenance-checks li span { font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .maintenance-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 10px; }
+    button {
+      min-height: 32px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+      padding: 5px 10px;
+      font: inherit;
+      font-weight: 720;
+      cursor: pointer;
+    }
+    button.primary { background: var(--signal-green); border-color: var(--signal-green); color: #fff; }
+    button:disabled { cursor: wait; opacity: 0.68; }
     .agent-bars { display: grid; gap: 10px; }
     .bar-row { --bar-accent: var(--signal-green); display: grid; gap: 6px; }
     .bar-row:nth-child(1) { --bar-accent: var(--signal-green); }
@@ -1307,14 +1502,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       header, .overview-grid, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
-      .bar-label { display: grid; }
-      .bar-label span { text-align: left; }
+      .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-stats, .maintenance-actions { display: grid; justify-content: stretch; }
+      .bar-label span, .maintenance-stats { text-align: left; }
     }
   </style>
 </head>
 <body class="neutral-intelligence">
   <main${refreshAttributes}>${renderDashboardBody(data)}</main>
   ${dashboardRefreshScript(options.refreshIntervalMs)}
+  ${dashboardMaintenanceScript()}
 </body>
 </html>
 `;
@@ -1378,6 +1574,21 @@ function sendResponse(response: ServerResponse, statusCode: number, body: string
   response.end(includeBody ? body : undefined);
 }
 
+async function readRequestJson(request: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const body = Buffer.concat(chunks).toString("utf8").trim();
+  if (!body) return {};
+  return JSON.parse(body) as unknown;
+}
+
+function approvalPlanId(pathname: string): string | undefined {
+  const match = /^\/api\/maintenance\/plans\/(.+)\/approve$/.exec(pathname);
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 export async function startDashboardServer(storePath: string, options: DashboardServerOptions = {}): Promise<DashboardServerHandle> {
   const host = dashboardServerHost(options.host);
   const requestedPort = dashboardServerPort(options.port);
@@ -1388,22 +1599,54 @@ export async function startDashboardServer(storePath: string, options: Dashboard
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${requestedPort}`}`);
     const includeBody = request.method !== "HEAD";
     try {
+      if (request.method === "POST") {
+        const planId = approvalPlanId(url.pathname);
+        if (!planId) {
+          sendResponse(response, 404, JSON.stringify({ error: "Not found" }), "application/json; charset=utf-8", includeBody);
+          return;
+        }
+        let body: unknown;
+        try {
+          body = await readRequestJson(request);
+        } catch {
+          sendResponse(response, 400, JSON.stringify({ error: "Invalid request: JSON body is required" }), "application/json; charset=utf-8", includeBody);
+          return;
+        }
+        if (!body || typeof body !== "object" || typeof (body as { plan_hash?: unknown }).plan_hash !== "string") {
+          sendResponse(response, 400, JSON.stringify({ error: "Invalid request: plan_hash is required" }), "application/json; charset=utf-8", includeBody);
+          return;
+        }
+        const approval = await approveMaintenancePlan(
+          storePath,
+          { project_id: options.project_id, include_private: includePrivate },
+          planId,
+          (body as { plan_hash: string }).plan_hash
+        );
+        sendResponse(
+          response,
+          approval.ok ? 200 : approval.status === "stale_plan" ? 409 : 404,
+          JSON.stringify(approval),
+          "application/json; charset=utf-8",
+          includeBody
+        );
+        return;
+      }
       if (request.method !== "GET" && request.method !== "HEAD") {
         sendResponse(response, 405, "Method not allowed", "text/plain; charset=utf-8", includeBody);
         return;
       }
       if (url.pathname === "/" || url.pathname === "/index.html") {
-        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate });
+        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate, project_id: options.project_id });
         sendResponse(response, 200, renderDashboardServerHtml(data, refreshIntervalMs), "text/html; charset=utf-8", includeBody);
         return;
       }
       if (url.pathname === "/fragment") {
-        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate });
+        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate, project_id: options.project_id });
         sendResponse(response, 200, renderDashboardFragment(data), "text/html; charset=utf-8", includeBody);
         return;
       }
       if (url.pathname === "/api/dashboard") {
-        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate });
+        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate, project_id: options.project_id });
         sendResponse(response, 200, JSON.stringify(data), "application/json; charset=utf-8", includeBody);
         return;
       }

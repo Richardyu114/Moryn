@@ -31,6 +31,8 @@ describe("documentation contracts", () => {
     expect(workflow).toContain("open the static snapshot");
     expect(contracts).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
     expect(contracts).toContain("/api/dashboard");
+    expect(contracts).toContain("/api/maintenance/plans/:plan_id/approve");
+    expect(contracts).toContain("plan_hash");
     expect(contracts).toContain("/healthz");
     expect(contracts).toContain("docs/dashboard.md");
     expect(contracts).toContain("dashboard");
@@ -43,6 +45,9 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("moryn dashboard --serve --host 0.0.0.0 --port 8765");
     expect(dashboard).toContain("GET /fragment");
     expect(dashboard).toContain("GET /api/dashboard");
+    expect(dashboard).toContain("Review Queue");
+    expect(dashboard).toContain("POST /api/maintenance/plans/:plan_id/approve");
+    expect(dashboard).toContain("plan_hash");
     expect(dashboard).toContain("MCP `dashboard` tool");
     expect(dashboard).toContain("does not start a long-running HTTP server");
   });

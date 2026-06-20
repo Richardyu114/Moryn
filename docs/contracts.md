@@ -157,7 +157,7 @@ moryn contracts operations --operation dashboard
 For human monitoring, use the CLI server mode:
 
 ```bash
-moryn dashboard --serve --host 127.0.0.1 --port 8765
+moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn
 ```
 
 Open `http://127.0.0.1:8765/` on the same machine. To view from another device
@@ -166,8 +166,32 @@ on the same LAN, bind with `--host 0.0.0.0` and open
 
 The browser refreshes from the local event store on the configured interval.
 The server also exposes `/api/dashboard` for JSON inspection and `/healthz` for
-lightweight health checks. For automation or MCP hosts, the dashboard operation
-still supports static snapshot generation.
+lightweight health checks. In server mode, dashboard maintenance approval uses
+one narrow local endpoint:
+
+```text
+POST /api/maintenance/plans/:plan_id/approve
+```
+
+The first supported plan is project identity repair. `/api/dashboard` returns a
+`maintenance.plans[]` entry with `plan_id`, `plan_hash`, dry-run counts, safety
+checks, and the equivalent `moryn project migrate --apply --confirm` command.
+Project-specific plans require `project_id`/`project_path` context; without it,
+`maintenance.plans[]` is empty. If `include_private: true` is used, private
+records included in the plan are counted separately and the equivalent command
+contains `--include-private`.
+The approve endpoint accepts only:
+
+```json
+{
+  "plan_hash": "sha256:..."
+}
+```
+
+The server rebuilds the current plan from the local store, compares the
+submitted `plan_hash`, and applies only when it still matches. Stale approvals
+return `409` with `status: "stale_plan"`. For automation or MCP hosts, the
+dashboard operation still supports static snapshot generation.
 
 The MCP equivalent is:
 

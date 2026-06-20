@@ -1885,6 +1885,7 @@ describe("moryn CLI", () => {
       operation_source_lookup: "operation_source_lookup",
       ordered_operation: "operations[]",
       execution_hint: "operations_by_id.<operation>.execution_hint",
+      execution_hint_required_input_by_value_path: "operations_by_id.<operation>.execution_hint.required_input_sources.by_value_path",
       full_contract_lookup: "operations_by_id.<operation>.full_contract_lookup",
       full_contract_lookup_cli: "operations_by_id.<operation>.full_contract_lookup.cli",
       full_contract_lookup_mcp: "operations_by_id.<operation>.full_contract_lookup.mcp"
@@ -1900,6 +1901,7 @@ describe("moryn CLI", () => {
       operation: "agent_finish",
       operation_source: "operations_by_id.agent_finish",
       category: "lifecycle",
+      summary: "Write a final session summary and push sync when appropriate.",
       safe_to_run: false,
       ready_to_run: false,
       next_step: "collect_required_fields",
@@ -1912,7 +1914,12 @@ describe("moryn CLI", () => {
         ready_to_run: false,
         next_step: "collect_required_fields",
         required_fields: ["summary"],
-        missing_required_fields: ["summary"]
+        missing_required_fields: ["summary"],
+        required_input_sources: {
+          by_field: "execution.required_inputs_by_field.<field>",
+          by_argument_path: "execution.required_inputs_by_argument_path.<argument_path>",
+          by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
+        }
       },
       full_contract_lookup: {
         package_helper: "getOperationContract('agent_finish')",
@@ -2016,6 +2023,16 @@ describe("moryn CLI", () => {
       type: "number",
       default: 2000,
       cli: { flag: "--interval" }
+    });
+    expect(parsed.operation.arguments_by_name.project_id).toMatchObject({
+      type: "string",
+      cli: { flag: "--project-id" },
+      mcp: { argument: "project_id" }
+    });
+    expect(parsed.operation.arguments_by_name.project_path).toMatchObject({
+      type: "string",
+      cli: { flag: "--project" },
+      mcp: { argument: "project_path" }
     });
     expect(parsed.operation.arguments_by_name.limit.mcp).toEqual({ argument: "limit" });
     expect(parsed.operation.arguments_by_name.open.mcp).toEqual({ argument: "open" });

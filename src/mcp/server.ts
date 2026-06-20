@@ -491,6 +491,7 @@ type McpProjectContextOperation =
   | "recall"
   | "timeline"
   | "write"
+  | "dashboard"
   | "refresh"
   | "memory_doctor"
   | "capture_session"
@@ -2051,6 +2052,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       title: "Generate Moryn Dashboard",
       description: "Generate a local static HTML dashboard for sync status, records, recent events, and agent activity.",
       inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
         limit: coreValidatedNumberSchema.optional(),
         open: coreValidatedBooleanSchema.optional(),
         include_private: coreValidatedBooleanSchema.optional()
@@ -2058,9 +2061,11 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     },
     async (input) => toolResultWithNormalizedInput("dashboard", input, async (normalizedInput) => {
       validateMcpDashboardOpen(normalizedInput.open);
+      const project = await resolveProjectInput("dashboard", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
       const snapshot = await writeDashboardSnapshot(options.storePath, {
         limit: normalizedInput.limit as number | undefined,
-        include_private: normalizedInput.include_private as boolean | undefined
+        include_private: normalizedInput.include_private as boolean | undefined,
+        project_id: project.project_id
       });
       if (normalizedInput.open === true) {
         await openDashboard(snapshot.url);

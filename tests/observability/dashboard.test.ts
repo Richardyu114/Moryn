@@ -640,6 +640,256 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("adds project identity repair plans to dashboard data", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:05:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_split_${++record}` : `evt_split_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn project context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const canonicalOld = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Moryn rule under old project id.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const candidateOld = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Moryn session under old project id.", format: "text" },
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn", "private"],
+        content: { text: "Private split record stays out.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
+
+      expect(data.maintenance.plans).toHaveLength(1);
+      expect(data.maintenance.plans[0]).toMatchObject({
+        plan_id: "project_migrate:repo-e6f0166fd942->moryn",
+        type: "project_identity_repair",
+        finding_id: "project_identity_split",
+        from_project_id: "repo-e6f0166fd942",
+        to_project_id: "moryn",
+        command: "moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm",
+        dry_run: {
+          matched_records: 2,
+          skipped_private_records: 1,
+          included_private_records: 0,
+          states: {
+            canonical: 1,
+            candidate: 1
+          }
+        },
+        approval: {
+          requires_user_confirmation: true,
+          safe_to_auto_apply: false
+        }
+      });
+      expect(data.maintenance.plans[0]?.plan_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(data.maintenance.plans[0]?.record_ids).toEqual([
+        candidateOld.record.id,
+        canonicalOld.record.id
+      ]);
+      expect(data.maintenance.plans[0]?.safety_checks).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: "dry_run_completed", ok: true }),
+        expect.objectContaining({ id: "target_project_explicit", ok: true }),
+        expect.objectContaining({ id: "no_private_records", ok: true }),
+        expect.objectContaining({ id: "append_only", ok: true })
+      ]));
+    });
+  });
+
+  it("keeps include_private explicit in maintenance repair plans", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_private_plan_${++record}` : `evt_private_plan_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn project context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Public old project record.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn", "private"],
+        content: { text: "Private old project record.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        include_private: true
+      });
+      const plan = data.maintenance.plans[0];
+
+      expect(plan).toMatchObject({
+        command: "moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm --include-private",
+        dry_run: {
+          matched_records: 2,
+          skipped_private_records: 0,
+          included_private_records: 1,
+          states: {
+            canonical: 2
+          }
+        }
+      });
+      expect(plan?.safety_checks).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: "no_private_records", ok: false })
+      ]));
+    });
+  });
+
+  it("renders maintenance review queue controls", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_review_${++record}` : `evt_review_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Old project id record.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
+      const html = renderDashboardHtml(data);
+
+      expect(html).toContain("Review Queue");
+      expect(html).toContain("Project identity split");
+      expect(html).toContain("repo-e6f0166fd942");
+      expect(html).toContain("Approve Repair");
+      expect(html).toContain("Copy command");
+      expect(html).toContain("0 private included");
+      expect(html).toContain("Dry-run completed");
+      expect(html).toContain("Operation appends revise_record events only");
+      expect(html).toContain("/api/maintenance/plans/");
+      expect(html).toContain("plan_hash");
+      expect(html).toContain("data-maintenance-plan");
+      expect(html).toContain("data-maintenance-approve");
+      expect(html).toContain("data-maintenance-reject");
+    });
+  });
+
   it("writes a local-only static dashboard snapshot", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
@@ -757,6 +1007,219 @@ describe("observability dashboard", () => {
 
         const missing = await fetch(new URL("/missing", server.url));
         expect(missing.status).toBe(404);
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("approves project identity repair plans from the dashboard server", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_approve_${++record}` : `evt_approve_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const oldRecord = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Old project id record.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10,
+        project_id: "moryn"
+      });
+      try {
+        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+          maintenance: {
+            plans: Array<{ plan_id: string; plan_hash: string }>;
+          };
+        };
+        const plan = dashboard.maintenance.plans[0];
+        expect(plan).toBeDefined();
+
+        const response = await fetch(new URL(`/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ plan_hash: plan.plan_hash })
+        });
+        const applied = await response.json() as {
+          ok: boolean;
+          status: string;
+          migrated_records: number;
+          events_written: number;
+        };
+
+        expect(response.status).toBe(200);
+        expect(applied).toMatchObject({
+          ok: true,
+          status: "applied",
+          migrated_records: 1,
+          events_written: 1
+        });
+        expect((await engine.recall({ record_ids: [oldRecord.record.id], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("rejects stale maintenance plan approvals", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:05:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_stale_${++record}` : `evt_stale_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const oldRecord = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Old project id record.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10,
+        project_id: "moryn"
+      });
+      try {
+        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+          maintenance: {
+            plans: Array<{ plan_id: string; plan_hash: string }>;
+          };
+        };
+        const plan = dashboard.maintenance.plans[0];
+        expect(plan).toBeDefined();
+
+        await engine.write({
+          kind: "session_summary",
+          type: "summary",
+          scope: "project",
+          project_id: "repo-e6f0166fd942",
+          tags: ["moryn"],
+          content: { text: "New old-project record changes the dry run.", format: "text" },
+          source: { client: "codex" }
+        });
+
+        const response = await fetch(new URL(`/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ plan_hash: plan.plan_hash })
+        });
+        const stale = await response.json() as {
+          ok: boolean;
+          status: string;
+          message: string;
+        };
+
+        expect(response.status).toBe(409);
+        expect(stale).toMatchObject({
+          ok: false,
+          status: "stale_plan",
+          message: "The store changed after this plan was rendered. Review the refreshed plan before approving."
+        });
+        expect((await engine.recall({ record_ids: [oldRecord.record.id], project_id: "repo-e6f0166fd942" })).results[0]?.record.project_id).toBe("repo-e6f0166fd942");
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("rejects malformed maintenance approval JSON", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        project_id: "moryn"
+      });
+      try {
+        const response = await fetch(new URL(`/api/maintenance/plans/${encodeURIComponent("project_migrate:old->moryn")}/approve`, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{"
+        });
+        const body = await response.json() as { error: string };
+
+        expect(response.status).toBe(400);
+        expect(body).toEqual({
+          error: "Invalid request: JSON body is required"
+        });
       } finally {
         await server.close();
       }

@@ -66,6 +66,9 @@ Server endpoints:
 - `GET /` serves the full dashboard shell.
 - `GET /fragment` rebuilds dashboard data and returns the current body HTML.
 - `GET /api/dashboard` rebuilds dashboard data and returns JSON.
+- `POST /api/maintenance/plans/:plan_id/approve` approves one generated
+  maintenance plan after the server re-runs its dry run and verifies
+  `plan_hash`.
 - `GET /healthz` returns a lightweight health response for deployment checks.
 
 The browser refreshes from `fragment` on the configured interval. The refresh
@@ -75,6 +78,44 @@ as `/moryn-dashboard/`.
 Pass `--include-private` only when the user explicitly wants private memory in
 the dashboard. The same flag applies to the server shell, `/fragment`, and
 `/api/dashboard`.
+
+Pass `--project-id <id>` or `--project <path>` when you want the server to
+generate project-specific Review Queue plans. Without project context the
+dashboard stays observational and `maintenance.plans[]` is empty.
+
+### Review Queue
+
+The live dashboard can include a `Review Queue` for local maintenance plans. In
+the first version, the only interactive plan is project identity repair:
+`project_identity_split` discovered by `memory doctor` becomes a
+`project_migrate` dry-run plan.
+
+The approval card shows:
+
+- source and target project ids
+- matched record count and state distribution
+- skipped private record count
+- included private record count
+- safety checks
+- exact equivalent CLI command
+- `plan_hash`
+
+Approving the card posts only the current `plan_hash` to:
+
+```text
+POST /api/maintenance/plans/:plan_id/approve
+```
+
+The browser does not send arbitrary record ids or migration arguments. The
+server reconstructs the current plan from the local store, re-runs the dry run,
+compares the submitted `plan_hash`, and applies only when the hash still
+matches. Stale approvals return `409` with `status: "stale_plan"`. `Reject` is
+browser-session-only and does not write store events.
+
+If the dashboard is served with `--include-private`, matching private-tagged
+records are included in the dry run and the copied command includes
+`--include-private`. Without that explicit flag, private records are counted as
+skipped and stay out of the approval.
 
 ### Static Snapshot
 
@@ -113,6 +154,7 @@ The first screen favors human-readable summaries over raw ids:
 - record quality distribution
 - record type distribution
 - recent valuable records, newest first
+- Review Queue maintenance plans when a project identity repair is available
 
 Raw records, events, and sync details remain available in the lower Debug
 Inspector.
@@ -164,6 +206,7 @@ The JSON returned by `/api/dashboard` includes:
 - `recent_records`
 - `recent_events`
 - `agent_activity`
+- `maintenance.plans`
 
 This keeps raw data inspectable while giving the HTML renderer human-oriented
 fields.

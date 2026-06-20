@@ -225,6 +225,20 @@ The migration appends `revise_record` events rather than editing history in
 place. Private records stay out of the default migration unless the user
 explicitly asks for `--include-private`. MCP hosts call `project_migrate`.
 
+For browser-mediated approval, serve the dashboard with the intended project
+context and ask the user to review the local `Review Queue`:
+
+```bash
+moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn
+```
+
+The Review Queue shows the generated project migration dry run, safety checks,
+and `plan_hash`. If the user clicks `Approve Repair`, the dashboard server
+re-runs the dry run and applies only when the hash still matches. Agents must
+not invent approval or send `confirmed: true` unless the user approved the
+specific plan. Serve with `--include-private` only when the user explicitly
+asked private-tagged memories to be included in the review and repair.
+
 ## Private Read Boundary
 
 Private markers are tag-based. The first-version contract treats `private`,
