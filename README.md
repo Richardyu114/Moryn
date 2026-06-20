@@ -62,7 +62,8 @@ moryn capture session --project . --agent codex --summary "Finished the task and
 host configuration files. `moryn context pack` returns boot, refresh, and
 handoff context plus a required `capture_session` next action. `moryn capture
 session` records an autocapture handoff so the next agent, host, or device can
-resume from the same store.
+resume from the same store. Captured handoffs enter the dashboard Capture Inbox
+as candidates; they become canonical memory only after a user approves them.
 
 ## What It Stores
 
@@ -198,6 +199,11 @@ The local Review Queue shows generated repair plans, the dry-run hash, private
 record counts, and an Approve Repair button. Approval re-runs the plan server
 side before writing append-only migration events.
 
+The same live dashboard also shows a Capture Inbox for `autocapture` or
+`review` candidate records. Approve Memory appends a confirmed `promote_record`
+event to make the candidate canonical; Reject appends an `archive_record`
+event. Neither action rewrites history or silently promotes agent output.
+
 ## MCP
 
 Start the MCP server:
@@ -293,6 +299,10 @@ raw -> candidate -> canonical
 - `canonical`: durable context returned by default.
 - `archived`: preserved history, hidden by default.
 - `quarantined`: sensitive or unsafe content, hidden by default.
+
+The dashboard Capture Inbox is the default human review path for autocaptured
+candidate memory. It keeps automation visible: agents can propose memory, but
+canonical long-term context still needs explicit approval.
 
 Records tagged `private`, `secret`, or `sensitive` are active records, but they
 are excluded from normal `boot`, `recall`, `refresh`, `list-recent`, `timeline`,

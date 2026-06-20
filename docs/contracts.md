@@ -166,8 +166,20 @@ on the same LAN, bind with `--host 0.0.0.0` and open
 
 The browser refreshes from the local event store on the configured interval.
 The server also exposes `/api/dashboard` for JSON inspection and `/healthz` for
-lightweight health checks. In server mode, dashboard maintenance approval uses
-one narrow local endpoint:
+lightweight health checks. In server mode, Capture Inbox review uses two narrow
+local endpoints:
+
+```text
+POST /api/capture-inbox/:record_id/approve
+POST /api/capture-inbox/:record_id/reject
+```
+
+`approve` promotes one active candidate tagged `autocapture` or `review` to
+canonical memory with `source.client: "user"` and explicit confirmation.
+`reject` archives one active candidate. Both endpoints replay the current store
+before writing and return `409` when the record is no longer actionable.
+
+Dashboard maintenance approval uses one separate local endpoint:
 
 ```text
 POST /api/maintenance/plans/:plan_id/approve

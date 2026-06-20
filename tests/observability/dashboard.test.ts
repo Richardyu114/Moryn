@@ -897,6 +897,105 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("adds autocapture candidates to the Capture Inbox", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_capture_${++record}` : `evt_capture_${++event}`;
+        })()
+      });
+
+      const capture = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: {
+          format: "json",
+          text: "Codex finished Capture Inbox planning.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            current_task: "Capture Inbox"
+          }
+        },
+        source: { client: "codex", session_id: "capture-inbox-test" },
+        provenance: {
+          method: "agent-proposed",
+          reason: "Captured through Moryn host adapter autocapture."
+        }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["review"],
+        content: { text: "Canonical review tag should not be in capture inbox.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        capture_inbox: {
+          total: number;
+          items: Array<{
+            id: string;
+            text: string;
+            source_label: string;
+            source_detail: string;
+            project_id?: string;
+            provenance_reason?: string;
+            approve_endpoint: string;
+            reject_endpoint: string;
+            citation: { recall_command: string };
+          }>;
+        };
+      };
+
+      expect(data.capture_inbox.total).toBe(1);
+      expect(data.capture_inbox.items[0]).toMatchObject({
+        id: capture.record.id,
+        text: "Codex finished Capture Inbox planning.",
+        source_label: "Codex",
+        source_detail: "codex / capture-inbox-test",
+        project_id: "moryn",
+        provenance_reason: "Captured through Moryn host adapter autocapture.",
+        approve_endpoint: `api/capture-inbox/${capture.record.id}/approve`,
+        reject_endpoint: `api/capture-inbox/${capture.record.id}/reject`,
+        citation: {
+          recall_command: `moryn recall --record-id ${capture.record.id} --project-id moryn`
+        }
+      });
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain("Capture Inbox");
+      expect(html).toContain("1 candidate");
+      expect(html).toContain("Codex finished Capture Inbox planning.");
+      expect(html).toContain("Approve Memory");
+      expect(html).toContain("Reject");
+      expect(html).toContain(`data-endpoint=\"api/capture-inbox/${capture.record.id}/approve\"`);
+      expect(html).toContain(`data-endpoint=\"api/capture-inbox/${capture.record.id}/reject\"`);
+      expect(html).not.toContain("window.confirm");
+    });
+  });
+
   it("writes a local-only static dashboard snapshot", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
@@ -1014,6 +1113,150 @@ describe("observability dashboard", () => {
 
         const missing = await fetch(new URL("/missing", server.url));
         expect(missing.status).toBe(404);
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("approves and rejects Capture Inbox records from the dashboard server", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:05:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_capture_action_${++record}` : `evt_capture_action_${++event}`;
+        })()
+      });
+
+      const approved = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "Approve this captured handoff.", format: "text" },
+        source: { client: "codex" }
+      });
+      const rejected = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:claude"],
+        content: { text: "Reject this captured handoff.", format: "text" },
+        source: { client: "claude" }
+      });
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10,
+        project_id: "moryn"
+      });
+      try {
+        const approveResponse = await fetch(new URL(`/api/capture-inbox/${approved.record.id}/approve`, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({})
+        });
+        const approveBody = await approveResponse.json() as { ok: boolean; status: string; record_id: string; event_id: string };
+
+        expect(approveResponse.status).toBe(200);
+        expect(approveBody).toMatchObject({
+          ok: true,
+          status: "approved",
+          record_id: approved.record.id
+        });
+        expect(approveBody.event_id).toMatch(/^evt_/);
+        expect((await engine.recall({ record_ids: [approved.record.id], states: ["canonical"], project_id: "moryn" })).results[0]?.record.state).toBe("canonical");
+
+        const rejectResponse = await fetch(new URL(`/api/capture-inbox/${rejected.record.id}/reject`, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ reason: "User rejected Capture Inbox candidate." })
+        });
+        const rejectBody = await rejectResponse.json() as { ok: boolean; status: string; record_id: string; event_id: string };
+
+        expect(rejectResponse.status).toBe(200);
+        expect(rejectBody).toMatchObject({
+          ok: true,
+          status: "rejected",
+          record_id: rejected.record.id
+        });
+        expect(rejectBody.event_id).toMatch(/^evt_/);
+        expect((await engine.recall({ record_ids: [rejected.record.id], states: ["archived"], project_id: "moryn" })).results[0]?.record.state).toBe("archived");
+
+        const refreshed = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+          capture_inbox: { total: number };
+        };
+        expect(refreshed.capture_inbox.total).toBe(0);
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("rejects Capture Inbox actions for non-candidate records", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-06-01T00:01:00.000Z",
+        id: (() => {
+          let count = 0;
+          return (prefix: string) => `${prefix}_capture_invalid_${++count}`;
+        })()
+      });
+      const canonical = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["review"],
+        content: { text: "Already canonical.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10,
+        project_id: "moryn"
+      });
+      try {
+        const response = await fetch(new URL(`/api/capture-inbox/${canonical.record.id}/approve`, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({})
+        });
+        const body = await response.json() as { ok: boolean; status: string; message: string };
+
+        expect(response.status).toBe(409);
+        expect(body).toEqual({
+          ok: false,
+          status: "not_actionable",
+          message: "Capture Inbox actions require an active candidate record tagged review or autocapture."
+        });
       } finally {
         await server.close();
       }

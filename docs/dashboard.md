@@ -66,6 +66,10 @@ Server endpoints:
 - `GET /` serves the full dashboard shell.
 - `GET /fragment` rebuilds dashboard data and returns the current body HTML.
 - `GET /api/dashboard` rebuilds dashboard data and returns JSON.
+- `POST /api/capture-inbox/:record_id/approve` promotes one active Capture
+  Inbox candidate to canonical memory with explicit user confirmation.
+- `POST /api/capture-inbox/:record_id/reject` archives one active Capture Inbox
+  candidate with an append-only event.
 - `POST /api/maintenance/plans/:plan_id/approve` approves one generated
   maintenance plan after the server re-runs its dry run and verifies
   `plan_hash`.
@@ -82,6 +86,43 @@ the dashboard. The same flag applies to the server shell, `/fragment`, and
 Pass `--project-id <id>` or `--project <path>` when you want the server to
 generate project-specific Review Queue plans. Without project context the
 dashboard stays observational and `maintenance.plans[]` is empty.
+
+### Capture Inbox
+
+The live dashboard includes a `Capture Inbox` when agents have written active
+candidate records tagged `autocapture` or `review`. This is the v0.2.0 default
+review path for automatic capture: hosts can propose memory naturally, but the
+user keeps control over what becomes canonical long-term context.
+
+Each card shows:
+
+- proposed memory text
+- source agent and session
+- project id
+- confidence and priority
+- provenance method and reason
+- recall and timeline trace commands
+
+`Approve Memory` posts to:
+
+```text
+POST /api/capture-inbox/:record_id/approve
+```
+
+The server replays the current store, verifies that the record is still an
+active candidate tagged `autocapture` or `review`, then appends a confirmed
+`promote_record` event with `source.client: "user"`.
+
+`Reject` posts to:
+
+```text
+POST /api/capture-inbox/:record_id/reject
+```
+
+The server performs the same current-record check and appends an
+`archive_record` event. Reject does not delete the candidate or rewrite history.
+If the record was already approved, rejected, archived, or no longer visible,
+the server returns `409` with `status: "not_actionable"`.
 
 ### Review Queue
 
@@ -153,6 +194,7 @@ The first screen favors human-readable summaries over raw ids:
 - agent activity
 - record quality distribution
 - record type distribution
+- Capture Inbox candidate approvals when autocaptured records need review
 - recent valuable records, newest first
 - Review Queue maintenance plans when a project identity repair is available
 
@@ -202,6 +244,7 @@ The JSON returned by `/api/dashboard` includes:
 - `charts.record_types`
 - `charts.sync_position`
 - `totals`
+- `capture_inbox`
 - `recent_value`
 - `recent_records`
 - `recent_events`

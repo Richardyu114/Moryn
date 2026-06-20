@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { normalizeAgentIdentity } from "../core/agent-identity.js";
 import { displayRecordText } from "../core/content-text.js";
+import { createEngine } from "../core/engine.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/types.js";
@@ -25,6 +26,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
   attention_item: "attention_items[]",
   charts: "charts",
   totals: "totals",
+  capture_inbox: "capture_inbox",
   recent_value: "recent_value[]",
   record: "recent_records[]",
   event: "recent_events[]",
@@ -159,6 +161,30 @@ export interface DashboardValueRecord {
   citation: DashboardRecordCitation;
 }
 
+export interface DashboardCaptureInboxItem {
+  id: string;
+  kind: MorynRecord["kind"];
+  type: string;
+  project_id?: string;
+  text: string;
+  source_label: string;
+  source_detail: string;
+  relative_time: string;
+  exact_time: string;
+  confidence: number;
+  priority: MorynRecord["priority"];
+  provenance_method?: NonNullable<MorynRecord["provenance"]>["method"];
+  provenance_reason?: string;
+  approve_endpoint: string;
+  reject_endpoint: string;
+  citation: DashboardRecordCitation;
+}
+
+export interface DashboardCaptureInbox {
+  total: number;
+  items: DashboardCaptureInboxItem[];
+}
+
 export interface DashboardData {
   generated_at: string;
   store: {
@@ -174,6 +200,7 @@ export interface DashboardData {
     active_records: number;
     quarantined_records: number;
   };
+  capture_inbox: DashboardCaptureInbox;
   recent_value: DashboardValueRecord[];
   recent_records: DashboardRecordSummary[];
   recent_events: DashboardEventSummary[];
@@ -659,6 +686,56 @@ function buildRecentValue(records: MorynRecord[], generatedAt: string, limit: nu
     .map((record) => summarizeValueRecord(record, generatedAt, eventsByRecord));
 }
 
+function captureInboxApproveEndpoint(recordId: string): string {
+  return `api/capture-inbox/${encodeURIComponent(recordId)}/approve`;
+}
+
+function captureInboxRejectEndpoint(recordId: string): string {
+  return `api/capture-inbox/${encodeURIComponent(recordId)}/reject`;
+}
+
+function isCaptureInboxCandidate(record: MorynRecord): boolean {
+  return record.state === "candidate"
+    && record.visibility === "active"
+    && record.tags.some((tag) => {
+      const normalized = tag.toLowerCase();
+      return normalized === "review" || normalized === "autocapture";
+    });
+}
+
+function summarizeCaptureInboxItem(record: MorynRecord, generatedAt: string, eventsByRecord: Map<string, MorynEvent>): DashboardCaptureInboxItem {
+  return {
+    id: record.id,
+    kind: record.kind,
+    type: record.type,
+    project_id: record.project_id,
+    text: recordText(record),
+    source_label: humanSourceLabel(record.source),
+    source_detail: humanSourceDetail(record.source),
+    relative_time: relativeTime(record.updated_at, generatedAt),
+    exact_time: record.updated_at,
+    confidence: record.confidence,
+    priority: record.priority,
+    provenance_method: record.provenance?.method,
+    provenance_reason: record.provenance?.reason,
+    approve_endpoint: captureInboxApproveEndpoint(record.id),
+    reject_endpoint: captureInboxRejectEndpoint(record.id),
+    citation: recordCitation(record, eventsByRecord)
+  };
+}
+
+function buildCaptureInbox(records: MorynRecord[], generatedAt: string, limit: number, eventsByRecord: Map<string, MorynEvent>): DashboardCaptureInbox {
+  const candidates = records
+    .filter(isCaptureInboxCandidate)
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
+  return {
+    total: candidates.length,
+    items: candidates
+      .slice(0, limit)
+      .map((record) => summarizeCaptureInboxItem(record, generatedAt, eventsByRecord))
+  };
+}
+
 export async function buildDashboardData(storePath: string, options: DashboardOptions = {}): Promise<DashboardData> {
   const limit = dashboardLimit(options.limit);
   const events = await readEvents(storePath);
@@ -701,6 +778,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       active_records: records.filter((record) => record.visibility === "active").length,
       quarantined_records: records.filter((record) => record.visibility === "quarantined").length
     },
+    capture_inbox: buildCaptureInbox(records, generatedAt, limit, eventsByRecord),
     recent_value: buildRecentValue(records, generatedAt, Math.min(limit, RECENT_VALUE_LIMIT), eventsByRecord),
     recent_records: recentRecords.map((record) => summarizeRecord(record, eventsByRecord)),
     recent_events: recentEvents.map((event) => summarizeEvent(event, recordsById)),
@@ -962,6 +1040,60 @@ function recentValueCards(records: DashboardValueRecord[]): string {
   `;
 }
 
+function captureInbox(items: DashboardCaptureInbox): string {
+  if (items.total === 0) return "";
+  return `
+    <section class="panel capture-inbox" aria-label="Capture Inbox">
+      <div class="capture-inbox-heading">
+        <h2>Capture Inbox</h2>
+        <span>${escapeHtml(pluralize(items.total, "candidate"))}</span>
+      </div>
+      <div class="capture-inbox-list">
+        ${items.items.map((item) => `
+          <article class="capture-inbox-item" data-capture-inbox-record="${escapeHtml(item.id)}">
+            <div class="capture-inbox-main">
+              <div>
+                <h3>${escapeHtml(titleCase(item.type || item.kind))}</h3>
+                <p>${escapeHtml(item.text)}</p>
+              </div>
+              <span class="pill state-candidate">candidate</span>
+            </div>
+            <dl class="capture-inbox-summary">
+              <div><dt>Source</dt><dd>${escapeHtml(item.source_label)}<small>${escapeHtml(item.source_detail)}</small></dd></div>
+              <div><dt>Project</dt><dd><code>${escapeHtml(item.project_id ?? "global")}</code></dd></div>
+              <div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}<small>${escapeHtml(item.priority)} priority</small></dd></div>
+              <div><dt>Captured</dt><dd><time title="${escapeHtml(item.exact_time)}">${escapeHtml(item.relative_time)}</time></dd></div>
+            </dl>
+            <details data-dashboard-detail="capture:${escapeHtml(item.id)}">
+              <summary>Why this is here</summary>
+              <dl>
+                <div><dt>Record</dt><dd><code>${escapeHtml(item.id)}</code></dd></div>
+                <div><dt>Method</dt><dd>${escapeHtml(item.provenance_method ?? "agent-proposed")}</dd></div>
+                <div><dt>Reason</dt><dd>${escapeHtml(item.provenance_reason ?? "Candidate memory is waiting for review.")}</dd></div>
+                <div><dt>Trace</dt><dd>${citationCommands(item.citation)}</dd></div>
+              </dl>
+            </details>
+            <div class="capture-inbox-actions">
+              <button
+                type="button"
+                data-capture-inbox-reject
+                data-endpoint="${escapeHtml(item.reject_endpoint)}"
+              >Reject</button>
+              <button
+                type="button"
+                class="primary"
+                data-capture-inbox-approve
+                data-endpoint="${escapeHtml(item.approve_endpoint)}"
+              >Approve Memory</button>
+            </div>
+            <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function recordsTable(records: DashboardRecordSummary[]): string {
   const rows = records.map((record) => `
     <tr data-dashboard-citation="record:${escapeHtml(record.id)}">
@@ -1054,6 +1186,8 @@ function renderDashboardBody(data: DashboardData): string {
     </section>
 
     ${maintenanceReviewQueue(data.maintenance.plans)}
+
+    ${captureInbox(data.capture_inbox)}
 
     <section class="visual-grid">
       <div class="panel">
@@ -1218,6 +1352,61 @@ function dashboardMaintenanceScript(): string {
         } catch (error) {
           if (status) status.textContent = error instanceof Error ? error.message : "Approval failed.";
           approve.disabled = false;
+        }
+      });
+    })();
+  </script>`;
+}
+
+function dashboardCaptureInboxScript(): string {
+  return `
+  <script>
+    (() => {
+      const main = document.querySelector("main");
+      if (!main) return;
+      const refreshFragment = async () => {
+        const response = await fetch("fragment", { cache: "no-store" });
+        if (!response.ok) return;
+        main.innerHTML = await response.text();
+      };
+      const responseJson = async (response) => {
+        const text = await response.text();
+        if (!text) return {};
+        try {
+          return JSON.parse(text);
+        } catch {
+          return { ok: false, message: text };
+        }
+      };
+      main.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const approve = target.closest("[data-capture-inbox-approve]");
+        const reject = target.closest("[data-capture-inbox-reject]");
+        const button = approve || reject;
+        if (!(button instanceof HTMLButtonElement)) return;
+        const item = button.closest("[data-capture-inbox-record]");
+        if (!(item instanceof HTMLElement)) return;
+        const status = item.querySelector("[data-capture-inbox-status]");
+        button.disabled = true;
+        if (status) status.textContent = approve ? "Approving memory..." : "Rejecting candidate...";
+        try {
+          const response = await fetch(button.dataset.endpoint || "", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(reject ? { reason: "User rejected Capture Inbox candidate." } : {})
+          });
+          const result = await responseJson(response);
+          if (!response.ok || result.ok === false) {
+            if (status) status.textContent = result.message || "Capture Inbox action failed.";
+            button.disabled = false;
+            return;
+          }
+          if (status) status.textContent = approve ? "Approved. Refreshing dashboard..." : "Rejected. Refreshing dashboard...";
+          await refreshFragment();
+        } catch (error) {
+          if (status) status.textContent = error instanceof Error ? error.message : "Capture Inbox action failed.";
+          button.disabled = false;
         }
       });
     })();
@@ -1389,29 +1578,38 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .attention.critical { border-left-color: var(--critical); }
     .empty-state { border: 1px dashed var(--border); border-radius: 7px; padding: 14px; color: var(--muted); background: var(--surface-2); }
     .maintenance-review { border-left: 4px solid var(--signal-green); }
-    .maintenance-heading, .maintenance-plan-main, .maintenance-actions {
+    .capture-inbox { border-left: 4px solid var(--signal-blue); }
+    .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
+    .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions {
       display: flex;
       justify-content: space-between;
       gap: 10px;
       align-items: center;
       min-width: 0;
     }
-    .maintenance-heading span, .maintenance-status { color: var(--muted); font-size: 12px; font-weight: 650; }
-    .maintenance-list { display: grid; gap: 10px; }
-    .maintenance-plan {
+    .maintenance-heading span, .maintenance-status,
+    .capture-inbox-heading span, .capture-inbox-status { color: var(--muted); font-size: 12px; font-weight: 650; }
+    .maintenance-list, .capture-inbox-list { display: grid; gap: 10px; }
+    .maintenance-plan, .capture-inbox-item {
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px;
       background: var(--surface-2);
     }
-    .maintenance-plan-main { align-items: flex-start; margin-bottom: 10px; }
-    .maintenance-summary {
+    .maintenance-plan-main, .capture-inbox-main { align-items: flex-start; margin-bottom: 10px; }
+    .capture-inbox-main p {
+      color: var(--ink);
+      font-size: 14.5px;
+      font-weight: 560;
+      overflow-wrap: anywhere;
+    }
+    .maintenance-summary, .capture-inbox-summary {
       margin: 0 0 10px;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
     }
-    .maintenance-summary div {
+    .maintenance-summary div, .capture-inbox-summary div {
       display: grid;
       grid-template-columns: 104px minmax(0, 1fr);
       gap: 8px;
@@ -1422,7 +1620,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       min-width: 0;
     }
     .maintenance-summary div:last-child { grid-column: 1 / -1; }
-    .maintenance-summary small { margin-top: 3px; }
+    .maintenance-summary small, .capture-inbox-summary small { margin-top: 3px; }
     .maintenance-checks { display: grid; gap: 6px; padding-left: 0; list-style: none; }
     .maintenance-checks li {
       display: flex;
@@ -1434,7 +1632,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
     }
     .maintenance-checks li span { font-size: 11px; font-weight: 800; text-transform: uppercase; }
-    .maintenance-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 10px; }
+    .maintenance-actions, .capture-inbox-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 10px; }
     button {
       min-height: 32px;
       border: 1px solid var(--border);
@@ -1541,8 +1739,9 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       header, .overview-grid, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
-      .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-actions { display: grid; justify-content: stretch; }
-      .maintenance-summary { grid-template-columns: 1fr; }
+      .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
+      .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions { display: grid; justify-content: stretch; }
+      .maintenance-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
       .bar-label span { text-align: left; }
     }
   </style>
@@ -1551,6 +1750,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
   <main${refreshAttributes}>${renderDashboardBody(data)}</main>
   ${dashboardRefreshScript(options.refreshIntervalMs)}
   ${dashboardMaintenanceScript()}
+  ${dashboardCaptureInboxScript()}
 </body>
 </html>
 `;
@@ -1629,6 +1829,80 @@ function approvalPlanId(pathname: string): string | undefined {
   return match ? decodeURIComponent(match[1]) : undefined;
 }
 
+function captureInboxAction(pathname: string): { recordId: string; action: "approve" | "reject" } | undefined {
+  const match = /^\/api\/capture-inbox\/([^/]+)\/(approve|reject)$/.exec(pathname);
+  if (!match?.[1] || (match[2] !== "approve" && match[2] !== "reject")) return undefined;
+  return {
+    recordId: decodeURIComponent(match[1]),
+    action: match[2]
+  };
+}
+
+async function requireCaptureInboxCandidate(storePath: string, recordId: string, includePrivate: boolean | undefined): Promise<MorynRecord | undefined> {
+  const records = replayEvents(await readEvents(storePath));
+  const record = records.get(recordId);
+  if (!record || !isVisibleForDashboard(record, includePrivate) || !isCaptureInboxCandidate(record)) return undefined;
+  return record;
+}
+
+async function applyCaptureInboxAction(
+  storePath: string,
+  recordId: string,
+  action: "approve" | "reject",
+  body: unknown,
+  includePrivate: boolean | undefined
+): Promise<{ statusCode: number; body: Record<string, unknown> }> {
+  const record = await requireCaptureInboxCandidate(storePath, recordId, includePrivate);
+  if (!record) {
+    return {
+      statusCode: 409,
+      body: {
+        ok: false,
+        status: "not_actionable",
+        message: "Capture Inbox actions require an active candidate record tagged review or autocapture."
+      }
+    };
+  }
+
+  const engine = createEngine({ storePath });
+  if (action === "approve") {
+    const promoted = await engine.promote({
+      record_id: record.id,
+      target_state: "canonical",
+      reason: "User approved Capture Inbox candidate.",
+      source: { client: "user" },
+      confirmed: true
+    });
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        status: "approved",
+        record_id: record.id,
+        event_id: promoted.event.event_id
+      }
+    };
+  }
+
+  const reason = body && typeof body === "object" && typeof (body as { reason?: unknown }).reason === "string" && (body as { reason: string }).reason.trim()
+    ? (body as { reason: string }).reason.trim()
+    : "User rejected Capture Inbox candidate.";
+  const archived = await engine.archive({
+    record_id: record.id,
+    reason,
+    source: { client: "user" }
+  });
+  return {
+    statusCode: 200,
+    body: {
+      ok: true,
+      status: "rejected",
+      record_id: record.id,
+      event_id: archived.event.event_id
+    }
+  };
+}
+
 export async function startDashboardServer(storePath: string, options: DashboardServerOptions = {}): Promise<DashboardServerHandle> {
   const host = dashboardServerHost(options.host);
   const requestedPort = dashboardServerPort(options.port);
@@ -1640,6 +1914,19 @@ export async function startDashboardServer(storePath: string, options: Dashboard
     const includeBody = request.method !== "HEAD";
     try {
       if (request.method === "POST") {
+        const inboxAction = captureInboxAction(url.pathname);
+        if (inboxAction) {
+          let body: unknown;
+          try {
+            body = await readRequestJson(request);
+          } catch {
+            sendResponse(response, 400, JSON.stringify({ error: "Invalid request: JSON body is required" }), "application/json; charset=utf-8", includeBody);
+            return;
+          }
+          const result = await applyCaptureInboxAction(storePath, inboxAction.recordId, inboxAction.action, body, includePrivate);
+          sendResponse(response, result.statusCode, JSON.stringify(result.body), "application/json; charset=utf-8", includeBody);
+          return;
+        }
         const planId = approvalPlanId(url.pathname);
         if (!planId) {
           sendResponse(response, 404, JSON.stringify({ error: "Not found" }), "application/json; charset=utf-8", includeBody);

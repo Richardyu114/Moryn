@@ -47,7 +47,10 @@ moryn capture session
 session_summary tagged autocapture + host:<client>
         |
         v
-Next agent or device reads it through context pack / agent start / recall
+Dashboard Capture Inbox reviews candidate
+        |
+        v
+Approved memory becomes canonical for context pack / agent start / recall
 ```
 
 `context pack` is intentionally a convenience wrapper around the same Moryn
@@ -238,6 +241,11 @@ re-runs the dry run and applies only when the hash still matches. Agents must
 not invent approval or send `confirmed: true` unless the user approved the
 specific plan. Serve with `--include-private` only when the user explicitly
 asked private-tagged memories to be included in the review and repair.
+
+For autocaptured session handoffs, use the dashboard `Capture Inbox` instead of
+asking the agent to promote its own output. `Approve Memory` promotes a current
+candidate to canonical memory with user confirmation. `Reject` archives the
+candidate. Both actions append events and preserve the audit trail.
 
 ## Private Read Boundary
 
