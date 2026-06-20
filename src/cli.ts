@@ -88,7 +88,7 @@ const CLI_GLOBAL_OPTIONS = [
   { option: "--version", position: "before_command" },
   { option: "-V", position: "before_command" }
 ] as const;
-type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "dogfood_report" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
+type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "dogfood_report" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
@@ -133,6 +133,7 @@ type CliParserOperation =
   | "timeline"
   | "refresh"
   | "memory_doctor"
+  | "memory_lifecycle"
   | "dogfood_report"
   | "sync_push"
   | "revise"
@@ -1519,6 +1520,12 @@ function cliParserArgumentSource(option: string): CliParserSource | undefined {
     if (option === "--project-id") return { operation: "memory_doctor", argument: "project_id" };
     if (option === "--limit") return { operation: "memory_doctor", argument: "limit" };
   }
+  if (commandPath[0] === "memory" && commandPath[1] === "lifecycle") {
+    if (option === "--project") return { operation: "memory_lifecycle", argument: "project_path" };
+    if (option === "--project-id") return { operation: "memory_lifecycle", argument: "project_id" };
+    if (option === "--limit") return { operation: "memory_lifecycle", argument: "limit" };
+    if (option === "--now") return { operation: "memory_lifecycle", argument: "now" };
+  }
   if (commandPath[0] === "dogfood" && commandPath[1] === "report") {
     if (option === "--project") return { operation: "dogfood_report", argument: "project_path" };
     if (option === "--project-id") return { operation: "dogfood_report", argument: "project_id" };
@@ -2468,6 +2475,23 @@ memory.command("doctor")
     printJson(await engine.memoryDoctor({
       project_id: projectId,
       limit: parseLimit(options.limit, "memory_doctor"),
+      include_private: options.includePrivate
+    }));
+  });
+
+memory.command("lifecycle")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--limit <n>", "Assessment/action limit", "20")
+  .option("--now <iso>", "Use an explicit report timestamp")
+  .option("--include-private", "Include private-tagged records")
+  .action(async (options) => {
+    const engine = createCliEngine();
+    const projectId = await resolveOptionalProject(options, "memory_lifecycle");
+    printJson(await engine.memoryLifecycle({
+      project_id: projectId,
+      limit: parseLimit(options.limit, "memory_lifecycle"),
+      now: parseNonEmptyCliString(options.now, "--now", { operation: "memory_lifecycle", argument: "now" }),
       include_private: options.includePrivate
     }));
   });

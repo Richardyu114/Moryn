@@ -65,6 +65,15 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("duplicate_text");
     expect(contracts).toContain("default_capture_review_policy");
     expect(contracts).toContain("canonical memory requires explicit user");
+    expect(dashboard).toContain("Memory Lifecycle");
+    expect(dashboard).toContain("moryn memory lifecycle");
+    expect(dashboard).toContain("memory_lifecycle");
+    expect(dashboard).toContain("default_memory_lifecycle_policy");
+    expect(dashboard).toContain("safe_to_run: false");
+    expect(dashboard).toContain("does not provide an Apply or");
+    expect(dashboard).toContain("memory_lifecycle");
+    expect(contracts).toContain("memory_lifecycle");
+    expect(contracts).toContain("does not expose an Apply or Approve Lifecycle endpoint");
     expect(dashboard).toContain("Review Queue");
     expect(dashboard).toContain("POST /api/maintenance/plans/:plan_id/approve");
     expect(dashboard).toContain("plan_hash");
@@ -181,6 +190,28 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("dogfood_report.findings_by_id.<finding_id>");
     expect(contracts).toContain("dogfood_report.suggested_actions_by_id.<action_id>");
     expect(roadmap).toContain("dogfood report");
+  });
+
+  it("documents the read-only memory lifecycle surface", async () => {
+    const [readme, workflow, contracts, roadmap] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/contracts.md", "utf8"),
+      readFile("docs/implementation-roadmap.md", "utf8")
+    ]);
+
+    for (const document of [readme, workflow, contracts]) {
+      expect(document).toContain("moryn memory lifecycle");
+      expect(document).toContain("memory_lifecycle");
+      expect(document).toContain("read-only");
+      expect(document).toContain("safe_to_run: false");
+    }
+    expect(contracts).toContain("moryn contracts operations --operation memory_lifecycle");
+    expect(contracts).toContain('"tool": "memory_lifecycle"');
+    expect(contracts).toContain("memory_lifecycle.assessments_by_record_id.<record_id>");
+    expect(contracts).toContain("memory_lifecycle.findings_by_id.<finding_id>");
+    expect(contracts).toContain("memory_lifecycle.suggested_actions_by_id.<action_id>");
+    expect(roadmap).toContain("memory lifecycle");
   });
 
   it("keeps the design spec error contract aligned with runtime envelopes", async () => {

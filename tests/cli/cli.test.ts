@@ -1038,7 +1038,7 @@ describe("moryn CLI", () => {
     const parsed = JSON.parse(result.stdout) as {
       contracts: {
         setup: { store_init: { config_file: string } };
-        core: { boot: { skill: string }; dogfood_report: { finding: string } };
+        core: { boot: { skill: string }; dogfood_report: { finding: string }; memory_lifecycle: { assessment: string } };
         sync: { result: { pushed: string } };
         lifecycle: { guide: { guardrail: string } };
         recovery: { next_action: { error_next_action: string } };
@@ -1050,6 +1050,7 @@ describe("moryn CLI", () => {
     expect(parsed.contracts.setup.store_init.config_file).toBe("artifacts.config");
     expect(parsed.contracts.core.boot.skill).toBe("skills_by_id.<record_id>");
     expect(parsed.contracts.core.dogfood_report.finding).toBe("findings_by_id.<finding_id>");
+    expect(parsed.contracts.core.memory_lifecycle.assessment).toBe("assessments_by_record_id.<record_id>");
     expect(parsed.contracts.sync.result.pushed).toBe("pushed");
     expect(parsed.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
     expect(parsed.contracts.recovery.next_action.error_next_action).toBe("error.next_action");
@@ -1157,6 +1158,23 @@ describe("moryn CLI", () => {
       }
     });
     expect(parsed.operations_by_id.dogfood_report.arguments_by_name.limit).toMatchObject({
+      name: "limit",
+      type: "number",
+      required: false,
+      cli: { flag: "--limit" },
+      mcp: { argument: "limit" }
+    });
+    expect(parsed.operations_by_id.memory_lifecycle).toMatchObject({
+      operation: "memory_lifecycle",
+      category: "core",
+      safe_to_run: true,
+      required_fields: [],
+      interfaces: {
+        cli: { command: "moryn memory lifecycle" },
+        mcp: { tool: "memory_lifecycle" }
+      }
+    });
+    expect(parsed.operations_by_id.memory_lifecycle.arguments_by_name.limit).toMatchObject({
       name: "limit",
       type: "number",
       required: false,
@@ -1969,7 +1987,7 @@ describe("moryn CLI", () => {
       }
     });
     expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
-    expect(parsed.operations_by_id.dashboard.execution_hint).not.toHaveProperty("required_input_sources");
+    expect(parsed.operations_by_id.dashboard.execution_hint).toBeUndefined();
     expect(parsed.operations_by_id.dashboard.cli_command).toBe("moryn dashboard");
     expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
     expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("execution");
@@ -3487,6 +3505,81 @@ describe("moryn CLI", () => {
         safe_to_run: false
       });
       expect(JSON.stringify(parsed.records_by_id)).not.toContain("Hidden rule should not appear");
+    });
+  });
+
+  it("runs a read-only memory lifecycle report from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+      const staleCandidate = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--confidence", "0.35",
+        "--text", "Old lifecycle candidate should be archived."
+      ])).stdout) as { record: { id: string } };
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "rule",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--priority", "high",
+        "--state", "canonical",
+        "--confirm",
+        "--text", "Keep Moryn local-first and user-owned."
+      ]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--tag", "private",
+        "--text", "Private lifecycle CLI finding must stay hidden."
+      ]);
+
+      const beforeEvents = await readEvents(dir);
+      const result = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "memory", "lifecycle",
+        "--project-id", "moryn",
+        "--limit", "20",
+        "--now", "2027-06-20T00:00:00.000Z"
+      ]);
+      const parsed = JSON.parse(result.stdout) as {
+        read_only: boolean;
+        policy: { id: string };
+        stats: { total_records: number; excluded_private_records: number; archive_candidate_records: number };
+        assessments_by_record_id: Record<string, { lifecycle_state: string; recommended_action: string }>;
+        suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
+        records_by_id: Record<string, { id: string }>;
+      };
+
+      expect(await readEvents(dir)).toHaveLength(beforeEvents.length);
+      expect(parsed.read_only).toBe(true);
+      expect(parsed.policy.id).toBe("default_memory_lifecycle_policy");
+      expect(parsed.stats).toMatchObject({
+        total_records: 2,
+        excluded_private_records: 1,
+        archive_candidate_records: 1
+      });
+      expect(parsed.assessments_by_record_id[staleCandidate.record.id]).toMatchObject({
+        lifecycle_state: "archive_candidate",
+        recommended_action: "archive_after_review"
+      });
+      expect(parsed.suggested_actions_by_id[`archive:${staleCandidate.record.id}`]).toMatchObject({
+        tool: "archive",
+        safe_to_run: false,
+        command: `moryn archive ${staleCandidate.record.id} --reason 'Memory lifecycle: archive stale low-confidence candidate'`
+      });
+      expect(parsed.records_by_id[staleCandidate.record.id]?.id).toBe(staleCandidate.record.id);
+      expect(JSON.stringify(parsed)).not.toContain("Private lifecycle CLI finding");
     });
   });
 

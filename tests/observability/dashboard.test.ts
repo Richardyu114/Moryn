@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeStore } from "../../src/core/config.js";
+import { readEvents } from "../../src/core/store.js";
 import {
   buildDashboardData,
   renderDashboardHtml,
@@ -637,6 +638,208 @@ describe("observability dashboard", () => {
       } finally {
         await server.close();
       }
+    });
+  });
+
+  it("surfaces a read-only memory lifecycle panel without mutating or exposing private records", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-01-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-01-01T00:01:00.000Z",
+            "2026-01-02T00:01:00.000Z",
+            "2026-06-15T00:01:00.000Z",
+            "2026-01-03T00:01:00.000Z",
+            "2026-01-04T00:01:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-04-16T00:01:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_lifecycle_${++record}` : `evt_lifecycle_${++event}`;
+        })()
+      });
+
+      const archiveCandidate = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review"],
+        content: { text: "Old low-confidence dashboard lifecycle candidate.", format: "text" },
+        confidence: 0.2,
+        source: { client: "codex", session_id: "lifecycle-dashboard" }
+      });
+      const staleRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Old canonical decision needs timeline inspection.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        confidence: 0.8,
+        source: { client: "user" }
+      });
+      const recentRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Recent dashboard lifecycle memory stays retained.", format: "text" },
+        confidence: 0.7,
+        source: { client: "codex" }
+      });
+      const otherProjectRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "other",
+        content: { text: "Other project lifecycle memory stays out.", format: "text" },
+        confidence: 0.2,
+        source: { client: "codex" }
+      });
+      const privateRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Private dashboard lifecycle memory must stay hidden.", format: "text" },
+        confidence: 0.1,
+        source: { client: "codex" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-20T00:00:00.000Z"
+      });
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(data.memory_lifecycle).toMatchObject({
+        read_only: true,
+        project_id: "moryn",
+        generated_at: "2026-06-20T00:00:00.000Z",
+        policy: { id: "default_memory_lifecycle_policy" },
+        stats: {
+          total_records: 3,
+          excluded_private_records: 1,
+          archive_candidate_records: 1,
+          stale_records: 1,
+          retained_records: 1
+        }
+      });
+      expect(data.memory_lifecycle.assessments_by_record_id[archiveCandidate.record.id]).toMatchObject({
+        lifecycle_state: "archive_candidate",
+        recommended_action: "archive_after_review"
+      });
+      expect(data.memory_lifecycle.assessments_by_record_id[staleRecord.record.id]).toMatchObject({
+        lifecycle_state: "stale",
+        recommended_action: "inspect_timeline"
+      });
+      expect(data.memory_lifecycle.assessments_by_record_id[recentRecord.record.id]).toMatchObject({
+        lifecycle_state: "retained"
+      });
+      expect(data.memory_lifecycle.assessments_by_record_id[otherProjectRecord.record.id]).toBeUndefined();
+      expect(data.memory_lifecycle.assessments_by_record_id[privateRecord.record.id]).toBeUndefined();
+      expect(JSON.stringify(data)).not.toContain("Private dashboard lifecycle memory");
+      expect(JSON.stringify(data.memory_lifecycle)).not.toContain("Other project lifecycle memory");
+      expect(data.memory_lifecycle.suggested_actions).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          action_id: `archive:${archiveCandidate.record.id}`,
+          command: expect.stringContaining(`moryn archive ${archiveCandidate.record.id}`),
+          safe_to_run: false
+        }),
+        expect.objectContaining({
+          action_id: `inspect:${staleRecord.record.id}`,
+          command: expect.stringContaining(`moryn timeline --record-id ${staleRecord.record.id} --project-id moryn`),
+          safe_to_run: true
+        })
+      ]));
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain("Memory Lifecycle");
+      expect(html).toContain("default_memory_lifecycle_policy");
+      expect(html).toContain("Archive candidates");
+      expect(html).toContain("Stale records");
+      expect(html).toContain("Read-only");
+      expect(html).toContain("archive_after_review");
+      expect(html).toContain(`moryn archive ${archiveCandidate.record.id}`);
+      expect(html).toContain(`moryn timeline --record-id ${staleRecord.record.id} --project-id moryn`);
+      expect(html).not.toContain("Apply Lifecycle");
+      expect(html).not.toContain("data-lifecycle-approve");
+      expect(html).not.toContain("Private dashboard lifecycle memory");
+    });
+  });
+
+  it("marks included private dashboard lifecycle records as private-retained", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-01-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-01-01T00:01:00.000Z",
+            "2026-01-02T00:01:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-01-03T00:01:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_lifecycle_private_${++record}` : `evt_lifecycle_private_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Public lifecycle memory.", format: "text" },
+        confidence: 0.3,
+        source: { client: "codex" }
+      });
+      const privateRecord = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Included private lifecycle memory.", format: "text" },
+        confidence: 0.1,
+        source: { client: "codex" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        include_private: true,
+        now: "2026-06-20T00:00:00.000Z"
+      });
+
+      expect(data.memory_lifecycle.stats).toMatchObject({
+        total_records: 2,
+        excluded_private_records: 0,
+        private_retained_records: 1
+      });
+      expect(data.memory_lifecycle.assessments_by_record_id[privateRecord.record.id]).toMatchObject({
+        lifecycle_state: "private_retained",
+        recommended_action: "keep",
+        reasons: ["private_record_retained_by_boundary"]
+      });
+      expect(JSON.stringify(data)).toContain("Included private lifecycle memory.");
     });
   });
 

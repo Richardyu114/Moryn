@@ -996,7 +996,7 @@ describe("MCP stdio server", () => {
         })) as {
           contracts: {
             setup: { store_init: { config_file: string } };
-            core: { boot: { skill: string }; dogfood_report: { finding: string } };
+            core: { boot: { skill: string }; dogfood_report: { finding: string }; memory_lifecycle: { assessment: string } };
             sync: { result: { pushed: string } };
             lifecycle: { guide: { guardrail: string } };
             recovery: { next_action: { error_next_action: string } };
@@ -1008,6 +1008,7 @@ describe("MCP stdio server", () => {
         expect(parsed.contracts.setup.store_init.config_file).toBe("artifacts.config");
         expect(parsed.contracts.core.boot.skill).toBe("skills_by_id.<record_id>");
         expect(parsed.contracts.core.dogfood_report.finding).toBe("findings_by_id.<finding_id>");
+        expect(parsed.contracts.core.memory_lifecycle.assessment).toBe("assessments_by_record_id.<record_id>");
         expect(parsed.contracts.sync.result.pushed).toBe("pushed");
         expect(parsed.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
         expect(parsed.contracts.recovery.next_action.error_next_action).toBe("error.next_action");
@@ -1880,7 +1881,7 @@ describe("MCP stdio server", () => {
           }
         });
         expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
-        expect(parsed.operations_by_id.dashboard.execution_hint).not.toHaveProperty("required_input_sources");
+        expect(parsed.operations_by_id.dashboard.execution_hint).toBeUndefined();
         expect(parsed.operations_by_id.dashboard.cli_command).toBe("moryn dashboard");
         expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
         expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("execution");
@@ -2850,6 +2851,7 @@ describe("MCP stdio server", () => {
           "link",
           "list_recent",
           "memory_doctor",
+          "memory_lifecycle",
           "operation_contracts",
           "project_init",
           "project_list",
@@ -3077,6 +3079,21 @@ describe("MCP stdio server", () => {
           tool: "dashboard",
           safe_to_run: true
         });
+
+        const lifecycle = parseTextContent(await client.callTool({
+          name: "memory_lifecycle",
+          arguments: {
+            project_path: projectPath,
+            limit: 20
+          }
+        })) as {
+          read_only: boolean;
+          policy: { id: string };
+          assessments_by_record_id: Record<string, { lifecycle_state: string }>;
+        };
+        expect(lifecycle.read_only).toBe(true);
+        expect(lifecycle.policy.id).toBe("default_memory_lifecycle_policy");
+        expect(Object.values(lifecycle.assessments_by_record_id).length).toBeGreaterThan(0);
 
         const writeResult = parseTextContent(await client.callTool({
           name: "write",
@@ -6522,6 +6539,90 @@ describe("MCP stdio server", () => {
           tool: "archive",
           safe_to_run: false
         });
+      });
+    } finally {
+      await rm(store, { recursive: true, force: true });
+    }
+  });
+
+  it("runs a read-only memory lifecycle report over MCP", async () => {
+    const store = await mkdtemp(join(tmpdir(), "moryn-mcp-memory-lifecycle-"));
+    try {
+      await withMcpClient(store, async (client) => {
+        expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
+        const staleCandidate = parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            text: "MCP stale lifecycle candidate.",
+            confidence: 0.35,
+            source: { client: "codex" }
+          }
+        })) as { record: { id: string } };
+        parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "rule",
+            scope: "project",
+            project_id: "moryn",
+            priority: "high",
+            state: "canonical",
+            confirmed: true,
+            text: "Keep Moryn local-first over MCP.",
+            source: { client: "user" }
+          }
+        }));
+        parseTextContent(await client.callTool({
+          name: "write",
+          arguments: {
+            kind: "memory",
+            type: "decision",
+            scope: "project",
+            project_id: "moryn",
+            tags: ["private"],
+            text: "MCP private lifecycle finding must stay hidden.",
+            source: { client: "codex" }
+          }
+        }));
+
+        const beforeEvents = await readEvents(store);
+        const lifecycle = parseTextContent(await client.callTool({
+          name: "memory_lifecycle",
+          arguments: {
+            project_id: "moryn",
+            now: "2027-06-20T00:00:00.000Z",
+            limit: 20
+          }
+        })) as {
+          read_only: boolean;
+          stats: { total_records: number; excluded_private_records: number; archive_candidate_records: number };
+          assessments_by_record_id: Record<string, { lifecycle_state: string; recommended_action: string }>;
+          suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
+          records_by_id: Record<string, { id: string }>;
+        };
+
+        expect(await readEvents(store)).toHaveLength(beforeEvents.length);
+        expect(lifecycle.read_only).toBe(true);
+        expect(lifecycle.stats).toMatchObject({
+          total_records: 2,
+          excluded_private_records: 1,
+          archive_candidate_records: 1
+        });
+        expect(lifecycle.assessments_by_record_id[staleCandidate.record.id]).toMatchObject({
+          lifecycle_state: "archive_candidate",
+          recommended_action: "archive_after_review"
+        });
+        expect(lifecycle.suggested_actions_by_id[`archive:${staleCandidate.record.id}`]).toMatchObject({
+          tool: "archive",
+          command: `moryn archive ${staleCandidate.record.id} --reason 'Memory lifecycle: archive stale low-confidence candidate'`,
+          safe_to_run: false
+        });
+        expect(lifecycle.records_by_id[staleCandidate.record.id]?.id).toBe(staleCandidate.record.id);
+        expect(JSON.stringify(lifecycle)).not.toContain("MCP private lifecycle finding");
       });
     } finally {
       await rm(store, { recursive: true, force: true });

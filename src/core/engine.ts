@@ -12,6 +12,7 @@ import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js"
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool } from "../operation-contracts.js";
 import { diagnoseDogfood, type DogfoodReportInput } from "./dogfood-report.js";
+import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 
 interface EngineDeps {
@@ -128,6 +129,11 @@ interface MemoryDoctorInput {
 
 type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
   include_private?: boolean;
+};
+
+type ValidatedMemoryLifecycleInput = MemoryLifecycleInput & {
+  include_private?: boolean;
+  now?: string;
 };
 
 type ValidatedDogfoodReportInput = DogfoodReportInput & {
@@ -586,7 +592,7 @@ type ValidatedProjectMigrateInput = ProjectMigrateInput & {
   include_private: boolean;
 };
 
-type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "dogfood_report";
+type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "dogfood_report";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
 type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.${string}`;
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
@@ -2081,6 +2087,16 @@ function validateMemoryDoctorInput(input: MemoryDoctorInput): void {
   validateOptionalBoolean("memory_doctor", input.include_private, "include_private");
 }
 
+function validateMemoryLifecycleInput(input: MemoryLifecycleInput): void {
+  assertPlainObject(input, "memory lifecycle input");
+  validateOptionalString("memory_lifecycle", input.project_id, "project_id");
+  validateOptionalString("memory_lifecycle", input.now, "now");
+  if (typeof input.now === "string" && !isoDateTimeSchema.safeParse(input.now).success) {
+    throw invalidReadStringError("memory_lifecycle", "now", input.now);
+  }
+  validateOptionalBoolean("memory_lifecycle", input.include_private, "include_private");
+}
+
 function validateDogfoodReportInput(input: DogfoodReportInput): void {
   assertPlainObject(input, "dogfood report input");
   validateOptionalString("dogfood_report", input.project_id, "project_id");
@@ -3278,6 +3294,29 @@ export function createEngine(deps: EngineDeps) {
         limit,
         include_private: resolvedInput.include_private,
         excluded_private_records: allRecords.length - records.length
+      });
+    },
+
+    async memoryLifecycle(input: MemoryLifecycleInput = {}) {
+      validateMemoryLifecycleInput(input);
+      const resolvedInput = {
+        ...input,
+        include_private: input.include_private === true,
+        now: input.now ?? now()
+      } as ValidatedMemoryLifecycleInput;
+      const limit = validateLimit(resolvedInput.limit, 20, "memory_lifecycle");
+      const allRecords = await currentRecords();
+      const records = allRecords
+        .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private))
+        .filter((record) => recordProjectMatches(record, resolvedInput.project_id));
+      return diagnoseMemoryLifecycle({
+        records,
+        project_id: resolvedInput.project_id,
+        limit,
+        include_private: resolvedInput.include_private,
+        now: resolvedInput.now,
+        private_record_ids: allRecords.filter(isPrivateRecord).map((record) => record.id),
+        excluded_private_records: allRecords.length - allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
       });
     },
 

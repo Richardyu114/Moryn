@@ -151,7 +151,7 @@ Default path
   -> fast, boring, hard to misuse
 
 Power path
-  review / timeline / memory doctor / dogfood report / eval / sync repair / dashboard
+  review / timeline / memory doctor / memory lifecycle / dogfood report / eval / sync repair / dashboard
   -> optional, auditable, useful when the user needs governance
 
 Core boundary
@@ -204,8 +204,8 @@ Do not start this phase until there are enough candidate, conflict, stale, or
 duplicate records in dogfood data to justify a new surface. The goal is trust,
 not another dashboard tab.
 
-- Start with review inbox and memory doctor output before adding broad editing
-  workflows.
+- Start with review inbox, memory doctor, and memory lifecycle output before
+  adding broad editing workflows.
 - Preserve old records through archive, revise, link, or supersede metadata
   instead of destructive merge.
 - Keep machine-readable actions for promote, archive, quarantine, revise, and

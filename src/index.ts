@@ -12,6 +12,7 @@ import {
 import { STORE_INIT_SELECTION_SOURCES } from "./core/config.js";
 import { REBUILD_SELECTION_SOURCES } from "./core/derived.js";
 import { DOGFOOD_REPORT_SELECTION_SOURCES } from "./core/dogfood-report.js";
+import { MEMORY_LIFECYCLE_SELECTION_SOURCES } from "./core/memory-lifecycle.js";
 export { createEngine } from "./core/engine.js";
 export { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "./core/host-adapters.js";
 import { HANDOFF_PACK_SELECTION_SOURCES } from "./core/host-adapters.js";
@@ -94,7 +95,8 @@ export {
   SYNC_RESULT_SELECTION_SOURCES,
   SYNC_STATUS_SELECTION_SOURCES,
   HANDOFF_PACK_SELECTION_SOURCES,
-  DOGFOOD_REPORT_SELECTION_SOURCES
+  DOGFOOD_REPORT_SELECTION_SOURCES,
+  MEMORY_LIFECYCLE_SELECTION_SOURCES
 };
 
 export const SELECTION_SOURCE_CONTRACTS = {
@@ -119,6 +121,7 @@ export const SELECTION_SOURCE_CONTRACTS = {
     project_list_next_action: PROJECT_LIST_NEXT_ACTION_SELECTION_SOURCES,
     project_migrate: PROJECT_MIGRATE_SELECTION_SOURCES,
     memory_doctor: MEMORY_DOCTOR_SELECTION_SOURCES,
+    memory_lifecycle: MEMORY_LIFECYCLE_SELECTION_SOURCES,
     dogfood_report: DOGFOOD_REPORT_SELECTION_SOURCES
   },
   sync: {

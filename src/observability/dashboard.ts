@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { normalizeAgentIdentity } from "../core/agent-identity.js";
 import { displayRecordText } from "../core/content-text.js";
 import { createEngine } from "../core/engine.js";
+import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/types.js";
@@ -56,6 +57,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
   charts: "charts",
   totals: "totals",
   capture_inbox: "capture_inbox",
+  memory_lifecycle: "memory_lifecycle",
   recent_value: "recent_value[]",
   record: "recent_records[]",
   event: "recent_events[]",
@@ -67,6 +69,7 @@ export interface DashboardOptions {
   limit?: number;
   include_private?: boolean;
   project_id?: string;
+  now?: string;
 }
 
 export interface DashboardRecordSummary {
@@ -280,6 +283,7 @@ export interface DashboardData {
     quarantined_records: number;
   };
   capture_inbox: DashboardCaptureInbox;
+  memory_lifecycle: MemoryLifecycleResult;
   recent_value: DashboardValueRecord[];
   recent_records: DashboardRecordSummary[];
   recent_events: DashboardEventSummary[];
@@ -336,6 +340,10 @@ function isPrivateRecord(record: MorynRecord): boolean {
 
 function isVisibleForDashboard(record: MorynRecord, includePrivate: boolean | undefined): boolean {
   return includePrivate === true || !isPrivateRecord(record);
+}
+
+function recordProjectMatchesDashboard(record: MorynRecord, projectId: string | undefined): boolean {
+  return !projectId || record.project_id === projectId || record.scope === "global";
 }
 
 function targetRecordId(event: MorynEvent): string | undefined {
@@ -939,7 +947,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const limit = dashboardLimit(options.limit);
   const events = await readEvents(storePath);
   const allRecordsById = replayEvents(events);
-  const records = [...allRecordsById.values()].filter((record) => isVisibleForDashboard(record, options.include_private));
+  const allRecords = [...allRecordsById.values()];
+  const records = allRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
   const recordsById = new Map(records.map((record) => [record.id, record]));
   const visibleRecordIds = new Set(records.map((record) => record.id));
   const visibleEvents = events.filter((event) => {
@@ -953,9 +962,11 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const recentEvents = [...visibleEvents]
     .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.event_id.localeCompare(right.event_id))
     .slice(0, limit);
-  const generatedAt = new Date().toISOString();
+  const generatedAt = options.now ?? new Date().toISOString();
   const sync = await getGitSyncStatus(storePath);
   const agentActivity = summarizeAgentActivity(visibleEvents, records, recordsById, eventsByRecord);
+  const lifecycleAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
+  const lifecycleRecords = lifecycleAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
 
   return {
     generated_at: generatedAt,
@@ -978,11 +989,20 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       quarantined_records: records.filter((record) => record.visibility === "quarantined").length
     },
     capture_inbox: buildCaptureInbox(records, generatedAt, limit, eventsByRecord),
+    memory_lifecycle: diagnoseMemoryLifecycle({
+      records: lifecycleRecords,
+      project_id: options.project_id,
+      limit,
+      include_private: options.include_private === true,
+      now: generatedAt,
+      private_record_ids: lifecycleAllRecords.filter(isPrivateRecord).map((record) => record.id),
+      excluded_private_records: lifecycleAllRecords.length - lifecycleRecords.length
+    }),
     recent_value: buildRecentValue(records, generatedAt, Math.min(limit, RECENT_VALUE_LIMIT), eventsByRecord),
     recent_records: recentRecords.map((record) => summarizeRecord(record, eventsByRecord)),
     recent_events: recentEvents.map((event) => summarizeEvent(event, recordsById)),
     agent_activity: agentActivity,
-    maintenance: buildDashboardMaintenance([...allRecordsById.values()], {
+    maintenance: buildDashboardMaintenance(allRecords, {
       project_id: options.project_id,
       include_private: options.include_private
     }),
@@ -1141,6 +1161,88 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
           </article>
         `).join("")}
       </div>
+    </section>
+  `;
+}
+
+function lifecycleSummary(report: MemoryLifecycleResult): string {
+  const stats = report.stats;
+  return `
+    <dl class="lifecycle-summary">
+      <div><dt>Archive candidates</dt><dd>${escapeHtml(stats.archive_candidate_records)}<small>review before archive</small></dd></div>
+      <div><dt>Stale records</dt><dd>${escapeHtml(stats.stale_records)}<small>inspect timeline</small></dd></div>
+      <div><dt>Retained</dt><dd>${escapeHtml(stats.retained_records)}<small>kept by policy</small></dd></div>
+      <div><dt>Private boundary</dt><dd>${escapeHtml(stats.excluded_private_records)} hidden<small>${escapeHtml(stats.private_retained_records)} private retained</small></dd></div>
+    </dl>
+  `;
+}
+
+function lifecycleFindingList(report: MemoryLifecycleResult): string {
+  if (report.findings.length === 0) {
+    return `<div class="empty-state">No lifecycle findings for this snapshot.</div>`;
+  }
+  return `
+    <div class="lifecycle-findings">
+      ${report.findings.map((finding) => `
+        <article class="lifecycle-finding ${escapeHtml(finding.severity)}">
+          <div>
+            <strong>${escapeHtml(finding.summary)}</strong>
+            <span>${escapeHtml(titleCase(finding.severity))}</span>
+          </div>
+          <p>${escapeHtml(finding.reason)}</p>
+          <small>${escapeHtml(pluralize(finding.record_ids.length, "record"))}: ${finding.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</small>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function lifecycleActions(report: MemoryLifecycleResult): string {
+  if (report.suggested_actions.length === 0) {
+    return `<div class="empty-state">No lifecycle actions suggested.</div>`;
+  }
+  return `
+    <div class="lifecycle-actions">
+      ${report.suggested_actions.slice(0, 6).map((action) => `
+        <article class="lifecycle-action ${action.safe_to_run ? "safe" : "review"}">
+          <div>
+            <span class="pill ${action.safe_to_run ? "state-canonical" : "warning"}">${escapeHtml(action.safe_to_run ? "Read-only" : "Needs review")}</span>
+            <strong>${escapeHtml(action.recommended_action)}</strong>
+          </div>
+          <code>${escapeHtml(action.command)}</code>
+          <small>${escapeHtml(action.required_when)}</small>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function memoryLifecyclePanel(report: MemoryLifecycleResult): string {
+  const totalFindings = report.findings.length;
+  const totalActions = report.suggested_actions.length;
+  if (report.stats.total_records === 0 && totalFindings === 0 && totalActions === 0) return "";
+  return `
+    <section class="panel memory-lifecycle" aria-label="Memory Lifecycle">
+      <div class="lifecycle-heading">
+        <h2>Memory Lifecycle</h2>
+        <span>${escapeHtml(pluralize(totalFindings, "finding"))} | ${escapeHtml(pluralize(totalActions, "action"))}</span>
+      </div>
+      <div class="lifecycle-policy">
+        <div>
+          <strong>Lifecycle Policy</strong>
+          <code>${escapeHtml(report.policy.id)}</code>
+        </div>
+        <span>Read-only</span>
+        <span>${escapeHtml(report.policy.stale_after_days)}d stale</span>
+        <span>${escapeHtml(report.policy.archive_after_days)}d archive review</span>
+        <span>low confidence &lt; ${escapeHtml(report.policy.low_confidence_threshold)}</span>
+      </div>
+      ${lifecycleSummary(report)}
+      ${lifecycleFindingList(report)}
+      <details class="lifecycle-action-details" data-dashboard-detail="memory-lifecycle:${escapeHtml(report.generated_at)}">
+        <summary>Suggested actions</summary>
+        ${lifecycleActions(report)}
+      </details>
     </section>
   `;
 }
@@ -1466,6 +1568,8 @@ function renderDashboardBody(data: DashboardData): string {
     </section>
 
     ${maintenanceReviewQueue(data.maintenance.plans)}
+
+    ${memoryLifecyclePanel(data.memory_lifecycle)}
 
     ${captureInbox(data.capture_inbox)}
 
@@ -1866,8 +1970,10 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .attention.critical { border-left-color: var(--critical); }
     .empty-state { border: 1px dashed var(--border); border-radius: 7px; padding: 14px; color: var(--muted); background: var(--surface-2); }
     .maintenance-review { border-left: 4px solid var(--signal-green); }
+    .memory-lifecycle { border-left: 4px solid var(--signal-violet); }
     .capture-inbox { border-left: 4px solid var(--signal-blue); }
     .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
+    .lifecycle-heading,
     .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions {
       display: flex;
       justify-content: space-between;
@@ -1876,9 +1982,10 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       min-width: 0;
     }
     .maintenance-heading span, .maintenance-status,
+    .lifecycle-heading span,
     .capture-inbox-heading span, .capture-inbox-status { color: var(--muted); font-size: 12px; font-weight: 650; }
-    .maintenance-list, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
-    .capture-policy {
+    .maintenance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
+    .capture-policy, .lifecycle-policy {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
@@ -1887,17 +1994,17 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--muted);
       font-size: 12px;
     }
-    .capture-policy div {
+    .capture-policy div, .lifecycle-policy div {
       display: inline-flex;
       flex-wrap: wrap;
       gap: 7px;
       align-items: center;
     }
-    .capture-policy strong {
+    .capture-policy strong, .lifecycle-policy strong {
       color: var(--ink);
       font-weight: 760;
     }
-    .capture-policy span {
+    .capture-policy span, .lifecycle-policy span {
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 2px 7px;
@@ -1930,12 +2037,27 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
     }
     .capture-policy-rule-list strong { color: var(--ink); }
-    .maintenance-plan, .capture-inbox-group, .capture-inbox-item {
+    .maintenance-plan, .lifecycle-finding, .lifecycle-action, .capture-inbox-group, .capture-inbox-item {
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px;
       background: var(--surface-2);
     }
+    .lifecycle-finding, .lifecycle-action { background: var(--surface); }
+    .lifecycle-finding div, .lifecycle-action div {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 7px;
+    }
+    .lifecycle-finding strong, .lifecycle-action strong { color: var(--ink); font-weight: 760; }
+    .lifecycle-finding span, .lifecycle-action small { color: var(--muted); font-size: 12px; font-weight: 650; }
+    .lifecycle-action code { display: block; width: 100%; margin: 6px 0; }
+    .lifecycle-action.review { border-left: 3px solid var(--warning); }
+    .lifecycle-action.safe { border-left: 3px solid var(--good); }
+    .lifecycle-action-details { margin-top: 10px; }
+    .lifecycle-action-details summary { font-weight: 760; color: var(--ink); }
     .capture-inbox-group {
       background: var(--surface);
       box-shadow: 0 8px 18px rgba(21, 25, 30, 0.04);
@@ -1949,13 +2071,13 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 560;
       overflow-wrap: anywhere;
     }
-    .maintenance-summary, .capture-inbox-summary {
+    .maintenance-summary, .lifecycle-summary, .capture-inbox-summary {
       margin: 0 0 10px;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
     }
-    .maintenance-summary div, .capture-inbox-summary div {
+    .maintenance-summary div, .lifecycle-summary div, .capture-inbox-summary div {
       display: grid;
       grid-template-columns: 104px minmax(0, 1fr);
       gap: 8px;
@@ -1966,7 +2088,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       min-width: 0;
     }
     .maintenance-summary div:last-child { grid-column: 1 / -1; }
-    .maintenance-summary small, .capture-inbox-summary small { margin-top: 3px; }
+    .maintenance-summary small, .lifecycle-summary small, .capture-inbox-summary small { margin-top: 3px; }
     .maintenance-checks { display: grid; gap: 6px; padding-left: 0; list-style: none; }
     .maintenance-checks li {
       display: flex;
@@ -2086,8 +2208,9 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
+      .lifecycle-heading,
       .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions { display: grid; justify-content: stretch; }
-      .maintenance-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
+      .maintenance-summary, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
       .bar-label span { text-align: left; }
     }
   </style>

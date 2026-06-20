@@ -180,6 +180,18 @@ smoke/e2e marker noise, and related records under other project ids. Suggested
 promote/archive actions remain `safe_to_run: false` until the user confirms.
 The MCP tool name is `memory_doctor`.
 
+When memory has accumulated and needs lifecycle review, use the read-only
+lifecycle report:
+
+```bash
+moryn memory lifecycle --project . --limit 20
+```
+
+It classifies active records as retained, stale, archive candidates, or
+private-retained when private reads are explicit. Suggested archive actions
+remain `safe_to_run: false`; timeline and recall suggestions are read-only
+inspection. The MCP tool name is `memory_lifecycle`.
+
 For Moryn's own dogfood loop, use the read-only report:
 
 ```bash
@@ -328,10 +340,10 @@ reject actions are batch user decisions, not background promotion rules.
 
 Records tagged `private`, `secret`, or `sensitive` are active records, but they
 are excluded from normal `boot`, `recall`, `refresh`, `list-recent`, `timeline`,
-`memory doctor`, and dashboard reads. Use `--include-private` or MCP `include_private: true`
-only with explicit user intent. Sensitive content is quarantined or redacted
-before it enters normal recall. High-risk canonical writes require explicit
-confirmation.
+`memory doctor`, `memory lifecycle`, `dogfood report`, and dashboard reads. Use
+`--include-private` or MCP `include_private: true` only with explicit user
+intent. Sensitive content is quarantined or redacted before it enters normal
+recall. High-risk canonical writes require explicit confirmation.
 
 ## Documentation
 

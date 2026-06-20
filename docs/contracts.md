@@ -138,6 +138,32 @@ The MCP equivalent is:
 archive, or project-identity review actions. It does not mutate records; any
 returned mutation action has `safe_to_run: false` and requires user authority.
 
+The read-only memory lifecycle report is available through the same registry:
+
+```bash
+moryn contracts operations --operation memory_lifecycle
+moryn memory lifecycle --project . --limit 20
+```
+
+The MCP equivalent is:
+
+```json
+{
+  "tool": "memory_lifecycle",
+  "arguments": {
+    "project_path": ".",
+    "limit": 20
+  }
+}
+```
+
+`memory_lifecycle` returns retained, stale, archive-candidate, and
+private-retained assessments keyed by
+`memory_lifecycle.assessments_by_record_id.<record_id>`, plus findings under
+`memory_lifecycle.findings_by_id.<finding_id>` and suggested actions under
+`memory_lifecycle.suggested_actions_by_id.<action_id>`. It does not mutate
+records or events; archive suggestions remain `safe_to_run: false`.
+
 The read-only dogfood report is available through the same registry:
 
 ```bash
@@ -221,6 +247,13 @@ action, grouping by `project_or_scope`, `source_client`, `source_session`, and
 signals include stable rule ids such as `smoke_test_marker` and
 `duplicate_text` so dashboard suggestions remain explainable.
 
+`/api/dashboard` also returns `memory_lifecycle`, the same read-only report
+shape as `moryn memory lifecycle` and MCP `memory_lifecycle`. The dashboard
+panel shows retained, stale, archive-candidate, and private-retained counts,
+the `default_memory_lifecycle_policy`, keyed findings, and suggested timeline,
+recall, or archive commands. Archive suggestions remain `safe_to_run: false`;
+the dashboard does not expose an Apply or Approve Lifecycle endpoint.
+
 Dashboard maintenance approval uses one separate local endpoint:
 
 ```text
@@ -278,6 +311,7 @@ surfaces that can return active record content or event context. Records tagged
 - `timeline`
 - `list_recent`
 - `memory_doctor`
+- `memory_lifecycle`
 - `dogfood_report`
 - `dashboard`
 
@@ -288,6 +322,7 @@ private-memory read. The flag is discoverable in each operation contract:
 moryn contracts operations --operation recall
 moryn contracts operations --operation timeline
 moryn contracts operations --operation memory_doctor
+moryn contracts operations --operation memory_lifecycle
 moryn contracts operations --operation dogfood_report
 moryn contracts operations --operation dashboard
 ```

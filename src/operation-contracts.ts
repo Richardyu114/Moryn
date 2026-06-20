@@ -328,7 +328,7 @@ export type OperationContractIndexEntry = {
   cli_command: string;
   required_fields: string[];
   missing_required_fields: string[];
-  execution_hint: {
+  execution_hint?: {
     guard: "execution.ready_to_run";
     ready_to_run: boolean;
     next_step: ActionExecution["next_step"];
@@ -1960,6 +1960,35 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "memory_lifecycle",
+    category: "core",
+    summary: "Read-only memory lifecycle report that classifies retained, stale, and archive-candidate records with auditable follow-up actions.",
+    safe_to_run: true,
+    required_when: "When memory has accumulated and an agent or user needs to decide what to retain, inspect, or archive without mutating records.",
+    required_fields: [],
+    arguments_by_name: {
+      ...projectContextArguments,
+      limit: {
+        type: "number",
+        required: false,
+        default: 20,
+        cli: { flag: "--limit", default: 20 },
+        mcp: { argument: "limit" }
+      },
+      now: {
+        type: "string",
+        required: false,
+        cli: { flag: "--now" },
+        mcp: { argument: "now" }
+      },
+      ...privateReadArgument
+    },
+    interfaces: {
+      cli: { command: "moryn memory lifecycle", argv: ["memory", "lifecycle"] },
+      mcp: { tool: "memory_lifecycle", arguments: {} }
+    }
+  }),
+  operationContract({
     operation: "dogfood_report",
     category: "core",
     summary: "Read-only dogfood report that surfaces capture-review backlog, duplicate handoffs, and failure or timeout signals from the local store.",
@@ -2168,6 +2197,7 @@ function operationContractLookup(operation: string, options: { includeExecFile?:
 }
 
 function operationContractIndexEntry(operation: OperationContract): OperationContractIndexEntry {
+  const includeExecutionHint = operation.execution.required_inputs.length > 0 || !operation.execution.ready_to_run;
   return {
     operation: operation.operation,
     operation_source: `operations_by_id.${operation.operation}`,
@@ -2180,7 +2210,7 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
     required_fields: operation.required_fields,
     missing_required_fields: operation.execution.missing_required_fields,
     ...(operation.execution.required_inputs.length > 0 ? { summary: operation.summary } : {}),
-    execution_hint: {
+    ...(includeExecutionHint ? { execution_hint: {
       guard: "execution.ready_to_run",
       ready_to_run: operation.execution.ready_to_run,
       next_step: operation.execution.next_step,
@@ -2193,7 +2223,7 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
           by_value_path: "execution.required_input_paths_by_value_path.<value_path>"
         }
       } : {})
-    },
+    } } : {}),
     full_contract_lookup: operationContractLookup(operation.operation, {
       includeExecFile: operation.operation === "agent_finish"
     })

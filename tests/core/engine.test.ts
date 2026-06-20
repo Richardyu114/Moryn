@@ -41,6 +41,16 @@ const DOGFOOD_REPORT_SELECTION_SOURCES = {
   event: "events_by_id.<event_id>",
   event_id: "events_by_id.<event_id>.event_id"
 };
+const MEMORY_LIFECYCLE_SELECTION_SOURCES = {
+  assessment: "assessments_by_record_id.<record_id>",
+  assessment_record_id: "assessments_by_record_id.<record_id>.record_id",
+  finding: "findings_by_id.<finding_id>",
+  finding_id: "findings_by_id.<finding_id>.id",
+  action: "suggested_actions_by_id.<action_id>",
+  action_id: "suggested_actions_by_id.<action_id>.action_id",
+  record: "records_by_id.<record_id>",
+  record_id: "records_by_id.<record_id>.id"
+};
 const PROJECT_MIGRATE_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
   record_id: "records_by_id.<record_id>.id",
@@ -598,6 +608,163 @@ describe("core engine", () => {
           reason: "Memory doctor: e2e marker/noise candidate"
         },
         safe_to_run: false
+      });
+    });
+  });
+
+  it("reports memory lifecycle review states without mutating or exposing private records", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let currentTime = "2026-01-01T00:00:00.000Z";
+      let nextId = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => currentTime,
+        id: (prefix) => `${prefix}_${++nextId}`
+      });
+
+      currentTime = "2026-01-01T00:00:00.000Z";
+      const staleCandidate = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["v0.1"],
+        content: { text: "Old candidate: use the scratch dashboard route.", format: "text" },
+        confidence: 0.35,
+        source: { client: "codex" }
+      });
+      currentTime = "2026-01-02T00:00:00.000Z";
+      const staleCanonical = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Canonical decision from the old dashboard design.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      currentTime = "2026-01-03T00:00:00.000Z";
+      const retainedRule = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "moryn",
+        priority: "high",
+        content: { text: "Keep Moryn local-first and user-owned.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      currentTime = "2026-06-15T00:00:00.000Z";
+      const recentCandidate = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Recent lifecycle note should stay active.", format: "text" },
+        source: { client: "codex" }
+      });
+      currentTime = "2026-01-04T00:00:00.000Z";
+      const privateCandidate = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Private lifecycle finding must stay hidden.", format: "text" },
+        source: { client: "codex" }
+      });
+
+      currentTime = "2026-06-20T00:00:00.000Z";
+      const beforeEvents = await readEvents(storePath);
+      const report = await engine.memoryLifecycle({ project_id: "moryn", limit: 20 });
+      const afterEvents = await readEvents(storePath);
+
+      expect(afterEvents).toHaveLength(beforeEvents.length);
+      expect(report).toMatchObject({
+        read_only: true,
+        version: 1,
+        scope: "local_store",
+        project_id: "moryn",
+        policy: {
+          id: "default_memory_lifecycle_policy",
+          stale_after_days: 30,
+          archive_after_days: 90
+        }
+      });
+      expect(report.selection_sources).toEqual(MEMORY_LIFECYCLE_SELECTION_SOURCES);
+      expect(report.stats).toMatchObject({
+        total_records: 4,
+        excluded_private_records: 1,
+        retained_records: 2,
+        stale_records: 1,
+        archive_candidate_records: 1
+      });
+      expect(report.assessments_by_record_id[staleCandidate.record.id]).toMatchObject({
+        record_id: staleCandidate.record.id,
+        lifecycle_state: "archive_candidate",
+        recommended_action: "archive_after_review"
+      });
+      expect(report.assessments_by_record_id[staleCandidate.record.id]?.reasons).toEqual(expect.arrayContaining([
+        "older_than_archive_after_days",
+        "low_confidence_candidate"
+      ]));
+      expect(report.assessments_by_record_id[staleCanonical.record.id]).toMatchObject({
+        record_id: staleCanonical.record.id,
+        lifecycle_state: "stale",
+        recommended_action: "inspect_timeline"
+      });
+      expect(report.assessments_by_record_id[retainedRule.record.id]).toMatchObject({
+        record_id: retainedRule.record.id,
+        lifecycle_state: "retained",
+        recommended_action: "keep"
+      });
+      expect(report.assessments_by_record_id[recentCandidate.record.id]).toMatchObject({
+        record_id: recentCandidate.record.id,
+        lifecycle_state: "retained",
+        recommended_action: "keep"
+      });
+      expect(report.assessments_by_record_id[privateCandidate.record.id]).toBeUndefined();
+      expect(report.findings_by_id.archive_candidates).toMatchObject({
+        category: "archive_candidates",
+        severity: "warning",
+        record_ids: [staleCandidate.record.id]
+      });
+      expect(report.findings_by_id.stale_records).toMatchObject({
+        category: "stale_records",
+        severity: "info",
+        record_ids: [staleCanonical.record.id]
+      });
+      expect(report.suggested_actions_by_id[`archive:${staleCandidate.record.id}`]).toMatchObject({
+        tool: "archive",
+        safe_to_run: false,
+        command: `moryn archive ${staleCandidate.record.id} --reason 'Memory lifecycle: archive stale low-confidence candidate'`,
+        arguments: {
+          record_id: staleCandidate.record.id,
+          reason: "Memory lifecycle: archive stale low-confidence candidate"
+        }
+      });
+      expect(report.suggested_actions_by_id[`inspect:${staleCanonical.record.id}`]).toMatchObject({
+        tool: "timeline",
+        safe_to_run: true,
+        arguments: {
+          record_id: staleCanonical.record.id,
+          project_id: "moryn",
+          before: 3,
+          after: 3
+        }
+      });
+      expect(report.records_by_id[staleCandidate.record.id]?.id).toBe(staleCandidate.record.id);
+      expect(report.records_by_id[privateCandidate.record.id]).toBeUndefined();
+      expect(JSON.stringify(report)).not.toContain("Private lifecycle finding");
+
+      const privateReport = await engine.memoryLifecycle({ project_id: "moryn", include_private: true, now: "2026-06-20T00:00:00.000Z" });
+      expect(privateReport.stats.private_retained_records).toBe(1);
+      expect(privateReport.assessments_by_record_id[privateCandidate.record.id]).toMatchObject({
+        record_id: privateCandidate.record.id,
+        lifecycle_state: "private_retained",
+        recommended_action: "keep"
       });
     });
   });

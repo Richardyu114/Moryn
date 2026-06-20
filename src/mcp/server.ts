@@ -494,6 +494,7 @@ type McpProjectContextOperation =
   | "dashboard"
   | "refresh"
   | "memory_doctor"
+  | "memory_lifecycle"
   | "dogfood_report"
   | "capture_session"
   | "context_pack"
@@ -1761,6 +1762,31 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: project.project_id,
         limit: normalizedInput.limit,
         include_private: normalizedInput.include_private
+      });
+    })
+  );
+
+  server.registerTool(
+    "memory_lifecycle",
+    {
+      title: "Report Moryn Memory Lifecycle",
+      description: "Read-only memory lifecycle report for stale records, archive candidates, retained records, and suggested audit actions.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        limit: coreValidatedNumberSchema.optional(),
+        now: coreValidatedStringSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("memory_lifecycle")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("memory_lifecycle", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("memory_lifecycle", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      return engine.memoryLifecycle({
+        project_id: project.project_id,
+        limit: normalizedInput.limit as number | undefined,
+        now: normalizedInput.now as string | undefined,
+        include_private: normalizedInput.include_private as boolean | undefined
       });
     })
   );

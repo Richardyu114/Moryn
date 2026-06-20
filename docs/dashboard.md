@@ -84,8 +84,9 @@ the dashboard. The same flag applies to the server shell, `/fragment`, and
 `/api/dashboard`.
 
 Pass `--project-id <id>` or `--project <path>` when you want the server to
-generate project-specific Review Queue plans. Without project context the
-dashboard stays observational and `maintenance.plans[]` is empty.
+generate project-specific Review Queue plans and Memory Lifecycle review.
+Without project context the dashboard stays store-wide, and
+`maintenance.plans[]` is empty.
 
 ### Capture Inbox
 
@@ -155,6 +156,29 @@ Capture Inbox uses a manual review policy: **No auto-canonical**. Noise signals
 can suggest archive for likely smoke/test or duplicate captures, but the user
 still decides through Approve Memory, Approve Group, Reject, or Reject Group.
 The rule id appears next to the signal so the suggestion stays explainable.
+
+### Memory Lifecycle
+
+The dashboard includes a read-only `Memory Lifecycle` panel built from the same
+local report as `moryn memory lifecycle` and MCP `memory_lifecycle`. It
+classifies visible records as:
+
+- retained
+- stale
+- archive candidates
+- private-retained when `--include-private` is explicit
+
+The panel shows the active `default_memory_lifecycle_policy`, finding counts,
+private-boundary counts, and suggested inspection commands. Timeline and recall
+commands are safe read-only checks. Archive suggestions are displayed as CLI
+commands with `safe_to_run: false`; the dashboard does not provide an Apply or
+Approve Lifecycle button and does not mutate the store while generating the
+panel.
+
+When `--project-id <id>` or `--project <path>` is provided, the lifecycle report
+uses the same project scope as the CLI report: matching project records plus
+global records. Private-tagged records remain hidden unless
+`--include-private` is passed.
 
 ### Review Queue
 
@@ -227,6 +251,7 @@ The first screen favors human-readable summaries over raw ids:
 - agent activity
 - record quality distribution
 - record type distribution
+- Memory Lifecycle retained/stale/archive review
 - Capture Inbox candidate approvals when autocaptured records need review
 - recent valuable records, newest first
 - Review Queue maintenance plans when a project identity repair is available
@@ -278,6 +303,7 @@ The JSON returned by `/api/dashboard` includes:
 - `charts.sync_position`
 - `totals`
 - `capture_inbox`
+- `memory_lifecycle`
 - `recent_value`
 - `recent_records`
 - `recent_events`
@@ -286,6 +312,9 @@ The JSON returned by `/api/dashboard` includes:
 
 This keeps raw data inspectable while giving the HTML renderer human-oriented
 fields.
+
+`memory_lifecycle` is read-only report data. Mutation endpoints remain limited
+to Capture Inbox approval/rejection and Review Queue maintenance approval.
 
 Recent values, recent records, recent events, and agent activity entries carry
 `citation` metadata when an event or record can be traced. Record citations

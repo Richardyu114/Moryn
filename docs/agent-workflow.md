@@ -216,6 +216,21 @@ other project ids. It returns keyed `findings_by_id` and
 `suggested_actions_by_id`; mutation suggestions remain `safe_to_run: false`
 until the user confirms promotion or archive. MCP hosts call `memory_doctor`.
 
+Use `memory lifecycle` when the store has grown and you need a read-only retain
+or archive review:
+
+```bash
+moryn memory lifecycle \
+  --project . \
+  --limit 20
+```
+
+The report classifies records as retained, stale, archive candidates, or
+private-retained when private reads are explicit. It returns keyed
+`assessments_by_record_id`, `findings_by_id`, `suggested_actions_by_id`, and
+`records_by_id`. Archive suggestions stay `safe_to_run: false`; inspection
+actions use timeline or recall. MCP hosts call `memory_lifecycle`.
+
 Use `dogfood report` when improving Moryn itself or auditing recent friction in
 local agent work:
 
@@ -283,6 +298,7 @@ Default-hidden read surfaces:
 - `timeline`
 - `list-recent`
 - `memory doctor`
+- `memory lifecycle`
 - dashboard data and HTML
 
 Explicit read examples:
@@ -291,6 +307,7 @@ Explicit read examples:
 moryn recall "credential rotation" --project . --include-private
 moryn timeline --record-id rec_... --project . --include-private
 moryn memory doctor --project . --include-private
+moryn memory lifecycle --project . --include-private
 moryn dashboard --serve --include-private
 ```
 
