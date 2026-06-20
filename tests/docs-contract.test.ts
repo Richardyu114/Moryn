@@ -34,6 +34,8 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("/api/maintenance/plans/:plan_id/approve");
     expect(contracts).toContain("/api/capture-inbox/:record_id/approve");
     expect(contracts).toContain("/api/capture-inbox/:record_id/reject");
+    expect(contracts).toContain("/api/capture-inbox/groups/:group_id/approve");
+    expect(contracts).toContain("/api/capture-inbox/groups/:group_id/reject");
     expect(contracts).toContain("plan_hash");
     expect(contracts).toContain("/healthz");
     expect(contracts).toContain("docs/dashboard.md");
@@ -50,6 +52,10 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Capture Inbox");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/reject");
+    expect(dashboard).toContain("POST /api/capture-inbox/groups/:group_id/approve");
+    expect(dashboard).toContain("manual review");
+    expect(dashboard).toContain("No auto-canonical");
+    expect(dashboard).toContain("likely noise");
     expect(dashboard).toContain("Review Queue");
     expect(dashboard).toContain("POST /api/maintenance/plans/:plan_id/approve");
     expect(dashboard).toContain("plan_hash");

@@ -996,6 +996,141 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("groups Capture Inbox candidates and exposes manual review policy with noise signals", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T10:01:00.000Z",
+            "2026-06-01T10:02:00.000Z",
+            "2026-06-01T10:03:00.000Z",
+            "2026-06-01T10:04:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T10:05:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_capture_group_${++record}` : `evt_capture_group_${++event}`;
+        })()
+      });
+
+      const firstCodex = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "Codex finished dashboard grouping.", format: "text" },
+        source: { client: "codex", session_id: "codex-session-1" }
+      });
+      const secondCodex = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "Codex prepared bulk review controls.", format: "text" },
+        source: { client: "codex", session_id: "codex-session-1" }
+      });
+      const smoke = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:claude", "smoke"],
+        content: { text: "Smoke test marker only.", format: "text" },
+        source: { client: "claude", session_id: "claude-smoke" }
+      });
+      const duplicate = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:claude"],
+        content: { text: "Smoke test marker only.", format: "text" },
+        source: { client: "claude", session_id: "claude-smoke" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        capture_inbox: {
+          policy: {
+            mode: "manual_review";
+            auto_canonical: false;
+            trust_policy: "disabled_by_default";
+          };
+          groups: Array<{
+            id: string;
+            total: number;
+            record_ids: string[];
+            source_detail: string;
+            approve_endpoint: string;
+            reject_endpoint: string;
+            noise: { level: string; reasons: string[]; suggested_action: string };
+          }>;
+          items: Array<{
+            id: string;
+            group_id: string;
+            noise: { level: string; reasons: string[]; suggested_action: string };
+          }>;
+        };
+      };
+
+      expect(data.capture_inbox.policy).toMatchObject({
+        mode: "manual_review",
+        auto_canonical: false,
+        trust_policy: "disabled_by_default"
+      });
+      expect(data.capture_inbox.groups).toHaveLength(2);
+      const codexGroup = data.capture_inbox.groups.find((group) => group.source_detail === "codex / codex-session-1");
+      expect(codexGroup).toMatchObject({
+        total: 2,
+        record_ids: [secondCodex.record.id, firstCodex.record.id],
+        approve_endpoint: expect.stringMatching(/^api\/capture-inbox\/groups\/capture_group_[a-f0-9]+\/approve$/),
+        reject_endpoint: expect.stringMatching(/^api\/capture-inbox\/groups\/capture_group_[a-f0-9]+\/reject$/),
+        noise: { level: "normal", suggested_action: "review" }
+      });
+      expect(data.capture_inbox.items.filter((item) => item.group_id === codexGroup?.id).map((item) => item.id)).toEqual([
+        secondCodex.record.id,
+        firstCodex.record.id
+      ]);
+
+      const noisyGroup = data.capture_inbox.groups.find((group) => group.source_detail === "claude / claude-smoke");
+      expect(noisyGroup).toMatchObject({
+        total: 2,
+        record_ids: [duplicate.record.id, smoke.record.id],
+        noise: {
+          level: "likely_noise",
+          suggested_action: "archive",
+          reasons: expect.arrayContaining([
+            "Looks like smoke, test, or fixture output.",
+            "Duplicate capture text appears in this batch."
+          ])
+        }
+      });
+      expect(data.capture_inbox.items.find((item) => item.id === smoke.record.id)?.noise.reasons).toEqual(expect.arrayContaining([
+        "Looks like smoke, test, or fixture output.",
+        "Duplicate capture text appears in this batch."
+      ]));
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain("Review Policy");
+      expect(html).toContain("Manual review");
+      expect(html).toContain("No auto-canonical");
+      expect(html).toContain("2 groups");
+      expect(html).toContain("Approve Group");
+      expect(html).toContain("Reject Group");
+      expect(html).toContain("Likely noise");
+      expect(html).toContain("Smoke test marker only.");
+      expect(html).not.toContain("Trust policy enabled");
+    });
+  });
+
   it("writes a local-only static dashboard snapshot", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
@@ -1205,6 +1340,215 @@ describe("observability dashboard", () => {
           capture_inbox: { total: number };
         };
         expect(refreshed.capture_inbox.total).toBe(0);
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("approves and rejects Capture Inbox groups from the dashboard server", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z",
+            "2026-06-01T00:05:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:06:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_capture_bulk_${++record}` : `evt_capture_bulk_${++event}`;
+        })()
+      });
+
+      const approveOne = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "Approve grouped capture one.", format: "text" },
+        source: { client: "codex", session_id: "approve-group" }
+      });
+      const approveTwo = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "Approve grouped capture two.", format: "text" },
+        source: { client: "codex", session_id: "approve-group" }
+      });
+      const rejectOne = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:claude"],
+        content: { text: "Reject grouped capture one.", format: "text" },
+        source: { client: "claude", session_id: "reject-group" }
+      });
+      const rejectTwo = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:claude"],
+        content: { text: "Reject grouped capture two.", format: "text" },
+        source: { client: "claude", session_id: "reject-group" }
+      });
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10,
+        project_id: "moryn"
+      });
+      try {
+        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+          capture_inbox: {
+            groups: Array<{ source_detail: string; record_ids: string[]; approve_endpoint: string; reject_endpoint: string }>;
+          };
+        };
+        const approveGroup = dashboard.capture_inbox.groups.find((group) => group.source_detail === "codex / approve-group")!;
+        const rejectGroup = dashboard.capture_inbox.groups.find((group) => group.source_detail === "claude / reject-group")!;
+
+        const approveResponse = await fetch(new URL(approveGroup.approve_endpoint, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ record_ids: approveGroup.record_ids })
+        });
+        const approved = await approveResponse.json() as { ok: boolean; status: string; group_id: string; records_changed: number; record_ids: string[] };
+
+        expect(approveResponse.status).toBe(200);
+        expect(approved).toMatchObject({
+          ok: true,
+          status: "approved",
+          records_changed: 2,
+          record_ids: [approveTwo.record.id, approveOne.record.id]
+        });
+        expect((await engine.recall({ record_ids: [approveOne.record.id, approveTwo.record.id], states: ["canonical"], project_id: "moryn" })).results.map((result) => result.record.id).sort()).toEqual([
+          approveOne.record.id,
+          approveTwo.record.id
+        ].sort());
+
+        const rejectResponse = await fetch(new URL(rejectGroup.reject_endpoint, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            record_ids: rejectGroup.record_ids,
+            reason: "User rejected Capture Inbox group."
+          })
+        });
+        const rejected = await rejectResponse.json() as { ok: boolean; status: string; records_changed: number; record_ids: string[] };
+
+        expect(rejectResponse.status).toBe(200);
+        expect(rejected).toMatchObject({
+          ok: true,
+          status: "rejected",
+          records_changed: 2,
+          record_ids: [rejectTwo.record.id, rejectOne.record.id]
+        });
+        expect((await engine.recall({ record_ids: [rejectOne.record.id, rejectTwo.record.id], states: ["archived"], project_id: "moryn" })).results.map((result) => result.record.id).sort()).toEqual([
+          rejectOne.record.id,
+          rejectTwo.record.id
+        ].sort());
+
+        const refreshed = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+          capture_inbox: { total: number; groups: unknown[] };
+        };
+        expect(refreshed.capture_inbox).toMatchObject({ total: 0, groups: [] });
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("rejects stale Capture Inbox group actions", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_capture_stale_${++record}` : `evt_capture_stale_${++event}`;
+        })()
+      });
+      const first = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "First stale group item.", format: "text" },
+        source: { client: "codex", session_id: "stale-group" }
+      });
+      const second = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "Second stale group item.", format: "text" },
+        source: { client: "codex", session_id: "stale-group" }
+      });
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10,
+        project_id: "moryn"
+      });
+      try {
+        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+          capture_inbox: { groups: Array<{ approve_endpoint: string; record_ids: string[] }> };
+        };
+        const group = dashboard.capture_inbox.groups[0]!;
+
+        await engine.promote({
+          record_id: first.record.id,
+          target_state: "canonical",
+          reason: "User approved separately.",
+          source: { client: "user" },
+          confirmed: true
+        });
+
+        const response = await fetch(new URL(group.approve_endpoint, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ record_ids: group.record_ids })
+        });
+        const body = await response.json() as { ok: boolean; status: string; message: string };
+
+        expect(response.status).toBe(409);
+        expect(body).toEqual({
+          ok: false,
+          status: "not_actionable",
+          message: "Capture Inbox group actions require current active candidate records from the selected group."
+        });
+        expect((await engine.recall({ record_ids: [second.record.id], states: ["candidate"], project_id: "moryn" })).results[0]?.record.state).toBe("candidate");
       } finally {
         await server.close();
       }

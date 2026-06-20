@@ -172,12 +172,20 @@ local endpoints:
 ```text
 POST /api/capture-inbox/:record_id/approve
 POST /api/capture-inbox/:record_id/reject
+POST /api/capture-inbox/groups/:group_id/approve
+POST /api/capture-inbox/groups/:group_id/reject
 ```
 
 `approve` promotes one active candidate tagged `autocapture` or `review` to
 canonical memory with `source.client: "user"` and explicit confirmation.
 `reject` archives one active candidate. Both endpoints replay the current store
-before writing and return `409` when the record is no longer actionable.
+before writing and return `409` when the record is no longer actionable. Group
+endpoints require the rendered `record_ids[]` and reject stale batches when any
+selected candidate changed state.
+
+`/api/dashboard` also returns `capture_inbox.policy`, `capture_inbox.groups[]`,
+and item-level noise signals. The policy is manual review with no
+auto-canonical promotion by default.
 
 Dashboard maintenance approval uses one separate local endpoint:
 

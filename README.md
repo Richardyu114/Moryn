@@ -203,6 +203,10 @@ The same live dashboard also shows a Capture Inbox for `autocapture` or
 `review` candidate records. Approve Memory appends a confirmed `promote_record`
 event to make the candidate canonical; Reject appends an `archive_record`
 event. Neither action rewrites history or silently promotes agent output.
+Candidates from the same source/session are grouped for batch review, and likely
+smoke/test or duplicate captures are marked as noise. Group actions reduce
+clicks, but the default policy remains manual review with no auto-canonical
+promotion.
 
 ## MCP
 
@@ -302,7 +306,8 @@ raw -> candidate -> canonical
 
 The dashboard Capture Inbox is the default human review path for autocaptured
 candidate memory. It keeps automation visible: agents can propose memory, but
-canonical long-term context still needs explicit approval.
+canonical long-term context still needs explicit approval. Grouped approve and
+reject actions are batch user decisions, not background promotion rules.
 
 Records tagged `private`, `secret`, or `sensitive` are active records, but they
 are excluded from normal `boot`, `recall`, `refresh`, `list-recent`, `timeline`,

@@ -163,6 +163,7 @@ export interface DashboardValueRecord {
 
 export interface DashboardCaptureInboxItem {
   id: string;
+  group_id: string;
   kind: MorynRecord["kind"];
   type: string;
   project_id?: string;
@@ -177,11 +178,43 @@ export interface DashboardCaptureInboxItem {
   provenance_reason?: string;
   approve_endpoint: string;
   reject_endpoint: string;
+  noise: DashboardCaptureNoise;
   citation: DashboardRecordCitation;
+}
+
+export interface DashboardCaptureNoise {
+  level: "normal" | "likely_noise";
+  reasons: string[];
+  suggested_action: "review" | "archive";
+}
+
+export interface DashboardCaptureInboxGroup {
+  id: string;
+  total: number;
+  record_ids: string[];
+  source_label: string;
+  source_detail: string;
+  project_id?: string;
+  latest_at: string;
+  relative_time: string;
+  summary: string;
+  noise: DashboardCaptureNoise;
+  approve_endpoint: string;
+  reject_endpoint: string;
+}
+
+export interface DashboardCaptureInboxPolicy {
+  mode: "manual_review";
+  auto_canonical: false;
+  trust_policy: "disabled_by_default";
+  explanation: string;
 }
 
 export interface DashboardCaptureInbox {
   total: number;
+  group_total: number;
+  policy: DashboardCaptureInboxPolicy;
+  groups: DashboardCaptureInboxGroup[];
   items: DashboardCaptureInboxItem[];
 }
 
@@ -694,6 +727,14 @@ function captureInboxRejectEndpoint(recordId: string): string {
   return `api/capture-inbox/${encodeURIComponent(recordId)}/reject`;
 }
 
+function captureInboxGroupApproveEndpoint(groupId: string): string {
+  return `api/capture-inbox/groups/${encodeURIComponent(groupId)}/approve`;
+}
+
+function captureInboxGroupRejectEndpoint(groupId: string): string {
+  return `api/capture-inbox/groups/${encodeURIComponent(groupId)}/reject`;
+}
+
 function isCaptureInboxCandidate(record: MorynRecord): boolean {
   return record.state === "candidate"
     && record.visibility === "active"
@@ -703,9 +744,63 @@ function isCaptureInboxCandidate(record: MorynRecord): boolean {
     });
 }
 
-function summarizeCaptureInboxItem(record: MorynRecord, generatedAt: string, eventsByRecord: Map<string, MorynEvent>): DashboardCaptureInboxItem {
+function captureGroupKey(record: MorynRecord): string {
+  return [
+    record.project_id ?? record.scope,
+    displayClient(record.source.client || "unknown"),
+    record.source.session_id ?? "no-session",
+    record.created_at.slice(0, 10)
+  ].join("|");
+}
+
+function captureGroupId(groupKey: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < groupKey.length; index += 1) {
+    hash ^= groupKey.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `capture_group_${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+function normalizedCaptureText(record: MorynRecord): string {
+  return recordText(record).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function captureNoiseForRecord(record: MorynRecord, duplicateTexts: Set<string>): DashboardCaptureNoise {
+  const reasons: string[] = [];
+  const searchable = `${record.tags.join(" ")} ${record.type} ${recordText(record)}`.toLowerCase();
+  if (/\b(smoke|test|fixture|e2e|marker)\b/.test(searchable)) {
+    reasons.push("Looks like smoke, test, or fixture output.");
+  }
+  if (duplicateTexts.has(normalizedCaptureText(record))) {
+    reasons.push("Duplicate capture text appears in this batch.");
+  }
+  return {
+    level: reasons.length > 0 ? "likely_noise" : "normal",
+    reasons,
+    suggested_action: reasons.length > 0 ? "archive" : "review"
+  };
+}
+
+function mergeCaptureNoise(noises: DashboardCaptureNoise[]): DashboardCaptureNoise {
+  const reasons = [...new Set(noises.flatMap((noise) => noise.reasons))];
+  return {
+    level: reasons.length > 0 ? "likely_noise" : "normal",
+    reasons,
+    suggested_action: reasons.length > 0 ? "archive" : "review"
+  };
+}
+
+function summarizeCaptureInboxItem(
+  record: MorynRecord,
+  groupId: string,
+  generatedAt: string,
+  noise: DashboardCaptureNoise,
+  eventsByRecord: Map<string, MorynEvent>
+): DashboardCaptureInboxItem {
   return {
     id: record.id,
+    group_id: groupId,
     kind: record.kind,
     type: record.type,
     project_id: record.project_id,
@@ -720,6 +815,7 @@ function summarizeCaptureInboxItem(record: MorynRecord, generatedAt: string, eve
     provenance_reason: record.provenance?.reason,
     approve_endpoint: captureInboxApproveEndpoint(record.id),
     reject_endpoint: captureInboxRejectEndpoint(record.id),
+    noise,
     citation: recordCitation(record, eventsByRecord)
   };
 }
@@ -728,11 +824,67 @@ function buildCaptureInbox(records: MorynRecord[], generatedAt: string, limit: n
   const candidates = records
     .filter(isCaptureInboxCandidate)
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
+  const textCounts = new Map<string, number>();
+  for (const record of candidates) {
+    const text = normalizedCaptureText(record);
+    if (!text) continue;
+    textCounts.set(text, (textCounts.get(text) ?? 0) + 1);
+  }
+  const duplicateTexts = new Set([...textCounts].filter(([, count]) => count > 1).map(([text]) => text));
+  const groups = new Map<string, { groupId: string; records: MorynRecord[]; noises: DashboardCaptureNoise[] }>();
+  const itemInputs: Array<{ record: MorynRecord; groupId: string; noise: DashboardCaptureNoise }> = [];
+  for (const record of candidates) {
+    const groupKey = captureGroupKey(record);
+    const groupId = captureGroupId(groupKey);
+    const noise = captureNoiseForRecord(record, duplicateTexts);
+    const existing = groups.get(groupKey) ?? { groupId, records: [], noises: [] };
+    existing.records.push(record);
+    existing.noises.push(noise);
+    groups.set(groupKey, existing);
+    itemInputs.push({ record, groupId, noise });
+  }
+  const grouped = [...groups.values()]
+    .sort((left, right) => {
+      const leftLatest = left.records[0]!.updated_at;
+      const rightLatest = right.records[0]!.updated_at;
+      return rightLatest.localeCompare(leftLatest) || left.groupId.localeCompare(right.groupId);
+    });
+  const displayedGroups = grouped.slice(0, limit);
+  const displayedItems = displayedGroups.flatMap((group) => group.records);
+  const groupSummaries = displayedGroups
+    .map((group): DashboardCaptureInboxGroup => {
+      const latest = group.records[0]!;
+      const groupNoise = mergeCaptureNoise(group.noises);
+      return {
+        id: group.groupId,
+        total: group.records.length,
+        record_ids: group.records.map((record) => record.id),
+        source_label: humanSourceLabel(latest.source),
+        source_detail: humanSourceDetail(latest.source),
+        project_id: latest.project_id,
+        latest_at: latest.updated_at,
+        relative_time: relativeTime(latest.updated_at, generatedAt),
+        summary: group.records.map((record) => recordText(record)).join(" "),
+        noise: groupNoise,
+        approve_endpoint: captureInboxGroupApproveEndpoint(group.groupId),
+        reject_endpoint: captureInboxGroupRejectEndpoint(group.groupId)
+      };
+    });
   return {
     total: candidates.length,
-    items: candidates
-      .slice(0, limit)
-      .map((record) => summarizeCaptureInboxItem(record, generatedAt, eventsByRecord))
+    group_total: grouped.length,
+    policy: {
+      mode: "manual_review",
+      auto_canonical: false,
+      trust_policy: "disabled_by_default",
+      explanation: "Capture Inbox groups reduce review clicks, but candidates become canonical only after explicit user approval."
+    },
+    groups: groupSummaries,
+    items: displayedItems
+      .map((record) => {
+        const item = itemInputs.find((candidate) => candidate.record.id === record.id)!;
+        return summarizeCaptureInboxItem(record, item.groupId, generatedAt, item.noise, eventsByRecord);
+      })
   };
 }
 
@@ -1046,49 +1198,91 @@ function captureInbox(items: DashboardCaptureInbox): string {
     <section class="panel capture-inbox" aria-label="Capture Inbox">
       <div class="capture-inbox-heading">
         <h2>Capture Inbox</h2>
-        <span>${escapeHtml(pluralize(items.total, "candidate"))}</span>
+        <span>${escapeHtml(pluralize(items.total, "candidate"))} | ${escapeHtml(pluralize(items.group_total, "group"))}</span>
+      </div>
+      <div class="capture-policy">
+        <strong>Review Policy</strong>
+        <span>Manual review</span>
+        <span>No auto-canonical</span>
       </div>
       <div class="capture-inbox-list">
-        ${items.items.map((item) => `
-          <article class="capture-inbox-item" data-capture-inbox-record="${escapeHtml(item.id)}">
+        ${items.groups.map((group) => {
+          const groupItems = items.items.filter((item) => item.group_id === group.id);
+          return `
+          <article class="capture-inbox-group" data-capture-inbox-group="${escapeHtml(group.id)}">
             <div class="capture-inbox-main">
               <div>
-                <h3>${escapeHtml(titleCase(item.type || item.kind))}</h3>
-                <p>${escapeHtml(item.text)}</p>
+                <h3>${escapeHtml(group.source_label)} capture group</h3>
+                <p>${escapeHtml(shortText(group.summary))}</p>
               </div>
-              <span class="pill state-candidate">candidate</span>
+              <span class="pill ${group.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(group.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
             </div>
             <dl class="capture-inbox-summary">
-              <div><dt>Source</dt><dd>${escapeHtml(item.source_label)}<small>${escapeHtml(item.source_detail)}</small></dd></div>
-              <div><dt>Project</dt><dd><code>${escapeHtml(item.project_id ?? "global")}</code></dd></div>
-              <div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}<small>${escapeHtml(item.priority)} priority</small></dd></div>
-              <div><dt>Captured</dt><dd><time title="${escapeHtml(item.exact_time)}">${escapeHtml(item.relative_time)}</time></dd></div>
+              <div><dt>Source</dt><dd>${escapeHtml(group.source_label)}<small>${escapeHtml(group.source_detail)}</small></dd></div>
+              <div><dt>Project</dt><dd><code>${escapeHtml(group.project_id ?? "global")}</code></dd></div>
+              <div><dt>Items</dt><dd>${escapeHtml(pluralize(group.total, "candidate"))}<small>${escapeHtml(group.noise.suggested_action)} suggested</small></dd></div>
+              <div><dt>Captured</dt><dd><time title="${escapeHtml(group.latest_at)}">${escapeHtml(group.relative_time)}</time></dd></div>
             </dl>
-            <details data-dashboard-detail="capture:${escapeHtml(item.id)}">
-              <summary>Why this is here</summary>
+            <details data-dashboard-detail="capture-group:${escapeHtml(group.id)}">
+              <summary>Group details</summary>
               <dl>
-                <div><dt>Record</dt><dd><code>${escapeHtml(item.id)}</code></dd></div>
-                <div><dt>Method</dt><dd>${escapeHtml(item.provenance_method ?? "agent-proposed")}</dd></div>
-                <div><dt>Reason</dt><dd>${escapeHtml(item.provenance_reason ?? "Candidate memory is waiting for review.")}</dd></div>
-                <div><dt>Trace</dt><dd>${citationCommands(item.citation)}</dd></div>
+                <div><dt>Group</dt><dd><code>${escapeHtml(group.id)}</code></dd></div>
+                <div><dt>Records</dt><dd>${group.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
+                <div><dt>Noise</dt><dd>${escapeHtml(group.noise.reasons.length ? group.noise.reasons.join(" ") : "No noise signals detected.")}</dd></div>
               </dl>
+              <div class="capture-inbox-items">
+                ${groupItems.map((item) => `
+                  <article class="capture-inbox-item" data-capture-inbox-record="${escapeHtml(item.id)}">
+                    <div class="capture-inbox-main">
+                      <div>
+                        <h3>${escapeHtml(titleCase(item.type || item.kind))}</h3>
+                        <p>${escapeHtml(item.text)}</p>
+                      </div>
+                      <span class="pill ${item.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
+                    </div>
+                    <dl class="capture-inbox-summary">
+                      <div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}<small>${escapeHtml(item.priority)} priority</small></dd></div>
+                      <div><dt>Captured</dt><dd><time title="${escapeHtml(item.exact_time)}">${escapeHtml(item.relative_time)}</time></dd></div>
+                      <div><dt>Reason</dt><dd>${escapeHtml(item.provenance_reason ?? "Candidate memory is waiting for review.")}</dd></div>
+                      <div><dt>Trace</dt><dd>${citationCommands(item.citation)}</dd></div>
+                    </dl>
+                    <div class="capture-inbox-actions">
+                      <button
+                        type="button"
+                        data-capture-inbox-reject
+                        data-endpoint="${escapeHtml(item.reject_endpoint)}"
+                      >Reject</button>
+                      <button
+                        type="button"
+                        class="primary"
+                        data-capture-inbox-approve
+                        data-endpoint="${escapeHtml(item.approve_endpoint)}"
+                      >Approve Memory</button>
+                    </div>
+                    <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
+                  </article>
+                `).join("")}
+              </div>
             </details>
             <div class="capture-inbox-actions">
               <button
                 type="button"
-                data-capture-inbox-reject
-                data-endpoint="${escapeHtml(item.reject_endpoint)}"
-              >Reject</button>
+                data-capture-inbox-group-reject
+                data-endpoint="${escapeHtml(group.reject_endpoint)}"
+                data-record-ids="${escapeHtml(group.record_ids.join(","))}"
+              >Reject Group</button>
               <button
                 type="button"
                 class="primary"
-                data-capture-inbox-approve
-                data-endpoint="${escapeHtml(item.approve_endpoint)}"
-              >Approve Memory</button>
+                data-capture-inbox-group-approve
+                data-endpoint="${escapeHtml(group.approve_endpoint)}"
+                data-record-ids="${escapeHtml(group.record_ids.join(","))}"
+              >Approve Group</button>
             </div>
             <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
           </article>
-        `).join("")}
+        `;
+        }).join("")}
       </div>
     </section>
   `;
@@ -1383,18 +1577,26 @@ function dashboardCaptureInboxScript(): string {
         if (!(target instanceof HTMLElement)) return;
         const approve = target.closest("[data-capture-inbox-approve]");
         const reject = target.closest("[data-capture-inbox-reject]");
-        const button = approve || reject;
+        const groupApprove = target.closest("[data-capture-inbox-group-approve]");
+        const groupReject = target.closest("[data-capture-inbox-group-reject]");
+        const button = approve || reject || groupApprove || groupReject;
         if (!(button instanceof HTMLButtonElement)) return;
-        const item = button.closest("[data-capture-inbox-record]");
+        const item = button.closest("[data-capture-inbox-record], [data-capture-inbox-group]");
         if (!(item instanceof HTMLElement)) return;
         const status = item.querySelector("[data-capture-inbox-status]");
+        const isReject = Boolean(reject || groupReject);
+        const isGroup = Boolean(groupApprove || groupReject);
+        const recordIds = (button.dataset.recordIds || "").split(",").filter(Boolean);
         button.disabled = true;
-        if (status) status.textContent = approve ? "Approving memory..." : "Rejecting candidate...";
+        if (status) status.textContent = isReject ? "Rejecting candidate..." : "Approving memory...";
         try {
           const response = await fetch(button.dataset.endpoint || "", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify(reject ? { reason: "User rejected Capture Inbox candidate." } : {})
+            body: JSON.stringify({
+              ...(isGroup ? { record_ids: recordIds } : {}),
+              ...(isReject ? { reason: isGroup ? "User rejected Capture Inbox group." : "User rejected Capture Inbox candidate." } : {})
+            })
           });
           const result = await responseJson(response);
           if (!response.ok || result.ok === false) {
@@ -1402,7 +1604,7 @@ function dashboardCaptureInboxScript(): string {
             button.disabled = false;
             return;
           }
-          if (status) status.textContent = approve ? "Approved. Refreshing dashboard..." : "Rejected. Refreshing dashboard...";
+          if (status) status.textContent = isReject ? "Rejected. Refreshing dashboard..." : "Approved. Refreshing dashboard...";
           await refreshFragment();
         } catch (error) {
           if (status) status.textContent = error instanceof Error ? error.message : "Capture Inbox action failed.";
@@ -1589,13 +1791,39 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .maintenance-heading span, .maintenance-status,
     .capture-inbox-heading span, .capture-inbox-status { color: var(--muted); font-size: 12px; font-weight: 650; }
-    .maintenance-list, .capture-inbox-list { display: grid; gap: 10px; }
-    .maintenance-plan, .capture-inbox-item {
+    .maintenance-list, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
+    .capture-policy {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: -4px 0 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .capture-policy strong {
+      color: var(--ink);
+      font-weight: 760;
+    }
+    .capture-policy span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface-2);
+      font-weight: 700;
+    }
+    .maintenance-plan, .capture-inbox-group, .capture-inbox-item {
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px;
       background: var(--surface-2);
     }
+    .capture-inbox-group {
+      background: var(--surface);
+      box-shadow: 0 8px 18px rgba(21, 25, 30, 0.04);
+    }
+    .capture-inbox-items { margin-top: 10px; }
+    .capture-inbox-item { background: var(--surface); }
     .maintenance-plan-main, .capture-inbox-main { align-items: flex-start; margin-bottom: 10px; }
     .capture-inbox-main p {
       color: var(--ink);
@@ -1838,11 +2066,43 @@ function captureInboxAction(pathname: string): { recordId: string; action: "appr
   };
 }
 
+function captureInboxGroupAction(pathname: string): { groupId: string; action: "approve" | "reject" } | undefined {
+  const match = /^\/api\/capture-inbox\/groups\/([^/]+)\/(approve|reject)$/.exec(pathname);
+  if (!match?.[1] || (match[2] !== "approve" && match[2] !== "reject")) return undefined;
+  return {
+    groupId: decodeURIComponent(match[1]),
+    action: match[2]
+  };
+}
+
 async function requireCaptureInboxCandidate(storePath: string, recordId: string, includePrivate: boolean | undefined): Promise<MorynRecord | undefined> {
   const records = replayEvents(await readEvents(storePath));
   const record = records.get(recordId);
   if (!record || !isVisibleForDashboard(record, includePrivate) || !isCaptureInboxCandidate(record)) return undefined;
   return record;
+}
+
+function parseCaptureRecordIds(body: unknown): string[] {
+  if (!body || typeof body !== "object" || !Array.isArray((body as { record_ids?: unknown }).record_ids)) return [];
+  return (body as { record_ids: unknown[] }).record_ids.filter((value): value is string => typeof value === "string" && value.length > 0);
+}
+
+async function requireCaptureInboxGroup(
+  storePath: string,
+  groupId: string,
+  recordIds: string[],
+  includePrivate: boolean | undefined
+): Promise<MorynRecord[] | undefined> {
+  if (recordIds.length === 0) return undefined;
+  const records = [...replayEvents(await readEvents(storePath)).values()]
+    .filter((record) => isVisibleForDashboard(record, includePrivate))
+    .filter(isCaptureInboxCandidate)
+    .filter((record) => captureGroupId(captureGroupKey(record)) === groupId)
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
+  const currentIds = records.map((record) => record.id);
+  if (currentIds.length !== recordIds.length) return undefined;
+  if (currentIds.some((id, index) => id !== recordIds[index])) return undefined;
+  return records;
 }
 
 async function applyCaptureInboxAction(
@@ -1903,6 +2163,76 @@ async function applyCaptureInboxAction(
   };
 }
 
+async function applyCaptureInboxGroupAction(
+  storePath: string,
+  groupId: string,
+  action: "approve" | "reject",
+  body: unknown,
+  includePrivate: boolean | undefined
+): Promise<{ statusCode: number; body: Record<string, unknown> }> {
+  const recordIds = parseCaptureRecordIds(body);
+  const records = await requireCaptureInboxGroup(storePath, groupId, recordIds, includePrivate);
+  if (!records) {
+    return {
+      statusCode: 409,
+      body: {
+        ok: false,
+        status: "not_actionable",
+        message: "Capture Inbox group actions require current active candidate records from the selected group."
+      }
+    };
+  }
+
+  const engine = createEngine({ storePath });
+  const events: string[] = [];
+  if (action === "approve") {
+    for (const record of records) {
+      const promoted = await engine.promote({
+        record_id: record.id,
+        target_state: "canonical",
+        reason: "User approved Capture Inbox group.",
+        source: { client: "user" },
+        confirmed: true
+      });
+      events.push(promoted.event.event_id);
+    }
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        status: "approved",
+        group_id: groupId,
+        records_changed: records.length,
+        record_ids: records.map((record) => record.id),
+        event_ids: events
+      }
+    };
+  }
+
+  const reason = body && typeof body === "object" && typeof (body as { reason?: unknown }).reason === "string" && (body as { reason: string }).reason.trim()
+    ? (body as { reason: string }).reason.trim()
+    : "User rejected Capture Inbox group.";
+  for (const record of records) {
+    const archived = await engine.archive({
+      record_id: record.id,
+      reason,
+      source: { client: "user" }
+    });
+    events.push(archived.event.event_id);
+  }
+  return {
+    statusCode: 200,
+    body: {
+      ok: true,
+      status: "rejected",
+      group_id: groupId,
+      records_changed: records.length,
+      record_ids: records.map((record) => record.id),
+      event_ids: events
+    }
+  };
+}
+
 export async function startDashboardServer(storePath: string, options: DashboardServerOptions = {}): Promise<DashboardServerHandle> {
   const host = dashboardServerHost(options.host);
   const requestedPort = dashboardServerPort(options.port);
@@ -1914,6 +2244,19 @@ export async function startDashboardServer(storePath: string, options: Dashboard
     const includeBody = request.method !== "HEAD";
     try {
       if (request.method === "POST") {
+        const inboxGroupAction = captureInboxGroupAction(url.pathname);
+        if (inboxGroupAction) {
+          let body: unknown;
+          try {
+            body = await readRequestJson(request);
+          } catch {
+            sendResponse(response, 400, JSON.stringify({ error: "Invalid request: JSON body is required" }), "application/json; charset=utf-8", includeBody);
+            return;
+          }
+          const result = await applyCaptureInboxGroupAction(storePath, inboxGroupAction.groupId, inboxGroupAction.action, body, includePrivate);
+          sendResponse(response, result.statusCode, JSON.stringify(result.body), "application/json; charset=utf-8", includeBody);
+          return;
+        }
         const inboxAction = captureInboxAction(url.pathname);
         if (inboxAction) {
           let body: unknown;

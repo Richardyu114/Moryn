@@ -102,6 +102,8 @@ Each card shows:
 - confidence and priority
 - provenance method and reason
 - recall and timeline trace commands
+- grouping by source, session, project, and capture day
+- likely noise signals such as smoke/test output or duplicate text
 
 `Approve Memory` posts to:
 
@@ -123,6 +125,23 @@ The server performs the same current-record check and appends an
 `archive_record` event. Reject does not delete the candidate or rewrite history.
 If the record was already approved, rejected, archived, or no longer visible,
 the server returns `409` with `status: "not_actionable"`.
+
+The dashboard also renders Capture Inbox groups so repeated captures from the
+same agent session can be reviewed together. Group actions post to:
+
+```text
+POST /api/capture-inbox/groups/:group_id/approve
+POST /api/capture-inbox/groups/:group_id/reject
+```
+
+Group requests include the rendered `record_ids[]`. The server rebuilds the
+current group before writing; if any selected record has already changed state,
+the server returns `409` with `status: "not_actionable"`. This keeps batch
+review auditable without turning it into silent automation.
+
+Capture Inbox uses a manual review policy: **No auto-canonical**. Noise signals
+can suggest archive for likely smoke/test or duplicate captures, but the user
+still decides through Approve Memory, Approve Group, Reject, or Reject Group.
 
 ### Review Queue
 
