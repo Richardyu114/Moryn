@@ -875,18 +875,25 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(html).toContain("Review Queue");
-      expect(html).toContain("Project identity split");
+      expect(html).toContain("Move records into moryn");
+      expect(html).toContain("Old project id");
+      expect(html).toContain("Records to move");
+      expect(html).toContain("History change");
+      expect(html).toContain("No history rewrite");
       expect(html).toContain("repo-e6f0166fd942");
-      expect(html).toContain("Approve Repair");
+      expect(html).toContain("Apply Repair");
       expect(html).toContain("Copy command");
-      expect(html).toContain("0 private included");
+      expect(html).toContain("No private records included");
       expect(html).toContain("Dry-run completed");
       expect(html).toContain("Operation appends revise_record events only");
-      expect(html).toContain("/api/maintenance/plans/");
+      expect(html).toContain("data-endpoint=\"api/maintenance/plans/");
+      expect(html).not.toContain("data-endpoint=\"/api/maintenance/plans/");
       expect(html).toContain("plan_hash");
       expect(html).toContain("data-maintenance-plan");
       expect(html).toContain("data-maintenance-approve");
       expect(html).toContain("data-maintenance-reject");
+      expect(html).toContain("Applying repair...");
+      expect(html).not.toContain("window.confirm");
     });
   });
 

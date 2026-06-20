@@ -767,15 +767,29 @@ function attentionItems(items: DashboardAttentionItem[]): string {
 }
 
 function maintenancePlanEndpoint(plan: DashboardMaintenancePlan): string {
-  return `/api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`;
+  return `api/maintenance/plans/${encodeURIComponent(plan.plan_id)}/approve`;
 }
 
 function maintenanceStateSummary(states: DashboardMaintenancePlan["dry_run"]["states"]): string {
   const order: Array<keyof typeof states> = ["canonical", "candidate", "raw", "archived", "quarantined"];
   return order
     .filter((state) => states[state])
-    .map((state) => `${state} ${states[state]}`)
-    .join(" | ");
+    .map((state) => `${states[state]} ${state}`)
+    .join(", ");
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function maintenancePrivateSummary(plan: DashboardMaintenancePlan): string {
+  if (plan.dry_run.included_private_records > 0) {
+    return `${pluralize(plan.dry_run.included_private_records, "private record")} included`;
+  }
+  if (plan.dry_run.skipped_private_records > 0) {
+    return `${pluralize(plan.dry_run.skipped_private_records, "private record")} skipped`;
+  }
+  return "No private records included";
 }
 
 function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
@@ -795,18 +809,19 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
           >
             <div class="maintenance-plan-main">
               <div>
-                <h3>Project identity split</h3>
-                <p><code>${escapeHtml(plan.from_project_id)}</code> -> <code>${escapeHtml(plan.to_project_id)}</code></p>
-              </div>
-              <div class="maintenance-stats">
-                <span>${escapeHtml(plan.dry_run.matched_records)} records matched</span>
-                <span>${escapeHtml(plan.dry_run.skipped_private_records)} private skipped</span>
-                <span>${escapeHtml(plan.dry_run.included_private_records)} private included</span>
-                <span>append-only repair</span>
+                <h3>Move records into ${escapeHtml(plan.to_project_id)}</h3>
+                <p>Records under an old project id look like they belong to <code>${escapeHtml(plan.to_project_id)}</code>.</p>
               </div>
             </div>
+            <dl class="maintenance-summary">
+              <div><dt>Old project id</dt><dd><code>${escapeHtml(plan.from_project_id)}</code></dd></div>
+              <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id)}</code></dd></div>
+              <div><dt>Records to move</dt><dd>${escapeHtml(pluralize(plan.dry_run.matched_records, "record"))}${maintenanceStateSummary(plan.dry_run.states) ? ` <small>${escapeHtml(maintenanceStateSummary(plan.dry_run.states))}</small>` : ""}</dd></div>
+              <div><dt>Private records</dt><dd>${escapeHtml(maintenancePrivateSummary(plan))}</dd></div>
+              <div><dt>History change</dt><dd>No history rewrite. Moryn appends one revision event per moved record.</dd></div>
+            </dl>
             <details data-dashboard-detail="maintenance:${escapeHtml(plan.plan_id)}">
-              <summary>Review details</summary>
+              <summary>Technical details</summary>
               <dl>
                 <div><dt>Plan</dt><dd><code>${escapeHtml(plan.plan_id)}</code></dd></div>
                 <div><dt>plan_hash</dt><dd><code>${escapeHtml(plan.plan_hash)}</code></dd></div>
@@ -831,9 +846,9 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 data-maintenance-approve
                 data-endpoint="${escapeHtml(maintenancePlanEndpoint(plan))}"
                 data-plan-hash="${escapeHtml(plan.plan_hash)}"
-              >Approve Repair</button>
+              >Apply Repair</button>
             </div>
-            <p class="maintenance-status" data-maintenance-status></p>
+            <p class="maintenance-status" data-maintenance-status role="status" aria-live="polite"></p>
           </article>
         `).join("")}
       </div>
@@ -1154,6 +1169,15 @@ function dashboardMaintenanceScript(): string {
         main.innerHTML = await response.text();
         hideRejectedPlans();
       };
+      const responseJson = async (response) => {
+        const text = await response.text();
+        if (!text) return {};
+        try {
+          return JSON.parse(text);
+        } catch {
+          return { ok: false, message: text };
+        }
+      };
       hideRejectedPlans();
       main.addEventListener("click", async (event) => {
         const target = event.target;
@@ -1175,17 +1199,15 @@ function dashboardMaintenanceScript(): string {
         }
         const approve = target.closest("[data-maintenance-approve]");
         if (!(approve instanceof HTMLButtonElement)) return;
-        const message = "Approve project identity repair? Moryn will append revise_record events and preserve history.";
-        if (!window.confirm(message)) return;
         approve.disabled = true;
-        if (status) status.textContent = "Re-running dry-run before approval...";
+        if (status) status.textContent = "Applying repair...";
         try {
           const response = await fetch(approve.dataset.endpoint || "", {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ plan_hash: approve.dataset.planHash })
           });
-          const result = await response.json();
+          const result = await responseJson(response);
           if (!response.ok || result.ok === false) {
             if (status) status.textContent = result.message || "Approval failed.";
             approve.disabled = false;
@@ -1367,14 +1389,14 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .attention.critical { border-left-color: var(--critical); }
     .empty-state { border: 1px dashed var(--border); border-radius: 7px; padding: 14px; color: var(--muted); background: var(--surface-2); }
     .maintenance-review { border-left: 4px solid var(--signal-green); }
-    .maintenance-heading, .maintenance-plan-main, .maintenance-actions, .maintenance-stats {
+    .maintenance-heading, .maintenance-plan-main, .maintenance-actions {
       display: flex;
       justify-content: space-between;
       gap: 10px;
       align-items: center;
       min-width: 0;
     }
-    .maintenance-heading span, .maintenance-stats span, .maintenance-status { color: var(--muted); font-size: 12px; font-weight: 650; }
+    .maintenance-heading span, .maintenance-status { color: var(--muted); font-size: 12px; font-weight: 650; }
     .maintenance-list { display: grid; gap: 10px; }
     .maintenance-plan {
       border: 1px solid var(--border);
@@ -1382,8 +1404,25 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding: 12px;
       background: var(--surface-2);
     }
-    .maintenance-plan-main { align-items: flex-start; }
-    .maintenance-stats { flex-wrap: wrap; justify-content: flex-end; }
+    .maintenance-plan-main { align-items: flex-start; margin-bottom: 10px; }
+    .maintenance-summary {
+      margin: 0 0 10px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .maintenance-summary div {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 1fr);
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px;
+      background: var(--surface);
+      min-width: 0;
+    }
+    .maintenance-summary div:last-child { grid-column: 1 / -1; }
+    .maintenance-summary small { margin-top: 3px; }
     .maintenance-checks { display: grid; gap: 6px; padding-left: 0; list-style: none; }
     .maintenance-checks li {
       display: flex;
@@ -1502,8 +1541,9 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       header, .overview-grid, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
-      .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-stats, .maintenance-actions { display: grid; justify-content: stretch; }
-      .bar-label span, .maintenance-stats { text-align: left; }
+      .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-actions { display: grid; justify-content: stretch; }
+      .maintenance-summary { grid-template-columns: 1fr; }
+      .bar-label span { text-align: left; }
     }
   </style>
 </head>
