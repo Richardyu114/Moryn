@@ -92,6 +92,36 @@ describe("host adapters", () => {
       const projectPath = join(storePath, "project");
       await mkdir(projectPath, { recursive: true });
       await initializeProjectConfig(projectPath, { project_id: "moryn" });
+      const engine = createEngine({ storePath });
+      await engine.write({
+        kind: "memory",
+        type: "preference",
+        scope: "global",
+        content: { text: "Prefer explicit user approval before canonical memory changes.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Moryn v0.2 focuses on auditable handoff packs.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Do not turn Moryn into a hosted agent runner.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
       await captureSession({
         storePath,
         projectPath,
@@ -111,6 +141,60 @@ describe("host adapters", () => {
       expect(pack.kind).toBe("context_pack");
       expect(pack.agent.client).toBe("gemini");
       expect(pack.project.project_id).toBe("moryn");
+      expect(pack.handoff_pack).toMatchObject({
+        version: 2,
+        purpose: "agent_handoff",
+        current_goal: {
+          text: "continue work",
+          source: "context_pack.current_task"
+        },
+        recent_decisions: [
+          expect.objectContaining({
+            text: "Moryn v0.2 focuses on auditable handoff packs.",
+            evidence: expect.objectContaining({ source: "sections.boot.project.important_decisions[]" })
+          })
+        ],
+        open_threads: [
+          expect.objectContaining({
+            text: "Claude finished adapter research.",
+            evidence: expect.objectContaining({ source: "sections.handoff.inbox[]" })
+          })
+        ],
+        risks: [
+          expect.objectContaining({
+            text: "Do not turn Moryn into a hosted agent runner.",
+            evidence: expect.objectContaining({ source: "sections.boot.project.warnings[]" })
+          })
+        ],
+        user_preferences: [
+          expect.objectContaining({
+            text: "Prefer explicit user approval before canonical memory changes.",
+            evidence: expect.objectContaining({ source: "sections.boot.profile.user_preferences[]" })
+          })
+        ],
+        next_actions: expect.arrayContaining([
+          expect.objectContaining({
+            id: "capture_session",
+            command: expect.stringContaining("moryn capture session"),
+            evidence: expect.objectContaining({ source: "next.actions_by_id.capture_session" })
+          })
+        ]),
+        evidence: {
+          boot: "sections.boot",
+          refresh: "sections.refresh",
+          handoff: "sections.handoff",
+          next: "next"
+        },
+        selection_sources: expect.objectContaining({
+          handoff_pack: "handoff_pack",
+          current_goal: "handoff_pack.current_goal",
+          recent_decision: "handoff_pack.recent_decisions[]",
+          open_thread: "handoff_pack.open_threads[]",
+          risk: "handoff_pack.risks[]",
+          user_preference: "handoff_pack.user_preferences[]",
+          next_action: "handoff_pack.next_actions[]"
+        })
+      });
       expect(pack.sections.handoff.inbox.length).toBeGreaterThan(0);
       expect(pack.sections.handoff.inbox[0]?.text).toContain("Claude finished adapter research.");
       expect(pack.next.required_end_action_id).toBe("capture_session");

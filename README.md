@@ -59,11 +59,14 @@ moryn capture session --project . --agent codex --summary "Finished the task and
 ```
 
 `moryn install` prints or applies only safe Moryn-local setup; it does not edit
-host configuration files. `moryn context pack` returns boot, refresh, and
-handoff context plus a required `capture_session` next action. `moryn capture
-session` records an autocapture handoff so the next agent, host, or device can
-resume from the same store. Captured handoffs enter the dashboard Capture Inbox
-as candidates; they become canonical memory only after a user approves them.
+host configuration files. `moryn context pack` returns Handoff Pack v0.2: a
+small handoff index with the current goal, recent decisions, open threads,
+risks, user preferences, important files, and next actions, plus the raw boot,
+refresh, and handoff evidence it came from. It also includes the required
+`capture_session` next action. `moryn capture session` records an autocapture
+handoff so the next agent, host, or device can resume from the same store.
+Captured handoffs enter the dashboard Capture Inbox as candidates; they become
+canonical memory only after a user approves them.
 
 ## What It Stores
 

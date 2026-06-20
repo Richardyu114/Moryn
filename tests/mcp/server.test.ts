@@ -3026,10 +3026,35 @@ describe("MCP stdio server", () => {
         })) as {
           kind: string;
           agent: { client: string; session_id: string };
+          handoff_pack: {
+            version: number;
+            purpose: string;
+            current_goal: { text: string; source: string };
+            open_threads: Array<{ text: string; evidence: { source: string } }>;
+            next_actions: Array<{ id: string; command: string; evidence: { source: string } }>;
+          };
           next: { required_end_action_id: string; actions_by_id: { capture_session: { command: string } } };
         };
         expect(pack.kind).toBe("context_pack");
         expect(pack.agent).toMatchObject({ client: "gemini", session_id: "gemini-mcp" });
+        expect(pack.handoff_pack).toMatchObject({
+          version: 2,
+          purpose: "agent_handoff",
+          current_goal: { text: "continue via MCP", source: "context_pack.current_task" },
+          open_threads: [
+            expect.objectContaining({
+              text: "MCP host finished the setup path.",
+              evidence: expect.objectContaining({ source: "sections.handoff.inbox[]" })
+            })
+          ],
+          next_actions: expect.arrayContaining([
+            expect.objectContaining({
+              id: "capture_session",
+              command: expect.stringContaining("moryn capture session"),
+              evidence: expect.objectContaining({ source: "next.actions_by_id.capture_session" })
+            })
+          ])
+        });
         expect(pack.next.required_end_action_id).toBe("capture_session");
         expect(pack.next.actions_by_id.capture_session.command).toContain("moryn capture session");
 

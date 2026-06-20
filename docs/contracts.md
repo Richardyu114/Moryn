@@ -76,9 +76,13 @@ moryn capture session --project . --agent codex --summary "handoff summary"
 
 The MCP tools are `install`, `context_pack`, and `capture_session`. `install`
 returns a safe setup plan and host-specific MCP registration hints.
-`context_pack` returns boot context, refresh changes, handoff inbox, and
-`next.actions_by_id.capture_session`. `capture_session` writes an autocapture
-`session_summary` with normalized host provenance.
+`context_pack` returns `handoff_pack` v2 for quick agent handoff, plus boot
+context, refresh changes, raw handoff inbox evidence, and
+`next.actions_by_id.capture_session`. The pack keeps stable evidence paths such
+as `sections.boot.project.important_decisions[]`,
+`sections.handoff.inbox[]`, and `next.actions_by_id.capture_session`.
+`capture_session` writes an autocapture `session_summary` with normalized host
+provenance.
 
 The timeline read operation is available through the same registry:
 

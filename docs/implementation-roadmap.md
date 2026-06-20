@@ -105,8 +105,9 @@ store:
 - Host descriptors for Codex, Claude, Gemini, Cursor, and shell agents.
 - `moryn install` safe setup planning with host-specific MCP registration
   hints.
-- `moryn context pack` startup context that bundles boot context, refresh
-  changes, handoff inbox, and a required capture next action.
+- `moryn context pack` startup context that bundles Handoff Pack v0.2, boot
+  context, refresh changes, raw handoff evidence, and a required capture next
+  action.
 - `moryn capture session` session-summary autocapture with normalized
   `source.client` and `host:<client>` tags.
 - CLI and MCP exposure for install, context pack, and capture session.

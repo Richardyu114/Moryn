@@ -91,6 +91,12 @@ describe("documentation contracts", () => {
     expect(readme).toContain("moryn install --host codex --project . --apply");
     expect(readme).toContain("moryn context pack --project . --agent codex");
     expect(readme).toContain("moryn capture session --project . --agent codex --summary");
+    expect(readme).toContain("Handoff Pack v0.2");
+    expect(readme).toContain("recent decisions");
+    expect(workflow).toContain("handoff_pack");
+    expect(workflow).toContain("recent_decisions");
+    expect(workflow).toContain("open_threads");
+    expect(roadmap).toContain("Handoff Pack v0.2");
     expect(installPrompt).toContain("host adapter");
     expect(installPrompt).toContain("autocapture");
     expect(workflow).toContain("Host Adapter Flow");

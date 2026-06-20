@@ -98,6 +98,7 @@ export type ContextPackResult = {
   adapter: HostAdapter;
   agent: RecordSource;
   project: Record<string, unknown>;
+  handoff_pack: HandoffPackV2;
   sections: {
     boot: unknown;
     refresh: unknown;
@@ -119,6 +120,46 @@ export type ContextPackResult = {
   selection_sources: typeof CONTEXT_PACK_SELECTION_SOURCES;
 };
 
+export type HandoffPackEvidence = {
+  source: string;
+  record_id?: string;
+  command?: string;
+};
+
+export type HandoffPackItem = {
+  text: string;
+  evidence: HandoffPackEvidence;
+};
+
+export type HandoffPackNextAction = {
+  id: string;
+  command?: string;
+  required_when?: string;
+  evidence: HandoffPackEvidence;
+};
+
+export type HandoffPackV2 = {
+  version: 2;
+  purpose: "agent_handoff";
+  current_goal?: {
+    text: string;
+    source: "context_pack.current_task";
+  };
+  recent_decisions: HandoffPackItem[];
+  open_threads: HandoffPackItem[];
+  important_files: HandoffPackItem[];
+  risks: HandoffPackItem[];
+  user_preferences: HandoffPackItem[];
+  next_actions: HandoffPackNextAction[];
+  evidence: {
+    boot: "sections.boot";
+    refresh: "sections.refresh";
+    handoff: "sections.handoff";
+    next: "next";
+  };
+  selection_sources: typeof HANDOFF_PACK_SELECTION_SOURCES;
+};
+
 export const INSTALL_PLAN_SELECTION_SOURCES = {
   adapter: "adapters[]",
   action: "actions_by_id.<action>",
@@ -136,6 +177,7 @@ export const CAPTURE_SESSION_SELECTION_SOURCES = {
 
 export const CONTEXT_PACK_SELECTION_SOURCES = {
   context_pack: "context_pack",
+  handoff_pack: "handoff_pack",
   project: "project",
   boot: "sections.boot",
   refresh: "sections.refresh",
@@ -147,6 +189,18 @@ export const CONTEXT_PACK_NEXT_SELECTION_SOURCES = {
   action: "next.actions_by_id.<action>",
   ordered_action: "next.actions[]",
   capture_session: "next.actions_by_id.capture_session"
+} as const;
+
+export const HANDOFF_PACK_SELECTION_SOURCES = {
+  handoff_pack: "handoff_pack",
+  current_goal: "handoff_pack.current_goal",
+  recent_decision: "handoff_pack.recent_decisions[]",
+  open_thread: "handoff_pack.open_threads[]",
+  important_file: "handoff_pack.important_files[]",
+  risk: "handoff_pack.risks[]",
+  user_preference: "handoff_pack.user_preferences[]",
+  next_action: "handoff_pack.next_actions[]",
+  evidence: "handoff_pack.evidence"
 } as const;
 
 const HOST_ADAPTERS: HostAdapter[] = [
@@ -473,6 +527,19 @@ export async function contextPack(input: ContextPackInput): Promise<ContextPackR
     capture_session: captureAction,
     ...started.next.actions_by_id
   };
+  const next = {
+    required_end_action_id: "capture_session" as const,
+    required_end_action_source: "next.actions_by_id.capture_session" as const,
+    recommended_refresh_action_id: started.next.recommended_refresh_action_id,
+    actions,
+    actions_by_id: actionsById,
+    selection_sources: CONTEXT_PACK_NEXT_SELECTION_SOURCES
+  };
+  const sections = {
+    boot: started.boot,
+    refresh: started.refresh,
+    handoff: started.handoff
+  };
 
   return {
     ok: true,
@@ -480,21 +547,116 @@ export async function contextPack(input: ContextPackInput): Promise<ContextPackR
     adapter,
     agent,
     project: started.project as unknown as Record<string, unknown>,
-    sections: {
-      boot: started.boot,
-      refresh: started.refresh,
-      handoff: started.handoff
-    },
+    handoff_pack: buildHandoffPackV2({
+      currentTask: input.currentTask,
+      sections,
+      next
+    }),
+    sections,
     lifecycle: started.next.workflow,
-    next: {
-      required_end_action_id: "capture_session",
-      required_end_action_source: "next.actions_by_id.capture_session",
-      recommended_refresh_action_id: started.next.recommended_refresh_action_id,
-      actions,
-      actions_by_id: actionsById,
-      selection_sources: CONTEXT_PACK_NEXT_SELECTION_SOURCES
-    },
+    next,
     selection_sources: CONTEXT_PACK_SELECTION_SOURCES
+  };
+}
+
+function buildHandoffPackV2(input: {
+  currentTask?: string;
+  sections: ContextPackResult["sections"];
+  next: ContextPackResult["next"];
+}): HandoffPackV2 {
+  return {
+    version: 2,
+    purpose: "agent_handoff",
+    ...(input.currentTask ? { current_goal: { text: input.currentTask, source: "context_pack.current_task" as const } } : {}),
+    recent_decisions: handoffItems(
+      recordsAtPath(input.sections.boot, ["project", "important_decisions"]),
+      "sections.boot.project.important_decisions[]"
+    ),
+    open_threads: [
+      ...handoffItems(recordsAtPath(input.sections.handoff, ["active_sessions"]), "sections.handoff.active_sessions[]"),
+      ...handoffItems(recordsAtPath(input.sections.handoff, ["inbox"]), "sections.handoff.inbox[]")
+    ],
+    important_files: uniqueHandoffItems([
+      ...handoffItems(recordsAtPath(input.sections.boot, ["task_relevant"]), "sections.boot.task_relevant[]"),
+      ...handoffItems(recordsAtPath(input.sections.boot, ["skills"]), "sections.boot.skills[]")
+    ]),
+    risks: handoffItems(recordsAtPath(input.sections.boot, ["project", "warnings"]), "sections.boot.project.warnings[]"),
+    user_preferences: handoffItems(recordsAtPath(input.sections.boot, ["profile", "user_preferences"]), "sections.boot.profile.user_preferences[]"),
+    next_actions: Object.entries(input.next.actions_by_id)
+      .map(([id, action]) => handoffNextAction(id, action))
+      .filter((action): action is HandoffPackNextAction => action !== undefined),
+    evidence: {
+      boot: "sections.boot",
+      refresh: "sections.refresh",
+      handoff: "sections.handoff",
+      next: "next"
+    },
+    selection_sources: HANDOFF_PACK_SELECTION_SOURCES
+  };
+}
+
+function recordsAtPath(root: unknown, path: string[]): Array<Record<string, unknown>> {
+  let value = root;
+  for (const segment of path) {
+    if (!value || typeof value !== "object") return [];
+    value = (value as Record<string, unknown>)[segment];
+  }
+  return Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+    : [];
+}
+
+function handoffItems(records: Array<Record<string, unknown>>, source: string): HandoffPackItem[] {
+  return records
+    .map((record) => {
+      const text = handoffText(record);
+      if (!text) return undefined;
+      return {
+        text,
+        evidence: {
+          source,
+          ...(typeof record.record_id === "string" ? { record_id: record.record_id } : {}),
+          ...(typeof record.id === "string" ? { record_id: record.id } : {})
+        }
+      };
+    })
+    .filter((item): item is HandoffPackItem => item !== undefined);
+}
+
+function handoffText(record: Record<string, unknown>): string | undefined {
+  if (typeof record.text === "string" && record.text.trim()) return record.text.trim();
+  const content = record.content;
+  if (content && typeof content === "object" && !Array.isArray(content)) {
+    const text = (content as Record<string, unknown>).text;
+    if (typeof text === "string" && text.trim()) return text.trim();
+  }
+  if (typeof record.summary === "string" && record.summary.trim()) return record.summary.trim();
+  return undefined;
+}
+
+function uniqueHandoffItems(items: HandoffPackItem[]): HandoffPackItem[] {
+  const seen = new Set<string>();
+  const unique: HandoffPackItem[] = [];
+  for (const item of items) {
+    const key = `${item.evidence.record_id ?? ""}|${item.text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(item);
+  }
+  return unique;
+}
+
+function handoffNextAction(id: string, action: unknown): HandoffPackNextAction | undefined {
+  if (!action || typeof action !== "object" || Array.isArray(action)) return undefined;
+  const candidate = action as Record<string, unknown>;
+  return {
+    id,
+    ...(typeof candidate.command === "string" ? { command: candidate.command } : {}),
+    ...(typeof candidate.required_when === "string" ? { required_when: candidate.required_when } : {}),
+    evidence: {
+      source: `next.actions_by_id.${id}`,
+      ...(typeof candidate.command === "string" ? { command: candidate.command } : {})
+    }
   };
 }
 

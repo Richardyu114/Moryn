@@ -1217,7 +1217,7 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     "context_pack",
     {
       title: "Build Moryn Host Context Pack",
-      description: "Build a host-normalized startup context pack with boot, refresh, handoff context, and a required capture next action.",
+      description: "Build a host-normalized startup context pack with Handoff Pack v0.2, boot, refresh, raw handoff evidence, and a required capture next action.",
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),

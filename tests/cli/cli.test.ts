@@ -3082,6 +3082,18 @@ describe("moryn CLI", () => {
       await exec("node", [
         "--import", tsxLoader, cliPath,
         "--store", store,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--text", "CLI context pack should expose Handoff Pack v0.2.",
+        "--state", "canonical",
+        "--confirm"
+      ]);
+      await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "--store", store,
         "capture", "session",
         "--project", project,
         "--agent", "claude",
@@ -3103,6 +3115,15 @@ describe("moryn CLI", () => {
         kind: string;
         agent: { client: string; session_id: string };
         project: { project_id: string };
+        handoff_pack: {
+          version: number;
+          purpose: string;
+          current_goal: { text: string; source: string };
+          recent_decisions: Array<{ text: string; evidence: { source: string } }>;
+          open_threads: Array<{ text: string; evidence: { source: string } }>;
+          next_actions: Array<{ id: string; command: string; evidence: { source: string } }>;
+          selection_sources: { handoff_pack: string };
+        };
         sections: { handoff: { inbox: Array<{ text: string }> } };
         next: { required_end_action_id: string; actions_by_id: { capture_session: { command: string } } };
         selection_sources: { context_pack: string };
@@ -3111,6 +3132,31 @@ describe("moryn CLI", () => {
       expect(parsed.kind).toBe("context_pack");
       expect(parsed.agent).toMatchObject({ client: "gemini", session_id: "gemini-1" });
       expect(parsed.project.project_id).toBe("moryn");
+      expect(parsed.handoff_pack).toMatchObject({
+        version: 2,
+        purpose: "agent_handoff",
+        current_goal: { text: "continue work", source: "context_pack.current_task" },
+        recent_decisions: [
+          expect.objectContaining({
+            text: "CLI context pack should expose Handoff Pack v0.2.",
+            evidence: expect.objectContaining({ source: "sections.boot.project.important_decisions[]" })
+          })
+        ],
+        open_threads: [
+          expect.objectContaining({
+            text: "Claude finished adapter research.",
+            evidence: expect.objectContaining({ source: "sections.handoff.inbox[]" })
+          })
+        ],
+        next_actions: expect.arrayContaining([
+          expect.objectContaining({
+            id: "capture_session",
+            command: expect.stringContaining("moryn capture session"),
+            evidence: expect.objectContaining({ source: "next.actions_by_id.capture_session" })
+          })
+        ]),
+        selection_sources: { handoff_pack: "handoff_pack" }
+      });
       expect(parsed.sections.handoff.inbox[0]?.text).toContain("Claude finished adapter research.");
       expect(parsed.next.required_end_action_id).toBe("capture_session");
       expect(parsed.next.actions_by_id.capture_session.command).toContain("moryn capture session");
