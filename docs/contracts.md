@@ -138,6 +138,31 @@ The MCP equivalent is:
 archive, or project-identity review actions. It does not mutate records; any
 returned mutation action has `safe_to_run: false` and requires user authority.
 
+The read-only dogfood report is available through the same registry:
+
+```bash
+moryn contracts operations --operation dogfood_report
+moryn dogfood report --project . --limit 20
+```
+
+The MCP equivalent is:
+
+```json
+{
+  "tool": "dogfood_report",
+  "arguments": {
+    "project_path": ".",
+    "limit": 20
+  }
+}
+```
+
+`dogfood_report` returns local-store friction findings for capture review
+backlog, duplicate handoff text, and failure or timeout signals, keyed by
+`dogfood_report.findings_by_id.<finding_id>`, plus inspection suggestions under
+`dogfood_report.suggested_actions_by_id.<action_id>`. It does not mutate records
+or events; suggested actions are read-only dashboard or timeline checks.
+
 Project identity migration is the explicit repair operation for confirmed
 splits:
 
@@ -253,6 +278,7 @@ surfaces that can return active record content or event context. Records tagged
 - `timeline`
 - `list_recent`
 - `memory_doctor`
+- `dogfood_report`
 - `dashboard`
 
 Use CLI `--include-private` or MCP `include_private: true` only for an explicit
@@ -262,6 +288,7 @@ private-memory read. The flag is discoverable in each operation contract:
 moryn contracts operations --operation recall
 moryn contracts operations --operation timeline
 moryn contracts operations --operation memory_doctor
+moryn contracts operations --operation dogfood_report
 moryn contracts operations --operation dashboard
 ```
 

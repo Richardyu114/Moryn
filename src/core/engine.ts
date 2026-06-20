@@ -11,6 +11,7 @@ import { actionExecution, actionSafety } from "./action-safety.js";
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 import { operationArgumentsByTool } from "../operation-contracts.js";
+import { diagnoseDogfood, type DogfoodReportInput } from "./dogfood-report.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 
 interface EngineDeps {
@@ -126,6 +127,10 @@ interface MemoryDoctorInput {
 }
 
 type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
+  include_private?: boolean;
+};
+
+type ValidatedDogfoodReportInput = DogfoodReportInput & {
   include_private?: boolean;
 };
 
@@ -581,7 +586,7 @@ type ValidatedProjectMigrateInput = ProjectMigrateInput & {
   include_private: boolean;
 };
 
-type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor";
+type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "dogfood_report";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
 type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.${string}`;
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
@@ -2076,6 +2081,12 @@ function validateMemoryDoctorInput(input: MemoryDoctorInput): void {
   validateOptionalBoolean("memory_doctor", input.include_private, "include_private");
 }
 
+function validateDogfoodReportInput(input: DogfoodReportInput): void {
+  assertPlainObject(input, "dogfood report input");
+  validateOptionalString("dogfood_report", input.project_id, "project_id");
+  validateOptionalBoolean("dogfood_report", input.include_private, "include_private");
+}
+
 function validateProjectMigrateInput(input: ProjectMigrateInput): void {
   assertPlainObject(input, "project migrate input");
   if (typeof input.from_project_id !== "string" || !input.from_project_id.length) {
@@ -3267,6 +3278,28 @@ export function createEngine(deps: EngineDeps) {
         limit,
         include_private: resolvedInput.include_private,
         excluded_private_records: allRecords.length - records.length
+      });
+    },
+
+    async dogfoodReport(input: DogfoodReportInput = {}) {
+      validateDogfoodReportInput(input);
+      const resolvedInput = {
+        ...input,
+        include_private: input.include_private === true
+      } as ValidatedDogfoodReportInput;
+      const limit = validateLimit(resolvedInput.limit, 20, "dogfood_report");
+      const events = await readEvents(deps.storePath);
+      const allRecords = [...replayEvents(events).values()];
+      const records = allRecords
+        .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private))
+        .filter((record) => !resolvedInput.project_id || record.project_id === resolvedInput.project_id);
+      return diagnoseDogfood({
+        records,
+        events,
+        project_id: resolvedInput.project_id,
+        limit,
+        include_private: resolvedInput.include_private,
+        excluded_private_records: allRecords.length - allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
       });
     },
 

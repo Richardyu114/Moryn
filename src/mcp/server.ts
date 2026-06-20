@@ -494,6 +494,7 @@ type McpProjectContextOperation =
   | "dashboard"
   | "refresh"
   | "memory_doctor"
+  | "dogfood_report"
   | "capture_session"
   | "context_pack"
   | "agent_doctor"
@@ -1760,6 +1761,29 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: project.project_id,
         limit: normalizedInput.limit,
         include_private: normalizedInput.include_private
+      });
+    })
+  );
+
+  server.registerTool(
+    "dogfood_report",
+    {
+      title: "Report Moryn Dogfood Friction",
+      description: "Read-only dogfood report for capture-review backlog, duplicate handoffs, and failure or timeout signals.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        limit: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("dogfood_report")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("dogfood_report", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("dogfood_report", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      return engine.dogfoodReport({
+        project_id: project.project_id,
+        limit: normalizedInput.limit as number | undefined,
+        include_private: normalizedInput.include_private as boolean | undefined
       });
     })
   );

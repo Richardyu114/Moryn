@@ -996,7 +996,7 @@ describe("MCP stdio server", () => {
         })) as {
           contracts: {
             setup: { store_init: { config_file: string } };
-            core: { boot: { skill: string } };
+            core: { boot: { skill: string }; dogfood_report: { finding: string } };
             sync: { result: { pushed: string } };
             lifecycle: { guide: { guardrail: string } };
             recovery: { next_action: { error_next_action: string } };
@@ -1007,6 +1007,7 @@ describe("MCP stdio server", () => {
         expect(parsed.selection_sources).toEqual(SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES);
         expect(parsed.contracts.setup.store_init.config_file).toBe("artifacts.config");
         expect(parsed.contracts.core.boot.skill).toBe("skills_by_id.<record_id>");
+        expect(parsed.contracts.core.dogfood_report.finding).toBe("findings_by_id.<finding_id>");
         expect(parsed.contracts.sync.result.pushed).toBe("pushed");
         expect(parsed.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
         expect(parsed.contracts.recovery.next_action.error_next_action).toBe("error.next_action");
@@ -2843,6 +2844,7 @@ describe("MCP stdio server", () => {
           "capture_session",
           "context_pack",
           "dashboard",
+          "dogfood_report",
           "init",
           "install",
           "link",
@@ -3057,6 +3059,24 @@ describe("MCP stdio server", () => {
         });
         expect(pack.next.required_end_action_id).toBe("capture_session");
         expect(pack.next.actions_by_id.capture_session.command).toContain("moryn capture session");
+
+        const dogfood = parseTextContent(await client.callTool({
+          name: "dogfood_report",
+          arguments: {
+            project_path: projectPath,
+            limit: 20
+          }
+        })) as {
+          read_only: boolean;
+          findings_by_id: Record<string, { category: string }>;
+          suggested_actions_by_id: Record<string, { tool: string; safe_to_run: boolean }>;
+        };
+        expect(dogfood.read_only).toBe(true);
+        expect(dogfood.findings_by_id.capture_review_backlog).toMatchObject({ category: "capture_review" });
+        expect(dogfood.suggested_actions_by_id.review_capture_inbox).toMatchObject({
+          tool: "dashboard",
+          safe_to_run: true
+        });
 
         const writeResult = parseTextContent(await client.callTool({
           name: "write",

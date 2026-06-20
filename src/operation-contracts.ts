@@ -1960,6 +1960,29 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "dogfood_report",
+    category: "core",
+    summary: "Read-only dogfood report that surfaces capture-review backlog, duplicate handoffs, and failure or timeout signals from the local store.",
+    safe_to_run: true,
+    required_when: "When improving Moryn itself or auditing friction from recent local agent work before adding automation.",
+    required_fields: [],
+    arguments_by_name: {
+      ...projectContextArguments,
+      limit: {
+        type: "number",
+        required: false,
+        default: 20,
+        cli: { flag: "--limit", default: 20 },
+        mcp: { argument: "limit" }
+      },
+      ...privateReadArgument
+    },
+    interfaces: {
+      cli: { command: "moryn dogfood report", argv: ["dogfood", "report"] },
+      mcp: { tool: "dogfood_report", arguments: {} }
+    }
+  }),
+  operationContract({
     operation: "refresh",
     category: "core",
     summary: "Return important changes since a cursor for periodic memory refresh.",

@@ -88,7 +88,7 @@ const CLI_GLOBAL_OPTIONS = [
   { option: "--version", position: "before_command" },
   { option: "-V", position: "before_command" }
 ] as const;
-type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
+type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "dogfood_report" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
@@ -133,6 +133,7 @@ type CliParserOperation =
   | "timeline"
   | "refresh"
   | "memory_doctor"
+  | "dogfood_report"
   | "sync_push"
   | "revise"
   | "promote"
@@ -1518,6 +1519,11 @@ function cliParserArgumentSource(option: string): CliParserSource | undefined {
     if (option === "--project-id") return { operation: "memory_doctor", argument: "project_id" };
     if (option === "--limit") return { operation: "memory_doctor", argument: "limit" };
   }
+  if (commandPath[0] === "dogfood" && commandPath[1] === "report") {
+    if (option === "--project") return { operation: "dogfood_report", argument: "project_path" };
+    if (option === "--project-id") return { operation: "dogfood_report", argument: "project_id" };
+    if (option === "--limit") return { operation: "dogfood_report", argument: "limit" };
+  }
   if (commandPath[0] === "project" && commandPath[1] === "migrate") {
     if (option === "--from") return { operation: "project_migrate", argument: "from_project_id" };
     if (option === "--to") return { operation: "project_migrate", argument: "to_project_id" };
@@ -2462,6 +2468,23 @@ memory.command("doctor")
     printJson(await engine.memoryDoctor({
       project_id: projectId,
       limit: parseLimit(options.limit, "memory_doctor"),
+      include_private: options.includePrivate
+    }));
+  });
+
+const dogfood = program.command("dogfood");
+
+dogfood.command("report")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--limit <n>", "Finding/action limit", "20")
+  .option("--include-private", "Include private-tagged records")
+  .action(async (options) => {
+    const engine = createCliEngine();
+    const projectId = await resolveOptionalProject(options, "dogfood_report");
+    printJson(await engine.dogfoodReport({
+      project_id: projectId,
+      limit: parseLimit(options.limit, "dogfood_report"),
       include_private: options.includePrivate
     }));
   });

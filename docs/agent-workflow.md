@@ -216,6 +216,21 @@ other project ids. It returns keyed `findings_by_id` and
 `suggested_actions_by_id`; mutation suggestions remain `safe_to_run: false`
 until the user confirms promotion or archive. MCP hosts call `memory_doctor`.
 
+Use `dogfood report` when improving Moryn itself or auditing recent friction in
+local agent work:
+
+```bash
+moryn dogfood report \
+  --project . \
+  --limit 20
+```
+
+The result is read-only. It reports capture review backlog, duplicate handoff
+text, and failure or timeout signals, with keyed `findings_by_id`,
+`suggested_actions_by_id`, `records_by_id`, and `events_by_id`. Suggested
+actions stay inspection-oriented, such as dashboard review or timeline lookup.
+MCP hosts call `dogfood_report`.
+
 If the project identity finding points at an obvious old id and a chosen
 canonical id, run the repair as a dry run first:
 

@@ -180,6 +180,17 @@ smoke/e2e marker noise, and related records under other project ids. Suggested
 promote/archive actions remain `safe_to_run: false` until the user confirms.
 The MCP tool name is `memory_doctor`.
 
+For Moryn's own dogfood loop, use the read-only report:
+
+```bash
+moryn dogfood report --project . --limit 20
+```
+
+It reports capture review backlog, duplicate handoff text, and failure or
+timeout signals from local records and events. Suggested actions point to
+dashboard or timeline inspection and stay `safe_to_run: true` read-only checks.
+The MCP tool name is `dogfood_report`.
+
 When the doctor reports split project identity and the canonical id is clear,
 preview an auditable migration first:
 

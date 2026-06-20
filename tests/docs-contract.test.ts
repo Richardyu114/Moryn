@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import { errorCode, nextAction, recommendedAction } from "../src/core/errors.js";
 
 describe("documentation contracts", () => {
+  function expectText(document: string, text: string): void {
+    expect(document.replace(/\s+/g, " ")).toContain(text);
+  }
+
   it("documents the observability dashboard server and static artifact", async () => {
     const [readme, installPrompt, workflow, contracts, roadmap, dashboard] = await Promise.all([
       readFile("README.md", "utf8"),
@@ -156,6 +160,27 @@ describe("documentation contracts", () => {
       expect(document).toContain("project_migrate");
     }
     expect(contracts).toContain("moryn contracts operations --operation project_migrate");
+  });
+
+  it("documents the read-only dogfood report surface", async () => {
+    const [readme, workflow, contracts, roadmap] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/contracts.md", "utf8"),
+      readFile("docs/implementation-roadmap.md", "utf8")
+    ]);
+
+    for (const document of [readme, workflow, contracts]) {
+      expect(document).toContain("moryn dogfood report");
+      expect(document).toContain("dogfood_report");
+      expect(document).toContain("read-only");
+      expectText(document, "failure or timeout signals");
+    }
+    expect(contracts).toContain("moryn contracts operations --operation dogfood_report");
+    expect(contracts).toContain('"tool": "dogfood_report"');
+    expect(contracts).toContain("dogfood_report.findings_by_id.<finding_id>");
+    expect(contracts).toContain("dogfood_report.suggested_actions_by_id.<action_id>");
+    expect(roadmap).toContain("dogfood report");
   });
 
   it("keeps the design spec error contract aligned with runtime envelopes", async () => {

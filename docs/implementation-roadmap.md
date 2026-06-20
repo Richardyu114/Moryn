@@ -151,7 +151,7 @@ Default path
   -> fast, boring, hard to misuse
 
 Power path
-  review / timeline / memory doctor / eval / sync repair / dashboard
+  review / timeline / memory doctor / dogfood report / eval / sync repair / dashboard
   -> optional, auditable, useful when the user needs governance
 
 Core boundary

@@ -31,6 +31,16 @@ const MEMORY_DOCTOR_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
   record_id: "records_by_id.<record_id>.id"
 };
+const DOGFOOD_REPORT_SELECTION_SOURCES = {
+  finding: "findings_by_id.<finding_id>",
+  finding_id: "findings_by_id.<finding_id>.id",
+  action: "suggested_actions_by_id.<action_id>",
+  action_id: "suggested_actions_by_id.<action_id>.action_id",
+  record: "records_by_id.<record_id>",
+  record_id: "records_by_id.<record_id>.id",
+  event: "events_by_id.<event_id>",
+  event_id: "events_by_id.<event_id>.event_id"
+};
 const PROJECT_MIGRATE_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
   record_id: "records_by_id.<record_id>.id",
@@ -359,6 +369,102 @@ function expectRefreshChangeRecallAction(action: {
 }
 
 describe("core engine", () => {
+  it("reports dogfood friction signals without mutating the store", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-20T00:00:${String(tick++).padStart(2, "0")}.000Z`
+      });
+      const firstCapture = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "Codex finished Dogfood Report planning.", format: "text" },
+        source: { client: "codex", session_id: "codex-1" }
+      });
+      const duplicateCapture = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "Codex finished Dogfood Report planning.", format: "text" },
+        source: { client: "codex", session_id: "codex-1" }
+      });
+      const failureNote = await engine.write({
+        kind: "agent_note",
+        type: "failure",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dogfood", "timeout"],
+        content: { text: "npm test failed: CLI timeout while running release check.", format: "text" },
+        source: { client: "codex", session_id: "codex-2" }
+      });
+      const privateNote = await engine.write({
+        kind: "agent_note",
+        type: "failure",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dogfood", "private"],
+        content: { text: "Private dogfood failure must not appear by default.", format: "text" },
+        source: { client: "codex", session_id: "codex-private" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const report = await engine.dogfoodReport({ project_id: "moryn", limit: 20 });
+      const afterEvents = await readEvents(storePath);
+
+      expect(afterEvents).toHaveLength(beforeEvents.length);
+      expect(report).toMatchObject({
+        read_only: true,
+        project_id: "moryn",
+        version: 1,
+        scope: "local_store"
+      });
+      expect(report.selection_sources).toEqual(DOGFOOD_REPORT_SELECTION_SOURCES);
+      expect(report.stats).toMatchObject({
+        total_records: 3,
+        excluded_private_records: 1,
+        autocapture_candidates: 2,
+        duplicate_text_groups: 1,
+        failure_signal_records: 1
+      });
+      expect(report.findings_by_id.capture_review_backlog).toMatchObject({
+        category: "capture_review",
+        severity: "warning",
+        record_ids: expect.arrayContaining([firstCapture.record.id, duplicateCapture.record.id])
+      });
+      expect(report.findings_by_id.duplicate_capture_text).toMatchObject({
+        category: "duplication",
+        severity: "warning",
+        record_ids: expect.arrayContaining([firstCapture.record.id, duplicateCapture.record.id])
+      });
+      expect(report.findings_by_id.failure_signals).toMatchObject({
+        category: "friction",
+        severity: "warning",
+        record_ids: [failureNote.record.id]
+      });
+      expect(report.suggested_actions_by_id.review_capture_inbox).toMatchObject({
+        tool: "dashboard",
+        safe_to_run: true,
+        command: "moryn dashboard --serve --project-id moryn"
+      });
+      expect(report.suggested_actions_by_id.inspect_failure_signals).toMatchObject({
+        tool: "timeline",
+        safe_to_run: true,
+        arguments: { record_id: failureNote.record.id, project_id: "moryn", before: 3, after: 3 }
+      });
+      expect(report.records_by_id[firstCapture.record.id]?.id).toBe(firstCapture.record.id);
+      expect(report.records_by_id[privateNote.record.id]).toBeUndefined();
+      const failureEvent = beforeEvents.find((event) => event.op === "upsert_record" && event.record.id === failureNote.record.id);
+      expect(report.events_by_id).toHaveProperty(failureEvent?.event_id as string);
+      expect(JSON.stringify(report)).not.toContain("Private dogfood failure");
+    });
+  });
+
   it("diagnoses candidate backlog, promotable rules, noise, and project identity splits without mutating records", async () => {
     await withInitializedTempStore(async (storePath) => {
       let tick = 0;

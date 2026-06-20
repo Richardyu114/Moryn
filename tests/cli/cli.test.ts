@@ -1038,7 +1038,7 @@ describe("moryn CLI", () => {
     const parsed = JSON.parse(result.stdout) as {
       contracts: {
         setup: { store_init: { config_file: string } };
-        core: { boot: { skill: string } };
+        core: { boot: { skill: string }; dogfood_report: { finding: string } };
         sync: { result: { pushed: string } };
         lifecycle: { guide: { guardrail: string } };
         recovery: { next_action: { error_next_action: string } };
@@ -1049,6 +1049,7 @@ describe("moryn CLI", () => {
     expect(parsed.selection_sources).toEqual(SELECTION_SOURCE_CONTRACTS_SELECTION_SOURCES);
     expect(parsed.contracts.setup.store_init.config_file).toBe("artifacts.config");
     expect(parsed.contracts.core.boot.skill).toBe("skills_by_id.<record_id>");
+    expect(parsed.contracts.core.dogfood_report.finding).toBe("findings_by_id.<finding_id>");
     expect(parsed.contracts.sync.result.pushed).toBe("pushed");
     expect(parsed.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
     expect(parsed.contracts.recovery.next_action.error_next_action).toBe("error.next_action");
@@ -1144,6 +1145,23 @@ describe("moryn CLI", () => {
       default: true,
       cli: { negative_flag: "--no-pull" },
       mcp: { argument: "pull" }
+    });
+    expect(parsed.operations_by_id.dogfood_report).toMatchObject({
+      operation: "dogfood_report",
+      category: "core",
+      safe_to_run: true,
+      required_fields: [],
+      interfaces: {
+        cli: { command: "moryn dogfood report" },
+        mcp: { tool: "dogfood_report" }
+      }
+    });
+    expect(parsed.operations_by_id.dogfood_report.arguments_by_name.limit).toMatchObject({
+      name: "limit",
+      type: "number",
+      required: false,
+      cli: { flag: "--limit" },
+      mcp: { argument: "limit" }
     });
     expect(parsed.operations_by_id.agent_finish).toMatchObject({
       safe_to_run: false,
@@ -3469,6 +3487,76 @@ describe("moryn CLI", () => {
         safe_to_run: false
       });
       expect(JSON.stringify(parsed.records_by_id)).not.toContain("Hidden rule should not appear");
+    });
+  });
+
+  it("runs a read-only dogfood report from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+      const capture = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "moryn",
+        "--tag", "autocapture",
+        "--tag", "review",
+        "--text", "Codex finished Dogfood Report planning."
+      ])).stdout) as { record: { id: string } };
+      const failure = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "agent_note",
+        "--type", "failure",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--tag", "dogfood",
+        "--tag", "timeout",
+        "--text", "npm test failed: CLI timeout while running release check."
+      ])).stdout) as { record: { id: string } };
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "agent_note",
+        "--type", "failure",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--tag", "dogfood",
+        "--tag", "private",
+        "--text", "Private dogfood failure must not appear by default."
+      ]);
+
+      const beforeEvents = await readEvents(dir);
+      const result = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "dogfood", "report",
+        "--project-id", "moryn",
+        "--limit", "20"
+      ]);
+      const parsed = JSON.parse(result.stdout) as {
+        read_only: boolean;
+        stats: { total_records: number; excluded_private_records: number };
+        findings_by_id: Record<string, { category: string; record_ids?: string[] }>;
+        suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
+        records_by_id: Record<string, { id: string }>;
+      };
+
+      expect(await readEvents(dir)).toHaveLength(beforeEvents.length);
+      expect(parsed.read_only).toBe(true);
+      expect(parsed.stats).toMatchObject({ total_records: 2, excluded_private_records: 1 });
+      expect(parsed.findings_by_id.capture_review_backlog).toMatchObject({
+        category: "capture_review",
+        record_ids: [capture.record.id]
+      });
+      expect(parsed.findings_by_id.failure_signals).toMatchObject({
+        category: "friction",
+        record_ids: [failure.record.id]
+      });
+      expect(parsed.suggested_actions_by_id.review_capture_inbox).toMatchObject({
+        tool: "dashboard",
+        safe_to_run: true
+      });
+      expect(parsed.records_by_id[capture.record.id]?.id).toBe(capture.record.id);
+      expect(JSON.stringify(parsed)).not.toContain("Private dogfood failure");
     });
   });
 
