@@ -235,12 +235,14 @@ context and ask the user to review the local `Review Queue`:
 moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn
 ```
 
-The Review Queue shows the generated project migration dry run, safety checks,
-and `plan_hash`. If the user clicks `Approve Repair`, the dashboard server
-re-runs the dry run and applies only when the hash still matches. Agents must
-not invent approval or send `confirmed: true` unless the user approved the
-specific plan. Serve with `--include-private` only when the user explicitly
-asked private-tagged memories to be included in the review and repair.
+The Review Queue shows the generated project migration as a decision card:
+issue, impact, recommended action, evidence, rollback path, and raw evidence
+with safety checks and `plan_hash`. If the user clicks `Approve Repair`, the
+dashboard server re-runs the dry run and applies only when the hash still
+matches. Agents must not invent approval or send `confirmed: true` unless the
+user approved the specific plan. Serve with `--include-private` only when the
+user explicitly asked private-tagged memories to be included in the review and
+repair.
 
 For autocaptured session handoffs, use the dashboard `Capture Inbox` instead of
 asking the agent to promote its own output. `Approve Memory` promotes a current

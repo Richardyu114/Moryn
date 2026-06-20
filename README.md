@@ -195,8 +195,10 @@ For browser-mediated review, serve the dashboard with the canonical project id:
 moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn
 ```
 
-The local Review Queue shows generated repair plans, the dry-run hash, private
-record counts, and an Approve Repair button. Approval re-runs the plan server
+The local Review Queue shows generated repair plans as decision cards: issue,
+impact, recommended action, evidence, rollback path, and an Approve Repair
+button. Raw evidence still exposes the dry-run hash, private record counts,
+record ids, safety checks, and CLI command. Approval re-runs the plan server
 side before writing append-only migration events.
 
 The same live dashboard also shows a Capture Inbox for `autocapture` or

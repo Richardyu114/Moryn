@@ -59,6 +59,10 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Review Queue");
     expect(dashboard).toContain("POST /api/maintenance/plans/:plan_id/approve");
     expect(dashboard).toContain("plan_hash");
+    expect(dashboard).toContain("decision card");
+    expect(dashboard).toContain("recommended action");
+    expect(dashboard).toContain("rollback path");
+    expect(contracts).toContain("decision_card");
     expect(dashboard).toContain("MCP `dashboard` tool");
     expect(dashboard).toContain("does not start a long-running HTTP server");
   });

@@ -1022,6 +1022,14 @@ function maintenancePrivateSummary(plan: DashboardMaintenancePlan): string {
   return "No private records included";
 }
 
+function maintenanceEvidenceList(plan: DashboardMaintenancePlan): string {
+  return `
+    <ul class="maintenance-evidence">
+      ${plan.decision_card.evidence.map((evidence) => `<li>${escapeHtml(evidence)}</li>`).join("")}
+    </ul>
+  `;
+}
+
 function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
   if (plans.length === 0) return "";
   return `
@@ -1039,27 +1047,31 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
           >
             <div class="maintenance-plan-main">
               <div>
-                <h3>Move records into ${escapeHtml(plan.to_project_id)}</h3>
-                <p>Records under an old project id look like they belong to <code>${escapeHtml(plan.to_project_id)}</code>.</p>
+                <h3>${escapeHtml(plan.decision_card.title)}</h3>
+                <p>${escapeHtml(plan.decision_card.issue)}</p>
               </div>
             </div>
-            <dl class="maintenance-summary">
-              <div><dt>Old project id</dt><dd><code>${escapeHtml(plan.from_project_id)}</code></dd></div>
-              <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id)}</code></dd></div>
-              <div><dt>Records to move</dt><dd>${escapeHtml(pluralize(plan.dry_run.matched_records, "record"))}${maintenanceStateSummary(plan.dry_run.states) ? ` <small>${escapeHtml(maintenanceStateSummary(plan.dry_run.states))}</small>` : ""}</dd></div>
-              <div><dt>Private records</dt><dd>${escapeHtml(maintenancePrivateSummary(plan))}</dd></div>
-              <div><dt>History change</dt><dd>No history rewrite. Moryn appends one revision event per moved record.</dd></div>
+            <dl class="maintenance-summary maintenance-decision">
+              <div><dt>Issue</dt><dd>${escapeHtml(plan.decision_card.issue)}</dd></div>
+              <div><dt>Impact</dt><dd>${escapeHtml(plan.decision_card.impact)}</dd></div>
+              <div><dt>Recommended action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
+              <div><dt>Evidence</dt><dd>${maintenanceEvidenceList(plan)}</dd></div>
+              <div><dt>Rollback path</dt><dd>${escapeHtml(plan.decision_card.rollback_path)}</dd></div>
             </dl>
             <details data-dashboard-detail="maintenance:${escapeHtml(plan.plan_id)}">
-              <summary>Technical details</summary>
+              <summary>Raw evidence</summary>
               <dl>
                 <div><dt>Plan</dt><dd><code>${escapeHtml(plan.plan_id)}</code></dd></div>
-                <div><dt>plan_hash</dt><dd><code>${escapeHtml(plan.plan_hash)}</code></dd></div>
+                <div><dt>plan_hash</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.plan_hash)}</code></dd></div>
+                <div><dt>Old project id</dt><dd><code>${escapeHtml(plan.from_project_id)}</code></dd></div>
+                <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id)}</code></dd></div>
                 <div><dt>Records</dt><dd>${escapeHtml(maintenanceStateSummary(plan.dry_run.states) || "none")}</dd></div>
-                <div><dt>Command</dt><dd><code>${escapeHtml(plan.command)}</code></dd></div>
+                <div><dt>Private records</dt><dd>${escapeHtml(maintenancePrivateSummary(plan))}</dd></div>
+                <div><dt>Record ids</dt><dd>${plan.decision_card.raw_evidence.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
+                <div><dt>Command</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.command)}</code></dd></div>
               </dl>
               <ul class="maintenance-checks">
-                ${plan.safety_checks.map((check) => `
+                ${plan.decision_card.raw_evidence.safety_checks.map((check) => `
                   <li class="${check.ok ? "good" : "warning"}">
                     <span>${check.ok ? "ok" : "review"}</span>
                     ${escapeHtml(check.label)}

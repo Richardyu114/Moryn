@@ -15,6 +15,21 @@ export interface DashboardMaintenanceSafetyCheck {
   ok: boolean;
 }
 
+export interface DashboardMaintenanceDecisionCard {
+  title: string;
+  issue: string;
+  impact: string;
+  recommended_action: string;
+  rollback_path: string;
+  evidence: string[];
+  raw_evidence: {
+    plan_hash: string;
+    command: string;
+    record_ids: string[];
+    safety_checks: DashboardMaintenanceSafetyCheck[];
+  };
+}
+
 export interface DashboardMaintenancePlan {
   plan_id: string;
   plan_hash: string;
@@ -35,6 +50,7 @@ export interface DashboardMaintenancePlan {
     requires_user_confirmation: true;
     safe_to_auto_apply: false;
   };
+  decision_card: DashboardMaintenanceDecisionCard;
 }
 
 export interface DashboardMaintenanceData {
@@ -91,6 +107,24 @@ function stateCounts(records: MorynRecord[]): Partial<Record<RecordState, number
   return counts;
 }
 
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function stateSummary(states: Partial<Record<RecordState, number>>): string {
+  const order: RecordState[] = ["canonical", "candidate", "raw", "archived", "quarantined"];
+  return order
+    .filter((state) => states[state])
+    .map((state) => pluralize(states[state] ?? 0, state, state))
+    .join(", ");
+}
+
+function privateRecordsSummary(skipped: number, included: number): string {
+  if (included > 0) return `${pluralize(included, "private record")} included.`;
+  if (skipped > 0) return `${pluralize(skipped, "private record")} skipped.`;
+  return "No private records included.";
+}
+
 function shellQuote(value: string): string {
   if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
@@ -139,6 +173,7 @@ function buildProjectIdentityPlan(
   const skippedPrivateRecords = matchingRecords.length - records.length;
   const includedPrivateRecords = records.filter(isPrivateRecord).length;
   const recordIds = records.map((record) => record.id);
+  const states = stateCounts(records);
   const hash = planHash({
     type: "project_identity_repair",
     from_project_id: fromProjectId,
@@ -147,6 +182,14 @@ function buildProjectIdentityPlan(
     updated_at_by_record_id: Object.fromEntries(records.map((record) => [record.id, record.updated_at])),
     include_private: includePrivate
   });
+  const command = projectMigrateApplyCommand(fromProjectId, toProjectId, includePrivate);
+  const safetyChecks: DashboardMaintenanceSafetyCheck[] = [
+    { id: "dry_run_completed", label: "Dry-run completed", ok: true },
+    { id: "target_project_explicit", label: "Target project is explicit", ok: toProjectId.length > 0 },
+    { id: "no_private_records", label: "No private records included", ok: includedPrivateRecords === 0 },
+    { id: "append_only", label: "Operation appends revise_record events only", ok: true }
+  ];
+  const reverseCommand = projectMigrateApplyCommand(toProjectId, fromProjectId, includePrivate);
 
   return {
     plan_id: `project_migrate:${fromProjectId}->${toProjectId}`,
@@ -155,23 +198,36 @@ function buildProjectIdentityPlan(
     finding_id: "project_identity_split",
     from_project_id: fromProjectId,
     to_project_id: toProjectId,
-    command: projectMigrateApplyCommand(fromProjectId, toProjectId, includePrivate),
+    command,
     record_ids: recordIds,
     dry_run: {
       matched_records: records.length,
       skipped_private_records: skippedPrivateRecords,
       included_private_records: includedPrivateRecords,
-      states: stateCounts(records)
+      states
     },
-    safety_checks: [
-      { id: "dry_run_completed", label: "Dry-run completed", ok: true },
-      { id: "target_project_explicit", label: "Target project is explicit", ok: toProjectId.length > 0 },
-      { id: "no_private_records", label: "No private records included", ok: includedPrivateRecords === 0 },
-      { id: "append_only", label: "Operation appends revise_record events only", ok: true }
-    ],
+    safety_checks: safetyChecks,
     approval: {
       requires_user_confirmation: true,
       safe_to_auto_apply: false
+    },
+    decision_card: {
+      title: "Project identity repair",
+      issue: `${pluralize(records.length, "record")} under ${fromProjectId} likely belong${records.length === 1 ? "s" : ""} to ${toProjectId}.`,
+      impact: `Boot and recall can miss these memories when agents ask for project ${toProjectId}.`,
+      recommended_action: `Apply the repair only after confirming ${fromProjectId} is an old or generated id for ${toProjectId}.`,
+      rollback_path: `If this was wrong, review the refreshed plan and run ${reverseCommand}.`,
+      evidence: [
+        `Matched records: ${pluralize(records.length, "record")}; ${stateSummary(states)}.`,
+        `Private records: ${privateRecordsSummary(skippedPrivateRecords, includedPrivateRecords)}`,
+        "Write behavior: append-only revise_record events; no history rewrite."
+      ],
+      raw_evidence: {
+        plan_hash: hash,
+        command,
+        record_ids: recordIds,
+        safety_checks: safetyChecks
+      }
     }
   };
 }

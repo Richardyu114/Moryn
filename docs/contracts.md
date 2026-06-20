@@ -195,11 +195,12 @@ POST /api/maintenance/plans/:plan_id/approve
 
 The first supported plan is project identity repair. `/api/dashboard` returns a
 `maintenance.plans[]` entry with `plan_id`, `plan_hash`, dry-run counts, safety
-checks, and the equivalent `moryn project migrate --apply --confirm` command.
-Project-specific plans require `project_id`/`project_path` context; without it,
-`maintenance.plans[]` is empty. If `include_private: true` is used, private
-records included in the plan are counted separately and the equivalent command
-contains `--include-private`.
+checks, the equivalent `moryn project migrate --apply --confirm` command, and a
+`decision_card` with issue, impact, recommended action, evidence, rollback path,
+and raw evidence. Project-specific plans require `project_id`/`project_path`
+context; without it, `maintenance.plans[]` is empty. If `include_private: true`
+is used, private records included in the plan are counted separately and the
+equivalent command contains `--include-private`.
 The approve endpoint accepts only:
 
 ```json

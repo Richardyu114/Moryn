@@ -729,7 +729,27 @@ describe("observability dashboard", () => {
         approval: {
           requires_user_confirmation: true,
           safe_to_auto_apply: false
+        },
+        decision_card: {
+          title: "Project identity repair",
+          issue: "2 records under repo-e6f0166fd942 likely belong to moryn.",
+          impact: "Boot and recall can miss these memories when agents ask for project moryn.",
+          recommended_action: "Apply the repair only after confirming repo-e6f0166fd942 is an old or generated id for moryn.",
+          rollback_path: "If this was wrong, review the refreshed plan and run moryn project migrate --from moryn --to repo-e6f0166fd942 --apply --confirm.",
+          evidence: expect.arrayContaining([
+            "Matched records: 2 records; 1 canonical, 1 candidate.",
+            "Private records: 1 private record skipped.",
+            "Write behavior: append-only revise_record events; no history rewrite."
+          ])
         }
+      });
+      expect(data.maintenance.plans[0]?.decision_card.raw_evidence).toMatchObject({
+        plan_hash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+        command: "moryn project migrate --from repo-e6f0166fd942 --to moryn --apply --confirm",
+        record_ids: [
+          candidateOld.record.id,
+          canonicalOld.record.id
+        ]
       });
       expect(data.maintenance.plans[0]?.plan_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
       expect(data.maintenance.plans[0]?.record_ids).toEqual([
@@ -875,11 +895,17 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(html).toContain("Review Queue");
-      expect(html).toContain("Move records into moryn");
-      expect(html).toContain("Old project id");
-      expect(html).toContain("Records to move");
-      expect(html).toContain("History change");
-      expect(html).toContain("No history rewrite");
+      expect(html).toContain("Project identity repair");
+      expect(html).toContain("Issue");
+      expect(html).toContain("Impact");
+      expect(html).toContain("Recommended action");
+      expect(html).toContain("Evidence");
+      expect(html).toContain("Rollback path");
+      expect(html).toContain("Raw evidence");
+      expect(html).toContain("Boot and recall can miss these memories");
+      expect(html).toContain("Apply the repair only after confirming");
+      expect(html).toContain("append-only revise_record events");
+      expect(html).toContain("moryn project migrate --from moryn --to repo-e6f0166fd942 --apply --confirm");
       expect(html).toContain("repo-e6f0166fd942");
       expect(html).toContain("Apply Repair");
       expect(html).toContain("Copy command");
@@ -894,6 +920,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-maintenance-reject");
       expect(html).toContain("Applying repair...");
       expect(html).not.toContain("window.confirm");
+      expect(html).not.toContain("Technical details");
     });
   });
 
