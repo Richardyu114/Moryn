@@ -2058,6 +2058,8 @@ describe("observability dashboard", () => {
       expect(data.context_pack_review.handoff_pack?.recent_decisions).toHaveLength(0);
       expect(data.context_pack_review.handoff_pack?.open_threads).toHaveLength(0);
       expect(data.context_pack_review.handoff_pack?.risks).toHaveLength(0);
+      expect(html).toContain("<small>ready | all checks passed | no handoff evidence</small>");
+      expect(html).not.toContain("<small>ready | all checks passed | 0 decisions | 0 threads | 0 risks</small>");
       expect(html).toContain("data-dashboard-detail=\"context-pack-evidence\"");
       expect(html).toContain("<span>Context Evidence</span>");
       expect(html).toContain("<small>No handoff evidence</small>");

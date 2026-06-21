@@ -509,10 +509,10 @@ is built from the dashboard's replayed local event history, not by calling the
 host adapter `context_pack` operation. It records:
 
 When available, the panel is collapsed by default behind a handoff readiness
-summary that shows the quality gate status, check coverage, context evidence
-count, and whether the required capture action is visible. Expanding it shows
-the current goal, read-only boundary, quality checks, evidence paths, and
-context evidence. When the quality gate is `ready` with no failed checks or
+summary that shows the quality gate status, check coverage, non-zero context
+evidence counts, and whether the required capture action is visible. Expanding
+it shows the current goal, read-only boundary, quality checks, evidence paths,
+and context evidence. When the quality gate is `ready` with no failed checks or
 warnings, the summary says `all checks passed` and stays collapsed as a clean
 read-only signal. If checks need review, the panel can open by default so the
 problem stays visible.

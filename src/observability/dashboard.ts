@@ -2570,7 +2570,8 @@ function contextPackReviewSummary(review: DashboardContextPackReview): string {
   if (!pack) return "unavailable";
   const gate = pack.quality_gate;
   const checkSummary = gate.failed_check_ids.length === 0 && gate.warnings.length === 0 ? "all checks passed" : `${pluralize(gate.failed_check_ids.length, "failed check")} | ${pluralize(gate.warnings.length, "warning")}`;
-  return `${gate.status} | ${checkSummary} | ${pluralize(pack.recent_decisions.length, "decision")} | ${pluralize(pack.open_threads.length, "thread")} | ${pluralize(pack.risks.length, "risk")}`;
+  const evidenceSummary = contextPackEvidenceSummary(pack).toLowerCase();
+  return `${gate.status} | ${checkSummary} | ${evidenceSummary}`;
 }
 
 function contextPackReadinessChips(review: DashboardContextPackReview): string {
