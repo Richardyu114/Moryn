@@ -2031,6 +2031,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span class=\"context-pack-chip info\">3 evidence items</span>");
       expect(html).toContain("<span class=\"context-pack-chip good\">Capture action visible</span>");
       expect(html).toContain("<div class=\"context-pack-review-body\">");
+      expect(html).toContain("data-context-pack-brief");
+      expect(html).toContain("<h4>Handoff readiness</h4>");
+      expect(html).toContain("Ready to hand off: all checks passed.");
+      expect(html).toContain("Quality checks: 6 passed | 0 review.");
+      expect(html).toContain("Evidence available: 1 decision | 1 thread | 1 risk.");
+      expect(html).toContain("Capture action: <code>moryn capture session --project-id moryn --agent &lt;agent&gt; --summary &lt;summary&gt;</code>.");
       expect(html).toContain("agent_handoff");
       expect(html).toContain("Read-only");
       expect(html).toContain("<details class=\"context-pack-checks-fold\" data-dashboard-detail=\"context-pack-checks\">");
@@ -2067,6 +2073,8 @@ describe("observability dashboard", () => {
       expect(data.context_pack_review.handoff_pack?.open_threads).toHaveLength(0);
       expect(data.context_pack_review.handoff_pack?.risks).toHaveLength(0);
       expect(html).toContain("<small>ready | all checks passed | no handoff evidence</small>");
+      expect(html).toContain("data-context-pack-brief");
+      expect(html).toContain("Evidence available: No handoff evidence.");
       expect(html).not.toContain("<small>ready | all checks passed | 0 decisions | 0 threads | 0 risks</small>");
       expect(html).toContain("data-dashboard-detail=\"context-pack-evidence\"");
       expect(html).toContain("<span>Context Evidence</span>");

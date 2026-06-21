@@ -2591,6 +2591,38 @@ function contextPackReviewSummary(review: DashboardContextPackReview): string {
   return `${gate.status} | ${checkSummary} | ${evidenceSummary}`;
 }
 
+function contextPackReadinessSentence(gate: DashboardContextPackReviewQualityGate): string {
+  if (gate.status === "ready" && gate.failed_check_ids.length === 0 && gate.warnings.length === 0) {
+    return "Ready to hand off: all checks passed.";
+  }
+  const reviewItems = [
+    ...gate.failed_check_ids.map((id) => id.replace(/_/g, " ")),
+    ...gate.warnings
+  ];
+  return `Review before handoff: ${reviewItems.length > 0 ? reviewItems.join(" | ") : "quality gate needs review"}.`;
+}
+
+function contextPackReviewBrief(review: DashboardContextPackReview): string {
+  const pack = review.handoff_pack;
+  if (!pack) return "";
+  const gate = pack.quality_gate;
+  const checks = gate.checks;
+  const passedChecks = checks.filter((check) => check.status === "pass").length;
+  const needsReview = checks.length - passedChecks;
+  const captureCommand = pack.next_actions.find((action) => action.id === "capture_session")?.command ?? "missing";
+  return `
+        <div class="context-pack-brief" data-context-pack-brief>
+          <h4>Handoff readiness</h4>
+          <ul>
+            <li>${escapeHtml(contextPackReadinessSentence(gate))}</li>
+            <li>Quality checks: ${escapeHtml(passedChecks)} passed | ${escapeHtml(needsReview)} review.</li>
+            <li>Evidence available: ${escapeHtml(contextPackEvidenceSummary(pack))}.</li>
+            <li>Capture action: <code>${escapeHtml(captureCommand)}</code>.</li>
+          </ul>
+        </div>
+  `;
+}
+
 function contextPackReadinessChips(review: DashboardContextPackReview): string {
   const pack = review.handoff_pack;
   if (!pack) return "";
@@ -2661,6 +2693,7 @@ function contextPackReviewPanel(review: DashboardContextPackReview): string {
           <span>writes: ${escapeHtml(review.generated_from.writes)}</span>
           <span>sync pull: ${escapeHtml(review.generated_from.sync_pull)}</span>
         </div>
+        ${contextPackReviewBrief(review)}
         <dl class="context-pack-summary">
           <div><dt>Current goal</dt><dd>${escapeHtml(pack.current_goal?.text ?? "none")}<small>${escapeHtml(pack.current_goal?.source ?? "missing")}</small></dd></div>
           <div><dt>Quality gate</dt><dd>${escapeHtml(gate.status)}<small>${escapeHtml(gate.failed_check_ids.length ? gate.failed_check_ids.join(", ") : "no failed checks")}</small></dd></div>
@@ -4278,26 +4311,26 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 720;
       white-space: nowrap;
     }
-    .maintenance-brief, .capture-inbox-brief {
+    .maintenance-brief, .capture-inbox-brief, .context-pack-brief {
       border: 1px solid var(--border);
       border-radius: 7px;
       padding: 9px 10px;
       margin: 0 0 10px;
       background: var(--surface);
     }
-    .maintenance-brief h4, .capture-inbox-brief h4 {
+    .maintenance-brief h4, .capture-inbox-brief h4, .context-pack-brief h4 {
       margin: 0 0 7px;
       color: var(--ink);
       font-size: 12px;
       font-weight: 780;
     }
-    .maintenance-brief ul, .capture-inbox-brief ul {
+    .maintenance-brief ul, .capture-inbox-brief ul, .context-pack-brief ul {
       display: grid;
       gap: 6px;
       margin: 0;
       padding-left: 18px;
     }
-    .maintenance-brief li, .capture-inbox-brief li {
+    .maintenance-brief li, .capture-inbox-brief li, .context-pack-brief li {
       color: var(--ink-2);
       overflow-wrap: anywhere;
     }

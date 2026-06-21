@@ -554,11 +554,16 @@ The review summarizes:
 
 The HTML dashboard keeps the quality gate and next action visible while placing
 individual Quality Checks plus Recent Decisions, Open Threads, and Risks under
-collapsed detail sections. The Context Evidence summary only shows non-zero
-counts; when there are no decisions, open threads, or risks, it says
-`No handoff evidence` instead of listing three zero counts. `/api/dashboard`
-still returns the full `context_pack_review` payload with check ids, counts, and
-evidence paths.
+collapsed detail sections. When expanded, the panel starts with a compact
+`Handoff readiness` brief that states whether the pack is ready, the check
+coverage, the available evidence summary, and the exact `moryn capture session`
+command. The lower sections still expose the current goal, read-only boundary,
+quality checks, evidence paths, and context evidence for audit.
+
+The Context Evidence summary only shows non-zero counts; when there are no
+decisions, open threads, or risks, it says `No handoff evidence` instead of
+listing three zero counts. `/api/dashboard` still returns the full
+`context_pack_review` payload with check ids, counts, and evidence paths.
 
 If the dashboard is opened without project context, the panel renders
 `Unavailable` and the JSON message is `Open the dashboard with --project-id or
