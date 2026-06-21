@@ -97,7 +97,15 @@ low-risk handoffs can be auto-captured as local handoff evidence without making
 the user click every event. The user keeps control over what becomes canonical
 long-term context.
 
-Each card shows:
+Each candidate card starts with a compact `Decision brief` so the user can tell
+why it needs review and what each action does before reading trace details:
+
+- why the candidate entered manual review
+- `Approve Memory` promotes it to canonical memory with an append-only user
+  event
+- `Reject` archives it without deleting the local audit trail
+
+The same card still shows:
 
 - proposed memory text
 - source agent and session

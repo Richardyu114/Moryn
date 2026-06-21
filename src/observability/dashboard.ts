@@ -3075,6 +3075,19 @@ function captureInboxAudit(items: DashboardCaptureInbox): string {
     `;
 }
 
+function captureInboxDecisionBrief(item: DashboardCaptureInboxItem): string {
+  return `
+    <div class="capture-inbox-brief" data-capture-inbox-brief>
+      <h4>Decision brief</h4>
+      <ul>
+        <li>Needs review because: ${escapeHtml(item.provenance_reason ?? "Candidate memory is waiting for review.")}</li>
+        <li>Approve Memory promotes this candidate to canonical memory with an append-only user event.</li>
+        <li>Reject archives it without deleting the local audit trail.</li>
+      </ul>
+    </div>
+  `;
+}
+
 function captureInbox(items: DashboardCaptureInbox): string {
   if (items.total === 0 && items.autocapture_policy.auto_captured_total === 0 && items.autocapture_policy.archived_total === 0) return "";
   return `
@@ -3119,6 +3132,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
                       </div>
                       <span class="pill ${item.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
                     </div>
+                    ${captureInboxDecisionBrief(item)}
                     <dl class="capture-inbox-summary">
                       <div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}<small>${escapeHtml(item.priority)} priority</small></dd></div>
                       <div><dt>Captured</dt><dd><time title="${escapeHtml(item.exact_time)}">${escapeHtml(item.relative_time)}</time></dd></div>
@@ -4261,26 +4275,26 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 720;
       white-space: nowrap;
     }
-    .maintenance-brief {
+    .maintenance-brief, .capture-inbox-brief {
       border: 1px solid var(--border);
       border-radius: 7px;
       padding: 9px 10px;
       margin: 0 0 10px;
       background: var(--surface);
     }
-    .maintenance-brief h4 {
+    .maintenance-brief h4, .capture-inbox-brief h4 {
       margin: 0 0 7px;
       color: var(--ink);
       font-size: 12px;
       font-weight: 780;
     }
-    .maintenance-brief ul {
+    .maintenance-brief ul, .capture-inbox-brief ul {
       display: grid;
       gap: 6px;
       margin: 0;
       padding-left: 18px;
     }
-    .maintenance-brief li {
+    .maintenance-brief li, .capture-inbox-brief li {
       color: var(--ink-2);
       overflow-wrap: anywhere;
     }
