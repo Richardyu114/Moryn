@@ -22,6 +22,7 @@ const exec = promisify(execFile);
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const RECENT_VALUE_LIMIT = 8;
+const RECENT_VALUE_VISIBLE_LIMIT = 4;
 const DASHBOARD_TEXT_EXCERPT_LIMIT = 240;
 const CAPTURE_NOISE_RULES: DashboardCaptureNoiseRule[] = [
   {
@@ -2459,35 +2460,52 @@ function citationCommands(citation: DashboardRecordCitation | DashboardEventCita
   `;
 }
 
+function recentValueCard(record: DashboardValueRecord, extraClass = ""): string {
+  return `
+    <article class="value-card${extraClass ? ` ${extraClass}` : ""}" data-dashboard-citation="record:${escapeHtml(record.id)}">
+      <div class="value-card-head">
+        <span class="pill state-${escapeHtml(record.state)}">${escapeHtml(record.title)}</span>
+        <time title="${escapeHtml(record.exact_time)}">${escapeHtml(record.relative_time)}</time>
+      </div>
+      ${textExcerptBlock(record.summary, "data-full-summary-hidden")}
+      <footer>
+        <span>${escapeHtml(record.source_label)}</span>
+        <span>${escapeHtml(record.state)}</span>
+        <span>${escapeHtml(record.project_id ?? record.scope)}</span>
+      </footer>
+      <details data-dashboard-detail="value:${escapeHtml(record.id)}">
+        <summary>Details</summary>
+        <dl>
+          <div><dt>ID</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>
+          ${record.citation.event_id ? `<div><dt>Event</dt><dd><code>${escapeHtml(record.citation.event_id)}</code></dd></div>` : ""}
+          <div><dt>Source</dt><dd>${escapeHtml(record.source_detail)}</dd></div>
+          <div><dt>Kind</dt><dd>${escapeHtml(record.kind)} / ${escapeHtml(record.type)}</dd></div>
+          <div><dt>Trace</dt><dd>${citationCommands(record.citation)}</dd></div>
+        </dl>
+      </details>
+    </article>
+  `;
+}
+
 function recentValueCards(records: DashboardValueRecord[]): string {
   if (records.length === 0) return `<div class="empty-state">No recent records to summarize.</div>`;
+  const visible = records.slice(0, RECENT_VALUE_VISIBLE_LIMIT);
+  const overflow = records.slice(RECENT_VALUE_VISIBLE_LIMIT);
   return `
     <div class="value-grid">
-      ${records.map((record) => `
-        <article class="value-card" data-dashboard-citation="record:${escapeHtml(record.id)}">
-          <div class="value-card-head">
-            <span class="pill state-${escapeHtml(record.state)}">${escapeHtml(record.title)}</span>
-            <time title="${escapeHtml(record.exact_time)}">${escapeHtml(record.relative_time)}</time>
-          </div>
-          ${textExcerptBlock(record.summary, "data-full-summary-hidden")}
-          <footer>
-            <span>${escapeHtml(record.source_label)}</span>
-            <span>${escapeHtml(record.state)}</span>
-            <span>${escapeHtml(record.project_id ?? record.scope)}</span>
-          </footer>
-          <details data-dashboard-detail="value:${escapeHtml(record.id)}">
-            <summary>Details</summary>
-            <dl>
-              <div><dt>ID</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>
-              ${record.citation.event_id ? `<div><dt>Event</dt><dd><code>${escapeHtml(record.citation.event_id)}</code></dd></div>` : ""}
-              <div><dt>Source</dt><dd>${escapeHtml(record.source_detail)}</dd></div>
-              <div><dt>Kind</dt><dd>${escapeHtml(record.kind)} / ${escapeHtml(record.type)}</dd></div>
-              <div><dt>Trace</dt><dd>${citationCommands(record.citation)}</dd></div>
-            </dl>
-          </details>
-        </article>
-      `).join("")}
+      ${visible.map((record) => recentValueCard(record)).join("")}
     </div>
+    ${overflow.length === 0 ? "" : `
+      <details class="recent-value-overflow" data-dashboard-detail="recent-value-overflow">
+        <summary>
+          <span>More Recent Value</span>
+          <small>${escapeHtml(pluralize(overflow.length, "additional record"))}</small>
+        </summary>
+        <div class="value-grid value-grid-overflow">
+          ${overflow.map((record) => recentValueCard(record, "value-card-overflow")).join("")}
+        </div>
+      </details>
+    `}
   `;
 }
 
@@ -3533,6 +3551,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .rail .ahead { justify-self: start; background: var(--accent); }
     .rail i { position: relative; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 3px solid var(--accent); justify-self: center; box-shadow: 0 0 0 4px rgba(33,113,94,0.1); }
     .value-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .value-grid-overflow { margin-top: 10px; }
     .value-card {
       --value-accent: var(--signal-green);
       min-width: 0;
@@ -3548,6 +3567,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .value-card:nth-child(3) { --value-accent: var(--signal-amber); }
     .value-card:nth-child(4) { --value-accent: var(--signal-red); }
     .value-card:nth-child(5) { --value-accent: var(--signal-violet); }
+    .value-card-overflow { background: var(--surface-2); box-shadow: none; }
     .value-card-head, .value-card footer { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-width: 0; }
     .value-card p {
       display: -webkit-box;
@@ -3560,6 +3580,25 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       overflow-wrap: anywhere;
     }
     .value-card footer { margin-top: 10px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+    .recent-value-overflow {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px;
+      margin-top: 10px;
+      background: var(--surface);
+    }
+    .recent-value-overflow > summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--ink);
+      font-weight: 760;
+    }
+    .recent-value-overflow > summary small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
     .citation-links { display: grid; gap: 5px; min-width: 0; }
     .citation-links code { width: 100%; }
     .inspector-grid { display: grid; gap: 12px; }

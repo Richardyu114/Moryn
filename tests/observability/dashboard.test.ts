@@ -905,6 +905,51 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("keeps extra Recent Value records in a collapsed overflow section", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let minute = 0;
+          return () => `2026-06-01T00:${String(++minute).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_value_${++record}` : `evt_value_${++event}`;
+        })()
+      });
+
+      for (let index = 1; index <= 6; index += 1) {
+        await engine.write({
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: `Recent value ${index}`, format: "text" },
+          state: "canonical",
+          confirmed: true,
+          source: { client: "codex" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
+      const html = renderDashboardHtml(data);
+
+      expect(data.recent_value).toHaveLength(6);
+      expect(html).toContain("data-dashboard-detail=\"recent-value-overflow\"");
+      expect(html).toContain("<span>More Recent Value</span>");
+      expect(html).toContain("<small>2 additional records</small>");
+      expect(html).not.toContain("<details open data-dashboard-detail=\"recent-value-overflow\"");
+      expect(html.match(/class="value-card(?: |")/g)).toHaveLength(6);
+      expect(html.match(/class="value-card value-card-overflow"/g)).toHaveLength(2);
+    });
+  });
+
   it("adds dashboard citations and timeline links for records, events, and agent activity", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

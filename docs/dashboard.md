@@ -506,6 +506,11 @@ still preserving deterministic ordering for records with the same timestamp.
 `source_label` contains the normalized readable source, while `source_detail`
 preserves the raw client and session details when available.
 
+The HTML dashboard shows the first four `Recent Value` records by default and
+keeps additional records under `More Recent Value`. `/api/dashboard` still
+returns the full `recent_value[]` payload, and every card keeps its timeline and
+recall trace commands.
+
 Quarantined records normally count as unresolved safety signals. If an active
 safe replacement index explicitly declares `content.supersedes_quarantined_record`
 for the quarantined record id, the dashboard reports that condition as an info
