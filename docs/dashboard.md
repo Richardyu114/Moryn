@@ -392,6 +392,13 @@ The top health message is rendered as a compact status strip rather than a large
 hero block, so the first screen stays focused on review queues and local
 attention signals.
 
+Directly below the status strip, `Focus Brief` picks the most urgent derived
+Action Board item and turns it into one next step, with compact chips for
+confirm, review, and sync state. It reuses the same local scroll target as the
+Action Board and does not add a new API endpoint, Safe Action Registry entry, or
+memory mutation path. Its job is to answer "what should I look at first?"
+before the user scans the fuller dashboard.
+
 The first interactive section is `Action Board`, a four-card summary for:
 
 - `Confirm`: explicit approval actions in Capture Inbox or Review Queue

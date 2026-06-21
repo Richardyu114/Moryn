@@ -2107,6 +2107,39 @@ function actionBoard(data: DashboardActionBoard): string {
   `;
 }
 
+function focusBriefPrimaryItem(actionBoardData: DashboardActionBoard): DashboardActionBoardItem {
+  const priority = ["review", "confirm", "sync", "inspect"] as const;
+  return priority
+    .map((id) => actionBoardData.items_by_id[id])
+    .find((item) => item.value > 0 && item.severity !== "good")
+    ?? actionBoardData.items_by_id.confirm;
+}
+
+function focusBriefChip(item: DashboardActionBoardItem): string {
+  return `<span>${escapeHtml(item.label)}: ${escapeHtml(item.summary.toLowerCase())}</span>`;
+}
+
+function focusBrief(data: DashboardData): string {
+  const primary = focusBriefPrimaryItem(data.action_board);
+  return `
+    <section class="focus-brief ${escapeHtml(primary.severity)}" data-dashboard-focus-brief aria-label="Focus Brief">
+      <div class="focus-brief-main">
+        <div>
+          <h2>Focus Brief</h2>
+          <strong>${escapeHtml(primary.next_action_label)}</strong>
+          <p>${escapeHtml(primary.detail)}</p>
+        </div>
+        <button type="button" class="focus-brief-action" data-action-board-target="${escapeHtml(primary.target)}" aria-controls="${escapeHtml(primary.target)}">${escapeHtml(primary.next_action_label)}</button>
+      </div>
+      <div class="focus-brief-chips" aria-label="Focus summary">
+        ${focusBriefChip(data.action_board.items_by_id.confirm)}
+        ${focusBriefChip(data.action_board.items_by_id.review)}
+        ${focusBriefChip(data.action_board.items_by_id.sync)}
+      </div>
+    </section>
+  `;
+}
+
 function healthClass(status: DashboardHealthStatus): string {
   if (status === "healthy") return "good";
   if (status === "conflict") return "critical";
@@ -3399,6 +3432,8 @@ function renderDashboardBody(data: DashboardData): string {
       <p>${escapeHtml(data.health.explanation)}</p>
     </section>
 
+    ${focusBrief(data)}
+
     ${actionBoard(data.action_board)}
 
     <section id="needs-attention" class="panel" data-dashboard-section="needs-attention">
@@ -3756,6 +3791,72 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .status-strip strong { color: var(--ink); font-weight: 780; }
     .status-strip span { font-weight: 760; }
     .status-strip p { margin: 0; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+    .focus-brief {
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: var(--surface);
+      box-shadow: 0 8px 18px rgba(21, 25, 30, 0.04);
+    }
+    .focus-brief.good { border-left-color: var(--good); }
+    .focus-brief.info { border-left-color: var(--info); }
+    .focus-brief.warning { border-left-color: var(--warning); }
+    .focus-brief.critical { border-left-color: var(--critical); }
+    .focus-brief-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
+    .focus-brief h2 {
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 780;
+    }
+    .focus-brief strong {
+      display: block;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 820;
+      overflow-wrap: anywhere;
+    }
+    .focus-brief p { margin-top: 4px; color: var(--muted); }
+    .focus-brief-action {
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      background: var(--ink);
+      color: #fff;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 780;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .focus-brief-action:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .focus-brief-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 9px;
+    }
+    .focus-brief-chips span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+      overflow-wrap: anywhere;
+    }
     .visual-grid { display: grid; gap: 11px; }
     .visual-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .action-board {
@@ -4529,6 +4630,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
+      .focus-brief-main { display: grid; align-items: stretch; }
+      .focus-brief-action { width: 100%; white-space: normal; }
       .attention-summary { display: grid; justify-content: stretch; }
       .action-board-heading,
       .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-actions,

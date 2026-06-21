@@ -725,6 +725,16 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Dashboard Status</strong>");
       expect(html).toContain("data-dashboard-status=\"");
       expect(html).not.toContain("<section class=\"hero\">");
+      expect(html).toContain("<section class=\"focus-brief warning\" data-dashboard-focus-brief aria-label=\"Focus Brief\">");
+      expect(html).toContain("<h2>Focus Brief</h2>");
+      expect(html).toContain("<strong>Review warnings</strong>");
+      expect(html).toContain("<p>Warnings and critical signals remain visible in Needs Attention.</p>");
+      expect(html).toContain("<button type=\"button\" class=\"focus-brief-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Review warnings</button>");
+      expect(html).toContain("<span>Confirm: no approvals waiting</span>");
+      expect(html).toContain("<span>Review: 1 attention item</span>");
+      expect(html).toContain("<span>Sync: local only</span>");
+      expect(html.indexOf("data-dashboard-focus-brief")).toBeLessThan(html.indexOf("data-action-board-nav"));
+      expect(html).not.toContain("data-dashboard-action-id=\"focus");
       expect(html).toContain("<section class=\"action-board\" aria-label=\"Action Board\" data-action-board-nav>");
       expect(html).toContain("<h2>Action Board</h2>");
       expect(html).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"confirm\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
