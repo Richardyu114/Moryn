@@ -209,6 +209,59 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("collapses Governance Hub when it only contains safe inspections", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-06-01T00:01:00.000Z",
+        id: (prefix: string) => prefix === "rec" ? "rec_governance_safe_only" : "evt_governance_safe_only"
+      });
+
+      await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Dogfood timeout blocked a dashboard review.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        confidence: 0.8,
+        source: { client: "codex", session_id: "governance-safe-only" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(data.governance.summary).toMatchObject({
+        total_items: 1,
+        needs_user_action: 0,
+        safe_inspections: 1,
+        hidden_private_records: 0
+      });
+      expect(data.governance.items_by_id["dogfood_report:failure_signals"]).toMatchObject({
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none"
+      });
+      expect(html).toContain("<details class=\"panel governance-hub\" data-dashboard-detail=\"governance-hub\" aria-label=\"Governance Hub\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary governance-hub-fold\">");
+      expect(html).toContain("<span>Governance Hub</span>");
+      expect(html).toContain("<small>0 need confirmation | 1 safe check | 0 private hidden</small>");
+      expect(html).toContain("<div class=\"governance-hub-body\">");
+      expect(html).toContain("<details class=\"governance-safe-group\" data-dashboard-detail=\"governance-safe-inspections\">");
+      expect(html).toContain("data-governance-item=\"dogfood_report:failure_signals\"");
+      expect(html).not.toContain("<section class=\"panel governance-hub\"");
+    });
+  });
+
   it("aggregates existing reports into Governance Hub items", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

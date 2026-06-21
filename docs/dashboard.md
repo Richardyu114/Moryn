@@ -296,11 +296,14 @@ Each normalized item carries `source`, `category`, `severity`, `record_ids`,
 hub counts items that need user confirmation, safe read-only inspections, and
 private records hidden by the dashboard boundary.
 
-Governance items render as compact expandable decision rows. Items that require
-user confirmation stay directly visible. Safe read-only inspections are grouped
-under a collapsed `Safe Inspections` row; expanding it shows the same decision
-rows with source, category, action id, evidence path, and record ids. This keeps
-the first screen scannable while preserving the local audit trail.
+Governance items render as compact expandable decision rows. When any item
+requires user confirmation, Governance Hub stays directly visible. When it only
+contains safe read-only inspections, the whole hub is collapsed behind a compact
+summary so routine checks do not look like pending decisions. Safe read-only
+inspections are grouped under a collapsed `Safe Inspections` row; expanding it
+shows the same decision rows with source, category, action id, evidence path,
+and record ids. This keeps the first screen scannable while preserving the local
+audit trail.
 
 Governance Hub does not add mutation endpoints. Items that require writes point
 back to existing explicit controls such as Capture Inbox approval/rejection or

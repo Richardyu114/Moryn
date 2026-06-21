@@ -1980,12 +1980,15 @@ function governanceItem(item: DashboardGovernanceItem): string {
   `;
 }
 
-function governanceHub(governance: DashboardGovernance): string {
-  if (governance.summary.total_items === 0) return "";
+function governanceHubSummaryText(governance: DashboardGovernance): string {
+  return `${pluralize(governance.summary.needs_user_action, "need confirmation", "need confirmation")} | ${pluralize(governance.summary.safe_inspections, "safe check")} | ${pluralize(governance.summary.hidden_private_records, "private hidden", "private hidden")}`;
+}
+
+function governanceHubBody(governance: DashboardGovernance): string {
   const safeInspections = governance.items.filter(isSafeGovernanceInspection);
   const primaryItems = governance.items.filter((item) => !isSafeGovernanceInspection(item));
   return `
-    <section class="panel governance-hub" aria-label="Governance Hub">
+    <div class="governance-hub-body">
       <div class="governance-heading">
         <div>
           <h2>Governance Hub</h2>
@@ -2011,6 +2014,27 @@ function governanceHub(governance: DashboardGovernance): string {
           </details>
         `}
       </div>
+    </div>
+  `;
+}
+
+function governanceHub(governance: DashboardGovernance): string {
+  if (governance.summary.total_items === 0) return "";
+  const body = governanceHubBody(governance);
+  if (governance.summary.needs_user_action === 0) {
+    return `
+      <details class="panel governance-hub" data-dashboard-detail="governance-hub" aria-label="Governance Hub">
+        <summary class="dashboard-fold-summary governance-hub-fold">
+          <span>Governance Hub</span>
+          <small>${escapeHtml(governanceHubSummaryText(governance))}</small>
+        </summary>
+        ${body}
+      </details>
+    `;
+  }
+  return `
+    <section class="panel governance-hub" aria-label="Governance Hub">
+      ${body}
     </section>
   `;
 }
@@ -3307,6 +3331,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding-top: 10px;
     }
     .governance-hub { border-left: 4px solid var(--signal-green); }
+    .governance-hub[open] > summary { margin-bottom: 10px; }
+    .governance-hub-body {
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
+    section.governance-hub .governance-hub-body {
+      border-top: 0;
+      padding-top: 0;
+    }
     .memory-lifecycle { border-left: 4px solid var(--signal-violet); }
     .store-signals { border-left: 4px solid var(--signal-slate); }
     .capture-inbox { border-left: 4px solid var(--signal-blue); }
