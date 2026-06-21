@@ -483,6 +483,7 @@ describe("observability dashboard", () => {
             evidence_path: string;
             action_label: string;
             action_id?: string;
+            review_log: string[];
             safe_to_run: boolean;
             requires_user_confirmation: boolean;
             writes: string;
@@ -498,6 +499,7 @@ describe("observability dashboard", () => {
             evidence_path: string;
             action_label: string;
             action_id?: string;
+            review_log: string[];
             safe_to_run: boolean;
             requires_user_confirmation: boolean;
             writes: string;
@@ -532,6 +534,12 @@ describe("observability dashboard", () => {
         record_ids: ["rec_governance_item_3"],
         evidence_path: "capture_policy.findings_by_id.review_required",
         action_label: "Review in Capture Inbox",
+        review_log: [
+          "Detected: Some captured records are waiting for a human decision.",
+          "Recommended next step: Review in Capture Inbox.",
+          "Write boundary: requires explicit approval before append-only memory events.",
+          "Audit trail: capture_policy.findings_by_id.review_required"
+        ],
         safe_to_run: false,
         requires_user_confirmation: true,
         writes: "append_only_events"
@@ -543,6 +551,12 @@ describe("observability dashboard", () => {
         evidence_path: "capture_policy.findings_by_id.auto_captured",
         action_label: "inspect_auto_captured_handoff",
         action_id: "capture_policy.inspect.rec_governance_item_4",
+        review_log: [
+          "Detected: Captured handoff records already handled by policy.",
+          "Recommended next step: inspect_auto_captured_handoff.",
+          "Write boundary: read-only inspection; no memory writes.",
+          "Audit trail: capture_policy.findings_by_id.auto_captured"
+        ],
         safe_to_run: true,
         requires_user_confirmation: false,
         writes: "none"
@@ -606,6 +620,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("<div class=\"governance-safe-list\">");
       expect(html).toContain("<summary class=\"governance-item-summary\">");
       expect(html).toContain("data-governance-evidence");
+      expect(html).toContain("data-governance-review-log");
+      expect(html).toContain("<h4>Review log</h4>");
+      expect(html).toContain("Detected: Some captured records are waiting for a human decision.");
+      expect(html).toContain("Recommended next step: Review in Capture Inbox.");
+      expect(html).toContain("Write boundary: requires explicit approval before append-only memory events.");
+      expect(html).toContain("Audit trail: capture_policy.findings_by_id.review_required");
+      expect(html).toContain("<summary>Raw audit fields</summary>");
       expect(html).toContain("data-governance-item=\"capture_policy:review_required\"");
       expect(html).toContain("data-governance-item=\"memory_lifecycle:stale_records\"");
       expect(html).toContain("data-governance-item=\"dogfood_report:failure_signals\"");
@@ -1763,6 +1784,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("Move 1 record");
       expect(html).toContain("repo-e6f0166fd942 to moryn");
       expect(html).toContain("Server re-runs the dry run and checks plan_hash before applying.");
+      expect(html).toContain("data-maintenance-review-log");
+      expect(html).toContain("<h4>Review log</h4>");
+      expect(html).toContain("Detected: Project identity repair found records under an old project id.");
+      expect(html).toContain("Proposed change: Move 1 record from repo-e6f0166fd942 to moryn.");
+      expect(html).toContain("Approval gate: server re-runs the dry run and checks plan_hash before applying.");
+      expect(html).toContain("Audit trail: raw plan, record ids, rollback path, and equivalent CLI command are below.");
       expect(html).toContain("Evidence, rollback, and raw plan");
       expect(html).toContain("data-maintenance-detail=\"evidence\"");
       expect(html).toContain("data-maintenance-detail=\"rollback\"");

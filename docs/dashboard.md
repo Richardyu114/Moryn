@@ -263,6 +263,10 @@ decision summary:
 - the safety boundary, including server-side dry-run and `plan_hash` checking
 - the recommended action
 
+Each plan also renders a compact `Review log` in plain language: what was
+detected, the proposed change, the explicit approval gate, and where the audit
+trail lives.
+
 Evidence, rollback, and raw plan details are kept in an expandable section so
 the first screen stays readable without hiding audit data. That rollback path
 section includes source and target project ids, matched record count, state
@@ -297,18 +301,20 @@ reports have review or inspection items. It is a read-only summary over:
 - `dogfood_report.findings_by_id`
 
 Each normalized item carries `source`, `category`, `severity`, `record_ids`,
-`evidence_path`, `action_label`, optional `action_id`, and safety metadata. The
-hub counts items that need user confirmation, safe read-only inspections, and
-private records hidden by the dashboard boundary.
+`evidence_path`, `action_label`, optional `action_id`, `review_log`, and safety
+metadata. The hub counts items that need user confirmation, safe read-only
+inspections, and private records hidden by the dashboard boundary.
 
 Governance items render as compact expandable decision rows. When any item
 requires user confirmation, Governance Hub stays directly visible. When it only
 contains safe read-only inspections, the whole hub is collapsed behind a compact
 summary so routine checks do not look like pending decisions. Safe read-only
 inspections are grouped under a collapsed `Safe Inspections` row; expanding it
-shows the same decision rows with source, category, action id, evidence path,
-and record ids. This keeps the first screen scannable while preserving the local
-audit trail.
+shows the same decision rows. Each row leads with a plain-language `Review log`
+covering the detection, recommended next step, write boundary, and audit trail.
+Raw fields such as source, category, action id, evidence path, and record ids
+stay available under `Raw audit fields`. This keeps the first screen scannable
+while preserving the local audit trail.
 
 Governance Hub does not add mutation endpoints. Items that require writes point
 back to existing explicit controls such as Capture Inbox approval/rejection or

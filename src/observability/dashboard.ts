@@ -266,6 +266,7 @@ export interface DashboardGovernanceItem {
   evidence_path: string;
   action_label: string;
   action_id?: string;
+  review_log: string[];
   safe_to_run: boolean;
   requires_user_confirmation: boolean;
   writes: DashboardActionWriteBehavior;
@@ -1615,6 +1616,44 @@ function governanceItemId(source: DashboardGovernanceSource, id: string): string
   return `${source}:${id}`;
 }
 
+function governanceDetectionLabel(source: DashboardGovernanceSource, category: DashboardGovernanceCategory): string {
+  if (source === "capture_policy") {
+    if (category === "capture_review") return "Some captured records are waiting for a human decision.";
+    if (category === "auto_capture") return "Captured handoff records already handled by policy.";
+    if (category === "policy_archive") return "Captured records were archived by policy.";
+  }
+  if (source === "memory_lifecycle") return "Memory lifecycle found records worth inspecting.";
+  if (source === "maintenance") return "A maintenance plan is ready for explicit review.";
+  return "Dogfood notes surfaced product friction worth inspecting.";
+}
+
+function governanceWriteBoundary(item: Pick<DashboardGovernanceItem, "requires_user_confirmation" | "writes">): string {
+  if (item.requires_user_confirmation) {
+    return "requires explicit approval before append-only memory events.";
+  }
+  if (item.writes === "none") return "read-only inspection; no memory writes.";
+  return "append-only memory events only after explicit approval.";
+}
+
+function governanceReviewLog(input: {
+  source: DashboardGovernanceSource;
+  category: DashboardGovernanceCategory;
+  actionLabel: string;
+  evidencePath: string;
+  requiresUserConfirmation: boolean;
+  writes: DashboardActionWriteBehavior;
+}): string[] {
+  return [
+    `Detected: ${governanceDetectionLabel(input.source, input.category)}`,
+    `Recommended next step: ${input.actionLabel}.`,
+    `Write boundary: ${governanceWriteBoundary({
+      requires_user_confirmation: input.requiresUserConfirmation,
+      writes: input.writes
+    })}`,
+    `Audit trail: ${input.evidencePath}`
+  ];
+}
+
 function firstActionForRecords<T extends { action_id: string; arguments: Record<string, unknown> }>(actions: T[], recordIds: string[]): T | undefined {
   const recordIdSet = new Set(recordIds);
   return actions.find((action) => {
@@ -1629,20 +1668,32 @@ function governanceFromCapturePolicy(report: CapturePolicyResult): DashboardGove
   return report.findings.map((finding): DashboardGovernanceItem => {
     const firstAction = firstActionForRecords(report.suggested_actions, finding.record_ids);
     const isReview = finding.id === "review_required";
+    const category = finding.category === "review_queue" ? "capture_review" : finding.category;
+    const evidencePath = `capture_policy.findings_by_id.${finding.id}`;
+    const actionLabel = isReview ? "Review in Capture Inbox" : firstAction?.recommended_action ?? "Inspect capture policy finding";
+    const writes = isReview ? "append_only_events" : "none";
     return {
       id: governanceItemId("capture_policy", finding.id),
       source: "capture_policy",
-      category: finding.category === "review_queue" ? "capture_review" : finding.category,
+      category,
       severity: finding.severity,
       title: finding.summary,
       summary: finding.reason,
       record_ids: finding.record_ids,
-      evidence_path: `capture_policy.findings_by_id.${finding.id}`,
-      action_label: isReview ? "Review in Capture Inbox" : firstAction?.recommended_action ?? "Inspect capture policy finding",
+      evidence_path: evidencePath,
+      action_label: actionLabel,
       ...(firstAction && !isReview ? { action_id: capturePolicyInspectActionId(String(firstAction.arguments.record_id)) } : {}),
       safe_to_run: !isReview,
       requires_user_confirmation: isReview,
-      writes: isReview ? "append_only_events" : "none"
+      writes,
+      review_log: governanceReviewLog({
+        source: "capture_policy",
+        category,
+        actionLabel,
+        evidencePath,
+        requiresUserConfirmation: isReview,
+        writes
+      })
     };
   });
 }
@@ -1651,6 +1702,9 @@ function governanceFromMemoryLifecycle(report: MemoryLifecycleResult): Dashboard
   return report.findings.map((finding): DashboardGovernanceItem => {
     const firstAction = firstActionForRecords(report.suggested_actions, finding.record_ids);
     const requiresUserConfirmation = firstAction?.safe_to_run === false;
+    const evidencePath = `memory_lifecycle.findings_by_id.${finding.id}`;
+    const actionLabel = firstAction?.recommended_action ?? "Inspect lifecycle finding";
+    const writes = requiresUserConfirmation ? "append_only_events" : "none";
     return {
       id: governanceItemId("memory_lifecycle", finding.id),
       source: "memory_lifecycle",
@@ -1659,31 +1713,51 @@ function governanceFromMemoryLifecycle(report: MemoryLifecycleResult): Dashboard
       title: finding.summary,
       summary: finding.reason,
       record_ids: finding.record_ids,
-      evidence_path: `memory_lifecycle.findings_by_id.${finding.id}`,
-      action_label: firstAction?.recommended_action ?? "Inspect lifecycle finding",
+      evidence_path: evidencePath,
+      action_label: actionLabel,
       safe_to_run: firstAction?.safe_to_run ?? true,
       requires_user_confirmation: requiresUserConfirmation,
-      writes: requiresUserConfirmation ? "append_only_events" : "none"
+      writes,
+      review_log: governanceReviewLog({
+        source: "memory_lifecycle",
+        category: "memory_lifecycle",
+        actionLabel,
+        evidencePath,
+        requiresUserConfirmation,
+        writes
+      })
     };
   });
 }
 
 function governanceFromMaintenance(maintenance: DashboardMaintenanceData): DashboardGovernanceItem[] {
-  return maintenance.plans.map((plan): DashboardGovernanceItem => ({
-    id: governanceItemId("maintenance", plan.plan_id),
-    source: "maintenance",
-    category: "project_identity",
-    severity: "warning",
-    title: plan.decision_card.issue,
-    summary: plan.decision_card.impact,
-    record_ids: plan.record_ids,
-    evidence_path: `maintenance.plans_by_id.${plan.plan_id}`,
-    action_label: "Apply Repair",
-    action_id: maintenanceApproveActionId(plan),
-    safe_to_run: false,
-    requires_user_confirmation: true,
-    writes: "append_only_events"
-  }));
+  return maintenance.plans.map((plan): DashboardGovernanceItem => {
+    const evidencePath = `maintenance.plans_by_id.${plan.plan_id}`;
+    const actionLabel = "Apply Repair";
+    return {
+      id: governanceItemId("maintenance", plan.plan_id),
+      source: "maintenance",
+      category: "project_identity",
+      severity: "warning",
+      title: plan.decision_card.issue,
+      summary: plan.decision_card.impact,
+      record_ids: plan.record_ids,
+      evidence_path: evidencePath,
+      action_label: actionLabel,
+      action_id: maintenanceApproveActionId(plan),
+      safe_to_run: false,
+      requires_user_confirmation: true,
+      writes: "append_only_events",
+      review_log: governanceReviewLog({
+        source: "maintenance",
+        category: "project_identity",
+        actionLabel,
+        evidencePath,
+        requiresUserConfirmation: true,
+        writes: "append_only_events"
+      })
+    };
+  });
 }
 
 function governanceFromDogfood(report: DogfoodReportResult): DashboardGovernanceItem[] {
@@ -1692,6 +1766,8 @@ function governanceFromDogfood(report: DogfoodReportResult): DashboardGovernance
     const firstAction = finding.id === "capture_review_backlog"
       ? report.suggested_actions_by_id.review_capture_inbox
       : firstActionForRecords(report.suggested_actions, recordIds);
+    const evidencePath = `dogfood_report.findings_by_id.${finding.id}`;
+    const actionLabel = firstAction?.recommended_action ?? "Inspect dogfood finding";
     return {
       id: governanceItemId("dogfood_report", finding.id),
       source: "dogfood_report",
@@ -1700,11 +1776,19 @@ function governanceFromDogfood(report: DogfoodReportResult): DashboardGovernance
       title: finding.summary,
       summary: finding.reason,
       record_ids: recordIds,
-      evidence_path: `dogfood_report.findings_by_id.${finding.id}`,
-      action_label: firstAction?.recommended_action ?? "Inspect dogfood finding",
+      evidence_path: evidencePath,
+      action_label: actionLabel,
       safe_to_run: firstAction?.safe_to_run ?? true,
       requires_user_confirmation: false,
-      writes: "none"
+      writes: "none",
+      review_log: governanceReviewLog({
+        source: "dogfood_report",
+        category: "dogfood_friction",
+        actionLabel,
+        evidencePath,
+        requiresUserConfirmation: false,
+        writes: "none"
+      })
     };
   });
 }
@@ -1961,6 +2045,17 @@ function isSafeGovernanceInspection(item: DashboardGovernanceItem): boolean {
   return !item.requires_user_confirmation && item.safe_to_run && item.writes === "none";
 }
 
+function reviewLogList(items: string[], dataAttribute: string): string {
+  return `
+    <div class="review-log" ${dataAttribute}>
+      <h4>Review log</h4>
+      <ol>
+        ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ol>
+    </div>
+  `;
+}
+
 function governanceItem(item: DashboardGovernanceItem): string {
   return `
     <details class="governance-item ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-item="${escapeHtml(item.id)}">
@@ -1976,13 +2071,17 @@ function governanceItem(item: DashboardGovernanceItem): string {
       </summary>
       <div class="governance-item-body">
         <p>${escapeHtml(item.summary)}</p>
-        <dl>
-          <div><dt>Source</dt><dd>${escapeHtml(item.source)}</dd></div>
-          <div><dt>Category</dt><dd>${escapeHtml(item.category)}</dd></div>
-          <div><dt>Action</dt><dd>${escapeHtml(item.action_label)}${item.action_id ? ` <code>${escapeHtml(item.action_id)}</code>` : ""}</dd></div>
-          <div data-governance-evidence><dt>Evidence</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
-          <div><dt>Records</dt><dd>${item.record_ids.length ? item.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ") : "none"}</dd></div>
-        </dl>
+        ${reviewLogList(item.review_log, "data-governance-review-log")}
+        <details class="raw-audit-fields" data-dashboard-detail="governance-raw:${escapeHtml(item.id)}">
+          <summary>Raw audit fields</summary>
+          <dl>
+            <div><dt>Source</dt><dd>${escapeHtml(item.source)}</dd></div>
+            <div><dt>Category</dt><dd>${escapeHtml(item.category)}</dd></div>
+            <div><dt>Action</dt><dd>${escapeHtml(item.action_label)}${item.action_id ? ` <code>${escapeHtml(item.action_id)}</code>` : ""}</dd></div>
+            <div data-governance-evidence><dt>Evidence</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
+            <div><dt>Records</dt><dd>${item.record_ids.length ? item.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ") : "none"}</dd></div>
+          </dl>
+        </details>
       </div>
     </details>
   `;
@@ -2085,6 +2184,15 @@ function maintenanceMoveSummary(plan: DashboardMaintenancePlan): string {
   return `Move ${pluralize(plan.dry_run.matched_records, "record")}`;
 }
 
+function maintenanceReviewLog(plan: DashboardMaintenancePlan): string[] {
+  return [
+    "Detected: Project identity repair found records under an old project id.",
+    `Proposed change: ${maintenanceMoveSummary(plan)} from ${plan.from_project_id} to ${plan.to_project_id}.`,
+    "Approval gate: server re-runs the dry run and checks plan_hash before applying.",
+    "Audit trail: raw plan, record ids, rollback path, and equivalent CLI command are below."
+  ];
+}
+
 function maintenanceReviewQueueSummary(plans: DashboardMaintenancePlan[]): string {
   const recordTotal = plans.reduce((total, plan) => total + plan.dry_run.matched_records, 0);
   return `${pluralize(plans.length, "plan")} | ${pluralize(recordTotal, "record")} to move | explicit approval`;
@@ -2123,6 +2231,7 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                   <div><dt>Safety</dt><dd>${escapeHtml("Server re-runs the dry run and checks plan_hash before applying.")}<small>${escapeHtml(maintenancePrivateSummary(plan))}</small></dd></div>
                   <div><dt>Action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
                 </dl>
+                ${reviewLogList(maintenanceReviewLog(plan), "data-maintenance-review-log")}
                 <details data-dashboard-detail="maintenance:${escapeHtml(plan.plan_id)}">
                   <summary>Evidence, rollback, and raw plan</summary>
                   <div class="maintenance-detail-grid">
@@ -3497,6 +3606,37 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding-top: 8px;
     }
     .governance-item-body p { margin-top: 0; color: var(--muted); overflow-wrap: anywhere; }
+    .review-log {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 9px;
+      margin: 8px 0;
+      background: var(--surface-2);
+    }
+    .review-log h4 {
+      margin: 0 0 6px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 780;
+    }
+    .review-log ol {
+      display: grid;
+      gap: 5px;
+      margin: 0;
+      padding-left: 19px;
+    }
+    .review-log li {
+      color: var(--ink-2);
+      overflow-wrap: anywhere;
+    }
+    .raw-audit-fields {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .raw-audit-fields[open] > summary { margin-bottom: 8px; }
+    .raw-audit-fields summary { color: var(--ink); font-weight: 720; }
     .governance-meta {
       display: flex;
       flex-wrap: wrap;
