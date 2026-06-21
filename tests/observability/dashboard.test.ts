@@ -314,7 +314,7 @@ describe("observability dashboard", () => {
         requires_user_confirmation: false,
         writes: "none"
       });
-      expect(html).toContain("<details class=\"panel governance-hub\" data-dashboard-detail=\"governance-hub\" aria-label=\"Governance Hub\">");
+      expect(html).toContain("<details id=\"governance-hub\" class=\"panel governance-hub\" data-dashboard-detail=\"governance-hub\" aria-label=\"Governance Hub\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary governance-hub-fold\">");
       expect(html).toContain("<span>Governance Hub</span>");
       expect(html).toContain("<small>0 need confirmation | 1 safe check | 0 private hidden</small>");
@@ -718,15 +718,19 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Dashboard Status</strong>");
       expect(html).toContain("data-dashboard-status=\"");
       expect(html).not.toContain("<section class=\"hero\">");
-      expect(html).toContain("<section class=\"action-board\" aria-label=\"Action Board\">");
+      expect(html).toContain("<section class=\"action-board\" aria-label=\"Action Board\" data-action-board-nav>");
       expect(html).toContain("<h2>Action Board</h2>");
-      expect(html).toContain("data-action-board-item=\"confirm\"");
-      expect(html).toContain("data-action-board-item=\"review\"");
-      expect(html).toContain("data-action-board-item=\"inspect\"");
-      expect(html).toContain("data-action-board-item=\"sync\"");
+      expect(html).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"confirm\" data-action-board-target=\"capture-inbox\" aria-controls=\"capture-inbox\">");
+      expect(html).toContain("<button type=\"button\" class=\"action-board-item warning\" data-action-board-item=\"review\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
+      expect(html).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"inspect\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">");
+      expect(html).toContain("<button type=\"button\" class=\"action-board-item info\" data-action-board-item=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
+      expect(html).toContain("data-action-board-nav");
+      expect(html).toContain("target.open = true");
+      expect(html).toContain("target.scrollIntoView({ block: \"start\", behavior: \"smooth\" })");
       expect(html).toContain("Warnings and critical signals remain visible in Needs Attention.");
       expect(html).not.toContain("<section class=\"overview-grid\" aria-label=\"Dashboard overview\">");
       expect(html).toContain("Needs Attention");
+      expect(html).toContain("<section id=\"needs-attention\" class=\"panel\" data-dashboard-section=\"needs-attention\">");
       expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Quarantined records hidden\">");
       expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
       expect(html).toContain("<span>Info Checks</span>");
@@ -736,7 +740,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"attention-summary\">");
       expect(html).toContain("<div class=\"attention-body\">");
       expect(html).not.toContain("<article class=\"attention warning\">");
-      expect(html).toContain("<details class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
+      expect(html).toContain("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
       expect(html).not.toContain("<details open class=\"panel store-signals\"");
       expect(html).toContain("<span>Store Signals</span>");
       expect(html).toContain("<small>agent activity / record quality / sync</small>");

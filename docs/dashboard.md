@@ -379,7 +379,9 @@ The first interactive section is `Action Board`, a four-card summary for:
 - `Sync`: local-only, pending, or conflicting sync state
 
 The Action Board is a derived summary only; it does not add mutation endpoints
-or hide the underlying panels.
+or hide the underlying panels. Clicking an Action Board card only scrolls to the
+matching local dashboard section and opens that section when it is a collapsed
+detail panel.
 
 `Needs Attention` keeps warning and critical items directly visible. Informational
 checks are grouped under a collapsed `Info Checks` summary so routine status

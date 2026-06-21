@@ -2082,19 +2082,19 @@ function textExcerptBlock(text: string, truncatedAttribute = "data-full-text-hid
 
 function actionBoard(data: DashboardActionBoard): string {
   return `
-    <section class="action-board" aria-label="Action Board">
+    <section class="action-board" aria-label="Action Board" data-action-board-nav>
       <div class="action-board-heading">
         <h2>Action Board</h2>
         <span>confirm / review / inspect / sync</span>
       </div>
       <div class="action-board-grid">
         ${data.items.map((item) => `
-          <article class="action-board-item ${escapeHtml(item.severity)}" data-action-board-item="${escapeHtml(item.id)}">
+          <button type="button" class="action-board-item ${escapeHtml(item.severity)}" data-action-board-item="${escapeHtml(item.id)}" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">
             <span>${escapeHtml(item.label)}</span>
             <strong>${escapeHtml(item.value)}</strong>
             <p>${escapeHtml(item.summary)}</p>
             <small>${escapeHtml(item.detail)}</small>
-          </article>
+          </button>
         `).join("")}
       </div>
     </section>
@@ -2242,7 +2242,7 @@ function governanceHub(governance: DashboardGovernance): string {
   const body = governanceHubBody(governance);
   if (governance.summary.needs_user_action === 0) {
     return `
-      <details class="panel governance-hub" data-dashboard-detail="governance-hub" aria-label="Governance Hub">
+      <details id="governance-hub" class="panel governance-hub" data-dashboard-detail="governance-hub" aria-label="Governance Hub">
         <summary class="dashboard-fold-summary governance-hub-fold">
           <span>Governance Hub</span>
           <small>${escapeHtml(governanceHubSummaryText(governance))}</small>
@@ -2252,7 +2252,7 @@ function governanceHub(governance: DashboardGovernance): string {
     `;
   }
   return `
-    <section class="panel governance-hub" aria-label="Governance Hub">
+    <section id="governance-hub" class="panel governance-hub" aria-label="Governance Hub">
       ${body}
     </section>
   `;
@@ -2910,7 +2910,7 @@ function recentValueCards(records: DashboardValueRecord[]): string {
 function captureInbox(items: DashboardCaptureInbox): string {
   if (items.total === 0 && items.autocapture_policy.auto_captured_total === 0 && items.autocapture_policy.archived_total === 0) return "";
   return `
-    <section class="panel capture-inbox" aria-label="Capture Inbox">
+    <section id="capture-inbox" class="panel capture-inbox" aria-label="Capture Inbox">
       <div class="capture-inbox-heading">
         <h2>Capture Inbox</h2>
         <span>${escapeHtml(pluralize(items.total, "candidate"))} | ${escapeHtml(pluralize(items.group_total, "group"))}</span>
@@ -3161,7 +3161,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${actionBoard(data.action_board)}
 
-    <section class="panel" data-dashboard-section="needs-attention">
+    <section id="needs-attention" class="panel" data-dashboard-section="needs-attention">
       <h2>Needs Attention</h2>
       ${attentionItems(data.attention_items)}
     </section>
@@ -3179,7 +3179,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${captureInbox(data.capture_inbox)}
 
-    <details class="panel store-signals" data-dashboard-detail="store-signals">
+    <details id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
       <summary class="dashboard-fold-summary">
         <span>Store Signals</span>
         <small>agent activity / record quality / sync</small>
@@ -3283,6 +3283,30 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
         }
       };
       window.setInterval(refresh, interval);
+    })();
+  </script>`;
+}
+
+function dashboardActionBoardScript(): string {
+  return `
+  <script>
+    (() => {
+      const main = document.querySelector("main");
+      if (!main) return;
+      main.addEventListener("click", (event) => {
+        const clicked = event.target;
+        if (!(clicked instanceof HTMLElement)) return;
+        const trigger = clicked.closest("[data-action-board-target]");
+        if (!(trigger instanceof HTMLElement)) return;
+        const targetId = trigger.dataset.actionBoardTarget;
+        if (!targetId) return;
+        const target = document.getElementById(targetId);
+        if (!(target instanceof HTMLElement)) return;
+        if (target instanceof HTMLDetailsElement) {
+          target.open = true;
+        }
+        target.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
     })();
   </script>`;
 }
@@ -3579,13 +3603,21 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       gap: 10px;
     }
     .action-board-item {
+      appearance: none;
       border: 1px solid var(--border);
       border-left-width: 4px;
       border-radius: 8px;
       padding: 10px;
       background: var(--surface-2);
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
       min-width: 0;
+      text-align: left;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
     }
+    .action-board-item:hover { border-color: #b8c0c8; box-shadow: 0 10px 20px rgba(21, 25, 30, 0.055); transform: translateY(-1px); }
+    .action-board-item:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .action-board-item.good { border-left-color: var(--good); }
     .action-board-item.info { border-left-color: var(--info); }
     .action-board-item.warning { border-left-color: var(--warning); }
@@ -4207,6 +4239,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
 <body class="neutral-intelligence">
   <main${refreshAttributes}>${renderDashboardBody(data)}</main>
   ${dashboardRefreshScript(options.refreshIntervalMs)}
+  ${dashboardActionBoardScript()}
   ${dashboardMaintenanceScript()}
   ${dashboardCaptureInboxScript()}
 </body>
