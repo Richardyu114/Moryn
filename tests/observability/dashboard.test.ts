@@ -955,6 +955,11 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(data.recent_value).toHaveLength(6);
+      expect(html).toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary recent-value-fold\">");
+      expect(html).toContain("<span>Recent Value</span>");
+      expect(html).toContain("<small>6 records | newest first | full details kept</small>");
+      expect(html).toContain("<div class=\"recent-value-body\">");
       expect(html).toContain("data-dashboard-detail=\"recent-value-overflow\"");
       expect(html).toContain("<span>More Recent Value</span>");
       expect(html).toContain("<small>2 additional records</small>");

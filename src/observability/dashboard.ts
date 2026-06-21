@@ -2790,6 +2790,7 @@ function eventsTimeline(events: DashboardEventSummary[]): string {
 function renderDashboardBody(data: DashboardData): string {
   const sync = data.sync;
   const topAgent = data.charts.agent_activity.at(-1);
+  const recentValueSummary = `${pluralize(data.recent_value.length, "record")} | newest first | full details kept`;
   return `
     <header>
       <div>
@@ -2854,10 +2855,15 @@ function renderDashboardBody(data: DashboardData): string {
       </section>
     </details>
 
-    <section class="panel">
-      <h2>Recent Value</h2>
-      ${recentValueCards(data.recent_value)}
-    </section>
+    <details class="panel recent-value-panel" data-dashboard-detail="recent-value">
+      <summary class="dashboard-fold-summary recent-value-fold">
+        <span>Recent Value</span>
+        <small>${escapeHtml(recentValueSummary)}</small>
+      </summary>
+      <div class="recent-value-body">
+        ${recentValueCards(data.recent_value)}
+      </div>
+    </details>
 
     <details class="panel debug-inspector" data-dashboard-detail="debug-inspector">
       <summary class="dashboard-fold-summary">
@@ -3657,6 +3663,11 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .rail .behind { justify-self: end; }
     .rail .ahead { justify-self: start; background: var(--accent); }
     .rail i { position: relative; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 3px solid var(--accent); justify-self: center; box-shadow: 0 0 0 4px rgba(33,113,94,0.1); }
+    .recent-value-panel[open] > summary { margin-bottom: 10px; }
+    .recent-value-body {
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
     .value-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .value-grid-overflow { margin-top: 10px; }
     .value-card {
