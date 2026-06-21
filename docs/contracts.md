@@ -256,6 +256,14 @@ smoke/test or duplicate captures are policy-archived without entering the
 review queue. These archived examples stay inspectable through
 `capture_inbox.autocapture_policy.archived_examples[]`.
 
+`/api/dashboard` also returns `capture_policy`, the same read-only report shape
+as `moryn capture policy` and MCP `capture_policy`. It includes
+`policy`, `stats`, `decisions_by_record_id`, `findings_by_id`,
+`suggested_actions_by_id`, and keyed record/event evidence for autocapture
+review/archive decisions. Suggested actions are dashboard or timeline
+inspection only. The dashboard does not expose a separate Capture Policy apply
+endpoint.
+
 `/api/dashboard` also returns `memory_lifecycle`, the same read-only report
 shape as `moryn memory lifecycle` and MCP `memory_lifecycle`. The dashboard
 panel shows retained, stale, archive-candidate, and private-retained counts,

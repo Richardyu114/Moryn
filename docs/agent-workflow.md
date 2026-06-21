@@ -290,6 +290,13 @@ candidate. Both actions append events and preserve the audit trail.
 captures before they enter the inbox, but the dashboard still shows the
 policy-archived count, rule ids, and recent examples.
 
+When an agent needs to explain automatic capture routing without changing
+memory, call `moryn capture policy --project . --limit 20` or MCP
+`capture_policy`. The report is read-only: it returns the active policy,
+`decisions_by_record_id`, `findings_by_id`, safe inspection actions, and record
+or event evidence. It must not be treated as approval to promote, reject,
+archive, or canonicalize memory.
+
 ## Private Read Boundary
 
 Private markers are tag-based. The first-version contract treats `private`,

@@ -165,6 +165,24 @@ not have to click through routine noise. The dashboard shows the archived count,
 rule ids, and recent examples under the Autocapture Policy summary. The policy
 never promotes anything to canonical memory automatically.
 
+### Capture Policy Audit
+
+The dashboard includes a read-only `Capture Policy Audit` panel built from the
+same local report as `moryn capture policy` and MCP `capture_policy`. It shows:
+
+- the active `default_autocapture_policy`
+- how many autocaptured records require review
+- how many were policy-archived before entering Capture Inbox
+- archived counts by rule id
+- keyed findings such as `review_required` and `policy_archived`
+- safe dashboard or timeline inspection actions such as
+  `inspect_policy_archived_record`
+- recent policy decisions with record ids, decision, rule ids, and text
+
+This panel explains automatic review/archive routing. It does not expose an
+Approve, Reject, Promote, Archive, or Apply endpoint; canonical memory still
+requires the Capture Inbox user action.
+
 ### Memory Lifecycle
 
 The dashboard includes a read-only `Memory Lifecycle` panel built from the same
@@ -312,6 +330,7 @@ The JSON returned by `/api/dashboard` includes:
 - `totals`
 - `capture_inbox`
 - `capture_inbox.autocapture_policy`
+- `capture_policy`
 - `memory_lifecycle`
 - `recent_value`
 - `recent_records`
@@ -322,8 +341,9 @@ The JSON returned by `/api/dashboard` includes:
 This keeps raw data inspectable while giving the HTML renderer human-oriented
 fields.
 
-`memory_lifecycle` is read-only report data. Mutation endpoints remain limited
-to Capture Inbox approval/rejection and Review Queue maintenance approval.
+`capture_policy` and `memory_lifecycle` are read-only report data. Mutation
+endpoints remain limited to Capture Inbox approval/rejection and Review Queue
+maintenance approval.
 
 Recent values, recent records, recent events, and agent activity entries carry
 `citation` metadata when an event or record can be traced. Record citations

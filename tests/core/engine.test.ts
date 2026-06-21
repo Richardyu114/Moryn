@@ -41,6 +41,18 @@ const DOGFOOD_REPORT_SELECTION_SOURCES = {
   event: "events_by_id.<event_id>",
   event_id: "events_by_id.<event_id>.event_id"
 };
+const CAPTURE_POLICY_SELECTION_SOURCES = {
+  decision: "decisions_by_record_id.<record_id>",
+  decision_record_id: "decisions_by_record_id.<record_id>.record_id",
+  finding: "findings_by_id.<finding_id>",
+  finding_id: "findings_by_id.<finding_id>.id",
+  action: "suggested_actions_by_id.<action_id>",
+  action_id: "suggested_actions_by_id.<action_id>.action_id",
+  record: "records_by_id.<record_id>",
+  record_id: "records_by_id.<record_id>.id",
+  event: "events_by_id.<event_id>",
+  event_id: "events_by_id.<event_id>.event_id"
+};
 const MEMORY_LIFECYCLE_SELECTION_SOURCES = {
   assessment: "assessments_by_record_id.<record_id>",
   assessment_record_id: "assessments_by_record_id.<record_id>.record_id",
@@ -472,6 +484,222 @@ describe("core engine", () => {
       const failureEvent = beforeEvents.find((event) => event.op === "upsert_record" && event.record.id === failureNote.record.id);
       expect(report.events_by_id).toHaveProperty(failureEvent?.event_id as string);
       expect(JSON.stringify(report)).not.toContain("Private dogfood failure");
+    });
+  });
+
+  it("audits autocapture policy decisions without mutating or exposing private records", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-20T00:10:${String(tick++).padStart(2, "0")}.000Z`
+      });
+      const reviewCapture = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: {
+          text: "Codex finished dashboard approval polish.",
+          format: "json",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "review",
+              review_required: true,
+              auto_canonical: false,
+              rule_ids: ["default_review_for_agent_handoff"],
+              reasons: ["default_review_for_agent_handoff"]
+            }
+          }
+        },
+        source: { client: "codex", session_id: "policy-review" }
+      });
+      const smokeArchive = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "policy-archived", "host:codex", "noise:smoke_test_marker"],
+        content: {
+          text: "Smoke test marker only.",
+          format: "json",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "archive",
+              review_required: false,
+              auto_canonical: false,
+              rule_ids: ["smoke_test_marker"],
+              reasons: ["smoke_test_marker"]
+            }
+          }
+        },
+        state: "archived",
+        confidence: 0.1,
+        source: { client: "codex", session_id: "policy-smoke" }
+      });
+      const duplicateArchive = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "policy-archived", "host:codex", "noise:duplicate_text"],
+        content: {
+          text: "Codex finished dashboard approval polish.",
+          format: "json",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "archive",
+              review_required: false,
+              auto_canonical: false,
+              rule_ids: ["duplicate_text"],
+              reasons: ["duplicate_text"],
+              duplicate_of_record_id: reviewCapture.record.id
+            }
+          }
+        },
+        state: "archived",
+        confidence: 0.1,
+        source: { client: "codex", session_id: "policy-duplicate" }
+      });
+      const otherProjectArchive = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "other-project",
+        tags: ["autocapture", "policy-archived", "host:codex", "noise:smoke_test_marker"],
+        content: {
+          text: "Other project smoke test marker.",
+          format: "json",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "archive",
+              review_required: false,
+              auto_canonical: false,
+              rule_ids: ["smoke_test_marker"],
+              reasons: ["smoke_test_marker"]
+            }
+          }
+        },
+        state: "archived",
+        source: { client: "codex" }
+      });
+      const privateArchive = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "policy-archived", "host:codex", "noise:smoke_test_marker", "private"],
+        content: {
+          text: "Private policy archive must stay hidden.",
+          format: "json",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "archive",
+              review_required: false,
+              auto_canonical: false,
+              rule_ids: ["smoke_test_marker"],
+              reasons: ["smoke_test_marker"]
+            }
+          }
+        },
+        state: "archived",
+        source: { client: "codex" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const report = await engine.capturePolicy({ project_id: "moryn", limit: 20 });
+      const afterEvents = await readEvents(storePath);
+
+      expect(afterEvents).toHaveLength(beforeEvents.length);
+      expect(report).toMatchObject({
+        read_only: true,
+        version: 1,
+        scope: "local_store",
+        project_id: "moryn",
+        policy: {
+          id: "default_autocapture_policy",
+          auto_canonical: false,
+          canonical_requires_user_action: true
+        }
+      });
+      expect(report.selection_sources).toEqual(CAPTURE_POLICY_SELECTION_SOURCES);
+      expect(report.stats).toMatchObject({
+        total_autocapture_records: 3,
+        excluded_private_records: 1,
+        review_records: 1,
+        policy_archived_records: 2,
+        archived_by_rule: {
+          smoke_test_marker: 1,
+          duplicate_text: 1
+        }
+      });
+      expect(report.decisions_by_record_id[reviewCapture.record.id]).toMatchObject({
+        record_id: reviewCapture.record.id,
+        decision: "review",
+        target_state: "candidate",
+        review_required: true,
+        auto_canonical: false,
+        rule_ids: ["default_review_for_agent_handoff"],
+        evidence: expect.arrayContaining([
+          expect.objectContaining({ source: "record.content.capture.policy" }),
+          expect.objectContaining({ source: "record.tags[]" })
+        ])
+      });
+      expect(report.decisions_by_record_id[smokeArchive.record.id]).toMatchObject({
+        record_id: smokeArchive.record.id,
+        decision: "archive",
+        target_state: "archived",
+        review_required: false,
+        auto_canonical: false,
+        rule_ids: ["smoke_test_marker"]
+      });
+      expect(report.decisions_by_record_id[duplicateArchive.record.id]).toMatchObject({
+        record_id: duplicateArchive.record.id,
+        decision: "archive",
+        target_state: "archived",
+        duplicate_of_record_id: reviewCapture.record.id,
+        rule_ids: ["duplicate_text"]
+      });
+      expect(report.findings_by_id.review_required).toMatchObject({
+        category: "review_queue",
+        severity: "info",
+        record_ids: [reviewCapture.record.id]
+      });
+      expect(report.findings_by_id.policy_archived).toMatchObject({
+        category: "policy_archive",
+        severity: "info",
+        record_ids: expect.arrayContaining([smokeArchive.record.id, duplicateArchive.record.id])
+      });
+      expect(report.suggested_actions_by_id.review_capture_inbox).toMatchObject({
+        tool: "dashboard",
+        safe_to_run: true,
+        command: "moryn dashboard --serve --project-id moryn"
+      });
+      expect(report.suggested_actions_by_id[`inspect:${smokeArchive.record.id}`]).toMatchObject({
+        tool: "timeline",
+        safe_to_run: true,
+        arguments: { record_id: smokeArchive.record.id, project_id: "moryn", before: 3, after: 3 }
+      });
+      expect(report.records_by_id[reviewCapture.record.id]?.id).toBe(reviewCapture.record.id);
+      expect(report.records_by_id[otherProjectArchive.record.id]).toBeUndefined();
+      expect(report.records_by_id[privateArchive.record.id]).toBeUndefined();
+      expect(JSON.stringify(report)).not.toContain("Private policy archive");
     });
   });
 

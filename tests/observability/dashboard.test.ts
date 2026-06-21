@@ -1479,6 +1479,14 @@ describe("observability dashboard", () => {
       });
 
       const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        capture_policy: {
+          read_only: boolean;
+          policy: { id: string; auto_canonical: boolean };
+          stats: { review_records: number; policy_archived_records: number; archived_by_rule: Record<string, number> };
+          decisions_by_record_id: Record<string, { decision: string; review_required: boolean; auto_canonical: boolean; rule_ids: string[] }>;
+          findings_by_id: Record<string, { category: string; record_ids: string[] }>;
+          suggested_actions_by_id: Record<string, { recommended_action: string; tool: string; safe_to_run: boolean }>;
+        };
         capture_inbox: {
           total: number;
           policy: {
@@ -1509,10 +1517,46 @@ describe("observability dashboard", () => {
           })
         ]
       });
+      expect(data.capture_policy).toMatchObject({
+        read_only: true,
+        policy: {
+          id: "default_autocapture_policy",
+          auto_canonical: false
+        },
+        stats: {
+          review_records: 1,
+          policy_archived_records: 1,
+          archived_by_rule: { smoke_test_marker: 1 }
+        }
+      });
+      expect(data.capture_policy.decisions_by_record_id.rec_capture_policy_1).toMatchObject({
+        decision: "review",
+        review_required: true,
+        auto_canonical: false,
+        rule_ids: ["default_review_for_agent_handoff"]
+      });
+      expect(data.capture_policy.decisions_by_record_id.rec_capture_policy_2).toMatchObject({
+        decision: "archive",
+        review_required: false,
+        auto_canonical: false,
+        rule_ids: ["smoke_test_marker"]
+      });
+      expect(data.capture_policy.findings_by_id.policy_archived).toMatchObject({
+        category: "policy_archive",
+        record_ids: ["rec_capture_policy_2"]
+      });
+      expect(data.capture_policy.suggested_actions_by_id["inspect:rec_capture_policy_2"]).toMatchObject({
+        recommended_action: "inspect_policy_archived_record",
+        tool: "timeline",
+        safe_to_run: true
+      });
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("default_autocapture_policy");
       expect(html).toContain("Policy archived");
+      expect(html).toContain("Capture Policy Audit");
+      expect(html).toContain("capture_policy");
+      expect(html).toContain("inspect_policy_archived_record");
       expect(html).toContain("smoke_test_marker");
       expect(html).toContain("Smoke test marker only.");
       expect(html).toContain("Useful handoff still needs user review.");

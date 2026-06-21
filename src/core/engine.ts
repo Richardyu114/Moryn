@@ -13,6 +13,7 @@ import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata 
 import { operationArgumentsByTool } from "../operation-contracts.js";
 import { diagnoseDogfood, type DogfoodReportInput } from "./dogfood-report.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
+import { diagnoseCapturePolicy, type CapturePolicyInput } from "./capture-policy-report.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 
 interface EngineDeps {
@@ -134,6 +135,10 @@ type ValidatedMemoryDoctorInput = MemoryDoctorInput & {
 type ValidatedMemoryLifecycleInput = MemoryLifecycleInput & {
   include_private?: boolean;
   now?: string;
+};
+
+type ValidatedCapturePolicyInput = CapturePolicyInput & {
+  include_private?: boolean;
 };
 
 type ValidatedDogfoodReportInput = DogfoodReportInput & {
@@ -592,7 +597,7 @@ type ValidatedProjectMigrateInput = ProjectMigrateInput & {
   include_private: boolean;
 };
 
-type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "dogfood_report";
+type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
 type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.${string}`;
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
@@ -2097,6 +2102,12 @@ function validateMemoryLifecycleInput(input: MemoryLifecycleInput): void {
   validateOptionalBoolean("memory_lifecycle", input.include_private, "include_private");
 }
 
+function validateCapturePolicyInput(input: CapturePolicyInput): void {
+  assertPlainObject(input, "capture policy input");
+  validateOptionalString("capture_policy", input.project_id, "project_id");
+  validateOptionalBoolean("capture_policy", input.include_private, "include_private");
+}
+
 function validateDogfoodReportInput(input: DogfoodReportInput): void {
   assertPlainObject(input, "dogfood report input");
   validateOptionalString("dogfood_report", input.project_id, "project_id");
@@ -3316,6 +3327,28 @@ export function createEngine(deps: EngineDeps) {
         include_private: resolvedInput.include_private,
         now: resolvedInput.now,
         private_record_ids: allRecords.filter(isPrivateRecord).map((record) => record.id),
+        excluded_private_records: allRecords.length - allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
+      });
+    },
+
+    async capturePolicy(input: CapturePolicyInput = {}) {
+      validateCapturePolicyInput(input);
+      const resolvedInput = {
+        ...input,
+        include_private: input.include_private === true
+      } as ValidatedCapturePolicyInput;
+      const limit = validateLimit(resolvedInput.limit, 20, "capture_policy");
+      const events = await readEvents(deps.storePath);
+      const allRecords = [...replayEvents(events).values()];
+      const records = allRecords
+        .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private))
+        .filter((record) => !resolvedInput.project_id || record.project_id === resolvedInput.project_id);
+      return diagnoseCapturePolicy({
+        records,
+        events,
+        project_id: resolvedInput.project_id,
+        limit,
+        include_private: resolvedInput.include_private,
         excluded_private_records: allRecords.length - allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
       });
     },

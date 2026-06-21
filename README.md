@@ -205,6 +205,18 @@ timeout signals from local records and events. Suggested actions point to
 dashboard or timeline inspection and stay `safe_to_run: true` read-only checks.
 The MCP tool name is `dogfood_report`.
 
+To audit what the autocapture policy already decided, use the read-only Capture
+Policy Audit:
+
+```bash
+moryn capture policy --project . --limit 20
+```
+
+It explains which autocaptured handoffs require review, which ones were
+policy-archived, the matched rule ids, record evidence, and safe dashboard or
+timeline inspection actions. It does not approve, reject, promote, or archive
+records. The MCP tool name is `capture_policy`.
+
 When the doctor reports split project identity and the canonical id is clear,
 preview an auditable migration first:
 
@@ -238,7 +250,9 @@ smoke/test or duplicate captures are marked as noise. Group actions reduce
 clicks, but the default policy remains manual review with no auto-canonical
 promotion. `default_autocapture_policy` can archive obvious smoke/test or
 duplicate captures before they enter the inbox, and the dashboard exposes those
-policy-archived examples with stable rule ids.
+policy-archived examples with stable rule ids. The dashboard also includes the
+same read-only `capture_policy` audit report so automatic decisions can be
+reviewed without creating another mutation path.
 
 ## MCP
 
@@ -339,14 +353,17 @@ raw -> candidate -> canonical
 The dashboard Capture Inbox is the default human review path for autocaptured
 candidate memory. It keeps automation visible: agents can propose memory, but
 canonical long-term context still needs explicit approval. Grouped approve and
-reject actions are batch user decisions, not background promotion rules.
+reject actions are batch user decisions, not background promotion rules. The
+read-only `capture_policy` report explains automatic review/archive routing but
+does not mutate memory.
 
 Records tagged `private`, `secret`, or `sensitive` are active records, but they
 are excluded from normal `boot`, `recall`, `refresh`, `list-recent`, `timeline`,
-`memory doctor`, `memory lifecycle`, `dogfood report`, and dashboard reads. Use
-`--include-private` or MCP `include_private: true` only with explicit user
-intent. Sensitive content is quarantined or redacted before it enters normal
-recall. High-risk canonical writes require explicit confirmation.
+`memory doctor`, `memory lifecycle`, `capture policy`, `dogfood report`, and
+dashboard reads. Use `--include-private` or MCP `include_private: true` only
+with explicit user intent. Sensitive content is quarantined or redacted before
+it enters normal recall. High-risk canonical writes require explicit
+confirmation.
 
 ## Documentation
 

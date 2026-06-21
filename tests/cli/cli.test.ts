@@ -3671,6 +3671,120 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("runs a read-only capture policy audit from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+      const review = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "moryn",
+        "--tag", "autocapture",
+        "--tag", "review",
+        "--tag", "host:codex",
+        "--content-json", JSON.stringify({
+          text: "CLI capture policy review candidate.",
+          format: "json",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "review",
+              review_required: true,
+              auto_canonical: false,
+              rule_ids: ["default_review_for_agent_handoff"],
+              reasons: ["default_review_for_agent_handoff"]
+            }
+          }
+        })
+      ])).stdout) as { record: { id: string } };
+      const archived = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "moryn",
+        "--tag", "autocapture",
+        "--tag", "policy-archived",
+        "--tag", "host:codex",
+        "--tag", "noise:smoke_test_marker",
+        "--state", "archived",
+        "--confidence", "0.1",
+        "--content-json", JSON.stringify({
+          text: "CLI smoke test marker only.",
+          format: "json",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "archive",
+              review_required: false,
+              auto_canonical: false,
+              rule_ids: ["smoke_test_marker"],
+              reasons: ["smoke_test_marker"]
+            }
+          }
+        })
+      ])).stdout) as { record: { id: string } };
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "moryn",
+        "--tag", "autocapture",
+        "--tag", "policy-archived",
+        "--tag", "private",
+        "--text", "Private capture policy audit finding must stay hidden."
+      ]);
+
+      const beforeEvents = await readEvents(dir);
+      const result = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "capture", "policy",
+        "--project-id", "moryn",
+        "--limit", "20"
+      ]);
+      const parsed = JSON.parse(result.stdout) as {
+        read_only: boolean;
+        policy: { id: string; auto_canonical: boolean };
+        stats: { total_autocapture_records: number; excluded_private_records: number; review_records: number; policy_archived_records: number; archived_by_rule: Record<string, number> };
+        decisions_by_record_id: Record<string, { decision: string; rule_ids: string[] }>;
+        suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
+        records_by_id: Record<string, { id: string }>;
+      };
+
+      expect(await readEvents(dir)).toHaveLength(beforeEvents.length);
+      expect(parsed.read_only).toBe(true);
+      expect(parsed.policy).toMatchObject({
+        id: "default_autocapture_policy",
+        auto_canonical: false
+      });
+      expect(parsed.stats).toMatchObject({
+        total_autocapture_records: 2,
+        excluded_private_records: 1,
+        review_records: 1,
+        policy_archived_records: 1,
+        archived_by_rule: { smoke_test_marker: 1 }
+      });
+      expect(parsed.decisions_by_record_id[review.record.id]).toMatchObject({
+        decision: "review",
+        rule_ids: ["default_review_for_agent_handoff"]
+      });
+      expect(parsed.decisions_by_record_id[archived.record.id]).toMatchObject({
+        decision: "archive",
+        rule_ids: ["smoke_test_marker"]
+      });
+      expect(parsed.suggested_actions_by_id.review_capture_inbox).toMatchObject({
+        tool: "dashboard",
+        safe_to_run: true,
+        command: "moryn dashboard --serve --project-id moryn"
+      });
+      expect(parsed.records_by_id[archived.record.id]?.id).toBe(archived.record.id);
+      expect(JSON.stringify(parsed)).not.toContain("Private capture policy audit finding");
+    });
+  });
+
   it("dry-runs and applies project migration from the CLI", async () => {
     await withTempDir(async (store) => {
       await exec("node", ["--import", tsxLoader, cliPath, "--store", store, "init"]);

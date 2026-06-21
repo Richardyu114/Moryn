@@ -79,6 +79,11 @@ describe("published package smoke", () => {
           "-e",
           "import { CAPTURE_SESSION_SELECTION_SOURCES, DEFAULT_AUTOCAPTURE_POLICY, SELECTION_SOURCE_CONTRACTS } from '@richardyu114/moryn'; console.log(`${DEFAULT_AUTOCAPTURE_POLICY.id}|${DEFAULT_AUTOCAPTURE_POLICY.auto_canonical}|${CAPTURE_SESSION_SELECTION_SOURCES.policy_decision}|${SELECTION_SOURCE_CONTRACTS.lifecycle.capture_session.policy_decision}`);"
         ], { cwd: dir });
+        const capturePolicyImportCheck = await exec("node", [
+          "--input-type=module",
+          "-e",
+          "import { CAPTURE_POLICY_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('capture_policy'); const byMcp = getOperationContractByMcpTool('capture_policy'); const byCli = getOperationContractByCliCommand('moryn capture policy'); console.log(`${CAPTURE_POLICY_SELECTION_SOURCES.decision}|${SELECTION_SOURCE_CONTRACTS.core.capture_policy.action}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
+        ], { cwd: dir });
         const operationLookupErrorImportCheck = await exec("node", [
           "--input-type=module",
           "-e",
@@ -808,6 +813,7 @@ describe("published package smoke", () => {
         expect(operationIndexImportCheck.stdout.trim()).toBe("operation_source_lookup|operation_source_lookup|operations_by_mcp_tool.<tool>|operations_by_id.<operation>.operation_source|operations_by_cli_command.<command>|operations_by_id.<operation>.operation_source");
         expect(lifecycleImportCheck.stdout.trim()).toBe("assessments_by_record_id.<record_id>|assessments_by_record_id.<record_id>|suggested_actions_by_id.<action_id>|moryn memory lifecycle|memory_lifecycle|memory_lifecycle");
         expect(autocapturePolicyImportCheck.stdout.trim()).toBe("default_autocapture_policy|false|policy_decision|policy_decision");
+        expect(capturePolicyImportCheck.stdout.trim()).toBe("decisions_by_record_id.<record_id>|suggested_actions_by_id.<action_id>|moryn capture policy|capture_policy|capture_policy|capture_policy");
         expect(operationLookupErrorImportCheck.stdout.trim()).toBe("true|agent_status|agent_status|operations_by_id.agent_status|agent_status");
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });
       } finally {

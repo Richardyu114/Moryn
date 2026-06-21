@@ -12,6 +12,7 @@ import {
 import { STORE_INIT_SELECTION_SOURCES } from "./core/config.js";
 import { DEFAULT_AUTOCAPTURE_POLICY } from "./core/autocapture-policy.js";
 import { REBUILD_SELECTION_SOURCES } from "./core/derived.js";
+import { CAPTURE_POLICY_SELECTION_SOURCES } from "./core/capture-policy-report.js";
 import { DOGFOOD_REPORT_SELECTION_SOURCES } from "./core/dogfood-report.js";
 import { MEMORY_LIFECYCLE_SELECTION_SOURCES } from "./core/memory-lifecycle.js";
 export { createEngine } from "./core/engine.js";
@@ -98,6 +99,7 @@ export {
   HANDOFF_PACK_SELECTION_SOURCES,
   CAPTURE_SESSION_SELECTION_SOURCES,
   DEFAULT_AUTOCAPTURE_POLICY,
+  CAPTURE_POLICY_SELECTION_SOURCES,
   DOGFOOD_REPORT_SELECTION_SOURCES,
   MEMORY_LIFECYCLE_SELECTION_SOURCES
 };
@@ -125,6 +127,7 @@ export const SELECTION_SOURCE_CONTRACTS = {
     project_migrate: PROJECT_MIGRATE_SELECTION_SOURCES,
     memory_doctor: MEMORY_DOCTOR_SELECTION_SOURCES,
     memory_lifecycle: MEMORY_LIFECYCLE_SELECTION_SOURCES,
+    capture_policy: CAPTURE_POLICY_SELECTION_SOURCES,
     dogfood_report: DOGFOOD_REPORT_SELECTION_SOURCES
   },
   sync: {

@@ -495,6 +495,7 @@ type McpProjectContextOperation =
   | "refresh"
   | "memory_doctor"
   | "memory_lifecycle"
+  | "capture_policy"
   | "dogfood_report"
   | "capture_session"
   | "context_pack"
@@ -1786,6 +1787,29 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         project_id: project.project_id,
         limit: normalizedInput.limit as number | undefined,
         now: normalizedInput.now as string | undefined,
+        include_private: normalizedInput.include_private as boolean | undefined
+      });
+    })
+  );
+
+  server.registerTool(
+    "capture_policy",
+    {
+      title: "Audit Moryn Capture Policy",
+      description: "Read-only audit of autocapture policy decisions, review candidates, policy-archived noise, and evidence.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        limit: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("capture_policy")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("capture_policy", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("capture_policy", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      return engine.capturePolicy({
+        project_id: project.project_id,
+        limit: normalizedInput.limit as number | undefined,
         include_private: normalizedInput.include_private as boolean | undefined
       });
     })

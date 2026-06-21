@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BOOT_SELECTION_SOURCES,
+  CAPTURE_POLICY_SELECTION_SOURCES,
   CAPTURE_SESSION_SELECTION_SOURCES,
   DEFAULT_AUTOCAPTURE_POLICY,
   DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES,
@@ -143,6 +144,7 @@ describe("package smoke test", () => {
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>");
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument_source).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>");
     expect(CAPTURE_SESSION_SELECTION_SOURCES.policy_decision).toBe("policy_decision");
+    expect(CAPTURE_POLICY_SELECTION_SOURCES.decision).toBe("decisions_by_record_id.<record_id>");
     expect(DEFAULT_AUTOCAPTURE_POLICY.id).toBe("default_autocapture_policy");
     expect(DOCTOR_SELECTION_SOURCES.blocking_check).toBe("readiness.blocking_checks_by_name.<check_name>");
     expect(DOCTOR_SELECTION_SOURCES.next_cli_executable).toBe("next.interfaces.cli.executable");
@@ -160,6 +162,7 @@ describe("package smoke test", () => {
     expect(SELECTION_SOURCE_CONTRACTS.core.project_migrate).toBe(PROJECT_MIGRATE_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.core.dogfood_report).toBe(DOGFOOD_REPORT_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.core.memory_lifecycle).toBe(MEMORY_LIFECYCLE_SELECTION_SOURCES);
+    expect(SELECTION_SOURCE_CONTRACTS.core.capture_policy).toBe(CAPTURE_POLICY_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.sync.result).toBe(SYNC_RESULT_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.guide).toBe(GUIDE_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.capture_session).toBe(CAPTURE_SESSION_SELECTION_SOURCES);

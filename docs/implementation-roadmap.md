@@ -112,7 +112,10 @@ store:
   `source.client` and `host:<client>` tags.
 - `default_autocapture_policy` routes useful handoffs to Capture Inbox while
   policy-archiving obvious smoke/test or duplicate captures.
-- CLI and MCP exposure for install, context pack, and capture session.
+- Read-only `capture_policy` / `moryn capture policy` audit report for
+  explaining review/archive decisions without adding another mutation path.
+- CLI and MCP exposure for install, context pack, capture session, and capture
+  policy audit.
 
 ### Contracts and Recovery
 

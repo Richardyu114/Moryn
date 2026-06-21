@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { normalizeAgentIdentity } from "../core/agent-identity.js";
 import { DEFAULT_AUTOCAPTURE_POLICY, type AutocapturePolicyRuleId } from "../core/autocapture-policy.js";
+import { diagnoseCapturePolicy, type CapturePolicyResult } from "../core/capture-policy-report.js";
 import { displayRecordText } from "../core/content-text.js";
 import { createEngine } from "../core/engine.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
@@ -58,6 +59,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
   charts: "charts",
   totals: "totals",
   capture_inbox: "capture_inbox",
+  capture_policy: "capture_policy",
   memory_lifecycle: "memory_lifecycle",
   recent_value: "recent_value[]",
   record: "recent_records[]",
@@ -302,6 +304,7 @@ export interface DashboardData {
     quarantined_records: number;
   };
   capture_inbox: DashboardCaptureInbox;
+  capture_policy: CapturePolicyResult;
   memory_lifecycle: MemoryLifecycleResult;
   recent_value: DashboardValueRecord[];
   recent_records: DashboardRecordSummary[];
@@ -1037,6 +1040,10 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const agentActivity = summarizeAgentActivity(visibleEvents, records, recordsById, eventsByRecord);
   const lifecycleAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
   const lifecycleRecords = lifecycleAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const capturePolicyAllRecords = allRecords.filter((record) => {
+    return !options.project_id || record.project_id === options.project_id;
+  });
+  const capturePolicyRecords = capturePolicyAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
 
   return {
     generated_at: generatedAt,
@@ -1059,6 +1066,14 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       quarantined_records: records.filter((record) => record.visibility === "quarantined").length
     },
     capture_inbox: buildCaptureInbox(records, generatedAt, limit, eventsByRecord),
+    capture_policy: diagnoseCapturePolicy({
+      records: capturePolicyRecords,
+      events: visibleEvents,
+      project_id: options.project_id,
+      limit,
+      include_private: options.include_private === true,
+      excluded_private_records: capturePolicyAllRecords.length - capturePolicyRecords.length
+    }),
     memory_lifecycle: diagnoseMemoryLifecycle({
       records: lifecycleRecords,
       project_id: options.project_id,
@@ -1312,6 +1327,66 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult): string {
       <details class="lifecycle-action-details" data-dashboard-detail="memory-lifecycle:${escapeHtml(report.generated_at)}">
         <summary>Suggested actions</summary>
         ${lifecycleActions(report)}
+      </details>
+    </section>
+  `;
+}
+
+function capturePolicyAuditPanel(report: CapturePolicyResult): string {
+  if (report.stats.total_autocapture_records === 0) return "";
+  const ruleSummary = Object.entries(report.stats.archived_by_rule)
+    .map(([ruleId, count]) => `${ruleId}: ${count}`)
+    .join(" / ") || "no archived noise";
+  return `
+    <section class="panel capture-policy-audit" aria-label="Capture Policy Audit">
+      <div class="lifecycle-heading">
+        <h2>Capture Policy Audit</h2>
+        <span>${escapeHtml(pluralize(report.stats.review_records, "review"))} | ${escapeHtml(pluralize(report.stats.policy_archived_records, "archived"))}</span>
+      </div>
+      <div class="lifecycle-policy">
+        <div>
+          <strong>capture_policy</strong>
+          <code>${escapeHtml(report.policy.id)}</code>
+        </div>
+        <span>Read-only</span>
+        <span>No auto-canonical</span>
+        <span>${escapeHtml(ruleSummary)}</span>
+      </div>
+      <div class="lifecycle-findings">
+        ${report.findings.map((finding) => `
+          <article class="lifecycle-finding ${escapeHtml(finding.severity)}">
+            <div>
+              <strong>${escapeHtml(finding.summary)}</strong>
+              <span>${escapeHtml(finding.category)}</span>
+            </div>
+            <p>${escapeHtml(finding.reason)}</p>
+            <small>${finding.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</small>
+          </article>
+        `).join("")}
+      </div>
+      <details class="lifecycle-action-details" data-dashboard-detail="capture-policy:${escapeHtml(report.policy.id)}">
+        <summary>Policy decisions and read-only actions</summary>
+        <div class="lifecycle-actions">
+          ${report.suggested_actions.slice(0, 6).map((action) => `
+            <article class="lifecycle-action safe">
+              <div>
+                <span class="pill state-canonical">Read-only</span>
+                <strong>${escapeHtml(action.recommended_action)}</strong>
+              </div>
+              <code>${escapeHtml(action.command)}</code>
+              <small>${escapeHtml(action.required_when)}</small>
+            </article>
+          `).join("")}
+        </div>
+        <ul class="capture-policy-rule-list">
+          ${report.decisions.slice(0, 8).map((decision) => `
+            <li>
+              <code>${escapeHtml(decision.record_id)}</code>
+              <strong>${escapeHtml(decision.decision)} / ${escapeHtml(decision.rule_ids.join(", ") || "policy")}</strong>
+              <span>${escapeHtml(decision.text)}</span>
+            </li>
+          `).join("")}
+        </ul>
       </details>
     </section>
   `;
@@ -1663,6 +1738,8 @@ function renderDashboardBody(data: DashboardData): string {
     ${maintenanceReviewQueue(data.maintenance.plans)}
 
     ${memoryLifecyclePanel(data.memory_lifecycle)}
+
+    ${capturePolicyAuditPanel(data.capture_policy)}
 
     ${captureInbox(data.capture_inbox)}
 

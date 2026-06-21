@@ -63,10 +63,15 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("default_capture_review_policy");
     expect(dashboard).toContain("default_autocapture_policy");
     expect(dashboard).toContain("capture_inbox.autocapture_policy");
+    expect(dashboard).toContain("Capture Policy Audit");
+    expect(dashboard).toContain("moryn capture policy");
+    expect(dashboard).toContain("capture_policy");
     expect(dashboard).toContain("smoke_test_marker");
     expect(dashboard).toContain("duplicate_text");
     expect(contracts).toContain("default_capture_review_policy");
     expect(contracts).toContain("default_autocapture_policy");
+    expect(contracts).toContain("moryn capture policy");
+    expect(contracts).toContain("capture_policy");
     expect(contracts).toContain("policy_decision");
     expect(contracts).toContain("canonical memory requires explicit user");
     expect(dashboard).toContain("Memory Lifecycle");
@@ -108,6 +113,7 @@ describe("documentation contracts", () => {
     expect(readme).toContain("moryn install --host codex --project . --apply");
     expect(readme).toContain("moryn context pack --project . --agent codex");
     expect(readme).toContain("moryn capture session --project . --agent codex --summary");
+    expect(readme).toContain("moryn capture policy --project . --limit 20");
     expect(readme).toContain("Handoff Pack v0.2");
     expect(readme).toContain("recent decisions");
     expect(workflow).toContain("handoff_pack");
@@ -118,6 +124,7 @@ describe("documentation contracts", () => {
     expect(installPrompt).toContain("autocapture");
     expect(workflow).toContain("Host Adapter Flow");
     expect(readme).toContain("default_autocapture_policy");
+    expect(workflow).toContain("capture_policy");
     expect(workflow).toContain("default_autocapture_policy");
     expect(roadmap).toContain("default_autocapture_policy");
     expectText(readme, "Nothing becomes canonical memory without user approval");

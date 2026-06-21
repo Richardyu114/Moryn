@@ -2842,6 +2842,7 @@ describe("MCP stdio server", () => {
           "agent_status",
           "archive",
           "boot",
+          "capture_policy",
           "capture_session",
           "context_pack",
           "dashboard",
@@ -2979,6 +2980,16 @@ describe("MCP stdio server", () => {
           "agentClient",
           "agent_client"
         ]));
+        const capturePolicyTool = tools.tools.find((tool) => tool.name === "capture_policy");
+        expect(Object.keys(capturePolicyTool?.inputSchema.properties ?? {})).toEqual(expect.arrayContaining([
+          "projectPath",
+          "project_path",
+          "projectId",
+          "project_id",
+          "limit",
+          "includePrivate",
+          "include_private"
+        ]));
 
         expect((parseTextContent(await client.callTool({ name: "init", arguments: {} })) as { ok: boolean }).ok).toBe(true);
 
@@ -3087,6 +3098,38 @@ describe("MCP stdio server", () => {
         expect(dogfood.read_only).toBe(true);
         expect(dogfood.findings_by_id.capture_review_backlog).toMatchObject({ category: "capture_review" });
         expect(dogfood.suggested_actions_by_id.review_capture_inbox).toMatchObject({
+          tool: "dashboard",
+          safe_to_run: true
+        });
+
+        const capturePolicy = parseTextContent(await client.callTool({
+          name: "capture_policy",
+          arguments: {
+            project_path: projectPath,
+            limit: 20
+          }
+        })) as {
+          read_only: boolean;
+          policy: { id: string; auto_canonical: boolean };
+          stats: { review_records: number; policy_archived_records: number };
+          decisions_by_record_id: Record<string, { decision: string; review_required: boolean; auto_canonical: boolean }>;
+          suggested_actions_by_id: Record<string, { tool: string; safe_to_run: boolean }>;
+        };
+        expect(capturePolicy.read_only).toBe(true);
+        expect(capturePolicy.policy).toMatchObject({
+          id: "default_autocapture_policy",
+          auto_canonical: false
+        });
+        expect(capturePolicy.stats).toMatchObject({
+          review_records: 1,
+          policy_archived_records: 0
+        });
+        expect(Object.values(capturePolicy.decisions_by_record_id)[0]).toMatchObject({
+          decision: "review",
+          review_required: true,
+          auto_canonical: false
+        });
+        expect(capturePolicy.suggested_actions_by_id.review_capture_inbox).toMatchObject({
           tool: "dashboard",
           safe_to_run: true
         });

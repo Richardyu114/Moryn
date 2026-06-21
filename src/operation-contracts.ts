@@ -1989,6 +1989,29 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "capture_policy",
+    category: "core",
+    summary: "Read-only Capture Policy Audit that explains autocapture review and archive decisions with rule evidence.",
+    safe_to_run: true,
+    required_when: "When an agent or user needs to inspect why autocaptured handoffs entered Capture Inbox or were policy-archived before review.",
+    required_fields: [],
+    arguments_by_name: {
+      ...projectContextArguments,
+      limit: {
+        type: "number",
+        required: false,
+        default: 20,
+        cli: { flag: "--limit", default: 20 },
+        mcp: { argument: "limit" }
+      },
+      ...privateReadArgument
+    },
+    interfaces: {
+      cli: { command: "moryn capture policy", argv: ["capture", "policy"] },
+      mcp: { tool: "capture_policy", arguments: {} }
+    }
+  }),
+  operationContract({
     operation: "dogfood_report",
     category: "core",
     summary: "Read-only dogfood report that surfaces capture-review backlog, duplicate handoffs, and failure or timeout signals from the local store.",

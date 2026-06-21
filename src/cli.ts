@@ -88,7 +88,7 @@ const CLI_GLOBAL_OPTIONS = [
   { option: "--version", position: "before_command" },
   { option: "-V", position: "before_command" }
 ] as const;
-type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "dogfood_report" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
+type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
@@ -134,6 +134,7 @@ type CliParserOperation =
   | "refresh"
   | "memory_doctor"
   | "memory_lifecycle"
+  | "capture_policy"
   | "dogfood_report"
   | "sync_push"
   | "revise"
@@ -1504,6 +1505,11 @@ function cliParserArgumentSource(option: string): CliParserSource | undefined {
     if (option === "--model") return { operation: "capture_session", argument: "agent_model" };
     if (option === "--device-id") return { operation: "capture_session", argument: "agent_device_id" };
   }
+  if (commandPath[0] === "capture" && commandPath[1] === "policy") {
+    if (option === "--project") return { operation: "capture_policy", argument: "project_path" };
+    if (option === "--project-id") return { operation: "capture_policy", argument: "project_id" };
+    if (option === "--limit") return { operation: "capture_policy", argument: "limit" };
+  }
   if (commandPath[0] === "context" && commandPath[1] === "pack") {
     if (option === "--project") return { operation: "context_pack", argument: "project_path" };
     if (option === "--project-id") return { operation: "context_pack", argument: "project_id" };
@@ -2092,6 +2098,21 @@ capture.command("session")
       agent: parseAgentOptions(options)
     });
     printJson(result);
+  });
+
+capture.command("policy")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--limit <n>", "Decision/action limit", "20")
+  .option("--include-private", "Include private-tagged records")
+  .action(async (options) => {
+    const engine = createCliEngine();
+    const projectId = await resolveOptionalProject(options, "capture_policy");
+    printJson(await engine.capturePolicy({
+      project_id: projectId,
+      limit: parseLimit(options.limit, "capture_policy"),
+      include_private: options.includePrivate
+    }));
   });
 
 const context = program.command("context");
