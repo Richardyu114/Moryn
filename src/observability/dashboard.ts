@@ -2108,11 +2108,11 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult): string {
   const totalActions = report.suggested_actions.length;
   if (report.stats.total_records === 0 && totalFindings === 0 && totalActions === 0) return "";
   return `
-    <section class="panel memory-lifecycle" aria-label="Memory Lifecycle">
-      <div class="lifecycle-heading">
-        <h2>Memory Lifecycle</h2>
-        <span>${escapeHtml(pluralize(totalFindings, "finding"))} | ${escapeHtml(pluralize(totalActions, "action"))}</span>
-      </div>
+    <details class="panel memory-lifecycle" data-dashboard-detail="memory-lifecycle-audit" aria-label="Memory Lifecycle">
+      <summary>
+        <span>Memory Lifecycle</span>
+        <small>${escapeHtml(pluralize(totalFindings, "finding"))} | ${escapeHtml(pluralize(totalActions, "action"))}</small>
+      </summary>
       <div class="lifecycle-policy">
         <div>
           <strong>Lifecycle Policy</strong>
@@ -2129,7 +2129,7 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult): string {
         <summary>Suggested actions</summary>
         ${lifecycleActions(report)}
       </details>
-    </section>
+    </details>
   `;
 }
 
@@ -2300,11 +2300,11 @@ function capturePolicyAuditPanel(report: CapturePolicyResult): string {
     .map(([ruleId, count]) => `${ruleId}: ${count}`)
     .join(" / ") || "no archived noise";
   return `
-    <section class="panel capture-policy-audit" aria-label="Capture Policy Audit">
-      <div class="lifecycle-heading">
-        <h2>Capture Policy Audit</h2>
-        <span>${escapeHtml(pluralize(report.stats.auto_captured_records, "auto-captured"))} | ${escapeHtml(pluralize(report.stats.review_records, "review"))} | ${escapeHtml(pluralize(report.stats.policy_archived_records, "archived"))}</span>
-      </div>
+    <details class="panel capture-policy-audit" data-dashboard-detail="capture-policy-audit" aria-label="Capture Policy Audit">
+      <summary>
+        <span>Capture Policy Audit</span>
+        <small>${escapeHtml(pluralize(report.stats.auto_captured_records, "auto-captured"))} | ${escapeHtml(pluralize(report.stats.review_records, "review"))} | ${escapeHtml(pluralize(report.stats.policy_archived_records, "archived"))}</small>
+      </summary>
       <div class="lifecycle-policy">
         <div>
           <strong>capture_policy</strong>
@@ -2343,7 +2343,7 @@ function capturePolicyAuditPanel(report: CapturePolicyResult): string {
         </div>
         ${capturePolicyDecisionCards(report)}
       </details>
-    </section>
+    </details>
   `;
 }
 
@@ -3321,6 +3321,20 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .lifecycle-action.safe { border-left: 3px solid var(--good); }
     .lifecycle-action-details { margin-top: 10px; }
     .lifecycle-action-details summary { font-weight: 760; color: var(--ink); }
+    .memory-lifecycle > summary, .capture-policy-audit > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--ink);
+      font-weight: 760;
+    }
+    .memory-lifecycle > summary small, .capture-policy-audit > summary small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .memory-lifecycle[open] > summary, .capture-policy-audit[open] > summary { margin-bottom: 12px; }
     .capture-policy-decisions { display: grid; gap: 10px; margin-top: 10px; }
     .capture-policy-decision { background: var(--surface); }
     .capture-policy-decision.review { border-left: 3px solid var(--signal-blue); }

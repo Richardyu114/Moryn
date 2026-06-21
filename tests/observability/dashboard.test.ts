@@ -492,6 +492,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-dashboard-detail=\"debug-inspector\"");
       expect(html).toContain("data-dashboard-detail=\"inspector:records\"");
       expect(html).not.toContain("<details open data-dashboard-detail=\"inspector:records\">");
+      expect(html).toContain("<details class=\"panel memory-lifecycle\" data-dashboard-detail=\"memory-lifecycle-audit\"");
+      expect(html).toContain("<span>Memory Lifecycle</span>");
+      expect(html).toContain("<details class=\"panel capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
+      expect(html).toContain("<span>Capture Policy Audit</span>");
+      expect(html).not.toContain("<section class=\"panel memory-lifecycle\"");
+      expect(html).not.toContain("<section class=\"panel capture-policy-audit\"");
     });
   });
 

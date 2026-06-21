@@ -173,8 +173,10 @@ anything to canonical memory automatically.
 
 ### Capture Policy Audit
 
-The dashboard includes a read-only `Capture Policy Audit` panel built from the
-same local report as `moryn capture policy` and MCP `capture_policy`. It shows:
+The dashboard includes a read-only `Capture Policy Audit` detail panel built
+from the same local report as `moryn capture policy` and MCP `capture_policy`.
+It is collapsed by default because Governance Hub summarizes the current policy
+findings first. When expanded, it shows:
 
 - the active `default_autocapture_policy`
 - how many handoffs were auto-captured without review
@@ -207,9 +209,10 @@ inbox items automatically.
 
 ### Memory Lifecycle
 
-The dashboard includes a read-only `Memory Lifecycle` panel built from the same
-local report as `moryn memory lifecycle` and MCP `memory_lifecycle`. It
-classifies visible records as:
+The dashboard includes a read-only `Memory Lifecycle` detail panel built from
+the same local report as `moryn memory lifecycle` and MCP `memory_lifecycle`.
+It is collapsed by default because Governance Hub summarizes lifecycle findings
+first. When expanded, it classifies visible records as:
 
 - retained
 - stale
@@ -454,9 +457,9 @@ maintenance approval.
 `governance` is a read-only de-clutter layer for the same data. It exposes
 `governance.summary`, `governance.items[]`, and
 `governance.items_by_id.<item_id>` so agents and users can inspect current
-review pressure without expanding every low-level panel. The raw Debug
-Inspector remains available, but its records, events, and sync tables are
-collapsed by default.
+review pressure without expanding every low-level panel. Memory Lifecycle,
+Capture Policy Audit, and the raw Debug Inspector remain available, but their
+details are collapsed by default.
 
 Recent values, recent records, recent events, and agent activity entries carry
 `citation` metadata when an event or record can be traced. Record citations
