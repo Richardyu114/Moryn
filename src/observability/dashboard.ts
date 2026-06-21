@@ -231,6 +231,7 @@ export interface DashboardOverviewCard {
   summary: string;
   severity: DashboardOverviewStatus;
   target: string;
+  target_label: string;
   source: string;
 }
 
@@ -1776,6 +1777,7 @@ function buildDashboardOverview(input: {
       summary: input.health.explanation,
       severity: overviewStatusFromHealth(input.health.status),
       target: "needs-attention",
+      target_label: "Review health",
       source: "health"
     },
     {
@@ -1785,6 +1787,7 @@ function buildDashboardOverview(input: {
       summary: primary.summary,
       severity: overviewStatusFromActionSeverity(primary.severity),
       target: primary.target,
+      target_label: primary.next_action_label,
       source: `action_board.items_by_id.${primary.id}`
     },
     {
@@ -1796,6 +1799,7 @@ function buildDashboardOverview(input: {
         : input.contextPackReview.unavailable_reason ?? "Project context is required for Context Pack Review.",
       severity: overviewContextStatus(input.contextPackReview),
       target: "context-pack-review",
+      target_label: "Open context",
       source: "context_pack_review"
     },
     {
@@ -1805,6 +1809,7 @@ function buildDashboardOverview(input: {
       summary: input.actionBoard.items_by_id.sync.detail,
       severity: overviewStatusFromActionSeverity(input.actionBoard.items_by_id.sync.severity),
       target: input.actionBoard.items_by_id.sync.target,
+      target_label: input.actionBoard.items_by_id.sync.next_action_label,
       source: "action_board.items_by_id.sync"
     }
   ];
@@ -2287,11 +2292,11 @@ function dashboardOverview(data: DashboardOverview): string {
       </div>
       <div class="dashboard-overview-grid">
         ${data.cards.map((card) => `
-          <button type="button" class="dashboard-overview-card ${escapeHtml(card.severity)}" data-dashboard-overview-card="${escapeHtml(card.id)}" data-action-board-target="${escapeHtml(card.target)}" aria-controls="${escapeHtml(card.target)}">
+          <button type="button" class="dashboard-overview-card ${escapeHtml(card.severity)}" data-dashboard-overview-card="${escapeHtml(card.id)}" data-action-board-target="${escapeHtml(card.target)}" aria-controls="${escapeHtml(card.target)}" data-dashboard-overview-source="${escapeHtml(card.source)}">
             <span>${escapeHtml(card.label)}</span>
             <strong>${escapeHtml(card.value)}</strong>
             <p>${escapeHtml(card.summary)}</p>
-            <small>${escapeHtml(card.source)}</small>
+            <small>${escapeHtml(card.target_label)}</small>
           </button>
         `).join("")}
       </div>

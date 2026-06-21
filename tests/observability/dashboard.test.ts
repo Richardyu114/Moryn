@@ -854,6 +854,7 @@ describe("observability dashboard", () => {
             value: "Local Only",
             severity: "info",
             target: "needs-attention",
+            target_label: "Review health",
             source: "health"
           }),
           expect.objectContaining({
@@ -861,11 +862,13 @@ describe("observability dashboard", () => {
             label: "Next",
             value: "Review warnings",
             target: "needs-attention",
+            target_label: "Review warnings",
             source: "action_board.items_by_id.review"
           }),
           expect.objectContaining({
             id: "context",
             label: "Context",
+            target_label: "Open context",
             source: "context_pack_review"
           }),
           expect.objectContaining({
@@ -873,6 +876,7 @@ describe("observability dashboard", () => {
             label: "Sync",
             value: "Local Only",
             target: "store-signals",
+            target_label: "Inspect sync",
             source: "action_board.items_by_id.sync"
           })
         ],
@@ -896,13 +900,18 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Review warnings</strong>");
       expect(html).toContain("<p>Warnings and critical signals remain visible in Needs Attention.</p>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Review warnings</button>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"health\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"health\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-dashboard-overview-source=\"health\">");
       expect(html).toContain("<span>Health</span>");
       expect(html).toContain("<strong>Local Only</strong>");
-      expect(html).toContain("<small>health</small>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card warning\" data-dashboard-overview-card=\"action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
+      expect(html).toContain("<small>Review health</small>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card warning\" data-dashboard-overview-card=\"action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-dashboard-overview-source=\"action_board.items_by_id.review\">");
       expect(html).toContain("<span>Next</span>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
+      expect(html).toContain("<small>Review warnings</small>");
+      expect(html).toContain("<small>Open context</small>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\" data-dashboard-overview-source=\"action_board.items_by_id.sync\">");
+      expect(html).toContain("<small>Inspect sync</small>");
+      expect(html).not.toContain("<small>action_board.items_by_id.sync</small>");
+      expect(html).not.toContain("<small>context_pack_review</small>");
       expect(html).not.toContain("<article class=\"dashboard-overview-card");
       expect(html).toContain("<span>Read-only overview</span>");
       expect(html).toContain("<span>Writes stay in Capture Inbox and Review Queue</span>");
