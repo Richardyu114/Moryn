@@ -243,8 +243,10 @@ the first version, the only interactive plan is project identity repair:
 `project_identity_split` discovered by `memory doctor` becomes a
 `project_migrate` dry-run plan.
 
-The approval card is a human-readable decision card. The default view shows the
-decision summary first:
+The approval card is a human-readable decision card. The queue is collapsed by
+default behind a confirmation summary that shows the number of plans, records
+that would move, and that approval remains explicit. Expanding it shows each
+decision summary:
 
 - why the repair exists
 - what records move between project ids

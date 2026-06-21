@@ -1613,6 +1613,11 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(html).toContain("Review Queue");
+      expect(html).toContain("<details class=\"maintenance-review-summary\" data-dashboard-detail=\"maintenance-review-queue\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-review-fold\">");
+      expect(html).toContain("<span>Review Queue</span>");
+      expect(html).toContain("<small>1 plan | 1 record to move | explicit approval</small>");
+      expect(html).toContain("<div class=\"maintenance-review-body\">");
       expect(html).toContain("Project identity repair");
       expect(html).toContain("data-maintenance-decision-summary");
       expect(html).toContain("Review before write");
