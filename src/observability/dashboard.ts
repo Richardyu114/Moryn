@@ -2222,12 +2222,12 @@ function lifecycleActions(report: MemoryLifecycleResult): string {
   `;
 }
 
-function memoryLifecyclePanel(report: MemoryLifecycleResult): string {
+function memoryLifecyclePanel(report: MemoryLifecycleResult, panelClass = "panel"): string {
   const totalFindings = report.findings.length;
   const totalActions = report.suggested_actions.length;
   if (report.stats.total_records === 0 && totalFindings === 0 && totalActions === 0) return "";
   return `
-    <details class="panel memory-lifecycle" data-dashboard-detail="memory-lifecycle-audit" aria-label="Memory Lifecycle">
+    <details class="${escapeHtml(panelClass)} memory-lifecycle" data-dashboard-detail="memory-lifecycle-audit" aria-label="Memory Lifecycle">
       <summary class="dashboard-fold-summary">
         <span>Memory Lifecycle</span>
         <small>${escapeHtml(pluralize(totalFindings, "finding"))} | ${escapeHtml(pluralize(totalActions, "action"))}</small>
@@ -2437,7 +2437,47 @@ function capturePolicyDecisionCards(report: CapturePolicyResult): string {
   `;
 }
 
-function capturePolicyAuditPanel(report: CapturePolicyResult): string {
+function capturePolicyFindingList(report: CapturePolicyResult): string {
+  if (report.findings.length === 0) {
+    return `<div class="empty-state">No capture policy findings for this snapshot.</div>`;
+  }
+  return `
+    <div class="lifecycle-findings">
+      ${report.findings.map((finding) => `
+        <article class="lifecycle-finding ${escapeHtml(finding.severity)}">
+          <div>
+            <strong>${escapeHtml(finding.summary)}</strong>
+            <span>${escapeHtml(finding.category)}</span>
+          </div>
+          <p>${escapeHtml(finding.reason)}</p>
+          <small>${finding.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</small>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function capturePolicyActionsList(report: CapturePolicyResult): string {
+  if (report.suggested_actions.length === 0) {
+    return `<div class="empty-state">No capture policy actions suggested.</div>`;
+  }
+  return `
+    <div class="lifecycle-actions">
+      ${report.suggested_actions.slice(0, 6).map((action) => `
+        <article class="lifecycle-action safe">
+          <div>
+            <span class="pill state-canonical">Read-only</span>
+            <strong>${escapeHtml(action.recommended_action)}</strong>
+          </div>
+          <code>${escapeHtml(action.command)}</code>
+          <small>${escapeHtml(action.required_when)}</small>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "panel"): string {
   if (report.stats.total_autocapture_records === 0) return "";
   const capturedRuleSummary = Object.entries(report.stats.captured_by_rule)
     .map(([ruleId, count]) => `${ruleId}: ${count}`)
@@ -2446,7 +2486,7 @@ function capturePolicyAuditPanel(report: CapturePolicyResult): string {
     .map(([ruleId, count]) => `${ruleId}: ${count}`)
     .join(" / ") || "no archived noise";
   return `
-    <details class="panel capture-policy-audit" data-dashboard-detail="capture-policy-audit" aria-label="Capture Policy Audit">
+    <details class="${escapeHtml(panelClass)} capture-policy-audit" data-dashboard-detail="capture-policy-audit" aria-label="Capture Policy Audit">
       <summary class="dashboard-fold-summary">
         <span>Capture Policy Audit</span>
         <small>${escapeHtml(pluralize(report.stats.auto_captured_records, "auto-captured"))} | ${escapeHtml(pluralize(report.stats.review_records, "review"))} | ${escapeHtml(pluralize(report.stats.policy_archived_records, "archived"))}</small>
@@ -2461,35 +2501,50 @@ function capturePolicyAuditPanel(report: CapturePolicyResult): string {
         <span>${escapeHtml(capturedRuleSummary)}</span>
         <span>${escapeHtml(ruleSummary)}</span>
       </div>
-      <div class="lifecycle-findings">
-        ${report.findings.map((finding) => `
-          <article class="lifecycle-finding ${escapeHtml(finding.severity)}">
-            <div>
-              <strong>${escapeHtml(finding.summary)}</strong>
-              <span>${escapeHtml(finding.category)}</span>
-            </div>
-            <p>${escapeHtml(finding.reason)}</p>
-            <small>${finding.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</small>
-          </article>
-        `).join("")}
-      </div>
+      ${capturePolicyFindingList(report)}
       <details class="lifecycle-action-details" data-dashboard-detail="capture-policy:${escapeHtml(report.policy.id)}">
         <summary>Policy decisions and read-only actions</summary>
-        <div class="lifecycle-actions">
-          ${report.suggested_actions.slice(0, 6).map((action) => `
-            <article class="lifecycle-action safe">
-              <div>
-                <span class="pill state-canonical">Read-only</span>
-                <strong>${escapeHtml(action.recommended_action)}</strong>
-              </div>
-              <code>${escapeHtml(action.command)}</code>
-              <small>${escapeHtml(action.required_when)}</small>
-            </article>
-          `).join("")}
-        </div>
+        ${capturePolicyActionsList(report)}
         ${capturePolicyDecisionCards(report)}
       </details>
     </details>
+  `;
+}
+
+function isCleanMemoryLifecycle(report: MemoryLifecycleResult): boolean {
+  return report.findings.length === 0 && report.suggested_actions.length === 0;
+}
+
+function isCleanCapturePolicy(report: CapturePolicyResult): boolean {
+  return report.stats.total_autocapture_records > 0
+    && report.findings.length === 0
+    && report.suggested_actions.length === 0;
+}
+
+function auditReports(input: {
+  memoryLifecycle: MemoryLifecycleResult;
+  capturePolicy: CapturePolicyResult;
+}): string {
+  const memoryLifecycle = memoryLifecyclePanel(input.memoryLifecycle);
+  const capturePolicy = capturePolicyAuditPanel(input.capturePolicy);
+  if (!memoryLifecycle && !capturePolicy) return "";
+  if (isCleanMemoryLifecycle(input.memoryLifecycle) && isCleanCapturePolicy(input.capturePolicy)) {
+    return `
+      <details class="panel clean-audit-reports" data-dashboard-detail="clean-audit-reports" aria-label="Clean Audit Reports">
+        <summary class="dashboard-fold-summary clean-audit-reports-fold">
+          <span>Clean Audit Reports</span>
+          <small>Memory Lifecycle clean | Capture Policy clean</small>
+        </summary>
+        <div class="clean-audit-list">
+          ${memoryLifecyclePanel(input.memoryLifecycle, "clean-audit-report")}
+          ${capturePolicyAuditPanel(input.capturePolicy, "clean-audit-report")}
+        </div>
+      </details>
+    `;
+  }
+  return `
+    ${memoryLifecycle}
+    ${capturePolicy}
   `;
 }
 
@@ -2887,9 +2942,10 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${contextPackReviewPanel(data.context_pack_review)}
 
-    ${memoryLifecyclePanel(data.memory_lifecycle)}
-
-    ${capturePolicyAuditPanel(data.capture_policy)}
+    ${auditReports({
+      memoryLifecycle: data.memory_lifecycle,
+      capturePolicy: data.capture_policy
+    })}
 
     ${captureInbox(data.capture_inbox)}
 
@@ -3341,6 +3397,22 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding-top: 0;
     }
     .memory-lifecycle { border-left: 4px solid var(--signal-violet); }
+    .clean-audit-reports { border-left: 4px solid var(--signal-violet); }
+    .clean-audit-reports[open] > summary { margin-bottom: 10px; }
+    .clean-audit-list {
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
+    .clean-audit-report {
+      border: 1px solid var(--border);
+      border-left-width: 3px;
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--surface-2);
+    }
+    .clean-audit-report[open] > summary { margin-bottom: 8px; }
     .store-signals { border-left: 4px solid var(--signal-slate); }
     .capture-inbox { border-left: 4px solid var(--signal-blue); }
     .maintenance-heading, .maintenance-plan-main, .maintenance-actions,

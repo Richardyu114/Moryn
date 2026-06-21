@@ -236,6 +236,11 @@ commands with `safe_to_run: false`; the dashboard does not provide an Apply or
 Approve Lifecycle button and does not mutate the store while generating the
 panel.
 
+When Memory Lifecycle and Capture Policy Audit both have no current findings or
+suggested actions, the dashboard groups them under a collapsed `Clean Audit
+Reports` summary. The reports and their evidence remain in the HTML and
+`/api/dashboard`; the grouping only reduces first-screen noise for clean checks.
+
 When `--project-id <id>` or `--project <path>` is provided, the lifecycle report
 uses the same project scope as the CLI report: matching project records plus
 global records. Private-tagged records remain hidden unless
