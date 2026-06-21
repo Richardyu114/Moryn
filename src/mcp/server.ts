@@ -500,6 +500,7 @@ type McpProjectContextOperation =
   | "memory_lifecycle"
   | "capture_policy"
   | "dogfood_report"
+  | "recall_eval"
   | "capture_session"
   | "context_pack"
   | "agent_doctor"
@@ -1864,6 +1865,29 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       return engine.dogfoodReport({
         project_id: project.project_id,
         limit: normalizedInput.limit as number | undefined,
+        include_private: normalizedInput.include_private as boolean | undefined
+      });
+    })
+  );
+
+  server.registerTool(
+    "recall_eval",
+    {
+      title: "Evaluate Moryn Recall",
+      description: "Read-only recall quality eval for golden queries, expected record ids, privacy checks, and ranking reasons.",
+      inputSchema: mcpInputSchema({
+        cases: z.unknown(),
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("recall_eval")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("recall_eval", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("recall_eval", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      return engine.recallEval({
+        project_id: project.project_id,
+        cases: normalizedInput.cases,
         include_private: normalizedInput.include_private as boolean | undefined
       });
     })

@@ -996,7 +996,7 @@ describe("MCP stdio server", () => {
         })) as {
           contracts: {
             setup: { store_init: { config_file: string } };
-            core: { boot: { skill: string }; dogfood_report: { finding: string }; memory_lifecycle: { assessment: string } };
+            core: { boot: { skill: string }; dogfood_report: { finding: string }; memory_lifecycle: { assessment: string }; recall_eval: { case: string } };
             sync: { result: { pushed: string } };
             lifecycle: { guide: { guardrail: string } };
             recovery: { next_action: { error_next_action: string } };
@@ -1009,6 +1009,7 @@ describe("MCP stdio server", () => {
         expect(parsed.contracts.core.boot.skill).toBe("skills_by_id.<record_id>");
         expect(parsed.contracts.core.dogfood_report.finding).toBe("findings_by_id.<finding_id>");
         expect(parsed.contracts.core.memory_lifecycle.assessment).toBe("assessments_by_record_id.<record_id>");
+        expect(parsed.contracts.core.recall_eval.case).toBe("cases_by_id.<case_id>");
         expect(parsed.contracts.sync.result.pushed).toBe("pushed");
         expect(parsed.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
         expect(parsed.contracts.recovery.next_action.error_next_action).toBe("error.next_action");
@@ -2864,6 +2865,7 @@ describe("MCP stdio server", () => {
           "quarantine",
           "rebuild",
           "recall",
+          "recall_eval",
           "refresh",
           "revise",
           "selection_source_contracts",
@@ -3238,6 +3240,50 @@ describe("MCP stdio server", () => {
           record_id: "results_by_id.<record_id>.record.id"
         });
         expect(recallResult.results_by_id[writeResult.record.id]).toEqual(recallResult.results[0]);
+
+        const beforeRecallEvalEvents = await readEvents(store);
+        const recallEval = parseTextContent(await client.callTool({
+          name: "recall_eval",
+          arguments: {
+            project_id: "moryn",
+            cases: [
+              {
+                case_id: "mcp-real-tools",
+                query: "real MCP",
+                expected_record_ids: [writeResult.record.id],
+                limit: 5
+              },
+              {
+                case_id: "mcp-missing",
+                query: "missing mcp recall target",
+                expected_record_ids: ["rec_missing"],
+                limit: 5
+              }
+            ]
+          }
+        })) as {
+          summary: { total_cases: number; passed_cases: number; failed_cases: number; privacy_leaks: number };
+          cases_by_id: Record<string, { status: string; matched_record_ids: string[]; missing_record_ids: string[] }>;
+          suggested_actions_by_id: Record<string, { tool: string; command: string }>;
+          selection_sources: Record<string, string>;
+        };
+        expect(await readEvents(store)).toHaveLength(beforeRecallEvalEvents.length);
+        expect(recallEval.summary).toMatchObject({
+          total_cases: 2,
+          passed_cases: 1,
+          failed_cases: 1,
+          privacy_leaks: 0
+        });
+        expect(recallEval.cases_by_id["mcp-real-tools"]).toMatchObject({
+          status: "pass",
+          matched_record_ids: [writeResult.record.id],
+          missing_record_ids: []
+        });
+        expect(recallEval.suggested_actions_by_id["revise-golden-case:mcp-missing"]).toMatchObject({
+          tool: "recall",
+          command: "moryn recall \"missing mcp recall target\" --project-id moryn --limit 5"
+        });
+        expect(recallEval.selection_sources.case).toBe("cases_by_id.<case_id>");
 
         const timelineResult = parseTextContent(await client.callTool({
           name: "timeline",

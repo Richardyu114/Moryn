@@ -214,6 +214,17 @@ timeout signals from local records and events. Suggested actions point to
 dashboard or timeline inspection and stay `safe_to_run: true` read-only checks.
 The MCP tool name is `dogfood_report`.
 
+To measure recall quality with golden queries, use the read-only Recall Eval:
+
+```bash
+moryn eval recall --project . --cases '[{"case_id":"sync","query":"private sync","expected_record_ids":["rec_..."]}]'
+```
+
+It runs the existing recall path against expected record ids and reports pass
+or fail cases, ranking reasons, provenance method, privacy leaks, and suggested
+follow-up recall commands. It does not mutate records or add an index. The MCP
+tool name is `recall_eval`.
+
 To audit what the autocapture policy already decided, use the read-only Capture
 Policy Audit:
 

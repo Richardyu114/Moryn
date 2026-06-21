@@ -262,6 +262,20 @@ text, and failure or timeout signals, with keyed `findings_by_id`,
 actions stay inspection-oriented, such as dashboard review or timeline lookup.
 MCP hosts call `dogfood_report`.
 
+Use `recall eval` when recall quality needs evidence from golden queries before
+changing memory or ranking behavior:
+
+```bash
+moryn eval recall \
+  --project . \
+  --cases '[{"case_id":"sync","query":"private sync","expected_record_ids":["rec_..."]}]'
+```
+
+The result is read-only. It reports pass/fail cases, matched and missing record
+ids, ranking reasons, provenance method, privacy leaks, and suggested recall
+commands for failed cases. It uses normal recall and does not add an embedding
+index or mutate memory. MCP hosts call `recall_eval`.
+
 If the project identity finding points at an obvious old id and a chosen
 canonical id, run the repair as a dry run first:
 

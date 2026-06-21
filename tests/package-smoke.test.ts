@@ -84,6 +84,11 @@ describe("published package smoke", () => {
           "-e",
           "import { CAPTURE_POLICY_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('capture_policy'); const byMcp = getOperationContractByMcpTool('capture_policy'); const byCli = getOperationContractByCliCommand('moryn capture policy'); console.log(`${CAPTURE_POLICY_SELECTION_SOURCES.decision}|${SELECTION_SOURCE_CONTRACTS.core.capture_policy.action}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
         ], { cwd: dir });
+        const recallEvalImportCheck = await exec("node", [
+          "--input-type=module",
+          "-e",
+          "import { RECALL_EVAL_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('recall_eval'); const byMcp = getOperationContractByMcpTool('recall_eval'); const byCli = getOperationContractByCliCommand('moryn eval recall --cases <json>'); console.log(`${RECALL_EVAL_SELECTION_SOURCES.case}|${SELECTION_SOURCE_CONTRACTS.core.recall_eval.case}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
+        ], { cwd: dir });
         const operationLookupErrorImportCheck = await exec("node", [
           "--input-type=module",
           "-e",
@@ -814,6 +819,7 @@ describe("published package smoke", () => {
         expect(lifecycleImportCheck.stdout.trim()).toBe("assessments_by_record_id.<record_id>|assessments_by_record_id.<record_id>|suggested_actions_by_id.<action_id>|moryn memory lifecycle|memory_lifecycle|memory_lifecycle");
         expect(autocapturePolicyImportCheck.stdout.trim()).toBe("default_autocapture_policy|false|policy_decision|policy_decision");
         expect(capturePolicyImportCheck.stdout.trim()).toBe("decisions_by_record_id.<record_id>|suggested_actions_by_id.<action_id>|moryn capture policy|capture_policy|capture_policy|capture_policy");
+        expect(recallEvalImportCheck.stdout.trim()).toBe("cases_by_id.<case_id>|cases_by_id.<case_id>|moryn eval recall --cases <json>|recall_eval|recall_eval|recall_eval");
         expect(operationLookupErrorImportCheck.stdout.trim()).toBe("true|agent_status|agent_status|operations_by_id.agent_status|agent_status");
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });
       } finally {

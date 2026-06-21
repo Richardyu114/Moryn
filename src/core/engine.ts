@@ -15,6 +15,7 @@ import { diagnoseDogfood, type DogfoodReportInput } from "./dogfood-report.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
 import { diagnoseCapturePolicy, type CapturePolicyInput } from "./capture-policy-report.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
+import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
 
 interface EngineDeps {
   storePath: string;
@@ -142,6 +143,10 @@ type ValidatedCapturePolicyInput = CapturePolicyInput & {
 };
 
 type ValidatedDogfoodReportInput = DogfoodReportInput & {
+  include_private?: boolean;
+};
+
+type ValidatedRecallEvalInput = RecallEvalInput & {
   include_private?: boolean;
 };
 
@@ -291,6 +296,8 @@ export const RECALL_SELECTION_SOURCES = {
   record: "results_by_id.<record_id>.record",
   record_id: "results_by_id.<record_id>.record.id"
 };
+
+export { RECALL_EVAL_SELECTION_SOURCES };
 
 export const BOOT_SELECTION_SOURCES = {
   record: "records_by_id.<record_id>",
@@ -597,7 +604,7 @@ type ValidatedProjectMigrateInput = ProjectMigrateInput & {
   include_private: boolean;
 };
 
-type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report";
+type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report" | "recall_eval";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
 type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.${string}`;
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
@@ -2114,6 +2121,12 @@ function validateDogfoodReportInput(input: DogfoodReportInput): void {
   validateOptionalBoolean("dogfood_report", input.include_private, "include_private");
 }
 
+function validateRecallEvalInput(input: RecallEvalInput): void {
+  assertPlainObject(input, "recall eval input");
+  validateOptionalString("recall_eval", input.project_id, "project_id");
+  validateOptionalBoolean("recall_eval", input.include_private, "include_private");
+}
+
 function validateProjectMigrateInput(input: ProjectMigrateInput): void {
   assertPlainObject(input, "project migrate input");
   if (typeof input.from_project_id !== "string" || !input.from_project_id.length) {
@@ -3373,6 +3386,15 @@ export function createEngine(deps: EngineDeps) {
         include_private: resolvedInput.include_private,
         excluded_private_records: allRecords.length - allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
       });
+    },
+
+    async recallEval(input: RecallEvalInput = {}) {
+      validateRecallEvalInput(input);
+      const resolvedInput = {
+        ...input,
+        include_private: input.include_private === true
+      } as ValidatedRecallEvalInput;
+      return evaluateRecall(resolvedInput, (recallInput) => this.recall(recallInput));
     },
 
     async migrateProject(input: ProjectMigrateInput = {}) {

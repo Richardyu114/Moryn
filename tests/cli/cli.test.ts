@@ -1038,7 +1038,7 @@ describe("moryn CLI", () => {
     const parsed = JSON.parse(result.stdout) as {
       contracts: {
         setup: { store_init: { config_file: string } };
-        core: { boot: { skill: string }; dogfood_report: { finding: string }; memory_lifecycle: { assessment: string } };
+        core: { boot: { skill: string }; dogfood_report: { finding: string }; memory_lifecycle: { assessment: string }; recall_eval: { case: string } };
         sync: { result: { pushed: string } };
         lifecycle: { guide: { guardrail: string } };
         recovery: { next_action: { error_next_action: string } };
@@ -1051,6 +1051,7 @@ describe("moryn CLI", () => {
     expect(parsed.contracts.core.boot.skill).toBe("skills_by_id.<record_id>");
     expect(parsed.contracts.core.dogfood_report.finding).toBe("findings_by_id.<finding_id>");
     expect(parsed.contracts.core.memory_lifecycle.assessment).toBe("assessments_by_record_id.<record_id>");
+    expect(parsed.contracts.core.recall_eval.case).toBe("cases_by_id.<case_id>");
     expect(parsed.contracts.sync.result.pushed).toBe("pushed");
     expect(parsed.contracts.lifecycle.guide.guardrail).toBe("guardrails_by_id.<guardrail_id>");
     expect(parsed.contracts.recovery.next_action.error_next_action).toBe("error.next_action");
@@ -1180,6 +1181,23 @@ describe("moryn CLI", () => {
       required: false,
       cli: { flag: "--limit" },
       mcp: { argument: "limit" }
+    });
+    expect(parsed.operations_by_id.recall_eval).toMatchObject({
+      operation: "recall_eval",
+      category: "core",
+      safe_to_run: true,
+      required_fields: ["cases"],
+      interfaces: {
+        cli: { command: "moryn eval recall --cases <json>" },
+        mcp: { tool: "recall_eval" }
+      }
+    });
+    expect(parsed.operations_by_id.recall_eval.arguments_by_name.cases).toMatchObject({
+      name: "cases",
+      type: "object",
+      required: true,
+      cli: { flag: "--cases" },
+      mcp: { argument: "cases" }
     });
     expect(parsed.operations_by_id.agent_finish).toMatchObject({
       safe_to_run: false,
@@ -3838,6 +3856,83 @@ describe("moryn CLI", () => {
       });
       expect(parsed.records_by_id[capture.record.id]?.id).toBe(capture.record.id);
       expect(JSON.stringify(parsed)).not.toContain("Private dogfood failure");
+    });
+  });
+
+  it("runs a read-only recall eval from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+      const decision = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "decision",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--state", "canonical",
+        "--text", "CLI recall eval should find explicit dashboard approvals."
+      ])).stdout) as { record: { id: string } };
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--state", "canonical",
+        "--tag", "private",
+        "--text", "Private recall eval credential should stay hidden."
+      ]);
+
+      const cases = JSON.stringify([
+        {
+          case_id: "cli-dashboard-approval",
+          query: "dashboard approvals",
+          expected_record_ids: [decision.record.id],
+          limit: 5
+        },
+        {
+          case_id: "cli-missing",
+          query: "credential",
+          expected_record_ids: ["rec_missing"],
+          limit: 5
+        }
+      ]);
+      const beforeEvents = await readEvents(dir);
+      const result = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "eval", "recall",
+        "--project-id", "moryn",
+        "--cases", cases
+      ]);
+      const parsed = JSON.parse(result.stdout) as {
+        summary: { total_cases: number; passed_cases: number; failed_cases: number; privacy_leaks: number };
+        cases_by_id: Record<string, { status: string; matched_record_ids: string[]; missing_record_ids: string[] }>;
+        suggested_actions_by_id: Record<string, { tool: string; command: string }>;
+      };
+
+      expect(await readEvents(dir)).toHaveLength(beforeEvents.length);
+      expect(parsed.summary).toMatchObject({
+        total_cases: 2,
+        passed_cases: 1,
+        failed_cases: 1,
+        privacy_leaks: 0
+      });
+      expect(parsed.cases_by_id["cli-dashboard-approval"]).toMatchObject({
+        status: "pass",
+        matched_record_ids: [decision.record.id],
+        missing_record_ids: []
+      });
+      expect(parsed.cases_by_id["cli-missing"]).toMatchObject({
+        status: "fail",
+        matched_record_ids: [],
+        missing_record_ids: ["rec_missing"]
+      });
+      expect(parsed.suggested_actions_by_id["revise-golden-case:cli-missing"]).toMatchObject({
+        tool: "recall",
+        command: "moryn recall \"credential\" --project-id moryn --limit 5"
+      });
+      expect(JSON.stringify(parsed)).not.toContain("Private recall eval credential should stay hidden");
     });
   });
 

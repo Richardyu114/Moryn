@@ -249,6 +249,9 @@ Do not start this phase until recall quality is difficult to judge from normal
 ranking reasons and dogfood queries. The goal is measurable recall quality, not
 turning Moryn into a vector-memory SDK.
 
+- [x] Minimal read-only `recall_eval` / `moryn eval recall` path for golden
+  queries, expected record ids, privacy checks, ranking reasons, provenance
+  method, and read-only follow-up recall commands.
 - Start with golden queries, expected record ids, privacy checks, freshness,
   conflict detection, and provenance coverage.
 - Optional semantic or embedding indexes must be plugins, not required core.

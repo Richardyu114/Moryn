@@ -224,6 +224,36 @@ backlog, duplicate handoff text, and failure or timeout signals, keyed by
 `dogfood_report.suggested_actions_by_id.<action_id>`. It does not mutate records
 or events; suggested actions are read-only dashboard or timeline checks.
 
+The read-only recall eval is available through the same registry:
+
+```bash
+moryn contracts operations --operation recall_eval
+moryn eval recall --project . --cases '[{"case_id":"sync","query":"private sync","expected_record_ids":["rec_..."]}]'
+```
+
+The MCP equivalent is:
+
+```json
+{
+  "tool": "recall_eval",
+  "arguments": {
+    "project_path": ".",
+    "cases": [
+      {
+        "case_id": "sync",
+        "query": "private sync",
+        "expected_record_ids": ["rec_..."]
+      }
+    ]
+  }
+}
+```
+
+`recall_eval` runs golden queries through normal recall and returns keyed cases
+under `recall_eval.cases_by_id.<case_id>`, privacy checks, ranking reasons,
+provenance method, and read-only suggested recall commands. It does not mutate
+records, create indexes, or bypass the private boundary.
+
 Project identity migration is the explicit repair operation for confirmed
 splits:
 

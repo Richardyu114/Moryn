@@ -530,12 +530,15 @@ Use `--index`, `operation_contracts` with `{"index":true}`, or
 `getOperationContractIndex()` as the first discovery pass. That compact index
 lists operation ids, MCP tools, display CLI commands, readiness, and the exact
 next lookup commands without including full argument metadata or execution
-recipes. Each entry also includes a compact `execution_hint` with the
+recipes. Entries that need extra protection, such as unsafe writes or
+confirmation-gated commands, also include a compact `execution_hint` with the
 `execution.ready_to_run` guard, next step, missing required fields, and keyed
 required-input paths including value-path reverse lookup for collected
-`user_input.*` values, plus `operation_source` with the concrete full-registry
-path and `full_contract_lookup` with concrete package, CLI, and MCP calls for
-fetching that operation's full contract. It also includes
+`user_input.*` values. Read-only operations keep the index lighter and rely on
+`required_fields` plus full-contract lookup. Each entry includes
+`operation_source` with the concrete full-registry path and
+`full_contract_lookup` with concrete package, CLI, and MCP calls for fetching
+that operation's full contract. It also includes
 `operation_source_lookup`, so agents starting from a tool or display command can
 read the relevant id map and then the concrete `operation_source` field without
 inventing paths. It carries a small `selection_sources` map for the index paths,

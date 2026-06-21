@@ -62,6 +62,7 @@ import {
   type DashboardSnapshot
 } from "./observability/dashboard.js";
 import { getGitSyncStatus, initializeGitSync, pullGitSync, pushGitSync } from "./sync/git.js";
+import type { RecallEvalCaseInput } from "./core/recall-eval.js";
 
 const program = new Command();
 const recordKinds = RECORD_KINDS;
@@ -89,7 +90,7 @@ const CLI_GLOBAL_OPTIONS = [
   { option: "--version", position: "before_command" },
   { option: "-V", position: "before_command" }
 ] as const;
-type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
+type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report" | "recall_eval" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
@@ -138,6 +139,7 @@ type CliParserOperation =
   | "memory_lifecycle"
   | "capture_policy"
   | "dogfood_report"
+  | "recall_eval"
   | "sync_push"
   | "revise"
   | "promote"
@@ -407,6 +409,13 @@ type CliArgumentRecoveryHint =
       expected: { kind: "valid_json_object" | "json_object" };
       argument_sources: { "--content-json": typeof WRITE_CONTENT_ARGUMENT_SOURCE };
       retry_with: { option: "--content-json"; value_placeholder: "<json object>" };
+    }
+  | {
+      operation_contract: "operations_by_id.recall_eval";
+      rejected_argument: { option: "--cases"; value: string };
+      expected: { kind: "json_array" };
+      argument_sources: { cases: "operations_by_id.recall_eval.arguments_by_name.cases" };
+      retry_with: { option: "--cases"; value_placeholder: string };
     }
   | {
       operation_contract: typeof WRITE_OPERATION_CONTRACT_SOURCE;
@@ -1780,6 +1789,43 @@ function parseContentJson(value: string | undefined): Record<string, unknown> | 
   return parsed as Record<string, unknown>;
 }
 
+function parseRecallEvalCases(value: string | undefined): RecallEvalCaseInput[] {
+  const raw = parseNonEmptyCliString(value, "--cases", { operation: "recall_eval", argument: "cases" });
+  if (raw === undefined) {
+    throw new CliArgumentError(
+      "Invalid argument: Missing required option --cases",
+      "retry recall eval with --cases JSON",
+      {
+        operation_contract: "operations_by_id.recall_eval",
+        rejected_argument: { option: "--cases", value: "" },
+        expected: { kind: "non_empty_string", min_length: 1 },
+        argument_sources: { cases: "operations_by_id.recall_eval.arguments_by_name.cases" },
+        retry_with: { option: "--cases", value_placeholder: "<json cases array>" }
+      }
+    );
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      throw new Error("expected a JSON array");
+    }
+    return parsed as RecallEvalCaseInput[];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliArgumentError(
+      `Invalid argument: Invalid --cases JSON: ${message}`,
+      "retry recall eval with a JSON array of golden cases",
+      {
+        operation_contract: "operations_by_id.recall_eval",
+        rejected_argument: { option: "--cases", value: raw },
+        expected: { kind: "json_array" },
+        argument_sources: { cases: "operations_by_id.recall_eval.arguments_by_name.cases" },
+        retry_with: { option: "--cases", value_placeholder: "[{\"case_id\":\"<id>\",\"query\":\"<query>\",\"expected_record_ids\":[\"<record_id>\"]}]" }
+      }
+    );
+  }
+}
+
 function parseLimit(value: string, operation?: CliLimitOperation, option = "--limit"): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
@@ -2550,6 +2596,23 @@ dogfood.command("report")
     printJson(await engine.dogfoodReport({
       project_id: projectId,
       limit: parseLimit(options.limit, "dogfood_report"),
+      include_private: options.includePrivate
+    }));
+  });
+
+const evalCommand = program.command("eval");
+
+evalCommand.command("recall")
+  .requiredOption("--cases <json>", "JSON array of golden recall cases")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--include-private", "Include private-tagged records")
+  .action(async (options) => {
+    const engine = createCliEngine();
+    const projectId = await resolveOptionalProject(options, "recall_eval");
+    printJson(await engine.recallEval({
+      project_id: projectId,
+      cases: parseRecallEvalCases(options.cases),
       include_private: options.includePrivate
     }));
   });

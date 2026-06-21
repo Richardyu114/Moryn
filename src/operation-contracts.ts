@@ -2050,6 +2050,28 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "recall_eval",
+    category: "core",
+    summary: "Read-only recall quality eval for golden queries, expected record ids, privacy checks, ranking reasons, and follow-up actions.",
+    safe_to_run: true,
+    required_when: "When recall quality needs measurable evidence from golden queries before changing memory, ranking, or release readiness.",
+    required_fields: ["cases"],
+    arguments_by_name: {
+      cases: {
+        type: "object",
+        required: true,
+        cli: { flag: "--cases" },
+        mcp: { argument: "cases" }
+      },
+      ...projectContextArguments,
+      ...privateReadArgument
+    },
+    interfaces: {
+      cli: { command: "moryn eval recall --cases <json>", argv: ["eval", "recall", "--cases", "<json>"] },
+      mcp: { tool: "recall_eval", arguments: { cases: [] } }
+    }
+  }),
+  operationContract({
     operation: "refresh",
     category: "core",
     summary: "Return important changes since a cursor for periodic memory refresh.",
@@ -2235,7 +2257,8 @@ function operationContractLookup(operation: string, options: { includeExecFile?:
 }
 
 function operationContractIndexEntry(operation: OperationContract): OperationContractIndexEntry {
-  const includeExecutionHint = operation.execution.required_inputs.length > 0 || !operation.execution.ready_to_run;
+  const includeDetailedInputHint = !operation.safe_to_run || operation.safety.requires_user_confirmation;
+  const includeExecutionHint = includeDetailedInputHint && (operation.execution.required_inputs.length > 0 || !operation.execution.ready_to_run);
   return {
     operation: operation.operation,
     operation_source: `operations_by_id.${operation.operation}`,
@@ -2247,7 +2270,7 @@ function operationContractIndexEntry(operation: OperationContract): OperationCon
     cli_command: operation.interfaces.cli.command,
     required_fields: operation.required_fields,
     missing_required_fields: operation.execution.missing_required_fields,
-    ...(operation.execution.required_inputs.length > 0 ? { summary: operation.summary } : {}),
+    ...(includeDetailedInputHint && operation.execution.required_inputs.length > 0 ? { summary: operation.summary } : {}),
     ...(includeExecutionHint ? { execution_hint: {
       guard: "execution.ready_to_run",
       ready_to_run: operation.execution.ready_to_run,
