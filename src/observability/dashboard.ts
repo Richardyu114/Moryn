@@ -2802,6 +2802,17 @@ function governanceItem(item: DashboardGovernanceItem): string {
   `;
 }
 
+function governanceSafeRow(item: DashboardGovernanceItem): string {
+  return `
+    <div class="governance-safe-row ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-safe-item="${escapeHtml(item.id)}">
+      <span>${escapeHtml(item.source)}</span>
+      <strong>${escapeHtml(item.title)}</strong>
+      <small>${escapeHtml(`${item.action_label} | Read-only`)}</small>
+      <code>${escapeHtml(item.evidence_path)}</code>
+    </div>
+  `;
+}
+
 function governanceHubSummaryText(governance: DashboardGovernance): string {
   const counts = [
     governance.summary.needs_user_action > 0 ? pluralize(governance.summary.needs_user_action, "need confirmation", "need confirmation") : undefined,
@@ -2843,8 +2854,8 @@ function governanceHubBody(governance: DashboardGovernance): string {
               <span>Safe Inspections</span>
               <small>${escapeHtml(pluralize(safeInspections.length, "read-only check"))}</small>
             </summary>
-            <div class="governance-safe-list">
-              ${safeInspections.map(governanceItem).join("")}
+            <div class="governance-safe-list" data-governance-safe-list>
+              ${safeInspections.map(governanceSafeRow).join("")}
             </div>
           </details>
         `}
@@ -4964,7 +4975,36 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .governance-safe-group[open] > summary { margin-bottom: 8px; }
     .governance-safe-list { display: grid; gap: 8px; }
-    .governance-safe-list .governance-item { background: var(--surface); }
+    .governance-safe-row {
+      display: grid;
+      grid-template-columns: 118px minmax(0, 1fr);
+      gap: 4px 9px;
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .governance-safe-row.info { border-left-color: var(--info); }
+    .governance-safe-row.warning { border-left-color: var(--warning); }
+    .governance-safe-row.critical { border-left-color: var(--critical); }
+    .governance-safe-row span {
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 760;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .governance-safe-row strong {
+      min-width: 0;
+      color: var(--ink);
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
+    .governance-safe-row small,
+    .governance-safe-row code {
+      grid-column: 2;
+    }
     .governance-item[open] > summary { margin-bottom: 8px; }
     .governance-item-summary {
       display: flex;

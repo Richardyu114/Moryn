@@ -63,7 +63,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Dogfood Review");
     expect(dashboard).toContain("Issue brief");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
-    expectText(dashboard, "Each row leads with a compact `Finding summary`");
+    expectText(dashboard, "shows compact inspection rows with source, title, read-only next step, and evidence path");
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "zero-count buckets are hidden from the collapsed summary");
