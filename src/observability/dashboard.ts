@@ -1911,11 +1911,16 @@ function attentionItems(items: DashboardAttentionItem[]): string {
   return `
     <div class="attention-list">
       ${items.map((item) => `
-        <article class="attention ${escapeHtml(item.severity)}">
-          <div><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(titleCase(item.severity))}</span></div>
-          <p>${escapeHtml(item.description)}</p>
-          ${item.action_command ? `<code>${escapeHtml(item.action_command)}</code>` : ""}
-        </article>
+        <details class="attention ${escapeHtml(item.severity)}" data-dashboard-detail="attention:${escapeHtml(item.title)}">
+          <summary class="attention-summary">
+            <strong>${escapeHtml(item.title)}</strong>
+            <span>${escapeHtml(titleCase(item.severity))}</span>
+          </summary>
+          <div class="attention-body">
+            <p>${escapeHtml(item.description)}</p>
+            ${item.action_command ? `<code>${escapeHtml(item.action_command)}</code>` : ""}
+          </div>
+        </details>
       `).join("")}
     </div>
   `;
@@ -3184,12 +3189,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border: 1px solid var(--border);
       border-left-width: 4px;
       border-radius: 7px;
-      padding: 11px;
+      padding: 9px 11px;
       background: var(--surface);
     }
-    .attention div { display: flex; justify-content: space-between; gap: 10px; }
+    .attention[open] > summary { margin-bottom: 8px; }
+    .attention-summary { display: flex; justify-content: space-between; gap: 10px; align-items: center; min-width: 0; }
     .attention strong { color: var(--ink); font-weight: 760; }
     .attention span { color: var(--subtle); font-weight: 680; }
+    .attention-body { border-top: 1px solid var(--hairline); padding-top: 8px; }
+    .attention-body p { margin-top: 0; color: var(--muted); overflow-wrap: anywhere; }
     .attention.info { border-left-color: var(--info); }
     .attention.warning { border-left-color: var(--warning); }
     .attention.critical { border-left-color: var(--critical); }
@@ -3644,6 +3652,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       header, .overview-grid, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
+      .attention-summary { display: grid; justify-content: stretch; }
       .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
       .context-pack-heading, .governance-heading,
       .lifecycle-heading,

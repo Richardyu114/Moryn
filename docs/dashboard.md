@@ -371,6 +371,11 @@ Attention items call out conditions such as:
 - many candidate records relative to canonical records
 - missing sync remote
 
+Attention items render as compact expandable rows. The default row shows the
+condition and severity so the first screen can be scanned quickly; expanding
+the row shows the explanation and any safe CLI inspection or setup command.
+The full `attention_items[]` payload remains available from `/api/dashboard`.
+
 ## Data And Rendering
 
 The dashboard is implemented in `src/observability/dashboard.ts`.
