@@ -3710,6 +3710,23 @@ function supportingEvidencePanel(data: DashboardData): string {
   `;
 }
 
+function evidenceLibrary(data: DashboardData): string {
+  return `
+    <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Evidence Library">
+      <summary class="dashboard-fold-summary evidence-library-fold">
+        <span>Evidence Library</span>
+        <small>Health Check | Governance | Context | Supporting Evidence</small>
+      </summary>
+      <div class="evidence-library-list">
+        ${healthCheckPanel(data.health_check)}
+        ${governanceHub(data.governance)}
+        ${contextPackReviewPanel(data.context_pack_review)}
+        ${supportingEvidencePanel(data)}
+      </div>
+    </details>
+  `;
+}
+
 function renderDashboardBody(data: DashboardData): string {
   return `
     <header>
@@ -3729,21 +3746,15 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${dashboardOverview(data.dashboard_overview)}
 
-    ${healthCheckPanel(data.health_check)}
-
     ${actionBoard(data.action_board)}
 
     ${needsAttentionPanel(data.attention_items)}
 
-    ${governanceHub(data.governance)}
-
     ${maintenanceReviewQueue(data.maintenance.plans)}
-
-    ${contextPackReviewPanel(data.context_pack_review)}
 
     ${captureInbox(data.capture_inbox)}
 
-    ${supportingEvidencePanel(data)}
+    ${evidenceLibrary(data)}
   `;
 }
 
@@ -4462,6 +4473,23 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .clean-audit-report[open] > summary { margin-bottom: 8px; }
     .store-signals { border-left: 4px solid var(--signal-slate); }
     .capture-inbox { border-left: 4px solid var(--signal-blue); }
+    .evidence-library {
+      border-left: 4px solid var(--signal-slate);
+    }
+    .evidence-library[open] > summary { margin-bottom: 10px; }
+    .evidence-library-list {
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
+    .evidence-library-list > .panel,
+    .evidence-library-list > section.panel,
+    .evidence-library-list > details.panel {
+      margin-bottom: 0;
+      box-shadow: none;
+      background: var(--surface);
+    }
     .supporting-evidence { border-left: 4px solid var(--signal-slate); }
     .supporting-evidence[open] > summary { margin-bottom: 10px; }
     .supporting-evidence-list {

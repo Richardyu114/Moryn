@@ -252,7 +252,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>needs attention | 1 warning | 0 failed</small>");
       expect(html).toContain("moryn dashboard --serve --project-id moryn");
       expect(html).toContain("Read-only");
-      expect(html.indexOf("data-dashboard-section=\"health-check\"")).toBeLessThan(html.indexOf("data-action-board-nav"));
+      expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
+      expect(html.indexOf("data-dashboard-detail=\"evidence-library\"")).toBeLessThan(html.indexOf("data-dashboard-section=\"health-check\""));
       expect(JSON.stringify(data.health_check)).not.toContain("Private dashboard health check detail");
       expect(html).not.toContain("Private dashboard health check detail");
     });
@@ -400,6 +401,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"dashboard-fold-summary governance-hub-fold\">");
       expect(html).toContain("<span>Governance Hub</span>");
       expect(html).toContain("<small>1 safe check</small>");
+      expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
+      expect(html.indexOf("data-dashboard-detail=\"evidence-library\"")).toBeLessThan(html.indexOf("data-dashboard-detail=\"governance-hub\""));
       expect(html).not.toContain("0 need confirmation");
       expect(html).not.toContain("0 private hidden");
       expect(html).not.toContain("<span>0 safe checks</span>");
@@ -889,6 +892,23 @@ describe("observability dashboard", () => {
       expect(html).toContain("<em class=\"action-board-next\">Review warnings</em>");
       expect(html).toContain("<em class=\"action-board-next\">Open governance</em>");
       expect(html).toContain("<em class=\"action-board-next\">Inspect sync</em>");
+      expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Evidence Library\">");
+      expect(html).toContain("<span>Evidence Library</span>");
+      expect(html).toContain("<small>Health Check | Governance | Context | Supporting Evidence</small>");
+      const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
+      const evidenceHealthCheckIndex = html.indexOf("data-dashboard-detail=\"health-check\"");
+      const evidenceGovernanceIndex = html.indexOf("data-dashboard-detail=\"governance-hub\"");
+      const evidenceContextPackIndex = html.indexOf("data-dashboard-detail=\"context-pack-review\"");
+      const evidenceSupportingIndex = html.indexOf("data-dashboard-detail=\"supporting-evidence\"");
+      const evidenceCaptureInboxIndex = html.indexOf("id=\"capture-inbox\"");
+      expect(evidenceLibraryDetailIndex).toBeGreaterThan(html.indexOf("data-action-board-nav"));
+      expect(evidenceLibraryDetailIndex).toBeLessThan(evidenceHealthCheckIndex);
+      if (evidenceGovernanceIndex !== -1) {
+        expect(evidenceHealthCheckIndex).toBeLessThan(evidenceGovernanceIndex);
+        expect(evidenceGovernanceIndex).toBeLessThan(evidenceContextPackIndex);
+      }
+      expect(evidenceContextPackIndex).toBeLessThan(evidenceSupportingIndex);
+      expect(evidenceCaptureInboxIndex === -1 || evidenceCaptureInboxIndex < evidenceLibraryDetailIndex).toBe(true);
       expect(html).toContain("target.open = true");
       expect(html).toContain("target.closest(\"details\")");
       expect(html).toContain("target.scrollIntoView({ block: \"start\", behavior: \"smooth\" })");

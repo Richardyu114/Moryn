@@ -443,13 +443,26 @@ signals, the whole `Needs Attention` panel is collapsed behind a summary such as
 `0 action signals | 1 info item | collapsed by default`, so a routine local-only
 or clean snapshot does not take over the first screen.
 
+Read-only diagnostic detail lives in the collapsed `Evidence Library`. It groups
+Health Check, Governance Hub, Context Pack Review, and Supporting Evidence under
+one evidence layer so the main path stays focused on action and review. The
+library is still fully local and auditable: each child panel keeps its
+`data-dashboard-detail` target, so Action Board buttons can open the parent
+library before scrolling to `governance-hub`, `context-pack-review`, or
+`store-signals`.
+
+It does not contain Capture Inbox approvals or Review Queue maintenance
+approvals. Those explicit confirmation surfaces stay on the main path, outside
+the evidence layer. The library also does not add endpoints, Safe Action
+Registry entries, or memory mutation paths.
+
 Clean audit reports, raw records, events, sync details, recent value, and store
-telemetry remain available in the lower `Supporting Evidence` panel. That
+telemetry remain available inside the nested `Supporting Evidence` panel. That
 collapsed group summarizes the number of evidence groups instead of listing
 implementation-oriented module names on the first screen. It still holds `Clean
 Audit Reports`, `Store Signals`, `Recent Value`, and the raw `Debug Inspector`
-together so the first screen prioritizes attention items, governance, review
-actions, and context readiness without removing local evidence.
+together so the first screen prioritizes attention items, review actions, and
+approval queues without removing local evidence.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without
