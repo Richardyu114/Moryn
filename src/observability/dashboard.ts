@@ -2801,8 +2801,9 @@ function renderDashboardBody(data: DashboardData): string {
       <span class="health-badge ${healthClass(data.health.status)}">${escapeHtml(data.health.label)}</span>
     </header>
 
-    <section class="hero">
-      <h2>${escapeHtml(data.health.label)}</h2>
+    <section class="status-strip ${healthClass(data.health.status)}" data-dashboard-status="${escapeHtml(data.health.status)}">
+      <strong>Dashboard Status</strong>
+      <span>${escapeHtml(data.health.label)}</span>
       <p>${escapeHtml(data.health.explanation)}</p>
     </section>
 
@@ -3181,25 +3182,29 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .info, .state-candidate { color: var(--signal-blue); border-color: #c9d5e6; background: var(--signal-blue-soft); }
     .state-archived { color: var(--signal-slate); border-color: #ccd2d8; background: var(--surface-3); }
     .muted { color: var(--muted); }
-    .panel, .hero, .metric {
+    .panel, .metric {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
       box-shadow: 0 12px 30px rgba(21, 25, 30, 0.055);
     }
     .panel { padding: 16px; margin-bottom: 14px; background: var(--surface); }
-    .hero {
-      background:
-        linear-gradient(135deg, rgba(21,25,30,0.98), rgba(33,43,54,0.96) 62%, rgba(49,95,159,0.88)),
-        var(--ink);
-      border-color: rgba(255,255,255,0.14);
-      color: #fff;
-      padding: 20px;
-      margin-bottom: 14px;
-      box-shadow: 0 22px 44px rgba(21, 25, 30, 0.15);
+    .status-strip {
+      display: grid;
+      grid-template-columns: auto auto minmax(0, 1fr);
+      gap: 8px 10px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      background: var(--surface);
+      box-shadow: 0 8px 18px rgba(21, 25, 30, 0.04);
     }
-    .hero h2 { color: #fff; font-size: 19px; font-weight: 820; }
-    .hero p { max-width: 780px; color: rgba(255,255,255,0.72); font-size: 14.5px; }
+    .status-strip strong { color: var(--ink); font-weight: 780; }
+    .status-strip span { font-weight: 760; }
+    .status-strip p { margin: 0; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
     .overview-grid, .visual-grid { display: grid; gap: 11px; }
     .overview-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px; }
     .visual-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -3727,6 +3732,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       header, .overview-grid, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
+      .status-strip { grid-template-columns: 1fr; align-items: start; }
       .attention-summary { display: grid; justify-content: stretch; }
       .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
       .context-pack-heading, .governance-heading,

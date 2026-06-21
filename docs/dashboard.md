@@ -347,6 +347,10 @@ The first screen favors human-readable summaries over raw ids:
 - recent valuable records, newest first
 - Review Queue maintenance plans when a project identity repair is available
 
+The top health message is rendered as a compact status strip rather than a large
+hero block, so the first screen stays focused on review queues and local
+attention signals.
+
 Raw records, events, and sync details remain available in the lower Debug
 Inspector.
 
