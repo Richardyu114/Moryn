@@ -2144,7 +2144,7 @@ function attentionFocus(items: DashboardAttentionItem[]): string {
     <div class="attention-focus" aria-label="Needs Attention focus">
       <span><strong>${escapeHtml(actionSignals)}</strong> ${escapeHtml(actionSignals === 1 ? "action signal" : "action signals")}</span>
       ${chips.map((chip) => `<span class="attention-focus-count ${escapeHtml(chip.severity)}">${escapeHtml(pluralize(chip.count, chip.severity))}</span>`).join("")}
-      <em>Next: ${escapeHtml(next)}</em>
+      <span class="attention-next-action" data-attention-next-action>${escapeHtml(next)}</span>
     </div>
   `;
 }
@@ -3830,10 +3830,13 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .attention-focus-count.critical { color: var(--critical); }
     .attention-focus-count.warning { color: var(--warning); }
     .attention-focus-count.info { color: var(--info); }
-    .attention-focus em {
+    .attention-next-action {
       margin-left: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
       color: var(--ink-2);
-      font-style: normal;
       font-weight: 740;
       overflow-wrap: anywhere;
     }
