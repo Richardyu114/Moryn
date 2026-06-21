@@ -484,6 +484,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("Governance Hub");
       expect(html).toContain("<details class=\"governance-item");
       expect(html).toContain("data-dashboard-detail=\"governance:capture_policy:review_required\"");
+      expect(html).toContain("<details class=\"governance-safe-group\" data-dashboard-detail=\"governance-safe-inspections\">");
+      expect(html).toContain("<span>Safe Inspections</span>");
+      expect(html).toContain("<small>4 read-only checks</small>");
+      expect(html).toContain("<div class=\"governance-safe-list\">");
       expect(html).toContain("<summary class=\"governance-item-summary\">");
       expect(html).toContain("data-governance-evidence");
       expect(html).toContain("data-governance-item=\"capture_policy:review_required\"");

@@ -1949,8 +1949,41 @@ function governanceSafetyLabel(item: DashboardGovernanceItem): string {
   return "Review";
 }
 
+function isSafeGovernanceInspection(item: DashboardGovernanceItem): boolean {
+  return !item.requires_user_confirmation && item.safe_to_run && item.writes === "none";
+}
+
+function governanceItem(item: DashboardGovernanceItem): string {
+  return `
+    <details class="governance-item ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-item="${escapeHtml(item.id)}">
+      <summary class="governance-item-summary">
+        <span class="governance-item-main">
+          <strong>${escapeHtml(item.title)}</strong>
+          <small>${escapeHtml(item.action_label)}</small>
+        </span>
+        <span class="governance-meta">
+          <span>${escapeHtml(governanceSafetyLabel(item))}</span>
+          <span>${escapeHtml(item.writes === "none" ? "Read-only" : "Append-only")}</span>
+        </span>
+      </summary>
+      <div class="governance-item-body">
+        <p>${escapeHtml(item.summary)}</p>
+        <dl>
+          <div><dt>Source</dt><dd>${escapeHtml(item.source)}</dd></div>
+          <div><dt>Category</dt><dd>${escapeHtml(item.category)}</dd></div>
+          <div><dt>Action</dt><dd>${escapeHtml(item.action_label)}${item.action_id ? ` <code>${escapeHtml(item.action_id)}</code>` : ""}</dd></div>
+          <div data-governance-evidence><dt>Evidence</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
+          <div><dt>Records</dt><dd>${item.record_ids.length ? item.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ") : "none"}</dd></div>
+        </dl>
+      </div>
+    </details>
+  `;
+}
+
 function governanceHub(governance: DashboardGovernance): string {
   if (governance.summary.total_items === 0) return "";
+  const safeInspections = governance.items.filter(isSafeGovernanceInspection);
+  const primaryItems = governance.items.filter((item) => !isSafeGovernanceInspection(item));
   return `
     <section class="panel governance-hub" aria-label="Governance Hub">
       <div class="governance-heading">
@@ -1965,30 +1998,18 @@ function governanceHub(governance: DashboardGovernance): string {
         </div>
       </div>
       <div class="governance-list">
-        ${governance.items.map((item) => `
-          <details class="governance-item ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-item="${escapeHtml(item.id)}">
-            <summary class="governance-item-summary">
-              <span class="governance-item-main">
-                <strong>${escapeHtml(item.title)}</strong>
-                <small>${escapeHtml(item.action_label)}</small>
-              </span>
-              <span class="governance-meta">
-                <span>${escapeHtml(governanceSafetyLabel(item))}</span>
-                <span>${escapeHtml(item.writes === "none" ? "Read-only" : "Append-only")}</span>
-              </span>
+        ${primaryItems.map(governanceItem).join("")}
+        ${safeInspections.length === 0 ? "" : `
+          <details class="governance-safe-group" data-dashboard-detail="governance-safe-inspections">
+            <summary class="dashboard-fold-summary">
+              <span>Safe Inspections</span>
+              <small>${escapeHtml(pluralize(safeInspections.length, "read-only check"))}</small>
             </summary>
-            <div class="governance-item-body">
-              <p>${escapeHtml(item.summary)}</p>
-              <dl>
-                <div><dt>Source</dt><dd>${escapeHtml(item.source)}</dd></div>
-                <div><dt>Category</dt><dd>${escapeHtml(item.category)}</dd></div>
-                <div><dt>Action</dt><dd>${escapeHtml(item.action_label)}${item.action_id ? ` <code>${escapeHtml(item.action_id)}</code>` : ""}</dd></div>
-                <div data-governance-evidence><dt>Evidence</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
-                <div><dt>Records</dt><dd>${item.record_ids.length ? item.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ") : "none"}</dd></div>
-              </dl>
+            <div class="governance-safe-list">
+              ${safeInspections.map(governanceItem).join("")}
             </div>
           </details>
-        `).join("")}
+        `}
       </div>
     </section>
   `;
@@ -3333,6 +3354,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .governance-item.info { border-left-color: var(--info); }
     .governance-item.warning { border-left-color: var(--warning); }
     .governance-item.critical { border-left-color: var(--critical); }
+    .governance-safe-group {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+      background: var(--surface-2);
+    }
+    .governance-safe-group[open] > summary { margin-bottom: 8px; }
+    .governance-safe-list { display: grid; gap: 8px; }
+    .governance-safe-list .governance-item { background: var(--surface); }
     .governance-item[open] > summary { margin-bottom: 8px; }
     .governance-item-summary {
       display: flex;
