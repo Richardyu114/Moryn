@@ -185,7 +185,7 @@ findings first. When expanded, it shows:
 
 - the active `default_autocapture_policy`
 - how many handoffs were auto-captured without review
-- how many autocaptured records require review
+- how many autocaptured records currently require review
 - how many were policy-archived before entering Capture Inbox
 - captured counts by rule id
 - archived counts by rule id
@@ -197,10 +197,15 @@ findings first. When expanded, it shows:
   and the next action
 
 This panel explains automatic capture/review/archive routing without adding a
-second policy mutation surface. Decisions routed to `capture` render
+second policy mutation surface. Historical decisions stay inspectable, but only
+active candidate records still waiting in Capture Inbox count as
+`review_required` findings or Governance Hub user actions. Decisions routed to
+`capture` render
 `Auto-captured handoff`, `inspect_auto_captured_handoff`, and a read-only
 timeline command. Decisions routed to `review` render the same explicit Capture
-Inbox user actions: `Review in Capture Inbox`, `Approve Memory`, and `Reject`.
+Inbox user actions only while they are still actionable: `Review in Capture Inbox`,
+`Approve Memory`, and `Reject`. Already handled review decisions render
+read-only inspection details instead.
 Decisions routed to `archive` render `Policy archived`,
 `inspect_policy_archived_record`, and a read-only timeline command such as
 `moryn timeline --record-id <record_id> --project-id <project_id> --before 3 --after 3`.
@@ -343,7 +348,7 @@ The first screen favors human-readable summaries over raw ids:
 - Context Pack Review handoff readiness when project context is explicit
 - Memory Lifecycle retained/stale/archive review
 - Capture Inbox candidate approvals when autocaptured records need review
-- policy decisions that need review, using the same Capture Inbox approval
+- current policy decisions that need review, using the same Capture Inbox approval
   controls
 - recent valuable records, newest first
 - Review Queue maintenance plans when a project identity repair is available

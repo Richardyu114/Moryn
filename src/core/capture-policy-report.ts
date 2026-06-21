@@ -191,11 +191,12 @@ function evidenceForRecord(record: MorynRecord, events: MorynEvent[]): CapturePo
 function decisionAudit(record: MorynRecord, events: MorynEvent[]): CapturePolicyDecisionAudit {
   const decision = captureDecision(record);
   const ruleIds = captureRuleIds(record);
+  const reviewRequired = decision === "review" && record.state === "candidate" && record.visibility === "active";
   return {
     record_id: record.id,
     decision,
     target_state: decision === "archive" ? "archived" : "candidate",
-    review_required: decision === "review",
+    review_required: reviewRequired,
     auto_canonical: false,
     rule_ids: ruleIds,
     reasons: captureReasons(record, ruleIds),
@@ -241,11 +242,17 @@ function stats(decisions: CapturePolicyDecisionAudit[], excludedPrivateRecords: 
     total_autocapture_records: decisions.length,
     excluded_private_records: excludedPrivateRecords,
     auto_captured_records: decisions.filter((decision) => decision.decision === "capture").length,
-    review_records: decisions.filter((decision) => decision.decision === "review").length,
+    review_records: decisions.filter(isActionableReviewDecision).length,
     policy_archived_records: decisions.filter((decision) => decision.decision === "archive").length,
     captured_by_rule: capturedByRule,
     archived_by_rule: archivedByRule
   };
+}
+
+function isActionableReviewDecision(decision: CapturePolicyDecisionAudit): boolean {
+  return decision.decision === "review"
+    && decision.review_required
+    && decision.state === "candidate";
 }
 
 function captureFinding(decisions: CapturePolicyDecisionAudit[]): CapturePolicyFinding | undefined {
@@ -262,7 +269,7 @@ function captureFinding(decisions: CapturePolicyDecisionAudit[]): CapturePolicyF
 }
 
 function reviewFinding(decisions: CapturePolicyDecisionAudit[]): CapturePolicyFinding | undefined {
-  const recordIds = decisions.filter((decision) => decision.decision === "review").map((decision) => decision.record_id);
+  const recordIds = decisions.filter(isActionableReviewDecision).map((decision) => decision.record_id);
   if (!recordIds.length) return undefined;
   return {
     id: "review_required",
@@ -393,7 +400,7 @@ export function diagnoseCapturePolicy(input: CapturePolicyDiagnoseInput): Captur
   ].filter((finding): finding is CapturePolicyFinding => finding !== undefined);
   const sourceRecordsById = recordsById(records);
   const actions = uniqueActions([
-    ...(decisions.some((decision) => decision.decision === "review") ? [reviewCaptureAction(input.project_id)] : []),
+    ...(decisions.some(isActionableReviewDecision) ? [reviewCaptureAction(input.project_id)] : []),
     ...decisions
       .filter((decision) => decision.decision === "capture" || decision.decision === "archive")
       .map((decision) => inspectDecisionAction(

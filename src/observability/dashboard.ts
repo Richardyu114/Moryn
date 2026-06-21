@@ -2353,7 +2353,7 @@ function capturePolicyDecisionCards(report: CapturePolicyResult): string {
       ${report.decisions.slice(0, 8).map((decision) => {
         const isReview = decision.decision === "review";
         const isCapture = decision.decision === "capture";
-        const isActionableReview = isReview && decision.state === "candidate";
+        const isActionableReview = decision.review_required;
         const inspectCommand = capturePolicyInspectCommand(report, decision.record_id);
         const inspectAction = capturePolicyInspectAction(report, decision.record_id);
         const title = isActionableReview

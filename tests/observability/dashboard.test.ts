@@ -2631,12 +2631,17 @@ describe("observability dashboard", () => {
       expect(data.capture_policy.decisions_by_record_id.rec_policy_handled).toMatchObject({
         decision: "review",
         state: "canonical",
-        review_required: true
+        review_required: false
       });
+      expect(data.capture_policy.findings_by_id.review_required).toBeUndefined();
+      expect(data.capture_policy.suggested_actions_by_id.review_capture_inbox).toBeUndefined();
+      expect(data.governance.items_by_id["capture_policy:review_required"]).toBeUndefined();
+      expect(data.governance.summary.needs_user_action).toBe(0);
       expect(data.actions_by_id["capture_inbox.record.approve.rec_policy_handled"]).toBeUndefined();
       expect(data.actions_by_id["capture_inbox.record.reject.rec_policy_handled"]).toBeUndefined();
       expect(html).toContain("data-capture-policy-decision=\"rec_policy_handled\"");
       expect(html).toContain("Review already handled");
+      expect(html).not.toContain("data-governance-item=\"capture_policy:review_required\"");
       expect(html).not.toContain("api/capture-inbox/rec_policy_handled/approve");
       expect(html).not.toContain("api/capture-inbox/rec_policy_handled/reject");
       expect(html).not.toContain("data-dashboard-action-id=\"capture_inbox.record.approve.rec_policy_handled\"");
