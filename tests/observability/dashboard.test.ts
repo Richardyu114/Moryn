@@ -740,6 +740,16 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"attention-summary\">");
       expect(html).toContain("<div class=\"attention-body\">");
       expect(html).not.toContain("<article class=\"attention warning\">");
+      expect(html).toContain("<details class=\"panel supporting-evidence\" data-dashboard-detail=\"supporting-evidence\" aria-label=\"Supporting Evidence\">");
+      expect(html).toContain("<span>Supporting Evidence</span>");
+      expect(html).toContain("<small>store signals / recent value / debug inspector</small>");
+      const supportingEvidenceIndex = html.indexOf("<details class=\"panel supporting-evidence\" data-dashboard-detail=\"supporting-evidence\" aria-label=\"Supporting Evidence\">");
+      const storeSignalsIndex = html.indexOf("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
+      const recentValueIndex = html.indexOf("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
+      const debugInspectorIndex = html.indexOf("<details class=\"panel debug-inspector\" data-dashboard-detail=\"debug-inspector\">");
+      expect(storeSignalsIndex).toBeGreaterThan(supportingEvidenceIndex);
+      expect(recentValueIndex).toBeGreaterThan(storeSignalsIndex);
+      expect(debugInspectorIndex).toBeGreaterThan(recentValueIndex);
       expect(html).toContain("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
       expect(html).not.toContain("<details open class=\"panel store-signals\"");
       expect(html).toContain("<span>Store Signals</span>");

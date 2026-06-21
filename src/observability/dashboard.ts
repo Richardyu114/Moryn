@@ -3146,9 +3146,100 @@ function eventsTimeline(events: DashboardEventSummary[]): string {
   `;
 }
 
-function renderDashboardBody(data: DashboardData): string {
+function storeSignalsPanel(data: DashboardData): string {
+  return `
+    <details id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
+      <summary class="dashboard-fold-summary">
+        <span>Store Signals</span>
+        <small>agent activity / record quality / sync</small>
+      </summary>
+      <section class="visual-grid">
+        <div class="signal-card">
+          <h2>Agent Activity</h2>
+          ${agentBars(data.charts.agent_activity)}
+        </div>
+        <div class="signal-card">
+          <h2>Record Quality</h2>
+          ${memoryStateStack(data.charts.memory_states)}
+        </div>
+        <div class="signal-card">
+          <h2>Record Types</h2>
+          ${recordTypeBars(data.charts.record_types)}
+        </div>
+        <div class="signal-card">
+          <h2>Sync Position</h2>
+          ${syncRail(data.charts.sync_position)}
+        </div>
+      </section>
+    </details>
+  `;
+}
+
+function recentValuePanel(records: DashboardValueRecord[]): string {
+  const recentValueSummary = `${pluralize(records.length, "record")} | newest first | full details kept`;
+  return `
+    <details class="panel recent-value-panel" data-dashboard-detail="recent-value">
+      <summary class="dashboard-fold-summary recent-value-fold">
+        <span>Recent Value</span>
+        <small>${escapeHtml(recentValueSummary)}</small>
+      </summary>
+      <div class="recent-value-body">
+        ${recentValueCards(records)}
+      </div>
+    </details>
+  `;
+}
+
+function debugInspectorPanel(data: DashboardData): string {
   const sync = data.sync;
-  const recentValueSummary = `${pluralize(data.recent_value.length, "record")} | newest first | full details kept`;
+  return `
+    <details class="panel debug-inspector" data-dashboard-detail="debug-inspector">
+      <summary class="dashboard-fold-summary">
+        <span>Debug Inspector</span>
+        <small>records / events / sync</small>
+      </summary>
+      <div class="inspector-grid">
+        <details data-dashboard-detail="inspector:records">
+          <summary>Records</summary>
+          ${recordsTable(data.recent_records)}
+        </details>
+        <details data-dashboard-detail="inspector:events">
+          <summary>Events</summary>
+          ${eventsTimeline(data.recent_events)}
+        </details>
+        <details data-dashboard-detail="inspector:sync">
+          <summary>Sync</summary>
+          <dl>
+            <div><dt>Remote</dt><dd>${escapeHtml(sync.remote ?? "not configured")}</dd></div>
+            <div><dt>Branch</dt><dd>${escapeHtml(sync.branch ?? "unknown")}</dd></div>
+            <div><dt>Ahead</dt><dd>${escapeHtml(sync.ahead ?? 0)}</dd></div>
+            <div><dt>Behind</dt><dd>${escapeHtml(sync.behind ?? 0)}</dd></div>
+            <div><dt>Commit</dt><dd>${escapeHtml(sync.last_commit ?? "none")}</dd></div>
+            ${sync.error ? `<div><dt>Error</dt><dd>${escapeHtml(sync.error)}</dd></div>` : ""}
+          </dl>
+        </details>
+      </div>
+    </details>
+  `;
+}
+
+function supportingEvidencePanel(data: DashboardData): string {
+  return `
+    <details class="panel supporting-evidence" data-dashboard-detail="supporting-evidence" aria-label="Supporting Evidence">
+      <summary class="dashboard-fold-summary supporting-evidence-fold">
+        <span>Supporting Evidence</span>
+        <small>store signals / recent value / debug inspector</small>
+      </summary>
+      <div class="supporting-evidence-list">
+        ${storeSignalsPanel(data)}
+        ${recentValuePanel(data.recent_value)}
+        ${debugInspectorPanel(data)}
+      </div>
+    </details>
+  `;
+}
+
+function renderDashboardBody(data: DashboardData): string {
   return `
     <header>
       <div>
@@ -3185,68 +3276,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${captureInbox(data.capture_inbox)}
 
-    <details id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
-      <summary class="dashboard-fold-summary">
-        <span>Store Signals</span>
-        <small>agent activity / record quality / sync</small>
-      </summary>
-      <section class="visual-grid">
-        <div class="signal-card">
-          <h2>Agent Activity</h2>
-          ${agentBars(data.charts.agent_activity)}
-        </div>
-        <div class="signal-card">
-          <h2>Record Quality</h2>
-          ${memoryStateStack(data.charts.memory_states)}
-        </div>
-        <div class="signal-card">
-          <h2>Record Types</h2>
-          ${recordTypeBars(data.charts.record_types)}
-        </div>
-        <div class="signal-card">
-          <h2>Sync Position</h2>
-          ${syncRail(data.charts.sync_position)}
-        </div>
-      </section>
-    </details>
-
-    <details class="panel recent-value-panel" data-dashboard-detail="recent-value">
-      <summary class="dashboard-fold-summary recent-value-fold">
-        <span>Recent Value</span>
-        <small>${escapeHtml(recentValueSummary)}</small>
-      </summary>
-      <div class="recent-value-body">
-        ${recentValueCards(data.recent_value)}
-      </div>
-    </details>
-
-    <details class="panel debug-inspector" data-dashboard-detail="debug-inspector">
-      <summary class="dashboard-fold-summary">
-        <span>Debug Inspector</span>
-        <small>records / events / sync</small>
-      </summary>
-      <div class="inspector-grid">
-        <details data-dashboard-detail="inspector:records">
-          <summary>Records</summary>
-          ${recordsTable(data.recent_records)}
-        </details>
-        <details data-dashboard-detail="inspector:events">
-          <summary>Events</summary>
-          ${eventsTimeline(data.recent_events)}
-        </details>
-        <details data-dashboard-detail="inspector:sync">
-          <summary>Sync</summary>
-          <dl>
-            <div><dt>Remote</dt><dd>${escapeHtml(sync.remote ?? "not configured")}</dd></div>
-            <div><dt>Branch</dt><dd>${escapeHtml(sync.branch ?? "unknown")}</dd></div>
-            <div><dt>Ahead</dt><dd>${escapeHtml(sync.ahead ?? 0)}</dd></div>
-            <div><dt>Behind</dt><dd>${escapeHtml(sync.behind ?? 0)}</dd></div>
-            <div><dt>Commit</dt><dd>${escapeHtml(sync.last_commit ?? "none")}</dd></div>
-            ${sync.error ? `<div><dt>Error</dt><dd>${escapeHtml(sync.error)}</dd></div>` : ""}
-          </dl>
-        </details>
-      </div>
-    </details>
+    ${supportingEvidencePanel(data)}
   `;
 }
 
@@ -3718,6 +3748,19 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .clean-audit-report[open] > summary { margin-bottom: 8px; }
     .store-signals { border-left: 4px solid var(--signal-slate); }
     .capture-inbox { border-left: 4px solid var(--signal-blue); }
+    .supporting-evidence { border-left: 4px solid var(--signal-slate); }
+    .supporting-evidence[open] > summary { margin-bottom: 10px; }
+    .supporting-evidence-list {
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
+    .supporting-evidence-list > .panel {
+      margin-bottom: 0;
+      box-shadow: none;
+      background: var(--surface);
+    }
     .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
     .context-pack-heading,
     .governance-heading,

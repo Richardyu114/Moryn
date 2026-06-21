@@ -390,13 +390,11 @@ detail panel.
 checks are grouped under a collapsed `Info Checks` summary so routine status
 signals remain inspectable without competing with action-oriented warnings.
 
-Raw records, events, and sync details remain available in the lower Debug
-Inspector.
-
-Agent activity, record quality, record type distribution, and sync position are
-kept under the collapsed `Store Signals` panel. They remain available for local
-inspection, but the first screen prioritizes attention items, governance,
-review actions, context readiness, and recent value.
+Raw records, events, sync details, recent value, and store telemetry remain
+available in the lower `Supporting Evidence` panel. That collapsed group holds
+`Store Signals`, `Recent Value`, and the raw `Debug Inspector` together so the
+first screen prioritizes attention items, governance, review actions, and
+context readiness without removing local evidence.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without
