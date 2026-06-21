@@ -2085,13 +2085,23 @@ function textExcerptBlock(text: string, truncatedAttribute = "data-full-text-hid
   `;
 }
 
+function actionBoardSummary(data: DashboardActionBoard): string {
+  const items = data.items_by_id;
+  return [
+    `${items.confirm.value} confirm`,
+    `${items.review.value} review`,
+    `${items.inspect.value} inspect`,
+    `${items.sync.value} sync`
+  ].join(" / ");
+}
+
 function actionBoard(data: DashboardActionBoard): string {
   return `
-    <section class="action-board" aria-label="Action Board" data-action-board-nav>
-      <div class="action-board-heading">
-        <h2>Action Board</h2>
-        <span>confirm / review / inspect / sync</span>
-      </div>
+    <details class="action-board" aria-label="Action Board" data-dashboard-detail="action-board" data-action-board-nav>
+      <summary class="dashboard-fold-summary action-board-fold">
+        <span>Action Board</span>
+        <small>${escapeHtml(actionBoardSummary(data))}</small>
+      </summary>
       <div class="action-board-grid">
         ${data.items.map((item) => `
           <button type="button" class="action-board-item ${escapeHtml(item.severity)}" data-action-board-item="${escapeHtml(item.id)}" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">
@@ -2103,7 +2113,7 @@ function actionBoard(data: DashboardActionBoard): string {
           </button>
         `).join("")}
       </div>
-    </section>
+    </details>
   `;
 }
 
@@ -3986,20 +3996,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding: 14px;
       margin-bottom: 14px;
     }
-    .action-board-heading {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 10px;
-      min-width: 0;
-    }
-    .action-board-heading span {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 650;
-      overflow-wrap: anywhere;
-    }
+    .action-board[open] > summary { margin-bottom: 10px; }
     .action-board-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));

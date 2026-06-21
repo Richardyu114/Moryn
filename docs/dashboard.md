@@ -406,9 +406,11 @@ Action Board item and turns it into one next step, with compact chips for
 confirm, review, and sync state. It reuses the same local scroll target as the
 Action Board and does not add a new API endpoint, Safe Action Registry entry, or
 memory mutation path. Its job is to answer "what should I look at first?"
-before the user scans the fuller dashboard.
+without making the top of the dashboard read like two competing summaries.
 
-The first interactive section is `Action Board`, a four-card summary for:
+`Action Board` is a collapsed navigator by default. Its summary shows compact
+counts such as `0 confirm / 1 review / 0 inspect / 1 sync`; expanding it reveals
+the four scroll targets for:
 
 - `Confirm`: explicit approval actions in Capture Inbox or Review Queue
 - `Review`: warning or critical attention signals
