@@ -2597,6 +2597,16 @@ function contextPackReviewOpenAttribute(review: DashboardContextPackReview): str
   return gate.status === "ready" && gate.failed_check_ids.length === 0 && gate.warnings.length === 0 ? "" : " open";
 }
 
+function contextPackEvidenceSummary(pack: DashboardContextPackReview["handoff_pack"]): string {
+  if (!pack) return "No handoff evidence";
+  const counts = [
+    pack.recent_decisions.length > 0 ? pluralize(pack.recent_decisions.length, "decision") : undefined,
+    pack.open_threads.length > 0 ? pluralize(pack.open_threads.length, "thread") : undefined,
+    pack.risks.length > 0 ? pluralize(pack.risks.length, "risk") : undefined
+  ].filter((count): count is string => count !== undefined);
+  return counts.length > 0 ? counts.join(" | ") : "No handoff evidence";
+}
+
 function contextPackReviewPanel(review: DashboardContextPackReview): string {
   if (!review.available || !review.handoff_pack) {
     return `
@@ -2643,7 +2653,7 @@ function contextPackReviewPanel(review: DashboardContextPackReview): string {
         <details class="context-pack-evidence" data-dashboard-detail="context-pack-evidence">
           <summary class="dashboard-fold-summary">
             <span>Context Evidence</span>
-            <small>${escapeHtml(pluralize(pack.recent_decisions.length, "decision"))} | ${escapeHtml(pluralize(pack.open_threads.length, "thread"))} | ${escapeHtml(pluralize(pack.risks.length, "risk"))}</small>
+            <small>${escapeHtml(contextPackEvidenceSummary(pack))}</small>
           </summary>
           <div class="context-pack-grid">
             ${contextPackReviewItemColumn("Recent Decisions", pack.recent_decisions)}

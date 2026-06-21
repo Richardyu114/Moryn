@@ -2042,6 +2042,33 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("summarizes empty Context Evidence without zero-value counts", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(data.context_pack_review.available).toBe(true);
+      expect(data.context_pack_review.handoff_pack?.recent_decisions).toHaveLength(0);
+      expect(data.context_pack_review.handoff_pack?.open_threads).toHaveLength(0);
+      expect(data.context_pack_review.handoff_pack?.risks).toHaveLength(0);
+      expect(html).toContain("data-dashboard-detail=\"context-pack-evidence\"");
+      expect(html).toContain("<span>Context Evidence</span>");
+      expect(html).toContain("<small>No handoff evidence</small>");
+      expect(html).not.toContain("<small>0 decisions | 0 threads | 0 risks</small>");
+      expect(html).toContain("<h3>Recent Decisions</h3>");
+      expect(html).toContain("<h3>Open Threads</h3>");
+      expect(html).toContain("<h3>Risks</h3>");
+      expect(html).toContain("<div class=\"empty-state\">None in this snapshot.</div>");
+    });
+  });
+
   it("keeps Context Pack Review unavailable without explicit project context", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
