@@ -55,6 +55,7 @@ export interface DashboardMaintenancePlan {
 
 export interface DashboardMaintenanceData {
   plans: DashboardMaintenancePlan[];
+  plans_by_id: Record<string, DashboardMaintenancePlan>;
 }
 
 export interface DashboardMaintenanceOptions {
@@ -237,13 +238,13 @@ export function buildDashboardMaintenance(
   options: DashboardMaintenanceOptions = {}
 ): DashboardMaintenanceData {
   const projectId = options.project_id;
-  if (!projectId) return { plans: [] };
+  if (!projectId) return { plans: [], plans_by_id: {} };
   const includePrivate = options.include_private === true;
 
   const currentProjectRecords = allRecords
     .filter((record) => record.project_id === projectId)
     .filter((record) => includePrivate || !isPrivateRecord(record));
-  if (currentProjectRecords.length === 0) return { plans: [] };
+  if (currentProjectRecords.length === 0) return { plans: [], plans_by_id: {} };
 
   const relatedProjectIds = [...new Set(allRecords
     .filter((record) => record.project_id && record.project_id !== projectId)
@@ -255,7 +256,10 @@ export function buildDashboardMaintenance(
     .map((fromProjectId) => buildProjectIdentityPlan(allRecords, fromProjectId, projectId, includePrivate))
     .filter((plan): plan is DashboardMaintenancePlan => plan !== undefined);
 
-  return { plans };
+  return {
+    plans,
+    plans_by_id: Object.fromEntries(plans.map((plan) => [plan.plan_id, plan]))
+  };
 }
 
 async function currentMaintenancePlans(storePath: string, options: DashboardMaintenanceOptions): Promise<DashboardMaintenancePlan[]> {

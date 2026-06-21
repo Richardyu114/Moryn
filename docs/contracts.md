@@ -298,6 +298,27 @@ and source path metadata. Rendered buttons include `data-dashboard-action-id`
 with the same id. This registry is an audit and selection surface; it does not
 create a background executor or add any automatic write path.
 
+`/api/dashboard` also returns `governance`, a read-only normalized review queue
+for existing local reports. Its contract is:
+
+- `governance.read_only: true`
+- `governance.scope: "local_dashboard"`
+- `governance.summary.total_items`
+- `governance.summary.needs_user_action`
+- `governance.summary.safe_inspections`
+- `governance.summary.hidden_private_records`
+- `governance.items[]`
+- `governance.items_by_id.<item_id>`
+- `governance.selection_sources`
+
+Each governance item includes `source`, `category`, `severity`, `title`,
+`summary`, `record_ids`, `evidence_path`, `action_label`, optional `action_id`,
+`safe_to_run`, `requires_user_confirmation`, and `writes`. Sources are limited
+to `capture_policy`, `memory_lifecycle`, `maintenance`, and `dogfood_report`.
+The hub does not create a new write endpoint: write-capable items point back to
+existing explicit Capture Inbox or maintenance approval actions, while
+lifecycle and dogfood entries remain inspection guidance.
+
 `/api/dashboard` also returns `context_pack_review`, a read-only project handoff
 readiness summary rendered as the dashboard `Context Pack Review` panel. When
 the dashboard is served with `--project-id <id>` or `--project <path>`,
@@ -346,13 +367,14 @@ POST /api/maintenance/plans/:plan_id/approve
 ```
 
 The first supported plan is project identity repair. `/api/dashboard` returns a
-`maintenance.plans[]` entry with `plan_id`, `plan_hash`, dry-run counts, safety
-checks, the equivalent `moryn project migrate --apply --confirm` command, and a
-`decision_card` with issue, impact, recommended action, evidence, rollback path,
-and raw evidence. Project-specific plans require `project_id`/`project_path`
-context; without it, `maintenance.plans[]` is empty. If `include_private: true`
-is used, private records included in the plan are counted separately and the
-equivalent command contains `--include-private`.
+`maintenance.plans[]` entry and a `maintenance.plans_by_id.<plan_id>` index
+with `plan_id`, `plan_hash`, dry-run counts, safety checks, the equivalent
+`moryn project migrate --apply --confirm` command, and a `decision_card` with
+issue, impact, recommended action, evidence, rollback path, and raw evidence.
+Project-specific plans require `project_id`/`project_path` context; without it,
+`maintenance.plans[]` is empty. If `include_private: true` is used, private
+records included in the plan are counted separately and the equivalent command
+contains `--include-private`.
 The approve endpoint accepts only:
 
 ```json

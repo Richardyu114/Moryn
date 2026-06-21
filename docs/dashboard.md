@@ -263,6 +263,28 @@ records are included in the dry run and the copied command includes
 `--include-private`. Without that explicit flag, private records are counted as
 skipped and stay out of the approval.
 
+### Governance Hub
+
+The live dashboard includes a compact `Governance Hub` when existing local
+reports have review or inspection items. It is a read-only summary over:
+
+- `capture_policy.findings_by_id`
+- `memory_lifecycle.findings_by_id`
+- `maintenance.plans_by_id`
+- `dogfood_report.findings_by_id`
+
+Each normalized item carries `source`, `category`, `severity`, `record_ids`,
+`evidence_path`, `action_label`, optional `action_id`, and safety metadata. The
+hub counts items that need user confirmation, safe read-only inspections, and
+private records hidden by the dashboard boundary.
+
+Governance Hub does not add mutation endpoints. Items that require writes point
+back to existing explicit controls such as Capture Inbox approval/rejection or
+Review Queue maintenance approval. Lifecycle and dogfood items stay read-only
+inspection guidance unless another existing surface already exposes a confirmed
+action. Private-tagged records remain hidden unless `--include-private` is
+explicit.
+
 ### Static Snapshot
 
 ```bash
@@ -356,15 +378,18 @@ The JSON returned by `/api/dashboard` includes:
 - `actions`
 - `actions_by_id`
 - `context_pack_review`
+- `governance`
 - `capture_inbox`
 - `capture_inbox.autocapture_policy`
 - `capture_policy`
 - `memory_lifecycle`
+- `dogfood_report`
 - `recent_value`
 - `recent_records`
 - `recent_events`
 - `agent_activity`
 - `maintenance.plans`
+- `maintenance.plans_by_id`
 
 This keeps raw data inspectable while giving the HTML renderer human-oriented
 fields.
@@ -425,6 +450,13 @@ Context Pack Review is deliberately not an approval surface. It does not render 
 `capture_policy` and `memory_lifecycle` are read-only report data. Mutation
 endpoints remain limited to Capture Inbox approval/rejection and Review Queue
 maintenance approval.
+
+`governance` is a read-only de-clutter layer for the same data. It exposes
+`governance.summary`, `governance.items[]`, and
+`governance.items_by_id.<item_id>` so agents and users can inspect current
+review pressure without expanding every low-level panel. The raw Debug
+Inspector remains available, but its records, events, and sync tables are
+collapsed by default.
 
 Recent values, recent records, recent events, and agent activity entries carry
 `citation` metadata when an event or record can be traced. Record citations

@@ -9,6 +9,7 @@ import { normalizeAgentIdentity } from "../core/agent-identity.js";
 import { DEFAULT_AUTOCAPTURE_POLICY, type AutocapturePolicyDecision, type AutocapturePolicyRuleId } from "../core/autocapture-policy.js";
 import { diagnoseCapturePolicy, type CapturePolicyResult } from "../core/capture-policy-report.js";
 import { displayRecordText } from "../core/content-text.js";
+import { diagnoseDogfood, type DogfoodReportResult } from "../core/dogfood-report.js";
 import { createEngine } from "../core/engine.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
 import { replayEvents } from "../core/replay.js";
@@ -95,7 +96,9 @@ export const DASHBOARD_SELECTION_SOURCES = {
   capture_inbox: "capture_inbox",
   capture_policy: "capture_policy",
   context_pack_review: "context_pack_review",
+  governance: "governance",
   memory_lifecycle: "memory_lifecycle",
+  dogfood_report: "dogfood_report",
   recent_value: "recent_value[]",
   record: "recent_records[]",
   event: "recent_events[]",
@@ -226,6 +229,60 @@ export interface DashboardCharts {
   memory_states: DashboardMemoryStateChartItem[];
   record_types: DashboardRecordTypeChartItem[];
   sync_position: DashboardSyncPositionChart;
+}
+
+export const DASHBOARD_GOVERNANCE_SELECTION_SOURCES = {
+  governance: "governance",
+  item: "governance.items_by_id.<item_id>",
+  item_id: "governance.items_by_id.<item_id>.id",
+  action: "actions_by_id.<action_id>",
+  action_id: "actions_by_id.<action_id>.action_id",
+  capture_policy: "capture_policy",
+  memory_lifecycle: "memory_lifecycle",
+  maintenance: "maintenance",
+  dogfood_report: "dogfood_report"
+} as const;
+
+export type DashboardGovernanceSource = "capture_policy" | "memory_lifecycle" | "maintenance" | "dogfood_report";
+export type DashboardGovernanceCategory =
+  | "capture_review"
+  | "auto_capture"
+  | "policy_archive"
+  | "memory_lifecycle"
+  | "project_identity"
+  | "dogfood_friction";
+export type DashboardGovernanceSeverity = "info" | "warning" | "critical";
+
+export interface DashboardGovernanceItem {
+  id: string;
+  source: DashboardGovernanceSource;
+  category: DashboardGovernanceCategory;
+  severity: DashboardGovernanceSeverity;
+  title: string;
+  summary: string;
+  record_ids: string[];
+  evidence_path: string;
+  action_label: string;
+  action_id?: string;
+  safe_to_run: boolean;
+  requires_user_confirmation: boolean;
+  writes: DashboardActionWriteBehavior;
+}
+
+export interface DashboardGovernance {
+  read_only: true;
+  version: 1;
+  scope: "local_dashboard";
+  summary: {
+    total_items: number;
+    needs_user_action: number;
+    safe_inspections: number;
+    hidden_private_records: number;
+  };
+  sources: Record<DashboardGovernanceSource, boolean>;
+  items: DashboardGovernanceItem[];
+  items_by_id: Record<string, DashboardGovernanceItem>;
+  selection_sources: typeof DASHBOARD_GOVERNANCE_SELECTION_SOURCES;
 }
 
 export interface DashboardValueRecord {
@@ -437,9 +494,11 @@ export interface DashboardData {
   actions: DashboardAction[];
   actions_by_id: Record<string, DashboardAction>;
   context_pack_review: DashboardContextPackReview;
+  governance: DashboardGovernance;
   capture_inbox: DashboardCaptureInbox;
   capture_policy: CapturePolicyResult;
   memory_lifecycle: MemoryLifecycleResult;
+  dogfood_report: DogfoodReportResult;
   recent_value: DashboardValueRecord[];
   recent_records: DashboardRecordSummary[];
   recent_events: DashboardEventSummary[];
@@ -1542,6 +1601,139 @@ function actionsById(actions: DashboardAction[]): Record<string, DashboardAction
   return Object.fromEntries(actions.map((action) => [action.action_id, action]));
 }
 
+function governanceItemId(source: DashboardGovernanceSource, id: string): string {
+  return `${source}:${id}`;
+}
+
+function firstActionForRecords<T extends { action_id: string; arguments: Record<string, unknown> }>(actions: T[], recordIds: string[]): T | undefined {
+  const recordIdSet = new Set(recordIds);
+  return actions.find((action) => {
+    const recordId = action.arguments.record_id;
+    if (typeof recordId === "string" && recordIdSet.has(recordId)) return true;
+    const recordIdsArg = action.arguments.record_ids;
+    return Array.isArray(recordIdsArg) && recordIdsArg.some((candidate) => typeof candidate === "string" && recordIdSet.has(candidate));
+  });
+}
+
+function governanceFromCapturePolicy(report: CapturePolicyResult): DashboardGovernanceItem[] {
+  return report.findings.map((finding): DashboardGovernanceItem => {
+    const firstAction = firstActionForRecords(report.suggested_actions, finding.record_ids);
+    const isReview = finding.id === "review_required";
+    return {
+      id: governanceItemId("capture_policy", finding.id),
+      source: "capture_policy",
+      category: finding.category === "review_queue" ? "capture_review" : finding.category,
+      severity: finding.severity,
+      title: finding.summary,
+      summary: finding.reason,
+      record_ids: finding.record_ids,
+      evidence_path: `capture_policy.findings_by_id.${finding.id}`,
+      action_label: isReview ? "Review in Capture Inbox" : firstAction?.recommended_action ?? "Inspect capture policy finding",
+      ...(firstAction && !isReview ? { action_id: capturePolicyInspectActionId(String(firstAction.arguments.record_id)) } : {}),
+      safe_to_run: !isReview,
+      requires_user_confirmation: isReview,
+      writes: isReview ? "append_only_events" : "none"
+    };
+  });
+}
+
+function governanceFromMemoryLifecycle(report: MemoryLifecycleResult): DashboardGovernanceItem[] {
+  return report.findings.map((finding): DashboardGovernanceItem => {
+    const firstAction = firstActionForRecords(report.suggested_actions, finding.record_ids);
+    const requiresUserConfirmation = firstAction?.safe_to_run === false;
+    return {
+      id: governanceItemId("memory_lifecycle", finding.id),
+      source: "memory_lifecycle",
+      category: "memory_lifecycle",
+      severity: finding.severity,
+      title: finding.summary,
+      summary: finding.reason,
+      record_ids: finding.record_ids,
+      evidence_path: `memory_lifecycle.findings_by_id.${finding.id}`,
+      action_label: firstAction?.recommended_action ?? "Inspect lifecycle finding",
+      safe_to_run: firstAction?.safe_to_run ?? true,
+      requires_user_confirmation: requiresUserConfirmation,
+      writes: requiresUserConfirmation ? "append_only_events" : "none"
+    };
+  });
+}
+
+function governanceFromMaintenance(maintenance: DashboardMaintenanceData): DashboardGovernanceItem[] {
+  return maintenance.plans.map((plan): DashboardGovernanceItem => ({
+    id: governanceItemId("maintenance", plan.plan_id),
+    source: "maintenance",
+    category: "project_identity",
+    severity: "warning",
+    title: plan.decision_card.issue,
+    summary: plan.decision_card.impact,
+    record_ids: plan.record_ids,
+    evidence_path: `maintenance.plans_by_id.${plan.plan_id}`,
+    action_label: "Apply Repair",
+    action_id: maintenanceApproveActionId(plan),
+    safe_to_run: false,
+    requires_user_confirmation: true,
+    writes: "append_only_events"
+  }));
+}
+
+function governanceFromDogfood(report: DogfoodReportResult): DashboardGovernanceItem[] {
+  return report.findings.map((finding): DashboardGovernanceItem => {
+    const recordIds = finding.record_ids ?? (finding.record_id ? [finding.record_id] : []);
+    const firstAction = finding.id === "capture_review_backlog"
+      ? report.suggested_actions_by_id.review_capture_inbox
+      : firstActionForRecords(report.suggested_actions, recordIds);
+    return {
+      id: governanceItemId("dogfood_report", finding.id),
+      source: "dogfood_report",
+      category: "dogfood_friction",
+      severity: finding.severity,
+      title: finding.summary,
+      summary: finding.reason,
+      record_ids: recordIds,
+      evidence_path: `dogfood_report.findings_by_id.${finding.id}`,
+      action_label: firstAction?.recommended_action ?? "Inspect dogfood finding",
+      safe_to_run: firstAction?.safe_to_run ?? true,
+      requires_user_confirmation: false,
+      writes: "none"
+    };
+  });
+}
+
+function buildDashboardGovernance(input: {
+  capturePolicy: CapturePolicyResult;
+  memoryLifecycle: MemoryLifecycleResult;
+  maintenance: DashboardMaintenanceData;
+  dogfoodReport?: DogfoodReportResult;
+  hiddenPrivateRecords: number;
+}): DashboardGovernance {
+  const items: DashboardGovernanceItem[] = [
+    ...governanceFromCapturePolicy(input.capturePolicy),
+    ...governanceFromMemoryLifecycle(input.memoryLifecycle),
+    ...governanceFromMaintenance(input.maintenance),
+    ...(input.dogfoodReport ? governanceFromDogfood(input.dogfoodReport) : [])
+  ];
+  return {
+    read_only: true,
+    version: 1,
+    scope: "local_dashboard",
+    summary: {
+      total_items: items.length,
+      needs_user_action: items.filter((item) => item.requires_user_confirmation).length,
+      safe_inspections: items.filter((item) => item.safe_to_run && item.writes === "none").length,
+      hidden_private_records: input.hiddenPrivateRecords
+    },
+    sources: {
+      capture_policy: true,
+      memory_lifecycle: true,
+      maintenance: true,
+      dogfood_report: input.dogfoodReport !== undefined
+    },
+    items,
+    items_by_id: Object.fromEntries(items.map((item) => [item.id, item])),
+    selection_sources: DASHBOARD_GOVERNANCE_SELECTION_SOURCES
+  };
+}
+
 export async function buildDashboardData(storePath: string, options: DashboardOptions = {}): Promise<DashboardData> {
   const limit = dashboardLimit(options.limit);
   const events = await readEvents(storePath);
@@ -1584,6 +1776,30 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     project_id: options.project_id,
     include_private: options.include_private
   });
+  const memoryLifecycleData = diagnoseMemoryLifecycle({
+    records: lifecycleRecords,
+    project_id: options.project_id,
+    limit,
+    include_private: options.include_private === true,
+    now: generatedAt,
+    private_record_ids: lifecycleAllRecords.filter(isPrivateRecord).map((record) => record.id),
+    excluded_private_records: lifecycleAllRecords.length - lifecycleRecords.length
+  });
+  const dogfoodAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
+  const dogfoodRecords = dogfoodAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const dogfoodRecordIds = new Set(dogfoodRecords.map((record) => record.id));
+  const dogfoodEvents = events.filter((event) => {
+    const recordId = targetRecordId(event);
+    return !recordId || dogfoodRecordIds.has(recordId);
+  });
+  const dogfoodReportData = diagnoseDogfood({
+    records: dogfoodRecords,
+    events: dogfoodEvents,
+    project_id: options.project_id,
+    limit,
+    include_private: options.include_private === true,
+    excluded_private_records: dogfoodAllRecords.length - dogfoodRecords.length
+  });
   const actions = dashboardActions({
     captureInbox: captureInboxData,
     capturePolicy: capturePolicyData,
@@ -1613,17 +1829,17 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     actions,
     actions_by_id: actionsById(actions),
     context_pack_review: contextPackReviewData,
+    governance: buildDashboardGovernance({
+      capturePolicy: capturePolicyData,
+      memoryLifecycle: memoryLifecycleData,
+      maintenance: maintenanceData,
+      dogfoodReport: dogfoodReportData,
+      hiddenPrivateRecords: lifecycleAllRecords.length - lifecycleRecords.length
+    }),
     capture_inbox: captureInboxData,
     capture_policy: capturePolicyData,
-    memory_lifecycle: diagnoseMemoryLifecycle({
-      records: lifecycleRecords,
-      project_id: options.project_id,
-      limit,
-      include_private: options.include_private === true,
-      now: generatedAt,
-      private_record_ids: lifecycleAllRecords.filter(isPrivateRecord).map((record) => record.id),
-      excluded_private_records: lifecycleAllRecords.length - lifecycleRecords.length
-    }),
+    memory_lifecycle: memoryLifecycleData,
+    dogfood_report: dogfoodReportData,
     recent_value: buildRecentValue(records, generatedAt, Math.min(limit, RECENT_VALUE_LIMIT), eventsByRecord),
     recent_records: recentRecords.map((record) => summarizeRecord(record, eventsByRecord)),
     recent_events: recentEvents.map((event) => summarizeEvent(event, recordsById)),
@@ -1683,6 +1899,52 @@ function attentionItems(items: DashboardAttentionItem[]): string {
         </article>
       `).join("")}
     </div>
+  `;
+}
+
+function governanceSafetyLabel(item: DashboardGovernanceItem): string {
+  if (item.requires_user_confirmation) return "User confirmation";
+  if (item.safe_to_run && item.writes === "none") return "Safe inspection";
+  return "Review";
+}
+
+function governanceHub(governance: DashboardGovernance): string {
+  if (governance.summary.total_items === 0) return "";
+  return `
+    <section class="panel governance-hub" aria-label="Governance Hub">
+      <div class="governance-heading">
+        <div>
+          <h2>Governance Hub</h2>
+          <p><code>governance.summary</code></p>
+        </div>
+        <div class="governance-counts">
+          <span>${escapeHtml(governance.summary.needs_user_action)} need confirmation</span>
+          <span>${escapeHtml(governance.summary.safe_inspections)} safe checks</span>
+          <span>${escapeHtml(governance.summary.hidden_private_records)} private hidden</span>
+        </div>
+      </div>
+      <div class="governance-list">
+        ${governance.items.map((item) => `
+          <article class="governance-item ${escapeHtml(item.severity)}" data-governance-item="${escapeHtml(item.id)}">
+            <div>
+              <h3>${escapeHtml(item.title)}</h3>
+              <p>${escapeHtml(item.summary)}</p>
+              <div class="governance-meta">
+                <span>${escapeHtml(item.source)}</span>
+                <span>${escapeHtml(item.category)}</span>
+                <span>${escapeHtml(governanceSafetyLabel(item))}</span>
+                <span>${escapeHtml(item.writes === "none" ? "Read-only" : "Append-only")}</span>
+              </div>
+            </div>
+            <div class="governance-action">
+              <strong>${escapeHtml(item.action_label)}</strong>
+              ${item.action_id ? `<code>${escapeHtml(item.action_id)}</code>` : ""}
+              <small>${escapeHtml(item.evidence_path)}</small>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    </section>
   `;
 }
 
@@ -2448,6 +2710,8 @@ function renderDashboardBody(data: DashboardData): string {
       ${attentionItems(data.attention_items)}
     </section>
 
+    ${governanceHub(data.governance)}
+
     ${maintenanceReviewQueue(data.maintenance.plans)}
 
     ${contextPackReviewPanel(data.context_pack_review)}
@@ -2482,10 +2746,13 @@ function renderDashboardBody(data: DashboardData): string {
       ${recentValueCards(data.recent_value)}
     </section>
 
-    <section class="panel">
-      <h2>Debug Inspector</h2>
+    <details class="panel debug-inspector" data-dashboard-detail="debug-inspector">
+      <summary>
+        <span>Debug Inspector</span>
+        <small>records / events / sync</small>
+      </summary>
       <div class="inspector-grid">
-        <details open data-dashboard-detail="inspector:records">
+        <details data-dashboard-detail="inspector:records">
           <summary>Records</summary>
           ${recordsTable(data.recent_records)}
         </details>
@@ -2505,7 +2772,7 @@ function renderDashboardBody(data: DashboardData): string {
           </dl>
         </details>
       </div>
-    </section>
+    </details>
   `;
 }
 
@@ -2856,10 +3123,12 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .empty-state { border: 1px dashed var(--border); border-radius: 7px; padding: 14px; color: var(--muted); background: var(--surface-2); }
     .maintenance-review { border-left: 4px solid var(--signal-green); }
     .context-pack-review { border-left: 4px solid var(--signal-blue); }
+    .governance-hub { border-left: 4px solid var(--signal-green); }
     .memory-lifecycle { border-left: 4px solid var(--signal-violet); }
     .capture-inbox { border-left: 4px solid var(--signal-blue); }
     .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
     .context-pack-heading,
+    .governance-heading,
     .lifecycle-heading,
     .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions {
       display: flex;
@@ -2870,9 +3139,56 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .maintenance-heading span, .maintenance-status,
     .context-pack-heading span,
+    .governance-heading span,
     .lifecycle-heading span,
     .capture-inbox-heading span, .capture-inbox-status { color: var(--muted); font-size: 12px; font-weight: 650; }
-    .maintenance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
+    .maintenance-list, .governance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
+    .governance-heading { align-items: flex-start; margin-bottom: 10px; }
+    .governance-counts {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+      min-width: 0;
+    }
+    .governance-counts span, .governance-meta span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .governance-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(190px, 0.38fr);
+      gap: 12px;
+      align-items: start;
+      border: 1px solid var(--border);
+      border-left-width: 3px;
+      border-radius: 8px;
+      padding: 11px;
+      background: var(--surface);
+    }
+    .governance-item.info { border-left-color: var(--info); }
+    .governance-item.warning { border-left-color: var(--warning); }
+    .governance-item.critical { border-left-color: var(--critical); }
+    .governance-item p { margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
+    .governance-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .governance-action {
+      display: grid;
+      gap: 5px;
+      justify-items: end;
+      text-align: right;
+      min-width: 0;
+    }
+    .governance-action strong { color: var(--ink); font-size: 12.5px; font-weight: 760; overflow-wrap: anywhere; }
     .context-pack-summary {
       margin: 0 0 10px;
       display: grid;
@@ -3141,6 +3457,20 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .citation-links { display: grid; gap: 5px; min-width: 0; }
     .citation-links code { width: 100%; }
     .inspector-grid { display: grid; gap: 12px; }
+    .debug-inspector > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--ink);
+      font-weight: 760;
+    }
+    .debug-inspector > summary small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .debug-inspector[open] > summary { margin-bottom: 12px; }
     .table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
     table { width: 100%; min-width: 940px; table-layout: fixed; border-collapse: collapse; }
     th, td { padding: 9px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
@@ -3160,10 +3490,12 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
-      .context-pack-heading,
+      .context-pack-heading, .governance-heading,
       .lifecycle-heading,
       .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions { display: grid; justify-content: stretch; }
-      .maintenance-summary, .context-pack-summary, .context-pack-grid, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
+      .maintenance-summary, .context-pack-summary, .context-pack-grid, .governance-item, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
+      .governance-counts { justify-content: flex-start; }
+      .governance-action { justify-items: start; text-align: left; }
       .context-pack-checks li { grid-template-columns: 1fr; }
       .bar-label span { text-align: left; }
     }

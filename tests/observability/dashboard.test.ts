@@ -113,6 +113,388 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("adds a read-only Governance Hub shell without writing events", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_governance_${++record}` : `evt_governance_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Visible governance context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Private governance context must stay hidden.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        governance: {
+          read_only: boolean;
+          version: number;
+          scope: string;
+          summary: {
+            total_items: number;
+            needs_user_action: number;
+            safe_inspections: number;
+            hidden_private_records: number;
+          };
+          sources: Record<string, boolean>;
+          items: unknown[];
+          items_by_id: Record<string, unknown>;
+          selection_sources: Record<string, string>;
+        };
+      };
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(data.governance).toMatchObject({
+        read_only: true,
+        version: 1,
+        scope: "local_dashboard",
+        summary: {
+          total_items: 0,
+          needs_user_action: 0,
+          safe_inspections: 0,
+          hidden_private_records: 1
+        },
+        sources: {
+          capture_policy: true,
+          memory_lifecycle: true,
+          maintenance: true,
+          dogfood_report: true
+        },
+        selection_sources: {
+          governance: "governance",
+          item: "governance.items_by_id.<item_id>",
+          item_id: "governance.items_by_id.<item_id>.id"
+        }
+      });
+      expect(data.governance.items).toEqual([]);
+      expect(data.governance.items_by_id).toEqual({});
+      expect(JSON.stringify(data.governance)).not.toContain("Private governance context must stay hidden");
+    });
+  });
+
+  it("aggregates existing reports into Governance Hub items", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-20T00:01:00.000Z",
+            "2026-06-20T00:02:00.000Z",
+            "2026-06-20T00:03:00.000Z",
+            "2026-06-20T00:04:00.000Z",
+            "2026-04-01T00:00:00.000Z",
+            "2026-06-20T00:05:00.000Z",
+            "2026-06-20T00:06:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-20T00:07:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_governance_item_${++record}` : `evt_governance_item_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn governance context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Old project governance context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: {
+          format: "json",
+          text: "Governance handoff still needs manual review.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "review",
+              review_required: true,
+              auto_canonical: false,
+              rule_ids: ["default_review_for_agent_handoff"]
+            }
+          }
+        },
+        confidence: 0.8,
+        source: { client: "codex", session_id: "governance-review" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "auto-captured", "host:codex"],
+        content: {
+          format: "json",
+          text: "Governance low-risk handoff was retained.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "capture",
+              route: "auto_capture",
+              review_required: false,
+              user_action_required: false,
+              auto_canonical: false,
+              dashboard_surface: "handoff",
+              rule_ids: ["low_risk_handoff_auto_capture"],
+              reasons: ["low_risk_handoff_auto_capture"]
+            }
+          }
+        },
+        confidence: 0.8,
+        source: { client: "codex", session_id: "governance-auto-capture" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Old governance decision needs timeline inspection.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        confidence: 0.8,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Governance dogfood note: timeout blocked the dashboard review.", format: "text" },
+        confidence: 0.8,
+        source: { client: "codex", session_id: "governance-dogfood" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Private Governance Hub item must stay hidden.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        governance: {
+          summary: {
+            total_items: number;
+            needs_user_action: number;
+            safe_inspections: number;
+            hidden_private_records: number;
+          };
+          sources: Record<string, boolean>;
+          items: Array<{
+            id: string;
+            source: string;
+            category: string;
+            severity: string;
+            title: string;
+            summary: string;
+            record_ids: string[];
+            evidence_path: string;
+            action_label: string;
+            action_id?: string;
+            safe_to_run: boolean;
+            requires_user_confirmation: boolean;
+            writes: string;
+          }>;
+          items_by_id: Record<string, {
+            id: string;
+            source: string;
+            category: string;
+            severity: string;
+            title: string;
+            summary: string;
+            record_ids: string[];
+            evidence_path: string;
+            action_label: string;
+            action_id?: string;
+            safe_to_run: boolean;
+            requires_user_confirmation: boolean;
+            writes: string;
+          }>;
+        };
+        dogfood_report: {
+          findings_by_id: Record<string, { summary: string; record_ids?: string[] }>;
+        };
+      };
+
+      const maintenancePlan = data.maintenance.plans[0];
+      const maintenanceActionId = `maintenance.plan.approve.${maintenancePlan?.plan_hash.replace(/^sha256:/, "")}`;
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(data.governance.summary).toMatchObject({
+        total_items: 6,
+        needs_user_action: 2,
+        safe_inspections: 4,
+        hidden_private_records: 1
+      });
+      expect(data.governance.sources).toMatchObject({
+        capture_policy: true,
+        memory_lifecycle: true,
+        maintenance: true,
+        dogfood_report: true
+      });
+      expect(Object.keys(data.governance.items_by_id)).toEqual(data.governance.items.map((item) => item.id));
+      expect(data.governance.items_by_id["capture_policy:review_required"]).toMatchObject({
+        source: "capture_policy",
+        category: "capture_review",
+        severity: "info",
+        record_ids: ["rec_governance_item_3"],
+        evidence_path: "capture_policy.findings_by_id.review_required",
+        action_label: "Review in Capture Inbox",
+        safe_to_run: false,
+        requires_user_confirmation: true,
+        writes: "append_only_events"
+      });
+      expect(data.governance.items_by_id["capture_policy:auto_captured"]).toMatchObject({
+        source: "capture_policy",
+        category: "auto_capture",
+        record_ids: ["rec_governance_item_4"],
+        evidence_path: "capture_policy.findings_by_id.auto_captured",
+        action_label: "inspect_auto_captured_handoff",
+        action_id: "capture_policy.inspect.rec_governance_item_4",
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none"
+      });
+      expect(data.governance.items_by_id["memory_lifecycle:stale_records"]).toMatchObject({
+        source: "memory_lifecycle",
+        category: "memory_lifecycle",
+        severity: "info",
+        record_ids: ["rec_governance_item_5"],
+        evidence_path: "memory_lifecycle.findings_by_id.stale_records",
+        action_label: "inspect_timeline",
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none"
+      });
+      expect(data.governance.items_by_id[`maintenance:${maintenancePlan?.plan_id}`]).toMatchObject({
+        source: "maintenance",
+        category: "project_identity",
+        severity: "warning",
+        record_ids: ["rec_governance_item_2"],
+        evidence_path: `maintenance.plans_by_id.${maintenancePlan?.plan_id}`,
+        action_label: "Apply Repair",
+        action_id: maintenanceActionId,
+        safe_to_run: false,
+        requires_user_confirmation: true,
+        writes: "append_only_events"
+      });
+      expect(data.governance.items_by_id["dogfood_report:capture_review_backlog"]).toMatchObject({
+        source: "dogfood_report",
+        category: "dogfood_friction",
+        record_ids: ["rec_governance_item_4", "rec_governance_item_3"],
+        evidence_path: "dogfood_report.findings_by_id.capture_review_backlog",
+        action_label: "review_capture_inbox",
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none"
+      });
+      expect(data.governance.items_by_id["dogfood_report:failure_signals"]).toMatchObject({
+        source: "dogfood_report",
+        category: "dogfood_friction",
+        severity: "warning",
+        record_ids: ["rec_governance_item_6"],
+        evidence_path: "dogfood_report.findings_by_id.failure_signals",
+        action_label: "inspect_failure_signals",
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none"
+      });
+      expect(data.dogfood_report.findings_by_id.failure_signals).toMatchObject({
+        record_ids: ["rec_governance_item_6"]
+      });
+      expect(JSON.stringify(data.governance)).not.toContain("Private Governance Hub item must stay hidden");
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain("Governance Hub");
+      expect(html).toContain("data-governance-item=\"capture_policy:review_required\"");
+      expect(html).toContain("data-governance-item=\"memory_lifecycle:stale_records\"");
+      expect(html).toContain("data-governance-item=\"dogfood_report:failure_signals\"");
+      expect(html).toContain("governance.summary");
+      expect(html).toContain("Read-only");
+      expect(html).toContain("User confirmation");
+      expect(html).toContain("Safe inspection");
+      expect(html).toContain("data-dashboard-detail=\"debug-inspector\"");
+      expect(html).toContain("data-dashboard-detail=\"inspector:records\"");
+      expect(html).not.toContain("<details open data-dashboard-detail=\"inspector:records\">");
+    });
+  });
+
   it("redacts quarantined record text and escapes rendered HTML", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
