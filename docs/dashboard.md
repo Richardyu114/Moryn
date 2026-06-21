@@ -371,6 +371,16 @@ The top health message is rendered as a compact status strip rather than a large
 hero block, so the first screen stays focused on review queues and local
 attention signals.
 
+The first interactive section is `Action Board`, a four-card summary for:
+
+- `Confirm`: explicit approval actions in Capture Inbox or Review Queue
+- `Review`: warning or critical attention signals
+- `Inspect`: safe read-only governance checks
+- `Sync`: local-only, pending, or conflicting sync state
+
+The Action Board is a derived summary only; it does not add mutation endpoints
+or hide the underlying panels.
+
 `Needs Attention` keeps warning and critical items directly visible. Informational
 checks are grouped under a collapsed `Info Checks` summary so routine status
 signals remain inspectable without competing with action-oriented warnings.

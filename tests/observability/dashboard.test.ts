@@ -690,6 +690,26 @@ describe("observability dashboard", () => {
           title: "Quarantined records hidden"
         })
       ]));
+      expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
+      expect(data.action_board.items_by_id.confirm).toMatchObject({
+        label: "Confirm",
+        value: 0,
+        severity: "good",
+        summary: "No approvals waiting"
+      });
+      expect(data.action_board.items_by_id.review).toMatchObject({
+        label: "Review",
+        value: 1,
+        severity: "warning",
+        summary: "1 attention item",
+        detail: "Warnings and critical signals remain visible in Needs Attention."
+      });
+      expect(data.action_board.items_by_id.sync).toMatchObject({
+        label: "Sync",
+        value: 1,
+        severity: "info",
+        summary: "Local Only"
+      });
       expect(data.recent_value.find((record) => record.state === "quarantined")?.summary).toBe("[quarantined]");
 
       const html = renderDashboardHtml(data);
@@ -698,6 +718,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Dashboard Status</strong>");
       expect(html).toContain("data-dashboard-status=\"");
       expect(html).not.toContain("<section class=\"hero\">");
+      expect(html).toContain("<section class=\"action-board\" aria-label=\"Action Board\">");
+      expect(html).toContain("<h2>Action Board</h2>");
+      expect(html).toContain("data-action-board-item=\"confirm\"");
+      expect(html).toContain("data-action-board-item=\"review\"");
+      expect(html).toContain("data-action-board-item=\"inspect\"");
+      expect(html).toContain("data-action-board-item=\"sync\"");
+      expect(html).toContain("Warnings and critical signals remain visible in Needs Attention.");
+      expect(html).not.toContain("<section class=\"overview-grid\" aria-label=\"Dashboard overview\">");
       expect(html).toContain("Needs Attention");
       expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Quarantined records hidden\">");
       expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
@@ -728,7 +756,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("--ink:");
       expect(html).toContain("--signal-blue:");
       expect(html).toContain("font-feature-settings:");
-      expect(html).toContain(".metric:nth-child(3)");
+      expect(html).toContain(".action-board-grid");
+      expect(html).toContain(".action-board-item.warning");
       expect(html).toContain(".bar-row:nth-child(3)");
       expect(html).toContain(".value-card:nth-child(4)");
       expect(html).toContain(".dashboard-fold-summary");
