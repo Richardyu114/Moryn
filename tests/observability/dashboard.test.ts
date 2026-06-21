@@ -1832,10 +1832,15 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"maintenance-review-summary\" data-dashboard-detail=\"maintenance-review-queue\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-review-fold\">");
       expect(html).toContain("<span>Review Queue</span>");
-      expect(html).toContain("<small>1 plan | 1 record to move | explicit approval</small>");
+      expect(html).toContain("<small>1 decision to review | 1 record to move | approval required</small>");
       expect(html).toContain("<div class=\"maintenance-review-body\">");
       expect(html).toContain("Project identity repair");
       expect(html).toContain("data-maintenance-decision-summary");
+      expect(html).toContain("data-maintenance-brief");
+      expect(html).toContain("<h4>Decision brief</h4>");
+      expect(html).toContain("This repair would relink 1 record from <code>repo-e6f0166fd942</code> to <code>moryn</code>.");
+      expect(html).toContain("Approval is explicit: the server re-runs the dry run and checks the same <code>plan_hash</code> before writing.");
+      expect(html).toContain("No private records included.");
       expect(html).toContain("Review before write");
       expect(html).toContain("Plan hash guard");
       expect(html).toContain("Why");
@@ -1846,6 +1851,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("repo-e6f0166fd942 to moryn");
       expect(html).toContain("Server re-runs the dry run and checks plan_hash before applying.");
       expect(html).toContain("data-maintenance-review-log");
+      expect(html).toContain("<summary>Audit trail</summary>");
       expect(html).toContain("<h4>Review log</h4>");
       expect(html).toContain("Detected: Project identity repair found records under an old project id.");
       expect(html).toContain("Proposed change: Move 1 record from repo-e6f0166fd942 to moryn.");

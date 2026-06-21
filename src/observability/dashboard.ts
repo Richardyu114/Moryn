@@ -2336,6 +2336,19 @@ function maintenanceMoveSummary(plan: DashboardMaintenancePlan): string {
   return `Move ${pluralize(plan.dry_run.matched_records, "record")}`;
 }
 
+function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
+  return `
+    <div class="maintenance-brief" data-maintenance-brief>
+      <h4>Decision brief</h4>
+      <ul>
+        <li>This repair would relink ${escapeHtml(pluralize(plan.dry_run.matched_records, "record"))} from <code>${escapeHtml(plan.from_project_id)}</code> to <code>${escapeHtml(plan.to_project_id)}</code>.</li>
+        <li>Approval is explicit: the server re-runs the dry run and checks the same <code>plan_hash</code> before writing.</li>
+        <li>${escapeHtml(maintenancePrivateSummary(plan))}.</li>
+      </ul>
+    </div>
+  `;
+}
+
 function maintenanceReviewLog(plan: DashboardMaintenancePlan): string[] {
   return [
     "Detected: Project identity repair found records under an old project id.",
@@ -2347,7 +2360,7 @@ function maintenanceReviewLog(plan: DashboardMaintenancePlan): string[] {
 
 function maintenanceReviewQueueSummary(plans: DashboardMaintenancePlan[]): string {
   const recordTotal = plans.reduce((total, plan) => total + plan.dry_run.matched_records, 0);
-  return `${pluralize(plans.length, "plan")} | ${pluralize(recordTotal, "record")} to move | explicit approval`;
+  return `${pluralize(plans.length, "decision")} to review | ${pluralize(recordTotal, "record")} to move | approval required`;
 }
 
 function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
@@ -2377,13 +2390,17 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                     <span>Plan hash guard</span>
                   </div>
                 </div>
+                ${maintenanceReviewBrief(plan)}
                 <dl class="maintenance-summary maintenance-decision-summary" data-maintenance-decision-summary>
                   <div><dt>Why</dt><dd>${escapeHtml(plan.decision_card.impact)}</dd></div>
                   <div><dt>Change</dt><dd>${escapeHtml(maintenanceMoveSummary(plan))}<small>${escapeHtml(`${plan.from_project_id} to ${plan.to_project_id}`)}</small></dd></div>
                   <div><dt>Safety</dt><dd>${escapeHtml("Server re-runs the dry run and checks plan_hash before applying.")}<small>${escapeHtml(maintenancePrivateSummary(plan))}</small></dd></div>
                   <div><dt>Action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
                 </dl>
-                ${reviewLogList(maintenanceReviewLog(plan), "data-maintenance-review-log")}
+                <details class="maintenance-audit-trail" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
+                  <summary>Audit trail</summary>
+                  ${reviewLogList(maintenanceReviewLog(plan), "data-maintenance-review-log")}
+                </details>
                 <details data-dashboard-detail="maintenance:${escapeHtml(plan.plan_id)}">
                   <summary>Evidence, rollback, and raw plan</summary>
                   <div class="maintenance-detail-grid">
@@ -4239,6 +4256,44 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-size: 12px;
       font-weight: 720;
       white-space: nowrap;
+    }
+    .maintenance-brief {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 10px;
+      margin: 0 0 10px;
+      background: var(--surface);
+    }
+    .maintenance-brief h4 {
+      margin: 0 0 7px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 780;
+    }
+    .maintenance-brief ul {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding-left: 18px;
+    }
+    .maintenance-brief li {
+      color: var(--ink-2);
+      overflow-wrap: anywhere;
+    }
+    .maintenance-audit-trail {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin: 8px 0 10px;
+      background: var(--surface);
+    }
+    .maintenance-audit-trail[open] > summary { margin-bottom: 8px; }
+    .maintenance-audit-trail summary { color: var(--ink); font-weight: 720; }
+    .maintenance-audit-trail .review-log {
+      border: 0;
+      padding: 0;
+      margin: 0;
+      background: transparent;
     }
     .capture-inbox-main p {
       color: var(--ink);

@@ -258,18 +258,25 @@ the first version, the only interactive plan is project identity repair:
 `project_migrate` dry-run plan.
 
 The approval card is a human-readable decision card. The queue is collapsed by
-default behind a confirmation summary that shows the number of plans, records
-that would move, and that approval remains explicit. Expanding it shows each
-decision summary:
+default behind a confirmation summary that shows the number of decisions to
+review, records that would move, and that approval is still required. Expanding
+it first shows a compact `Decision brief` so the user can decide whether the
+repair is worth approving without reading raw event language:
+
+- what the repair would relink
+- why approval is explicit
+- whether private records are included or skipped
+
+The same card still includes the structured decision summary:
 
 - why the repair exists
 - what records move between project ids
 - the safety boundary, including server-side dry-run and `plan_hash` checking
 - the recommended action
 
-Each plan also renders a compact `Review log` in plain language: what was
-detected, the proposed change, the explicit approval gate, and where the audit
-trail lives.
+Each plan also keeps a compact `Review log` in plain language under an
+expandable `Audit trail`: what was detected, the proposed change, the explicit
+approval gate, and where the audit trail lives.
 
 Evidence, rollback, and raw plan details are kept in an expandable section so
 the first screen stays readable without hiding audit data. That rollback path
