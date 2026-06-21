@@ -2234,6 +2234,13 @@ function contextPackReviewItemColumn(title: string, items: DashboardContextPackR
   `;
 }
 
+function contextPackReviewSummary(review: DashboardContextPackReview): string {
+  const pack = review.handoff_pack;
+  if (!pack) return "unavailable";
+  const gate = pack.quality_gate;
+  return `${gate.status} | ${pluralize(pack.recent_decisions.length, "decision")} | ${pluralize(pack.open_threads.length, "thread")} | ${pluralize(pack.risks.length, "risk")}`;
+}
+
 function contextPackReviewPanel(review: DashboardContextPackReview): string {
   if (!review.available || !review.handoff_pack) {
     return `
@@ -2249,40 +2256,46 @@ function contextPackReviewPanel(review: DashboardContextPackReview): string {
   const pack = review.handoff_pack;
   const gate = pack.quality_gate;
   return `
-    <section class="panel context-pack-review" aria-label="Context Pack Review">
-      <div class="context-pack-heading">
-        <h2>Context Pack Review</h2>
-        <span>${escapeHtml(gate.status)}</span>
-      </div>
-      <div class="lifecycle-policy">
-        <div>
-          <strong>${escapeHtml(pack.purpose)}</strong>
-          <code>${escapeHtml(review.project_id ?? "unknown")}</code>
+    <details class="panel context-pack-review" data-dashboard-detail="context-pack-review" aria-label="Context Pack Review">
+      <summary class="dashboard-fold-summary context-pack-review-fold">
+        <span>Context Pack Review</span>
+        <small>${escapeHtml(contextPackReviewSummary(review))}</small>
+      </summary>
+      <div class="context-pack-review-body">
+        <div class="context-pack-heading">
+          <h2>Context Pack Review</h2>
+          <span>${escapeHtml(gate.status)}</span>
         </div>
-        <span>Read-only</span>
-        <span>${escapeHtml(review.generated_from.store)}</span>
-        <span>writes: ${escapeHtml(review.generated_from.writes)}</span>
-        <span>sync pull: ${escapeHtml(review.generated_from.sync_pull)}</span>
-      </div>
-      <dl class="context-pack-summary">
-        <div><dt>Current goal</dt><dd>${escapeHtml(pack.current_goal?.text ?? "none")}<small>${escapeHtml(pack.current_goal?.source ?? "missing")}</small></dd></div>
-        <div><dt>Quality gate</dt><dd>${escapeHtml(gate.status)}<small>${escapeHtml(gate.failed_check_ids.length ? gate.failed_check_ids.join(", ") : "no failed checks")}</small></dd></div>
-        <div><dt>End action</dt><dd><code>${escapeHtml(pack.next_actions[0]?.command ?? "missing")}</code><small>${escapeHtml(pack.next_actions[0]?.evidence.source ?? "missing")}</small></dd></div>
-        <div><dt>Evidence</dt><dd><code>${escapeHtml(pack.evidence.records)}</code> <code>${escapeHtml(pack.evidence.events)}</code> <code>${escapeHtml(pack.evidence.next)}</code></dd></div>
-      </dl>
-      ${contextPackReviewChecks(review)}
-      <details class="context-pack-evidence" data-dashboard-detail="context-pack-evidence">
-        <summary class="dashboard-fold-summary">
-          <span>Context Evidence</span>
-          <small>${escapeHtml(pluralize(pack.recent_decisions.length, "decision"))} | ${escapeHtml(pluralize(pack.open_threads.length, "thread"))} | ${escapeHtml(pluralize(pack.risks.length, "risk"))}</small>
-        </summary>
-        <div class="context-pack-grid">
-          ${contextPackReviewItemColumn("Recent Decisions", pack.recent_decisions)}
-          ${contextPackReviewItemColumn("Open Threads", pack.open_threads)}
-          ${contextPackReviewItemColumn("Risks", pack.risks)}
+        <div class="lifecycle-policy">
+          <div>
+            <strong>${escapeHtml(pack.purpose)}</strong>
+            <code>${escapeHtml(review.project_id ?? "unknown")}</code>
+          </div>
+          <span>Read-only</span>
+          <span>${escapeHtml(review.generated_from.store)}</span>
+          <span>writes: ${escapeHtml(review.generated_from.writes)}</span>
+          <span>sync pull: ${escapeHtml(review.generated_from.sync_pull)}</span>
         </div>
-      </details>
-    </section>
+        <dl class="context-pack-summary">
+          <div><dt>Current goal</dt><dd>${escapeHtml(pack.current_goal?.text ?? "none")}<small>${escapeHtml(pack.current_goal?.source ?? "missing")}</small></dd></div>
+          <div><dt>Quality gate</dt><dd>${escapeHtml(gate.status)}<small>${escapeHtml(gate.failed_check_ids.length ? gate.failed_check_ids.join(", ") : "no failed checks")}</small></dd></div>
+          <div><dt>End action</dt><dd><code>${escapeHtml(pack.next_actions[0]?.command ?? "missing")}</code><small>${escapeHtml(pack.next_actions[0]?.evidence.source ?? "missing")}</small></dd></div>
+          <div><dt>Evidence</dt><dd><code>${escapeHtml(pack.evidence.records)}</code> <code>${escapeHtml(pack.evidence.events)}</code> <code>${escapeHtml(pack.evidence.next)}</code></dd></div>
+        </dl>
+        ${contextPackReviewChecks(review)}
+        <details class="context-pack-evidence" data-dashboard-detail="context-pack-evidence">
+          <summary class="dashboard-fold-summary">
+            <span>Context Evidence</span>
+            <small>${escapeHtml(pluralize(pack.recent_decisions.length, "decision"))} | ${escapeHtml(pluralize(pack.open_threads.length, "thread"))} | ${escapeHtml(pluralize(pack.risks.length, "risk"))}</small>
+          </summary>
+          <div class="context-pack-grid">
+            ${contextPackReviewItemColumn("Recent Decisions", pack.recent_decisions)}
+            ${contextPackReviewItemColumn("Open Threads", pack.open_threads)}
+            ${contextPackReviewItemColumn("Risks", pack.risks)}
+          </div>
+        </details>
+      </div>
+    </details>
   `;
 }
 
@@ -3231,6 +3244,11 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding-top: 10px;
     }
     .context-pack-review { border-left: 4px solid var(--signal-blue); }
+    .context-pack-review[open] > summary { margin-bottom: 10px; }
+    .context-pack-review-body {
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
     .governance-hub { border-left: 4px solid var(--signal-green); }
     .memory-lifecycle { border-left: 4px solid var(--signal-violet); }
     .store-signals { border-left: 4px solid var(--signal-slate); }

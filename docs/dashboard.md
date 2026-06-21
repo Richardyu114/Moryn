@@ -455,6 +455,11 @@ includes a read-only `Context Pack Review` panel for handoff readiness. The pane
 is built from the dashboard's replayed local event history, not by calling the
 host adapter `context_pack` operation. It records:
 
+When available, the panel is collapsed by default behind a handoff readiness
+summary that shows the quality gate status and counts for recent decisions,
+open threads, and risks. Expanding it shows the current goal, read-only
+boundary, quality checks, evidence paths, and context evidence.
+
 - `context_pack_review.generated_from.store: "local_event_history"`
 - `context_pack_review.generated_from.writes: "none"`
 - `context_pack_review.generated_from.sync_pull: false`
