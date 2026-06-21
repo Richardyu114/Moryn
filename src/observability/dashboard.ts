@@ -2227,7 +2227,22 @@ function governanceItem(item: DashboardGovernanceItem): string {
 }
 
 function governanceHubSummaryText(governance: DashboardGovernance): string {
-  return `${pluralize(governance.summary.needs_user_action, "need confirmation", "need confirmation")} | ${pluralize(governance.summary.safe_inspections, "safe check")} | ${pluralize(governance.summary.hidden_private_records, "private hidden", "private hidden")}`;
+  const counts = [
+    governance.summary.needs_user_action > 0 ? pluralize(governance.summary.needs_user_action, "need confirmation", "need confirmation") : undefined,
+    governance.summary.safe_inspections > 0 ? pluralize(governance.summary.safe_inspections, "safe check") : undefined,
+    governance.summary.hidden_private_records > 0 ? pluralize(governance.summary.hidden_private_records, "private hidden", "private hidden") : undefined
+  ].filter((count): count is string => count !== undefined);
+  return counts.length > 0 ? counts.join(" | ") : "All clear";
+}
+
+function governanceCountChips(governance: DashboardGovernance): string {
+  const chips = [
+    governance.summary.needs_user_action > 0 ? `${governance.summary.needs_user_action} need confirmation` : undefined,
+    governance.summary.safe_inspections > 0 ? pluralize(governance.summary.safe_inspections, "safe check") : undefined,
+    governance.summary.hidden_private_records > 0 ? `${governance.summary.hidden_private_records} private hidden` : undefined
+  ].filter((chip): chip is string => chip !== undefined);
+  if (chips.length === 0) return `<span>All clear</span>`;
+  return chips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
 }
 
 function governanceHubBody(governance: DashboardGovernance): string {
@@ -2241,9 +2256,7 @@ function governanceHubBody(governance: DashboardGovernance): string {
           <p><code>governance.summary</code></p>
         </div>
         <div class="governance-counts">
-          <span>${escapeHtml(governance.summary.needs_user_action)} need confirmation</span>
-          <span>${escapeHtml(governance.summary.safe_inspections)} safe checks</span>
-          <span>${escapeHtml(governance.summary.hidden_private_records)} private hidden</span>
+          ${governanceCountChips(governance)}
         </div>
       </div>
       <div class="governance-list">

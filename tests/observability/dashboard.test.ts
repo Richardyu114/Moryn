@@ -317,7 +317,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details id=\"governance-hub\" class=\"panel governance-hub\" data-dashboard-detail=\"governance-hub\" aria-label=\"Governance Hub\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary governance-hub-fold\">");
       expect(html).toContain("<span>Governance Hub</span>");
-      expect(html).toContain("<small>0 need confirmation | 1 safe check | 0 private hidden</small>");
+      expect(html).toContain("<small>1 safe check</small>");
+      expect(html).not.toContain("0 need confirmation");
+      expect(html).not.toContain("0 private hidden");
+      expect(html).not.toContain("<span>0 safe checks</span>");
       expect(html).toContain("<div class=\"governance-hub-body\">");
       expect(html).toContain("<details class=\"governance-safe-group\" data-dashboard-detail=\"governance-safe-inspections\">");
       expect(html).toContain("data-governance-item=\"dogfood_report:failure_signals\"");
