@@ -3703,7 +3703,7 @@ function debugInspectorPanel(data: DashboardData): string {
 }
 
 function supportingEvidenceSummary(): string {
-  return `${pluralize(4, "evidence group")} | collapsed by default`;
+  return "Audit logs and raw signals";
 }
 
 function supportingEvidencePanel(data: DashboardData): string {

@@ -471,11 +471,12 @@ Registry entries, or memory mutation paths.
 
 Clean audit reports, raw records, events, sync details, recent value, and store
 telemetry remain available inside the nested `Supporting Evidence` panel. That
-collapsed group summarizes the number of evidence groups instead of listing
-implementation-oriented module names on the first screen. It still holds `Clean
-Audit Reports`, `Store Signals`, `Recent Value`, and the raw `Debug Inspector`
-together so the first screen prioritizes attention items, review actions, and
-approval queues without removing local evidence.
+collapsed group uses the purpose label `Audit logs and raw signals` instead of
+listing implementation-oriented module names or collapsed-state counters on the
+first screen. It still holds `Clean Audit Reports`, `Store Signals`, `Recent
+Value`, and the raw `Debug Inspector` together so the first screen prioritizes
+attention items, review actions, and approval queues without removing local
+evidence.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without
