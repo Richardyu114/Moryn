@@ -116,6 +116,15 @@ describe("observability dashboard", () => {
         state: "candidate",
         source_label: "Gemini"
       });
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain("<details id=\"needs-attention\" class=\"panel needs-attention quiet\" data-dashboard-detail=\"needs-attention\" data-dashboard-section=\"needs-attention\">");
+      expect(html).toContain("<span>Needs Attention</span>");
+      expect(html).toContain("<small>0 action signals | 1 info item | collapsed by default</small>");
+      expect(html).toContain("<div class=\"attention-list\">");
+      expect(html).toContain("<span class=\"attention-next-action\" data-attention-next-action>Inspect checks</span>");
+      expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
+      expect(html).not.toContain("<section id=\"needs-attention\" class=\"panel\" data-dashboard-section=\"needs-attention\">");
     });
   });
 

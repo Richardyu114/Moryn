@@ -2207,6 +2207,38 @@ function attentionItems(items: DashboardAttentionItem[]): string {
   `;
 }
 
+function attentionSummaryText(items: DashboardAttentionItem[]): string {
+  const actionSignals = items.filter((item) => item.severity !== "info").length;
+  const info = items.filter((item) => item.severity === "info").length;
+  const parts = [
+    pluralize(actionSignals, "action signal"),
+    pluralize(info, "info item")
+  ];
+  if (actionSignals === 0) parts.push("collapsed by default");
+  return parts.join(" | ");
+}
+
+function needsAttentionPanel(items: DashboardAttentionItem[]): string {
+  const actionSignals = items.filter((item) => item.severity !== "info").length;
+  if (actionSignals === 0) {
+    return `
+      <details id="needs-attention" class="panel needs-attention quiet" data-dashboard-detail="needs-attention" data-dashboard-section="needs-attention">
+        <summary class="dashboard-fold-summary">
+          <span>Needs Attention</span>
+          <small>${escapeHtml(attentionSummaryText(items))}</small>
+        </summary>
+        ${attentionItems(items)}
+      </details>
+    `;
+  }
+  return `
+    <section id="needs-attention" class="panel" data-dashboard-section="needs-attention">
+      <h2>Needs Attention</h2>
+      ${attentionItems(items)}
+    </section>
+  `;
+}
+
 function governanceSafetyLabel(item: DashboardGovernanceItem): string {
   if (item.requires_user_confirmation) return "User confirmation";
   if (item.safe_to_run && item.writes === "none") return "Safe inspection";
@@ -3491,10 +3523,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${actionBoard(data.action_board)}
 
-    <section id="needs-attention" class="panel" data-dashboard-section="needs-attention">
-      <h2>Needs Attention</h2>
-      ${attentionItems(data.attention_items)}
-    </section>
+    ${needsAttentionPanel(data.attention_items)}
 
     ${governanceHub(data.governance)}
 
@@ -4033,6 +4062,11 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-style: normal;
       font-weight: 760;
       overflow-wrap: anywhere;
+    }
+    .needs-attention.quiet[open] > summary { margin-bottom: 10px; }
+    .needs-attention.quiet .attention-list {
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
     }
     .attention-list { display: grid; gap: 9px; }
     .attention-focus {

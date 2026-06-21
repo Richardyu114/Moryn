@@ -430,7 +430,10 @@ non-zero warning checks, and non-zero informational checks, then shows the next
 review step as a dedicated action chip. Warning and critical items remain
 directly visible. Informational checks are grouped under a collapsed `Info
 Checks` summary so routine status signals remain inspectable without competing
-with action-oriented warnings.
+with action-oriented warnings. When there are no warning or critical action
+signals, the whole `Needs Attention` panel is collapsed behind a summary such as
+`0 action signals | 1 info item | collapsed by default`, so a routine local-only
+or clean snapshot does not take over the first screen.
 
 Clean audit reports, raw records, events, sync details, recent value, and store
 telemetry remain available in the lower `Supporting Evidence` panel. That
