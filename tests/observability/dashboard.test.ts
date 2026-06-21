@@ -1980,10 +1980,11 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Context Pack Review");
-      expect(html).toContain("<details class=\"panel context-pack-review\" data-dashboard-detail=\"context-pack-review\" aria-label=\"Context Pack Review\">");
+      expect(html).toContain("<details class=\"panel context-pack-review\" data-dashboard-detail=\"context-pack-review\" data-context-pack-state=\"ready\" aria-label=\"Context Pack Review\">");
+      expect(html).not.toContain("<details open class=\"panel context-pack-review\"");
       expect(html).toContain("<summary class=\"dashboard-fold-summary context-pack-review-fold\">");
       expect(html).toContain("<span>Context Pack Review</span>");
-      expect(html).toContain("<small>ready | 1 decision | 1 thread | 1 risk</small>");
+      expect(html).toContain("<small>ready | all checks passed | 1 decision | 1 thread | 1 risk</small>");
       expect(html).toContain("<div class=\"context-pack-review-body\">");
       expect(html).toContain("agent_handoff");
       expect(html).toContain("Read-only");

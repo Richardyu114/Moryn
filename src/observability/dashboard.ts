@@ -2529,7 +2529,14 @@ function contextPackReviewSummary(review: DashboardContextPackReview): string {
   const pack = review.handoff_pack;
   if (!pack) return "unavailable";
   const gate = pack.quality_gate;
-  return `${gate.status} | ${pluralize(pack.recent_decisions.length, "decision")} | ${pluralize(pack.open_threads.length, "thread")} | ${pluralize(pack.risks.length, "risk")}`;
+  const checkSummary = gate.failed_check_ids.length === 0 && gate.warnings.length === 0 ? "all checks passed" : `${pluralize(gate.failed_check_ids.length, "failed check")} | ${pluralize(gate.warnings.length, "warning")}`;
+  return `${gate.status} | ${checkSummary} | ${pluralize(pack.recent_decisions.length, "decision")} | ${pluralize(pack.open_threads.length, "thread")} | ${pluralize(pack.risks.length, "risk")}`;
+}
+
+function contextPackReviewOpenAttribute(review: DashboardContextPackReview): string {
+  const gate = review.handoff_pack?.quality_gate;
+  if (!gate) return "";
+  return gate.status === "ready" && gate.failed_check_ids.length === 0 && gate.warnings.length === 0 ? "" : " open";
 }
 
 function contextPackReviewPanel(review: DashboardContextPackReview): string {
@@ -2547,7 +2554,7 @@ function contextPackReviewPanel(review: DashboardContextPackReview): string {
   const pack = review.handoff_pack;
   const gate = pack.quality_gate;
   return `
-    <details class="panel context-pack-review" data-dashboard-detail="context-pack-review" aria-label="Context Pack Review">
+    <details${contextPackReviewOpenAttribute(review)} class="panel context-pack-review" data-dashboard-detail="context-pack-review" data-context-pack-state="${escapeHtml(gate.status)}" aria-label="Context Pack Review">
       <summary class="dashboard-fold-summary context-pack-review-fold">
         <span>Context Pack Review</span>
         <small>${escapeHtml(contextPackReviewSummary(review))}</small>
