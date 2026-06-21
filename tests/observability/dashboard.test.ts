@@ -867,82 +867,124 @@ describe("observability dashboard", () => {
         source: { client: "codex", session_id: "recall-eval-case" }
       });
 
+      const remoteRoot = await mkdtemp(join(tmpdir(), "moryn-dashboard-recall-sync-"));
+      const remote = join(remoteRoot, "remote.git");
+      await exec("git", ["init", "--bare", remote]);
+      await initializeGitSync(storePath, remote);
+
       const beforeEvents = await readEvents(storePath);
-      const data = await buildDashboardData(storePath, {
-        limit: 10,
-        project_id: "moryn",
-        now: "2026-06-21T00:00:00.000Z"
-      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
-        recall_eval: {
-          available: boolean;
-          generated_from: {
-            store: string;
-            writes: string;
+      try {
+        const data = await buildDashboardData(storePath, {
+          limit: 10,
+          project_id: "moryn",
+          now: "2026-06-21T00:00:00.000Z"
+        }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+          recall_eval: {
+            available: boolean;
+            generated_from: {
+              store: string;
+              writes: string;
+            };
+            case_sources: Array<{ record_id: string; case_count: number }>;
+            report: {
+              summary: {
+                total_cases: number;
+                passed_cases: number;
+                failed_cases: number;
+                privacy_leaks: number;
+              };
+              cases_by_id: Record<string, { status: string; missing_record_ids: string[] }>;
+            } | null;
           };
-          case_sources: Array<{ record_id: string; case_count: number }>;
+        };
+
+        expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+        expect(data.sync).toMatchObject({
+          configured: true,
+          dirty: false,
+          sync_state: "clean",
+          ahead: 0,
+          behind: 0
+        });
+        expect(data.recall_eval).toMatchObject({
+          available: true,
+          generated_from: {
+            store: "local_event_history",
+            writes: "none"
+          },
+          case_sources: [
+            {
+              record_id: "rec_recall_eval_2",
+              case_count: 2
+            }
+          ],
           report: {
             summary: {
-              total_cases: number;
-              passed_cases: number;
-              failed_cases: number;
-              privacy_leaks: number;
-            };
-            cases_by_id: Record<string, { status: string; missing_record_ids: string[] }>;
-          } | null;
-        };
-      };
-
-      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
-      expect(data.recall_eval).toMatchObject({
-        available: true,
-        generated_from: {
-          store: "local_event_history",
+              total_cases: 2,
+              passed_cases: 1,
+              failed_cases: 1,
+              privacy_leaks: 0
+            }
+          }
+        });
+        expect(data.recall_eval.report?.cases_by_id["missing-dashboard-memory"]).toMatchObject({
+          status: "fail",
+          missing_record_ids: ["rec_missing_dashboard_memory"]
+        });
+        expect(data.governance.items_by_id["recall_eval:missing-dashboard-memory"]).toMatchObject({
+          source: "recall_eval",
+          category: "recall_quality",
+          severity: "warning",
+          record_ids: ["rec_missing_dashboard_memory"],
+          evidence_path: "recall_eval.report.cases_by_id.missing-dashboard-memory",
+          action_label: "revise_golden_case_or_memory",
+          safe_to_run: true,
+          requires_user_confirmation: false,
           writes: "none"
-        },
-        case_sources: [
-          {
-            record_id: "rec_recall_eval_2",
-            case_count: 2
+        });
+        expect(data.governance.summary).toMatchObject({
+          needs_user_action: 0,
+          safe_inspections: 1
+        });
+        expect(data.action_board.items_by_id.inspect.value).toBe(1);
+        expect(data.dashboard_overview).toMatchObject({
+          status: "good",
+          headline: "All clear",
+          detail: "No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.",
+          primary_action: {
+            label: "Inspect checks",
+            target: "governance-hub",
+            source: "action_board.items_by_id.inspect"
           }
-        ],
-        report: {
-          summary: {
-            total_cases: 2,
-            passed_cases: 1,
-            failed_cases: 1,
-            privacy_leaks: 0
-          }
-        }
-      });
-      expect(data.recall_eval.report?.cases_by_id["missing-dashboard-memory"]).toMatchObject({
-        status: "fail",
-        missing_record_ids: ["rec_missing_dashboard_memory"]
-      });
-      expect(data.governance.items_by_id["recall_eval:missing-dashboard-memory"]).toMatchObject({
-        source: "recall_eval",
-        category: "recall_quality",
-        severity: "warning",
-        record_ids: ["rec_missing_dashboard_memory"],
-        evidence_path: "recall_eval.report.cases_by_id.missing-dashboard-memory",
-        action_label: "revise_golden_case_or_memory",
-        safe_to_run: true,
-        requires_user_confirmation: false,
-        writes: "none"
-      });
-      expect(data.governance.summary).toMatchObject({
-        needs_user_action: 0,
-        safe_inspections: 1
-      });
-      expect(data.action_board.items_by_id.inspect.value).toBe(1);
+        });
+        expect(data.dashboard_overview.cards_by_id.action).toMatchObject({
+          value: "All clear",
+          summary: "1 safe check available",
+          severity: "good",
+          target: "governance-hub",
+          target_label: "Inspect checks",
+          source: "action_board.items_by_id.inspect"
+        });
 
-      const html = renderDashboardHtml(data);
-      expect(html).toContain("Recall Eval");
-      expect(html).not.toContain("data-governance-item=\"recall_eval:missing-dashboard-memory\"");
-      expect(html).toContain("data-governance-safe-item=\"recall_eval:missing-dashboard-memory\"");
-      expect(html).toContain("recall_eval.report.cases_by_id.missing-dashboard-memory");
-      expect(html).toContain("revise_golden_case_or_memory");
-      expect(html).toContain("<small>1 safe check</small>");
-      expect(JSON.stringify(data.recall_eval)).not.toContain("Private");
+        const html = renderDashboardHtml(data);
+        expect(html).toContain("Recall Eval");
+        expect(html).toContain("<section class=\"dashboard-overview good\" data-dashboard-overview aria-label=\"Dashboard Overview\">");
+        expect(html).toContain("<strong>All clear</strong>");
+        expect(html).toContain("<p>No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.</p>");
+        expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">Inspect checks</button>");
+        expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card good\" data-dashboard-overview-card=\"action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\" data-dashboard-overview-source=\"action_board.items_by_id.inspect\">");
+        expect(html).toContain("<span>Next</span>");
+        expect(html).toContain("<strong>All clear</strong>");
+        expect(html).toContain("<small>Inspect checks</small>");
+        expect(html).not.toContain("data-governance-item=\"recall_eval:missing-dashboard-memory\"");
+        expect(html).toContain("data-governance-safe-item=\"recall_eval:missing-dashboard-memory\"");
+        expect(html).toContain("recall_eval.report.cases_by_id.missing-dashboard-memory");
+        expect(html).toContain("revise_golden_case_or_memory");
+        expect(html).toContain("<small>1 safe check</small>");
+        expect(JSON.stringify(data.recall_eval)).not.toContain("Private");
+      } finally {
+        await rm(remoteRoot, { recursive: true, force: true });
+      }
     });
   });
 

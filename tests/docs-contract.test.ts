@@ -59,6 +59,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("recall_eval_case");
     expect(dashboard).toContain("data-dashboard-action-id");
     expectText(dashboard, "Each overview card is also a local navigation button");
+    expectText(dashboard, "Pure read-only inspections do not turn the overview headline into an urgent next action");
+    expectText(dashboard, "the overview reads `All clear` while still offering an `Inspect checks` navigation button");
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Supporting Evidence");
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");

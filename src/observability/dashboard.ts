@@ -1897,6 +1897,14 @@ function buildDashboardOverview(input: {
   contextPackReview: DashboardContextPackReview;
 }): DashboardOverview {
   const primary = focusBriefPrimaryItem(input.actionBoard);
+  const isAllClearPrimary = primary.next_action_label === "All clear";
+  const actionCardPrimary = isAllClearPrimary
+    ? {
+      ...primary,
+      next_action_label: input.actionBoard.items_by_id.inspect.value > 0 ? "Inspect checks" : "Check attention",
+      target: input.actionBoard.items_by_id.inspect.value > 0 ? "governance-hub" : "needs-attention"
+    }
+    : primary;
   const contextGate = input.contextPackReview.handoff_pack?.quality_gate.status;
   const cards: DashboardOverviewCard[] = [
     {
@@ -1915,8 +1923,8 @@ function buildDashboardOverview(input: {
       value: primary.next_action_label,
       summary: primary.summary,
       severity: overviewStatusFromActionSeverity(primary.severity),
-      target: primary.target,
-      target_label: primary.next_action_label,
+      target: actionCardPrimary.target,
+      target_label: actionCardPrimary.next_action_label,
       source: `action_board.items_by_id.${primary.id}`
     },
     {
@@ -1947,8 +1955,8 @@ function buildDashboardOverview(input: {
     headline: primary.next_action_label,
     detail: primary.detail,
     primary_action: {
-      label: primary.next_action_label,
-      target: primary.target,
+      label: actionCardPrimary.next_action_label,
+      target: actionCardPrimary.target,
       source: `action_board.items_by_id.${primary.id}`
     },
     safety: {
@@ -2510,11 +2518,21 @@ function actionBoard(data: DashboardActionBoard): string {
 }
 
 function focusBriefPrimaryItem(actionBoardData: DashboardActionBoard): DashboardActionBoardItem {
-  const priority = ["review", "confirm", "sync", "inspect"] as const;
+  const priority = ["review", "confirm", "sync"] as const;
+  const inspectCount = actionBoardData.items_by_id.inspect.value;
   return priority
     .map((id) => actionBoardData.items_by_id[id])
     .find((item) => item.value > 0 && item.severity !== "good")
-    ?? actionBoardData.items_by_id.confirm;
+    ?? {
+      ...actionBoardData.items_by_id.inspect,
+      value: 0,
+      severity: "good",
+      summary: inspectCount > 0 ? `${pluralize(inspectCount, "safe check")} available` : "No action needed",
+      hint: "No action needed",
+      detail: "No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.",
+      next_action_label: "All clear",
+      target: inspectCount > 0 ? "governance-hub" : "needs-attention"
+    };
 }
 
 function dashboardOverview(data: DashboardOverview): string {

@@ -426,6 +426,10 @@ overview card is also a local navigation button that reuses the same scroll
 targets as the Action Board. It does not add a new API endpoint, Safe Action
 Registry entry, or memory mutation path. Its job is to answer "what should I
 look at first?" while keeping the detailed panels folded underneath.
+Pure read-only inspections do not turn the overview headline into an urgent
+next action. If there are no confirmations, warnings, or sync actions, the
+overview reads `All clear` while still offering an `Inspect checks` navigation
+button to the Governance Hub.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary
