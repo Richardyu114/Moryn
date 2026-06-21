@@ -61,6 +61,7 @@ product position: one multi-agent, multi-device store for memory, skills,
 session summaries, and handoff context.
 
 ```bash
+moryn contracts operations --operation setup
 moryn contracts operations --operation install
 moryn contracts operations --operation context_pack
 moryn contracts operations --operation capture_session
@@ -69,13 +70,39 @@ moryn contracts operations --operation capture_session
 The normal CLI flow is:
 
 ```bash
+moryn setup --host codex --project . --apply
 moryn install --host codex --project . --apply
 moryn context pack --project . --agent codex
 moryn capture session --project . --agent codex --summary "handoff summary"
 ```
 
-The MCP tools are `install`, `context_pack`, and `capture_session`. `install`
-returns a safe setup plan and host-specific MCP registration hints.
+The MCP tools are `setup`, `install`, `context_pack`, and `capture_session`.
+`setup` is the one-command local setup wizard. Its default mode is a dry-run:
+it returns `checks_by_id.<check>`, `actions_by_id.<action>`, `next`, and
+`host_config_writes: "none"` without writing anything. `setup --apply`
+initializes only the Moryn-local store and optional project config, then returns
+`apply_result.applied_action_ids`, `apply_result.skipped_action_ids`, and
+`apply_result.host_config_writes`. It does not mutate host configuration files;
+host MCP registration remains a printed/manual action. The selection-source map
+is exported as `SETUP_WIZARD_SELECTION_SOURCES` and includes
+`checks_by_id.<check>`, `actions_by_id.<action>`, `next`, `apply_result`, and
+`warnings[]`.
+
+MCP equivalent:
+
+```json
+{
+  "tool": "setup",
+  "arguments": {
+    "host": "codex",
+    "project_path": ".",
+    "apply": true
+  }
+}
+```
+
+`install` returns the lower-level host adapter setup plan and host-specific MCP
+registration hints.
 `context_pack` returns `handoff_pack` v2 for quick agent handoff, plus boot
 context, refresh changes, raw handoff inbox evidence, and
 `next.actions_by_id.capture_session`. The pack includes a read-only

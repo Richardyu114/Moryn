@@ -161,6 +161,33 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Host adapter registry and autocapture");
   });
 
+  it("documents the setup wizard as a local auditable one-command path", async () => {
+    const [readme, installPrompt, workflow, contracts, design, roadmap] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/agent-install-prompt.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/contracts.md", "utf8"),
+      readFile("docs/moryn-design.md", "utf8"),
+      readFile("docs/implementation-roadmap.md", "utf8")
+    ]);
+
+    for (const document of [readme, installPrompt, workflow, contracts, design, roadmap]) {
+      expect(document).toContain("moryn setup");
+      expect(document).toContain("dry-run");
+      expect(document).toContain("host configuration files");
+    }
+    expect(readme).toContain("moryn setup --host codex --project . --apply");
+    expect(installPrompt).toContain("Run `moryn setup --project . --host \"<host client name>\" --apply`.");
+    expect(workflow).toContain("moryn setup --host codex --project . --apply");
+    expect(contracts).toContain("moryn contracts operations --operation setup");
+    expect(contracts).toContain('"tool": "setup"');
+    expect(contracts).toContain("SETUP_WIZARD_SELECTION_SOURCES");
+    expect(contracts).toContain("checks_by_id.<check>");
+    expect(contracts).toContain("apply_result");
+    expect(contracts).toContain("host_config_writes");
+    expect(roadmap).toContain("Setup wizard / one-command local setup");
+  });
+
   it("documents the product positioning guardrail and phase decision gate", async () => {
     const [readme, design, roadmap] = await Promise.all([
       readFile("README.md", "utf8"),

@@ -26,6 +26,8 @@ store:
 - Host adapter registry and autocapture path for Codex, Claude, Gemini,
   Cursor, and shell hosts through `moryn install`, `moryn context pack`, and
   `moryn capture session`.
+- Setup wizard / one-command local setup through `moryn setup`, with dry-run
+  checks by default and `--apply` limited to Moryn-local store/project config.
 - Local dashboard server and static snapshots for sync, records, recent events,
   and agent activity.
 - Operation contracts and selection-source contracts for agent hosts.
@@ -83,6 +85,8 @@ store:
 - Project identity resolution across explicit input, project config, Git
   remote, Git root, and path fallback.
 - Project discovery for known project ids.
+- `moryn setup` one-command local setup wizard with no dry-run writes and no
+  host configuration file mutation.
 
 ### Git Sync
 
@@ -103,6 +107,8 @@ store:
 ### Host adapter registry and autocapture
 
 - Host descriptors for Codex, Claude, Gemini, Cursor, and shell agents.
+- `moryn setup` readiness checks and safe local apply path before host adapter
+  use.
 - `moryn install` safe setup planning with host-specific MCP registration
   hints.
 - `moryn context pack` startup context that bundles Handoff Pack v0.2, boot
@@ -223,6 +229,12 @@ Do not start this phase until normal agent install still requires too much
 manual command selection. The goal is a safe one-command path, not host config
 magic.
 
+- [x] `moryn setup` returns a dry-run setup plan with store, project, sync, and
+  host-adapter checks.
+- [x] `moryn setup --apply` initializes only Moryn-local store/project config
+  and leaves host configuration files manual.
+- [x] CLI, MCP, operation contracts, and selection-source contracts expose the
+  setup wizard.
 - Dry-run must list every planned local change.
 - Apply must only perform approved Moryn-local or documented host setup.
 - Any host mutation needs a rollback receipt and a smoke test.

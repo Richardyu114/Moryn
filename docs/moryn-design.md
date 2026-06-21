@@ -171,8 +171,13 @@ normalizes common host identities such as `codex`, `claude`, `gemini`,
 and required end-of-session capture actions.
 
 ```text
+moryn setup
+  -> dry-run readiness checks by default
+  -> --apply writes only Moryn-local store/project config
+  -> host configuration files stay manual
+
 moryn install
-  -> safe host setup plan
+  -> safe host adapter plan
   -> MCP registration instructions
   -> suggested context pack and capture commands
 
@@ -489,6 +494,9 @@ The response shape is:
 {
   "contracts": {
     "setup": {
+      "setup_wizard": {
+        "check": "checks_by_id.<check>"
+      },
       "store_init": {
         "config_file": "artifacts.config"
       }

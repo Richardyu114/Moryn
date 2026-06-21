@@ -21,6 +21,7 @@ The short version:
 For normal host sessions, the low-friction path is:
 
 ```bash
+moryn setup --host codex --project . --apply
 moryn install --host codex --project . --apply
 moryn context pack --project . --agent codex --current-task "current task"
 moryn capture session --project . --agent codex --summary "handoff summary"
@@ -31,9 +32,13 @@ ASCII view:
 ```text
 Codex / Claude / Gemini / Cursor / shell
         |
+        |  moryn setup
+        v
+dry-run by default; --apply writes only Moryn-local store/project config
+        |
         |  moryn install
         v
-Safe setup plan + MCP registration hints
+Host adapter plan + MCP registration hints
         |
         |  moryn context pack
         v
@@ -67,6 +72,12 @@ required `capture_session` action. Each item points back to raw evidence in
 `agent enter`, `agent start`, `agent status`, and `agent finish` when a host
 needs fuller setup diagnosis, status checkpoints, explicit sync push behavior,
 or detailed lifecycle action templates.
+
+`moryn setup` is the auditable one-command setup wizard. The default dry-run
+lists `checks_by_id`, planned local actions, and the next command without
+writing anything. `--apply` initializes the local Moryn store and optional
+project config only; host configuration files remain manual and are represented
+as printed registration commands.
 
 ## Startup
 

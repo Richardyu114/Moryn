@@ -53,13 +53,18 @@ adapter path. It keeps Moryn's positioning broad: one user-owned store reused
 across multiple agents and devices, not a memory silo for a single host.
 
 ```bash
+moryn setup --host codex --project . --apply
 moryn install --host codex --project . --apply
 moryn context pack --project . --agent codex
 moryn capture session --project . --agent codex --summary "Finished the task and left handoff notes."
 ```
 
-`moryn install` prints or applies only safe Moryn-local setup; it does not edit
-host configuration files. `moryn context pack` returns Handoff Pack v0.2: a
+`moryn setup` is the one-command local setup wizard. Without `--apply` it is a
+dry-run that lists readiness checks and planned actions without writing
+anything. With `--apply` it initializes only the Moryn-local store and project
+config; it still does not edit host configuration files. `moryn install` remains
+the lower-level host adapter plan for MCP registration hints and startup
+commands. `moryn context pack` returns Handoff Pack v0.2: a
 small handoff index with the current goal, recent decisions, open threads,
 risks, user preferences, important files, and next actions, plus the raw boot,
 refresh, and handoff evidence it came from. Its read-only `quality_gate`

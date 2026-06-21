@@ -945,6 +945,8 @@ const installArguments = {
   }
 } as const satisfies Record<string, OperationArgumentMetadataInput>;
 
+const setupArguments = installArguments;
+
 const captureSessionArguments = {
   summary: {
     type: "string",
@@ -1229,6 +1231,19 @@ export const OPERATION_CONTRACTS = [
     interfaces: {
       cli: { command: "moryn install", argv: ["install"] },
       mcp: { tool: "install", arguments: {} }
+    }
+  }),
+  operationContract({
+    operation: "setup",
+    category: "setup",
+    summary: "Diagnose local Moryn readiness and optionally apply safe local setup in one audited plan.",
+    safe_to_run: false,
+    required_when: "When a user or agent wants one setup entrypoint instead of choosing init, project init, install, and context commands manually.",
+    required_fields: [],
+    arguments_by_name: setupArguments,
+    interfaces: {
+      cli: { command: "moryn setup", argv: ["setup"] },
+      mcp: { tool: "setup", arguments: {} }
     }
   }),
   operationContract({

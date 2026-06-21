@@ -27,11 +27,12 @@ First, inspect the environment:
      `https://github.com/Richardyu114/Moryn.git`, build it, and link it;
    - if none of those paths are possible, ask me for a source path or install
      permission.
-3. Run `moryn install --project . --host "<host client name>" --apply`.
-   This host adapter step initializes Moryn-local state and prints safe MCP,
-   context, and autocapture commands. It must not mutate host configuration
-   files unless the host command is explicit and safe for you to run.
-4. If `moryn install` reports missing project context, run
+3. Run `moryn setup --project . --host "<host client name>" --apply`.
+   This local setup wizard runs as a dry-run unless `--apply` is present. The
+   apply form initializes only Moryn-local state and project config; it must not
+   mutate host configuration files. It also prints safe MCP, context, and
+   autocapture commands.
+4. If `moryn setup` reports missing project context, run
    `moryn project init --path . --project-id <repo-name>`. Infer
    `<repo-name>` from the Git repository or current directory. Ask me only if
    the project id is ambiguous or changing an existing config would be required.
@@ -138,8 +139,10 @@ Generic MCP config:
 ```
 
 The host adapter and autocapture path is the low-friction entrypoint; the
-`agent enter` / `agent finish` lifecycle remains the fuller protocol when a
-host needs diagnosis, status, sync push behavior, or explicit workflow actions.
+`moryn install` plan remains available when a host wants MCP registration hints
+without the broader setup wizard. The `agent enter` / `agent finish` lifecycle
+remains the fuller protocol when a host needs diagnosis, status, sync push
+behavior, or explicit workflow actions.
 
 For deeper command semantics, use [Agent Workflow](agent-workflow.md),
 [Contracts](contracts.md), and [Dashboard](dashboard.md).

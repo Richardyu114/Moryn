@@ -18,6 +18,8 @@ import { MEMORY_LIFECYCLE_SELECTION_SOURCES } from "./core/memory-lifecycle.js";
 export { createEngine } from "./core/engine.js";
 export { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "./core/host-adapters.js";
 import { CAPTURE_SESSION_SELECTION_SOURCES, HANDOFF_PACK_SELECTION_SOURCES, HANDOFF_QUALITY_GATE_SELECTION_SOURCES } from "./core/host-adapters.js";
+export { setupWizard } from "./core/setup-wizard.js";
+import { SETUP_WIZARD_SELECTION_SOURCES } from "./core/setup-wizard.js";
 import {
   BOOT_SELECTION_SOURCES,
   LINK_EVENT_SELECTION_SOURCES,
@@ -103,11 +105,13 @@ export {
   DEFAULT_AUTOCAPTURE_POLICY,
   CAPTURE_POLICY_SELECTION_SOURCES,
   DOGFOOD_REPORT_SELECTION_SOURCES,
-  MEMORY_LIFECYCLE_SELECTION_SOURCES
+  MEMORY_LIFECYCLE_SELECTION_SOURCES,
+  SETUP_WIZARD_SELECTION_SOURCES
 };
 
 export const SELECTION_SOURCE_CONTRACTS = {
   setup: {
+    setup_wizard: SETUP_WIZARD_SELECTION_SOURCES,
     store_init: STORE_INIT_SELECTION_SOURCES,
     project_init: PROJECT_INIT_SELECTION_SOURCES,
     rebuild: REBUILD_SELECTION_SOURCES

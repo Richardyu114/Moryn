@@ -11,6 +11,7 @@ import {
   captureSession,
   contextPack,
   planInstall,
+  setupWizard,
   version
 } from "../index.js";
 import {
@@ -202,6 +203,7 @@ const objectPathMcpAliasesByTool: Record<string, McpObjectPathAlias[]> = {
   capture_session: syncRemoteObjectPathAliases(),
   context_pack: syncRemoteObjectPathAliases(),
   install: syncRemoteObjectPathAliases(),
+  setup: syncRemoteObjectPathAliases(),
   project_init: [
     {
       alias: "sync",
@@ -487,6 +489,7 @@ function withDefaultSource(source: unknown): unknown {
 
 type McpProjectContextOperation =
   | "install"
+  | "setup"
   | "boot"
   | "recall"
   | "timeline"
@@ -1182,6 +1185,34 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
         }
       }
       return plan;
+    })
+  );
+
+  server.registerTool(
+    "setup",
+    {
+      title: "Run Moryn Setup Wizard",
+      description: "Diagnose local Moryn readiness and optionally apply safe local setup without mutating host configuration files.",
+      inputSchema: mcpInputSchema({
+        host: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        sync_remote: z.unknown().optional(),
+        apply: coreValidatedBooleanSchema.optional(),
+        ...objectPathAliasInputSchema("setup"),
+        ...camelCaseAliasInputSchema("setup")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("setup", input, async (normalizedInput) => {
+      const projectPath = validateProjectContextInput("setup", {
+        project_path: normalizedInput.project_path
+      }).project_path;
+      return setupWizard({
+        storePath: options.storePath,
+        host: normalizedInput.host as string | undefined,
+        projectPath,
+        syncRemote: normalizedInput.sync_remote as string | undefined,
+        apply: normalizedInput.apply as boolean | undefined
+      });
     })
   );
 

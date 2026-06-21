@@ -1814,6 +1814,32 @@ describe("moryn CLI", () => {
         }
       }
     });
+    expect(parsed.operations_by_id.setup).toMatchObject({
+      operation: "setup",
+      category: "setup",
+      safe_to_run: false,
+      interfaces: {
+        cli: { command: "moryn setup" },
+        mcp: { tool: "setup" }
+      },
+      arguments_by_name: {
+        host: {
+          name: "host",
+          type: "string",
+          required: false,
+          cli: { flag: "--host" },
+          mcp: { argument: "host" },
+          allowed_values: ["claude", "codex", "gemini", "cursor", "shell"]
+        },
+        apply: {
+          name: "apply",
+          type: "boolean",
+          required: false,
+          cli: { flag: "--apply" },
+          mcp: { argument: "apply" }
+        }
+      }
+    });
     expect(parsed.operations_by_id.capture_session).toMatchObject({
       operation: "capture_session",
       category: "lifecycle",
@@ -1987,6 +2013,9 @@ describe("moryn CLI", () => {
       }
     });
     expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
+    expect(parsed.operations_by_id.setup.cli_command).toBe("moryn setup");
+    expect(parsed.operations_by_mcp_tool.setup).toBe("setup");
+    expect(parsed.operations_by_cli_command["moryn setup"]).toBe("setup");
     expect(parsed.operations_by_id.dashboard.execution_hint).toBeUndefined();
     expect(parsed.operations_by_id.dashboard.cli_command).toBe("moryn dashboard");
     expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
@@ -3047,6 +3076,117 @@ describe("moryn CLI", () => {
       expect(parsed.next.command).toContain("moryn context pack");
       expect(parsed.next.command).toContain("--agent codex");
       expect(parsed.selection_sources.action).toBe("actions_by_id.<action>");
+    });
+  });
+
+  it("prints a one-command setup wizard plan without mutating until apply", async () => {
+    await withTempDir(async (dir) => {
+      const store = join(dir, "store");
+      const project = join(dir, "project");
+      await mkdir(project, { recursive: true });
+
+      const dryRun = await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "--store", store,
+        "setup",
+        "--host", "codex",
+        "--project", project,
+        "--sync-remote", "git@github.com:user/moryn-store.git"
+      ]);
+      const dryPlan = JSON.parse(dryRun.stdout) as {
+        ok: boolean;
+        mode: string;
+        status: string;
+        generated_from: { writes: string; host_config_writes: string };
+        checks_by_id: Record<string, { status: string; message: string }>;
+        actions_by_id: Record<string, { action: string; command: string; writes: string; safe_to_auto_run: boolean }>;
+        next: { recommended_action: string; command: string; safe_to_run: boolean };
+        selection_sources: Record<string, string>;
+      };
+
+      expect(dryPlan).toMatchObject({
+        ok: true,
+        mode: "dry_run",
+        status: "needs_setup",
+        generated_from: {
+          writes: "none",
+          host_config_writes: "none"
+        }
+      });
+      expect(dryPlan.checks_by_id.store.status).toBe("missing");
+      expect(dryPlan.checks_by_id.project.status).toBe("missing");
+      expect(dryPlan.actions_by_id.initialize_store).toMatchObject({
+        action: "initialize_store",
+        command: "moryn init",
+        writes: "moryn_store",
+        safe_to_auto_run: true
+      });
+      expect(dryPlan.actions_by_id.initialize_project.command).toContain("moryn project init --path");
+      expect(dryPlan.actions_by_id.initialize_project.command).toContain(project);
+      expect(dryPlan.actions_by_id.register_mcp).toMatchObject({
+        safe_to_auto_run: false,
+        writes: "none"
+      });
+      expect(dryPlan.next).toMatchObject({
+        recommended_action: "apply_setup",
+        command: expect.stringContaining("moryn setup --apply"),
+        safe_to_run: false
+      });
+      expect(dryPlan.selection_sources.check).toBe("checks_by_id.<check>");
+      await expect(readFile(join(store, "config.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(project, ".moryn.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+      const applied = await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "--store", store,
+        "setup",
+        "--host", "codex",
+        "--project", project,
+        "--apply"
+      ]);
+      const appliedPlan = JSON.parse(applied.stdout) as {
+        mode: string;
+        status: string;
+        apply_result: { applied_action_ids: string[]; skipped_action_ids: string[]; host_config_writes: string };
+      };
+      expect(appliedPlan.mode).toBe("apply");
+      expect(appliedPlan.status).toBe("ready");
+      expect(appliedPlan.apply_result).toMatchObject({
+        applied_action_ids: ["initialize_store", "initialize_project"],
+        skipped_action_ids: expect.arrayContaining(["register_mcp"]),
+        host_config_writes: "none"
+      });
+      await expect(readFile(join(store, "config.json"), "utf8")).resolves.toContain("store_version");
+      await expect(readFile(join(project, ".moryn.json"), "utf8")).resolves.toContain("project_id");
+
+      const ready = await exec("node", [
+        "--import", tsxLoader, cliPath,
+        "--store", store,
+        "setup",
+        "--host", "codex",
+        "--project", project
+      ]);
+      const readyPlan = JSON.parse(ready.stdout) as {
+        mode: string;
+        status: string;
+        generated_from: { writes: string; host_config_writes: string };
+        next: { recommended_action: string; command: string; safe_to_run: boolean };
+        apply_result?: unknown;
+      };
+      expect(readyPlan).toMatchObject({
+        mode: "dry_run",
+        status: "ready",
+        generated_from: {
+          writes: "none",
+          host_config_writes: "none"
+        },
+        next: {
+          recommended_action: "run_context_pack",
+          safe_to_run: true
+        }
+      });
+      expect(readyPlan.next.command).toContain("moryn context pack");
+      expect(readyPlan).not.toHaveProperty("apply_result");
     });
   });
 

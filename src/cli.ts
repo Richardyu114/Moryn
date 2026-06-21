@@ -13,6 +13,7 @@ import {
   captureSession,
   contextPack,
   planInstall,
+  setupWizard,
   version
 } from "./index.js";
 import {
@@ -125,6 +126,7 @@ type CliRequiredPositionalSource = CliRequiredSource & {
 };
 type CliParserOperation =
   | "install"
+  | "setup"
   | "capture_session"
   | "context_pack"
   | "write"
@@ -2072,6 +2074,24 @@ program.command("install")
       }
     }
     printJson(plan);
+  });
+
+program.command("setup")
+  .option("--host <host>", "Agent host to prepare: claude, codex, gemini, cursor, or shell")
+  .option("--project <path>", "Project path to attach to Moryn")
+  .option("--sync-remote <remote>", "User-owned Git remote to include in generated commands")
+  .option("--apply", "Run safe Moryn-local setup; never mutates host configuration files")
+  .action(async (options) => {
+    const host = parseNonEmptyString(options.host, "--host");
+    const projectPath = parseNonEmptyString(options.project, "--project");
+    const syncRemote = parseNonEmptyString(options.syncRemote, "--sync-remote");
+    printJson(await setupWizard({
+      storePath: storePath(),
+      host,
+      projectPath,
+      syncRemote,
+      apply: Boolean(options.apply)
+    }));
   });
 
 const capture = program.command("capture");

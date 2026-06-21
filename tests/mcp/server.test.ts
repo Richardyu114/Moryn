@@ -1881,6 +1881,9 @@ describe("MCP stdio server", () => {
           }
         });
         expect(parsed.operations.find((operation) => operation.operation === "agent_finish")).toEqual(parsed.operations_by_id.agent_finish);
+        expect(parsed.operations_by_id.setup.cli_command).toBe("moryn setup");
+        expect(parsed.operations_by_mcp_tool.setup).toBe("setup");
+        expect(parsed.operations_by_cli_command["moryn setup"]).toBe("setup");
         expect(parsed.operations_by_id.dashboard.execution_hint).toBeUndefined();
         expect(parsed.operations_by_id.dashboard.cli_command).toBe("moryn dashboard");
         expect(parsed.operations_by_id.agent_finish).not.toHaveProperty("arguments_by_name");
@@ -2864,6 +2867,7 @@ describe("MCP stdio server", () => {
           "refresh",
           "revise",
           "selection_source_contracts",
+          "setup",
           "sync_init",
           "sync_pull",
           "sync_push",
@@ -3006,6 +3010,39 @@ describe("MCP stdio server", () => {
         expect(installPlan.mode).toBe("dry_run");
         expect(installPlan.adapters[0]?.id).toBe("codex");
         expect(installPlan.next.command).toContain("moryn context pack");
+
+        const setupPlan = parseTextContent(await client.callTool({
+          name: "setup",
+          arguments: { host: "codex", project_path: projectPath, sync_remote: "git@github.com:user/moryn-store.git" }
+        })) as {
+          ok: boolean;
+          mode: string;
+          status: string;
+          generated_from: { writes: string; host_config_writes: string };
+          actions_by_id: Record<string, { action: string; safe_to_auto_run: boolean; writes: string }>;
+          next: { recommended_action: string; safe_to_run: boolean };
+        };
+        expect(setupPlan).toMatchObject({
+          ok: true,
+          mode: "dry_run",
+          generated_from: {
+            writes: "none",
+            host_config_writes: "none"
+          }
+        });
+        expect(setupPlan.actions_by_id.initialize_store).toMatchObject({
+          action: "initialize_store",
+          safe_to_auto_run: true,
+          writes: "moryn_store"
+        });
+        expect(setupPlan.actions_by_id.register_mcp).toMatchObject({
+          safe_to_auto_run: false,
+          writes: "none"
+        });
+        expect(setupPlan.next).toMatchObject({
+          recommended_action: "apply_setup",
+          safe_to_run: false
+        });
 
         parseTextContent(await client.callTool({
           name: "project_init",
