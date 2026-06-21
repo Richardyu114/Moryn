@@ -148,6 +148,9 @@ store:
 
 ## Current Polish Focus
 
+- Make agent and dashboard startup overview-first: compact read-only summaries
+  should point to evidence sources instead of forcing agents or users to scan
+  every detailed panel first.
 - Keep README short and public-facing.
 - Keep local tool configuration out of the repository root.
 - Keep implementation history concise and useful.

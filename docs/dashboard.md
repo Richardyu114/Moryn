@@ -401,12 +401,18 @@ The top health message is rendered as a compact status strip rather than a large
 hero block, so the first screen stays focused on review queues and local
 attention signals.
 
-Directly below the status strip, `Focus Brief` picks the most urgent derived
-Action Board item and turns it into one next step, with compact chips for
-confirm, review, and sync state. It reuses the same local scroll target as the
-Action Board and does not add a new API endpoint, Safe Action Registry entry, or
-memory mutation path. Its job is to answer "what should I look at first?"
-without making the top of the dashboard read like two competing summaries.
+Directly below the status strip, `Dashboard Overview` is the first-screen
+summary. It picks the most urgent derived Action Board item, shows four compact
+cards for current health, next action, context, and sync, and points each card
+back to its source path such as `health`, `action_board.items_by_id.review`,
+`context_pack_review`, or `action_board.items_by_id.sync`. It reuses the same
+local scroll targets as the Action Board and does not add a new API endpoint,
+Safe Action Registry entry, or memory mutation path. Its job is to answer "what
+should I look at first?" while keeping the detailed panels folded underneath.
+
+`/api/dashboard.dashboard_overview` returns the same derived shape. It is
+read-only and includes `evidence_sources` so agents can use the compact summary
+without losing the audit trail to the underlying dashboard data.
 
 `Action Board` is a collapsed navigator by default. Its summary shows compact
 counts such as `0 confirm / 1 review / 0 inspect / 1 sync`; expanding it reveals

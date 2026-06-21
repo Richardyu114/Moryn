@@ -6581,6 +6581,14 @@ describe("moryn CLI", () => {
       ]);
       const parsedStart = JSON.parse(start.stdout) as {
         project: { project_id: string };
+        startup_overview: {
+          status: string;
+          project_id: string;
+          headline: string;
+          primary_next_step: { action_id: string; action_source: string; safe_to_run: boolean; requires_user_input: boolean };
+          safety: { read_first: boolean; writes_require_explicit_action: boolean; mutation_surfaces: string[] };
+          evidence_sources: Record<string, string>;
+        };
         sync: { pull?: { pulled?: boolean } };
         refresh: { cursor: string; changes: Array<{ summary: string; importance: string }> };
         next: {
@@ -6616,6 +6624,28 @@ describe("moryn CLI", () => {
         };
       };
       expect(parsedStart.project.project_id).toBe("moryn");
+      expect(parsedStart.startup_overview).toMatchObject({
+        status: "needs_attention",
+        project_id: "moryn",
+        headline: "Review startup context before working in moryn.",
+        primary_next_step: {
+          action_id: "finish_session",
+          action_source: "next.actions_by_id.finish_session",
+          safe_to_run: false,
+          requires_user_input: true
+        },
+        safety: {
+          read_first: true,
+          writes_require_explicit_action: true,
+          mutation_surfaces: ["agent_status", "agent_finish"]
+        },
+        evidence_sources: {
+          boot: "start.boot",
+          refresh: "start.refresh",
+          handoff: "start.handoff",
+          next_actions: "next.actions_by_id"
+        }
+      });
       expect(parsedStart.sync.pull?.pulled).toBe(true);
       expect(parsedStart.refresh.changes).toContainEqual(expect.objectContaining({
         summary: "CLI Codex finished the lifecycle protocol.",

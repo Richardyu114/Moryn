@@ -92,6 +92,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
   sync: "sync",
   health: "health",
   attention_item: "attention_items[]",
+  dashboard_overview: "dashboard_overview",
   charts: "charts",
   totals: "totals",
   action: "actions_by_id.<action_id>",
@@ -218,6 +219,42 @@ export interface DashboardActionBoardItem {
 export interface DashboardActionBoard {
   items: DashboardActionBoardItem[];
   items_by_id: Record<DashboardActionBoardItemId, DashboardActionBoardItem>;
+}
+
+export type DashboardOverviewStatus = "good" | "info" | "warning" | "critical";
+export type DashboardOverviewCardId = "health" | "action" | "context" | "sync";
+
+export interface DashboardOverviewCard {
+  id: DashboardOverviewCardId;
+  label: string;
+  value: string;
+  summary: string;
+  severity: DashboardOverviewStatus;
+  target: string;
+  source: string;
+}
+
+export interface DashboardOverview {
+  status: DashboardOverviewStatus;
+  headline: string;
+  detail: string;
+  primary_action: {
+    label: string;
+    target: string;
+    source: string;
+  };
+  safety: {
+    read_only: true;
+    mutation_surfaces: ["Capture Inbox", "Review Queue"];
+  };
+  cards: DashboardOverviewCard[];
+  cards_by_id: Record<DashboardOverviewCardId, DashboardOverviewCard>;
+  evidence_sources: {
+    action_board: "action_board";
+    health_check: "health_check";
+    context_pack_review: "context_pack_review";
+    governance: "governance";
+  };
 }
 
 export interface DashboardAgentChartItem extends DashboardAgentActivity {
@@ -508,6 +545,7 @@ export interface DashboardData {
   sync: GitSyncStatus;
   health: DashboardHealth;
   attention_items: DashboardAttentionItem[];
+  dashboard_overview: DashboardOverview;
   action_board: DashboardActionBoard;
   charts: DashboardCharts;
   totals: {
@@ -1705,6 +1743,95 @@ function buildActionBoard(input: {
   };
 }
 
+function overviewStatusFromActionSeverity(severity: DashboardActionBoardSeverity): DashboardOverviewStatus {
+  return severity;
+}
+
+function overviewStatusFromHealth(status: DashboardHealthStatus): DashboardOverviewStatus {
+  if (status === "healthy") return "good";
+  if (status === "conflict") return "critical";
+  if (status === "needs_review" || status === "sync_pending") return "warning";
+  return "info";
+}
+
+function overviewContextStatus(review: DashboardContextPackReview): DashboardOverviewStatus {
+  const gate = review.handoff_pack?.quality_gate.status;
+  if (gate === "ready") return "good";
+  if (gate === "needs_review") return "warning";
+  return "info";
+}
+
+function buildDashboardOverview(input: {
+  actionBoard: DashboardActionBoard;
+  health: DashboardHealth;
+  contextPackReview: DashboardContextPackReview;
+}): DashboardOverview {
+  const primary = focusBriefPrimaryItem(input.actionBoard);
+  const contextGate = input.contextPackReview.handoff_pack?.quality_gate.status;
+  const cards: DashboardOverviewCard[] = [
+    {
+      id: "health",
+      label: "Health",
+      value: input.health.label,
+      summary: input.health.explanation,
+      severity: overviewStatusFromHealth(input.health.status),
+      target: "needs-attention",
+      source: "health"
+    },
+    {
+      id: "action",
+      label: "Next",
+      value: primary.next_action_label,
+      summary: primary.summary,
+      severity: overviewStatusFromActionSeverity(primary.severity),
+      target: primary.target,
+      source: `action_board.items_by_id.${primary.id}`
+    },
+    {
+      id: "context",
+      label: "Context",
+      value: input.contextPackReview.available ? titleCase(contextGate ?? "available") : "Unavailable",
+      summary: input.contextPackReview.available
+        ? "Handoff evidence stays read-only"
+        : input.contextPackReview.unavailable_reason ?? "Project context is required for Context Pack Review.",
+      severity: overviewContextStatus(input.contextPackReview),
+      target: "context-pack-review",
+      source: "context_pack_review"
+    },
+    {
+      id: "sync",
+      label: "Sync",
+      value: input.actionBoard.items_by_id.sync.summary,
+      summary: input.actionBoard.items_by_id.sync.detail,
+      severity: overviewStatusFromActionSeverity(input.actionBoard.items_by_id.sync.severity),
+      target: input.actionBoard.items_by_id.sync.target,
+      source: "action_board.items_by_id.sync"
+    }
+  ];
+  return {
+    status: overviewStatusFromActionSeverity(primary.severity),
+    headline: primary.next_action_label,
+    detail: primary.detail,
+    primary_action: {
+      label: primary.next_action_label,
+      target: primary.target,
+      source: `action_board.items_by_id.${primary.id}`
+    },
+    safety: {
+      read_only: true,
+      mutation_surfaces: ["Capture Inbox", "Review Queue"]
+    },
+    cards,
+    cards_by_id: Object.fromEntries(cards.map((card) => [card.id, card])) as Record<DashboardOverviewCardId, DashboardOverviewCard>,
+    evidence_sources: {
+      action_board: "action_board",
+      health_check: "health_check",
+      context_pack_review: "context_pack_review",
+      governance: "governance"
+    }
+  };
+}
+
 function governanceItemId(source: DashboardGovernanceSource, id: string): string {
   return `${source}:${id}`;
 }
@@ -2016,6 +2143,18 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     dogfoodReport: dogfoodReportData,
     hiddenPrivateRecords: lifecycleAllRecords.length - lifecycleRecords.length
   });
+  const actionBoardData = buildActionBoard({
+    actions,
+    attentionItems,
+    governance,
+    sync,
+    health
+  });
+  const dashboardOverviewData = buildDashboardOverview({
+    actionBoard: actionBoardData,
+    health,
+    contextPackReview: contextPackReviewData
+  });
 
   return {
     generated_at: generatedAt,
@@ -2025,13 +2164,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     sync,
     health,
     attention_items: attentionItems,
-    action_board: buildActionBoard({
-      actions,
-      attentionItems,
-      governance,
-      sync,
-      health
-    }),
+    dashboard_overview: dashboardOverviewData,
+    action_board: actionBoardData,
     charts: {
       agent_activity: buildAgentChart(agentActivity, generatedAt),
       memory_states: buildMemoryStateChart(records),
@@ -2144,26 +2278,30 @@ function focusBriefPrimaryItem(actionBoardData: DashboardActionBoard): Dashboard
     ?? actionBoardData.items_by_id.confirm;
 }
 
-function focusBriefChip(item: DashboardActionBoardItem): string {
-  return `<span>${escapeHtml(item.label)}: ${escapeHtml(item.summary.toLowerCase())}</span>`;
-}
-
-function focusBrief(data: DashboardData): string {
-  const primary = focusBriefPrimaryItem(data.action_board);
+function dashboardOverview(data: DashboardOverview): string {
   return `
-    <section class="focus-brief ${escapeHtml(primary.severity)}" data-dashboard-focus-brief aria-label="Focus Brief">
-      <div class="focus-brief-main">
+    <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
+      <div class="dashboard-overview-main">
         <div>
-          <h2>Focus Brief</h2>
-          <strong>${escapeHtml(primary.next_action_label)}</strong>
-          <p>${escapeHtml(primary.detail)}</p>
+          <h2>Dashboard Overview</h2>
+          <strong>${escapeHtml(data.headline)}</strong>
+          <p>${escapeHtml(data.detail)}</p>
         </div>
-        <button type="button" class="focus-brief-action" data-action-board-target="${escapeHtml(primary.target)}" aria-controls="${escapeHtml(primary.target)}">${escapeHtml(primary.next_action_label)}</button>
+        <button type="button" class="dashboard-overview-action" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}">${escapeHtml(data.primary_action.label)}</button>
       </div>
-      <div class="focus-brief-chips" aria-label="Focus summary">
-        ${focusBriefChip(data.action_board.items_by_id.confirm)}
-        ${focusBriefChip(data.action_board.items_by_id.review)}
-        ${focusBriefChip(data.action_board.items_by_id.sync)}
+      <div class="dashboard-overview-grid">
+        ${data.cards.map((card) => `
+          <article class="dashboard-overview-card ${escapeHtml(card.severity)}" data-dashboard-overview-card="${escapeHtml(card.id)}">
+            <span>${escapeHtml(card.label)}</span>
+            <strong>${escapeHtml(card.value)}</strong>
+            <p>${escapeHtml(card.summary)}</p>
+            <small>${escapeHtml(card.source)}</small>
+          </article>
+        `).join("")}
+      </div>
+      <div class="dashboard-overview-safety" aria-label="Dashboard safety">
+        <span>Read-only overview</span>
+        <span>Writes stay in ${escapeHtml(data.safety.mutation_surfaces.join(" and "))}</span>
       </div>
     </section>
   `;
@@ -3589,7 +3727,7 @@ function renderDashboardBody(data: DashboardData): string {
       <p>${escapeHtml(data.health.explanation)}</p>
     </section>
 
-    ${focusBrief(data)}
+    ${dashboardOverview(data.dashboard_overview)}
 
     ${healthCheckPanel(data.health_check)}
 
@@ -3986,7 +4124,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .status-strip strong { color: var(--ink); font-weight: 780; }
     .status-strip span { font-weight: 760; }
     .status-strip p { margin: 0; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
-    .focus-brief {
+    .dashboard-overview {
       border: 1px solid var(--border);
       border-left-width: 4px;
       border-radius: 8px;
@@ -3995,25 +4133,25 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
       box-shadow: 0 8px 18px rgba(21, 25, 30, 0.04);
     }
-    .focus-brief.good { border-left-color: var(--good); }
-    .focus-brief.info { border-left-color: var(--info); }
-    .focus-brief.warning { border-left-color: var(--warning); }
-    .focus-brief.critical { border-left-color: var(--critical); }
-    .focus-brief-main {
+    .dashboard-overview.good { border-left-color: var(--good); }
+    .dashboard-overview.info { border-left-color: var(--info); }
+    .dashboard-overview.warning { border-left-color: var(--warning); }
+    .dashboard-overview.critical { border-left-color: var(--critical); }
+    .dashboard-overview-main {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
       min-width: 0;
     }
-    .focus-brief h2 {
+    .dashboard-overview h2 {
       margin-bottom: 3px;
       color: var(--muted);
       font-size: 12px;
       text-transform: uppercase;
       font-weight: 780;
     }
-    .focus-brief strong {
+    .dashboard-overview strong {
       display: block;
       color: var(--ink);
       font-size: 18px;
@@ -4021,8 +4159,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 820;
       overflow-wrap: anywhere;
     }
-    .focus-brief p { margin-top: 4px; color: var(--muted); }
-    .focus-brief-action {
+    .dashboard-overview p { margin-top: 4px; color: var(--muted); }
+    .dashboard-overview-action {
       appearance: none;
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -4035,14 +4173,42 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       cursor: pointer;
       white-space: nowrap;
     }
-    .focus-brief-action:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
-    .focus-brief-chips {
+    .dashboard-overview-action:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .dashboard-overview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 9px;
+    }
+    .dashboard-overview-card {
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 6px;
+      padding: 8px 9px;
+      background: var(--surface-2);
+      min-width: 0;
+    }
+    .dashboard-overview-card.good { border-left-color: var(--good); }
+    .dashboard-overview-card.info { border-left-color: var(--info); }
+    .dashboard-overview-card.warning { border-left-color: var(--warning); }
+    .dashboard-overview-card.critical { border-left-color: var(--critical); }
+    .dashboard-overview-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 720;
+      overflow-wrap: anywhere;
+    }
+    .dashboard-overview-card strong { margin-top: 4px; font-size: 16px; }
+    .dashboard-overview-card p { margin: 5px 0 0; color: var(--ink-2); font-size: 12.5px; }
+    .dashboard-overview-card small { margin-top: 4px; color: var(--muted); }
+    .dashboard-overview-safety {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       margin-top: 9px;
     }
-    .focus-brief-chips span {
+    .dashboard-overview-safety span {
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 2px 7px;
@@ -4961,12 +5127,12 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .event-row { border: 1px solid var(--border); border-radius: 7px; padding: 10px; background: var(--surface); }
     .event-row summary { display: flex; justify-content: space-between; gap: 10px; min-width: 0; }
     @media (max-width: 920px) {
-      header, .action-board-grid, .visual-grid, .value-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-grid, .action-board-grid, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
-      .focus-brief-main { display: grid; align-items: stretch; }
-      .focus-brief-action { width: 100%; white-space: normal; }
+      .dashboard-overview-main { display: grid; align-items: stretch; }
+      .dashboard-overview-action { width: 100%; white-space: normal; }
       .capture-inbox-queue-summary { display: grid; }
       .capture-inbox-queue-chips { justify-content: flex-start; }
       .attention-summary { display: grid; justify-content: stretch; }

@@ -799,6 +799,54 @@ describe("observability dashboard", () => {
         summary: "Local Only",
         next_action_label: "Inspect sync"
       });
+      expect(data.dashboard_overview).toMatchObject({
+        status: "warning",
+        headline: "Review warnings",
+        primary_action: {
+          label: "Review warnings",
+          target: "needs-attention",
+          source: "action_board.items_by_id.review"
+        },
+        safety: {
+          read_only: true,
+          mutation_surfaces: ["Capture Inbox", "Review Queue"]
+        },
+        cards: [
+          expect.objectContaining({
+            id: "health",
+            label: "Health",
+            value: "Local Only",
+            severity: "info",
+            target: "needs-attention",
+            source: "health"
+          }),
+          expect.objectContaining({
+            id: "action",
+            label: "Next",
+            value: "Review warnings",
+            target: "needs-attention",
+            source: "action_board.items_by_id.review"
+          }),
+          expect.objectContaining({
+            id: "context",
+            label: "Context",
+            source: "context_pack_review"
+          }),
+          expect.objectContaining({
+            id: "sync",
+            label: "Sync",
+            value: "Local Only",
+            target: "store-signals",
+            source: "action_board.items_by_id.sync"
+          })
+        ],
+        evidence_sources: {
+          action_board: "action_board",
+          health_check: "health_check",
+          context_pack_review: "context_pack_review",
+          governance: "governance"
+        }
+      });
       expect(data.recent_value.find((record) => record.state === "quarantined")?.summary).toBe("[quarantined]");
 
       const html = renderDashboardHtml(data);
@@ -807,16 +855,24 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Dashboard Status</strong>");
       expect(html).toContain("data-dashboard-status=\"");
       expect(html).not.toContain("<section class=\"hero\">");
-      expect(html).toContain("<section class=\"focus-brief warning\" data-dashboard-focus-brief aria-label=\"Focus Brief\">");
-      expect(html).toContain("<h2>Focus Brief</h2>");
+      expect(html).toContain("<section class=\"dashboard-overview warning\" data-dashboard-overview aria-label=\"Dashboard Overview\">");
+      expect(html).toContain("<h2>Dashboard Overview</h2>");
       expect(html).toContain("<strong>Review warnings</strong>");
       expect(html).toContain("<p>Warnings and critical signals remain visible in Needs Attention.</p>");
-      expect(html).toContain("<button type=\"button\" class=\"focus-brief-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Review warnings</button>");
-      expect(html).toContain("<span>Confirm: no approvals waiting</span>");
-      expect(html).toContain("<span>Review: 1 attention item</span>");
-      expect(html).toContain("<span>Sync: local only</span>");
-      expect(html.indexOf("data-dashboard-focus-brief")).toBeLessThan(html.indexOf("data-action-board-nav"));
-      expect(html).not.toContain("data-dashboard-action-id=\"focus");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Review warnings</button>");
+      expect(html).toContain("<article class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"health\">");
+      expect(html).toContain("<span>Health</span>");
+      expect(html).toContain("<strong>Local Only</strong>");
+      expect(html).toContain("<small>health</small>");
+      expect(html).toContain("<article class=\"dashboard-overview-card warning\" data-dashboard-overview-card=\"action\">");
+      expect(html).toContain("<span>Next</span>");
+      expect(html).toContain("<article class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"sync\">");
+      expect(html).toContain("<span>Read-only overview</span>");
+      expect(html).toContain("<span>Writes stay in Capture Inbox and Review Queue</span>");
+      expect(html).not.toContain("data-dashboard-focus-brief");
+      expect(html.indexOf("data-dashboard-overview")).toBeLessThan(html.indexOf("data-dashboard-detail=\"health-check\""));
+      expect(html.indexOf("data-dashboard-overview")).toBeLessThan(html.indexOf("data-action-board-nav"));
+      expect(html).not.toContain("data-dashboard-action-id=\"overview");
       expect(html).toContain("<details class=\"action-board\" aria-label=\"Action Board\" data-dashboard-detail=\"action-board\" data-action-board-nav>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary action-board-fold\">");
       expect(html).toContain("<span>Action Board</span>");

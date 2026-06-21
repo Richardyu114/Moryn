@@ -106,6 +106,13 @@ and returning handoff data. If project context is unclear but the store contains
 known projects, it returns project discovery results with executable
 `agent_start` actions for each project.
 
+When `agent enter` starts a known project, read `startup_overview` first. It is
+the compact startup path for agents: readiness status, project id, the primary
+next step, explicit write boundary, and evidence pointers back to
+`start.boot`, `start.refresh`, `start.handoff`, and `next.actions_by_id`. Use
+those evidence sources when you need details; do not manually reconstruct a
+startup sequence from lower-level calls.
+
 For read-only setup checks, call:
 
 ```bash
@@ -143,6 +150,10 @@ moryn agent start \
   --current-task "current task" \
   --agent codex
 ```
+
+The direct `agent start` response also includes `startup_overview`. It is
+read-first and has no mutation side effects. Follow its `primary_next_step` and
+`signals` before diving into the larger boot, refresh, or handoff payloads.
 
 The response includes:
 

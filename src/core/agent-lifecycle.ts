@@ -693,6 +693,39 @@ interface AgentHandoffEntry {
   next_action: HandoffEntryNextAction;
 }
 
+export type AgentStartupOverviewStatus = "ready" | "needs_attention";
+
+export interface AgentStartupOverview {
+  status: AgentStartupOverviewStatus;
+  project_id: string;
+  headline: string;
+  primary_next_step: {
+    action_id: string;
+    action_source: string;
+    label: string;
+    safe_to_run: boolean;
+    requires_user_input: boolean;
+  };
+  safety: {
+    read_first: true;
+    writes_require_explicit_action: true;
+    mutation_surfaces: ["agent_status", "agent_finish"];
+  };
+  signals: Array<{
+    id: "boot_context" | "refresh_context" | "handoff_context";
+    label: string;
+    status: "ok" | "review";
+    summary: string;
+    source: "start.boot" | "start.refresh" | "start.handoff";
+  }>;
+  evidence_sources: {
+    boot: "start.boot";
+    refresh: "start.refresh";
+    handoff: "start.handoff";
+    next_actions: "next.actions_by_id";
+  };
+}
+
 function sourceFromAgent(agent: unknown): RecordSource {
   const identity = agent as AgentIdentity | undefined;
   return {
@@ -1375,6 +1408,82 @@ function nextActions(input: AgentLifecycleInput, cursor?: string): LifecycleActi
     })));
   }
   return actions;
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function startupSignal(input: {
+  id: AgentStartupOverview["signals"][number]["id"];
+  label: string;
+  count: number;
+  source: AgentStartupOverview["signals"][number]["source"];
+}): AgentStartupOverview["signals"][number] {
+  return {
+    id: input.id,
+    label: input.label,
+    status: input.count > 0 ? "review" : "ok",
+    summary: input.count > 0 ? pluralize(input.count, "item") : "No blocking items",
+    source: input.source
+  };
+}
+
+function buildStartupOverview(input: {
+  project: { project_id: string };
+  boot: { project: { warnings: unknown[] }; task_relevant: unknown[]; recent_changes: unknown[] };
+  refresh: { changes: unknown[]; should_interrupt: boolean };
+  handoff: { inbox: unknown[]; active_sessions: unknown[] };
+  actions: LifecycleActionTemplate[];
+}): AgentStartupOverview {
+  const finishAction = input.actions.find((action) => action.action === "finish_session");
+  const signals = [
+    startupSignal({
+      id: "boot_context",
+      label: "Boot context",
+      count: input.boot.project.warnings.length + input.boot.task_relevant.length,
+      source: "start.boot"
+    }),
+    startupSignal({
+      id: "refresh_context",
+      label: "Refresh context",
+      count: input.refresh.should_interrupt ? input.refresh.changes.length || 1 : 0,
+      source: "start.refresh"
+    }),
+    startupSignal({
+      id: "handoff_context",
+      label: "Handoff context",
+      count: input.handoff.inbox.length + input.handoff.active_sessions.length,
+      source: "start.handoff"
+    })
+  ];
+  const status: AgentStartupOverviewStatus = signals.some((signal) => signal.status === "review") ? "needs_attention" : "ready";
+  return {
+    status,
+    project_id: input.project.project_id,
+    headline: status === "ready"
+      ? `Ready to work in ${input.project.project_id}.`
+      : `Review startup context before working in ${input.project.project_id}.`,
+    primary_next_step: {
+      action_id: finishAction?.action ?? "finish_session",
+      action_source: finishAction?.action_source ?? "next.actions_by_id.finish_session",
+      label: "Finish with handoff summary",
+      safe_to_run: finishAction?.safe_to_run ?? false,
+      requires_user_input: (finishAction?.required_fields.length ?? 1) > 0
+    },
+    safety: {
+      read_first: true,
+      writes_require_explicit_action: true,
+      mutation_surfaces: ["agent_status", "agent_finish"]
+    },
+    signals,
+    evidence_sources: {
+      boot: "start.boot",
+      refresh: "start.refresh",
+      handoff: "start.handoff",
+      next_actions: "next.actions_by_id"
+    }
+  };
 }
 
 function lifecycleActionsById<T extends LifecycleActionTemplate>(actions: T[]): Record<string, T> {
@@ -2373,6 +2482,7 @@ export async function agentEnter(input: AgentEnterInput) {
       bootstrap,
       doctor,
       project: start.project,
+      startup_overview: start.startup_overview,
       start,
       next: {
         recommended_action: "work_with_handoff_context",
@@ -2480,6 +2590,13 @@ export async function agentStart(input: AgentStartInput) {
   });
   const handoff = await agentHandoff(engine, project.project_id, input);
   const actions = nextActions(actionInput, refresh.cursor);
+  const startupOverview = buildStartupOverview({
+    project: projectInfo,
+    boot,
+    refresh,
+    handoff,
+    actions
+  });
 
   return {
     ok: true,
@@ -2487,6 +2604,7 @@ export async function agentStart(input: AgentStartInput) {
     project: projectInfo,
     bootstrap,
     sync,
+    startup_overview: startupOverview,
     boot,
     refresh,
     handoff,

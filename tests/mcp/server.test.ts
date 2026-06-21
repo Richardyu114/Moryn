@@ -4705,6 +4705,21 @@ describe("MCP stdio server", () => {
           }
         })) as {
           mode: string;
+          startup_overview: {
+            status: string;
+            project_id: string;
+            headline: string;
+            primary_next_step: { action_id: string; action_source: string; safe_to_run: boolean; requires_user_input: boolean };
+            safety: { read_first: boolean; writes_require_explicit_action: boolean; mutation_surfaces: string[] };
+            evidence_sources: Record<string, string>;
+          };
+          start: {
+            startup_overview: {
+              status: string;
+              project_id: string;
+              headline: string;
+            };
+          };
           next: {
             recommended_action: string;
             tool: string;
@@ -5194,6 +5209,33 @@ describe("MCP stdio server", () => {
         };
 
         expect(entered.mode).toBe("start_session");
+        expect(entered.startup_overview).toMatchObject({
+          status: "ready",
+          project_id: "moryn",
+          headline: "Ready to work in moryn.",
+          primary_next_step: {
+            action_id: "finish_session",
+            action_source: "next.actions_by_id.finish_session",
+            safe_to_run: false,
+            requires_user_input: true
+          },
+          safety: {
+            read_first: true,
+            writes_require_explicit_action: true,
+            mutation_surfaces: ["agent_status", "agent_finish"]
+          },
+          evidence_sources: {
+            boot: "start.boot",
+            refresh: "start.refresh",
+            handoff: "start.handoff",
+            next_actions: "next.actions_by_id"
+          }
+        });
+        expect(entered.start.startup_overview).toMatchObject({
+          status: "ready",
+          project_id: "moryn",
+          headline: "Ready to work in moryn."
+        });
         expect(entered.next.recommended_action).toBe("work_with_handoff_context");
         expect(entered.next.actions_by_id.publish_status).toEqual(entered.next.actions.find((action) => action.action === "publish_status"));
         expect(entered.next.actions_by_id.finish_session).toEqual(entered.next.actions.find((action) => action.action === "finish_session"));

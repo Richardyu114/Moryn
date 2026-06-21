@@ -2072,9 +2072,54 @@ describe("agent lifecycle", () => {
         ok: true,
         mode: "start_session",
         project: { project_id: "moryn" },
+        startup_overview: {
+          status: "ready",
+          project_id: "moryn",
+          headline: "Ready to work in moryn.",
+          primary_next_step: {
+            action_id: "finish_session",
+            action_source: "next.actions_by_id.finish_session",
+            label: "Finish with handoff summary",
+            safe_to_run: false,
+            requires_user_input: true
+          },
+          safety: {
+            read_first: true,
+            writes_require_explicit_action: true,
+            mutation_surfaces: ["agent_status", "agent_finish"]
+          },
+          signals: expect.arrayContaining([
+            expect.objectContaining({
+              id: "boot_context",
+              status: "ok",
+              source: "start.boot"
+            }),
+            expect.objectContaining({
+              id: "refresh_context",
+              status: "ok",
+              source: "start.refresh"
+            }),
+            expect.objectContaining({
+              id: "handoff_context",
+              status: "ok",
+              source: "start.handoff"
+            })
+          ]),
+          evidence_sources: {
+            boot: "start.boot",
+            refresh: "start.refresh",
+            handoff: "start.handoff",
+            next_actions: "next.actions_by_id"
+          }
+        },
         start: {
           ok: true,
-          project: { project_id: "moryn" }
+          project: { project_id: "moryn" },
+          startup_overview: {
+            status: "ready",
+            project_id: "moryn",
+            headline: "Ready to work in moryn."
+          }
         },
         next: {
           recommended_action: "work_with_handoff_context",
