@@ -439,6 +439,11 @@ approval queue is rendered, the `Confirm` card points to `Needs Attention` as a
 stable zero-state target. If a target sits inside another collapsed detail
 panel, the dashboard opens the parent panels before scrolling.
 
+Action Board cards keep full explanations in `items[].detail` for agents and
+audit readers, but the visible card footer uses the shorter `items[].hint`.
+This keeps the folded dashboard compact while preserving the machine-readable
+reason behind each navigation target.
+
 `Needs Attention` starts with a compact focus strip that counts action signals,
 non-zero warning checks, and non-zero informational checks, then shows the next
 review step as a dedicated action chip. Warning and critical items remain

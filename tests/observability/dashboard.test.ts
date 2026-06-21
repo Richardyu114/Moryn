@@ -818,6 +818,7 @@ describe("observability dashboard", () => {
         value: 0,
         severity: "good",
         summary: "No approvals waiting",
+        hint: "No confirmation needed",
         next_action_label: "Check attention",
         target: "needs-attention"
       });
@@ -826,6 +827,7 @@ describe("observability dashboard", () => {
         value: 1,
         severity: "warning",
         summary: "1 attention item",
+        hint: "Review visible warnings",
         detail: "Warnings and critical signals remain visible in Needs Attention.",
         next_action_label: "Review warnings"
       });
@@ -834,7 +836,17 @@ describe("observability dashboard", () => {
         value: 1,
         severity: "info",
         summary: "Local Only",
+        hint: "Local only",
         next_action_label: "Inspect sync"
+      });
+      expect(data.action_board.items_by_id.inspect).toMatchObject({
+        label: "Inspect",
+        value: 0,
+        severity: "good",
+        summary: "No safe checks",
+        hint: "No inspection needed",
+        detail: "Read-only inspections are grouped in Governance Hub.",
+        next_action_label: "Open governance"
       });
       expect(data.dashboard_overview).toMatchObject({
         status: "warning",
@@ -937,6 +949,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("<em class=\"action-board-next\">Review warnings</em>");
       expect(html).toContain("<em class=\"action-board-next\">Open governance</em>");
       expect(html).toContain("<em class=\"action-board-next\">Inspect sync</em>");
+      expect(html).toContain("<small>No confirmation needed</small>");
+      expect(html).toContain("<small>Review visible warnings</small>");
+      expect(html).toContain("<small>No inspection needed</small>");
+      expect(html).toContain("<small>Local only</small>");
+      expect(html).not.toContain("<small>Explicit approvals stay in Capture Inbox and Review Queue.</small>");
+      expect(html).not.toContain("<small>Warnings and critical signals remain visible in Needs Attention.</small>");
+      expect(html).not.toContain("<small>Read-only inspections are grouped in Governance Hub.</small>");
       expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Evidence Library\">");
       expect(html).toContain("<span>Evidence Library</span>");
       expect(html).toContain("<small>Read-only diagnostics grouped here</small>");

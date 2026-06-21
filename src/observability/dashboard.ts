@@ -211,6 +211,7 @@ export interface DashboardActionBoardItem {
   value: number;
   severity: DashboardActionBoardSeverity;
   summary: string;
+  hint: string;
   detail: string;
   next_action_label: string;
   target: string;
@@ -1703,6 +1704,7 @@ function buildActionBoard(input: {
       value: confirmCount,
       severity: actionBoardSeverity(confirmCount),
       summary: confirmCount === 0 ? "No approvals waiting" : pluralize(confirmCount, "approval waiting", "approvals waiting"),
+      hint: confirmCount === 0 ? "No confirmation needed" : "Confirm queued memory",
       detail: "Explicit approvals stay in Capture Inbox and Review Queue.",
       next_action_label: confirmCount === 0 ? "Check attention" : "Open queue",
       target: confirmCount === 0 ? "needs-attention" : "capture-inbox"
@@ -1713,6 +1715,7 @@ function buildActionBoard(input: {
       value: reviewCount,
       severity: actionBoardSeverity(reviewCount),
       summary: reviewCount === 0 ? "No urgent review" : pluralize(reviewCount, "attention item"),
+      hint: reviewCount === 0 ? "No warning action" : "Review visible warnings",
       detail: "Warnings and critical signals remain visible in Needs Attention.",
       next_action_label: "Review warnings",
       target: "needs-attention"
@@ -1723,6 +1726,7 @@ function buildActionBoard(input: {
       value: inspectCount,
       severity: inspectCount > 0 ? "info" : "good",
       summary: inspectCount === 0 ? "No safe checks" : pluralize(inspectCount, "safe check"),
+      hint: inspectCount === 0 ? "No inspection needed" : "Inspect governance",
       detail: "Read-only inspections are grouped in Governance Hub.",
       next_action_label: "Open governance",
       target: "governance-hub"
@@ -1733,6 +1737,7 @@ function buildActionBoard(input: {
       value: syncNeedsAction ? 1 : 0,
       severity: syncSeverity,
       summary: input.health.label,
+      hint: input.sync.remote ? syncLabel(input.sync) : "Local only",
       detail: input.sync.remote ? syncLabel(input.sync) : "Local memory is usable; remote sync is not configured.",
       next_action_label: "Inspect sync",
       target: "store-signals"
@@ -2262,7 +2267,7 @@ function actionBoard(data: DashboardActionBoard): string {
             <span>${escapeHtml(item.label)}</span>
             <strong>${escapeHtml(item.value)}</strong>
             <p>${escapeHtml(item.summary)}</p>
-            <small>${escapeHtml(item.detail)}</small>
+            <small>${escapeHtml(item.hint)}</small>
             <em class="action-board-next">${escapeHtml(item.next_action_label)}</em>
           </button>
         `).join("")}
