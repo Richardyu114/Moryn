@@ -2533,6 +2533,24 @@ function contextPackReviewSummary(review: DashboardContextPackReview): string {
   return `${gate.status} | ${checkSummary} | ${pluralize(pack.recent_decisions.length, "decision")} | ${pluralize(pack.open_threads.length, "thread")} | ${pluralize(pack.risks.length, "risk")}`;
 }
 
+function contextPackReadinessChips(review: DashboardContextPackReview): string {
+  const pack = review.handoff_pack;
+  if (!pack) return "";
+  const gate = pack.quality_gate;
+  const checks = gate.checks;
+  const passedChecks = checks.filter((check) => check.status === "pass").length;
+  const evidenceCount = pack.recent_decisions.length + pack.open_threads.length + pack.risks.length;
+  const captureActionVisible = pack.next_actions.some((action) => action.id === "capture_session");
+  return `
+        <div class="context-pack-readiness" aria-label="Context Pack readiness">
+          <span class="context-pack-chip ${gate.status === "ready" ? "good" : "warning"}">${escapeHtml(titleCase(gate.status))}</span>
+          <span class="context-pack-chip ${passedChecks === checks.length ? "good" : "warning"}">${escapeHtml(passedChecks)}/${escapeHtml(checks.length)} checks</span>
+          <span class="context-pack-chip info">${escapeHtml(pluralize(evidenceCount, "evidence item"))}</span>
+          <span class="context-pack-chip ${captureActionVisible ? "good" : "warning"}">${escapeHtml(captureActionVisible ? "Capture action visible" : "Capture action missing")}</span>
+        </div>
+  `;
+}
+
 function contextPackReviewOpenAttribute(review: DashboardContextPackReview): string {
   const gate = review.handoff_pack?.quality_gate;
   if (!gate) return "";
@@ -2558,6 +2576,7 @@ function contextPackReviewPanel(review: DashboardContextPackReview): string {
       <summary class="dashboard-fold-summary context-pack-review-fold">
         <span>Context Pack Review</span>
         <small>${escapeHtml(contextPackReviewSummary(review))}</small>
+        ${contextPackReadinessChips(review)}
       </summary>
       <div class="context-pack-review-body">
         <div class="context-pack-heading">
@@ -3888,6 +3907,32 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding: 8px;
       background: var(--surface);
       min-width: 0;
+    }
+    .context-pack-review-fold {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px 10px;
+      align-items: center;
+    }
+    .context-pack-readiness {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+    .context-pack-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 730;
+      overflow-wrap: anywhere;
     }
     .context-pack-checks {
       display: grid;

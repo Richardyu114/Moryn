@@ -1999,6 +1999,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"dashboard-fold-summary context-pack-review-fold\">");
       expect(html).toContain("<span>Context Pack Review</span>");
       expect(html).toContain("<small>ready | all checks passed | 1 decision | 1 thread | 1 risk</small>");
+      expect(html).toContain("<div class=\"context-pack-readiness\" aria-label=\"Context Pack readiness\">");
+      expect(html).toContain("<span class=\"context-pack-chip good\">Ready</span>");
+      expect(html).toContain("<span class=\"context-pack-chip good\">6/6 checks</span>");
+      expect(html).toContain("<span class=\"context-pack-chip info\">3 evidence items</span>");
+      expect(html).toContain("<span class=\"context-pack-chip good\">Capture action visible</span>");
       expect(html).toContain("<div class=\"context-pack-review-body\">");
       expect(html).toContain("agent_handoff");
       expect(html).toContain("Read-only");
