@@ -223,6 +223,10 @@ backlog, duplicate handoff text, and failure or timeout signals, keyed by
 `dogfood_report.findings_by_id.<finding_id>`, plus inspection suggestions under
 `dogfood_report.suggested_actions_by_id.<action_id>`. It does not mutate records
 or events; suggested actions are read-only dashboard or timeline checks.
+The dashboard renders the same findings as a collapsed read-only `Dogfood
+Review` issue inbox with `Issue brief`, impact, affected records, read-only next
+step, evidence path, and safe inspection command. It does not add dashboard API
+write endpoints.
 
 The read-only health check is available through the same registry:
 

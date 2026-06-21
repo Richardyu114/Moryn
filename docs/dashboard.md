@@ -463,13 +463,20 @@ does not take over the first screen.
 
 Read-only diagnostic detail lives in the collapsed `Evidence Library`. Its
 visible summary uses a purpose label, `Read-only diagnostics grouped here`,
-instead of listing every child module on the first screen. Health Check,
-Governance Hub, Context Pack Review, and Supporting Evidence stay nested under
-that evidence layer so the main path stays focused on action and review. The
-library is still fully local and auditable: each child panel keeps its
-`data-dashboard-detail` target, so Action Board buttons can open the parent
-library before scrolling to `governance-hub`, `context-pack-review`, or
-`store-signals`.
+instead of listing every child module on the first screen. Health Check, Recall
+Eval, Dogfood Review, Governance Hub, Context Pack Review, and Supporting
+Evidence stay nested under that evidence layer so the main path stays focused
+on action and review. The library is still fully local and auditable: each child
+panel keeps its `data-dashboard-detail` target, so Action Board buttons can open
+the parent library before scrolling to `governance-hub`,
+`context-pack-review`, or `store-signals`.
+
+`Dogfood Review` is a read-only issue inbox for `dogfood_report.findings_by_id`.
+It renders only when the local report has findings. Each card leads with an
+`Issue brief` for impact, affected records, read-only next step, and evidence
+path, followed by the safe dashboard or timeline command already returned by
+`dogfood_report.suggested_actions_by_id`. It does not add buttons, background
+execution, or a second mutation path.
 
 It does not contain Capture Inbox approvals or Review Queue maintenance
 approvals. Those explicit confirmation surfaces stay on the main path, outside

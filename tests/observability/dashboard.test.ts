@@ -728,6 +728,17 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Governance Hub");
+      expect(html).toContain("<details class=\"panel dogfood-review\" data-dashboard-detail=\"dogfood-review\" aria-label=\"Dogfood Review\">");
+      expect(html).toContain("<span>Dogfood Review</span>");
+      expect(html).toContain("<small>2 findings | 2 safe steps | read-only</small>");
+      expect(html).toContain("data-dogfood-review-item=\"capture_review_backlog\"");
+      expect(html).toContain("data-dogfood-review-item=\"failure_signals\"");
+      expect(html).toContain("<h4>Issue brief</h4>");
+      expect(html).toContain("<dt>Impact</dt><dd>2 autocapture/review candidate records are active.</dd>");
+      expect(html).toContain("<dt>Read-only next step</dt><dd>review_capture_inbox</dd>");
+      expect(html).toContain("<dt>Evidence</dt><dd><code>dogfood_report.findings_by_id.failure_signals</code></dd>");
+      expect(html).toContain("<code>moryn dashboard --serve --project-id moryn</code>");
+      expect(html).toContain("<code>moryn timeline --record-id rec_governance_item_6 --project-id moryn --before 3 --after 3</code>");
       expect(html).toContain("<details class=\"governance-item");
       expect(html).toContain("data-dashboard-detail=\"governance:capture_policy:review_required\"");
       expect(html).toContain("<details class=\"governance-safe-group\" data-dashboard-detail=\"governance-safe-inspections\">");

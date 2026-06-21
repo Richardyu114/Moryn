@@ -59,7 +59,9 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("data-dashboard-action-id");
     expectText(dashboard, "Each overview card is also a local navigation button");
     expect(dashboard).toContain("Evidence Library");
-    expectText(dashboard, "Health Check, Governance Hub, Context Pack Review, and Supporting Evidence");
+    expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Supporting Evidence");
+    expect(dashboard).toContain("Dogfood Review");
+    expect(dashboard).toContain("Issue brief");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
     expectText(dashboard, "Each row leads with a compact `Finding summary`");
     expect(dashboard).toContain("Safe Action Registry");
@@ -278,6 +280,9 @@ describe("documentation contracts", () => {
     expect(contracts).toContain('"tool": "dogfood_report"');
     expect(contracts).toContain("dogfood_report.findings_by_id.<finding_id>");
     expect(contracts).toContain("dogfood_report.suggested_actions_by_id.<action_id>");
+    expectText(contracts, "Dogfood Review");
+    expect(contracts).toContain("Issue brief");
+    expectText(contracts, "does not add dashboard API write endpoints");
     expect(roadmap).toContain("dogfood report");
   });
 
