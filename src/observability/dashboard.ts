@@ -3154,6 +3154,25 @@ function captureInboxDecisionBrief(item: DashboardCaptureInboxItem): string {
   `;
 }
 
+function captureInboxQueueSummary(items: DashboardCaptureInbox): string {
+  const likelyNoise = items.items.filter((item) => item.noise.level === "likely_noise").length;
+  const normalReview = Math.max(0, items.total - likelyNoise);
+  return `
+      <div class="capture-inbox-queue-summary" data-capture-inbox-queue-summary>
+        <div>
+          <h3>Queue summary</h3>
+          <p>${escapeHtml(pluralize(items.total, "candidate"))} grouped into ${escapeHtml(pluralize(items.group_total, "review group"))}.</p>
+          <p>Default path: review by group first, then open item details only when needed.</p>
+          <p>Manual review: candidates become canonical only after Approve Memory or Approve Group.</p>
+        </div>
+        <div class="capture-inbox-queue-chips" aria-label="Capture Inbox queue counts">
+          <span>${escapeHtml(normalReview)} normal review</span>
+          <span>${escapeHtml(likelyNoise)} likely noise</span>
+        </div>
+      </div>
+  `;
+}
+
 function captureInbox(items: DashboardCaptureInbox): string {
   if (items.total === 0 && items.autocapture_policy.auto_captured_total === 0 && items.autocapture_policy.archived_total === 0) return "";
   return `
@@ -3162,6 +3181,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
         <h2>Capture Inbox</h2>
         <span>${escapeHtml(pluralize(items.total, "candidate"))} | ${escapeHtml(pluralize(items.group_total, "group"))}</span>
       </div>
+      ${items.total > 0 ? captureInboxQueueSummary(items) : ""}
       <div class="capture-inbox-list">
         ${items.groups.map((group) => {
           const groupItems = items.items.filter((item) => item.group_id === group.id);
@@ -4307,6 +4327,41 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .capture-policy-summary .capture-policy:last-child { margin-bottom: 0; }
     .capture-inbox-audit .capture-policy { margin: 0 0 8px; }
     .capture-inbox-audit .capture-policy:last-of-type { margin-bottom: 0; }
+    .capture-inbox-queue-summary {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 10px;
+      margin: 0 0 10px;
+      background: var(--surface-2);
+      min-width: 0;
+    }
+    .capture-inbox-queue-summary h3 { margin-bottom: 4px; }
+    .capture-inbox-queue-summary p {
+      margin-top: 3px;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+    .capture-inbox-queue-chips {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+      min-width: 0;
+    }
+    .capture-inbox-queue-chips span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+      white-space: nowrap;
+    }
     .capture-policy-rules {
       border: 1px solid var(--border);
       border-radius: 7px;
@@ -4632,6 +4687,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .status-strip { grid-template-columns: 1fr; align-items: start; }
       .focus-brief-main { display: grid; align-items: stretch; }
       .focus-brief-action { width: 100%; white-space: normal; }
+      .capture-inbox-queue-summary { display: grid; }
+      .capture-inbox-queue-chips { justify-content: flex-start; }
       .attention-summary { display: grid; justify-content: stretch; }
       .action-board-heading,
       .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-actions,

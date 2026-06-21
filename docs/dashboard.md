@@ -97,6 +97,13 @@ low-risk handoffs can be auto-captured as local handoff evidence without making
 the user click every event. The user keeps control over what becomes canonical
 long-term context.
 
+The panel starts with a `Queue summary` before the individual cards. It tells
+the user how many candidates have been grouped into review groups, how many look
+like normal review versus likely noise, and that the default path is to review
+by group first. Item-level detail remains available for inspection, but the
+first read is "which group should I approve or reject?" rather than "click every
+event."
+
 Each candidate card starts with a compact `Decision brief` so the user can tell
 why it needs review and what each action does before reading trace details:
 

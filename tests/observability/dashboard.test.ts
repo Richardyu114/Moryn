@@ -2482,6 +2482,15 @@ describe("observability dashboard", () => {
       const auditIndex = html.indexOf("<details class=\"capture-inbox-audit\" data-dashboard-detail=\"capture-inbox-audit\">");
       expect(inboxListIndex).toBeGreaterThan(-1);
       expect(auditIndex).toBeGreaterThan(inboxListIndex);
+      expect(html).toContain("data-capture-inbox-queue-summary");
+      expect(html).toContain("<h3>Queue summary</h3>");
+      expect(html).toContain("4 candidates grouped into 2 review groups.");
+      expect(html).toContain("Default path: review by group first, then open item details only when needed.");
+      expect(html).toContain("Manual review: candidates become canonical only after Approve Memory or Approve Group.");
+      expect(html).toContain("<span>2 normal review</span>");
+      expect(html).toContain("<span>2 likely noise</span>");
+      expect(html.indexOf("data-capture-inbox-queue-summary")).toBeLessThan(inboxListIndex);
+      expect(html).not.toContain("data-dashboard-action-id=\"capture_inbox.queue");
       expect(html).not.toContain("<details class=\"capture-policy-summary\" data-dashboard-detail=\"capture-policy-summary\">");
       expect(html).toContain("<span>Capture Audit</span>");
       expect(html).toContain("<small>manual review | no auto-canonical | 4 candidates</small>");
