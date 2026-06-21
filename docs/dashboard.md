@@ -241,8 +241,9 @@ panel.
 
 When Memory Lifecycle and Capture Policy Audit both have no current findings or
 suggested actions, the dashboard groups them under a collapsed `Clean Audit
-Reports` summary. The reports and their evidence remain in the HTML and
-`/api/dashboard`; the grouping only reduces first-screen noise for clean checks.
+Reports` summary inside `Supporting Evidence`. The reports and their evidence
+remain in the HTML and `/api/dashboard`; the grouping only reduces first-screen
+noise for clean checks.
 
 When `--project-id <id>` or `--project <path>` is provided, the lifecycle report
 uses the same project scope as the CLI report: matching project records plus
@@ -394,11 +395,12 @@ dashboard opens the parent panels before scrolling.
 checks are grouped under a collapsed `Info Checks` summary so routine status
 signals remain inspectable without competing with action-oriented warnings.
 
-Raw records, events, sync details, recent value, and store telemetry remain
-available in the lower `Supporting Evidence` panel. That collapsed group holds
-`Store Signals`, `Recent Value`, and the raw `Debug Inspector` together so the
-first screen prioritizes attention items, governance, review actions, and
-context readiness without removing local evidence.
+Clean audit reports, raw records, events, sync details, recent value, and store
+telemetry remain available in the lower `Supporting Evidence` panel. That
+collapsed group holds `Clean Audit Reports`, `Store Signals`, `Recent Value`,
+and the raw `Debug Inspector` together so the first screen prioritizes
+attention items, governance, review actions, and context readiness without
+removing local evidence.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without

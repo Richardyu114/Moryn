@@ -751,7 +751,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<article class=\"attention warning\">");
       expect(html).toContain("<details class=\"panel supporting-evidence\" data-dashboard-detail=\"supporting-evidence\" aria-label=\"Supporting Evidence\">");
       expect(html).toContain("<span>Supporting Evidence</span>");
-      expect(html).toContain("<small>store signals / recent value / debug inspector</small>");
+      expect(html).toContain("<small>audit reports / store signals / debug inspector</small>");
       const supportingEvidenceIndex = html.indexOf("<details class=\"panel supporting-evidence\" data-dashboard-detail=\"supporting-evidence\" aria-label=\"Supporting Evidence\">");
       const storeSignalsIndex = html.indexOf("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
       const recentValueIndex = html.indexOf("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
@@ -2860,6 +2860,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Clean Audit Reports</span>");
       expect(html).toContain("<small>Memory Lifecycle clean | Capture Policy clean</small>");
       expect(html).toContain("<div class=\"clean-audit-list\">");
+      const supportingEvidenceIndex = html.indexOf("<details class=\"panel supporting-evidence\" data-dashboard-detail=\"supporting-evidence\" aria-label=\"Supporting Evidence\">");
+      const cleanAuditIndex = html.indexOf("<details class=\"panel clean-audit-reports\" data-dashboard-detail=\"clean-audit-reports\" aria-label=\"Clean Audit Reports\">");
+      const storeSignalsIndex = html.indexOf("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
+      expect(cleanAuditIndex).toBeGreaterThan(supportingEvidenceIndex);
+      expect(storeSignalsIndex).toBeGreaterThan(cleanAuditIndex);
       expect(html).toContain("data-capture-policy-decision=\"rec_policy_handled\"");
       expect(html).toContain("Review already handled");
       expect(html).toContain("<details class=\"clean-audit-report memory-lifecycle\" data-dashboard-detail=\"memory-lifecycle-audit\"");

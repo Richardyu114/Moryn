@@ -3249,13 +3249,18 @@ function debugInspectorPanel(data: DashboardData): string {
 }
 
 function supportingEvidencePanel(data: DashboardData): string {
+  const reports = auditReports({
+    memoryLifecycle: data.memory_lifecycle,
+    capturePolicy: data.capture_policy
+  });
   return `
     <details class="panel supporting-evidence" data-dashboard-detail="supporting-evidence" aria-label="Supporting Evidence">
       <summary class="dashboard-fold-summary supporting-evidence-fold">
         <span>Supporting Evidence</span>
-        <small>store signals / recent value / debug inspector</small>
+        <small>audit reports / store signals / debug inspector</small>
       </summary>
       <div class="supporting-evidence-list">
+        ${reports}
         ${storeSignalsPanel(data)}
         ${recentValuePanel(data.recent_value)}
         ${debugInspectorPanel(data)}
@@ -3293,11 +3298,6 @@ function renderDashboardBody(data: DashboardData): string {
     ${maintenanceReviewQueue(data.maintenance.plans)}
 
     ${contextPackReviewPanel(data.context_pack_review)}
-
-    ${auditReports({
-      memoryLifecycle: data.memory_lifecycle,
-      capturePolicy: data.capture_policy
-    })}
 
     ${captureInbox(data.capture_inbox)}
 
