@@ -699,7 +699,7 @@ describe("observability dashboard", () => {
         value: 0,
         severity: "good",
         summary: "No approvals waiting",
-        next_action_label: "No approval queue",
+        next_action_label: "Check attention",
         target: "needs-attention"
       });
       expect(data.action_board.items_by_id.review).toMatchObject({
@@ -708,14 +708,14 @@ describe("observability dashboard", () => {
         severity: "warning",
         summary: "1 attention item",
         detail: "Warnings and critical signals remain visible in Needs Attention.",
-        next_action_label: "Review warning signals"
+        next_action_label: "Review warnings"
       });
       expect(data.action_board.items_by_id.sync).toMatchObject({
         label: "Sync",
         value: 1,
         severity: "info",
         summary: "Local Only",
-        next_action_label: "Inspect sync state"
+        next_action_label: "Inspect sync"
       });
       expect(data.recent_value.find((record) => record.state === "quarantined")?.summary).toBe("[quarantined]");
 
@@ -732,10 +732,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"inspect\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">");
       expect(html).toContain("<button type=\"button\" class=\"action-board-item info\" data-action-board-item=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
       expect(html).toContain("data-action-board-nav");
-      expect(html).toContain("<em class=\"action-board-next\">No approval queue</em>");
-      expect(html).toContain("<em class=\"action-board-next\">Review warning signals</em>");
-      expect(html).toContain("<em class=\"action-board-next\">Inspect Governance Hub</em>");
-      expect(html).toContain("<em class=\"action-board-next\">Inspect sync state</em>");
+      expect(html).toContain("<em class=\"action-board-next\">Check attention</em>");
+      expect(html).toContain("<em class=\"action-board-next\">Review warnings</em>");
+      expect(html).toContain("<em class=\"action-board-next\">Open governance</em>");
+      expect(html).toContain("<em class=\"action-board-next\">Inspect sync</em>");
       expect(html).toContain("target.open = true");
       expect(html).toContain("target.closest(\"details\")");
       expect(html).toContain("target.scrollIntoView({ block: \"start\", behavior: \"smooth\" })");
@@ -748,7 +748,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("attention-focus-count critical");
       expect(html).toContain("<span class=\"attention-focus-count warning\">1 warning</span>");
       expect(html).toContain("<span class=\"attention-focus-count info\">1 info</span>");
-      expect(html).toContain("<em>Next: Review warning signals</em>");
+      expect(html).toContain("<em>Next: Review warnings</em>");
       expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Quarantined records hidden\">");
       expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
       expect(html).toContain("<span>Info Checks</span>");
@@ -2226,7 +2226,7 @@ describe("observability dashboard", () => {
       expect(data.capture_inbox.total).toBe(1);
       expect(data.action_board.items_by_id.confirm).toMatchObject({
         value: 4,
-        next_action_label: "Open approval queue",
+        next_action_label: "Open queue",
         target: "capture-inbox"
       });
       expect(data.capture_inbox.items[0]).toMatchObject({
@@ -2282,7 +2282,7 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
       expect(html).toContain("Capture Inbox");
       expect(html).toContain("<button type=\"button\" class=\"action-board-item warning\" data-action-board-item=\"confirm\" data-action-board-target=\"capture-inbox\" aria-controls=\"capture-inbox\">");
-      expect(html).toContain("<em class=\"action-board-next\">Open approval queue</em>");
+      expect(html).toContain("<em class=\"action-board-next\">Open queue</em>");
       expect(html).toContain("1 candidate");
       expect(html).toContain("Codex finished Capture Inbox planning.");
       expect(html).toContain("data-capture-inbox-brief");

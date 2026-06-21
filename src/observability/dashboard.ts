@@ -1662,7 +1662,7 @@ function buildActionBoard(input: {
       severity: actionBoardSeverity(confirmCount),
       summary: confirmCount === 0 ? "No approvals waiting" : pluralize(confirmCount, "approval waiting", "approvals waiting"),
       detail: "Explicit approvals stay in Capture Inbox and Review Queue.",
-      next_action_label: confirmCount === 0 ? "No approval queue" : "Open approval queue",
+      next_action_label: confirmCount === 0 ? "Check attention" : "Open queue",
       target: confirmCount === 0 ? "needs-attention" : "capture-inbox"
     },
     {
@@ -1672,7 +1672,7 @@ function buildActionBoard(input: {
       severity: actionBoardSeverity(reviewCount),
       summary: reviewCount === 0 ? "No urgent review" : pluralize(reviewCount, "attention item"),
       detail: "Warnings and critical signals remain visible in Needs Attention.",
-      next_action_label: "Review warning signals",
+      next_action_label: "Review warnings",
       target: "needs-attention"
     },
     {
@@ -1682,7 +1682,7 @@ function buildActionBoard(input: {
       severity: inspectCount > 0 ? "info" : "good",
       summary: inspectCount === 0 ? "No safe checks" : pluralize(inspectCount, "safe check"),
       detail: "Read-only inspections are grouped in Governance Hub.",
-      next_action_label: "Inspect Governance Hub",
+      next_action_label: "Open governance",
       target: "governance-hub"
     },
     {
@@ -1692,7 +1692,7 @@ function buildActionBoard(input: {
       severity: syncSeverity,
       summary: input.health.label,
       detail: input.sync.remote ? syncLabel(input.sync) : "Local memory is usable; remote sync is not configured.",
-      next_action_label: "Inspect sync state",
+      next_action_label: "Inspect sync",
       target: "store-signals"
     }
   ];
@@ -2134,7 +2134,7 @@ function attentionFocus(items: DashboardAttentionItem[]): string {
   const warning = items.filter((item) => item.severity === "warning").length;
   const info = items.filter((item) => item.severity === "info").length;
   const actionSignals = critical + warning;
-  const next = critical > 0 ? "Review critical signals" : warning > 0 ? "Review warning signals" : "Inspect routine checks";
+  const next = critical > 0 ? "Review criticals" : warning > 0 ? "Review warnings" : "Inspect checks";
   const chips = [
     { severity: "critical", count: critical },
     { severity: "warning", count: warning },

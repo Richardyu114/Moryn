@@ -402,11 +402,12 @@ The first interactive section is `Action Board`, a four-card summary for:
 The Action Board is a derived summary only; it does not add mutation endpoints
 or hide the underlying panels. Clicking an Action Board card only scrolls to the
 matching local dashboard section and opens that section when it is a collapsed
-detail panel. Each card also shows a short next-action label so the first screen
-reads as a review cockpit instead of only a count summary. When no approval
-queue is rendered, the `Confirm` card points to `Needs Attention` as a stable
-zero-state target. If a target sits inside another collapsed detail panel, the
-dashboard opens the parent panels before scrolling.
+detail panel. Each card also shows a short verb-first next-action label such as
+`Open queue`, `Review warnings`, `Open governance`, or `Inspect sync`, so the
+first screen reads as a review cockpit instead of only a count summary. When no
+approval queue is rendered, the `Confirm` card points to `Needs Attention` as a
+stable zero-state target. If a target sits inside another collapsed detail
+panel, the dashboard opens the parent panels before scrolling.
 
 `Needs Attention` starts with a compact focus strip that counts action signals,
 non-zero warning checks, and non-zero informational checks, then names the next
