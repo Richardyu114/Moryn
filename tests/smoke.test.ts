@@ -12,6 +12,7 @@ import {
   GUIDE_LIFECYCLE_STEP_SELECTION_SOURCES,
   GUIDE_SELECTION_SOURCES,
   HANDOFF_PACK_SELECTION_SOURCES,
+  HANDOFF_QUALITY_GATE_SELECTION_SOURCES,
   HANDOFF_SELECTION_SOURCES,
   LINK_EVENT_SELECTION_SOURCES,
   LIFECYCLE_ACTION_SELECTION_SOURCES,
@@ -143,6 +144,8 @@ describe("package smoke test", () => {
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_cli_args).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.interfaces.cli.args[]");
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.arguments_by_name.<argument>");
     expect(HANDOFF_SELECTION_SOURCES.active_session_next_action_argument_source).toBe("handoff.active_sessions_by_record_id.<record_id>.next_action.argument_sources.<field>");
+    expect(HANDOFF_PACK_SELECTION_SOURCES.quality_gate).toBe("handoff_pack.quality_gate");
+    expect(HANDOFF_QUALITY_GATE_SELECTION_SOURCES.check).toBe("handoff_pack.quality_gate.checks_by_id.<check_id>");
     expect(CAPTURE_SESSION_SELECTION_SOURCES.policy_decision).toBe("policy_decision");
     expect(CAPTURE_POLICY_SELECTION_SOURCES.decision).toBe("decisions_by_record_id.<record_id>");
     expect(DEFAULT_AUTOCAPTURE_POLICY.id).toBe("default_autocapture_policy");
@@ -168,6 +171,7 @@ describe("package smoke test", () => {
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.capture_session).toBe(CAPTURE_SESSION_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.handoff).toBe(HANDOFF_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.handoff_pack).toBe(HANDOFF_PACK_SELECTION_SOURCES);
+    expect(SELECTION_SOURCE_CONTRACTS.lifecycle.handoff_quality_gate).toBe(HANDOFF_QUALITY_GATE_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.recovery.next_action).toBe(NEXT_ACTION_SELECTION_SOURCES);
   });
 

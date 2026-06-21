@@ -1116,7 +1116,7 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "context_pack",
     category: "lifecycle",
-    summary: "Build a host-normalized startup context pack with Handoff Pack v0.2, boot, refresh, raw handoff evidence, and a required capture next action.",
+    summary: "Build a host-normalized startup context pack with Handoff Pack v0.2, read-only quality gate, boot, refresh, raw handoff evidence, and a required capture next action.",
     safe_to_run: true,
     required_when: "At the start of a host session when an agent wants the simplest Moryn entrypoint.",
     required_fields: [],

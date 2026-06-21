@@ -267,6 +267,44 @@ describe("host adapters", () => {
             evidence: expect.objectContaining({ source: "sections.boot.project.warnings[]" })
           })
         ],
+        quality_gate: expect.objectContaining({
+          status: "ready",
+          read_only: true,
+          checks_by_id: expect.objectContaining({
+            current_goal: expect.objectContaining({
+              status: "pass",
+              source: "handoff_pack.current_goal"
+            }),
+            recent_decisions: expect.objectContaining({
+              status: "pass",
+              source: "handoff_pack.recent_decisions[]",
+              count: 1
+            }),
+            open_threads: expect.objectContaining({
+              status: "pass",
+              source: "handoff_pack.open_threads[]",
+              count: 1
+            }),
+            risks: expect.objectContaining({
+              status: "pass",
+              source: "handoff_pack.risks[]",
+              count: 1
+            }),
+            evidence_paths: expect.objectContaining({
+              status: "pass",
+              source: "handoff_pack.evidence"
+            }),
+            capture_next_action: expect.objectContaining({
+              status: "pass",
+              source: "next.actions_by_id.capture_session"
+            })
+          }),
+          failed_check_ids: [],
+          selection_sources: expect.objectContaining({
+            quality_gate: "handoff_pack.quality_gate",
+            check: "handoff_pack.quality_gate.checks_by_id.<check_id>"
+          })
+        }),
         user_preferences: [
           expect.objectContaining({
             text: "Prefer explicit user approval before canonical memory changes.",
@@ -301,6 +339,37 @@ describe("host adapters", () => {
       expect(pack.next.required_end_action_id).toBe("capture_session");
       expect(pack.next.actions_by_id.capture_session.command).toContain("moryn capture session");
       expect(pack.selection_sources.context_pack).toBe("context_pack");
+    });
+  });
+
+  it("marks context pack quality gate as needs_review when required handoff structure is missing", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      await mkdir(projectPath, { recursive: true });
+      await initializeProjectConfig(projectPath, { project_id: "moryn" });
+
+      const pack = await contextPack({
+        storePath,
+        projectPath,
+        agent: { client: "codex" },
+        pull: false
+      });
+
+      expect(pack.handoff_pack.quality_gate).toMatchObject({
+        status: "needs_review",
+        failed_check_ids: ["current_goal"],
+        warnings: expect.arrayContaining(["Context pack has no current goal; pass --current-task when starting focused work."]),
+        checks_by_id: expect.objectContaining({
+          current_goal: expect.objectContaining({
+            status: "warn",
+            source: "handoff_pack.current_goal"
+          }),
+          capture_next_action: expect.objectContaining({
+            status: "pass",
+            source: "next.actions_by_id.capture_session"
+          })
+        })
+      });
     });
   });
 

@@ -3175,6 +3175,12 @@ describe("moryn CLI", () => {
           current_goal: { text: string; source: string };
           recent_decisions: Array<{ text: string; evidence: { source: string } }>;
           open_threads: Array<{ text: string; evidence: { source: string } }>;
+          quality_gate: {
+            status: string;
+            checks_by_id: Record<string, { status: string; source: string; count?: number }>;
+            failed_check_ids: string[];
+            selection_sources: Record<string, string>;
+          };
           next_actions: Array<{ id: string; command: string; evidence: { source: string } }>;
           selection_sources: { handoff_pack: string };
         };
@@ -3202,6 +3208,18 @@ describe("moryn CLI", () => {
             evidence: expect.objectContaining({ source: "sections.handoff.inbox[]" })
           })
         ],
+        quality_gate: expect.objectContaining({
+          status: "ready",
+          failed_check_ids: [],
+          checks_by_id: expect.objectContaining({
+            current_goal: expect.objectContaining({ status: "pass", source: "handoff_pack.current_goal" }),
+            capture_next_action: expect.objectContaining({ status: "pass", source: "next.actions_by_id.capture_session" })
+          }),
+          selection_sources: expect.objectContaining({
+            quality_gate: "handoff_pack.quality_gate",
+            check: "handoff_pack.quality_gate.checks_by_id.<check_id>"
+          })
+        }),
         next_actions: expect.arrayContaining([
           expect.objectContaining({
             id: "capture_session",

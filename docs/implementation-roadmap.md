@@ -106,8 +106,8 @@ store:
 - `moryn install` safe setup planning with host-specific MCP registration
   hints.
 - `moryn context pack` startup context that bundles Handoff Pack v0.2, boot
-  context, refresh changes, raw handoff evidence, and a required capture next
-  action.
+  context, refresh changes, raw handoff evidence, a read-only quality gate, and
+  a required capture next action.
 - `moryn capture session` session-summary autocapture with normalized
   `source.client` and `host:<client>` tags.
 - `default_autocapture_policy` routes useful handoffs to Capture Inbox while

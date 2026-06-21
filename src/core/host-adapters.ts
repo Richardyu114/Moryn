@@ -140,6 +140,35 @@ export type HandoffPackNextAction = {
   evidence: HandoffPackEvidence;
 };
 
+export type HandoffQualityGateCheckId =
+  | "current_goal"
+  | "recent_decisions"
+  | "open_threads"
+  | "risks"
+  | "evidence_paths"
+  | "capture_next_action";
+
+export type HandoffQualityGateCheck = {
+  id: HandoffQualityGateCheckId;
+  status: "pass" | "warn";
+  label: string;
+  source: string;
+  count?: number;
+  message: string;
+};
+
+export type HandoffQualityGate = {
+  status: "ready" | "needs_review";
+  read_only: true;
+  checks: HandoffQualityGateCheck[];
+  checks_by_id: Record<HandoffQualityGateCheckId, HandoffQualityGateCheck>;
+  failed_check_ids: HandoffQualityGateCheckId[];
+  warnings: string[];
+  selection_sources: typeof HANDOFF_QUALITY_GATE_SELECTION_SOURCES;
+};
+
+type HandoffPackWithoutQualityGate = Omit<HandoffPackV2, "quality_gate" | "selection_sources">;
+
 export type HandoffPackV2 = {
   version: 2;
   purpose: "agent_handoff";
@@ -159,6 +188,7 @@ export type HandoffPackV2 = {
     handoff: "sections.handoff";
     next: "next";
   };
+  quality_gate: HandoffQualityGate;
   selection_sources: typeof HANDOFF_PACK_SELECTION_SOURCES;
 };
 
@@ -205,7 +235,16 @@ export const HANDOFF_PACK_SELECTION_SOURCES = {
   risk: "handoff_pack.risks[]",
   user_preference: "handoff_pack.user_preferences[]",
   next_action: "handoff_pack.next_actions[]",
-  evidence: "handoff_pack.evidence"
+  evidence: "handoff_pack.evidence",
+  quality_gate: "handoff_pack.quality_gate"
+} as const;
+
+export const HANDOFF_QUALITY_GATE_SELECTION_SOURCES = {
+  quality_gate: "handoff_pack.quality_gate",
+  check: "handoff_pack.quality_gate.checks_by_id.<check_id>",
+  ordered_check: "handoff_pack.quality_gate.checks[]",
+  failed_check: "handoff_pack.quality_gate.failed_check_ids[]",
+  warning: "handoff_pack.quality_gate.warnings[]"
 } as const;
 
 const HOST_ADAPTERS: HostAdapter[] = [
@@ -598,7 +637,7 @@ function buildHandoffPackV2(input: {
   sections: ContextPackResult["sections"];
   next: ContextPackResult["next"];
 }): HandoffPackV2 {
-  return {
+  const packWithoutQualityGate: HandoffPackWithoutQualityGate = {
     version: 2,
     purpose: "agent_handoff",
     ...(input.currentTask ? { current_goal: { text: input.currentTask, source: "context_pack.current_task" as const } } : {}),
@@ -624,9 +663,127 @@ function buildHandoffPackV2(input: {
       refresh: "sections.refresh",
       handoff: "sections.handoff",
       next: "next"
-    },
+    }
+  };
+
+  return {
+    ...packWithoutQualityGate,
+    quality_gate: buildHandoffQualityGate(packWithoutQualityGate),
     selection_sources: HANDOFF_PACK_SELECTION_SOURCES
   };
+}
+
+function buildHandoffQualityGate(pack: HandoffPackWithoutQualityGate): HandoffQualityGate {
+  const checks: HandoffQualityGateCheck[] = [
+    requiredValueCheck({
+      id: "current_goal",
+      label: "Current goal",
+      source: "handoff_pack.current_goal",
+      present: Boolean(pack.current_goal?.text.trim()),
+      passMessage: "Current goal is present.",
+      warnMessage: "Context pack has no current goal; pass --current-task when starting focused work."
+    }),
+    collectionEvidenceCheck({
+      id: "recent_decisions",
+      label: "Recent decisions",
+      source: "handoff_pack.recent_decisions[]",
+      items: pack.recent_decisions,
+      emptyMessage: "No recent decisions are currently available.",
+      passMessage: "Recent decisions include evidence paths."
+    }),
+    collectionEvidenceCheck({
+      id: "open_threads",
+      label: "Open threads",
+      source: "handoff_pack.open_threads[]",
+      items: pack.open_threads,
+      emptyMessage: "No open handoff threads are currently available.",
+      passMessage: "Open threads include evidence paths."
+    }),
+    collectionEvidenceCheck({
+      id: "risks",
+      label: "Risks",
+      source: "handoff_pack.risks[]",
+      items: pack.risks,
+      emptyMessage: "No explicit risks are currently available.",
+      passMessage: "Risks include evidence paths."
+    }),
+    requiredValueCheck({
+      id: "evidence_paths",
+      label: "Evidence paths",
+      source: "handoff_pack.evidence",
+      present: hasCompleteEvidenceMap(pack.evidence),
+      passMessage: "Raw boot, refresh, handoff, and next evidence paths are present.",
+      warnMessage: "Handoff pack is missing one or more raw evidence paths."
+    }),
+    requiredValueCheck({
+      id: "capture_next_action",
+      label: "Capture next action",
+      source: "next.actions_by_id.capture_session",
+      present: pack.next_actions.some((action) => action.id === "capture_session" && action.evidence.source === "next.actions_by_id.capture_session"),
+      passMessage: "Required capture_session end action is present.",
+      warnMessage: "Context pack is missing the required capture_session end action."
+    })
+  ];
+  const failedCheckIds = checks
+    .filter((check) => check.status === "warn")
+    .map((check) => check.id);
+  return {
+    status: failedCheckIds.length > 0 ? "needs_review" : "ready",
+    read_only: true,
+    checks,
+    checks_by_id: Object.fromEntries(checks.map((check) => [check.id, check])) as Record<HandoffQualityGateCheckId, HandoffQualityGateCheck>,
+    failed_check_ids: failedCheckIds,
+    warnings: checks.filter((check) => check.status === "warn").map((check) => check.message),
+    selection_sources: HANDOFF_QUALITY_GATE_SELECTION_SOURCES
+  };
+}
+
+function requiredValueCheck(input: {
+  id: HandoffQualityGateCheckId;
+  label: string;
+  source: string;
+  present: boolean;
+  passMessage: string;
+  warnMessage: string;
+}): HandoffQualityGateCheck {
+  return {
+    id: input.id,
+    label: input.label,
+    source: input.source,
+    status: input.present ? "pass" : "warn",
+    message: input.present ? input.passMessage : input.warnMessage
+  };
+}
+
+function collectionEvidenceCheck(input: {
+  id: HandoffQualityGateCheckId;
+  label: string;
+  source: string;
+  items: HandoffPackItem[];
+  emptyMessage: string;
+  passMessage: string;
+}): HandoffQualityGateCheck {
+  const missingEvidence = input.items.some((item) => !item.evidence.source);
+  const status = missingEvidence ? "warn" : "pass";
+  return {
+    id: input.id,
+    label: input.label,
+    source: input.source,
+    count: input.items.length,
+    status,
+    message: status === "warn"
+      ? `${input.label} include entries without evidence paths.`
+      : input.items.length > 0
+        ? input.passMessage
+        : input.emptyMessage
+  };
+}
+
+function hasCompleteEvidenceMap(evidence: HandoffPackV2["evidence"]): boolean {
+  return evidence.boot === "sections.boot"
+    && evidence.refresh === "sections.refresh"
+    && evidence.handoff === "sections.handoff"
+    && evidence.next === "next";
 }
 
 function recordsAtPath(root: unknown, path: string[]): Array<Record<string, unknown>> {

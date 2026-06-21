@@ -62,7 +62,9 @@ moryn capture session --project . --agent codex --summary "Finished the task and
 host configuration files. `moryn context pack` returns Handoff Pack v0.2: a
 small handoff index with the current goal, recent decisions, open threads,
 risks, user preferences, important files, and next actions, plus the raw boot,
-refresh, and handoff evidence it came from. It also includes the required
+refresh, and handoff evidence it came from. Its read-only `quality_gate`
+checks whether key sections, evidence paths, and the required capture action
+are present before another agent trusts the pack. It also includes the required
 `capture_session` next action. `moryn capture session` evaluates
 `default_autocapture_policy` and records an autocapture handoff so the next
 agent, host, or device can resume from the same store. Useful handoffs enter

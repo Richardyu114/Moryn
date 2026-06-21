@@ -37,7 +37,7 @@ Safe setup plan + MCP registration hints
         |
         |  moryn context pack
         v
-Handoff Pack v0.2 + raw boot/refresh/handoff evidence + capture_session
+Handoff Pack v0.2 + quality gate + evidence + capture_session
         |
         |  work happens in the host
         v
@@ -59,12 +59,14 @@ Approved memory becomes canonical for context pack / agent start / recall
 `context pack` is intentionally a convenience wrapper around the same Moryn
 core and lifecycle data. Its top-level `handoff_pack` v2 is the fast path for
 agent handoff: `current_goal`, `recent_decisions`, `open_threads`, `risks`,
-`user_preferences`, `important_files`, and `next_actions`. Each item points
-back to raw evidence in `sections.boot`, `sections.refresh`,
-`sections.handoff`, or `next`. Use `agent enter`, `agent start`,
-`agent status`, and `agent finish` when a host needs fuller setup diagnosis,
-status checkpoints, explicit sync push behavior, or detailed lifecycle action
-templates.
+`user_preferences`, `important_files`, and `next_actions`. Its read-only
+`quality_gate` marks the pack `ready` or `needs_review` using stable checks for
+current goal, recent decisions, open threads, risks, evidence paths, and the
+required `capture_session` action. Each item points back to raw evidence in
+`sections.boot`, `sections.refresh`, `sections.handoff`, or `next`. Use
+`agent enter`, `agent start`, `agent status`, and `agent finish` when a host
+needs fuller setup diagnosis, status checkpoints, explicit sync push behavior,
+or detailed lifecycle action templates.
 
 ## Startup
 
