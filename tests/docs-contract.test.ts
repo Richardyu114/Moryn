@@ -54,6 +54,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("GET /fragment");
     expect(dashboard).toContain("GET /api/dashboard");
     expect(dashboard).toContain("actions_by_id");
+    expect(dashboard).toContain("recall_eval");
+    expect(dashboard).toContain("recall_eval_case");
     expect(dashboard).toContain("data-dashboard-action-id");
     expectText(dashboard, "Each overview card is also a local navigation button");
     expect(dashboard).toContain("Evidence Library");
@@ -98,6 +100,10 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("capture_policy");
     expect(contracts).toContain("actions_by_id.<action_id>");
     expect(contracts).toContain("Safe Action Registry");
+    expect(contracts).toContain("recall_eval.generated_from.writes");
+    expect(contracts).toContain('source: "recall_eval"');
+    expect(contracts).toContain('category:\n"recall_quality"');
+    expect(contracts).toContain("Recall Eval approval endpoint");
     expect(contracts).toContain("context_pack_review");
     expect(contracts).toContain("CONTEXT_PACK_REVIEW_SELECTION_SOURCES");
     expect(contracts).toContain("Open the dashboard with --project-id or --project");

@@ -13,6 +13,7 @@ import { diagnoseDogfood, type DogfoodReportResult } from "../core/dogfood-repor
 import { createEngine } from "../core/engine.js";
 import { diagnoseHealthCheck, type HealthCheckReport } from "../core/health-check.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
+import type { RecallEvalReport } from "../core/recall-eval.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordSource } from "../core/types.js";
@@ -102,6 +103,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
   health_check: "health_check",
   context_pack_review: "context_pack_review",
   governance: "governance",
+  recall_eval: "recall_eval",
   memory_lifecycle: "memory_lifecycle",
   dogfood_report: "dogfood_report",
   recent_value: "recent_value[]",
@@ -302,16 +304,26 @@ export const DASHBOARD_GOVERNANCE_SELECTION_SOURCES = {
   capture_policy: "capture_policy",
   memory_lifecycle: "memory_lifecycle",
   maintenance: "maintenance",
+  recall_eval: "recall_eval",
   dogfood_report: "dogfood_report"
 } as const;
 
-export type DashboardGovernanceSource = "capture_policy" | "memory_lifecycle" | "maintenance" | "dogfood_report";
+export const DASHBOARD_RECALL_EVAL_SELECTION_SOURCES = {
+  recall_eval: "recall_eval",
+  case_source: "recall_eval.case_sources[]",
+  report: "recall_eval.report",
+  case: "recall_eval.report.cases_by_id.<case_id>",
+  suggested_action: "recall_eval.report.suggested_actions_by_id.<action_id>"
+} as const;
+
+export type DashboardGovernanceSource = "capture_policy" | "memory_lifecycle" | "maintenance" | "recall_eval" | "dogfood_report";
 export type DashboardGovernanceCategory =
   | "capture_review"
   | "auto_capture"
   | "policy_archive"
   | "memory_lifecycle"
   | "project_identity"
+  | "recall_quality"
   | "dogfood_friction";
 export type DashboardGovernanceSeverity = "info" | "warning" | "critical";
 
@@ -539,6 +551,31 @@ export interface DashboardContextPackReview {
   selection_sources: typeof CONTEXT_PACK_REVIEW_SELECTION_SOURCES;
 }
 
+export interface DashboardRecallEvalCaseSource {
+  record_id: string;
+  case_count: number;
+  evidence_path: string;
+}
+
+export interface DashboardRecallEvalError {
+  reason: string;
+}
+
+export interface DashboardRecallEval {
+  available: boolean;
+  project_id?: string;
+  unavailable_reason?: string;
+  generated_from: {
+    store: "local_event_history";
+    writes: "none";
+    sync_pull: false;
+  };
+  case_sources: DashboardRecallEvalCaseSource[];
+  report: RecallEvalReport | null;
+  errors: DashboardRecallEvalError[];
+  selection_sources: typeof DASHBOARD_RECALL_EVAL_SELECTION_SOURCES;
+}
+
 export interface DashboardData {
   generated_at: string;
   store: {
@@ -560,6 +597,7 @@ export interface DashboardData {
   actions_by_id: Record<string, DashboardAction>;
   context_pack_review: DashboardContextPackReview;
   governance: DashboardGovernance;
+  recall_eval: DashboardRecallEval;
   capture_inbox: DashboardCaptureInbox;
   capture_policy: CapturePolicyResult;
   health_check: HealthCheckReport;
@@ -625,6 +663,15 @@ function isVisibleForDashboard(record: MorynRecord, includePrivate: boolean | un
 
 function recordProjectMatchesDashboard(record: MorynRecord, projectId: string | undefined): boolean {
   return !projectId || record.project_id === projectId || record.scope === "global";
+}
+
+function isRecallEvalCaseRecord(record: MorynRecord): boolean {
+  return record.type === "recall_eval_case";
+}
+
+function recallEvalRecordCases(record: MorynRecord): unknown[] {
+  const cases = record.content.cases;
+  return Array.isArray(cases) ? cases : [];
 }
 
 function targetRecordId(event: MorynEvent): string | undefined {
@@ -1854,6 +1901,7 @@ function governanceDetectionLabel(source: DashboardGovernanceSource, category: D
   }
   if (source === "memory_lifecycle") return "Memory lifecycle found records worth inspecting.";
   if (source === "maintenance") return "A maintenance plan is ready for explicit review.";
+  if (source === "recall_eval") return "Recall eval found a golden case that normal recall missed.";
   return "Dogfood notes surfaced product friction worth inspecting.";
 }
 
@@ -2023,10 +2071,108 @@ function governanceFromDogfood(report: DogfoodReportResult): DashboardGovernance
   });
 }
 
+function governanceFromRecallEval(review: DashboardRecallEval): DashboardGovernanceItem[] {
+  const report = review.report;
+  if (!report) return [];
+  return report.cases.filter((testCase) => testCase.status === "fail").map((testCase): DashboardGovernanceItem => {
+    const action = report.suggested_actions_by_id[`revise-golden-case:${testCase.case_id}`];
+    const evidencePath = `recall_eval.report.cases_by_id.${testCase.case_id}`;
+    const actionLabel = action?.recommended_action ?? "Inspect recall eval case";
+    return {
+      id: governanceItemId("recall_eval", testCase.case_id),
+      source: "recall_eval",
+      category: "recall_quality",
+      severity: "warning",
+      title: `Recall eval missed ${testCase.case_id}`,
+      summary: `Query "${testCase.query}" missed ${pluralize(testCase.missing_record_ids.length, "expected record")}.`,
+      record_ids: testCase.missing_record_ids,
+      evidence_path: evidencePath,
+      action_label: actionLabel,
+      safe_to_run: true,
+      requires_user_confirmation: false,
+      writes: "none",
+      review_log: governanceReviewLog({
+        source: "recall_eval",
+        category: "recall_quality",
+        actionLabel,
+        evidencePath,
+        requiresUserConfirmation: false,
+        writes: "none"
+      })
+    };
+  });
+}
+
+async function buildDashboardRecallEval(
+  storePath: string,
+  records: MorynRecord[],
+  options: DashboardOptions
+): Promise<DashboardRecallEval> {
+  const caseRecords = records
+    .filter((record) => record.visibility === "active")
+    .filter((record) => recordProjectMatchesDashboard(record, options.project_id))
+    .filter(isRecallEvalCaseRecord)
+    .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id));
+  const caseSources = caseRecords
+    .map((record): DashboardRecallEvalCaseSource => ({
+      record_id: record.id,
+      case_count: recallEvalRecordCases(record).length,
+      evidence_path: `recent_records.${record.id}.content.cases`
+    }))
+    .filter((source) => source.case_count > 0);
+  const cases = caseRecords.flatMap(recallEvalRecordCases);
+  const base = {
+    generated_from: {
+      store: "local_event_history" as const,
+      writes: "none" as const,
+      sync_pull: false as const
+    },
+    case_sources: caseSources,
+    selection_sources: DASHBOARD_RECALL_EVAL_SELECTION_SOURCES
+  };
+
+  if (cases.length === 0) {
+    return {
+      available: false,
+      ...(options.project_id ? { project_id: options.project_id } : {}),
+      unavailable_reason: "No active recall_eval_case records found for this dashboard scope.",
+      ...base,
+      report: null,
+      errors: []
+    };
+  }
+
+  try {
+    const engine = createEngine({ storePath });
+    const report = await engine.recallEval({
+      project_id: options.project_id,
+      include_private: options.include_private === true,
+      cases
+    });
+    return {
+      available: true,
+      ...(options.project_id ? { project_id: options.project_id } : {}),
+      ...base,
+      report,
+      errors: []
+    };
+  } catch (error) {
+    return {
+      available: false,
+      ...(options.project_id ? { project_id: options.project_id } : {}),
+      unavailable_reason: "Stored recall eval cases could not be evaluated.",
+      ...base,
+      report: null,
+      errors: [{ reason: error instanceof Error ? error.message : String(error) }]
+    };
+  }
+}
+
 function buildDashboardGovernance(input: {
   capturePolicy: CapturePolicyResult;
   memoryLifecycle: MemoryLifecycleResult;
   maintenance: DashboardMaintenanceData;
+  recallEval: DashboardRecallEval;
   dogfoodReport?: DogfoodReportResult;
   hiddenPrivateRecords: number;
 }): DashboardGovernance {
@@ -2034,6 +2180,7 @@ function buildDashboardGovernance(input: {
     ...governanceFromCapturePolicy(input.capturePolicy),
     ...governanceFromMemoryLifecycle(input.memoryLifecycle),
     ...governanceFromMaintenance(input.maintenance),
+    ...governanceFromRecallEval(input.recallEval),
     ...(input.dogfoodReport ? governanceFromDogfood(input.dogfoodReport) : [])
   ];
   return {
@@ -2050,6 +2197,7 @@ function buildDashboardGovernance(input: {
       capture_policy: true,
       memory_lifecycle: true,
       maintenance: true,
+      recall_eval: input.recallEval.available,
       dogfood_report: input.dogfoodReport !== undefined
     },
     items,
@@ -2139,6 +2287,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     include_private: options.include_private === true,
     excluded_private_records: healthCheckAllRecords.length - healthCheckRecords.length
   });
+  const recallEvalData = await buildDashboardRecallEval(storePath, records, options);
   const actions = dashboardActions({
     captureInbox: captureInboxData,
     capturePolicy: capturePolicyData,
@@ -2150,6 +2299,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     capturePolicy: capturePolicyData,
     memoryLifecycle: memoryLifecycleData,
     maintenance: maintenanceData,
+    recallEval: recallEvalData,
     dogfoodReport: dogfoodReportData,
     hiddenPrivateRecords: lifecycleAllRecords.length - lifecycleRecords.length
   });
@@ -2192,6 +2342,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     actions_by_id: actionsById(actions),
     context_pack_review: contextPackReviewData,
     governance,
+    recall_eval: recallEvalData,
     capture_inbox: captureInboxData,
     capture_policy: capturePolicyData,
     health_check: healthCheckData,
@@ -2349,6 +2500,81 @@ function healthCheckPanel(report: HealthCheckReport): string {
             </article>
           `).join("")}
         </div>
+      </div>
+    </details>
+  `;
+}
+
+function recallEvalSummary(review: DashboardRecallEval): string {
+  if (!review.available || !review.report) {
+    return review.errors.length > 0 ? "Unavailable | stored case error" : "Unavailable | no stored cases";
+  }
+  const summary = review.report.summary;
+  return `${pluralize(summary.total_cases, "case")} | ${pluralize(summary.failed_cases, "miss")} | ${pluralize(summary.privacy_leaks, "privacy leak")}`;
+}
+
+function recallEvalStatusClass(review: DashboardRecallEval): "good" | "warning" | "critical" | "info" {
+  if (review.errors.length > 0) return "warning";
+  if (!review.available || !review.report) return "info";
+  if (review.report.summary.privacy_leaks > 0) return "critical";
+  return review.report.summary.failed_cases > 0 ? "warning" : "good";
+}
+
+function recallEvalPanel(review: DashboardRecallEval): string {
+  const status = recallEvalStatusClass(review);
+  const report = review.report;
+  const failedCases = report?.cases.filter((testCase) => testCase.status === "fail") ?? [];
+  return `
+    <details class="panel recall-eval-panel" data-dashboard-detail="recall-eval" data-dashboard-section="recall-eval">
+      <summary class="dashboard-fold-summary">
+        <span>Recall Eval</span>
+        <small>${escapeHtml(recallEvalSummary(review))}</small>
+      </summary>
+      <div class="recall-eval-body">
+        <div class="health-check-brief">
+          <strong class="${escapeHtml(status)}">${escapeHtml(review.available ? titleCase(status) : "Unavailable")}</strong>
+          <span>Read-only</span>
+          <code>${escapeHtml(review.available ? "Stored golden cases evaluated through normal recall." : review.unavailable_reason ?? "No recall eval data available.")}</code>
+        </div>
+        <dl class="health-check-stats">
+          <div><dt>Case sources</dt><dd>${escapeHtml(review.case_sources.length)}</dd></div>
+          <div><dt>Total cases</dt><dd>${escapeHtml(report?.summary.total_cases ?? 0)}</dd></div>
+          <div><dt>Misses</dt><dd>${escapeHtml(report?.summary.failed_cases ?? 0)}</dd></div>
+          <div><dt>Privacy leaks</dt><dd>${escapeHtml(report?.summary.privacy_leaks ?? 0)}</dd></div>
+        </dl>
+        ${review.case_sources.length === 0 ? "" : `
+          <details class="recall-eval-sources" data-dashboard-detail="recall-eval-sources">
+            <summary>Case Sources</summary>
+            <dl>
+              ${review.case_sources.map((source) => `
+                <div><dt><code>${escapeHtml(source.record_id)}</code></dt><dd>${escapeHtml(pluralize(source.case_count, "case"))} | <code>${escapeHtml(source.evidence_path)}</code></dd></div>
+              `).join("")}
+            </dl>
+          </details>
+        `}
+        ${failedCases.length === 0 ? "" : `
+          <div class="health-check-list">
+            ${failedCases.map((testCase) => `
+              <article class="health-check-item warning" data-dashboard-detail="recall-eval:${escapeHtml(testCase.case_id)}">
+                <span>Miss</span>
+                <strong>${escapeHtml(testCase.case_id)}</strong>
+                <p>${escapeHtml(testCase.query)}</p>
+                <small>${escapeHtml(testCase.missing_record_ids.length ? `Missing ${testCase.missing_record_ids.join(", ")}` : "No missing records listed")}</small>
+              </article>
+            `).join("")}
+          </div>
+        `}
+        ${review.errors.length === 0 ? "" : `
+          <div class="health-check-list">
+            ${review.errors.map((error) => `
+              <article class="health-check-item warning">
+                <span>Error</span>
+                <strong>Stored case could not be evaluated</strong>
+                <p>${escapeHtml(error.reason)}</p>
+              </article>
+            `).join("")}
+          </div>
+        `}
       </div>
     </details>
   `;
@@ -3740,6 +3966,7 @@ function evidenceLibrary(data: DashboardData): string {
       </summary>
       <div class="evidence-library-list">
         ${healthCheckPanel(data.health_check)}
+        ${recallEvalPanel(data.recall_eval)}
         ${governanceHub(data.governance)}
         ${contextPackReviewPanel(data.context_pack_review)}
         ${supportingEvidencePanel(data)}
@@ -4327,6 +4554,31 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .health-check-item small { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; }
     .health-check-item p { color: var(--ink-2); }
     .health-check-item small { color: var(--muted); }
+    .recall-eval-panel {
+      border-left: 4px solid var(--signal-blue);
+      padding: 13px 14px;
+    }
+    .recall-eval-panel[open] > summary { margin-bottom: 10px; }
+    .recall-eval-body { display: grid; gap: 10px; }
+    .recall-eval-sources {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface-2);
+    }
+    .recall-eval-sources[open] > summary { margin-bottom: 8px; }
+    .recall-eval-sources dl {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+    }
+    .recall-eval-sources dl div {
+      display: grid;
+      grid-template-columns: minmax(140px, auto) minmax(0, 1fr);
+      gap: 8px;
+      min-width: 0;
+    }
+    .recall-eval-sources dd { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
     .visual-grid { display: grid; gap: 11px; }
     .visual-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .action-board {

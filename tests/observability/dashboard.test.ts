@@ -770,6 +770,149 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("surfaces stored recall eval failures as read-only Governance Hub inspections", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-20T00:01:00.000Z",
+            "2026-06-20T00:02:00.000Z",
+            "2026-06-20T00:03:00.000Z",
+            "2026-06-20T00:04:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-20T00:05:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_recall_eval_${++record}` : `evt_recall_eval_${++event}`;
+        })()
+      });
+
+      const durableMemory = await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Dashboard review cards must stay read-only until a user approves writes.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" },
+        provenance: { method: "user-confirmed", reason: "Recall eval target" }
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "recall_eval_case",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["recall-eval", "golden"],
+        content: {
+          format: "json",
+          text: "Dashboard recall eval golden cases.",
+          cases: [
+            {
+              case_id: "dashboard-read-only",
+              query: "dashboard review cards read only",
+              expected_record_ids: [durableMemory.record.id],
+              limit: 5
+            },
+            {
+              case_id: "missing-dashboard-memory",
+              query: "dashboard memory that does not exist",
+              expected_record_ids: ["rec_missing_dashboard_memory"],
+              limit: 5
+            }
+          ]
+        },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex", session_id: "recall-eval-case" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        recall_eval: {
+          available: boolean;
+          generated_from: {
+            store: string;
+            writes: string;
+          };
+          case_sources: Array<{ record_id: string; case_count: number }>;
+          report: {
+            summary: {
+              total_cases: number;
+              passed_cases: number;
+              failed_cases: number;
+              privacy_leaks: number;
+            };
+            cases_by_id: Record<string, { status: string; missing_record_ids: string[] }>;
+          } | null;
+        };
+      };
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(data.recall_eval).toMatchObject({
+        available: true,
+        generated_from: {
+          store: "local_event_history",
+          writes: "none"
+        },
+        case_sources: [
+          {
+            record_id: "rec_recall_eval_2",
+            case_count: 2
+          }
+        ],
+        report: {
+          summary: {
+            total_cases: 2,
+            passed_cases: 1,
+            failed_cases: 1,
+            privacy_leaks: 0
+          }
+        }
+      });
+      expect(data.recall_eval.report?.cases_by_id["missing-dashboard-memory"]).toMatchObject({
+        status: "fail",
+        missing_record_ids: ["rec_missing_dashboard_memory"]
+      });
+      expect(data.governance.items_by_id["recall_eval:missing-dashboard-memory"]).toMatchObject({
+        source: "recall_eval",
+        category: "recall_quality",
+        severity: "warning",
+        record_ids: ["rec_missing_dashboard_memory"],
+        evidence_path: "recall_eval.report.cases_by_id.missing-dashboard-memory",
+        action_label: "revise_golden_case_or_memory",
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none"
+      });
+      expect(data.governance.summary).toMatchObject({
+        needs_user_action: 0,
+        safe_inspections: 1
+      });
+      expect(data.action_board.items_by_id.inspect.value).toBe(1);
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain("Recall Eval");
+      expect(html).toContain("data-governance-item=\"recall_eval:missing-dashboard-memory\"");
+      expect(html).toContain("recall_eval.report.cases_by_id.missing-dashboard-memory");
+      expect(html).toContain("revise_golden_case_or_memory");
+      expect(html).toContain("<small>1 safe check</small>");
+      expect(JSON.stringify(data.recall_eval)).not.toContain("Private");
+    });
+  });
+
   it("redacts quarantined record text and escapes rendered HTML", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

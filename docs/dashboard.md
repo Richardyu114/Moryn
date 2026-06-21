@@ -88,6 +88,13 @@ generate project-specific Review Queue plans, Memory Lifecycle review, and
 Context Pack Review. Without project context the dashboard stays store-wide:
 `maintenance.plans[]` is empty and `context_pack_review.available` is `false`.
 
+If active visible records include `type: "recall_eval_case"` with JSON
+`content.cases[]`, the dashboard also runs those stored golden cases through
+normal recall and exposes the read-only result under `recall_eval`. Failed cases
+appear as safe Governance Hub inspections. The dashboard does not invent golden
+queries, write eval records, create an index, or add approval endpoints for
+Recall Eval.
+
 ### Capture Inbox
 
 The live dashboard includes a `Capture Inbox` when agents have written active
@@ -539,6 +546,7 @@ The JSON returned by `/api/dashboard` includes:
 - `actions_by_id`
 - `context_pack_review`
 - `governance`
+- `recall_eval`
 - `capture_inbox`
 - `capture_inbox.autocapture_policy`
 - `capture_policy`
@@ -652,16 +660,19 @@ from recent records, because that would make handoff review ambiguous.
 
 Context Pack Review is deliberately not an approval surface. It does not render Approve, Apply, Promote, Archive, or Reject controls, does not add entries to the Safe Action Registry, and does not mutate memory while rendering. Use Capture Inbox for canonical memory approval and `moryn capture session` for writing the next handoff summary.
 
-`capture_policy` and `memory_lifecycle` are read-only report data. Mutation
-endpoints remain limited to Capture Inbox approval/rejection and Review Queue
-maintenance approval.
+`capture_policy`, `memory_lifecycle`, and `recall_eval` are read-only report
+data. Mutation endpoints remain limited to Capture Inbox approval/rejection and
+Review Queue maintenance approval.
 
 `governance` is a read-only de-clutter layer for the same data. It exposes
 `governance.summary`, `governance.items[]`, and
 `governance.items_by_id.<item_id>` so agents and users can inspect current
-review pressure without expanding every low-level panel. Memory Lifecycle,
-Capture Policy Audit, and the raw Debug Inspector remain available, but their
-details are collapsed by default.
+review pressure without expanding every low-level panel. Recall Eval misses use
+`source: "recall_eval"` and `category: "recall_quality"` with evidence paths
+such as `recall_eval.report.cases_by_id.<case_id>`, safe-to-run inspection
+metadata, and `writes: "none"`. Memory Lifecycle, Capture Policy Audit, Recall
+Eval, and the raw Debug Inspector remain available, but their details are
+collapsed by default.
 
 Long record text is rendered as compact excerpts in the HTML dashboard,
 including Recent Value cards, Context Pack Review items, Capture Inbox cards,

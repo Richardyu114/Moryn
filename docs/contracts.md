@@ -372,10 +372,11 @@ for existing local reports. Its contract is:
 Each governance item includes `source`, `category`, `severity`, `title`,
 `summary`, `record_ids`, `evidence_path`, `action_label`, optional `action_id`,
 `safe_to_run`, `requires_user_confirmation`, and `writes`. Sources are limited
-to `capture_policy`, `memory_lifecycle`, `maintenance`, and `dogfood_report`.
+to `capture_policy`, `memory_lifecycle`, `maintenance`, `recall_eval`, and
+`dogfood_report`.
 The hub does not create a new write endpoint: write-capable items point back to
 existing explicit Capture Inbox or maintenance approval actions, while
-lifecycle and dogfood entries remain inspection guidance.
+lifecycle, recall eval, and dogfood entries remain inspection guidance.
 
 `/api/dashboard` also returns `context_pack_review`, a read-only project handoff
 readiness summary rendered as the dashboard `Context Pack Review` panel. When
@@ -417,6 +418,18 @@ panel shows retained, stale, archive-candidate, and private-retained counts,
 the `default_memory_lifecycle_policy`, keyed findings, and suggested timeline,
 recall, or archive commands. Archive suggestions remain `safe_to_run: false`;
 the dashboard does not expose an Apply or Approve Lifecycle endpoint.
+
+`/api/dashboard` also returns `recall_eval` when active visible records include
+explicit `type: "recall_eval_case"` golden-case records with JSON
+`content.cases[]`. The dashboard evaluates those cases through normal recall and
+returns `recall_eval.generated_from.store: "local_event_history"`,
+`recall_eval.generated_from.writes: "none"`, `recall_eval.case_sources[]`, and
+`recall_eval.report.cases_by_id.<case_id>`. Failed cases become read-only
+Governance Hub inspections with `source: "recall_eval"`, `category:
+"recall_quality"`, evidence paths such as
+`recall_eval.report.cases_by_id.<case_id>`, and `writes: "none"`. The dashboard
+does not invent golden cases, mutate memory, create an eval index, or expose a
+Recall Eval approval endpoint.
 
 Dashboard maintenance approval uses one separate local endpoint:
 
@@ -477,6 +490,7 @@ surfaces that can return active record content or event context. Records tagged
 - `list_recent`
 - `memory_doctor`
 - `memory_lifecycle`
+- `recall_eval`
 - `dogfood_report`
 - `dashboard`
 
