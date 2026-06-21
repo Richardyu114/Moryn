@@ -482,13 +482,19 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Governance Hub");
+      expect(html).toContain("<details class=\"governance-item");
+      expect(html).toContain("data-dashboard-detail=\"governance:capture_policy:review_required\"");
+      expect(html).toContain("<summary class=\"governance-item-summary\">");
+      expect(html).toContain("data-governance-evidence");
       expect(html).toContain("data-governance-item=\"capture_policy:review_required\"");
       expect(html).toContain("data-governance-item=\"memory_lifecycle:stale_records\"");
       expect(html).toContain("data-governance-item=\"dogfood_report:failure_signals\"");
       expect(html).toContain("governance.summary");
+      expect(html).toContain("capture_policy.findings_by_id.review_required");
       expect(html).toContain("Read-only");
       expect(html).toContain("User confirmation");
       expect(html).toContain("Safe inspection");
+      expect(html).not.toContain("<article class=\"governance-item");
       expect(html).toContain("data-dashboard-detail=\"debug-inspector\"");
       expect(html).toContain("data-dashboard-detail=\"inspector:records\"");
       expect(html).not.toContain("<details open data-dashboard-detail=\"inspector:records\">");

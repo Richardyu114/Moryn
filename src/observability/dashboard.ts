@@ -1944,23 +1944,28 @@ function governanceHub(governance: DashboardGovernance): string {
       </div>
       <div class="governance-list">
         ${governance.items.map((item) => `
-          <article class="governance-item ${escapeHtml(item.severity)}" data-governance-item="${escapeHtml(item.id)}">
-            <div>
-              <h3>${escapeHtml(item.title)}</h3>
-              <p>${escapeHtml(item.summary)}</p>
-              <div class="governance-meta">
-                <span>${escapeHtml(item.source)}</span>
-                <span>${escapeHtml(item.category)}</span>
+          <details class="governance-item ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-item="${escapeHtml(item.id)}">
+            <summary class="governance-item-summary">
+              <span class="governance-item-main">
+                <strong>${escapeHtml(item.title)}</strong>
+                <small>${escapeHtml(item.action_label)}</small>
+              </span>
+              <span class="governance-meta">
                 <span>${escapeHtml(governanceSafetyLabel(item))}</span>
                 <span>${escapeHtml(item.writes === "none" ? "Read-only" : "Append-only")}</span>
-              </div>
+              </span>
+            </summary>
+            <div class="governance-item-body">
+              <p>${escapeHtml(item.summary)}</p>
+              <dl>
+                <div><dt>Source</dt><dd>${escapeHtml(item.source)}</dd></div>
+                <div><dt>Category</dt><dd>${escapeHtml(item.category)}</dd></div>
+                <div><dt>Action</dt><dd>${escapeHtml(item.action_label)}${item.action_id ? ` <code>${escapeHtml(item.action_id)}</code>` : ""}</dd></div>
+                <div data-governance-evidence><dt>Evidence</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
+                <div><dt>Records</dt><dd>${item.record_ids.length ? item.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ") : "none"}</dd></div>
+              </dl>
             </div>
-            <div class="governance-action">
-              <strong>${escapeHtml(item.action_label)}</strong>
-              ${item.action_id ? `<code>${escapeHtml(item.action_id)}</code>` : ""}
-              <small>${escapeHtml(item.evidence_path)}</small>
-            </div>
-          </article>
+          </details>
         `).join("")}
       </div>
     </section>
@@ -3230,34 +3235,43 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 700;
     }
     .governance-item {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(190px, 0.38fr);
-      gap: 12px;
-      align-items: start;
       border: 1px solid var(--border);
       border-left-width: 3px;
       border-radius: 8px;
-      padding: 11px;
+      padding: 9px 11px;
       background: var(--surface);
     }
     .governance-item.info { border-left-color: var(--info); }
     .governance-item.warning { border-left-color: var(--warning); }
     .governance-item.critical { border-left-color: var(--critical); }
-    .governance-item p { margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
+    .governance-item[open] > summary { margin-bottom: 8px; }
+    .governance-item-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+    .governance-item-main { min-width: 0; }
+    .governance-item-summary strong {
+      display: block;
+      color: var(--ink);
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
+    .governance-item-summary small { font-size: 12px; }
+    .governance-item-body {
+      border-top: 1px solid var(--hairline);
+      padding-top: 8px;
+    }
+    .governance-item-body p { margin-top: 0; color: var(--muted); overflow-wrap: anywhere; }
     .governance-meta {
       display: flex;
       flex-wrap: wrap;
+      justify-content: flex-end;
       gap: 6px;
-      margin-top: 8px;
-    }
-    .governance-action {
-      display: grid;
-      gap: 5px;
-      justify-items: end;
-      text-align: right;
       min-width: 0;
     }
-    .governance-action strong { color: var(--ink); font-size: 12.5px; font-weight: 760; overflow-wrap: anywhere; }
     .context-pack-summary {
       margin: 0 0 10px;
       display: grid;
@@ -3634,9 +3648,10 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .context-pack-heading, .governance-heading,
       .lifecycle-heading,
       .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions { display: grid; justify-content: stretch; }
-      .maintenance-summary, .context-pack-summary, .context-pack-grid, .governance-item, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
+      .maintenance-summary, .context-pack-summary, .context-pack-grid, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
       .governance-counts { justify-content: flex-start; }
-      .governance-action { justify-items: start; text-align: left; }
+      .governance-item-summary { align-items: flex-start; display: grid; }
+      .governance-meta { justify-content: flex-start; }
       .context-pack-checks li { grid-template-columns: 1fr; }
       .bar-label span { text-align: left; }
     }

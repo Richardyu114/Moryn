@@ -284,6 +284,11 @@ Each normalized item carries `source`, `category`, `severity`, `record_ids`,
 hub counts items that need user confirmation, safe read-only inspections, and
 private records hidden by the dashboard boundary.
 
+Governance items render as compact expandable decision rows. The default row
+shows the issue, recommended action, and safety labels; expanding the row shows
+the source, category, action id, evidence path, and record ids. This keeps the
+first screen scannable while preserving the local audit trail.
+
 Governance Hub does not add mutation endpoints. Items that require writes point
 back to existing explicit controls such as Capture Inbox approval/rejection or
 Review Queue maintenance approval. Lifecycle and dogfood items stay read-only
