@@ -120,10 +120,13 @@ The Capture Inbox also exposes a default Capture Policy:
 - stale batch protection for group approval/rejection
 - noise rule ids `smoke_test_marker` and `duplicate_text`
 
-The dashboard renders Capture Policy and Autocapture Policy metadata under a
-compact expandable summary. The default row keeps the manual-review and
-no-auto-canonical boundary visible; expanding it shows policy ids, grouping,
-stale protection, rule counts, and rule ids.
+The dashboard renders active Capture Inbox candidates first, so approval and
+rejection controls stay ahead of policy explanation. Capture Policy,
+Autocapture Policy, auto-captured examples, policy-archived examples, and rule
+ids remain available under the collapsed `Capture Audit` detail panel. The
+default row keeps the manual-review and no-auto-canonical boundary visible;
+expanding it shows policy ids, grouping, stale protection, rule counts, and
+rule ids.
 
 `Approve Memory` posts to:
 

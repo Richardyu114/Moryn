@@ -2907,17 +2907,11 @@ function recentValueCards(records: DashboardValueRecord[]): string {
   `;
 }
 
-function captureInbox(items: DashboardCaptureInbox): string {
-  if (items.total === 0 && items.autocapture_policy.auto_captured_total === 0 && items.autocapture_policy.archived_total === 0) return "";
+function captureInboxAudit(items: DashboardCaptureInbox): string {
   return `
-    <section id="capture-inbox" class="panel capture-inbox" aria-label="Capture Inbox">
-      <div class="capture-inbox-heading">
-        <h2>Capture Inbox</h2>
-        <span>${escapeHtml(pluralize(items.total, "candidate"))} | ${escapeHtml(pluralize(items.group_total, "group"))}</span>
-      </div>
-      <details class="capture-policy-summary" data-dashboard-detail="capture-policy-summary">
+      <details class="capture-inbox-audit" data-dashboard-detail="capture-inbox-audit">
         <summary class="dashboard-fold-summary">
-          <span>Capture Policy</span>
+          <span>Capture Audit</span>
           <small>manual review | no auto-canonical | ${escapeHtml(pluralize(items.total, "candidate"))}</small>
         </summary>
         <div class="capture-policy">
@@ -2944,7 +2938,6 @@ function captureInbox(items: DashboardCaptureInbox): string {
           <span>${escapeHtml(Object.entries(items.autocapture_policy.captured_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no auto-captured handoffs")}</span>
           <span>${escapeHtml(Object.entries(items.autocapture_policy.archived_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no archived noise")}</span>
         </div>
-      </details>
       ${items.autocapture_policy.auto_captured_examples.length ? `
         <details class="capture-policy-rules" data-dashboard-detail="autocapture-policy-captured:${escapeHtml(items.autocapture_policy.id)}">
           <summary>Auto-captured handoffs</summary>
@@ -2991,6 +2984,18 @@ function captureInbox(items: DashboardCaptureInbox): string {
           `).join("")}
         </ul>
       </details>
+      </details>
+    `;
+}
+
+function captureInbox(items: DashboardCaptureInbox): string {
+  if (items.total === 0 && items.autocapture_policy.auto_captured_total === 0 && items.autocapture_policy.archived_total === 0) return "";
+  return `
+    <section id="capture-inbox" class="panel capture-inbox" aria-label="Capture Inbox">
+      <div class="capture-inbox-heading">
+        <h2>Capture Inbox</h2>
+        <span>${escapeHtml(pluralize(items.total, "candidate"))} | ${escapeHtml(pluralize(items.group_total, "group"))}</span>
+      </div>
       <div class="capture-inbox-list">
         ${items.groups.map((group) => {
           const groupItems = items.items.filter((item) => item.group_id === group.id);
@@ -3075,6 +3080,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
         `;
         }).join("")}
       </div>
+      ${captureInboxAudit(items)}
     </section>
   `;
 }
@@ -3926,21 +3932,25 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface-2);
       font-weight: 700;
     }
-    .capture-policy-summary {
+    .capture-policy-summary, .capture-inbox-audit {
       border: 1px solid var(--border);
       border-radius: 7px;
       padding: 9px;
       margin: -4px 0 12px;
       background: var(--surface);
     }
+    .capture-inbox-audit { margin: 12px 0 0; background: var(--surface-2); }
+    .capture-inbox-audit[open] > summary { margin-bottom: 8px; }
     .capture-policy-summary[open] > summary { margin-bottom: 8px; }
     .capture-policy-summary .capture-policy { margin: 0 0 8px; }
     .capture-policy-summary .capture-policy:last-child { margin-bottom: 0; }
+    .capture-inbox-audit .capture-policy { margin: 0 0 8px; }
+    .capture-inbox-audit .capture-policy:last-of-type { margin-bottom: 0; }
     .capture-policy-rules {
       border: 1px solid var(--border);
       border-radius: 7px;
       padding: 9px 10px;
-      margin: 0 0 12px;
+      margin: 8px 0 0;
       background: var(--surface-2);
     }
     .capture-policy-rules summary { font-weight: 760; color: var(--ink); }
