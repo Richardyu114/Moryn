@@ -410,11 +410,12 @@ The first screen favors human-readable summaries over raw ids:
 - recent valuable records, newest first
 - Review Queue maintenance plans when a project identity repair is available
 
-The top health message is rendered as a compact status strip rather than a large
-hero block, so the first screen stays focused on review queues and local
-attention signals.
+The top health message stays below the header, but healthy snapshots render as a
+lightweight `dashboard-status-line` instead of a full status panel. Non-healthy
+states such as sync pending, local-only, review, or conflict still render the
+full status strip because they need first-screen attention.
 
-Directly below the status strip, `Dashboard Overview` is the first-screen
+Directly below the health message, `Dashboard Overview` is the first-screen
 summary. It picks the most urgent derived Action Board item, keeps non-good
 overview cards visible in the main grid, and groups good cards under `Quiet
 Overview` so an all-clear dashboard does not spend the first screen on green

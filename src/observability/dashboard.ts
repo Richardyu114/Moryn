@@ -4290,6 +4290,22 @@ function evidenceLibrary(data: DashboardData): string {
   `;
 }
 
+function dashboardStatusSummary(health: DashboardHealth): string {
+  const statusClass = healthClass(health.status);
+  if (health.status === "healthy") {
+    return `
+    <p class="dashboard-status-line ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}"><strong>${escapeHtml(health.label)}</strong><span>${escapeHtml(health.explanation)}</span></p>
+  `;
+  }
+  return `
+    <section class="status-strip ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}">
+      <strong>Dashboard Status</strong>
+      <span>${escapeHtml(health.label)}</span>
+      <p>${escapeHtml(health.explanation)}</p>
+    </section>
+  `;
+}
+
 function renderDashboardBody(data: DashboardData): string {
   return `
     <header>
@@ -4301,11 +4317,7 @@ function renderDashboardBody(data: DashboardData): string {
       <span class="health-badge ${healthClass(data.health.status)}">${escapeHtml(data.health.label)}</span>
     </header>
 
-    <section class="status-strip ${healthClass(data.health.status)}" data-dashboard-status="${escapeHtml(data.health.status)}">
-      <strong>Dashboard Status</strong>
-      <span>${escapeHtml(data.health.label)}</span>
-      <p>${escapeHtml(data.health.explanation)}</p>
-    </section>
+    ${dashboardStatusSummary(data.health)}
 
     ${dashboardOverview(data.dashboard_overview)}
 
@@ -4700,6 +4712,24 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .status-strip strong { color: var(--ink); font-weight: 780; }
     .status-strip span { font-weight: 760; }
     .status-strip p { margin: 0; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+    .dashboard-status-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 9px;
+      align-items: center;
+      margin: -6px 0 8px;
+      color: var(--muted);
+      font-size: 12.5px;
+      background: transparent;
+    }
+    .dashboard-status-line strong {
+      color: var(--signal-green);
+      font-weight: 780;
+    }
+    .dashboard-status-line span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
     .dashboard-overview {
       border: 1px solid var(--border);
       border-left-width: 4px;

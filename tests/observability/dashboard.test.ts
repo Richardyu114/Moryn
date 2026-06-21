@@ -219,6 +219,9 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(data.action_board.items.map((item) => item.value)).toEqual([0, 0, 0, 0]);
+      expect(data.health.status).toBe("healthy");
+      expect(html).not.toContain("<section class=\"status-strip good\" data-dashboard-status=\"healthy\">");
+      expect(html).toContain("<p class=\"dashboard-status-line good\" data-dashboard-status=\"healthy\"><strong>Healthy</strong><span>Sync is clean and no urgent safety items were detected in this snapshot.</span></p>");
       expect(html).toContain("<small>all clear</small>");
       expect(html).not.toContain("<small>0 confirm / 0 review / 0 inspect / 0 sync</small>");
       expect(html).toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");

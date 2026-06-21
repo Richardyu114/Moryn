@@ -58,6 +58,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("recall_eval");
     expect(dashboard).toContain("recall_eval_case");
     expect(dashboard).toContain("data-dashboard-action-id");
+    expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");
+    expectText(dashboard, "Non-healthy states such as sync pending, local-only, review, or conflict still render the full status strip");
     expectText(dashboard, "Each overview card is also a local navigation button");
     expectText(dashboard, "Pure read-only inspections do not turn the overview headline into an urgent next action");
     expectText(dashboard, "the overview reads `All clear` while still offering an `Inspect checks` navigation button");
