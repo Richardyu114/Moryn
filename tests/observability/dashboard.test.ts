@@ -1153,6 +1153,204 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("adds a read-only Context Pack Review panel for project handoff readiness", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:05:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_pack_${++record}` : `evt_pack_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Dashboard should review context pack readiness.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Do not make dashboard context review mutate memory.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Codex finished handoff review implementation.", format: "text" },
+        source: { client: "codex", session_id: "pack-review" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn"
+      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        context_pack_review: {
+          available: boolean;
+          project_id?: string;
+          handoff_pack: {
+            purpose: string;
+            recent_decisions: Array<{ text: string; evidence: { source: string; record_id?: string } }>;
+            open_threads: Array<{ text: string; evidence: { source: string; record_id?: string } }>;
+            risks: Array<{ text: string; evidence: { source: string; record_id?: string } }>;
+            quality_gate: {
+              status: string;
+              read_only: boolean;
+              checks_by_id: Record<string, { status: string; source: string; count?: number }>;
+              failed_check_ids: string[];
+            };
+            next_actions: Array<{ id: string; command?: string; evidence: { source: string } }>;
+          };
+          selection_sources: Record<string, string>;
+        };
+        selection_sources: Record<string, string>;
+      };
+
+      expect(data.context_pack_review).toMatchObject({
+        available: true,
+        project_id: "moryn",
+        handoff_pack: {
+          purpose: "agent_handoff",
+          recent_decisions: [
+            expect.objectContaining({
+              text: "Dashboard should review context pack readiness.",
+              evidence: expect.objectContaining({ source: "context_pack_review.handoff_pack.recent_decisions[]" })
+            })
+          ],
+          open_threads: [
+            expect.objectContaining({
+              text: "Codex finished handoff review implementation.",
+              evidence: expect.objectContaining({ source: "context_pack_review.handoff_pack.open_threads[]" })
+            })
+          ],
+          risks: [
+            expect.objectContaining({
+              text: "Do not make dashboard context review mutate memory.",
+              evidence: expect.objectContaining({ source: "context_pack_review.handoff_pack.risks[]" })
+            })
+          ],
+          quality_gate: expect.objectContaining({
+            status: "ready",
+            read_only: true,
+            failed_check_ids: [],
+            checks_by_id: expect.objectContaining({
+              recent_decisions: expect.objectContaining({ status: "pass", count: 1 }),
+              open_threads: expect.objectContaining({ status: "pass", count: 1 }),
+              risks: expect.objectContaining({ status: "pass", count: 1 }),
+              capture_next_action: expect.objectContaining({
+                status: "pass",
+                source: "next.actions_by_id.capture_session"
+              })
+            })
+          }),
+          next_actions: expect.arrayContaining([
+            expect.objectContaining({
+              id: "capture_session",
+              evidence: expect.objectContaining({ source: "next.actions_by_id.capture_session" })
+            })
+          ])
+        },
+        selection_sources: expect.objectContaining({
+          context_pack_review: "context_pack_review",
+          quality_gate: "context_pack_review.handoff_pack.quality_gate",
+          evidence: "context_pack_review.handoff_pack.evidence"
+        })
+      });
+      expect(data.selection_sources.context_pack_review).toBe("context_pack_review");
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain("Context Pack Review");
+      expect(html).toContain("agent_handoff");
+      expect(html).toContain("Read-only");
+      expect(html).toContain("Dashboard should review context pack readiness.");
+      expect(html).toContain("Codex finished handoff review implementation.");
+      expect(html).toContain("Do not make dashboard context review mutate memory.");
+      expect(html).toContain("next.actions_by_id.capture_session");
+      expect(html).not.toContain("data-context-pack-approve");
+      expect(html).not.toContain("data-dashboard-action-id=\"context_pack");
+    });
+  });
+
+  it("keeps Context Pack Review unavailable without explicit project context", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-06-01T00:01:00.000Z",
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_no_project_${++record}` : `evt_no_project_${++event}`;
+        })()
+      });
+      const projectText = "Project memory should not make dashboard guess context.";
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: projectText, format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        context_pack_review: {
+          available: boolean;
+          unavailable_reason?: string;
+          handoff_pack?: unknown;
+          generated_from: { writes: string; sync_pull: boolean };
+        };
+      };
+
+      expect(data.context_pack_review).toMatchObject({
+        available: false,
+        unavailable_reason: "Open the dashboard with --project-id or --project to review a project context pack.",
+        generated_from: {
+          writes: "none",
+          sync_pull: false
+        }
+      });
+      expect(data.context_pack_review.handoff_pack).toBeUndefined();
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain("Context Pack Review");
+      expect(html).toContain("Unavailable");
+      expect(html).toContain("Open the dashboard with --project-id or --project");
+      const contextPackSection = html.match(/<section class="panel context-pack-review"[\s\S]*?<\/section>/)?.[0] ?? "";
+      expect(contextPackSection).not.toContain(projectText);
+    });
+  });
+
   it("adds autocapture candidates to the Capture Inbox", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

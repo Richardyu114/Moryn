@@ -327,6 +327,13 @@ commands generate the same static snapshot and open it by default; pass
 reads also hide `private`, `secret`, and `sensitive` tagged records unless
 `--include-private` is passed.
 
+Serve with `--project-id <id>` or `--project <path>` to enable Context Pack
+Review. The dashboard then shows read-only handoff readiness under
+`context_pack_review`: Handoff Pack v0.2 purpose, recent decisions, open
+threads, risks, `handoff_pack.quality_gate`, and the
+`next.actions_by_id.capture_session` end action. Without explicit project
+context this panel stays unavailable instead of guessing a project.
+
 When `memory doctor` detects a project identity split, the live dashboard can
 show a local `Review Queue`. The first interactive repair flow is intentionally
 narrow: review the dry-run plan, inspect `plan_hash` and safety checks, then

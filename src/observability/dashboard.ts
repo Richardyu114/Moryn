@@ -94,12 +94,26 @@ export const DASHBOARD_SELECTION_SOURCES = {
   action_id: "actions_by_id.<action_id>.action_id",
   capture_inbox: "capture_inbox",
   capture_policy: "capture_policy",
+  context_pack_review: "context_pack_review",
   memory_lifecycle: "memory_lifecycle",
   recent_value: "recent_value[]",
   record: "recent_records[]",
   event: "recent_events[]",
   agent_activity: "agent_activity[]",
   artifact: "artifact"
+} as const;
+
+export const CONTEXT_PACK_REVIEW_SELECTION_SOURCES = {
+  context_pack_review: "context_pack_review",
+  handoff_pack: "context_pack_review.handoff_pack",
+  current_goal: "context_pack_review.handoff_pack.current_goal",
+  recent_decision: "context_pack_review.handoff_pack.recent_decisions[]",
+  open_thread: "context_pack_review.handoff_pack.open_threads[]",
+  risk: "context_pack_review.handoff_pack.risks[]",
+  next_action: "context_pack_review.handoff_pack.next_actions[]",
+  quality_gate: "context_pack_review.handoff_pack.quality_gate",
+  check: "context_pack_review.handoff_pack.quality_gate.checks_by_id.<check_id>",
+  evidence: "context_pack_review.handoff_pack.evidence"
 } as const;
 
 export interface DashboardOptions {
@@ -322,6 +336,80 @@ export interface DashboardAutocapturePolicySummary {
   }>;
 }
 
+export type DashboardContextPackReviewCheckId =
+  | "current_goal"
+  | "recent_decisions"
+  | "open_threads"
+  | "risks"
+  | "evidence_paths"
+  | "capture_next_action";
+
+export interface DashboardContextPackReviewItem {
+  text: string;
+  evidence: {
+    source: string;
+    record_id?: string;
+  };
+}
+
+export interface DashboardContextPackReviewNextAction {
+  id: "capture_session";
+  command: string;
+  required_when: string;
+  evidence: {
+    source: "next.actions_by_id.capture_session";
+    command: string;
+  };
+}
+
+export interface DashboardContextPackReviewCheck {
+  id: DashboardContextPackReviewCheckId;
+  label: string;
+  status: "pass" | "warn";
+  source: string;
+  count?: number;
+  message: string;
+}
+
+export interface DashboardContextPackReviewQualityGate {
+  status: "ready" | "needs_review";
+  read_only: true;
+  checks: DashboardContextPackReviewCheck[];
+  checks_by_id: Record<DashboardContextPackReviewCheckId, DashboardContextPackReviewCheck>;
+  failed_check_ids: DashboardContextPackReviewCheckId[];
+  warnings: string[];
+}
+
+export interface DashboardContextPackReview {
+  available: boolean;
+  project_id?: string;
+  unavailable_reason?: string;
+  generated_from: {
+    store: "local_event_history";
+    writes: "none";
+    sync_pull: false;
+  };
+  handoff_pack?: {
+    version: 2;
+    purpose: "agent_handoff";
+    current_goal?: {
+      text: string;
+      source: "dashboard.project_id";
+    };
+    recent_decisions: DashboardContextPackReviewItem[];
+    open_threads: DashboardContextPackReviewItem[];
+    risks: DashboardContextPackReviewItem[];
+    next_actions: DashboardContextPackReviewNextAction[];
+    evidence: {
+      records: "recent_records";
+      events: "recent_events";
+      next: "context_pack_review.handoff_pack.next_actions[]";
+    };
+    quality_gate: DashboardContextPackReviewQualityGate;
+  };
+  selection_sources: typeof CONTEXT_PACK_REVIEW_SELECTION_SOURCES;
+}
+
 export interface DashboardData {
   generated_at: string;
   store: {
@@ -339,6 +427,7 @@ export interface DashboardData {
   };
   actions: DashboardAction[];
   actions_by_id: Record<string, DashboardAction>;
+  context_pack_review: DashboardContextPackReview;
   capture_inbox: DashboardCaptureInbox;
   capture_policy: CapturePolicyResult;
   memory_lifecycle: MemoryLifecycleResult;
@@ -1068,6 +1157,194 @@ function buildCaptureInbox(records: MorynRecord[], generatedAt: string, limit: n
   };
 }
 
+function contextPackReviewItems(records: MorynRecord[], source: string): DashboardContextPackReviewItem[] {
+  return records.map((record) => ({
+    text: recordText(record),
+    evidence: {
+      source,
+      record_id: record.id
+    }
+  }));
+}
+
+function dashboardCaptureSessionCommand(projectId: string): string {
+  return `moryn capture session --project-id ${projectId} --agent <agent> --summary <summary>`;
+}
+
+function contextPackReviewCheck(input: {
+  id: DashboardContextPackReviewCheckId;
+  label: string;
+  source: string;
+  status: "pass" | "warn";
+  count?: number;
+  message: string;
+}): DashboardContextPackReviewCheck {
+  return {
+    id: input.id,
+    label: input.label,
+    source: input.source,
+    status: input.status,
+    ...(input.count === undefined ? {} : { count: input.count }),
+    message: input.message
+  };
+}
+
+function buildContextPackReviewQualityGate(input: {
+  currentGoal: boolean;
+  recentDecisions: DashboardContextPackReviewItem[];
+  openThreads: DashboardContextPackReviewItem[];
+  risks: DashboardContextPackReviewItem[];
+  nextActions: DashboardContextPackReviewNextAction[];
+}): DashboardContextPackReviewQualityGate {
+  const checks: DashboardContextPackReviewCheck[] = [
+    contextPackReviewCheck({
+      id: "current_goal",
+      label: "Current goal",
+      source: "context_pack_review.handoff_pack.current_goal",
+      status: input.currentGoal ? "pass" : "warn",
+      message: input.currentGoal
+        ? "Dashboard has explicit project context for this review."
+        : "Dashboard was opened without explicit project context."
+    }),
+    contextPackReviewCheck({
+      id: "recent_decisions",
+      label: "Recent decisions",
+      source: "context_pack_review.handoff_pack.recent_decisions[]",
+      status: "pass",
+      count: input.recentDecisions.length,
+      message: input.recentDecisions.length > 0
+        ? "Recent decisions include evidence paths."
+        : "No recent decisions are currently available."
+    }),
+    contextPackReviewCheck({
+      id: "open_threads",
+      label: "Open threads",
+      source: "context_pack_review.handoff_pack.open_threads[]",
+      status: "pass",
+      count: input.openThreads.length,
+      message: input.openThreads.length > 0
+        ? "Open handoff threads include evidence paths."
+        : "No open handoff threads are currently available."
+    }),
+    contextPackReviewCheck({
+      id: "risks",
+      label: "Risks",
+      source: "context_pack_review.handoff_pack.risks[]",
+      status: "pass",
+      count: input.risks.length,
+      message: input.risks.length > 0
+        ? "Risks include evidence paths."
+        : "No explicit risks are currently available."
+    }),
+    contextPackReviewCheck({
+      id: "evidence_paths",
+      label: "Evidence paths",
+      source: "context_pack_review.handoff_pack.evidence",
+      status: "pass",
+      message: "Dashboard review links each item back to local record evidence."
+    }),
+    contextPackReviewCheck({
+      id: "capture_next_action",
+      label: "Capture next action",
+      source: "next.actions_by_id.capture_session",
+      status: input.nextActions.some((action) => action.id === "capture_session") ? "pass" : "warn",
+      message: input.nextActions.some((action) => action.id === "capture_session")
+        ? "Required capture_session end action is visible."
+        : "Required capture_session end action is missing."
+    })
+  ];
+  const failedCheckIds = checks.filter((check) => check.status === "warn").map((check) => check.id);
+  return {
+    status: failedCheckIds.length > 0 ? "needs_review" : "ready",
+    read_only: true,
+    checks,
+    checks_by_id: Object.fromEntries(checks.map((check) => [check.id, check])) as Record<DashboardContextPackReviewCheckId, DashboardContextPackReviewCheck>,
+    failed_check_ids: failedCheckIds,
+    warnings: checks.filter((check) => check.status === "warn").map((check) => check.message)
+  };
+}
+
+function buildContextPackReview(records: MorynRecord[], options: DashboardOptions): DashboardContextPackReview {
+  const projectId = options.project_id;
+  const generatedFrom = {
+    store: "local_event_history" as const,
+    writes: "none" as const,
+    sync_pull: false as const
+  };
+  if (!projectId) {
+    return {
+      available: false,
+      unavailable_reason: "Open the dashboard with --project-id or --project to review a project context pack.",
+      generated_from: generatedFrom,
+      selection_sources: CONTEXT_PACK_REVIEW_SELECTION_SOURCES
+    };
+  }
+
+  const projectRecords = records
+    .filter((record) => record.scope === "project" && record.project_id === projectId)
+    .filter((record) => record.visibility === "active" && record.state !== "archived" && record.state !== "quarantined");
+  const canonicalProjectMemory = projectRecords
+    .filter((record) => record.kind === "memory" && record.state === "canonical")
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
+  const recentDecisions = contextPackReviewItems(
+    canonicalProjectMemory.filter((record) => record.type === "decision").slice(0, 5),
+    CONTEXT_PACK_REVIEW_SELECTION_SOURCES.recent_decision
+  );
+  const risks = contextPackReviewItems(
+    canonicalProjectMemory.filter((record) => record.type === "warning" || record.type === "blocker").slice(0, 5),
+    CONTEXT_PACK_REVIEW_SELECTION_SOURCES.risk
+  );
+  const openThreads = contextPackReviewItems(
+    projectRecords
+      .filter((record) => record.kind === "session_summary" && record.state !== "raw" && record.type !== "status")
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id))
+      .slice(0, 5),
+    CONTEXT_PACK_REVIEW_SELECTION_SOURCES.open_thread
+  );
+  const captureCommand = dashboardCaptureSessionCommand(projectId);
+  const nextActions: DashboardContextPackReviewNextAction[] = [{
+    id: "capture_session",
+    command: captureCommand,
+    required_when: "Before ending a host session, capture a handoff summary for the next agent.",
+    evidence: {
+      source: "next.actions_by_id.capture_session",
+      command: captureCommand
+    }
+  }];
+  const qualityGate = buildContextPackReviewQualityGate({
+    currentGoal: Boolean(projectId),
+    recentDecisions,
+    openThreads,
+    risks,
+    nextActions
+  });
+
+  return {
+    available: true,
+    project_id: projectId,
+    generated_from: generatedFrom,
+    handoff_pack: {
+      version: 2,
+      purpose: "agent_handoff",
+      current_goal: {
+        text: projectId,
+        source: "dashboard.project_id"
+      },
+      recent_decisions: recentDecisions,
+      open_threads: openThreads,
+      risks,
+      next_actions: nextActions,
+      evidence: {
+        records: "recent_records",
+        events: "recent_events",
+        next: "context_pack_review.handoff_pack.next_actions[]"
+      },
+      quality_gate: qualityGate
+    },
+    selection_sources: CONTEXT_PACK_REVIEW_SELECTION_SOURCES
+  };
+}
+
 function captureInboxActions(inbox: DashboardCaptureInbox): DashboardAction[] {
   return [
     ...inbox.items.flatMap((item) => [
@@ -1246,6 +1523,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   });
   const capturePolicyRecords = capturePolicyAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
   const captureInboxData = buildCaptureInbox(records, generatedAt, limit, eventsByRecord);
+  const contextPackReviewData = buildContextPackReview(records, options);
   const capturePolicyData = diagnoseCapturePolicy({
     records: capturePolicyRecords,
     events: visibleEvents,
@@ -1286,6 +1564,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     },
     actions,
     actions_by_id: actionsById(actions),
+    context_pack_review: contextPackReviewData,
     capture_inbox: captureInboxData,
     capture_policy: capturePolicyData,
     memory_lifecycle: diagnoseMemoryLifecycle({
@@ -1540,6 +1819,88 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult): string {
         <summary>Suggested actions</summary>
         ${lifecycleActions(report)}
       </details>
+    </section>
+  `;
+}
+
+function contextPackReviewChecks(review: DashboardContextPackReview): string {
+  const checks = review.handoff_pack?.quality_gate.checks ?? [];
+  if (checks.length === 0) return `<div class="empty-state">No context pack checks available.</div>`;
+  return `
+    <ul class="context-pack-checks">
+      ${checks.map((check) => `
+        <li class="${check.status === "pass" ? "good" : "warning"}">
+          <span>${escapeHtml(check.status)}</span>
+          <strong>${escapeHtml(check.label)}</strong>
+          ${check.count === undefined ? "" : `<em>${escapeHtml(check.count)}</em>`}
+          <small>${escapeHtml(check.message)}</small>
+          <code>${escapeHtml(check.source)}</code>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+function contextPackReviewItemColumn(title: string, items: DashboardContextPackReviewItem[]): string {
+  return `
+    <div>
+      <h3>${escapeHtml(title)}</h3>
+      ${items.length === 0 ? `<div class="empty-state">None in this snapshot.</div>` : `
+        <div class="context-pack-items">
+          ${items.map((item) => `
+            <article class="context-pack-item">
+              <p>${escapeHtml(item.text)}</p>
+              <small><code>${escapeHtml(item.evidence.source)}</code>${item.evidence.record_id ? ` <code>${escapeHtml(item.evidence.record_id)}</code>` : ""}</small>
+            </article>
+          `).join("")}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function contextPackReviewPanel(review: DashboardContextPackReview): string {
+  if (!review.available || !review.handoff_pack) {
+    return `
+      <section class="panel context-pack-review" aria-label="Context Pack Review">
+        <div class="context-pack-heading">
+          <h2>Context Pack Review</h2>
+          <span>Unavailable</span>
+        </div>
+        <div class="empty-state">${escapeHtml(review.unavailable_reason ?? "Project context is required for Context Pack Review.")}</div>
+      </section>
+    `;
+  }
+  const pack = review.handoff_pack;
+  const gate = pack.quality_gate;
+  return `
+    <section class="panel context-pack-review" aria-label="Context Pack Review">
+      <div class="context-pack-heading">
+        <h2>Context Pack Review</h2>
+        <span>${escapeHtml(gate.status)}</span>
+      </div>
+      <div class="lifecycle-policy">
+        <div>
+          <strong>${escapeHtml(pack.purpose)}</strong>
+          <code>${escapeHtml(review.project_id ?? "unknown")}</code>
+        </div>
+        <span>Read-only</span>
+        <span>${escapeHtml(review.generated_from.store)}</span>
+        <span>writes: ${escapeHtml(review.generated_from.writes)}</span>
+        <span>sync pull: ${escapeHtml(review.generated_from.sync_pull)}</span>
+      </div>
+      <dl class="context-pack-summary">
+        <div><dt>Current goal</dt><dd>${escapeHtml(pack.current_goal?.text ?? "none")}<small>${escapeHtml(pack.current_goal?.source ?? "missing")}</small></dd></div>
+        <div><dt>Quality gate</dt><dd>${escapeHtml(gate.status)}<small>${escapeHtml(gate.failed_check_ids.length ? gate.failed_check_ids.join(", ") : "no failed checks")}</small></dd></div>
+        <div><dt>End action</dt><dd><code>${escapeHtml(pack.next_actions[0]?.command ?? "missing")}</code><small>${escapeHtml(pack.next_actions[0]?.evidence.source ?? "missing")}</small></dd></div>
+        <div><dt>Evidence</dt><dd><code>${escapeHtml(pack.evidence.records)}</code> <code>${escapeHtml(pack.evidence.events)}</code> <code>${escapeHtml(pack.evidence.next)}</code></dd></div>
+      </dl>
+      ${contextPackReviewChecks(review)}
+      <div class="context-pack-grid">
+        ${contextPackReviewItemColumn("Recent Decisions", pack.recent_decisions)}
+        ${contextPackReviewItemColumn("Open Threads", pack.open_threads)}
+        ${contextPackReviewItemColumn("Risks", pack.risks)}
+      </div>
     </section>
   `;
 }
@@ -2016,6 +2377,8 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${maintenanceReviewQueue(data.maintenance.plans)}
 
+    ${contextPackReviewPanel(data.context_pack_review)}
+
     ${memoryLifecyclePanel(data.memory_lifecycle)}
 
     ${capturePolicyAuditPanel(data.capture_policy)}
@@ -2419,9 +2782,11 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .attention.critical { border-left-color: var(--critical); }
     .empty-state { border: 1px dashed var(--border); border-radius: 7px; padding: 14px; color: var(--muted); background: var(--surface-2); }
     .maintenance-review { border-left: 4px solid var(--signal-green); }
+    .context-pack-review { border-left: 4px solid var(--signal-blue); }
     .memory-lifecycle { border-left: 4px solid var(--signal-violet); }
     .capture-inbox { border-left: 4px solid var(--signal-blue); }
     .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
+    .context-pack-heading,
     .lifecycle-heading,
     .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions {
       display: flex;
@@ -2431,9 +2796,69 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       min-width: 0;
     }
     .maintenance-heading span, .maintenance-status,
+    .context-pack-heading span,
     .lifecycle-heading span,
     .capture-inbox-heading span, .capture-inbox-status { color: var(--muted); font-size: 12px; font-weight: 650; }
     .maintenance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
+    .context-pack-summary {
+      margin: 0 0 10px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .context-pack-summary div {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 1fr);
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px;
+      background: var(--surface);
+      min-width: 0;
+    }
+    .context-pack-checks {
+      display: grid;
+      gap: 7px;
+      padding-left: 0;
+      margin: 10px 0;
+      list-style: none;
+    }
+    .context-pack-checks li {
+      display: grid;
+      grid-template-columns: 58px minmax(120px, 1fr) auto minmax(0, 2fr);
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px;
+      background: var(--surface);
+    }
+    .context-pack-checks li span {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .context-pack-checks li em {
+      font-style: normal;
+      color: var(--muted);
+      font-weight: 760;
+    }
+    .context-pack-checks li code { grid-column: 1 / -1; }
+    .context-pack-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .context-pack-grid h3 { margin-bottom: 8px; }
+    .context-pack-items { display: grid; gap: 8px; }
+    .context-pack-item {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px;
+      background: var(--surface);
+    }
+    .context-pack-item p {
+      margin: 0 0 6px;
+      color: var(--ink);
+      font-weight: 560;
+      overflow-wrap: anywhere;
+    }
     .capture-policy, .lifecycle-policy {
       display: flex;
       flex-wrap: wrap;
@@ -2662,9 +3087,11 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .bar-label, .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
+      .context-pack-heading,
       .lifecycle-heading,
       .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions { display: grid; justify-content: stretch; }
-      .maintenance-summary, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
+      .maintenance-summary, .context-pack-summary, .context-pack-grid, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
+      .context-pack-checks li { grid-template-columns: 1fr; }
       .bar-label span { text-align: left; }
     }
   </style>

@@ -3,6 +3,7 @@ import {
   BOOT_SELECTION_SOURCES,
   CAPTURE_POLICY_SELECTION_SOURCES,
   CAPTURE_SESSION_SELECTION_SOURCES,
+  CONTEXT_PACK_REVIEW_SELECTION_SOURCES,
   DEFAULT_AUTOCAPTURE_POLICY,
   DISCOVERED_LIFECYCLE_STEP_SELECTION_SOURCES,
   DISCOVER_PROJECT_SELECTION_SOURCES,
@@ -148,6 +149,7 @@ describe("package smoke test", () => {
     expect(HANDOFF_QUALITY_GATE_SELECTION_SOURCES.check).toBe("handoff_pack.quality_gate.checks_by_id.<check_id>");
     expect(CAPTURE_SESSION_SELECTION_SOURCES.policy_decision).toBe("policy_decision");
     expect(CAPTURE_POLICY_SELECTION_SOURCES.decision).toBe("decisions_by_record_id.<record_id>");
+    expect(CONTEXT_PACK_REVIEW_SELECTION_SOURCES.quality_gate).toBe("context_pack_review.handoff_pack.quality_gate");
     expect(DEFAULT_AUTOCAPTURE_POLICY.id).toBe("default_autocapture_policy");
     expect(DOCTOR_SELECTION_SOURCES.blocking_check).toBe("readiness.blocking_checks_by_name.<check_name>");
     expect(DOCTOR_SELECTION_SOURCES.next_cli_executable).toBe("next.interfaces.cli.executable");
@@ -167,6 +169,7 @@ describe("package smoke test", () => {
     expect(SELECTION_SOURCE_CONTRACTS.core.memory_lifecycle).toBe(MEMORY_LIFECYCLE_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.core.capture_policy).toBe(CAPTURE_POLICY_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.sync.result).toBe(SYNC_RESULT_SELECTION_SOURCES);
+    expect(SELECTION_SOURCE_CONTRACTS.observability.context_pack_review).toBe(CONTEXT_PACK_REVIEW_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.guide).toBe(GUIDE_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.capture_session).toBe(CAPTURE_SESSION_SELECTION_SOURCES);
     expect(SELECTION_SOURCE_CONTRACTS.lifecycle.handoff).toBe(HANDOFF_SELECTION_SOURCES);

@@ -84,9 +84,9 @@ the dashboard. The same flag applies to the server shell, `/fragment`, and
 `/api/dashboard`.
 
 Pass `--project-id <id>` or `--project <path>` when you want the server to
-generate project-specific Review Queue plans and Memory Lifecycle review.
-Without project context the dashboard stays store-wide, and
-`maintenance.plans[]` is empty.
+generate project-specific Review Queue plans, Memory Lifecycle review, and
+Context Pack Review. Without project context the dashboard stays store-wide:
+`maintenance.plans[]` is empty and `context_pack_review.available` is `false`.
 
 ### Capture Inbox
 
@@ -287,6 +287,7 @@ The first screen favors human-readable summaries over raw ids:
 - agent activity
 - record quality distribution
 - record type distribution
+- Context Pack Review handoff readiness when project context is explicit
 - Memory Lifecycle retained/stale/archive review
 - Capture Inbox candidate approvals when autocaptured records need review
 - policy decisions that need review, using the same Capture Inbox approval
@@ -342,6 +343,7 @@ The JSON returned by `/api/dashboard` includes:
 - `totals`
 - `actions`
 - `actions_by_id`
+- `context_pack_review`
 - `capture_inbox`
 - `capture_inbox.autocapture_policy`
 - `capture_policy`
@@ -376,6 +378,37 @@ Actions that mutate the store remain explicit dashboard button presses, use
 append-only events, and carry stale guards such as `active_candidate_record`,
 `active_candidate_group`, or `plan_hash`. Read-only actions record
 `writes: "none"`.
+
+### Context Pack Review
+
+When the dashboard is opened with `--project-id <id>` or `--project <path>`, it
+includes a read-only `Context Pack Review` panel for handoff readiness. The panel
+is built from the dashboard's replayed local event history, not by calling the
+host adapter `context_pack` operation. It records:
+
+- `context_pack_review.generated_from.store: "local_event_history"`
+- `context_pack_review.generated_from.writes: "none"`
+- `context_pack_review.generated_from.sync_pull: false`
+- `context_pack_review.handoff_pack.version: 2`
+- `context_pack_review.handoff_pack.purpose: "agent_handoff"`
+- `context_pack_review.handoff_pack.quality_gate`
+- evidence paths under `CONTEXT_PACK_REVIEW_SELECTION_SOURCES`
+
+The review summarizes:
+
+- current project context as `handoff_pack.current_goal`
+- recent canonical project decisions as `handoff_pack.recent_decisions[]`
+- recent non-status session summaries as `handoff_pack.open_threads[]`
+- canonical project warnings or blockers as `handoff_pack.risks[]`
+- the required end-of-session capture command through
+  `next.actions_by_id.capture_session`
+
+If the dashboard is opened without project context, the panel renders
+`Unavailable` and the JSON message is `Open the dashboard with --project-id or
+--project to review a project context pack.` The dashboard does not guess a project
+from recent records, because that would make handoff review ambiguous.
+
+Context Pack Review is deliberately not an approval surface. It does not render Approve, Apply, Promote, Archive, or Reject controls, does not add entries to the Safe Action Registry, and does not mutate memory while rendering. Use Capture Inbox for canonical memory approval and `moryn capture session` for writing the next handoff summary.
 
 `capture_policy` and `memory_lifecycle` are read-only report data. Mutation
 endpoints remain limited to Capture Inbox approval/rejection and Review Queue

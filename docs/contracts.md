@@ -267,6 +267,29 @@ and source path metadata. Rendered buttons include `data-dashboard-action-id`
 with the same id. This registry is an audit and selection surface; it does not
 create a background executor or add any automatic write path.
 
+`/api/dashboard` also returns `context_pack_review`, a read-only project handoff
+readiness summary rendered as the dashboard `Context Pack Review` panel. When
+the dashboard is served with `--project-id <id>` or `--project <path>`,
+`context_pack_review.available` is `true` and the response includes
+`handoff_pack` v2 with `purpose: "agent_handoff"`, current project context,
+recent decisions, open handoff threads, risks, `next.actions_by_id.capture_session`,
+and `handoff_pack.quality_gate`. Its evidence paths are described by
+`CONTEXT_PACK_REVIEW_SELECTION_SOURCES`, including
+`context_pack_review.handoff_pack.quality_gate`,
+`context_pack_review.handoff_pack.recent_decisions[]`,
+`context_pack_review.handoff_pack.open_threads[]`, and
+`context_pack_review.handoff_pack.risks[]`.
+
+The dashboard review is generated from local replayed event history:
+`generated_from.store` is `local_event_history`, `generated_from.writes` is
+`none`, and `generated_from.sync_pull` is `false`. It does not call the host
+adapter `context_pack` operation and does not expose a Context Pack approve or
+apply endpoint. Without explicit project context,
+`context_pack_review.available` is `false` and the unavailable message is
+`Open the dashboard with --project-id or --project to review a project context
+pack.` The dashboard does not infer a project from recent records.
+This means the dashboard does not call the host adapter context_pack operation.
+
 `/api/dashboard` also returns `capture_policy`, the same read-only report shape
 as `moryn capture policy` and MCP `capture_policy`. It includes
 `policy`, `stats`, `decisions_by_record_id`, `findings_by_id`,

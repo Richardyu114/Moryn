@@ -67,6 +67,12 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("default_autocapture_policy");
     expect(dashboard).toContain("capture_inbox.autocapture_policy");
     expect(dashboard).toContain("Capture Policy Audit");
+    expect(dashboard).toContain("Context Pack Review");
+    expect(dashboard).toContain("context_pack_review");
+    expect(dashboard).toContain("handoff_pack.quality_gate");
+    expect(dashboard).toContain("local_event_history");
+    expect(dashboard).toContain("does not guess a project");
+    expect(dashboard).toContain("does not render Approve, Apply, Promote, Archive, or Reject controls");
     expect(dashboard).toContain("moryn capture policy");
     expect(dashboard).toContain("capture_policy");
     expect(dashboard).toContain("Review in Capture Inbox");
@@ -83,6 +89,11 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("capture_policy");
     expect(contracts).toContain("actions_by_id.<action_id>");
     expect(contracts).toContain("Safe Action Registry");
+    expect(contracts).toContain("context_pack_review");
+    expect(contracts).toContain("CONTEXT_PACK_REVIEW_SELECTION_SOURCES");
+    expect(contracts).toContain("Open the dashboard with --project-id or --project");
+    expectText(contracts, "does not call the host adapter context_pack operation");
+    expectText(contracts, "does not expose a Context Pack approve or apply endpoint");
     expectText(contracts, "does not create a background executor");
     expect(contracts).toContain("Review decisions reuse the existing Capture Inbox");
     expect(contracts).toContain("policy-archived decisions expose only");
@@ -99,6 +110,9 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("memory_lifecycle");
     expect(contracts).toContain("does not expose an Apply or Approve Lifecycle endpoint");
     expect(dashboard).toContain("Review Queue");
+    expectText(readme, "Context Pack Review");
+    expect(readme).toContain("context_pack_review");
+    expectText(readme, "read-only handoff readiness");
     expect(dashboard).toContain("POST /api/maintenance/plans/:plan_id/approve");
     expect(dashboard).toContain("plan_hash");
     expect(dashboard).toContain("decision card");

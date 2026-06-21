@@ -50,7 +50,7 @@ export {
 } from "./operation-contracts.js";
 import { PROJECT_INIT_SELECTION_SOURCES } from "./core/project.js";
 export { parseRecord } from "./core/schema.js";
-import { DASHBOARD_SELECTION_SOURCES } from "./observability/dashboard.js";
+import { CONTEXT_PACK_REVIEW_SELECTION_SOURCES, DASHBOARD_SELECTION_SOURCES } from "./observability/dashboard.js";
 export {
   buildDashboardData,
   renderDashboardFragment,
@@ -94,6 +94,7 @@ export {
   NEXT_ACTION_SELECTION_SOURCES,
   PROJECT_INIT_SELECTION_SOURCES,
   DASHBOARD_SELECTION_SOURCES,
+  CONTEXT_PACK_REVIEW_SELECTION_SOURCES,
   SYNC_RESULT_SELECTION_SOURCES,
   SYNC_STATUS_SELECTION_SOURCES,
   HANDOFF_PACK_SELECTION_SOURCES,
@@ -136,7 +137,8 @@ export const SELECTION_SOURCE_CONTRACTS = {
     result: SYNC_RESULT_SELECTION_SOURCES
   },
   observability: {
-    dashboard: DASHBOARD_SELECTION_SOURCES
+    dashboard: DASHBOARD_SELECTION_SOURCES,
+    context_pack_review: CONTEXT_PACK_REVIEW_SELECTION_SOURCES
   },
   lifecycle: {
     guide: GUIDE_SELECTION_SOURCES,
