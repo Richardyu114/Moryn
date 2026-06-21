@@ -506,6 +506,7 @@ The JSON returned by `/api/dashboard` includes:
 - `capture_inbox`
 - `capture_inbox.autocapture_policy`
 - `capture_policy`
+- `health_check`
 - `memory_lifecycle`
 - `dogfood_report`
 - `recent_value`
@@ -517,6 +518,21 @@ The JSON returned by `/api/dashboard` includes:
 
 This keeps raw data inspectable while giving the HTML renderer human-oriented
 fields.
+
+### Moryn Health Check
+
+The HTML dashboard includes a compact read-only `Moryn Health Check` panel near
+the top of the page. It is separate from the dashboard status badge: the badge
+summarizes current sync/dashboard state, while `health_check` reports local
+installation and store readiness. The panel stays collapsed by default behind a
+summary such as `needs attention | 1 warning | 0 failed`.
+
+`/api/dashboard.health_check` is the same read-only shape as `moryn health
+check` and MCP `health_check`. It checks store readability, event-log replay,
+project context, default private boundary, and Capture Inbox backlog. Suggested
+actions are safe inspection commands only, such as opening the dashboard or
+listing known projects. The panel does not add Apply, Approve, repair, retry,
+or background execution controls.
 
 ### Safe Action Registry
 

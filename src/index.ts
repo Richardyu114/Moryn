@@ -14,6 +14,7 @@ import { DEFAULT_AUTOCAPTURE_POLICY } from "./core/autocapture-policy.js";
 import { REBUILD_SELECTION_SOURCES } from "./core/derived.js";
 import { CAPTURE_POLICY_SELECTION_SOURCES } from "./core/capture-policy-report.js";
 import { DOGFOOD_REPORT_SELECTION_SOURCES } from "./core/dogfood-report.js";
+import { HEALTH_CHECK_SELECTION_SOURCES } from "./core/health-check.js";
 import { MEMORY_LIFECYCLE_SELECTION_SOURCES } from "./core/memory-lifecycle.js";
 export { createEngine } from "./core/engine.js";
 export { captureSession, contextPack, getHostAdapter, getHostAdapters, normalizeHostId, planInstall } from "./core/host-adapters.js";
@@ -107,6 +108,7 @@ export {
   DEFAULT_AUTOCAPTURE_POLICY,
   CAPTURE_POLICY_SELECTION_SOURCES,
   DOGFOOD_REPORT_SELECTION_SOURCES,
+  HEALTH_CHECK_SELECTION_SOURCES,
   MEMORY_LIFECYCLE_SELECTION_SOURCES,
   SETUP_WIZARD_SELECTION_SOURCES
 };
@@ -137,6 +139,7 @@ export const SELECTION_SOURCE_CONTRACTS = {
     memory_lifecycle: MEMORY_LIFECYCLE_SELECTION_SOURCES,
     capture_policy: CAPTURE_POLICY_SELECTION_SOURCES,
     dogfood_report: DOGFOOD_REPORT_SELECTION_SOURCES,
+    health_check: HEALTH_CHECK_SELECTION_SOURCES,
     recall_eval: RECALL_EVAL_SELECTION_SOURCES
   },
   sync: {

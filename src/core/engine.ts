@@ -14,6 +14,7 @@ import { operationArgumentsByTool } from "../operation-contracts.js";
 import { diagnoseDogfood, type DogfoodReportInput } from "./dogfood-report.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleInput } from "./memory-lifecycle.js";
 import { diagnoseCapturePolicy, type CapturePolicyInput } from "./capture-policy-report.js";
+import { diagnoseHealthCheck, HEALTH_CHECK_SELECTION_SOURCES, type HealthCheckInput } from "./health-check.js";
 import { diagnoseMemory, MEMORY_DOCTOR_SELECTION_SOURCES } from "./memory-doctor.js";
 import { evaluateRecall, RECALL_EVAL_SELECTION_SOURCES, type RecallEvalInput } from "./recall-eval.js";
 
@@ -143,6 +144,10 @@ type ValidatedCapturePolicyInput = CapturePolicyInput & {
 };
 
 type ValidatedDogfoodReportInput = DogfoodReportInput & {
+  include_private?: boolean;
+};
+
+type ValidatedHealthCheckInput = HealthCheckInput & {
   include_private?: boolean;
 };
 
@@ -290,6 +295,7 @@ export const LIST_RECENT_SELECTION_SOURCES = {
 };
 
 export { MEMORY_DOCTOR_SELECTION_SOURCES };
+export { HEALTH_CHECK_SELECTION_SOURCES };
 
 export const RECALL_SELECTION_SOURCES = {
   result: "results_by_id.<record_id>",
@@ -604,7 +610,7 @@ type ValidatedProjectMigrateInput = ProjectMigrateInput & {
   include_private: boolean;
 };
 
-type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report" | "recall_eval";
+type ReadOperation = "recall" | "boot" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report" | "health_check" | "recall_eval";
 type ReadOperationContractSource = `operations_by_id.${ReadOperation}`;
 type ReadArgumentSource = `operations_by_id.${ReadOperation}.arguments_by_name.${string}`;
 type AgentIdentityField = "client" | "session_id" | "model" | "device_id";
@@ -2121,6 +2127,12 @@ function validateDogfoodReportInput(input: DogfoodReportInput): void {
   validateOptionalBoolean("dogfood_report", input.include_private, "include_private");
 }
 
+function validateHealthCheckInput(input: HealthCheckInput): void {
+  assertPlainObject(input, "health check input");
+  validateOptionalString("health_check", input.project_id, "project_id");
+  validateOptionalBoolean("health_check", input.include_private, "include_private");
+}
+
 function validateRecallEvalInput(input: RecallEvalInput): void {
   assertPlainObject(input, "recall eval input");
   validateOptionalString("recall_eval", input.project_id, "project_id");
@@ -3385,6 +3397,27 @@ export function createEngine(deps: EngineDeps) {
         limit,
         include_private: resolvedInput.include_private,
         excluded_private_records: allRecords.length - allRecords.filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private)).length
+      });
+    },
+
+    async healthCheck(input: HealthCheckInput = {}) {
+      validateHealthCheckInput(input);
+      const resolvedInput = {
+        ...input,
+        include_private: input.include_private === true
+      } as ValidatedHealthCheckInput;
+      const limit = validateLimit(resolvedInput.limit, 20, "health_check");
+      const events = await readEvents(deps.storePath);
+      const allRecords = [...replayEvents(events).values()];
+      const visibleRecords = allRecords
+        .filter((record) => isAllowedByPrivateBoundary(record, resolvedInput.include_private));
+      return diagnoseHealthCheck({
+        records: visibleRecords,
+        events,
+        project_id: resolvedInput.project_id,
+        limit,
+        include_private: resolvedInput.include_private,
+        excluded_private_records: allRecords.length - visibleRecords.length
       });
     },
 

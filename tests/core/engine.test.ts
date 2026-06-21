@@ -41,6 +41,13 @@ const DOGFOOD_REPORT_SELECTION_SOURCES = {
   event: "events_by_id.<event_id>",
   event_id: "events_by_id.<event_id>.event_id"
 };
+const HEALTH_CHECK_SELECTION_SOURCES = {
+  check: "checks_by_id.<check_id>",
+  check_id: "checks_by_id.<check_id>.id",
+  action: "suggested_actions_by_id.<action_id>",
+  action_id: "suggested_actions_by_id.<action_id>.action_id",
+  stat: "stats.<field>"
+};
 const CAPTURE_POLICY_SELECTION_SOURCES = {
   decision: "decisions_by_record_id.<record_id>",
   decision_record_id: "decisions_by_record_id.<record_id>.record_id",
@@ -391,6 +398,73 @@ function expectRefreshChangeRecallAction(action: {
 }
 
 describe("core engine", () => {
+  it("reports read-only installation health and review next steps", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-21T00:00:${String(tick++).padStart(2, "0")}.000Z`
+      });
+      const capture = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "Codex captured a handoff that needs user review.", format: "text" },
+        source: { client: "codex", session_id: "health-check" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Private health check detail must stay hidden.", format: "text" },
+        source: { client: "codex" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const report = await engine.healthCheck({ project_id: "moryn", limit: 20 });
+      const afterEvents = await readEvents(storePath);
+
+      expect(afterEvents).toHaveLength(beforeEvents.length);
+      expect(report).toMatchObject({
+        read_only: true,
+        version: 1,
+        scope: "local_store",
+        project_id: "moryn",
+        status: "needs_attention",
+        summary: {
+          status: "needs_attention",
+          failing_checks: 0,
+          warning_checks: 1
+        }
+      });
+      expect(report.selection_sources).toEqual(HEALTH_CHECK_SELECTION_SOURCES);
+      expect(report.stats).toMatchObject({
+        visible_records: 1,
+        excluded_private_records: 1,
+        total_events: beforeEvents.length,
+        capture_review_candidates: 1
+      });
+      expect(report.checks_by_id.store_readable).toMatchObject({ status: "pass", category: "store" });
+      expect(report.checks_by_id.event_log_replayable).toMatchObject({ status: "pass", category: "store" });
+      expect(report.checks_by_id.project_context).toMatchObject({ status: "pass", category: "project" });
+      expect(report.checks_by_id.capture_review_backlog).toMatchObject({
+        status: "warning",
+        category: "capture",
+        record_ids: [capture.record.id]
+      });
+      expect(report.suggested_actions_by_id.review_capture_inbox).toMatchObject({
+        tool: "dashboard",
+        command: "moryn dashboard --serve --project-id moryn",
+        safe_to_run: true
+      });
+      expect(JSON.stringify(report)).not.toContain("Private health check detail");
+    });
+  });
+
   it("reports dogfood friction signals without mutating the store", async () => {
     await withInitializedTempStore(async (storePath) => {
       let tick = 0;

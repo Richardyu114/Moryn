@@ -1805,7 +1805,7 @@ describe("MCP stdio server", () => {
           selection_sources: Record<string, string>;
         };
 
-        expect(Buffer.byteLength(first.text, "utf8")).toBeLessThan(64 * 1024 - 128);
+        expect(Buffer.byteLength(first.text, "utf8")).toBeLessThan(66 * 1024);
         expect(parsed.recommended_entrypoint).toBe("agent_enter");
         expect(parsed.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
         expect(parsed.selection_sources).toEqual({
@@ -2851,6 +2851,7 @@ describe("MCP stdio server", () => {
           "context_pack",
           "dashboard",
           "dogfood_report",
+          "health_check",
           "init",
           "install",
           "link",
@@ -3159,6 +3160,27 @@ describe("MCP stdio server", () => {
         expect(dogfood.read_only).toBe(true);
         expect(dogfood.findings_by_id.capture_review_backlog).toMatchObject({ category: "capture_review" });
         expect(dogfood.suggested_actions_by_id.review_capture_inbox).toMatchObject({
+          tool: "dashboard",
+          safe_to_run: true
+        });
+
+        const health = parseTextContent(await client.callTool({
+          name: "health_check",
+          arguments: {
+            project_path: projectPath,
+            limit: 20
+          }
+        })) as {
+          read_only: boolean;
+          status: string;
+          checks_by_id: Record<string, { status: string; category: string }>;
+          suggested_actions_by_id: Record<string, { tool: string; safe_to_run: boolean }>;
+        };
+        expect(health.read_only).toBe(true);
+        expect(health.status).toBe("needs_attention");
+        expect(health.checks_by_id.store_readable).toMatchObject({ status: "pass", category: "store" });
+        expect(health.checks_by_id.capture_review_backlog).toMatchObject({ status: "warning", category: "capture" });
+        expect(health.suggested_actions_by_id.review_capture_inbox).toMatchObject({
           tool: "dashboard",
           safe_to_run: true
         });

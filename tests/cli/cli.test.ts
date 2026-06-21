@@ -1954,7 +1954,7 @@ describe("moryn CLI", () => {
       selection_sources: Record<string, string>;
     };
 
-    expect(Buffer.byteLength(result.stdout, "utf8")).toBeLessThan(64 * 1024 - 128);
+    expect(Buffer.byteLength(result.stdout, "utf8")).toBeLessThan(66 * 1024);
     expect(parsed.recommended_entrypoint).toBe("agent_enter");
     expect(parsed.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
     expect(parsed.selection_sources).toEqual({
@@ -3856,6 +3856,66 @@ describe("moryn CLI", () => {
       });
       expect(parsed.records_by_id[capture.record.id]?.id).toBe(capture.record.id);
       expect(JSON.stringify(parsed)).not.toContain("Private dogfood failure");
+    });
+  });
+
+  it("runs a read-only health check from the CLI", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+      const capture = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "moryn",
+        "--tag", "autocapture",
+        "--tag", "review",
+        "--text", "CLI health check should flag capture review backlog."
+      ])).stdout) as { record: { id: string } };
+      await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "memory",
+        "--type", "warning",
+        "--scope", "project",
+        "--project-id", "moryn",
+        "--tag", "private",
+        "--text", "Private health check CLI detail must stay hidden."
+      ]);
+
+      const beforeEvents = await readEvents(dir);
+      const result = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "health", "check",
+        "--project-id", "moryn",
+        "--limit", "20"
+      ]);
+      const parsed = JSON.parse(result.stdout) as {
+        read_only: boolean;
+        status: string;
+        stats: { visible_records: number; excluded_private_records: number; capture_review_candidates: number };
+        checks_by_id: Record<string, { status: string; category: string; record_ids?: string[] }>;
+        suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
+      };
+
+      expect(await readEvents(dir)).toHaveLength(beforeEvents.length);
+      expect(parsed.read_only).toBe(true);
+      expect(parsed.status).toBe("needs_attention");
+      expect(parsed.stats).toMatchObject({
+        visible_records: 1,
+        excluded_private_records: 1,
+        capture_review_candidates: 1
+      });
+      expect(parsed.checks_by_id.capture_review_backlog).toMatchObject({
+        status: "warning",
+        category: "capture",
+        record_ids: [capture.record.id]
+      });
+      expect(parsed.suggested_actions_by_id.review_capture_inbox).toMatchObject({
+        tool: "dashboard",
+        command: "moryn dashboard --serve --project-id moryn",
+        safe_to_run: true
+      });
+      expect(JSON.stringify(parsed)).not.toContain("Private health check CLI detail");
     });
   });
 

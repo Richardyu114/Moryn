@@ -11,6 +11,7 @@ import { diagnoseCapturePolicy, type CapturePolicyResult } from "../core/capture
 import { displayRecordText } from "../core/content-text.js";
 import { diagnoseDogfood, type DogfoodReportResult } from "../core/dogfood-report.js";
 import { createEngine } from "../core/engine.js";
+import { diagnoseHealthCheck, type HealthCheckReport } from "../core/health-check.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
@@ -97,6 +98,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
   action_id: "actions_by_id.<action_id>.action_id",
   capture_inbox: "capture_inbox",
   capture_policy: "capture_policy",
+  health_check: "health_check",
   context_pack_review: "context_pack_review",
   governance: "governance",
   memory_lifecycle: "memory_lifecycle",
@@ -520,6 +522,7 @@ export interface DashboardData {
   governance: DashboardGovernance;
   capture_inbox: DashboardCaptureInbox;
   capture_policy: CapturePolicyResult;
+  health_check: HealthCheckReport;
   memory_lifecycle: MemoryLifecycleResult;
   dogfood_report: DogfoodReportResult;
   recent_value: DashboardValueRecord[];
@@ -1984,6 +1987,21 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     include_private: options.include_private === true,
     excluded_private_records: dogfoodAllRecords.length - dogfoodRecords.length
   });
+  const healthCheckAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
+  const healthCheckRecords = healthCheckAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const healthCheckRecordIds = new Set(healthCheckRecords.map((record) => record.id));
+  const healthCheckEvents = events.filter((event) => {
+    const recordId = targetRecordId(event);
+    return !recordId || healthCheckRecordIds.has(recordId);
+  });
+  const healthCheckData = diagnoseHealthCheck({
+    records: healthCheckRecords,
+    events: healthCheckEvents,
+    project_id: options.project_id,
+    limit,
+    include_private: options.include_private === true,
+    excluded_private_records: healthCheckAllRecords.length - healthCheckRecords.length
+  });
   const actions = dashboardActions({
     captureInbox: captureInboxData,
     capturePolicy: capturePolicyData,
@@ -2032,6 +2050,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     governance,
     capture_inbox: captureInboxData,
     capture_policy: capturePolicyData,
+    health_check: healthCheckData,
     memory_lifecycle: memoryLifecycleData,
     dogfood_report: dogfoodReportData,
     recent_value: buildRecentValue(records, generatedAt, Math.min(limit, RECENT_VALUE_LIMIT), eventsByRecord),
@@ -2147,6 +2166,47 @@ function focusBrief(data: DashboardData): string {
         ${focusBriefChip(data.action_board.items_by_id.sync)}
       </div>
     </section>
+  `;
+}
+
+function healthCheckClass(status: HealthCheckReport["status"]): string {
+  if (status === "healthy") return "good";
+  if (status === "unhealthy") return "critical";
+  return "warning";
+}
+
+function healthCheckPanel(report: HealthCheckReport): string {
+  const summary = `${report.status.replace(/_/g, " ")} | ${pluralize(report.summary.warning_checks, "warning")} | ${report.summary.failing_checks} failed`;
+  return `
+    <details class="panel health-check-panel" data-dashboard-detail="health-check" data-dashboard-section="health-check">
+      <summary class="dashboard-fold-summary">
+        <span>Moryn Health Check</span>
+        <small>${escapeHtml(summary)}</small>
+      </summary>
+      <div class="health-check-body">
+        <div class="health-check-brief">
+          <strong class="${healthCheckClass(report.status)}">${escapeHtml(titleCase(report.status))}</strong>
+          <span>Read-only</span>
+          <code>${escapeHtml(report.summary.next_step)}</code>
+        </div>
+        <dl class="health-check-stats">
+          <div><dt>Visible records</dt><dd>${escapeHtml(report.stats.visible_records)}</dd></div>
+          <div><dt>Private hidden</dt><dd>${escapeHtml(report.stats.excluded_private_records)}</dd></div>
+          <div><dt>Events</dt><dd>${escapeHtml(report.stats.total_events)}</dd></div>
+          <div><dt>Capture review</dt><dd>${escapeHtml(report.stats.capture_review_candidates)}</dd></div>
+        </dl>
+        <div class="health-check-list">
+          ${report.checks.map((check) => `
+            <article class="health-check-item ${escapeHtml(check.status)}">
+              <span>${escapeHtml(titleCase(check.status))}</span>
+              <strong>${escapeHtml(check.label)}</strong>
+              <p>${escapeHtml(check.summary)}</p>
+              <small>${escapeHtml(check.reason)}</small>
+            </article>
+          `).join("")}
+        </div>
+      </div>
+    </details>
   `;
 }
 
@@ -3531,6 +3591,8 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${focusBrief(data)}
 
+    ${healthCheckPanel(data.health_check)}
+
     ${actionBoard(data.action_board)}
 
     ${needsAttentionPanel(data.attention_items)}
@@ -3990,6 +4052,75 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 720;
       overflow-wrap: anywhere;
     }
+    .health-check-panel {
+      border-left: 4px solid var(--signal-blue);
+      padding: 13px 14px;
+    }
+    .health-check-panel[open] > summary { margin-bottom: 10px; }
+    .health-check-body { display: grid; gap: 10px; }
+    .health-check-brief {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      align-items: center;
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .health-check-brief strong { color: var(--ink); font-size: 14px; }
+    .health-check-brief strong.good { color: var(--good); }
+    .health-check-brief strong.warning { color: var(--warning); }
+    .health-check-brief strong.critical { color: var(--critical); }
+    .health-check-brief span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
+      font-weight: 730;
+    }
+    .health-check-brief code {
+      flex: 1 1 260px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .health-check-stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 9px;
+      margin: 0;
+    }
+    .health-check-stats div {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px;
+      background: var(--surface-2);
+    }
+    .health-check-stats dt { color: var(--muted); font-size: 11.5px; font-weight: 720; }
+    .health-check-stats dd { margin: 3px 0 0; color: var(--ink); font-size: 17px; font-weight: 800; }
+    .health-check-list { display: grid; gap: 8px; }
+    .health-check-item {
+      display: grid;
+      grid-template-columns: minmax(70px, auto) minmax(0, 1fr);
+      gap: 4px 9px;
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .health-check-item.pass { border-left-color: var(--good); }
+    .health-check-item.info { border-left-color: var(--info); }
+    .health-check-item.warning { border-left-color: var(--warning); }
+    .health-check-item.fail { border-left-color: var(--critical); }
+    .health-check-item span { color: var(--muted); font-size: 11.5px; font-weight: 760; text-transform: uppercase; }
+    .health-check-item strong { color: var(--ink); font-weight: 760; overflow-wrap: anywhere; }
+    .health-check-item p,
+    .health-check-item small { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; }
+    .health-check-item p { color: var(--ink-2); }
+    .health-check-item small { color: var(--muted); }
     .visual-grid { display: grid; gap: 11px; }
     .visual-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .action-board {

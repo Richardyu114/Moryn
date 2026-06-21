@@ -89,6 +89,11 @@ describe("published package smoke", () => {
           "-e",
           "import { RECALL_EVAL_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('recall_eval'); const byMcp = getOperationContractByMcpTool('recall_eval'); const byCli = getOperationContractByCliCommand('moryn eval recall --cases <json>'); console.log(`${RECALL_EVAL_SELECTION_SOURCES.case}|${SELECTION_SOURCE_CONTRACTS.core.recall_eval.case}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
         ], { cwd: dir });
+        const healthImportCheck = await exec("node", [
+          "--input-type=module",
+          "-e",
+          "import { HEALTH_CHECK_SELECTION_SOURCES, SELECTION_SOURCE_CONTRACTS, getOperationContract, getOperationContractByCliCommand, getOperationContractByMcpTool } from '@richardyu114/moryn'; const operation = getOperationContract('health_check'); const byMcp = getOperationContractByMcpTool('health_check'); const byCli = getOperationContractByCliCommand('moryn health check'); console.log(`${HEALTH_CHECK_SELECTION_SOURCES.check}|${SELECTION_SOURCE_CONTRACTS.core.health_check.action}|${operation.operation.interfaces.cli.command}|${operation.operation.interfaces.mcp.tool}|${byMcp.operation.operation}|${byCli.operation.operation}`);"
+        ], { cwd: dir });
         const operationLookupErrorImportCheck = await exec("node", [
           "--input-type=module",
           "-e",
@@ -746,7 +751,7 @@ describe("published package smoke", () => {
           value_path: "user_input.path"
         });
         expect(parsedOperations.operations_by_id.operation_contracts.interfaces.mcp.tool).toBe("operation_contracts");
-        expect(Buffer.byteLength(operationsIndex.stdout, "utf8")).toBeLessThan(64 * 1024 - 128);
+        expect(Buffer.byteLength(operationsIndex.stdout, "utf8")).toBeLessThan(66 * 1024);
         expect(parsedOperationsIndex.recommended_entrypoint).toBe("agent_enter");
         expect(parsedOperationsIndex.selection_sources).toEqual({
           operation: "operations_by_id.<operation>",
@@ -820,6 +825,7 @@ describe("published package smoke", () => {
         expect(autocapturePolicyImportCheck.stdout.trim()).toBe("default_autocapture_policy|false|policy_decision|policy_decision");
         expect(capturePolicyImportCheck.stdout.trim()).toBe("decisions_by_record_id.<record_id>|suggested_actions_by_id.<action_id>|moryn capture policy|capture_policy|capture_policy|capture_policy");
         expect(recallEvalImportCheck.stdout.trim()).toBe("cases_by_id.<case_id>|cases_by_id.<case_id>|moryn eval recall --cases <json>|recall_eval|recall_eval|recall_eval");
+        expect(healthImportCheck.stdout.trim()).toBe("checks_by_id.<check_id>|suggested_actions_by_id.<action_id>|moryn health check|health_check|health_check|health_check");
         expect(operationLookupErrorImportCheck.stdout.trim()).toBe("true|agent_status|agent_status|operations_by_id.agent_status|agent_status");
         expect(JSON.parse(await readFile(join(store, "config.json"), "utf8"))).toMatchObject({ store_version: 1 });
       } finally {

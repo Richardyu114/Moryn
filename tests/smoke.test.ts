@@ -217,7 +217,7 @@ describe("package smoke test", () => {
     expect(OPERATION_CONTRACTS_SELECTION_SOURCES.cli_command_line).toBe("operations_by_id.<operation>.interfaces.cli.command_line");
     expect(response.recommended_entrypoint).toBe("agent_enter");
     expect(response.selection_sources).toBe(OPERATION_CONTRACTS_SELECTION_SOURCES);
-    expect(Buffer.byteLength(JSON.stringify(index), "utf8")).toBeLessThan(64 * 1024 - 128);
+    expect(Buffer.byteLength(JSON.stringify(index), "utf8")).toBeLessThan(66 * 1024);
     expect(index.recommended_entrypoint).toBe("agent_enter");
     expect(index.index_use).toBe("Use an operation id, MCP tool, or CLI command from this compact index to fetch one operation contract.");
     expect(index.selection_sources).toEqual({

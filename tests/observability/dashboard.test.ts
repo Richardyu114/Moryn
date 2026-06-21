@@ -185,6 +185,79 @@ describe("observability dashboard", () => {
     }
   });
 
+  it("renders a compact read-only Health Check summary", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-21T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-21T00:01:00.000Z",
+            "2026-06-21T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-21T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_health_${++record}` : `evt_health_${++event}`;
+        })()
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: { text: "Dashboard health check should point at Capture Inbox.", format: "text" },
+        source: { client: "codex", session_id: "dashboard-health" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "warning",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["private"],
+        content: { text: "Private dashboard health check detail must stay hidden.", format: "text" },
+        source: { client: "codex" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:10:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(data.health_check).toMatchObject({
+        read_only: true,
+        status: "needs_attention",
+        summary: {
+          warning_checks: 1,
+          failing_checks: 0
+        }
+      });
+      expect(data.health_check.checks_by_id.capture_review_backlog).toMatchObject({
+        status: "warning",
+        category: "capture",
+        record_ids: ["rec_health_1"]
+      });
+      expect(html).toContain("<details class=\"panel health-check-panel\" data-dashboard-detail=\"health-check\" data-dashboard-section=\"health-check\">");
+      expect(html).toContain("<span>Moryn Health Check</span>");
+      expect(html).toContain("<small>needs attention | 1 warning | 0 failed</small>");
+      expect(html).toContain("moryn dashboard --serve --project-id moryn");
+      expect(html).toContain("Read-only");
+      expect(html.indexOf("data-dashboard-section=\"health-check\"")).toBeLessThan(html.indexOf("data-action-board-nav"));
+      expect(JSON.stringify(data.health_check)).not.toContain("Private dashboard health check detail");
+      expect(html).not.toContain("Private dashboard health check detail");
+    });
+  });
+
   it("adds a read-only Governance Hub shell without writing events", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

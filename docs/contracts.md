@@ -224,6 +224,34 @@ backlog, duplicate handoff text, and failure or timeout signals, keyed by
 `dogfood_report.suggested_actions_by_id.<action_id>`. It does not mutate records
 or events; suggested actions are read-only dashboard or timeline checks.
 
+The read-only health check is available through the same registry:
+
+```bash
+moryn contracts operations --operation health_check
+moryn health check --project . --limit 20
+```
+
+The MCP equivalent is:
+
+```json
+{
+  "tool": "health_check",
+  "arguments": {
+    "project_path": ".",
+    "limit": 20
+  }
+}
+```
+
+`health_check` returns installation and local-store readiness checks keyed by
+`health_check.checks_by_id.<check_id>`, summary stats under
+`health_check.stats.<field>`, and read-only next steps under
+`health_check.suggested_actions_by_id.<action_id>`. It checks store
+readability, event-log replay, project context, default private boundary, and
+capture review backlog. It does not mutate records or events; suggested actions
+are safe inspection commands such as `moryn dashboard --serve --project-id <id>`
+or `moryn project list`.
+
 The read-only recall eval is available through the same registry:
 
 ```bash

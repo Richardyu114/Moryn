@@ -214,6 +214,18 @@ timeout signals from local records and events. Suggested actions point to
 dashboard or timeline inspection and stay `safe_to_run: true` read-only checks.
 The MCP tool name is `dogfood_report`.
 
+For installation trust and store readiness, use the read-only health check:
+
+```bash
+moryn health check --project . --limit 20
+```
+
+It reports whether the local store can be read, the event log can be replayed,
+project context is explicit, private-tagged records are hidden by default, and
+Capture Inbox candidates need review. Suggested actions stay read-only, such as
+opening the dashboard or listing known projects. The MCP tool name is
+`health_check`.
+
 To measure recall quality with golden queries, use the read-only Recall Eval:
 
 ```bash

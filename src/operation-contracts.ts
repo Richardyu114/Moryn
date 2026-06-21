@@ -2050,6 +2050,29 @@ export const OPERATION_CONTRACTS = [
     }
   }),
   operationContract({
+    operation: "health_check",
+    category: "core",
+    summary: "Read-only installation and store health check for setup trust, project readiness, privacy boundary, and capture review backlog.",
+    safe_to_run: true,
+    required_when: "After install, before dogfooding a new host, or whenever a user needs one compact readiness report without mutating memory.",
+    required_fields: [],
+    arguments_by_name: {
+      ...projectContextArguments,
+      limit: {
+        type: "number",
+        required: false,
+        default: 20,
+        cli: { flag: "--limit", default: 20 },
+        mcp: { argument: "limit" }
+      },
+      ...privateReadArgument
+    },
+    interfaces: {
+      cli: { command: "moryn health check", argv: ["health", "check"] },
+      mcp: { tool: "health_check", arguments: {} }
+    }
+  }),
+  operationContract({
     operation: "recall_eval",
     category: "core",
     summary: "Read-only recall quality eval for golden queries, expected record ids, privacy checks, ranking reasons, and follow-up actions.",

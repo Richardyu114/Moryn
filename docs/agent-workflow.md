@@ -262,6 +262,21 @@ text, and failure or timeout signals, with keyed `findings_by_id`,
 actions stay inspection-oriented, such as dashboard review or timeline lookup.
 MCP hosts call `dogfood_report`.
 
+Use `health check` for installation trust after setup, before dogfooding a new
+host, or whenever store readiness is uncertain:
+
+```bash
+moryn health check \
+  --project . \
+  --limit 20
+```
+
+The result is read-only. It reports store readability, event-log replay,
+project context, hidden private records, and capture review backlog with keyed
+`checks_by_id` and `suggested_actions_by_id`. Suggested actions are safe
+inspection steps such as opening the dashboard or listing known projects. MCP
+hosts call `health_check`.
+
 Use `recall eval` when recall quality needs evidence from golden queries before
 changing memory or ranking behavior:
 

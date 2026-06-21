@@ -500,6 +500,7 @@ type McpProjectContextOperation =
   | "memory_lifecycle"
   | "capture_policy"
   | "dogfood_report"
+  | "health_check"
   | "recall_eval"
   | "capture_session"
   | "context_pack"
@@ -1863,6 +1864,29 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
     async (input) => toolResultWithNormalizedInput("dogfood_report", input, async (normalizedInput) => {
       const project = await resolveProjectInput("dogfood_report", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
       return engine.dogfoodReport({
+        project_id: project.project_id,
+        limit: normalizedInput.limit as number | undefined,
+        include_private: normalizedInput.include_private as boolean | undefined
+      });
+    })
+  );
+
+  server.registerTool(
+    "health_check",
+    {
+      title: "Check Moryn Health",
+      description: "Read-only installation and store health check for setup trust, project readiness, privacy boundary, and capture review backlog.",
+      inputSchema: mcpInputSchema({
+        project_id: coreValidatedStringSchema.optional(),
+        project_path: coreValidatedStringSchema.optional(),
+        limit: coreValidatedNumberSchema.optional(),
+        include_private: coreValidatedBooleanSchema.optional(),
+        ...camelCaseAliasInputSchema("health_check")
+      })
+    },
+    async (input) => toolResultWithNormalizedInput("health_check", input, async (normalizedInput) => {
+      const project = await resolveProjectInput("health_check", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
+      return engine.healthCheck({
         project_id: project.project_id,
         limit: normalizedInput.limit as number | undefined,
         include_private: normalizedInput.include_private as boolean | undefined

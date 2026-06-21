@@ -90,7 +90,7 @@ const CLI_GLOBAL_OPTIONS = [
   { option: "--version", position: "before_command" },
   { option: "-V", position: "before_command" }
 ] as const;
-type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report" | "recall_eval" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
+type CliLimitOperation = "recall" | "refresh" | "timeline" | "list_recent" | "project_list" | "memory_doctor" | "memory_lifecycle" | "capture_policy" | "dogfood_report" | "health_check" | "recall_eval" | "agent_enter" | "agent_start" | "context_pack" | "dashboard";
 type CliLimitOperationContractSource = `operations_by_id.${CliLimitOperation}`;
 type CliLimitArgumentSource = `operations_by_id.${CliLimitOperation}.arguments_by_name.limit`;
 type CliEnumOperation = "write" | "recall" | "promote" | "project_init";
@@ -139,6 +139,7 @@ type CliParserOperation =
   | "memory_lifecycle"
   | "capture_policy"
   | "dogfood_report"
+  | "health_check"
   | "recall_eval"
   | "sync_push"
   | "revise"
@@ -2596,6 +2597,23 @@ dogfood.command("report")
     printJson(await engine.dogfoodReport({
       project_id: projectId,
       limit: parseLimit(options.limit, "dogfood_report"),
+      include_private: options.includePrivate
+    }));
+  });
+
+const health = program.command("health");
+
+health.command("check")
+  .option("--project-id <id>")
+  .option("--project <path>")
+  .option("--limit <n>", "Check/action limit", "20")
+  .option("--include-private", "Include private-tagged records")
+  .action(async (options) => {
+    const engine = createCliEngine();
+    const projectId = await resolveOptionalProject(options, "health_check");
+    printJson(await engine.healthCheck({
+      project_id: projectId,
+      limit: parseLimit(options.limit, "health_check"),
       include_private: options.includePrivate
     }));
   });

@@ -268,6 +268,30 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("dogfood report");
   });
 
+  it("documents the read-only health check surface", async () => {
+    const [readme, workflow, contracts, dashboard, roadmap] = await Promise.all([
+      readFile("README.md", "utf8"),
+      readFile("docs/agent-workflow.md", "utf8"),
+      readFile("docs/contracts.md", "utf8"),
+      readFile("docs/dashboard.md", "utf8"),
+      readFile("docs/implementation-roadmap.md", "utf8")
+    ]);
+
+    for (const document of [readme, workflow, contracts]) {
+      expect(document).toContain("moryn health check");
+      expect(document).toContain("health_check");
+      expect(document).toContain("read-only");
+      expectText(document, "installation");
+    }
+    expect(contracts).toContain("moryn contracts operations --operation health_check");
+    expect(contracts).toContain('"tool": "health_check"');
+    expect(contracts).toContain("health_check.checks_by_id.<check_id>");
+    expect(contracts).toContain("health_check.suggested_actions_by_id.<action_id>");
+    expect(dashboard).toContain("Moryn Health Check");
+    expect(dashboard).toContain("health_check");
+    expect(roadmap).toContain("health check");
+  });
+
   it("documents the read-only memory lifecycle surface", async () => {
     const [readme, workflow, contracts, roadmap] = await Promise.all([
       readFile("README.md", "utf8"),

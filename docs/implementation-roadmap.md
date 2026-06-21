@@ -28,6 +28,8 @@ store:
   `moryn capture session`.
 - Setup wizard / one-command local setup through `moryn setup`, with dry-run
   checks by default and `--apply` limited to Moryn-local store/project config.
+- Read-only `health_check` / `moryn health check` report for installation
+  trust, store replay, project context, privacy boundary, and capture backlog.
 - Local dashboard server and static snapshots for sync, records, recent events,
   and agent activity.
 - Operation contracts and selection-source contracts for agent hosts.
@@ -122,6 +124,8 @@ store:
 - Read-only `capture_policy` / `moryn capture policy` audit report for
   explaining capture/review/archive decisions without adding another mutation
   path.
+- Read-only `health_check` / `moryn health check` report for checking local
+  installation and store readiness without adding a repair executor.
 - CLI and MCP exposure for install, context pack, capture session, and capture
   policy audit.
 
