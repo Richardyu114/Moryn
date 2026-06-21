@@ -51,6 +51,38 @@ const CAPTURE_INBOX_POLICY: DashboardCaptureInboxPolicy = {
   explanation: "Capture Inbox groups reduce review clicks, but candidates become canonical only after explicit user approval."
 };
 
+export type DashboardActionSurface = "capture_inbox" | "capture_policy" | "maintenance_review";
+export type DashboardActionKind = "dashboard_api" | "cli_command";
+export type DashboardActionIntent = "approve" | "reject" | "inspect";
+export type DashboardActionTargetType = "record" | "record_group" | "maintenance_plan" | "policy_decision";
+export type DashboardActionWriteBehavior = "none" | "append_only_events";
+export type DashboardActionStaleGuard = "active_candidate_record" | "active_candidate_group" | "plan_hash";
+
+export interface DashboardAction {
+  action_id: string;
+  surface: DashboardActionSurface;
+  kind: DashboardActionKind;
+  label: string;
+  intent: DashboardActionIntent;
+  target: {
+    type: DashboardActionTargetType;
+    id: string;
+    record_ids?: string[];
+    plan_hash?: string;
+  };
+  method?: "POST";
+  endpoint?: string;
+  command?: string;
+  request_body?: Record<string, unknown>;
+  safety: {
+    safe_to_auto_run: boolean;
+    requires_user_confirmation: boolean;
+    writes: DashboardActionWriteBehavior;
+    stale_guard?: DashboardActionStaleGuard;
+  };
+  source_path: string;
+}
+
 export const DASHBOARD_SELECTION_SOURCES = {
   store: "store",
   sync: "sync",
@@ -58,6 +90,8 @@ export const DASHBOARD_SELECTION_SOURCES = {
   attention_item: "attention_items[]",
   charts: "charts",
   totals: "totals",
+  action: "actions_by_id.<action_id>",
+  action_id: "actions_by_id.<action_id>.action_id",
   capture_inbox: "capture_inbox",
   capture_policy: "capture_policy",
   memory_lifecycle: "memory_lifecycle",
@@ -303,6 +337,8 @@ export interface DashboardData {
     active_records: number;
     quarantined_records: number;
   };
+  actions: DashboardAction[];
+  actions_by_id: Record<string, DashboardAction>;
   capture_inbox: DashboardCaptureInbox;
   capture_policy: CapturePolicyResult;
   memory_lifecycle: MemoryLifecycleResult;
@@ -811,6 +847,22 @@ function captureInboxGroupRejectEndpoint(groupId: string): string {
   return `api/capture-inbox/groups/${encodeURIComponent(groupId)}/reject`;
 }
 
+function captureInboxRecordActionId(intent: "approve" | "reject", recordId: string): string {
+  return `capture_inbox.record.${intent}.${recordId}`;
+}
+
+function captureInboxGroupActionId(intent: "approve" | "reject", groupId: string): string {
+  return `capture_inbox.group.${intent}.${groupId}`;
+}
+
+function capturePolicyInspectActionId(recordId: string): string {
+  return `capture_policy.inspect.${recordId}`;
+}
+
+function maintenanceApproveActionId(plan: DashboardMaintenancePlan): string {
+  return `maintenance.plan.approve.${plan.plan_hash.replace(/^sha256:/, "")}`;
+}
+
 function isCaptureInboxCandidate(record: MorynRecord): boolean {
   return record.state === "candidate"
     && record.visibility === "active"
@@ -1016,6 +1068,155 @@ function buildCaptureInbox(records: MorynRecord[], generatedAt: string, limit: n
   };
 }
 
+function captureInboxActions(inbox: DashboardCaptureInbox): DashboardAction[] {
+  return [
+    ...inbox.items.flatMap((item) => [
+      {
+        action_id: captureInboxRecordActionId("approve", item.id),
+        surface: "capture_inbox",
+        kind: "dashboard_api",
+        label: "Approve Memory",
+        intent: "approve",
+        target: { type: "record", id: item.id },
+        method: "POST",
+        endpoint: item.approve_endpoint,
+        request_body: {},
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "active_candidate_record"
+        },
+        source_path: "capture_inbox.items[]"
+      },
+      {
+        action_id: captureInboxRecordActionId("reject", item.id),
+        surface: "capture_inbox",
+        kind: "dashboard_api",
+        label: "Reject",
+        intent: "reject",
+        target: { type: "record", id: item.id },
+        method: "POST",
+        endpoint: item.reject_endpoint,
+        request_body: { reason: "User rejected Capture Inbox candidate." },
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "active_candidate_record"
+        },
+        source_path: "capture_inbox.items[]"
+      }
+    ] satisfies DashboardAction[]),
+    ...inbox.groups.flatMap((group) => [
+      {
+        action_id: captureInboxGroupActionId("approve", group.id),
+        surface: "capture_inbox",
+        kind: "dashboard_api",
+        label: "Approve Group",
+        intent: "approve",
+        target: { type: "record_group", id: group.id, record_ids: group.record_ids },
+        method: "POST",
+        endpoint: group.approve_endpoint,
+        request_body: { record_ids: group.record_ids },
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "active_candidate_group"
+        },
+        source_path: "capture_inbox.groups[]"
+      },
+      {
+        action_id: captureInboxGroupActionId("reject", group.id),
+        surface: "capture_inbox",
+        kind: "dashboard_api",
+        label: "Reject Group",
+        intent: "reject",
+        target: { type: "record_group", id: group.id, record_ids: group.record_ids },
+        method: "POST",
+        endpoint: group.reject_endpoint,
+        request_body: {
+          record_ids: group.record_ids,
+          reason: "User rejected Capture Inbox group."
+        },
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "active_candidate_group"
+        },
+        source_path: "capture_inbox.groups[]"
+      }
+    ] satisfies DashboardAction[])
+  ];
+}
+
+function capturePolicyActions(report: CapturePolicyResult): DashboardAction[] {
+  return report.suggested_actions
+    .filter((action) => action.recommended_action === "inspect_policy_archived_record")
+    .flatMap((action): DashboardAction[] => {
+      const recordId = typeof action.arguments.record_id === "string" ? action.arguments.record_id : undefined;
+      if (!recordId) return [];
+      return [{
+        action_id: capturePolicyInspectActionId(recordId),
+        surface: "capture_policy",
+        kind: "cli_command",
+        label: action.recommended_action,
+        intent: "inspect",
+        target: { type: "policy_decision", id: recordId },
+        command: action.command,
+        safety: {
+          safe_to_auto_run: true,
+          requires_user_confirmation: false,
+          writes: "none"
+        },
+        source_path: `capture_policy.suggested_actions_by_id.${action.action_id}`
+      }];
+    });
+}
+
+function maintenanceActions(plans: DashboardMaintenancePlan[]): DashboardAction[] {
+  return plans.map((plan) => ({
+    action_id: maintenanceApproveActionId(plan),
+    surface: "maintenance_review",
+    kind: "dashboard_api",
+    label: "Apply Repair",
+    intent: "approve",
+    target: {
+      type: "maintenance_plan",
+      id: plan.plan_id,
+      plan_hash: plan.plan_hash
+    },
+    method: "POST",
+    endpoint: maintenancePlanEndpoint(plan),
+    request_body: { plan_hash: plan.plan_hash },
+    safety: {
+      safe_to_auto_run: false,
+      requires_user_confirmation: true,
+      writes: "append_only_events",
+      stale_guard: "plan_hash"
+    },
+    source_path: "maintenance.plans[]"
+  }));
+}
+
+function dashboardActions(input: {
+  captureInbox: DashboardCaptureInbox;
+  capturePolicy: CapturePolicyResult;
+  maintenance: DashboardMaintenanceData;
+}): DashboardAction[] {
+  return [
+    ...captureInboxActions(input.captureInbox),
+    ...capturePolicyActions(input.capturePolicy),
+    ...maintenanceActions(input.maintenance.plans)
+  ];
+}
+
+function actionsById(actions: DashboardAction[]): Record<string, DashboardAction> {
+  return Object.fromEntries(actions.map((action) => [action.action_id, action]));
+}
+
 export async function buildDashboardData(storePath: string, options: DashboardOptions = {}): Promise<DashboardData> {
   const limit = dashboardLimit(options.limit);
   const events = await readEvents(storePath);
@@ -1044,6 +1245,24 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     return !options.project_id || record.project_id === options.project_id;
   });
   const capturePolicyRecords = capturePolicyAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const captureInboxData = buildCaptureInbox(records, generatedAt, limit, eventsByRecord);
+  const capturePolicyData = diagnoseCapturePolicy({
+    records: capturePolicyRecords,
+    events: visibleEvents,
+    project_id: options.project_id,
+    limit,
+    include_private: options.include_private === true,
+    excluded_private_records: capturePolicyAllRecords.length - capturePolicyRecords.length
+  });
+  const maintenanceData = buildDashboardMaintenance(allRecords, {
+    project_id: options.project_id,
+    include_private: options.include_private
+  });
+  const actions = dashboardActions({
+    captureInbox: captureInboxData,
+    capturePolicy: capturePolicyData,
+    maintenance: maintenanceData
+  });
 
   return {
     generated_at: generatedAt,
@@ -1065,15 +1284,10 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       active_records: records.filter((record) => record.visibility === "active").length,
       quarantined_records: records.filter((record) => record.visibility === "quarantined").length
     },
-    capture_inbox: buildCaptureInbox(records, generatedAt, limit, eventsByRecord),
-    capture_policy: diagnoseCapturePolicy({
-      records: capturePolicyRecords,
-      events: visibleEvents,
-      project_id: options.project_id,
-      limit,
-      include_private: options.include_private === true,
-      excluded_private_records: capturePolicyAllRecords.length - capturePolicyRecords.length
-    }),
+    actions,
+    actions_by_id: actionsById(actions),
+    capture_inbox: captureInboxData,
+    capture_policy: capturePolicyData,
     memory_lifecycle: diagnoseMemoryLifecycle({
       records: lifecycleRecords,
       project_id: options.project_id,
@@ -1087,10 +1301,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     recent_records: recentRecords.map((record) => summarizeRecord(record, eventsByRecord)),
     recent_events: recentEvents.map((event) => summarizeEvent(event, recordsById)),
     agent_activity: agentActivity,
-    maintenance: buildDashboardMaintenance(allRecords, {
-      project_id: options.project_id,
-      include_private: options.include_private
-    }),
+    maintenance: maintenanceData,
     selection_sources: DASHBOARD_SELECTION_SOURCES
   };
 }
@@ -1238,6 +1449,7 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 type="button"
                 class="primary"
                 data-maintenance-approve
+                data-dashboard-action-id="${escapeHtml(maintenanceApproveActionId(plan))}"
                 data-endpoint="${escapeHtml(maintenancePlanEndpoint(plan))}"
                 data-plan-hash="${escapeHtml(plan.plan_hash)}"
               >Apply Repair</button>
@@ -1347,39 +1559,50 @@ function capturePolicyDecisionCards(report: CapturePolicyResult): string {
     <div class="capture-policy-decisions">
       ${report.decisions.slice(0, 8).map((decision) => {
         const isReview = decision.decision === "review";
+        const isActionableReview = isReview && decision.state === "candidate";
         const inspectCommand = capturePolicyInspectCommand(report, decision.record_id);
         const inspectAction = capturePolicyInspectAction(report, decision.record_id);
+        const title = isActionableReview
+          ? "Review in Capture Inbox"
+          : isReview
+            ? "Review already handled"
+            : "Policy archived";
+        const stateHint = isActionableReview
+          ? "User action required"
+          : "No inbox action";
         return `
           <article
             class="capture-policy-decision ${isReview ? "review" : "archived"}"
             data-capture-policy-decision="${escapeHtml(decision.record_id)}"
-            ${isReview ? `data-capture-inbox-record="${escapeHtml(decision.record_id)}"` : ""}
+            ${isActionableReview ? `data-capture-inbox-record="${escapeHtml(decision.record_id)}"` : ""}
           >
             <div class="capture-inbox-main">
               <div>
-                <h3>${escapeHtml(isReview ? "Review in Capture Inbox" : "Policy archived")}</h3>
+                <h3>${escapeHtml(title)}</h3>
                 <p>${escapeHtml(decision.text)}</p>
               </div>
               <span class="pill ${isReview ? "state-candidate" : "state-archived"}">${escapeHtml(decision.decision)}</span>
             </div>
             <dl class="capture-inbox-summary">
               <div><dt>Rule</dt><dd>${decision.rule_ids.map((ruleId) => `<code>${escapeHtml(ruleId)}</code>`).join(" ") || "none"}</dd></div>
-              <div><dt>State</dt><dd>${escapeHtml(decision.target_state)}<small>${escapeHtml(isReview ? "User action required" : "No inbox action")}</small></dd></div>
+              <div><dt>State</dt><dd>${escapeHtml(isActionableReview ? decision.target_state : decision.state)}<small>${escapeHtml(stateHint)}</small></dd></div>
               <div><dt>Evidence</dt><dd>${decision.evidence.map((evidence) => `<code>${escapeHtml(evidence.source)}</code>`).join(" ")}</dd></div>
-              <div><dt>Action</dt><dd>${escapeHtml(isReview ? "review_capture_inbox" : inspectAction)}<small>${escapeHtml(isReview ? "Uses Capture Inbox approval endpoints." : "Read-only timeline inspection.")}</small></dd></div>
+              <div><dt>Action</dt><dd>${escapeHtml(isActionableReview ? "review_capture_inbox" : inspectAction)}<small>${escapeHtml(isActionableReview ? "Uses Capture Inbox approval endpoints." : "Read-only timeline inspection.")}</small></dd></div>
               <div><dt>Inspect</dt><dd><code>${escapeHtml(inspectCommand)}</code></dd></div>
             </dl>
-            ${isReview ? `
+            ${isActionableReview ? `
               <div class="capture-inbox-actions">
                 <button
                   type="button"
                   data-capture-inbox-reject
+                  data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("reject", decision.record_id))}"
                   data-endpoint="${escapeHtml(captureInboxRejectEndpoint(decision.record_id))}"
                 >Reject</button>
                 <button
                   type="button"
                   class="primary"
                   data-capture-inbox-approve
+                  data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("approve", decision.record_id))}"
                   data-endpoint="${escapeHtml(captureInboxApproveEndpoint(decision.record_id))}"
                 >Approve Memory</button>
               </div>
@@ -1658,12 +1881,14 @@ function captureInbox(items: DashboardCaptureInbox): string {
                       <button
                         type="button"
                         data-capture-inbox-reject
+                        data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("reject", item.id))}"
                         data-endpoint="${escapeHtml(item.reject_endpoint)}"
                       >Reject</button>
                       <button
                         type="button"
                         class="primary"
                         data-capture-inbox-approve
+                        data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("approve", item.id))}"
                         data-endpoint="${escapeHtml(item.approve_endpoint)}"
                       >Approve Memory</button>
                     </div>
@@ -1676,6 +1901,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
               <button
                 type="button"
                 data-capture-inbox-group-reject
+                data-dashboard-action-id="${escapeHtml(captureInboxGroupActionId("reject", group.id))}"
                 data-endpoint="${escapeHtml(group.reject_endpoint)}"
                 data-record-ids="${escapeHtml(group.record_ids.join(","))}"
               >Reject Group</button>
@@ -1683,6 +1909,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
                 type="button"
                 class="primary"
                 data-capture-inbox-group-approve
+                data-dashboard-action-id="${escapeHtml(captureInboxGroupActionId("approve", group.id))}"
                 data-endpoint="${escapeHtml(group.approve_endpoint)}"
                 data-record-ids="${escapeHtml(group.record_ids.join(","))}"
               >Approve Group</button>

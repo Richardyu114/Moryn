@@ -256,6 +256,15 @@ smoke/test or duplicate captures are policy-archived without entering the
 review queue. These archived examples stay inspectable through
 `capture_inbox.autocapture_policy.archived_examples[]`.
 
+`/api/dashboard` also returns a Safe Action Registry under `actions[]` and
+`actions_by_id.<action_id>`. It indexes the same controls rendered in HTML:
+Capture Inbox record actions, Capture Inbox group actions, Capture Policy
+inspect commands, and Review Queue maintenance approvals. Each entry carries
+surface, kind, label, intent, target, endpoint or command, request body, safety,
+and source path metadata. Rendered buttons include `data-dashboard-action-id`
+with the same id. This registry is an audit and selection surface; it does not
+create a background executor or add any automatic write path.
+
 `/api/dashboard` also returns `capture_policy`, the same read-only report shape
 as `moryn capture policy` and MCP `capture_policy`. It includes
 `policy`, `stats`, `decisions_by_record_id`, `findings_by_id`,

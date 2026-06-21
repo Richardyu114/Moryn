@@ -911,6 +911,7 @@ describe("observability dashboard", () => {
       });
 
       const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
+      const planActionId = `maintenance.plan.approve.${data.maintenance.plans[0]?.plan_hash.replace(/^sha256:/, "")}`;
 
       expect(data.maintenance.plans).toHaveLength(1);
       expect(data.maintenance.plans[0]).toMatchObject({
@@ -965,6 +966,30 @@ describe("observability dashboard", () => {
         expect.objectContaining({ id: "no_private_records", ok: true }),
         expect.objectContaining({ id: "append_only", ok: true })
       ]));
+      expect(data.actions_by_id[planActionId]).toMatchObject({
+        action_id: planActionId,
+        surface: "maintenance_review",
+        kind: "dashboard_api",
+        label: "Apply Repair",
+        intent: "approve",
+        target: {
+          type: "maintenance_plan",
+          id: "project_migrate:repo-e6f0166fd942->moryn",
+          plan_hash: data.maintenance.plans[0]?.plan_hash
+        },
+        method: "POST",
+        endpoint: "api/maintenance/plans/project_migrate%3Arepo-e6f0166fd942-%3Emoryn/approve",
+        request_body: {
+          plan_hash: data.maintenance.plans[0]?.plan_hash
+        },
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "plan_hash"
+        },
+        source_path: "maintenance.plans[]"
+      });
     });
   });
 
@@ -1121,6 +1146,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-maintenance-plan");
       expect(html).toContain("data-maintenance-approve");
       expect(html).toContain("data-maintenance-reject");
+      expect(html).toContain("data-dashboard-action-id=\"maintenance.plan.approve.");
       expect(html).toContain("Applying repair...");
       expect(html).not.toContain("window.confirm");
       expect(html).not.toContain("Technical details");
@@ -1183,6 +1209,24 @@ describe("observability dashboard", () => {
       });
 
       const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        actions_by_id: Record<string, {
+          action_id: string;
+          surface: string;
+          kind: string;
+          label: string;
+          intent: string;
+          target: { type: string; id: string };
+          endpoint?: string;
+          method?: string;
+          request_body?: Record<string, unknown>;
+          safety: {
+            safe_to_auto_run: boolean;
+            requires_user_confirmation: boolean;
+            writes: string;
+            stale_guard?: string;
+          };
+          source_path: string;
+        }>;
         capture_inbox: {
           total: number;
           items: Array<{
@@ -1213,6 +1257,42 @@ describe("observability dashboard", () => {
           recall_command: `moryn recall --record-id ${capture.record.id} --project-id moryn`
         }
       });
+      expect(data.actions_by_id[`capture_inbox.record.approve.${capture.record.id}`]).toMatchObject({
+        action_id: `capture_inbox.record.approve.${capture.record.id}`,
+        surface: "capture_inbox",
+        kind: "dashboard_api",
+        label: "Approve Memory",
+        intent: "approve",
+        target: { type: "record", id: capture.record.id },
+        endpoint: `api/capture-inbox/${capture.record.id}/approve`,
+        method: "POST",
+        request_body: {},
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "active_candidate_record"
+        },
+        source_path: "capture_inbox.items[]"
+      });
+      expect(data.actions_by_id[`capture_inbox.record.reject.${capture.record.id}`]).toMatchObject({
+        action_id: `capture_inbox.record.reject.${capture.record.id}`,
+        surface: "capture_inbox",
+        kind: "dashboard_api",
+        label: "Reject",
+        intent: "reject",
+        target: { type: "record", id: capture.record.id },
+        endpoint: `api/capture-inbox/${capture.record.id}/reject`,
+        method: "POST",
+        request_body: { reason: "User rejected Capture Inbox candidate." },
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "active_candidate_record"
+        },
+        source_path: "capture_inbox.items[]"
+      });
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Capture Inbox");
@@ -1222,6 +1302,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("Reject");
       expect(html).toContain(`data-endpoint=\"api/capture-inbox/${capture.record.id}/approve\"`);
       expect(html).toContain(`data-endpoint=\"api/capture-inbox/${capture.record.id}/reject\"`);
+      expect(html).toContain(`data-dashboard-action-id=\"capture_inbox.record.approve.${capture.record.id}\"`);
+      expect(html).toContain(`data-dashboard-action-id=\"capture_inbox.record.reject.${capture.record.id}\"`);
       expect(html).not.toContain("window.confirm");
     });
   });
@@ -1550,6 +1632,54 @@ describe("observability dashboard", () => {
         tool: "timeline",
         safe_to_run: true
       });
+      expect(data.actions_by_id["capture_inbox.record.approve.rec_capture_policy_1"]).toMatchObject({
+        action_id: "capture_inbox.record.approve.rec_capture_policy_1",
+        surface: "capture_inbox",
+        kind: "dashboard_api",
+        label: "Approve Memory",
+        intent: "approve",
+        target: { type: "record", id: "rec_capture_policy_1" },
+        endpoint: "api/capture-inbox/rec_capture_policy_1/approve",
+        method: "POST",
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "active_candidate_record"
+        },
+        source_path: "capture_inbox.items[]"
+      });
+      expect(data.actions_by_id["capture_inbox.record.reject.rec_capture_policy_1"]).toMatchObject({
+        action_id: "capture_inbox.record.reject.rec_capture_policy_1",
+        surface: "capture_inbox",
+        kind: "dashboard_api",
+        label: "Reject",
+        intent: "reject",
+        target: { type: "record", id: "rec_capture_policy_1" },
+        endpoint: "api/capture-inbox/rec_capture_policy_1/reject",
+        method: "POST",
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "active_candidate_record"
+        },
+        source_path: "capture_inbox.items[]"
+      });
+      expect(data.actions_by_id["capture_policy.inspect.rec_capture_policy_2"]).toMatchObject({
+        action_id: "capture_policy.inspect.rec_capture_policy_2",
+        surface: "capture_policy",
+        kind: "cli_command",
+        label: "inspect_policy_archived_record",
+        intent: "inspect",
+        command: "moryn timeline --record-id rec_capture_policy_2 --project-id moryn --before 3 --after 3",
+        safety: {
+          safe_to_auto_run: true,
+          requires_user_confirmation: false,
+          writes: "none"
+        },
+        source_path: "capture_policy.suggested_actions_by_id.inspect:rec_capture_policy_2"
+      });
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("default_autocapture_policy");
@@ -1570,6 +1700,64 @@ describe("observability dashboard", () => {
       expect(html).toContain("smoke_test_marker");
       expect(html).toContain("Smoke test marker only.");
       expect(html).toContain("Useful handoff still needs user review.");
+    });
+  });
+
+  it("does not render Capture Policy review actions for records no longer actionable in Capture Inbox", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-06-01T10:01:00.000Z",
+        id: (prefix: string) => prefix === "rec" ? "rec_policy_handled" : "evt_policy_handled"
+      });
+
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: {
+          format: "json",
+          text: "Already handled autocapture review.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "review",
+              review_required: true,
+              auto_canonical: false,
+              rule_ids: ["default_review_for_agent_handoff"]
+            }
+          }
+        },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user", session_id: "policy-handled" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
+      const html = renderDashboardHtml(data);
+
+      expect(data.capture_inbox.total).toBe(0);
+      expect(data.capture_policy.decisions_by_record_id.rec_policy_handled).toMatchObject({
+        decision: "review",
+        state: "canonical",
+        review_required: true
+      });
+      expect(data.actions_by_id["capture_inbox.record.approve.rec_policy_handled"]).toBeUndefined();
+      expect(data.actions_by_id["capture_inbox.record.reject.rec_policy_handled"]).toBeUndefined();
+      expect(html).toContain("data-capture-policy-decision=\"rec_policy_handled\"");
+      expect(html).toContain("Review already handled");
+      expect(html).not.toContain("api/capture-inbox/rec_policy_handled/approve");
+      expect(html).not.toContain("api/capture-inbox/rec_policy_handled/reject");
+      expect(html).not.toContain("data-dashboard-action-id=\"capture_inbox.record.approve.rec_policy_handled\"");
+      expect(html).not.toContain("data-dashboard-action-id=\"capture_inbox.record.reject.rec_policy_handled\"");
     });
   });
 

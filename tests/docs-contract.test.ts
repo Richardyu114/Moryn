@@ -53,6 +53,9 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("moryn dashboard --serve --host 0.0.0.0 --port 8765");
     expect(dashboard).toContain("GET /fragment");
     expect(dashboard).toContain("GET /api/dashboard");
+    expect(dashboard).toContain("actions_by_id");
+    expect(dashboard).toContain("data-dashboard-action-id");
+    expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/reject");
@@ -78,6 +81,9 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("default_autocapture_policy");
     expect(contracts).toContain("moryn capture policy");
     expect(contracts).toContain("capture_policy");
+    expect(contracts).toContain("actions_by_id.<action_id>");
+    expect(contracts).toContain("Safe Action Registry");
+    expectText(contracts, "does not create a background executor");
     expect(contracts).toContain("Review decisions reuse the existing Capture Inbox");
     expect(contracts).toContain("policy-archived decisions expose only");
     expectText(contracts, "does not expose a separate Capture Policy apply endpoint");

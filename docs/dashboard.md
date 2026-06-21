@@ -340,6 +340,8 @@ The JSON returned by `/api/dashboard` includes:
 - `charts.record_types`
 - `charts.sync_position`
 - `totals`
+- `actions`
+- `actions_by_id`
 - `capture_inbox`
 - `capture_inbox.autocapture_policy`
 - `capture_policy`
@@ -352,6 +354,28 @@ The JSON returned by `/api/dashboard` includes:
 
 This keeps raw data inspectable while giving the HTML renderer human-oriented
 fields.
+
+### Safe Action Registry
+
+`/api/dashboard` includes a local Safe Action Registry under `actions[]` and
+`actions_by_id.<action_id>`. It indexes the actions already visible in the
+dashboard:
+
+- Capture Inbox record approve/reject actions
+- Capture Inbox group approve/reject actions
+- Capture Policy read-only inspect actions
+- Review Queue maintenance approval actions
+
+Each action records its surface, label, intent, target id, endpoint or command,
+request body, source path, and safety metadata. Browser buttons carry the same
+id in `data-dashboard-action-id`, so a rendered control can be traced back to
+the JSON action contract.
+
+The registry is not a background executor and does not add automatic writes.
+Actions that mutate the store remain explicit dashboard button presses, use
+append-only events, and carry stale guards such as `active_candidate_record`,
+`active_candidate_group`, or `plan_hash`. Read-only actions record
+`writes: "none"`.
 
 `capture_policy` and `memory_lifecycle` are read-only report data. Mutation
 endpoints remain limited to Capture Inbox approval/rejection and Review Queue
