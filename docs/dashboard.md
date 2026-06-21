@@ -340,11 +340,12 @@ requires user confirmation, Governance Hub stays directly visible. When it only
 contains safe read-only inspections, the whole hub is collapsed behind a compact
 summary so routine checks do not look like pending decisions. Safe read-only
 inspections are grouped under a collapsed `Safe Inspections` row; expanding it
-shows the same decision rows. Each row leads with a plain-language `Review log`
-covering the detection, recommended next step, write boundary, and audit trail.
-Raw fields such as source, category, action id, evidence path, and record ids
-stay available under `Raw audit fields`. This keeps the first screen scannable
-while preserving the local audit trail.
+shows the same decision rows. Each row leads with a compact `Finding summary`
+for records affected, safe next step, write boundary, and evidence source, then
+keeps the plain-language `Review log` for detection and audit-trail detail. Raw
+fields such as source, category, action id, evidence path, and record ids stay
+available under `Raw audit fields`. This keeps dogfood friction readable without
+forcing users to parse raw audit data first.
 
 Governance Hub does not add mutation endpoints. Items that require writes point
 back to existing explicit controls such as Capture Inbox approval/rejection or

@@ -2468,6 +2468,20 @@ function reviewLogList(items: string[], dataAttribute: string): string {
   `;
 }
 
+function governanceFindingSummary(item: DashboardGovernanceItem): string {
+  return `
+    <div class="governance-finding-summary" data-governance-finding-summary>
+      <h4>Finding summary</h4>
+      <dl>
+        <div><dt>Records affected</dt><dd>${escapeHtml(pluralize(item.record_ids.length, "record"))}</dd></div>
+        <div><dt>Safe next step</dt><dd>${escapeHtml(item.action_label)}</dd></div>
+        <div><dt>Write boundary</dt><dd>${escapeHtml(item.writes === "none" ? "No memory writes" : "Append-only after approval")}</dd></div>
+        <div><dt>Evidence source</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
+      </dl>
+    </div>
+  `;
+}
+
 function governanceItem(item: DashboardGovernanceItem): string {
   return `
     <details class="governance-item ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-item="${escapeHtml(item.id)}">
@@ -2483,6 +2497,7 @@ function governanceItem(item: DashboardGovernanceItem): string {
       </summary>
       <div class="governance-item-body">
         <p>${escapeHtml(item.summary)}</p>
+        ${governanceFindingSummary(item)}
         ${reviewLogList(item.review_log, "data-governance-review-log")}
         <details class="raw-audit-fields" data-dashboard-detail="governance-raw:${escapeHtml(item.id)}">
           <summary>Raw audit fields</summary>
@@ -4595,6 +4610,31 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding-top: 8px;
     }
     .governance-item-body p { margin-top: 0; color: var(--muted); overflow-wrap: anywhere; }
+    .governance-finding-summary {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin: 8px 0;
+      background: var(--surface);
+    }
+    .governance-finding-summary h4 {
+      margin: 0 0 7px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 780;
+    }
+    .governance-finding-summary dl {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+      margin: 0;
+    }
+    .governance-finding-summary dl div {
+      grid-template-columns: minmax(96px, auto) minmax(0, 1fr);
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      padding: 6px 7px;
+      background: var(--surface-2);
+    }
     .review-log {
       border: 1px solid var(--hairline);
       border-radius: 7px;
@@ -5170,6 +5210,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .lifecycle-heading,
       .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions { display: grid; justify-content: stretch; }
       .maintenance-summary, .context-pack-summary, .context-pack-grid, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
+      .governance-finding-summary dl { grid-template-columns: 1fr; }
       .governance-counts { justify-content: flex-start; }
       .governance-item-summary { align-items: flex-start; display: grid; }
       .governance-meta { justify-content: flex-start; }

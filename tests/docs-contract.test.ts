@@ -58,6 +58,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Governance Hub, Context Pack Review, and Supporting Evidence");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
+    expectText(dashboard, "Each row leads with a compact `Finding summary`");
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");

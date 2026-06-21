@@ -707,6 +707,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>4 read-only checks</small>");
       expect(html).toContain("<div class=\"governance-safe-list\">");
       expect(html).toContain("<summary class=\"governance-item-summary\">");
+      expect(html).toContain("data-governance-finding-summary");
+      expect(html).toContain("<h4>Finding summary</h4>");
+      expect(html).toContain("<dt>Records affected</dt><dd>1 record</dd>");
+      expect(html).toContain("<dt>Safe next step</dt><dd>inspect_failure_signals</dd>");
+      expect(html).toContain("<dt>Write boundary</dt><dd>No memory writes</dd>");
+      expect(html).toContain("<dt>Evidence source</dt><dd><code>dogfood_report.findings_by_id.failure_signals</code></dd>");
       expect(html).toContain("data-governance-evidence");
       expect(html).toContain("data-governance-review-log");
       expect(html).toContain("<h4>Review log</h4>");
