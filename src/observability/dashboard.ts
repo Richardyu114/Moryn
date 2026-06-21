@@ -2760,24 +2760,30 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${captureInbox(data.capture_inbox)}
 
-    <section class="visual-grid">
-      <div class="panel">
-        <h2>Agent Activity</h2>
-        ${agentBars(data.charts.agent_activity)}
-      </div>
-      <div class="panel">
-        <h2>Record Quality</h2>
-        ${memoryStateStack(data.charts.memory_states)}
-      </div>
-      <div class="panel">
-        <h2>Record Types</h2>
-        ${recordTypeBars(data.charts.record_types)}
-      </div>
-      <div class="panel">
-        <h2>Sync Position</h2>
-        ${syncRail(data.charts.sync_position)}
-      </div>
-    </section>
+    <details class="panel store-signals" data-dashboard-detail="store-signals">
+      <summary>
+        <span>Store Signals</span>
+        <small>agent activity / record quality / sync</small>
+      </summary>
+      <section class="visual-grid">
+        <div class="signal-card">
+          <h2>Agent Activity</h2>
+          ${agentBars(data.charts.agent_activity)}
+        </div>
+        <div class="signal-card">
+          <h2>Record Quality</h2>
+          ${memoryStateStack(data.charts.memory_states)}
+        </div>
+        <div class="signal-card">
+          <h2>Record Types</h2>
+          ${recordTypeBars(data.charts.record_types)}
+        </div>
+        <div class="signal-card">
+          <h2>Sync Position</h2>
+          ${syncRail(data.charts.sync_position)}
+        </div>
+      </section>
+    </details>
 
     <section class="panel">
       <h2>Recent Value</h2>
@@ -3163,6 +3169,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .context-pack-review { border-left: 4px solid var(--signal-blue); }
     .governance-hub { border-left: 4px solid var(--signal-green); }
     .memory-lifecycle { border-left: 4px solid var(--signal-violet); }
+    .store-signals { border-left: 4px solid var(--signal-slate); }
     .capture-inbox { border-left: 4px solid var(--signal-blue); }
     .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
     .context-pack-heading,
@@ -3359,7 +3366,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .lifecycle-action.safe { border-left: 3px solid var(--good); }
     .lifecycle-action-details { margin-top: 10px; }
     .lifecycle-action-details summary { font-weight: 760; color: var(--ink); }
-    .memory-lifecycle > summary, .capture-policy-audit > summary {
+    .memory-lifecycle > summary, .capture-policy-audit > summary, .store-signals > summary {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -3367,12 +3374,20 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--ink);
       font-weight: 760;
     }
-    .memory-lifecycle > summary small, .capture-policy-audit > summary small {
+    .memory-lifecycle > summary small, .capture-policy-audit > summary small, .store-signals > summary small {
       color: var(--muted);
       font-size: 12px;
       font-weight: 650;
     }
-    .memory-lifecycle[open] > summary, .capture-policy-audit[open] > summary { margin-bottom: 12px; }
+    .memory-lifecycle[open] > summary, .capture-policy-audit[open] > summary, .store-signals[open] > summary { margin-bottom: 12px; }
+    .store-signals .visual-grid { margin-top: 0; }
+    .signal-card {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 12px;
+      background: var(--surface-2);
+      min-width: 0;
+    }
     .capture-policy-decisions { display: grid; gap: 10px; margin-top: 10px; }
     .capture-policy-decision { background: var(--surface); }
     .capture-policy-decision.review { border-left: 3px solid var(--signal-blue); }

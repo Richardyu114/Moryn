@@ -548,6 +548,10 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
       expect(html).toContain("class=\"health-badge");
       expect(html).toContain("Needs Attention");
+      expect(html).toContain("<details class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
+      expect(html).not.toContain("<details open class=\"panel store-signals\"");
+      expect(html).toContain("<span>Store Signals</span>");
+      expect(html).toContain("<small>agent activity / record quality / sync</small>");
       expect(html).toContain("Agent Activity");
       expect(html).toContain("Record Quality");
       expect(html).toContain("Record Types");

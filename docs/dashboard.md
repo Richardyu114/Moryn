@@ -338,6 +338,11 @@ The first screen favors human-readable summaries over raw ids:
 Raw records, events, and sync details remain available in the lower Debug
 Inspector.
 
+Agent activity, record quality, record type distribution, and sync position are
+kept under the collapsed `Store Signals` panel. They remain available for local
+inspection, but the first screen prioritizes attention items, governance,
+review actions, context readiness, and recent value.
+
 Health badge states:
 
 - `Healthy`: sync is clean and no urgent safety signals were detected.
