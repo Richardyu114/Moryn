@@ -1787,6 +1787,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("Context Pack Review");
       expect(html).toContain("agent_handoff");
       expect(html).toContain("Read-only");
+      expect(html).toContain("<details class=\"context-pack-checks-fold\" data-dashboard-detail=\"context-pack-checks\">");
+      expect(html).toContain("<span>Quality Checks</span>");
+      expect(html).toContain("<small>6 passed | 0 review</small>");
+      expect(html).toContain("<ul class=\"context-pack-checks\">");
       expect(html).toContain("data-dashboard-detail=\"context-pack-evidence\"");
       expect(html).toContain("<span>Context Evidence</span>");
       expect(html).toContain("<small>1 decision | 1 thread | 1 risk</small>");

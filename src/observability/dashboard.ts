@@ -2185,18 +2185,26 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult): string {
 function contextPackReviewChecks(review: DashboardContextPackReview): string {
   const checks = review.handoff_pack?.quality_gate.checks ?? [];
   if (checks.length === 0) return `<div class="empty-state">No context pack checks available.</div>`;
+  const passed = checks.filter((check) => check.status === "pass").length;
+  const needsReview = checks.length - passed;
   return `
-    <ul class="context-pack-checks">
-      ${checks.map((check) => `
-        <li class="${check.status === "pass" ? "good" : "warning"}">
-          <span>${escapeHtml(check.status)}</span>
-          <strong>${escapeHtml(check.label)}</strong>
-          ${check.count === undefined ? "" : `<em>${escapeHtml(check.count)}</em>`}
-          <small>${escapeHtml(check.message)}</small>
-          <code>${escapeHtml(check.source)}</code>
-        </li>
-      `).join("")}
-    </ul>
+    <details class="context-pack-checks-fold" data-dashboard-detail="context-pack-checks">
+      <summary class="dashboard-fold-summary">
+        <span>Quality Checks</span>
+        <small>${escapeHtml(passed)} passed | ${escapeHtml(needsReview)} review</small>
+      </summary>
+      <ul class="context-pack-checks">
+        ${checks.map((check) => `
+          <li class="${check.status === "pass" ? "good" : "warning"}">
+            <span>${escapeHtml(check.status)}</span>
+            <strong>${escapeHtml(check.label)}</strong>
+            ${check.count === undefined ? "" : `<em>${escapeHtml(check.count)}</em>`}
+            <small>${escapeHtml(check.message)}</small>
+            <code>${escapeHtml(check.source)}</code>
+          </li>
+        `).join("")}
+      </ul>
+    </details>
   `;
 }
 
@@ -3303,6 +3311,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       margin: 10px 0;
       list-style: none;
     }
+    .context-pack-checks-fold {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px;
+      margin: 10px 0;
+      background: var(--surface);
+    }
+    .context-pack-checks-fold[open] > summary { margin-bottom: 8px; }
+    .context-pack-checks-fold .context-pack-checks { margin-bottom: 0; }
     .context-pack-checks li {
       display: grid;
       grid-template-columns: 58px minmax(120px, 1fr) auto minmax(0, 2fr);
