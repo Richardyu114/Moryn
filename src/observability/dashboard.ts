@@ -2419,12 +2419,8 @@ function attentionItems(items: DashboardAttentionItem[]): string {
 function attentionSummaryText(items: DashboardAttentionItem[]): string {
   const actionSignals = items.filter((item) => item.severity !== "info").length;
   const info = items.filter((item) => item.severity === "info").length;
-  const parts = [
-    pluralize(actionSignals, "action signal"),
-    pluralize(info, "info item")
-  ];
-  if (actionSignals === 0) parts.push("collapsed by default");
-  return parts.join(" | ");
+  if (actionSignals === 0) return `No action needed | ${pluralize(info, "info check")}`;
+  return `${pluralize(actionSignals, "action signal")} | ${pluralize(info, "info check")}`;
 }
 
 function needsAttentionPanel(items: DashboardAttentionItem[]): string {
