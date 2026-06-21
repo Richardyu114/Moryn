@@ -94,6 +94,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
   health: "health",
   attention_item: "attention_items[]",
   dashboard_overview: "dashboard_overview",
+  decision_summary: "decision_summary",
   charts: "charts",
   totals: "totals",
   action: "actions_by_id.<action_id>",
@@ -222,6 +223,35 @@ export interface DashboardActionBoardItem {
 export interface DashboardActionBoard {
   items: DashboardActionBoardItem[];
   items_by_id: Record<DashboardActionBoardItemId, DashboardActionBoardItem>;
+}
+
+export type DashboardDecisionSummarySurface = "capture_inbox" | "maintenance_review";
+
+export interface DashboardDecisionSummaryItem {
+  id: string;
+  surface: DashboardDecisionSummarySurface;
+  title: string;
+  summary: string;
+  decision_label: string;
+  target: "capture-inbox" | "maintenance-review-queue";
+  target_label: "Open Capture Inbox" | "Open Review Queue";
+  primary_action_id?: string;
+  secondary_action_id?: string;
+  requires_user_confirmation: true;
+  writes: "append_only_events";
+  safety_note: string;
+  evidence_path: "capture_inbox.groups[]" | "maintenance.plans[]";
+}
+
+export interface DashboardDecisionSummary {
+  read_only: true;
+  total_decisions: number;
+  summary: {
+    capture_inbox_groups: number;
+    review_queue_plans: number;
+  };
+  items: DashboardDecisionSummaryItem[];
+  items_by_id: Record<string, DashboardDecisionSummaryItem>;
 }
 
 export type DashboardOverviewStatus = "good" | "info" | "warning" | "critical";
@@ -586,6 +616,7 @@ export interface DashboardData {
   attention_items: DashboardAttentionItem[];
   dashboard_overview: DashboardOverview;
   action_board: DashboardActionBoard;
+  decision_summary: DashboardDecisionSummary;
   charts: DashboardCharts;
   totals: {
     events: number;
@@ -1722,18 +1753,64 @@ function actionsById(actions: DashboardAction[]): Record<string, DashboardAction
   return Object.fromEntries(actions.map((action) => [action.action_id, action]));
 }
 
+function buildDecisionSummary(input: {
+  captureInbox: DashboardCaptureInbox;
+  maintenance: DashboardMaintenanceData;
+}): DashboardDecisionSummary {
+  const captureInboxItems = input.captureInbox.groups.map((group): DashboardDecisionSummaryItem => ({
+    id: `capture_inbox:${group.id}`,
+    surface: "capture_inbox",
+    title: `Review ${group.source_label} capture group`,
+    summary: `${pluralize(group.total, "candidate")} from ${group.source_detail}. ${group.noise.level === "likely_noise" ? "Noise signals detected before approval." : "No noise signals detected."}`,
+    decision_label: "Approve Group or Reject Group",
+    target: "capture-inbox",
+    target_label: "Open Capture Inbox",
+    primary_action_id: captureInboxGroupActionId("approve", group.id),
+    secondary_action_id: captureInboxGroupActionId("reject", group.id),
+    requires_user_confirmation: true,
+    writes: "append_only_events",
+    safety_note: "Approve Group promotes candidates; Reject Group archives them. Both append audit events.",
+    evidence_path: "capture_inbox.groups[]"
+  }));
+  const maintenanceItems = input.maintenance.plans.map((plan): DashboardDecisionSummaryItem => ({
+    id: `maintenance_review:${plan.plan_hash.replace(/^sha256:/, "")}`,
+    surface: "maintenance_review",
+    title: plan.decision_card.title,
+    summary: plan.decision_card.issue,
+    decision_label: "Apply Repair",
+    target: "maintenance-review-queue",
+    target_label: "Open Review Queue",
+    primary_action_id: maintenanceApproveActionId(plan),
+    requires_user_confirmation: true,
+    writes: "append_only_events",
+    safety_note: "Apply Repair appends revise_record events only after the plan_hash guard passes.",
+    evidence_path: "maintenance.plans[]"
+  }));
+  const items = [...captureInboxItems, ...maintenanceItems];
+  return {
+    read_only: true,
+    total_decisions: items.length,
+    summary: {
+      capture_inbox_groups: captureInboxItems.length,
+      review_queue_plans: maintenanceItems.length
+    },
+    items,
+    items_by_id: Object.fromEntries(items.map((item) => [item.id, item]))
+  };
+}
+
 function actionBoardSeverity(count: number, fallback: DashboardActionBoardSeverity = "good"): DashboardActionBoardSeverity {
   return count > 0 ? "warning" : fallback;
 }
 
 function buildActionBoard(input: {
-  actions: DashboardAction[];
+  decisionSummary: DashboardDecisionSummary;
   attentionItems: DashboardAttentionItem[];
   governance: DashboardGovernance;
   sync: GitSyncStatus;
   health: DashboardHealth;
 }): DashboardActionBoard {
-  const confirmCount = input.actions.filter((action) => action.safety.requires_user_confirmation).length;
+  const confirmCount = input.decisionSummary.total_decisions;
   const reviewCount = input.attentionItems.filter((item) => item.severity !== "info").length;
   const inspectCount = input.governance.summary.safe_inspections;
   const syncNeedsAction = input.health.status === "sync_pending" || input.health.status === "conflict" || input.health.status === "local_only";
@@ -1750,11 +1827,11 @@ function buildActionBoard(input: {
       label: "Confirm",
       value: confirmCount,
       severity: actionBoardSeverity(confirmCount),
-      summary: confirmCount === 0 ? "No approvals waiting" : pluralize(confirmCount, "approval waiting", "approvals waiting"),
-      hint: confirmCount === 0 ? "No confirmation needed" : "Confirm queued memory",
+      summary: confirmCount === 0 ? "No approvals waiting" : pluralize(confirmCount, "decision waiting"),
+      hint: confirmCount === 0 ? "No confirmation needed" : "Open decision summary",
       detail: "Explicit approvals stay in Capture Inbox and Review Queue.",
-      next_action_label: confirmCount === 0 ? "Check attention" : "Open queue",
-      target: confirmCount === 0 ? "needs-attention" : "capture-inbox"
+      next_action_label: confirmCount === 0 ? "Check attention" : "Review decisions",
+      target: confirmCount === 0 ? "needs-attention" : "decision-summary"
     },
     {
       id: "review",
@@ -2293,6 +2370,10 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     capturePolicy: capturePolicyData,
     maintenance: maintenanceData
   });
+  const decisionSummaryData = buildDecisionSummary({
+    captureInbox: captureInboxData,
+    maintenance: maintenanceData
+  });
   const health = buildHealth(sync, records, generatedAt);
   const attentionItems = buildAttentionItems(sync, records);
   const governance = buildDashboardGovernance({
@@ -2304,7 +2385,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     hiddenPrivateRecords: lifecycleAllRecords.length - lifecycleRecords.length
   });
   const actionBoardData = buildActionBoard({
-    actions,
+    decisionSummary: decisionSummaryData,
     attentionItems,
     governance,
     sync,
@@ -2326,6 +2407,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     attention_items: attentionItems,
     dashboard_overview: dashboardOverviewData,
     action_board: actionBoardData,
+    decision_summary: decisionSummaryData,
     charts: {
       agent_activity: buildAgentChart(agentActivity, generatedAt),
       memory_states: buildMemoryStateChart(records),
@@ -2459,6 +2541,47 @@ function dashboardOverview(data: DashboardOverview): string {
       <div class="dashboard-overview-safety" aria-label="Dashboard safety">
         <span>Read-only overview</span>
         <span>Writes stay in ${escapeHtml(data.safety.mutation_surfaces.join(" and "))}</span>
+      </div>
+    </section>
+  `;
+}
+
+function decisionSummaryChips(summary: DashboardDecisionSummary): string {
+  const chips = [
+    summary.summary.capture_inbox_groups > 0 ? `${summary.summary.capture_inbox_groups} Capture Inbox` : undefined,
+    summary.summary.review_queue_plans > 0 ? `${summary.summary.review_queue_plans} Review Queue` : undefined
+  ].filter((chip): chip is string => chip !== undefined);
+  return chips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
+}
+
+function decisionSummary(data: DashboardDecisionSummary): string {
+  if (data.total_decisions === 0) return "";
+  return `
+    <section id="decision-summary" class="panel decision-summary" data-dashboard-detail="decision-summary" aria-label="Decision Summary">
+      <div class="decision-summary-heading">
+        <div>
+          <h2>Decision Summary</h2>
+          <p>Explicit decisions only</p>
+        </div>
+        <div class="decision-summary-counts">
+          ${decisionSummaryChips(data)}
+        </div>
+      </div>
+      <div class="decision-summary-list">
+        ${data.items.map((item) => `
+          <article class="decision-summary-item" data-decision-summary-item="${escapeHtml(item.id)}">
+            <div>
+              <strong>${escapeHtml(item.title)}</strong>
+              <p>${escapeHtml(item.summary)}</p>
+            </div>
+            <dl>
+              <div><dt>Decision</dt><dd>${escapeHtml(item.decision_label)}</dd></div>
+              <div><dt>Writes</dt><dd>${escapeHtml(item.writes)}<small>${escapeHtml(item.safety_note)}</small></dd></div>
+              <div><dt>Evidence</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
+            </dl>
+            <button type="button" class="decision-summary-link" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">${escapeHtml(item.target_label)}</button>
+          </article>
+        `).join("")}
       </div>
     </section>
   `;
@@ -2988,7 +3111,7 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
   if (plans.length === 0) return "";
   return `
     <section class="panel maintenance-review" aria-label="Maintenance review queue">
-      <details class="maintenance-review-summary" data-dashboard-detail="maintenance-review-queue">
+      <details id="maintenance-review-queue" class="maintenance-review-summary" data-dashboard-detail="maintenance-review-queue">
         <summary class="dashboard-fold-summary maintenance-review-fold">
           <span>Review Queue</span>
           <small>${escapeHtml(maintenanceReviewQueueSummary(plans))}</small>
@@ -4114,6 +4237,8 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${actionBoard(data.action_board)}
 
+    ${decisionSummary(data.decision_summary)}
+
     ${needsAttentionPanel(data.attention_items)}
 
     ${maintenanceReviewQueue(data.maintenance.plans)}
@@ -4815,6 +4940,78 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-style: normal;
       font-weight: 760;
       overflow-wrap: anywhere;
+    }
+    .decision-summary {
+      border-left: 4px solid var(--signal-green);
+      padding: 13px 14px;
+    }
+    .decision-summary-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      min-width: 0;
+      margin-bottom: 10px;
+    }
+    .decision-summary-heading h2 { margin-bottom: 2px; }
+    .decision-summary-heading p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    .decision-summary-counts {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    .decision-summary-counts span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--signal-green-soft);
+      color: var(--signal-green);
+      font-size: 12px;
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
+    .decision-summary-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .decision-summary-item {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 10px;
+      background: var(--surface-2);
+      min-width: 0;
+    }
+    .decision-summary-item strong {
+      display: block;
+      color: var(--ink);
+      font-weight: 780;
+      overflow-wrap: anywhere;
+    }
+    .decision-summary-item p {
+      margin-top: 4px;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+    .decision-summary-item dl {
+      margin: 0;
+      gap: 5px;
+    }
+    .decision-summary-item dl div {
+      grid-template-columns: 76px minmax(0, 1fr);
+    }
+    .decision-summary-link {
+      justify-self: start;
+      background: var(--ink);
+      border-color: var(--ink);
+      color: #fff;
     }
     .needs-attention.quiet[open] > summary { margin-bottom: 10px; }
     .needs-attention.quiet .attention-list {
@@ -5712,12 +5909,14 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .event-row { border: 1px solid var(--border); border-radius: 7px; padding: 10px; background: var(--surface); }
     .event-row summary { display: flex; justify-content: space-between; gap: 10px; min-width: 0; }
     @media (max-width: 920px) {
-      header, .dashboard-overview-grid, .action-board-grid, .visual-grid, .value-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-grid, .action-board-grid, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
       .dashboard-overview-main { display: grid; align-items: stretch; }
       .dashboard-overview-action { width: 100%; white-space: normal; }
+      .decision-summary-heading { display: grid; }
+      .decision-summary-counts { justify-content: flex-start; }
       .capture-inbox-queue-summary { display: grid; }
       .capture-inbox-queue-chips { justify-content: flex-start; }
       .attention-summary { display: grid; justify-content: stretch; }

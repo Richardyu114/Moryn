@@ -54,6 +54,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("GET /fragment");
     expect(dashboard).toContain("GET /api/dashboard");
     expect(dashboard).toContain("actions_by_id");
+    expect(dashboard).toContain("decision_summary");
     expect(dashboard).toContain("recall_eval");
     expect(dashboard).toContain("recall_eval_case");
     expect(dashboard).toContain("data-dashboard-action-id");
@@ -69,6 +70,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "zero-count buckets are hidden from the collapsed summary");
+    expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
+    expectText(dashboard, "Actual writes remain inside Capture Inbox and Review Queue controls");
     expect(dashboard).toContain("all clear");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/reject");

@@ -88,6 +88,18 @@ describe("observability dashboard", () => {
         status: "local_only",
         label: "Local Only"
       });
+      expect(data.decision_summary).toMatchObject({
+        read_only: true,
+        total_decisions: 0,
+        summary: {
+          capture_inbox_groups: 0,
+          review_queue_plans: 0
+        },
+        items: []
+      });
+      expect(data.selection_sources).toMatchObject({
+        decision_summary: "decision_summary"
+      });
       expect(data.attention_items).toEqual(expect.arrayContaining([
         expect.objectContaining({
           severity: "info",
@@ -126,6 +138,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span class=\"attention-next-action\" data-attention-next-action>Inspect checks</span>");
       expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
       expect(html).not.toContain("<section id=\"needs-attention\" class=\"panel\" data-dashboard-section=\"needs-attention\">");
+      expect(html).not.toContain("data-dashboard-detail=\"decision-summary\"");
     });
   });
 
@@ -2238,8 +2251,33 @@ describe("observability dashboard", () => {
       const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
       const html = renderDashboardHtml(data);
 
+      expect(data.decision_summary).toMatchObject({
+        read_only: true,
+        total_decisions: 1,
+        summary: {
+          capture_inbox_groups: 0,
+          review_queue_plans: 1
+        },
+        items: [
+          expect.objectContaining({
+            surface: "maintenance_review",
+            title: "Project identity repair",
+            decision_label: "Apply Repair",
+            target: "maintenance-review-queue",
+            target_label: "Open Review Queue",
+            requires_user_confirmation: true,
+            writes: "append_only_events",
+            safety_note: "Apply Repair appends revise_record events only after the plan_hash guard passes.",
+            evidence_path: "maintenance.plans[]"
+          })
+        ]
+      });
       expect(html).toContain("Review Queue");
-      expect(html).toContain("<details class=\"maintenance-review-summary\" data-dashboard-detail=\"maintenance-review-queue\">");
+      expect(html).toContain("<section id=\"decision-summary\" class=\"panel decision-summary\" data-dashboard-detail=\"decision-summary\" aria-label=\"Decision Summary\">");
+      expect(html).toContain("Project identity repair");
+      expect(html).toContain("Apply Repair appends revise_record events only after the plan_hash guard passes.");
+      expect(html).toContain("data-action-board-target=\"maintenance-review-queue\"");
+      expect(html).toContain("<details id=\"maintenance-review-queue\" class=\"maintenance-review-summary\" data-dashboard-detail=\"maintenance-review-queue\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-review-fold\">");
       expect(html).toContain("<span>Review Queue</span>");
       expect(html).toContain("<small>1 decision to review | 1 record to move | approval required</small>");
@@ -2647,6 +2685,10 @@ describe("observability dashboard", () => {
         }>;
         capture_inbox: {
           total: number;
+          groups: Array<{
+            id: string;
+            source_label: string;
+          }>;
           items: Array<{
             id: string;
             text: string;
@@ -2659,12 +2701,65 @@ describe("observability dashboard", () => {
             citation: { recall_command: string };
           }>;
         };
+        decision_summary: {
+          read_only: true;
+          total_decisions: number;
+          summary: {
+            capture_inbox_groups: number;
+            review_queue_plans: number;
+          };
+          items: Array<{
+            id: string;
+            surface: string;
+            title: string;
+            decision_label: string;
+            target: string;
+            target_label: string;
+            primary_action_id?: string;
+            secondary_action_id?: string;
+            requires_user_confirmation: boolean;
+            writes: string;
+            safety_note: string;
+            evidence_path: string;
+          }>;
+          items_by_id: Record<string, unknown>;
+        };
       };
 
       expect(data.capture_inbox.total).toBe(1);
+      const captureDecisionGroup = data.capture_inbox.groups[0]!;
       expect(data.action_board.items_by_id.confirm).toMatchObject({
-        value: 4,
-        next_action_label: "Open queue",
+        value: 1,
+        summary: "1 decision waiting",
+        hint: "Open decision summary",
+        next_action_label: "Review decisions",
+        target: "decision-summary"
+      });
+      expect(data.decision_summary).toMatchObject({
+        read_only: true,
+        total_decisions: 1,
+        summary: {
+          capture_inbox_groups: 1,
+          review_queue_plans: 0
+        },
+        items: [
+          expect.objectContaining({
+            id: `capture_inbox:${captureDecisionGroup.id}`,
+            surface: "capture_inbox",
+            title: "Review Codex capture group",
+            decision_label: "Approve Group or Reject Group",
+            target: "capture-inbox",
+            target_label: "Open Capture Inbox",
+            primary_action_id: `capture_inbox.group.approve.${captureDecisionGroup.id}`,
+            secondary_action_id: `capture_inbox.group.reject.${captureDecisionGroup.id}`,
+            requires_user_confirmation: true,
+            writes: "append_only_events",
+            safety_note: "Approve Group promotes candidates; Reject Group archives them. Both append audit events.",
+            evidence_path: "capture_inbox.groups[]"
+          })
+        ]
+      });
+      expect(data.decision_summary.items_by_id[`capture_inbox:${captureDecisionGroup.id}`]).toMatchObject({
         target: "capture-inbox"
       });
       expect(data.capture_inbox.items[0]).toMatchObject({
@@ -2719,8 +2814,20 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Capture Inbox");
-      expect(html).toContain("<button type=\"button\" class=\"action-board-item warning\" data-action-board-item=\"confirm\" data-action-board-target=\"capture-inbox\" aria-controls=\"capture-inbox\">");
-      expect(html).toContain("<em class=\"action-board-next\">Open queue</em>");
+      expect(html).toContain("<button type=\"button\" class=\"action-board-item warning\" data-action-board-item=\"confirm\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\">");
+      expect(html).toContain("<em class=\"action-board-next\">Review decisions</em>");
+      expect(html).toContain("<section id=\"decision-summary\" class=\"panel decision-summary\" data-dashboard-detail=\"decision-summary\" aria-label=\"Decision Summary\">");
+      expect(html).toContain("<h2>Decision Summary</h2>");
+      expect(html).toContain("Explicit decisions only");
+      expect(html).toContain("<span>1 Capture Inbox</span>");
+      expect(html).toContain("Review Codex capture group");
+      expect(html).toContain("Approve Group or Reject Group");
+      expect(html).toContain("Approve Group promotes candidates; Reject Group archives them. Both append audit events.");
+      expect(html).toContain("data-decision-summary-item=\"capture_inbox:");
+      expect(html).toContain("data-action-board-target=\"capture-inbox\"");
+      expect(html).not.toContain("data-dashboard-action-id=\"decision_summary");
+      expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeGreaterThan(html.indexOf("data-action-board-nav"));
+      expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"needs-attention\""));
       expect(html).toContain("1 candidate");
       expect(html).toContain("Codex finished Capture Inbox planning.");
       expect(html).toContain("data-capture-inbox-brief");

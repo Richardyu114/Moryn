@@ -436,7 +436,7 @@ active counts such as `1 review / 1 sync`; zero-count buckets are hidden from
 the collapsed summary, and a fully quiet board reads `all clear`. Expanding it
 still reveals the four scroll targets for:
 
-- `Confirm`: explicit approval actions in Capture Inbox or Review Queue
+- `Confirm`: explicit decision units in Capture Inbox or Review Queue
 - `Review`: warning or critical attention signals
 - `Inspect`: safe read-only governance checks
 - `Sync`: local-only, pending, or conflicting sync state
@@ -445,11 +445,22 @@ The Action Board is a derived summary only; it does not add mutation endpoints
 or hide the underlying panels. Clicking an Action Board card only scrolls to the
 matching local dashboard section and opens that section when it is a collapsed
 detail panel. Each card also shows a short verb-first next-action label such as
-`Open queue`, `Review warnings`, `Open governance`, or `Inspect sync`, so the
-first screen reads as a review cockpit instead of only a count summary. When no
-approval queue is rendered, the `Confirm` card points to `Needs Attention` as a
-stable zero-state target. If a target sits inside another collapsed detail
-panel, the dashboard opens the parent panels before scrolling.
+`Review decisions`, `Review warnings`, `Open governance`, or `Inspect sync`, so
+the first screen reads as a review cockpit instead of only a count summary.
+When no approval queue is rendered, the `Confirm` card points to `Needs
+Attention` as a stable zero-state target. If a target sits inside another
+collapsed detail panel, the dashboard opens the parent panels before scrolling.
+
+When explicit approvals exist, the dashboard renders a compact `Decision
+Summary` directly below the Action Board. `/api/dashboard.decision_summary`
+returns the same read-only shape. It counts human decision units, not raw
+approve/reject buttons: one Capture Inbox group is one decision, and one Review
+Queue maintenance plan is one decision. Each item shows the plain-language
+decision, write boundary, evidence path, and navigation target such as
+`capture_inbox.groups[]` or `maintenance.plans[]`. It references existing Safe
+Action Registry ids through `primary_action_id` and `secondary_action_id`, but
+it does not add a new endpoint, background executor, or second approval path.
+Actual writes remain inside Capture Inbox and Review Queue controls.
 
 Action Board cards keep full explanations in `items[].detail` for agents and
 audit readers, but the visible card footer uses the shorter `items[].hint`.
@@ -565,6 +576,7 @@ The JSON returned by `/api/dashboard` includes:
 - `totals`
 - `actions`
 - `actions_by_id`
+- `decision_summary`
 - `context_pack_review`
 - `governance`
 - `recall_eval`
