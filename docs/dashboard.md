@@ -238,16 +238,19 @@ the first version, the only interactive plan is project identity repair:
 `project_identity_split` discovered by `memory doctor` becomes a
 `project_migrate` dry-run plan.
 
-The approval card is a human-readable decision card. It shows:
+The approval card is a human-readable decision card. The default view shows the
+decision summary first:
 
-- issue
-- impact
-- recommended action
-- evidence
-- rollback path
-- raw evidence with source and target project ids
-- raw evidence with matched record count, state distribution, private record
-  counts, safety checks, equivalent CLI command, record ids, and `plan_hash`
+- why the repair exists
+- what records move between project ids
+- the safety boundary, including server-side dry-run and `plan_hash` checking
+- the recommended action
+
+Evidence, rollback, and raw plan details are kept in an expandable section so
+the first screen stays readable without hiding audit data. That rollback path
+section includes source and target project ids, matched record count, state
+distribution, private record counts, safety checks, equivalent CLI command,
+record ids, and `plan_hash`.
 
 Approving the card posts only the current `plan_hash` to:
 

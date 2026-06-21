@@ -1551,12 +1551,22 @@ describe("observability dashboard", () => {
 
       expect(html).toContain("Review Queue");
       expect(html).toContain("Project identity repair");
-      expect(html).toContain("Issue");
-      expect(html).toContain("Impact");
-      expect(html).toContain("Recommended action");
+      expect(html).toContain("data-maintenance-decision-summary");
+      expect(html).toContain("Review before write");
+      expect(html).toContain("Plan hash guard");
+      expect(html).toContain("Why");
+      expect(html).toContain("Change");
+      expect(html).toContain("Safety");
+      expect(html).toContain("Action");
+      expect(html).toContain("Move 1 record");
+      expect(html).toContain("repo-e6f0166fd942 to moryn");
+      expect(html).toContain("Server re-runs the dry run and checks plan_hash before applying.");
+      expect(html).toContain("Evidence, rollback, and raw plan");
+      expect(html).toContain("data-maintenance-detail=\"evidence\"");
+      expect(html).toContain("data-maintenance-detail=\"rollback\"");
+      expect(html).toContain("data-maintenance-detail=\"raw-plan\"");
       expect(html).toContain("Evidence");
       expect(html).toContain("Rollback path");
-      expect(html).toContain("Raw evidence");
       expect(html).toContain("Boot and recall can miss these memories");
       expect(html).toContain("Apply the repair only after confirming");
       expect(html).toContain("append-only revise_record events");

@@ -2000,6 +2000,10 @@ function maintenanceEvidenceList(plan: DashboardMaintenancePlan): string {
   `;
 }
 
+function maintenanceMoveSummary(plan: DashboardMaintenancePlan): string {
+  return `Move ${pluralize(plan.dry_run.matched_records, "record")}`;
+}
+
 function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
   if (plans.length === 0) return "";
   return `
@@ -2020,34 +2024,50 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 <h3>${escapeHtml(plan.decision_card.title)}</h3>
                 <p>${escapeHtml(plan.decision_card.issue)}</p>
               </div>
+              <div class="maintenance-plan-flags" aria-label="Maintenance safety">
+                <span>Review before write</span>
+                <span>Plan hash guard</span>
+              </div>
             </div>
-            <dl class="maintenance-summary maintenance-decision">
-              <div><dt>Issue</dt><dd>${escapeHtml(plan.decision_card.issue)}</dd></div>
-              <div><dt>Impact</dt><dd>${escapeHtml(plan.decision_card.impact)}</dd></div>
-              <div><dt>Recommended action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
-              <div><dt>Evidence</dt><dd>${maintenanceEvidenceList(plan)}</dd></div>
-              <div><dt>Rollback path</dt><dd>${escapeHtml(plan.decision_card.rollback_path)}</dd></div>
+            <dl class="maintenance-summary maintenance-decision-summary" data-maintenance-decision-summary>
+              <div><dt>Why</dt><dd>${escapeHtml(plan.decision_card.impact)}</dd></div>
+              <div><dt>Change</dt><dd>${escapeHtml(maintenanceMoveSummary(plan))}<small>${escapeHtml(`${plan.from_project_id} to ${plan.to_project_id}`)}</small></dd></div>
+              <div><dt>Safety</dt><dd>${escapeHtml("Server re-runs the dry run and checks plan_hash before applying.")}<small>${escapeHtml(maintenancePrivateSummary(plan))}</small></dd></div>
+              <div><dt>Action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
             </dl>
             <details data-dashboard-detail="maintenance:${escapeHtml(plan.plan_id)}">
-              <summary>Raw evidence</summary>
-              <dl>
-                <div><dt>Plan</dt><dd><code>${escapeHtml(plan.plan_id)}</code></dd></div>
-                <div><dt>plan_hash</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.plan_hash)}</code></dd></div>
-                <div><dt>Old project id</dt><dd><code>${escapeHtml(plan.from_project_id)}</code></dd></div>
-                <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id)}</code></dd></div>
-                <div><dt>Records</dt><dd>${escapeHtml(maintenanceStateSummary(plan.dry_run.states) || "none")}</dd></div>
-                <div><dt>Private records</dt><dd>${escapeHtml(maintenancePrivateSummary(plan))}</dd></div>
-                <div><dt>Record ids</dt><dd>${plan.decision_card.raw_evidence.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
-                <div><dt>Command</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.command)}</code></dd></div>
-              </dl>
-              <ul class="maintenance-checks">
-                ${plan.decision_card.raw_evidence.safety_checks.map((check) => `
-                  <li class="${check.ok ? "good" : "warning"}">
-                    <span>${check.ok ? "ok" : "review"}</span>
-                    ${escapeHtml(check.label)}
-                  </li>
-                `).join("")}
-              </ul>
+              <summary>Evidence, rollback, and raw plan</summary>
+              <div class="maintenance-detail-grid">
+                <section data-maintenance-detail="evidence">
+                  <h4>Evidence</h4>
+                  ${maintenanceEvidenceList(plan)}
+                  <ul class="maintenance-checks">
+                    ${plan.decision_card.raw_evidence.safety_checks.map((check) => `
+                      <li class="${check.ok ? "good" : "warning"}">
+                        <span>${check.ok ? "ok" : "review"}</span>
+                        ${escapeHtml(check.label)}
+                      </li>
+                    `).join("")}
+                  </ul>
+                </section>
+                <section data-maintenance-detail="rollback">
+                  <h4>Rollback path</h4>
+                  <p>${escapeHtml(plan.decision_card.rollback_path)}</p>
+                </section>
+                <section data-maintenance-detail="raw-plan">
+                  <h4>Raw plan</h4>
+                  <dl>
+                    <div><dt>Plan</dt><dd><code>${escapeHtml(plan.plan_id)}</code></dd></div>
+                    <div><dt>plan_hash</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.plan_hash)}</code></dd></div>
+                    <div><dt>Old project id</dt><dd><code>${escapeHtml(plan.from_project_id)}</code></dd></div>
+                    <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id)}</code></dd></div>
+                    <div><dt>Records</dt><dd>${escapeHtml(maintenanceStateSummary(plan.dry_run.states) || "none")}</dd></div>
+                    <div><dt>Private records</dt><dd>${escapeHtml(maintenancePrivateSummary(plan))}</dd></div>
+                    <div><dt>Record ids</dt><dd>${plan.decision_card.raw_evidence.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
+                    <div><dt>Command</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.command)}</code></dd></div>
+                  </dl>
+                </section>
+              </div>
             </details>
             <div class="maintenance-actions">
               <button type="button" data-maintenance-reject>Reject</button>
@@ -3365,6 +3385,23 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .capture-inbox-items { margin-top: 10px; }
     .capture-inbox-item { background: var(--surface); }
     .maintenance-plan-main, .capture-inbox-main { align-items: flex-start; margin-bottom: 10px; }
+    .maintenance-plan-flags {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+      min-width: 0;
+    }
+    .maintenance-plan-flags span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+      white-space: nowrap;
+    }
     .capture-inbox-main p {
       color: var(--ink);
       font-size: 14.5px;
@@ -3389,6 +3426,28 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .maintenance-summary div:last-child { grid-column: 1 / -1; }
     .maintenance-summary small, .lifecycle-summary small, .capture-inbox-summary small { margin-top: 3px; }
+    .maintenance-plan > details {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .maintenance-plan > details summary { color: var(--ink); font-weight: 760; }
+    .maintenance-plan > details[open] summary { margin-bottom: 9px; }
+    .maintenance-detail-grid { display: grid; gap: 9px; }
+    .maintenance-detail-grid section {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 9px;
+      background: var(--surface-2);
+      min-width: 0;
+    }
+    .maintenance-detail-grid h4 {
+      margin: 0 0 7px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 780;
+    }
     .maintenance-checks { display: grid; gap: 6px; padding-left: 0; list-style: none; }
     .maintenance-checks li {
       display: flex;
