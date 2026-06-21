@@ -209,6 +209,7 @@ export interface DashboardActionBoardItem {
   severity: DashboardActionBoardSeverity;
   summary: string;
   detail: string;
+  next_action_label: string;
   target: string;
 }
 
@@ -1661,6 +1662,7 @@ function buildActionBoard(input: {
       severity: actionBoardSeverity(confirmCount),
       summary: confirmCount === 0 ? "No approvals waiting" : pluralize(confirmCount, "approval waiting", "approvals waiting"),
       detail: "Explicit approvals stay in Capture Inbox and Review Queue.",
+      next_action_label: "Open Capture Inbox",
       target: "capture-inbox"
     },
     {
@@ -1670,6 +1672,7 @@ function buildActionBoard(input: {
       severity: actionBoardSeverity(reviewCount),
       summary: reviewCount === 0 ? "No urgent review" : pluralize(reviewCount, "attention item"),
       detail: "Warnings and critical signals remain visible in Needs Attention.",
+      next_action_label: "Review warning signals",
       target: "needs-attention"
     },
     {
@@ -1679,6 +1682,7 @@ function buildActionBoard(input: {
       severity: inspectCount > 0 ? "info" : "good",
       summary: inspectCount === 0 ? "No safe checks" : pluralize(inspectCount, "safe check"),
       detail: "Read-only inspections are grouped in Governance Hub.",
+      next_action_label: "Inspect Governance Hub",
       target: "governance-hub"
     },
     {
@@ -1688,6 +1692,7 @@ function buildActionBoard(input: {
       severity: syncSeverity,
       summary: input.health.label,
       detail: input.sync.remote ? syncLabel(input.sync) : "Local memory is usable; remote sync is not configured.",
+      next_action_label: "Inspect sync state",
       target: "store-signals"
     }
   ];
@@ -2094,6 +2099,7 @@ function actionBoard(data: DashboardActionBoard): string {
             <strong>${escapeHtml(item.value)}</strong>
             <p>${escapeHtml(item.summary)}</p>
             <small>${escapeHtml(item.detail)}</small>
+            <em class="action-board-next">${escapeHtml(item.next_action_label)}</em>
           </button>
         `).join("")}
       </div>
@@ -3700,6 +3706,21 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       overflow-wrap: anywhere;
     }
     .action-board-item small { margin-top: 3px; }
+    .action-board-next {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      margin-top: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
+      color: var(--ink-2);
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
     .attention-list { display: grid; gap: 9px; }
     .attention-info-group {
       border: 1px solid var(--border);

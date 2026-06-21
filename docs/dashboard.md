@@ -384,7 +384,8 @@ The first interactive section is `Action Board`, a four-card summary for:
 The Action Board is a derived summary only; it does not add mutation endpoints
 or hide the underlying panels. Clicking an Action Board card only scrolls to the
 matching local dashboard section and opens that section when it is a collapsed
-detail panel.
+detail panel. Each card also shows a short next-action label so the first screen
+reads as a review cockpit instead of only a count summary.
 
 `Needs Attention` keeps warning and critical items directly visible. Informational
 checks are grouped under a collapsed `Info Checks` summary so routine status

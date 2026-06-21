@@ -695,20 +695,23 @@ describe("observability dashboard", () => {
         label: "Confirm",
         value: 0,
         severity: "good",
-        summary: "No approvals waiting"
+        summary: "No approvals waiting",
+        next_action_label: "Open Capture Inbox"
       });
       expect(data.action_board.items_by_id.review).toMatchObject({
         label: "Review",
         value: 1,
         severity: "warning",
         summary: "1 attention item",
-        detail: "Warnings and critical signals remain visible in Needs Attention."
+        detail: "Warnings and critical signals remain visible in Needs Attention.",
+        next_action_label: "Review warning signals"
       });
       expect(data.action_board.items_by_id.sync).toMatchObject({
         label: "Sync",
         value: 1,
         severity: "info",
-        summary: "Local Only"
+        summary: "Local Only",
+        next_action_label: "Inspect sync state"
       });
       expect(data.recent_value.find((record) => record.state === "quarantined")?.summary).toBe("[quarantined]");
 
@@ -725,6 +728,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"inspect\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">");
       expect(html).toContain("<button type=\"button\" class=\"action-board-item info\" data-action-board-item=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
       expect(html).toContain("data-action-board-nav");
+      expect(html).toContain("<em class=\"action-board-next\">Open Capture Inbox</em>");
+      expect(html).toContain("<em class=\"action-board-next\">Review warning signals</em>");
+      expect(html).toContain("<em class=\"action-board-next\">Inspect Governance Hub</em>");
+      expect(html).toContain("<em class=\"action-board-next\">Inspect sync state</em>");
       expect(html).toContain("target.open = true");
       expect(html).toContain("target.scrollIntoView({ block: \"start\", behavior: \"smooth\" })");
       expect(html).toContain("Warnings and critical signals remain visible in Needs Attention.");
