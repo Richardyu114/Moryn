@@ -1904,24 +1904,41 @@ function healthClass(status: DashboardHealthStatus): string {
   return "info";
 }
 
+function attentionItem(item: DashboardAttentionItem): string {
+  return `
+    <details class="attention ${escapeHtml(item.severity)}" data-dashboard-detail="attention:${escapeHtml(item.title)}">
+      <summary class="attention-summary">
+        <strong>${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(titleCase(item.severity))}</span>
+      </summary>
+      <div class="attention-body">
+        <p>${escapeHtml(item.description)}</p>
+        ${item.action_command ? `<code>${escapeHtml(item.action_command)}</code>` : ""}
+      </div>
+    </details>
+  `;
+}
+
 function attentionItems(items: DashboardAttentionItem[]): string {
   if (items.length === 0) {
     return `<div class="empty-state">No issues detected in the current snapshot.</div>`;
   }
+  const primary = items.filter((item) => item.severity !== "info");
+  const info = items.filter((item) => item.severity === "info");
   return `
     <div class="attention-list">
-      ${items.map((item) => `
-        <details class="attention ${escapeHtml(item.severity)}" data-dashboard-detail="attention:${escapeHtml(item.title)}">
-          <summary class="attention-summary">
-            <strong>${escapeHtml(item.title)}</strong>
-            <span>${escapeHtml(titleCase(item.severity))}</span>
+      ${primary.map(attentionItem).join("")}
+      ${info.length === 0 ? "" : `
+        <details class="attention-info-group" data-dashboard-detail="attention-info-checks">
+          <summary class="dashboard-fold-summary">
+            <span>Info Checks</span>
+            <small>${escapeHtml(pluralize(info.length, "info item"))}</small>
           </summary>
-          <div class="attention-body">
-            <p>${escapeHtml(item.description)}</p>
-            ${item.action_command ? `<code>${escapeHtml(item.action_command)}</code>` : ""}
+          <div class="attention-info-list">
+            ${info.map(attentionItem).join("")}
           </div>
         </details>
-      `).join("")}
+      `}
     </div>
   `;
 }
@@ -3231,6 +3248,14 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .metric strong { display: block; margin-top: 4px; font-size: 20px; font-weight: 820; line-height: 1.18; color: var(--ink); overflow-wrap: anywhere; }
     .metric small { margin-top: 4px; }
     .attention-list { display: grid; gap: 9px; }
+    .attention-info-group {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 11px;
+      background: var(--surface-2);
+    }
+    .attention-info-group[open] > summary { margin-bottom: 8px; }
+    .attention-info-list { display: grid; gap: 8px; }
     .attention {
       border: 1px solid var(--border);
       border-left-width: 4px;

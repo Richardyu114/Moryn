@@ -559,6 +559,11 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<section class=\"hero\">");
       expect(html).toContain("Needs Attention");
       expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Quarantined records hidden\">");
+      expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
+      expect(html).toContain("<span>Info Checks</span>");
+      expect(html).toContain("<small>1 info item</small>");
+      expect(html).toContain("<div class=\"attention-info-list\">");
+      expect(html).toContain("<details class=\"attention info\" data-dashboard-detail=\"attention:Sync is not configured\">");
       expect(html).toContain("<summary class=\"attention-summary\">");
       expect(html).toContain("<div class=\"attention-body\">");
       expect(html).not.toContain("<article class=\"attention warning\">");

@@ -351,6 +351,10 @@ The top health message is rendered as a compact status strip rather than a large
 hero block, so the first screen stays focused on review queues and local
 attention signals.
 
+`Needs Attention` keeps warning and critical items directly visible. Informational
+checks are grouped under a collapsed `Info Checks` summary so routine status
+signals remain inspectable without competing with action-oriented warnings.
+
 Raw records, events, and sync details remain available in the lower Debug
 Inspector.
 
