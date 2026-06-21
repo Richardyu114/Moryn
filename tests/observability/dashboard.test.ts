@@ -2922,6 +2922,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("Reject Group");
       expect(html).toContain("Likely noise");
       expect(html).toContain("Smoke test marker only.");
+      expect(html).toContain(`<details class="capture-inbox-item" data-capture-inbox-record="${secondCodex.record.id}">`);
+      expect(html).toContain("<summary class=\"capture-inbox-item-summary\">");
+      expect(html).not.toContain("<article class=\"capture-inbox-item\"");
       expect(html).not.toContain("Trust policy enabled");
     });
   });

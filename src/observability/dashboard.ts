@@ -3799,38 +3799,44 @@ function captureInbox(items: DashboardCaptureInbox): string {
               </dl>
               <div class="capture-inbox-items">
                 ${groupItems.map((item) => `
-                  <article class="capture-inbox-item" data-capture-inbox-record="${escapeHtml(item.id)}">
-                    <div class="capture-inbox-main">
-                      <div>
+                  <details class="capture-inbox-item" data-capture-inbox-record="${escapeHtml(item.id)}">
+                    <summary class="capture-inbox-item-summary">
+                      <span class="capture-inbox-item-main">
                         <h3>${escapeHtml(titleCase(item.type || item.kind))}</h3>
                         ${textExcerptBlock(item.text)}
-                      </div>
+                      </span>
+                      <span class="capture-inbox-item-meta">
+                        <span>${escapeHtml(item.relative_time)}</span>
+                        <span>${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
+                      </span>
+                    </summary>
+                    <div class="capture-inbox-item-body">
                       <span class="pill ${item.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
+                      ${captureInboxDecisionBrief(item)}
+                      <dl class="capture-inbox-summary">
+                        <div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}<small>${escapeHtml(item.priority)} priority</small></dd></div>
+                        <div><dt>Captured</dt><dd><time title="${escapeHtml(item.exact_time)}">${escapeHtml(item.relative_time)}</time></dd></div>
+                        <div><dt>Reason</dt><dd>${escapeHtml(item.provenance_reason ?? "Candidate memory is waiting for review.")}</dd></div>
+                        <div><dt>Trace</dt><dd>${citationCommands(item.citation)}</dd></div>
+                      </dl>
+                      <div class="capture-inbox-actions">
+                        <button
+                          type="button"
+                          data-capture-inbox-reject
+                          data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("reject", item.id))}"
+                          data-endpoint="${escapeHtml(item.reject_endpoint)}"
+                        >Reject</button>
+                        <button
+                          type="button"
+                          class="primary"
+                          data-capture-inbox-approve
+                          data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("approve", item.id))}"
+                          data-endpoint="${escapeHtml(item.approve_endpoint)}"
+                        >Approve Memory</button>
+                      </div>
+                      <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
                     </div>
-                    ${captureInboxDecisionBrief(item)}
-                    <dl class="capture-inbox-summary">
-                      <div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}<small>${escapeHtml(item.priority)} priority</small></dd></div>
-                      <div><dt>Captured</dt><dd><time title="${escapeHtml(item.exact_time)}">${escapeHtml(item.relative_time)}</time></dd></div>
-                      <div><dt>Reason</dt><dd>${escapeHtml(item.provenance_reason ?? "Candidate memory is waiting for review.")}</dd></div>
-                      <div><dt>Trace</dt><dd>${citationCommands(item.citation)}</dd></div>
-                    </dl>
-                    <div class="capture-inbox-actions">
-                      <button
-                        type="button"
-                        data-capture-inbox-reject
-                        data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("reject", item.id))}"
-                        data-endpoint="${escapeHtml(item.reject_endpoint)}"
-                      >Reject</button>
-                      <button
-                        type="button"
-                        class="primary"
-                        data-capture-inbox-approve
-                        data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("approve", item.id))}"
-                        data-endpoint="${escapeHtml(item.approve_endpoint)}"
-                      >Approve Memory</button>
-                    </div>
-                    <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
-                  </article>
+                  </details>
                 `).join("")}
               </div>
             </details>
@@ -5353,6 +5359,46 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .capture-inbox-items { margin-top: 10px; }
     .capture-inbox-item { background: var(--surface); }
+    .capture-inbox-item[open] > summary { margin-bottom: 10px; }
+    .capture-inbox-item-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 10px;
+      align-items: start;
+      min-width: 0;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .capture-inbox-item-main {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .capture-inbox-item-main p { margin: 0; color: var(--muted); }
+    .capture-inbox-item-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+      min-width: 0;
+    }
+    .capture-inbox-item-meta span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+      white-space: nowrap;
+    }
+    .capture-inbox-item-body {
+      display: grid;
+      gap: 10px;
+    }
+    .capture-inbox-item-body > .pill {
+      justify-self: start;
+    }
     .maintenance-plan-main, .capture-inbox-main { align-items: flex-start; margin-bottom: 10px; }
     .maintenance-plan-flags {
       display: flex;
@@ -5625,6 +5671,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .context-pack-heading, .governance-heading,
       .lifecycle-heading,
       .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions { display: grid; justify-content: stretch; }
+      .capture-inbox-item-summary { grid-template-columns: 1fr; }
+      .capture-inbox-item-meta { justify-content: flex-start; }
       .maintenance-summary, .context-pack-summary, .context-pack-grid, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
       .governance-finding-summary dl { grid-template-columns: 1fr; }
       .governance-counts { justify-content: flex-start; }
