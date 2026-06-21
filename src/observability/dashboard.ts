@@ -2135,12 +2135,15 @@ function attentionFocus(items: DashboardAttentionItem[]): string {
   const info = items.filter((item) => item.severity === "info").length;
   const actionSignals = critical + warning;
   const next = critical > 0 ? "Review critical signals" : warning > 0 ? "Review warning signals" : "Inspect routine checks";
+  const chips = [
+    { severity: "critical", count: critical },
+    { severity: "warning", count: warning },
+    { severity: "info", count: info }
+  ].filter((chip) => chip.count > 0);
   return `
     <div class="attention-focus" aria-label="Needs Attention focus">
       <span><strong>${escapeHtml(actionSignals)}</strong> ${escapeHtml(actionSignals === 1 ? "action signal" : "action signals")}</span>
-      <span class="attention-focus-count critical">${escapeHtml(pluralize(critical, "critical"))}</span>
-      <span class="attention-focus-count warning">${escapeHtml(pluralize(warning, "warning"))}</span>
-      <span class="attention-focus-count info">${escapeHtml(pluralize(info, "info"))}</span>
+      ${chips.map((chip) => `<span class="attention-focus-count ${escapeHtml(chip.severity)}">${escapeHtml(pluralize(chip.count, chip.severity))}</span>`).join("")}
       <em>Next: ${escapeHtml(next)}</em>
     </div>
   `;

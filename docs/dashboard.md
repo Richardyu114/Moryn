@@ -392,10 +392,10 @@ zero-state target. If a target sits inside another collapsed detail panel, the
 dashboard opens the parent panels before scrolling.
 
 `Needs Attention` starts with a compact focus strip that counts action signals,
-warning checks, and informational checks, then names the next review step.
-Warning and critical items remain directly visible. Informational checks are
-grouped under a collapsed `Info Checks` summary so routine status signals
-remain inspectable without competing with action-oriented warnings.
+non-zero warning checks, and non-zero informational checks, then names the next
+review step. Warning and critical items remain directly visible. Informational
+checks are grouped under a collapsed `Info Checks` summary so routine status
+signals remain inspectable without competing with action-oriented warnings.
 
 Clean audit reports, raw records, events, sync details, recent value, and store
 telemetry remain available in the lower `Supporting Evidence` panel. That
