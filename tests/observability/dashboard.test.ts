@@ -1124,17 +1124,20 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>Read-only diagnostics grouped here</small>");
       expect(html).not.toContain("<small>Health Check | Governance | Context | Supporting Evidence</small>");
       const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
+      const routineDiagnosticsIndex = html.indexOf("<details class=\"panel routine-diagnostics\" data-dashboard-detail=\"routine-diagnostics\" aria-label=\"Routine Diagnostics\">");
       const evidenceHealthCheckIndex = html.indexOf("data-dashboard-detail=\"health-check\"");
       const evidenceGovernanceIndex = html.indexOf("data-dashboard-detail=\"governance-hub\"");
       const evidenceContextPackIndex = html.indexOf("data-dashboard-detail=\"context-pack-review\"");
       const evidenceSupportingIndex = html.indexOf("data-dashboard-detail=\"supporting-evidence\"");
       const evidenceCaptureInboxIndex = html.indexOf("id=\"capture-inbox\"");
       expect(evidenceLibraryDetailIndex).toBeGreaterThan(html.indexOf("data-action-board-nav"));
-      expect(evidenceLibraryDetailIndex).toBeLessThan(evidenceHealthCheckIndex);
+      expect(routineDiagnosticsIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
+      expect(evidenceHealthCheckIndex).toBeGreaterThan(routineDiagnosticsIndex);
       if (evidenceGovernanceIndex !== -1) {
-        expect(evidenceHealthCheckIndex).toBeLessThan(evidenceGovernanceIndex);
-        expect(evidenceGovernanceIndex).toBeLessThan(evidenceContextPackIndex);
+        expect(evidenceGovernanceIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
+        expect(evidenceGovernanceIndex).toBeLessThan(routineDiagnosticsIndex);
       }
+      expect(evidenceContextPackIndex).toBeGreaterThan(routineDiagnosticsIndex);
       expect(evidenceContextPackIndex).toBeLessThan(evidenceSupportingIndex);
       expect(evidenceCaptureInboxIndex === -1 || evidenceCaptureInboxIndex < evidenceLibraryDetailIndex).toBe(true);
       expect(html).toContain("target.open = true");
@@ -2562,7 +2565,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("Context Pack Review");
       expect(html).toContain("Unavailable");
       expect(html).toContain("Open the dashboard with --project-id or --project");
-      const contextPackSection = html.match(/<section class="panel context-pack-review"[\s\S]*?<\/section>/)?.[0] ?? "";
+      expect(html).toContain("<details class=\"panel context-pack-review\" data-dashboard-detail=\"context-pack-review\" data-context-pack-state=\"unavailable\" aria-label=\"Context Pack Review\">");
+      const contextPackSection = html.match(/<details class="panel context-pack-review" data-dashboard-detail="context-pack-review"[\s\S]*?<\/details>/)?.[0] ?? "";
       expect(contextPackSection).not.toContain(projectText);
     });
   });

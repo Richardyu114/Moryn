@@ -60,6 +60,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Each overview card is also a local navigation button");
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Supporting Evidence");
+    expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");
     expect(dashboard).toContain("Dogfood Review");
     expect(dashboard).toContain("Issue brief");

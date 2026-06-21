@@ -3282,13 +3282,13 @@ function contextPackEvidenceSummary(pack: DashboardContextPackReview["handoff_pa
 function contextPackReviewPanel(review: DashboardContextPackReview): string {
   if (!review.available || !review.handoff_pack) {
     return `
-      <section class="panel context-pack-review" aria-label="Context Pack Review">
-        <div class="context-pack-heading">
-          <h2>Context Pack Review</h2>
-          <span>Unavailable</span>
-        </div>
+      <details class="panel context-pack-review" data-dashboard-detail="context-pack-review" data-context-pack-state="unavailable" aria-label="Context Pack Review">
+        <summary class="dashboard-fold-summary context-pack-review-fold">
+          <span>Context Pack Review</span>
+          <small>unavailable</small>
+        </summary>
         <div class="empty-state">${escapeHtml(review.unavailable_reason ?? "Project context is required for Context Pack Review.")}</div>
-      </section>
+      </details>
     `;
   }
   const pack = review.handoff_pack;
@@ -4034,7 +4034,52 @@ function evidenceLibrarySummary(): string {
   return "Read-only diagnostics grouped here";
 }
 
+function isRoutineHealthCheck(report: HealthCheckReport): boolean {
+  return report.status === "healthy" && report.summary.warning_checks === 0 && report.summary.failing_checks === 0;
+}
+
+function isRoutineRecallEval(review: DashboardRecallEval): boolean {
+  if (review.errors.length > 0) return false;
+  if (!review.available || !review.report) return true;
+  return review.report.summary.failed_cases === 0 && review.report.summary.privacy_leaks === 0;
+}
+
+function isRoutineContextPackReview(review: DashboardContextPackReview): boolean {
+  const gate = review.handoff_pack?.quality_gate;
+  if (!review.available || !gate) return true;
+  return gate.status === "ready" && gate.failed_check_ids.length === 0 && gate.warnings.length === 0;
+}
+
+function routineDiagnosticsPanel(panels: string[]): string {
+  if (panels.length === 0) return "";
+  return `
+    <details class="panel routine-diagnostics" data-dashboard-detail="routine-diagnostics" aria-label="Routine Diagnostics">
+      <summary class="dashboard-fold-summary routine-diagnostics-fold">
+        <span>Routine Diagnostics</span>
+        <small>${escapeHtml(pluralize(panels.length, "quiet check"))}</small>
+      </summary>
+      <div class="routine-diagnostics-list">
+        ${panels.join("")}
+      </div>
+    </details>
+  `;
+}
+
 function evidenceLibrary(data: DashboardData): string {
+  const routinePanels = [
+    isRoutineHealthCheck(data.health_check) ? healthCheckPanel(data.health_check) : undefined,
+    isRoutineRecallEval(data.recall_eval) ? recallEvalPanel(data.recall_eval) : undefined,
+    isRoutineContextPackReview(data.context_pack_review) ? contextPackReviewPanel(data.context_pack_review) : undefined
+  ].filter((panel): panel is string => panel !== undefined);
+  const activePanels = [
+    isRoutineHealthCheck(data.health_check) ? undefined : healthCheckPanel(data.health_check),
+    isRoutineRecallEval(data.recall_eval) ? undefined : recallEvalPanel(data.recall_eval),
+    dogfoodReviewPanel(data.dogfood_report),
+    governanceHub(data.governance),
+    isRoutineContextPackReview(data.context_pack_review) ? undefined : contextPackReviewPanel(data.context_pack_review),
+    routineDiagnosticsPanel(routinePanels),
+    supportingEvidencePanel(data)
+  ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
   return `
     <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Evidence Library">
       <summary class="dashboard-fold-summary evidence-library-fold">
@@ -4042,12 +4087,7 @@ function evidenceLibrary(data: DashboardData): string {
         <small>${escapeHtml(evidenceLibrarySummary())}</small>
       </summary>
       <div class="evidence-library-list">
-        ${healthCheckPanel(data.health_check)}
-        ${recallEvalPanel(data.recall_eval)}
-        ${dogfoodReviewPanel(data.dogfood_report)}
-        ${governanceHub(data.governance)}
-        ${contextPackReviewPanel(data.context_pack_review)}
-        ${supportingEvidencePanel(data)}
+        ${activePanels.join("")}
       </div>
     </details>
   `;
@@ -4894,6 +4934,21 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .evidence-library-list > .panel,
     .evidence-library-list > section.panel,
     .evidence-library-list > details.panel {
+      margin-bottom: 0;
+      box-shadow: none;
+      background: var(--surface);
+    }
+    .routine-diagnostics { border-left: 4px solid var(--signal-slate); }
+    .routine-diagnostics[open] > summary { margin-bottom: 10px; }
+    .routine-diagnostics-list {
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
+    .routine-diagnostics-list > .panel,
+    .routine-diagnostics-list > section.panel,
+    .routine-diagnostics-list > details.panel {
       margin-bottom: 0;
       box-shadow: none;
       background: var(--surface);

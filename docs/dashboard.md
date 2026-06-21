@@ -476,6 +476,15 @@ panel keeps its `data-dashboard-detail` target, so Action Board buttons can open
 the parent library before scrolling to `governance-hub`,
 `context-pack-review`, or `store-signals`.
 
+Inside Evidence Library, routine read-only diagnostics such as a healthy Health
+Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack
+Review are grouped under `Routine Diagnostics`. Findings-oriented panels such
+as Dogfood Review and Governance Hub stay directly visible inside Evidence
+Library, so opening the library first shows current issues instead of quiet
+checks. The routine group still keeps the original child `data-dashboard-detail`
+targets, so local navigation can open the parent group before scrolling to the
+requested diagnostic.
+
 `Dogfood Review` is a read-only issue inbox for `dogfood_report.findings_by_id`.
 It renders only when the local report has findings. Each card leads with an
 `Issue brief` for impact, affected records, read-only next step, and evidence
