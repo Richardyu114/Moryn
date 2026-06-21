@@ -416,8 +416,9 @@ read-only and includes `evidence_sources` so agents can use the compact summary
 without losing the audit trail to the underlying dashboard data.
 
 `Action Board` is a collapsed navigator by default. Its summary shows compact
-counts such as `0 confirm / 1 review / 0 inspect / 1 sync`; expanding it reveals
-the four scroll targets for:
+active counts such as `1 review / 1 sync`; zero-count buckets are hidden from
+the collapsed summary, and a fully quiet board reads `all clear`. Expanding it
+still reveals the four scroll targets for:
 
 - `Confirm`: explicit approval actions in Capture Inbox or Review Queue
 - `Review`: warning or critical attention signals

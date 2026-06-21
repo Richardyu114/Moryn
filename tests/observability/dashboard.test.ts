@@ -185,6 +185,33 @@ describe("observability dashboard", () => {
     }
   });
 
+  it("compresses Action Board summary to active counts and all clear", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-dashboard-action-board-"));
+    const storePath = join(root, "store");
+    const remote = join(root, "remote.git");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      await initializeGitSync(storePath, remote);
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(data.action_board.items.map((item) => item.value)).toEqual([0, 0, 0, 0]);
+      expect(html).toContain("<small>all clear</small>");
+      expect(html).not.toContain("<small>0 confirm / 0 review / 0 inspect / 0 sync</small>");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("renders a compact read-only Health Check summary", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
@@ -885,7 +912,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"action-board\" aria-label=\"Action Board\" data-dashboard-detail=\"action-board\" data-action-board-nav>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary action-board-fold\">");
       expect(html).toContain("<span>Action Board</span>");
-      expect(html).toContain("<small>0 confirm / 1 review / 0 inspect / 1 sync</small>");
+      expect(html).toContain("<small>1 review / 1 sync</small>");
+      expect(html).not.toContain("<small>0 confirm / 1 review / 0 inspect / 1 sync</small>");
       expect(html).toContain("<div class=\"action-board-grid\">");
       expect(html).not.toContain("<section class=\"action-board\" aria-label=\"Action Board\" data-action-board-nav>");
       expect(html).not.toContain("<h2>Action Board</h2>");

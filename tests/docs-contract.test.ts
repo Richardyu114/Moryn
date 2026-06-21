@@ -61,6 +61,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Each row leads with a compact `Finding summary`");
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
+    expectText(dashboard, "zero-count buckets are hidden from the collapsed summary");
+    expect(dashboard).toContain("all clear");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/reject");
     expect(dashboard).toContain("POST /api/capture-inbox/groups/:group_id/approve");

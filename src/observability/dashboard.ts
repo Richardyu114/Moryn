@@ -2239,13 +2239,9 @@ function textExcerptBlock(text: string, truncatedAttribute = "data-full-text-hid
 }
 
 function actionBoardSummary(data: DashboardActionBoard): string {
-  const items = data.items_by_id;
-  return [
-    `${items.confirm.value} confirm`,
-    `${items.review.value} review`,
-    `${items.inspect.value} inspect`,
-    `${items.sync.value} sync`
-  ].join(" / ");
+  const activeItems = data.items.filter((item) => item.value > 0);
+  if (activeItems.length === 0) return "all clear";
+  return activeItems.map((item) => `${item.value} ${item.id}`).join(" / ");
 }
 
 function actionBoard(data: DashboardActionBoard): string {
