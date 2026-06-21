@@ -72,6 +72,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "zero-count buckets are hidden from the collapsed summary");
+    expectText(dashboard, "zero-value `good` targets are grouped under `Quiet Targets`");
+    expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
     expectText(dashboard, "Actual writes remain inside Capture Inbox and Review Queue controls");
     expect(dashboard).toContain("all clear");

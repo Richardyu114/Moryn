@@ -221,6 +221,19 @@ describe("observability dashboard", () => {
       expect(data.action_board.items.map((item) => item.value)).toEqual([0, 0, 0, 0]);
       expect(html).toContain("<small>all clear</small>");
       expect(html).not.toContain("<small>0 confirm / 0 review / 0 inspect / 0 sync</small>");
+      expect(html).toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");
+      expect(html).toContain("<span>Quiet Targets</span>");
+      expect(html).toContain("<small>4 quiet targets</small>");
+      expect(html).not.toContain("<div class=\"action-board-grid\">");
+      expect(html).toContain("<div class=\"action-board-quiet-list\">");
+      expect(html).toContain("data-action-board-quiet-item=\"confirm\"");
+      expect(html).toContain("data-action-board-quiet-item=\"review\"");
+      expect(html).toContain("data-action-board-quiet-item=\"inspect\"");
+      expect(html).toContain("data-action-board-quiet-item=\"sync\"");
+      expect(html).not.toContain("data-action-board-item=\"confirm\"");
+      expect(html).not.toContain("data-action-board-item=\"review\"");
+      expect(html).not.toContain("data-action-board-item=\"inspect\"");
+      expect(html).not.toContain("data-action-board-item=\"sync\"");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1158,10 +1171,15 @@ describe("observability dashboard", () => {
       expect(html).toContain("<div class=\"action-board-grid\">");
       expect(html).not.toContain("<section class=\"action-board\" aria-label=\"Action Board\" data-action-board-nav>");
       expect(html).not.toContain("<h2>Action Board</h2>");
-      expect(html).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"confirm\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
+      expect(html).not.toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"confirm\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
       expect(html).toContain("<button type=\"button\" class=\"action-board-item warning\" data-action-board-item=\"review\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
-      expect(html).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"inspect\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">");
+      expect(html).not.toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"inspect\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">");
       expect(html).toContain("<button type=\"button\" class=\"action-board-item info\" data-action-board-item=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
+      expect(html).toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");
+      expect(html).toContain("<span>Quiet Targets</span>");
+      expect(html).toContain("<small>2 quiet targets</small>");
+      expect(html).toContain("data-action-board-quiet-item=\"confirm\"");
+      expect(html).toContain("data-action-board-quiet-item=\"inspect\"");
       expect(html).toContain("data-action-board-nav");
       expect(html).toContain("<em class=\"action-board-next\">Check attention</em>");
       expect(html).toContain("<em class=\"action-board-next\">Review warnings</em>");

@@ -2495,24 +2495,52 @@ function actionBoardSummary(data: DashboardActionBoard): string {
   return activeItems.map((item) => `${item.value} ${item.id}`).join(" / ");
 }
 
+function isActiveActionBoardItem(item: DashboardActionBoardItem): boolean {
+  return item.value > 0 || item.severity !== "good";
+}
+
+function actionBoardItemButton(item: DashboardActionBoardItem, dataAttribute = "data-action-board-item"): string {
+  return `
+    <button type="button" class="action-board-item ${escapeHtml(item.severity)}" ${dataAttribute}="${escapeHtml(item.id)}" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">
+      <span>${escapeHtml(item.label)}</span>
+      <strong>${escapeHtml(item.value)}</strong>
+      <p>${escapeHtml(item.summary)}</p>
+      <small>${escapeHtml(item.hint)}</small>
+      <em class="action-board-next">${escapeHtml(item.next_action_label)}</em>
+    </button>
+  `;
+}
+
+function actionBoardQuietTargets(items: DashboardActionBoardItem[]): string {
+  if (items.length === 0) return "";
+  return `
+    <details class="action-board-quiet" data-dashboard-detail="action-board-quiet-targets">
+      <summary class="dashboard-fold-summary action-board-quiet-fold">
+        <span>Quiet Targets</span>
+        <small>${escapeHtml(pluralize(items.length, "quiet target"))}</small>
+      </summary>
+      <div class="action-board-quiet-list">
+        ${items.map((item) => actionBoardItemButton(item, "data-action-board-quiet-item")).join("")}
+      </div>
+    </details>
+  `;
+}
+
 function actionBoard(data: DashboardActionBoard): string {
+  const activeItems = data.items.filter(isActiveActionBoardItem);
+  const quietItems = data.items.filter((item) => !isActiveActionBoardItem(item));
   return `
     <details class="action-board" aria-label="Action Board" data-dashboard-detail="action-board" data-action-board-nav>
       <summary class="dashboard-fold-summary action-board-fold">
         <span>Action Board</span>
         <small>${escapeHtml(actionBoardSummary(data))}</small>
       </summary>
-      <div class="action-board-grid">
-        ${data.items.map((item) => `
-          <button type="button" class="action-board-item ${escapeHtml(item.severity)}" data-action-board-item="${escapeHtml(item.id)}" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">
-            <span>${escapeHtml(item.label)}</span>
-            <strong>${escapeHtml(item.value)}</strong>
-            <p>${escapeHtml(item.summary)}</p>
-            <small>${escapeHtml(item.hint)}</small>
-            <em class="action-board-next">${escapeHtml(item.next_action_label)}</em>
-          </button>
-        `).join("")}
-      </div>
+      ${activeItems.length === 0 ? "" : `
+        <div class="action-board-grid">
+          ${activeItems.map((item) => actionBoardItemButton(item)).join("")}
+        </div>
+      `}
+      ${actionBoardQuietTargets(quietItems)}
     </details>
   `;
 }
@@ -4901,6 +4929,17 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
     }
+    .action-board-quiet {
+      margin-top: 10px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
+    .action-board-quiet[open] > summary { margin-bottom: 8px; }
+    .action-board-quiet-list {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
     .action-board-item {
       appearance: none;
       border: 1px solid var(--border);
@@ -4944,6 +4983,20 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       overflow-wrap: anywhere;
     }
     .action-board-item small { margin-top: 3px; }
+    .action-board-quiet-list .action-board-item {
+      border-left-width: 1px;
+      padding: 8px;
+      background: var(--surface);
+      box-shadow: none;
+    }
+    .action-board-quiet-list .action-board-item strong {
+      font-size: 16px;
+      color: var(--muted);
+    }
+    .action-board-quiet-list .action-board-item p {
+      font-weight: 650;
+      color: var(--muted);
+    }
     .action-board-next {
       display: inline-flex;
       align-items: center;
@@ -5927,7 +5980,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .event-row { border: 1px solid var(--border); border-radius: 7px; padding: 10px; background: var(--surface); }
     .event-row summary { display: flex; justify-content: space-between; gap: 10px; min-width: 0; }
     @media (max-width: 920px) {
-      header, .dashboard-overview-grid, .action-board-grid, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-grid, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
