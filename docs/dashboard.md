@@ -289,9 +289,11 @@ The same card still includes the structured decision summary:
 - the safety boundary, including server-side dry-run and `plan_hash` checking
 - the recommended action
 
-Each plan also keeps a compact `Review log` in plain language under an
-expandable `Audit trail`: what was detected, the proposed change, the explicit
-approval gate, and where the audit trail lives.
+Each plan also keeps an expandable `Audit trail`. The first thing inside it is
+a structured `Decision record`, not a raw event stream: detected condition, why
+it matters, proposed change, safety gate, approval writes, and where to audit or
+roll back. A compact plain-language `Review log` remains below that record for
+compatibility with the normalized governance review style.
 
 Evidence, rollback, and raw plan details are kept in an expandable section so
 the first screen stays readable without hiding audit data. That rollback path

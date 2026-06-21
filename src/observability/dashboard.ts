@@ -2391,6 +2391,40 @@ function maintenanceReviewLog(plan: DashboardMaintenancePlan): string[] {
   ];
 }
 
+function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
+  return `
+    <div class="maintenance-decision-record" data-maintenance-decision-record>
+      <h4>Decision record</h4>
+      <dl>
+        <div>
+          <dt><strong>Detected</strong></dt>
+          <dd>Project identity repair found records under an old project id.</dd>
+        </div>
+        <div>
+          <dt><strong>Why this matters</strong></dt>
+          <dd>Boot and recall can miss these records until the project id is repaired.</dd>
+        </div>
+        <div>
+          <dt><strong>Proposed change</strong></dt>
+          <dd>${escapeHtml(maintenanceMoveSummary(plan))} from <code>${escapeHtml(plan.from_project_id)}</code> to <code>${escapeHtml(plan.to_project_id)}</code>.</dd>
+        </div>
+        <div>
+          <dt><strong>Safety gate</strong></dt>
+          <dd>The server re-runs the dry run and checks <code>plan_hash</code> before writing.</dd>
+        </div>
+        <div>
+          <dt><strong>Approval writes</strong></dt>
+          <dd>Approving appends revise_record events only; Reject hides this card for the browser session.</dd>
+        </div>
+        <div>
+          <dt><strong>Audit path</strong></dt>
+          <dd>Raw plan, record ids, rollback path, equivalent CLI command, and <code>plan_hash</code> stay below.</dd>
+        </div>
+      </dl>
+    </div>
+  `;
+}
+
 function maintenanceReviewQueueSummary(plans: DashboardMaintenancePlan[]): string {
   const recordTotal = plans.reduce((total, plan) => total + plan.dry_run.matched_records, 0);
   return `${pluralize(plans.length, "decision")} to review | ${pluralize(recordTotal, "record")} to move | approval required`;
@@ -2432,6 +2466,7 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 </dl>
                 <details class="maintenance-audit-trail" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
                   <summary>Audit trail</summary>
+                  ${maintenanceDecisionRecord(plan)}
                   ${reviewLogList(maintenanceReviewLog(plan), "data-maintenance-review-log")}
                 </details>
                 <details data-dashboard-detail="maintenance:${escapeHtml(plan.plan_id)}">
@@ -4499,6 +4534,32 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .maintenance-audit-trail[open] > summary { margin-bottom: 8px; }
     .maintenance-audit-trail summary { color: var(--ink); font-weight: 720; }
+    .maintenance-decision-record {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 9px;
+      margin: 0 0 8px;
+      background: var(--surface-2);
+    }
+    .maintenance-decision-record h4 {
+      margin: 0 0 7px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 780;
+    }
+    .maintenance-decision-record dl {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+    }
+    .maintenance-decision-record dl div {
+      display: grid;
+      grid-template-columns: 132px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+    }
+    .maintenance-decision-record dt { color: var(--ink); }
+    .maintenance-decision-record dd { color: var(--ink-2); }
     .maintenance-audit-trail .review-log {
       border: 0;
       padding: 0;
