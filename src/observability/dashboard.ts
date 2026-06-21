@@ -2541,30 +2541,36 @@ function captureInbox(items: DashboardCaptureInbox): string {
         <h2>Capture Inbox</h2>
         <span>${escapeHtml(pluralize(items.total, "candidate"))} | ${escapeHtml(pluralize(items.group_total, "group"))}</span>
       </div>
-      <div class="capture-policy">
-        <div>
-          <strong>Capture Policy</strong>
-          <code>${escapeHtml(items.policy.id)}</code>
+      <details class="capture-policy-summary" data-dashboard-detail="capture-policy-summary">
+        <summary class="dashboard-fold-summary">
+          <span>Capture Policy</span>
+          <small>manual review | no auto-canonical | ${escapeHtml(pluralize(items.total, "candidate"))}</small>
+        </summary>
+        <div class="capture-policy">
+          <div>
+            <strong>Capture Policy</strong>
+            <code>${escapeHtml(items.policy.id)}</code>
+          </div>
+          <span>Review Policy</span>
+          <span>Manual review</span>
+          <span>No auto-canonical</span>
+          <span>Trust disabled</span>
+          <span>User action required</span>
+          <span>${escapeHtml(items.policy.grouping.group_by.join(" / "))}</span>
+          <span>stale batch protection</span>
         </div>
-        <span>Review Policy</span>
-        <span>Manual review</span>
-        <span>No auto-canonical</span>
-        <span>Trust disabled</span>
-        <span>User action required</span>
-        <span>${escapeHtml(items.policy.grouping.group_by.join(" / "))}</span>
-        <span>stale batch protection</span>
-      </div>
-      <div class="capture-policy">
-        <div>
-          <strong>Autocapture Policy</strong>
-          <code>${escapeHtml(items.autocapture_policy.id)}</code>
+        <div class="capture-policy">
+          <div>
+            <strong>Autocapture Policy</strong>
+            <code>${escapeHtml(items.autocapture_policy.id)}</code>
+          </div>
+          <span>No auto-canonical</span>
+          <span>Auto-captured ${escapeHtml(items.autocapture_policy.auto_captured_total)}</span>
+          <span>Policy archived ${escapeHtml(items.autocapture_policy.archived_total)}</span>
+          <span>${escapeHtml(Object.entries(items.autocapture_policy.captured_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no auto-captured handoffs")}</span>
+          <span>${escapeHtml(Object.entries(items.autocapture_policy.archived_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no archived noise")}</span>
         </div>
-        <span>No auto-canonical</span>
-        <span>Auto-captured ${escapeHtml(items.autocapture_policy.auto_captured_total)}</span>
-        <span>Policy archived ${escapeHtml(items.autocapture_policy.archived_total)}</span>
-        <span>${escapeHtml(Object.entries(items.autocapture_policy.captured_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no auto-captured handoffs")}</span>
-        <span>${escapeHtml(Object.entries(items.autocapture_policy.archived_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no archived noise")}</span>
-      </div>
+      </details>
       ${items.autocapture_policy.auto_captured_examples.length ? `
         <details class="capture-policy-rules" data-dashboard-detail="autocapture-policy-captured:${escapeHtml(items.autocapture_policy.id)}">
           <summary>Auto-captured handoffs</summary>
@@ -3390,6 +3396,16 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface-2);
       font-weight: 700;
     }
+    .capture-policy-summary {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px;
+      margin: -4px 0 12px;
+      background: var(--surface);
+    }
+    .capture-policy-summary[open] > summary { margin-bottom: 8px; }
+    .capture-policy-summary .capture-policy { margin: 0 0 8px; }
+    .capture-policy-summary .capture-policy:last-child { margin-bottom: 0; }
     .capture-policy-rules {
       border: 1px solid var(--border);
       border-radius: 7px;

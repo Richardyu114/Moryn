@@ -2173,6 +2173,9 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
       expect(html).toContain("Review Policy");
       expect(html).toContain("Capture Policy");
+      expect(html).toContain("<details class=\"capture-policy-summary\" data-dashboard-detail=\"capture-policy-summary\">");
+      expect(html).toContain("<span>Capture Policy</span>");
+      expect(html).toContain("<small>manual review | no auto-canonical | 4 candidates</small>");
       expect(html).toContain("default_capture_review_policy");
       expect(html).toContain("Manual review");
       expect(html).toContain("No auto-canonical");
