@@ -116,10 +116,12 @@ store:
   a required capture next action.
 - `moryn capture session` session-summary autocapture with normalized
   `source.client` and `host:<client>` tags.
-- `default_autocapture_policy` routes useful handoffs to Capture Inbox while
-  policy-archiving obvious smoke/test or duplicate captures.
+- `default_autocapture_policy` auto-captures low-risk handoffs, routes risky or
+  durable handoffs to Capture Inbox, and policy-archives obvious smoke/test or
+  duplicate captures.
 - Read-only `capture_policy` / `moryn capture policy` audit report for
-  explaining review/archive decisions without adding another mutation path.
+  explaining capture/review/archive decisions without adding another mutation
+  path.
 - CLI and MCP exposure for install, context pack, capture session, and capture
   policy audit.
 

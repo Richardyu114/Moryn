@@ -70,7 +70,9 @@ describe("host adapters", () => {
       expect(result.record.project_id).toBe("moryn");
       expect(result.record.state).toBe("candidate");
       expect(result.record.tags).toContain("autocapture");
+      expect(result.record.tags).toContain("auto-captured");
       expect(result.record.tags).toContain("host:claude");
+      expect(result.record.tags).not.toContain("review");
       expect(result.record.source?.client).toBe("claude");
       expect(result.record.source?.session_id).toBe("s1");
       expect(result.record.content.text).toContain("Finished planner");
@@ -84,21 +86,70 @@ describe("host adapters", () => {
           current_task: "design host adapter",
           policy: {
             id: "default_autocapture_policy",
-            decision: "review",
-            review_required: true,
-            auto_canonical: false
+            decision: "capture",
+            route: "auto_capture",
+            review_required: false,
+            user_action_required: false,
+            auto_canonical: false,
+            dashboard_surface: "handoff"
           }
         }
       });
       expect(result.policy_decision).toMatchObject({
         policy_id: "default_autocapture_policy",
-        decision: "review",
-        review_required: true,
+        decision: "capture",
+        route: "auto_capture",
+        review_required: false,
+        user_action_required: false,
         auto_canonical: false,
+        dashboard_surface: "handoff",
         target_state: "candidate",
-        tags: expect.arrayContaining(["autocapture", "review", "host:claude"])
+        rule_ids: ["low_risk_handoff_auto_capture"],
+        tags: expect.arrayContaining(["autocapture", "auto-captured", "host:claude"])
       });
-      expect(result.policy_decision.reasons).toContain("default_review_for_agent_handoff");
+      expect(result.policy_decision.reasons).toContain("low_risk_handoff_auto_capture");
+    });
+  });
+
+  it("routes risky autocapture handoffs to Capture Inbox review", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      await mkdir(projectPath, { recursive: true });
+      await initializeProjectConfig(projectPath, { project_id: "moryn" });
+
+      const result = await captureSession({
+        storePath,
+        projectPath,
+        summary: "Decision: keep the local-only setup. Risk: approval path needs user review.",
+        agent: { client: "codex", session_id: "risk-1" },
+        currentTask: "capture automation"
+      });
+
+      expect(result.record.state).toBe("candidate");
+      expect(result.record.tags).toEqual(expect.arrayContaining(["autocapture", "review", "host:codex"]));
+      expect(result.record.tags).not.toContain("auto-captured");
+      expect(result.record.content.capture).toMatchObject({
+        policy: {
+          id: "default_autocapture_policy",
+          decision: "review",
+          route: "manual_review",
+          review_required: true,
+          user_action_required: true,
+          auto_canonical: false,
+          dashboard_surface: "capture_inbox",
+          rule_ids: ["review_risk_marker"]
+        }
+      });
+      expect(result.policy_decision).toMatchObject({
+        decision: "review",
+        route: "manual_review",
+        target_state: "candidate",
+        review_required: true,
+        user_action_required: true,
+        dashboard_surface: "capture_inbox",
+        rule_ids: ["review_risk_marker"]
+      });
+      expect(result.policy_decision.reasons).toContain("review_risk_marker");
     });
   });
 
@@ -128,8 +179,11 @@ describe("host adapters", () => {
       expect(result.policy_decision).toMatchObject({
         policy_id: "default_autocapture_policy",
         decision: "archive",
+        route: "policy_archive",
         review_required: false,
+        user_action_required: false,
         auto_canonical: false,
+        dashboard_surface: "capture_policy",
         target_state: "archived",
         rule_ids: ["smoke_test_marker"]
       });
@@ -137,13 +191,14 @@ describe("host adapters", () => {
         policy: {
           id: "default_autocapture_policy",
           decision: "archive",
+          route: "policy_archive",
           review_required: false
         }
       });
     });
   });
 
-  it("policy-archives duplicate autocapture text after the first review candidate", async () => {
+  it("policy-archives duplicate autocapture text after the first auto-captured candidate", async () => {
     await withInitializedTempStore(async (storePath) => {
       const projectPath = join(storePath, "project");
       await mkdir(projectPath, { recursive: true });
@@ -163,7 +218,8 @@ describe("host adapters", () => {
       });
 
       expect(first.record.state).toBe("candidate");
-      expect(first.record.tags).toContain("review");
+      expect(first.record.tags).toContain("auto-captured");
+      expect(first.record.tags).not.toContain("review");
       expect(duplicate.record.state).toBe("archived");
       expect(duplicate.record.visibility).toBe("archived");
       expect(duplicate.record.tags).toEqual(expect.arrayContaining([

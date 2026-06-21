@@ -91,9 +91,11 @@ Context Pack Review. Without project context the dashboard stays store-wide:
 ### Capture Inbox
 
 The live dashboard includes a `Capture Inbox` when agents have written active
-candidate records tagged `autocapture` or `review`. This is the v0.2.0 default
-review path for automatic capture: hosts can propose memory naturally, but the
-user keeps control over what becomes canonical long-term context.
+review candidate records. This is the v0.2.0 default review path only for
+captures that need a human decision: hosts can propose memory naturally, but
+low-risk handoffs can be auto-captured as local handoff evidence without making
+the user click every event. The user keeps control over what becomes canonical
+long-term context.
 
 Each card shows:
 
@@ -125,7 +127,7 @@ POST /api/capture-inbox/:record_id/approve
 ```
 
 The server replays the current store, verifies that the record is still an
-active candidate tagged `autocapture` or `review`, then appends a confirmed
+active review candidate, then appends a confirmed
 `promote_record` event with `source.client: "user"`.
 
 `Reject` posts to:
@@ -158,12 +160,16 @@ still decides through Approve Memory, Approve Group, Reject, or Reject Group.
 The rule id appears next to the signal so the suggestion stays explainable.
 
 `moryn capture session` also applies `default_autocapture_policy` before a
-capture reaches the inbox. Useful handoffs still enter Capture Inbox as
-reviewable candidates. Obvious smoke/test or duplicate captures are
-policy-archived immediately with append-only record evidence, so the user does
-not have to click through routine noise. The dashboard shows the archived count,
-rule ids, and recent examples under the Autocapture Policy summary. The policy
-never promotes anything to canonical memory automatically.
+capture reaches the inbox. Low-risk handoffs use `decision: "capture"` and are
+retained for context packs without user review or canonical promotion.
+Handoffs containing decisions, risks, blockers, credentials, permissions, or
+approval language use `decision: "review"` and enter Capture Inbox as
+reviewable candidates. Obvious smoke/test or duplicate captures use `decision:
+"archive"` and are policy-archived immediately with append-only record
+evidence, so the user does not have to click through routine noise. The
+dashboard shows auto-captured and archived counts, rule ids, and recent
+examples under the Autocapture Policy summary. The policy never promotes
+anything to canonical memory automatically.
 
 ### Capture Policy Audit
 
@@ -171,27 +177,33 @@ The dashboard includes a read-only `Capture Policy Audit` panel built from the
 same local report as `moryn capture policy` and MCP `capture_policy`. It shows:
 
 - the active `default_autocapture_policy`
+- how many handoffs were auto-captured without review
 - how many autocaptured records require review
 - how many were policy-archived before entering Capture Inbox
+- captured counts by rule id
 - archived counts by rule id
-- keyed findings such as `review_required` and `policy_archived`
+- keyed findings such as `auto_captured`, `review_required`, and
+  `policy_archived`
 - safe dashboard or timeline inspection actions such as
-  `inspect_policy_archived_record`
+  `inspect_auto_captured_handoff` and `inspect_policy_archived_record`
 - recent policy decisions with record ids, decision, rule ids, text, evidence,
   and the next action
 
-This panel explains automatic review/archive routing without adding a second
-policy mutation surface. Decisions routed to `review` render the same explicit
-Capture Inbox user actions: `Review in Capture Inbox`, `Approve Memory`, and
-`Reject`. Decisions routed to `archive` render `Policy archived`,
+This panel explains automatic capture/review/archive routing without adding a
+second policy mutation surface. Decisions routed to `capture` render
+`Auto-captured handoff`, `inspect_auto_captured_handoff`, and a read-only
+timeline command. Decisions routed to `review` render the same explicit Capture
+Inbox user actions: `Review in Capture Inbox`, `Approve Memory`, and `Reject`.
+Decisions routed to `archive` render `Policy archived`,
 `inspect_policy_archived_record`, and a read-only timeline command such as
 `moryn timeline --record-id <record_id> --project-id <project_id> --before 3 --after 3`.
-Archived decisions do not expose Approve, Reject, Promote, Archive, or Apply
-buttons.
+Auto-captured and archived decisions do not expose Approve, Reject, Promote,
+Archive, or Apply buttons.
 
-Canonical memory still requires explicit Capture Inbox user action. Archived
-policy decisions stay inspectable and reversible through append-only history,
-but the dashboard does not turn them back into inbox items automatically.
+Canonical memory still requires explicit Capture Inbox user action.
+Auto-captured and archived policy decisions stay inspectable and reversible
+through append-only history, but the dashboard does not turn them back into
+inbox items automatically.
 
 ### Memory Lifecycle
 

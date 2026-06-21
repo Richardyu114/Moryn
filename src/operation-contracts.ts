@@ -1133,7 +1133,7 @@ export const OPERATION_CONTRACTS = [
     category: "lifecycle",
     summary: "Capture a host-normalized session handoff summary, evaluate default_autocapture_policy, and keep canonical promotion under user control.",
     safe_to_run: false,
-    required_when: "Before ending a host session or handing work to another agent/device; policy may archive obvious noise or route useful handoffs to Capture Inbox.",
+    required_when: "Before ending a host session or handing work to another agent/device; policy may auto-capture low-risk handoffs, route risky handoffs to Capture Inbox, or archive obvious noise.",
     required_fields: ["summary"],
     argument_sources: userInputSources(["summary"]),
     arguments_by_name: captureSessionArguments,
@@ -2006,9 +2006,9 @@ export const OPERATION_CONTRACTS = [
   operationContract({
     operation: "capture_policy",
     category: "core",
-    summary: "Read-only Capture Policy Audit that explains autocapture review and archive decisions with rule evidence.",
+    summary: "Read-only Capture Policy Audit that explains autocapture capture, review, and archive decisions with rule evidence.",
     safe_to_run: true,
-    required_when: "When an agent or user needs to inspect why autocaptured handoffs entered Capture Inbox or were policy-archived before review.",
+    required_when: "When an agent or user needs to inspect why autocaptured handoffs were auto-captured, entered Capture Inbox, or were policy-archived before review.",
     required_fields: [],
     arguments_by_name: {
       ...projectContextArguments,

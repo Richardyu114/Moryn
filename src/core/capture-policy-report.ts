@@ -19,7 +19,7 @@ export interface CapturePolicyDiagnoseInput extends CapturePolicyInput {
   excluded_private_records?: number;
 }
 
-type CapturePolicyCategory = "review_queue" | "policy_archive";
+type CapturePolicyCategory = "auto_capture" | "review_queue" | "policy_archive";
 type CapturePolicySeverity = "info" | "warning";
 type CapturePolicyActionTool = "dashboard" | "timeline";
 
@@ -79,8 +79,10 @@ export interface CapturePolicySuggestedAction {
 export interface CapturePolicyStats {
   total_autocapture_records: number;
   excluded_private_records: number;
+  auto_captured_records: number;
   review_records: number;
   policy_archived_records: number;
+  captured_by_rule: Partial<Record<AutocapturePolicyRuleId, number>>;
   archived_by_rule: Partial<Record<AutocapturePolicyRuleId, number>>;
 }
 
@@ -143,10 +145,11 @@ function captureRuleIds(record: MorynRecord): AutocapturePolicyRuleId[] {
     ? payload.rule_ids.filter(isRuleId)
     : [];
   const tagRuleIds = record.tags
-    .map((tag) => tag.match(/^noise:(.+)$/)?.[1])
+    .map((tag) => tag.match(/^(?:noise|capture):(.+)$/)?.[1])
     .filter(isRuleId);
   if (payloadRuleIds.length || tagRuleIds.length) return [...new Set([...payloadRuleIds, ...tagRuleIds])];
   if (record.tags.includes("policy-archived") || record.state === "archived") return ["smoke_test_marker"];
+  if (record.tags.includes("auto-captured")) return ["low_risk_handoff_auto_capture"];
   return ["default_review_for_agent_handoff"];
 }
 
@@ -160,8 +163,10 @@ function captureReasons(record: MorynRecord, ruleIds: AutocapturePolicyRuleId[])
 
 function captureDecision(record: MorynRecord): AutocapturePolicyDecision {
   const payloadDecision = policyPayload(record)?.decision;
-  if (payloadDecision === "review" || payloadDecision === "archive") return payloadDecision;
-  return record.state === "archived" || record.tags.includes("policy-archived") ? "archive" : "review";
+  if (payloadDecision === "capture" || payloadDecision === "review" || payloadDecision === "archive") return payloadDecision;
+  if (record.state === "archived" || record.tags.includes("policy-archived")) return "archive";
+  if (record.tags.includes("auto-captured")) return "capture";
+  return "review";
 }
 
 function duplicateOfRecordId(record: MorynRecord): string | undefined {
@@ -207,7 +212,7 @@ function stableRecordSort(left: MorynRecord, right: MorynRecord): number {
 }
 
 function stableDecisionSort(left: CapturePolicyDecisionAudit, right: CapturePolicyDecisionAudit): number {
-  const priority = { review: 2, archive: 1 } satisfies Record<AutocapturePolicyDecision, number>;
+  const priority = { review: 3, capture: 2, archive: 1 } satisfies Record<AutocapturePolicyDecision, number>;
   return priority[right.decision] - priority[left.decision] || right.updated_at.localeCompare(left.updated_at) || left.record_id.localeCompare(right.record_id);
 }
 
@@ -220,7 +225,13 @@ function eventsById(events: MorynEvent[]): Record<string, MorynEvent> {
 }
 
 function stats(decisions: CapturePolicyDecisionAudit[], excludedPrivateRecords: number): CapturePolicyStats {
+  const capturedByRule: Partial<Record<AutocapturePolicyRuleId, number>> = {};
   const archivedByRule: Partial<Record<AutocapturePolicyRuleId, number>> = {};
+  for (const decision of decisions.filter((item) => item.decision === "capture")) {
+    for (const ruleId of decision.rule_ids) {
+      capturedByRule[ruleId] = (capturedByRule[ruleId] ?? 0) + 1;
+    }
+  }
   for (const decision of decisions.filter((item) => item.decision === "archive")) {
     for (const ruleId of decision.rule_ids) {
       archivedByRule[ruleId] = (archivedByRule[ruleId] ?? 0) + 1;
@@ -229,9 +240,24 @@ function stats(decisions: CapturePolicyDecisionAudit[], excludedPrivateRecords: 
   return {
     total_autocapture_records: decisions.length,
     excluded_private_records: excludedPrivateRecords,
+    auto_captured_records: decisions.filter((decision) => decision.decision === "capture").length,
     review_records: decisions.filter((decision) => decision.decision === "review").length,
     policy_archived_records: decisions.filter((decision) => decision.decision === "archive").length,
+    captured_by_rule: capturedByRule,
     archived_by_rule: archivedByRule
+  };
+}
+
+function captureFinding(decisions: CapturePolicyDecisionAudit[]): CapturePolicyFinding | undefined {
+  const recordIds = decisions.filter((decision) => decision.decision === "capture").map((decision) => decision.record_id);
+  if (!recordIds.length) return undefined;
+  return {
+    id: "auto_captured",
+    category: "auto_capture",
+    severity: "info",
+    summary: "Autocapture policy retained low-risk handoffs without review.",
+    reason: `${recordIds.length} autocapture record${recordIds.length === 1 ? "" : "s"} were retained for context packs without canonical promotion.`,
+    record_ids: recordIds
   };
 }
 
@@ -242,7 +268,7 @@ function reviewFinding(decisions: CapturePolicyDecisionAudit[]): CapturePolicyFi
     id: "review_required",
     category: "review_queue",
     severity: recordIds.length > 5 ? "warning" : "info",
-    summary: "Autocapture policy routed useful handoffs to manual review.",
+    summary: "Autocapture policy routed risk-marked handoffs to manual review.",
     reason: `${recordIds.length} autocapture record${recordIds.length === 1 ? "" : "s"} require user review before canonical memory.`,
     record_ids: recordIds
   };
@@ -327,21 +353,24 @@ function reviewCaptureAction(projectId: string | undefined): CapturePolicySugges
   });
 }
 
-function inspectArchivedAction(recordId: string, projectId: string | undefined): CapturePolicySuggestedAction {
+function inspectDecisionAction(decision: AutocapturePolicyDecision, recordId: string, projectId: string | undefined): CapturePolicySuggestedAction {
   const args = {
     record_id: recordId,
     ...(projectId ? { project_id: projectId } : {}),
     before: 3,
     after: 3
   };
+  const autoCaptured = decision === "capture";
   return withSuggestedActionMetadata({
     action_id: `inspect:${recordId}`,
-    recommended_action: "inspect_policy_archived_record",
+    recommended_action: autoCaptured ? "inspect_auto_captured_handoff" : "inspect_policy_archived_record",
     tool: "timeline",
     command: commandForTimelineContext(args),
     arguments: args,
     safe_to_run: true,
-    required_when: "When reviewing why an autocapture was archived by policy instead of shown in Capture Inbox."
+    required_when: autoCaptured
+      ? "When inspecting a low-risk handoff retained automatically outside Capture Inbox."
+      : "When reviewing why an autocapture was archived by policy instead of shown in Capture Inbox."
   });
 }
 
@@ -358,6 +387,7 @@ export function diagnoseCapturePolicy(input: CapturePolicyDiagnoseInput): Captur
   const records = [...input.records].filter(isAutocaptureRecord).sort(stableRecordSort);
   const decisions = records.map((record) => decisionAudit(record, input.events)).sort(stableDecisionSort);
   const findings = [
+    captureFinding(decisions),
     reviewFinding(decisions),
     archiveFinding(decisions)
   ].filter((finding): finding is CapturePolicyFinding => finding !== undefined);
@@ -365,8 +395,9 @@ export function diagnoseCapturePolicy(input: CapturePolicyDiagnoseInput): Captur
   const actions = uniqueActions([
     ...(decisions.some((decision) => decision.decision === "review") ? [reviewCaptureAction(input.project_id)] : []),
     ...decisions
-      .filter((decision) => decision.decision === "archive")
-      .map((decision) => inspectArchivedAction(
+      .filter((decision) => decision.decision === "capture" || decision.decision === "archive")
+      .map((decision) => inspectDecisionAction(
+        decision.decision,
         decision.record_id,
         input.project_id ?? sourceRecordsById[decision.record_id]?.project_id
       ))

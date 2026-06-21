@@ -3219,9 +3219,13 @@ describe("moryn CLI", () => {
         policy_decision: {
           policy_id: string;
           decision: string;
+          route: string;
           review_required: boolean;
+          user_action_required: boolean;
           auto_canonical: boolean;
+          dashboard_surface: string;
           target_state: string;
+          rule_ids: string[];
         };
         record: {
           kind: string;
@@ -3236,15 +3240,21 @@ describe("moryn CLI", () => {
       expect(parsed.mode).toBe("capture_session");
       expect(parsed.policy_decision).toMatchObject({
         policy_id: "default_autocapture_policy",
-        decision: "review",
-        review_required: true,
+        decision: "capture",
+        route: "auto_capture",
+        review_required: false,
+        user_action_required: false,
         auto_canonical: false,
+        dashboard_surface: "handoff",
+        rule_ids: ["low_risk_handoff_auto_capture"],
         target_state: "candidate"
       });
       expect(parsed.record.kind).toBe("session_summary");
       expect(parsed.record.type).toBe("summary");
       expect(parsed.record.project_id).toBe("moryn");
       expect(parsed.record.tags).toContain("autocapture");
+      expect(parsed.record.tags).toContain("auto-captured");
+      expect(parsed.record.tags).not.toContain("review");
       expect(parsed.record.source).toMatchObject({ client: "claude", session_id: "s1" });
       expect(parsed.record.content.text).toBe("Finished planner");
       expect(parsed.record.content.capture).toMatchObject({
@@ -3252,7 +3262,9 @@ describe("moryn CLI", () => {
         current_task: "design host adapter",
         policy: {
           id: "default_autocapture_policy",
-          decision: "review"
+          decision: "capture",
+          route: "auto_capture",
+          dashboard_surface: "handoff"
         }
       });
 
@@ -3885,6 +3897,34 @@ describe("moryn CLI", () => {
           }
         })
       ])).stdout) as { record: { id: string } };
+      const captured = JSON.parse((await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "write",
+        "--kind", "session_summary",
+        "--project-id", "moryn",
+        "--tag", "autocapture",
+        "--tag", "auto-captured",
+        "--tag", "host:codex",
+        "--content-json", JSON.stringify({
+          text: "CLI low-risk handoff retained for context packs.",
+          format: "json",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "capture",
+              route: "auto_capture",
+              review_required: false,
+              user_action_required: false,
+              auto_canonical: false,
+              dashboard_surface: "handoff",
+              rule_ids: ["low_risk_handoff_auto_capture"],
+              reasons: ["low_risk_handoff_auto_capture"]
+            }
+          }
+        })
+      ])).stdout) as { record: { id: string } };
       await exec("node", [
         "--import", tsxLoader, cliPath, "--store", dir,
         "write",
@@ -3906,8 +3946,16 @@ describe("moryn CLI", () => {
       const parsed = JSON.parse(result.stdout) as {
         read_only: boolean;
         policy: { id: string; auto_canonical: boolean };
-        stats: { total_autocapture_records: number; excluded_private_records: number; review_records: number; policy_archived_records: number; archived_by_rule: Record<string, number> };
-        decisions_by_record_id: Record<string, { decision: string; rule_ids: string[] }>;
+        stats: {
+          total_autocapture_records: number;
+          excluded_private_records: number;
+          auto_captured_records: number;
+          review_records: number;
+          policy_archived_records: number;
+          captured_by_rule: Record<string, number>;
+          archived_by_rule: Record<string, number>;
+        };
+        decisions_by_record_id: Record<string, { decision: string; review_required: boolean; rule_ids: string[] }>;
         suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
         records_by_id: Record<string, { id: string }>;
       };
@@ -3919,14 +3967,22 @@ describe("moryn CLI", () => {
         auto_canonical: false
       });
       expect(parsed.stats).toMatchObject({
-        total_autocapture_records: 2,
+        total_autocapture_records: 3,
         excluded_private_records: 1,
+        auto_captured_records: 1,
         review_records: 1,
         policy_archived_records: 1,
+        captured_by_rule: { low_risk_handoff_auto_capture: 1 },
         archived_by_rule: { smoke_test_marker: 1 }
+      });
+      expect(parsed.decisions_by_record_id[captured.record.id]).toMatchObject({
+        decision: "capture",
+        review_required: false,
+        rule_ids: ["low_risk_handoff_auto_capture"]
       });
       expect(parsed.decisions_by_record_id[review.record.id]).toMatchObject({
         decision: "review",
+        review_required: true,
         rule_ids: ["default_review_for_agent_handoff"]
       });
       expect(parsed.decisions_by_record_id[archived.record.id]).toMatchObject({

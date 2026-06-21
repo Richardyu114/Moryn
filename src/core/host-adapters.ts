@@ -512,8 +512,11 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
           id: policyDecision.policy_id,
           version: policyDecision.version,
           decision: policyDecision.decision,
+          route: policyDecision.route,
           review_required: policyDecision.review_required,
+          user_action_required: policyDecision.user_action_required,
           auto_canonical: policyDecision.auto_canonical,
+          dashboard_surface: policyDecision.dashboard_surface,
           rule_ids: policyDecision.rule_ids,
           reasons: policyDecision.reasons,
           ...(policyDecision.duplicate_of_record_id ? { duplicate_of_record_id: policyDecision.duplicate_of_record_id } : {})
@@ -527,7 +530,9 @@ export async function captureSession(input: CaptureSessionInput): Promise<Captur
       method: "agent-proposed",
       reason: policyDecision.decision === "archive"
         ? `Autocapture policy archived this handoff: ${policyDecision.reasons.join(", ")}.`
-        : "Captured through Moryn host adapter autocapture."
+        : policyDecision.decision === "capture"
+          ? "Autocapture policy retained this low-risk handoff without canonical promotion."
+          : "Captured through Moryn host adapter autocapture."
     }
   });
 

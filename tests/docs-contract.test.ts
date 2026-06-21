@@ -76,11 +76,13 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("moryn capture policy");
     expect(dashboard).toContain("capture_policy");
     expect(dashboard).toContain("Review in Capture Inbox");
+    expect(dashboard).toContain("Auto-captured handoff");
     expect(dashboard).toContain("Approve Memory");
     expect(dashboard).toContain("Policy archived");
+    expect(dashboard).toContain("inspect_auto_captured_handoff");
     expect(dashboard).toContain("inspect_policy_archived_record");
     expect(dashboard).toContain("read-only timeline command");
-    expect(dashboard).toContain("does not turn them back into inbox items automatically");
+    expectText(dashboard, "does not turn them back into inbox items automatically");
     expect(dashboard).toContain("smoke_test_marker");
     expect(dashboard).toContain("duplicate_text");
     expect(contracts).toContain("default_capture_review_policy");
@@ -95,8 +97,10 @@ describe("documentation contracts", () => {
     expectText(contracts, "does not call the host adapter context_pack operation");
     expectText(contracts, "does not expose a Context Pack approve or apply endpoint");
     expectText(contracts, "does not create a background executor");
-    expect(contracts).toContain("Review decisions reuse the existing Capture Inbox");
-    expect(contracts).toContain("policy-archived decisions expose only");
+    expect(contracts).toContain('decision: "capture"');
+    expect(contracts).toContain("inspect_auto_captured_handoff");
+    expectText(contracts, "Review decisions reuse the existing Capture Inbox");
+    expectText(contracts, "policy-archived decisions expose only");
     expectText(contracts, "does not expose a separate Capture Policy apply endpoint");
     expect(contracts).toContain("policy_decision");
     expect(contracts).toContain("canonical memory requires explicit user");
@@ -113,6 +117,7 @@ describe("documentation contracts", () => {
     expectText(readme, "Context Pack Review");
     expect(readme).toContain("context_pack_review");
     expectText(readme, "read-only handoff readiness");
+    expect(readme).toContain("auto-captured local");
     expect(dashboard).toContain("POST /api/maintenance/plans/:plan_id/approve");
     expect(dashboard).toContain("plan_hash");
     expect(dashboard).toContain("decision card");

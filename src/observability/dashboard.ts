@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { normalizeAgentIdentity } from "../core/agent-identity.js";
-import { DEFAULT_AUTOCAPTURE_POLICY, type AutocapturePolicyRuleId } from "../core/autocapture-policy.js";
+import { DEFAULT_AUTOCAPTURE_POLICY, type AutocapturePolicyDecision, type AutocapturePolicyRuleId } from "../core/autocapture-policy.js";
 import { diagnoseCapturePolicy, type CapturePolicyResult } from "../core/capture-policy-report.js";
 import { displayRecordText } from "../core/content-text.js";
 import { createEngine } from "../core/engine.js";
@@ -325,7 +325,16 @@ export interface DashboardAutocapturePolicySummary {
   mode: typeof DEFAULT_AUTOCAPTURE_POLICY.mode;
   auto_canonical: false;
   canonical_requires_user_action: true;
+  capture_low_risk_without_review: true;
   archive_noise_without_review: true;
+  auto_captured_total: number;
+  captured_by_rule: Partial<Record<AutocapturePolicyRuleId, number>>;
+  auto_captured_examples: Array<{
+    id: string;
+    text: string;
+    rule_ids: AutocapturePolicyRuleId[];
+    reason?: string;
+  }>;
   archived_total: number;
   archived_by_rule: Partial<Record<AutocapturePolicyRuleId, number>>;
   archived_examples: Array<{
@@ -948,17 +957,28 @@ function capturePolicyInspectActionId(recordId: string): string {
   return `capture_policy.inspect.${recordId}`;
 }
 
+function recordCapturePolicyDecision(record: MorynRecord): AutocapturePolicyDecision | undefined {
+  const capture = record.content.capture;
+  if (typeof capture !== "object" || capture === null || Array.isArray(capture)) return undefined;
+  const policy = (capture as Record<string, unknown>).policy;
+  if (typeof policy !== "object" || policy === null || Array.isArray(policy)) return undefined;
+  const decision = (policy as Record<string, unknown>).decision;
+  return decision === "capture" || decision === "review" || decision === "archive" ? decision : undefined;
+}
+
 function maintenanceApproveActionId(plan: DashboardMaintenancePlan): string {
   return `maintenance.plan.approve.${plan.plan_hash.replace(/^sha256:/, "")}`;
 }
 
 function isCaptureInboxCandidate(record: MorynRecord): boolean {
+  const decision = recordCapturePolicyDecision(record);
   return record.state === "candidate"
     && record.visibility === "active"
     && record.tags.some((tag) => {
       const normalized = tag.toLowerCase();
-      return normalized === "review" || normalized === "autocapture";
-    });
+      return normalized === "review";
+    })
+    && decision !== "capture";
 }
 
 function captureGroupKey(record: MorynRecord): string {
@@ -1011,10 +1031,19 @@ function capturePolicyRuleIds(record: MorynRecord): AutocapturePolicyRuleId[] {
   const ruleIds = (policy as Record<string, unknown>).rule_ids;
   if (!Array.isArray(ruleIds)) return [];
   return ruleIds.filter((ruleId): ruleId is AutocapturePolicyRuleId => {
-    return ruleId === "default_review_for_agent_handoff"
+    return ruleId === "low_risk_handoff_auto_capture"
+      || ruleId === "review_risk_marker"
+      || ruleId === "default_review_for_agent_handoff"
       || ruleId === "smoke_test_marker"
       || ruleId === "duplicate_text";
   });
+}
+
+function isAutoCapturedAutocapture(record: MorynRecord): boolean {
+  return record.state === "candidate"
+    && record.visibility === "active"
+    && record.tags.some((tag) => tag.toLowerCase() === "autocapture")
+    && (record.tags.some((tag) => tag.toLowerCase() === "auto-captured") || recordCapturePolicyDecision(record) === "capture");
 }
 
 function isPolicyArchivedAutocapture(record: MorynRecord): boolean {
@@ -1025,10 +1054,20 @@ function isPolicyArchivedAutocapture(record: MorynRecord): boolean {
 }
 
 function buildAutocapturePolicySummary(records: MorynRecord[], limit: number): DashboardAutocapturePolicySummary {
+  const captured = records
+    .filter(isAutoCapturedAutocapture)
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
   const archived = records
     .filter(isPolicyArchivedAutocapture)
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
+  const capturedByRule: Partial<Record<AutocapturePolicyRuleId, number>> = {};
   const archivedByRule: Partial<Record<AutocapturePolicyRuleId, number>> = {};
+  for (const record of captured) {
+    const ruleIds = capturePolicyRuleIds(record);
+    for (const ruleId of ruleIds) {
+      capturedByRule[ruleId] = (capturedByRule[ruleId] ?? 0) + 1;
+    }
+  }
   for (const record of archived) {
     const ruleIds = capturePolicyRuleIds(record);
     for (const ruleId of ruleIds) {
@@ -1041,7 +1080,16 @@ function buildAutocapturePolicySummary(records: MorynRecord[], limit: number): D
     mode: DEFAULT_AUTOCAPTURE_POLICY.mode,
     auto_canonical: DEFAULT_AUTOCAPTURE_POLICY.auto_canonical,
     canonical_requires_user_action: DEFAULT_AUTOCAPTURE_POLICY.canonical_requires_user_action,
+    capture_low_risk_without_review: DEFAULT_AUTOCAPTURE_POLICY.capture_low_risk_without_review,
     archive_noise_without_review: DEFAULT_AUTOCAPTURE_POLICY.archive_noise_without_review,
+    auto_captured_total: captured.length,
+    captured_by_rule: capturedByRule,
+    auto_captured_examples: captured.slice(0, limit).map((record) => ({
+      id: record.id,
+      text: recordText(record),
+      rule_ids: capturePolicyRuleIds(record),
+      reason: record.provenance?.reason
+    })),
     archived_total: archived.length,
     archived_by_rule: archivedByRule,
     archived_examples: archived.slice(0, limit).map((record) => ({
@@ -1431,7 +1479,7 @@ function captureInboxActions(inbox: DashboardCaptureInbox): DashboardAction[] {
 
 function capturePolicyActions(report: CapturePolicyResult): DashboardAction[] {
   return report.suggested_actions
-    .filter((action) => action.recommended_action === "inspect_policy_archived_record")
+    .filter((action) => action.recommended_action === "inspect_policy_archived_record" || action.recommended_action === "inspect_auto_captured_handoff")
     .flatMap((action): DashboardAction[] => {
       const recordId = typeof action.arguments.record_id === "string" ? action.arguments.record_id : undefined;
       if (!recordId) return [];
@@ -1920,6 +1968,7 @@ function capturePolicyDecisionCards(report: CapturePolicyResult): string {
     <div class="capture-policy-decisions">
       ${report.decisions.slice(0, 8).map((decision) => {
         const isReview = decision.decision === "review";
+        const isCapture = decision.decision === "capture";
         const isActionableReview = isReview && decision.state === "candidate";
         const inspectCommand = capturePolicyInspectCommand(report, decision.record_id);
         const inspectAction = capturePolicyInspectAction(report, decision.record_id);
@@ -1927,13 +1976,17 @@ function capturePolicyDecisionCards(report: CapturePolicyResult): string {
           ? "Review in Capture Inbox"
           : isReview
             ? "Review already handled"
-            : "Policy archived";
+            : isCapture
+              ? "Auto-captured handoff"
+              : "Policy archived";
         const stateHint = isActionableReview
           ? "User action required"
-          : "No inbox action";
+          : isCapture
+            ? "No user action required"
+            : "No inbox action";
         return `
           <article
-            class="capture-policy-decision ${isReview ? "review" : "archived"}"
+            class="capture-policy-decision ${isReview ? "review" : isCapture ? "captured" : "archived"}"
             data-capture-policy-decision="${escapeHtml(decision.record_id)}"
             ${isActionableReview ? `data-capture-inbox-record="${escapeHtml(decision.record_id)}"` : ""}
           >
@@ -1942,7 +1995,7 @@ function capturePolicyDecisionCards(report: CapturePolicyResult): string {
                 <h3>${escapeHtml(title)}</h3>
                 <p>${escapeHtml(decision.text)}</p>
               </div>
-              <span class="pill ${isReview ? "state-candidate" : "state-archived"}">${escapeHtml(decision.decision)}</span>
+              <span class="pill ${isReview || isCapture ? "state-candidate" : "state-archived"}">${escapeHtml(decision.decision)}</span>
             </div>
             <dl class="capture-inbox-summary">
               <div><dt>Rule</dt><dd>${decision.rule_ids.map((ruleId) => `<code>${escapeHtml(ruleId)}</code>`).join(" ") || "none"}</dd></div>
@@ -1978,6 +2031,9 @@ function capturePolicyDecisionCards(report: CapturePolicyResult): string {
 
 function capturePolicyAuditPanel(report: CapturePolicyResult): string {
   if (report.stats.total_autocapture_records === 0) return "";
+  const capturedRuleSummary = Object.entries(report.stats.captured_by_rule)
+    .map(([ruleId, count]) => `${ruleId}: ${count}`)
+    .join(" / ") || "no auto-captured handoffs";
   const ruleSummary = Object.entries(report.stats.archived_by_rule)
     .map(([ruleId, count]) => `${ruleId}: ${count}`)
     .join(" / ") || "no archived noise";
@@ -1985,7 +2041,7 @@ function capturePolicyAuditPanel(report: CapturePolicyResult): string {
     <section class="panel capture-policy-audit" aria-label="Capture Policy Audit">
       <div class="lifecycle-heading">
         <h2>Capture Policy Audit</h2>
-        <span>${escapeHtml(pluralize(report.stats.review_records, "review"))} | ${escapeHtml(pluralize(report.stats.policy_archived_records, "archived"))}</span>
+        <span>${escapeHtml(pluralize(report.stats.auto_captured_records, "auto-captured"))} | ${escapeHtml(pluralize(report.stats.review_records, "review"))} | ${escapeHtml(pluralize(report.stats.policy_archived_records, "archived"))}</span>
       </div>
       <div class="lifecycle-policy">
         <div>
@@ -1994,6 +2050,7 @@ function capturePolicyAuditPanel(report: CapturePolicyResult): string {
         </div>
         <span>Report read-only</span>
         <span>No auto-canonical</span>
+        <span>${escapeHtml(capturedRuleSummary)}</span>
         <span>${escapeHtml(ruleSummary)}</span>
       </div>
       <div class="lifecycle-findings">
@@ -2135,7 +2192,7 @@ function recentValueCards(records: DashboardValueRecord[]): string {
 }
 
 function captureInbox(items: DashboardCaptureInbox): string {
-  if (items.total === 0 && items.autocapture_policy.archived_total === 0) return "";
+  if (items.total === 0 && items.autocapture_policy.auto_captured_total === 0 && items.autocapture_policy.archived_total === 0) return "";
   return `
     <section class="panel capture-inbox" aria-label="Capture Inbox">
       <div class="capture-inbox-heading">
@@ -2161,9 +2218,25 @@ function captureInbox(items: DashboardCaptureInbox): string {
           <code>${escapeHtml(items.autocapture_policy.id)}</code>
         </div>
         <span>No auto-canonical</span>
+        <span>Auto-captured ${escapeHtml(items.autocapture_policy.auto_captured_total)}</span>
         <span>Policy archived ${escapeHtml(items.autocapture_policy.archived_total)}</span>
+        <span>${escapeHtml(Object.entries(items.autocapture_policy.captured_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no auto-captured handoffs")}</span>
         <span>${escapeHtml(Object.entries(items.autocapture_policy.archived_by_rule).map(([ruleId, count]) => `${ruleId}: ${count}`).join(" / ") || "no archived noise")}</span>
       </div>
+      ${items.autocapture_policy.auto_captured_examples.length ? `
+        <details class="capture-policy-rules" data-dashboard-detail="autocapture-policy-captured:${escapeHtml(items.autocapture_policy.id)}">
+          <summary>Auto-captured handoffs</summary>
+          <ul class="capture-policy-rule-list">
+            ${items.autocapture_policy.auto_captured_examples.map((example) => `
+              <li>
+                <code>${escapeHtml(example.id)}</code>
+                <strong>${escapeHtml(example.rule_ids.join(", ") || "policy")}</strong>
+                <span>${escapeHtml(example.text)}${example.reason ? ` ${escapeHtml(example.reason)}` : ""}</span>
+              </li>
+            `).join("")}
+          </ul>
+        </details>
+      ` : ""}
       ${items.autocapture_policy.archived_examples.length ? `
         <details class="capture-policy-rules" data-dashboard-detail="autocapture-policy:${escapeHtml(items.autocapture_policy.id)}">
           <summary>Policy archived captures</summary>
@@ -3241,7 +3314,7 @@ async function applyCaptureInboxAction(
       body: {
         ok: false,
         status: "not_actionable",
-        message: "Capture Inbox actions require an active candidate record tagged review or autocapture."
+        message: "Capture Inbox actions require an active review candidate record."
       }
     };
   }

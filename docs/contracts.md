@@ -112,9 +112,12 @@ stable evidence paths such as `sections.boot.project.important_decisions[]`,
 `sections.handoff.inbox[]`, and `next.actions_by_id.capture_session`.
 `capture_session` evaluates `default_autocapture_policy`, returns
 `policy_decision`, and writes an autocapture `session_summary` with normalized
-host provenance. Normal handoffs enter Capture Inbox as candidates; obvious
-smoke/test or duplicate captures are archived with policy evidence. The policy
-never makes canonical memory automatically.
+host provenance. Low-risk handoffs use `decision: "capture"` and remain local
+handoff evidence without requiring a user click. Handoffs with decisions, risks,
+blockers, credentials, permissions, or approval language use `decision:
+"review"` and enter Capture Inbox as candidates. Obvious smoke/test or duplicate
+captures use `decision: "archive"` and are archived with policy evidence. The
+policy never makes canonical memory automatically.
 
 The timeline read operation is available through the same registry:
 
@@ -263,7 +266,7 @@ POST /api/capture-inbox/groups/:group_id/approve
 POST /api/capture-inbox/groups/:group_id/reject
 ```
 
-`approve` promotes one active candidate tagged `autocapture` or `review` to
+`approve` promotes one active review candidate to
 canonical memory with `source.client: "user"` and explicit confirmation.
 `reject` archives one active candidate. Both endpoints replay the current store
 before writing and return `409` when the record is no longer actionable. Group
@@ -280,10 +283,11 @@ action, grouping by `project_or_scope`, `source_client`, `source_session`, and
 signals include stable rule ids such as `smoke_test_marker` and
 `duplicate_text` so dashboard suggestions remain explainable.
 `default_autocapture_policy` is the write-time policy used by
-`capture_session`: normal captures are routed to review, while obvious
-smoke/test or duplicate captures are policy-archived without entering the
-review queue. These archived examples stay inspectable through
-`capture_inbox.autocapture_policy.archived_examples[]`.
+`capture_session`: low-risk captures are auto-captured for handoff evidence,
+risk-marked captures are routed to review, and obvious smoke/test or duplicate
+captures are policy-archived without entering the review queue. Auto-captured
+and archived examples stay inspectable through
+`capture_inbox.autocapture_policy`.
 
 `/api/dashboard` also returns a Safe Action Registry under `actions[]` and
 `actions_by_id.<action_id>`. It indexes the same controls rendered in HTML:
@@ -321,11 +325,12 @@ This means the dashboard does not call the host adapter context_pack operation.
 as `moryn capture policy` and MCP `capture_policy`. It includes
 `policy`, `stats`, `decisions_by_record_id`, `findings_by_id`,
 `suggested_actions_by_id`, and keyed record/event evidence for autocapture
-review/archive decisions. Suggested actions are dashboard or timeline
-inspection only. Review decisions reuse the existing Capture Inbox approval
-and rejection endpoints, while policy-archived decisions expose only
-`inspect_policy_archived_record` timeline commands. The dashboard does not
-expose a separate Capture Policy apply endpoint.
+capture/review/archive decisions. Suggested actions are dashboard or timeline
+inspection only. Capture decisions expose `inspect_auto_captured_handoff`
+timeline commands and do not enter Capture Inbox. Review decisions reuse the
+existing Capture Inbox approval and rejection endpoints, while policy-archived
+decisions expose only `inspect_policy_archived_record` timeline commands. The
+dashboard does not expose a separate Capture Policy apply endpoint.
 
 `/api/dashboard` also returns `memory_lifecycle`, the same read-only report
 shape as `moryn memory lifecycle` and MCP `memory_lifecycle`. The dashboard

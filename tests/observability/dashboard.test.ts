@@ -1901,6 +1901,152 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("keeps auto-captured handoffs out of Capture Inbox while preserving audit evidence", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-06-01T10:11:00.000Z",
+        id: (prefix: string) => prefix === "rec" ? "rec_auto_capture_1" : "evt_auto_capture_1"
+      });
+
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "auto-captured", "host:codex"],
+        content: {
+          format: "json",
+          text: "Codex finished setup wizard polish.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "capture",
+              route: "auto_capture",
+              review_required: false,
+              user_action_required: false,
+              auto_canonical: false,
+              dashboard_surface: "handoff",
+              rule_ids: ["low_risk_handoff_auto_capture"],
+              reasons: ["low_risk_handoff_auto_capture"]
+            }
+          }
+        },
+        source: { client: "codex", session_id: "auto-capture" },
+        provenance: {
+          method: "agent-proposed",
+          reason: "Autocapture policy retained this low-risk handoff without canonical promotion."
+        }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10 }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        actions_by_id: Record<string, {
+          action_id: string;
+          surface: string;
+          kind: string;
+          label: string;
+          intent: string;
+          command?: string;
+          safety: {
+            safe_to_auto_run: boolean;
+            requires_user_confirmation: boolean;
+            writes: string;
+          };
+          source_path: string;
+        }>;
+        capture_inbox: {
+          total: number;
+          autocapture_policy: {
+            auto_captured_total: number;
+            captured_by_rule: Record<string, number>;
+            auto_captured_examples: Array<{ id: string; text: string; rule_ids: string[]; reason?: string }>;
+          };
+          items: Array<{ id: string; text: string }>;
+        };
+        capture_policy: {
+          stats: {
+            total_autocapture_records: number;
+            auto_captured_records: number;
+            review_records: number;
+            policy_archived_records: number;
+            captured_by_rule: Record<string, number>;
+          };
+          decisions_by_record_id: Record<string, { decision: string; review_required: boolean; auto_canonical: boolean; rule_ids: string[] }>;
+          findings_by_id: Record<string, { category: string; record_ids: string[] }>;
+          suggested_actions_by_id: Record<string, { recommended_action: string; tool: string; safe_to_run: boolean }>;
+        };
+      };
+
+      expect(data.capture_inbox.total).toBe(0);
+      expect(data.capture_inbox.items).toHaveLength(0);
+      expect(data.capture_inbox.autocapture_policy).toMatchObject({
+        auto_captured_total: 1,
+        captured_by_rule: { low_risk_handoff_auto_capture: 1 },
+        auto_captured_examples: [
+          expect.objectContaining({
+            id: "rec_auto_capture_1",
+            text: "Codex finished setup wizard polish.",
+            rule_ids: ["low_risk_handoff_auto_capture"],
+            reason: "Autocapture policy retained this low-risk handoff without canonical promotion."
+          })
+        ]
+      });
+      expect(data.capture_policy.stats).toMatchObject({
+        total_autocapture_records: 1,
+        auto_captured_records: 1,
+        review_records: 0,
+        policy_archived_records: 0,
+        captured_by_rule: { low_risk_handoff_auto_capture: 1 }
+      });
+      expect(data.capture_policy.decisions_by_record_id.rec_auto_capture_1).toMatchObject({
+        decision: "capture",
+        review_required: false,
+        auto_canonical: false,
+        rule_ids: ["low_risk_handoff_auto_capture"]
+      });
+      expect(data.capture_policy.findings_by_id.auto_captured).toMatchObject({
+        category: "auto_capture",
+        record_ids: ["rec_auto_capture_1"]
+      });
+      expect(data.capture_policy.suggested_actions_by_id["inspect:rec_auto_capture_1"]).toMatchObject({
+        recommended_action: "inspect_auto_captured_handoff",
+        tool: "timeline",
+        safe_to_run: true
+      });
+      expect(data.actions_by_id["capture_inbox.record.approve.rec_auto_capture_1"]).toBeUndefined();
+      expect(data.actions_by_id["capture_inbox.record.reject.rec_auto_capture_1"]).toBeUndefined();
+      expect(data.actions_by_id["capture_policy.inspect.rec_auto_capture_1"]).toMatchObject({
+        action_id: "capture_policy.inspect.rec_auto_capture_1",
+        surface: "capture_policy",
+        kind: "cli_command",
+        label: "inspect_auto_captured_handoff",
+        intent: "inspect",
+        safety: {
+          safe_to_auto_run: true,
+          requires_user_confirmation: false,
+          writes: "none"
+        },
+        source_path: "capture_policy.suggested_actions_by_id.inspect:rec_auto_capture_1"
+      });
+
+      const html = renderDashboardHtml(data);
+      expect(html).toContain("Auto-captured handoff");
+      expect(html).toContain("Auto-captured 1");
+      expect(html).toContain("low_risk_handoff_auto_capture");
+      expect(html).toContain("Codex finished setup wizard polish.");
+      expect(html).toContain("inspect_auto_captured_handoff");
+      expect(html).toContain("moryn timeline --record-id rec_auto_capture_1 --project-id moryn --before 3 --after 3");
+      expect(html).not.toContain("api/capture-inbox/rec_auto_capture_1/approve");
+      expect(html).not.toContain("api/capture-inbox/rec_auto_capture_1/reject");
+    });
+  });
+
   it("does not render Capture Policy review actions for records no longer actionable in Capture Inbox", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
@@ -2427,7 +2573,7 @@ describe("observability dashboard", () => {
         expect(body).toEqual({
           ok: false,
           status: "not_actionable",
-          message: "Capture Inbox actions require an active candidate record tagged review or autocapture."
+          message: "Capture Inbox actions require an active review candidate record."
         });
       } finally {
         await server.close();

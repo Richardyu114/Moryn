@@ -295,13 +295,16 @@ user approved the specific plan. Serve with `--include-private` only when the
 user explicitly asked private-tagged memories to be included in the review and
 repair.
 
-For autocaptured session handoffs, use the dashboard `Capture Inbox` instead of
-asking the agent to promote its own output. `Approve Memory` promotes a current
-candidate to canonical memory with user confirmation. `Reject` archives the
-candidate. Both actions append events and preserve the audit trail.
-`default_autocapture_policy` may archive obvious smoke/test or duplicate
-captures before they enter the inbox, but the dashboard still shows the
-policy-archived count, rule ids, and recent examples.
+For autocaptured session handoffs, use `moryn capture session` and let
+`default_autocapture_policy` choose the route. Low-risk handoffs are
+auto-captured as local handoff evidence for context packs without a user click.
+Decision, risk, blocker, permission, credential, or approval handoffs enter the
+dashboard `Capture Inbox`. `Approve Memory` promotes a current review candidate
+to canonical memory with user confirmation. `Reject` archives the candidate.
+Both actions append events and preserve the audit trail. Obvious smoke/test or
+duplicate captures may be policy-archived before they enter the inbox, but the
+dashboard still shows auto-captured and policy-archived counts, rule ids, and
+recent examples.
 
 When an agent needs to explain automatic capture routing without changing
 memory, call `moryn capture policy --project . --limit 20` or MCP

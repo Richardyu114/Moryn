@@ -72,10 +72,12 @@ checks whether key sections, evidence paths, and the required capture action
 are present before another agent trusts the pack. It also includes the required
 `capture_session` next action. `moryn capture session` evaluates
 `default_autocapture_policy` and records an autocapture handoff so the next
-agent, host, or device can resume from the same store. Useful handoffs enter
-the dashboard Capture Inbox as candidates; obvious smoke/test or duplicate
-captures are archived with policy evidence. Nothing becomes canonical memory
-without user approval.
+agent, host, or device can resume from the same store. Low-risk handoffs are
+auto-captured as local handoff evidence without a user click. Handoffs that
+mention decisions, risks, blockers, credentials, permissions, or approval enter
+the dashboard Capture Inbox as review candidates; obvious smoke/test or
+duplicate captures are archived with policy evidence. Nothing becomes canonical
+memory without user approval.
 
 ## What It Stores
 
@@ -248,18 +250,20 @@ button. Raw evidence still exposes the dry-run hash, private record counts,
 record ids, safety checks, and CLI command. Approval re-runs the plan server
 side before writing append-only migration events.
 
-The same live dashboard also shows a Capture Inbox for `autocapture` or
-`review` candidate records. Approve Memory appends a confirmed `promote_record`
-event to make the candidate canonical; Reject appends an `archive_record`
-event. Neither action rewrites history or silently promotes agent output.
-Candidates from the same source/session are grouped for batch review, and likely
-smoke/test or duplicate captures are marked as noise. Group actions reduce
-clicks, but the default policy remains manual review with no auto-canonical
-promotion. `default_autocapture_policy` can archive obvious smoke/test or
-duplicate captures before they enter the inbox, and the dashboard exposes those
-policy-archived examples with stable rule ids. The dashboard also includes the
-same read-only `capture_policy` audit report so automatic decisions can be
-reviewed without creating another mutation path.
+The same live dashboard also shows a Capture Inbox for active review candidate
+records. Approve Memory appends a confirmed `promote_record` event to make the
+candidate canonical; Reject appends an `archive_record` event. Neither action
+rewrites history or silently promotes agent output. Candidates from the same
+source/session are grouped for batch review, and likely smoke/test or duplicate
+captures are marked as noise. Group actions reduce clicks, but the default
+policy remains manual review with no auto-canonical promotion.
+`default_autocapture_policy` keeps low-risk handoffs as auto-captured local
+handoff evidence, routes risky or durable decisions to Capture Inbox, and
+archives obvious smoke/test or duplicate captures before they enter the inbox.
+The dashboard exposes auto-captured and policy-archived examples with stable
+rule ids. The dashboard also includes the same read-only `capture_policy` audit
+report so automatic decisions can be reviewed without creating another mutation
+path.
 
 ## MCP
 
@@ -364,12 +368,12 @@ raw -> candidate -> canonical
 - `archived`: preserved history, hidden by default.
 - `quarantined`: sensitive or unsafe content, hidden by default.
 
-The dashboard Capture Inbox is the default human review path for autocaptured
-candidate memory. It keeps automation visible: agents can propose memory, but
-canonical long-term context still needs explicit approval. Grouped approve and
-reject actions are batch user decisions, not background promotion rules. The
-read-only `capture_policy` report explains automatic review/archive routing but
-does not mutate memory.
+The dashboard Capture Inbox is the default human review path only for
+autocaptured handoffs that need a user decision. Low-risk handoffs remain
+auto-captured local evidence for context packs without becoming canonical.
+Grouped approve and reject actions are batch user decisions, not background
+promotion rules. The read-only `capture_policy` report explains automatic
+capture/review/archive routing but does not mutate memory.
 
 Records tagged `private`, `secret`, or `sensitive` are active records, but they
 are excluded from normal `boot`, `recall`, `refresh`, `list-recent`, `timeline`,

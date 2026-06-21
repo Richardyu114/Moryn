@@ -518,6 +518,33 @@ describe("core engine", () => {
         },
         source: { client: "codex", session_id: "policy-review" }
       });
+      const autoCapture = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "auto-captured", "host:codex"],
+        content: {
+          text: "Codex finished low-risk setup polish.",
+          format: "json",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "capture",
+              route: "auto_capture",
+              review_required: false,
+              user_action_required: false,
+              auto_canonical: false,
+              dashboard_surface: "handoff",
+              rule_ids: ["low_risk_handoff_auto_capture"],
+              reasons: ["low_risk_handoff_auto_capture"]
+            }
+          }
+        },
+        source: { client: "codex", session_id: "policy-capture" }
+      });
       const smokeArchive = await engine.write({
         kind: "session_summary",
         type: "summary",
@@ -640,10 +667,14 @@ describe("core engine", () => {
       });
       expect(report.selection_sources).toEqual(CAPTURE_POLICY_SELECTION_SOURCES);
       expect(report.stats).toMatchObject({
-        total_autocapture_records: 3,
+        total_autocapture_records: 4,
         excluded_private_records: 1,
+        auto_captured_records: 1,
         review_records: 1,
         policy_archived_records: 2,
+        captured_by_rule: {
+          low_risk_handoff_auto_capture: 1
+        },
         archived_by_rule: {
           smoke_test_marker: 1,
           duplicate_text: 1
@@ -660,6 +691,14 @@ describe("core engine", () => {
           expect.objectContaining({ source: "record.content.capture.policy" }),
           expect.objectContaining({ source: "record.tags[]" })
         ])
+      });
+      expect(report.decisions_by_record_id[autoCapture.record.id]).toMatchObject({
+        record_id: autoCapture.record.id,
+        decision: "capture",
+        target_state: "candidate",
+        review_required: false,
+        auto_canonical: false,
+        rule_ids: ["low_risk_handoff_auto_capture"]
       });
       expect(report.decisions_by_record_id[smokeArchive.record.id]).toMatchObject({
         record_id: smokeArchive.record.id,
@@ -681,6 +720,11 @@ describe("core engine", () => {
         severity: "info",
         record_ids: [reviewCapture.record.id]
       });
+      expect(report.findings_by_id.auto_captured).toMatchObject({
+        category: "auto_capture",
+        severity: "info",
+        record_ids: [autoCapture.record.id]
+      });
       expect(report.findings_by_id.policy_archived).toMatchObject({
         category: "policy_archive",
         severity: "info",
@@ -695,6 +739,12 @@ describe("core engine", () => {
         tool: "timeline",
         safe_to_run: true,
         arguments: { record_id: smokeArchive.record.id, project_id: "moryn", before: 3, after: 3 }
+      });
+      expect(report.suggested_actions_by_id[`inspect:${autoCapture.record.id}`]).toMatchObject({
+        recommended_action: "inspect_auto_captured_handoff",
+        tool: "timeline",
+        safe_to_run: true,
+        arguments: { record_id: autoCapture.record.id, project_id: "moryn", before: 3, after: 3 }
       });
       expect(report.records_by_id[reviewCapture.record.id]?.id).toBe(reviewCapture.record.id);
       expect(report.records_by_id[otherProjectArchive.record.id]).toBeUndefined();

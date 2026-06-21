@@ -1,8 +1,15 @@
 import { displayRecordText } from "./content-text.js";
 import type { MorynRecord, RecordState } from "./types.js";
 
-export type AutocapturePolicyDecision = "review" | "archive";
-export type AutocapturePolicyRuleId = "default_review_for_agent_handoff" | "smoke_test_marker" | "duplicate_text";
+export type AutocapturePolicyDecision = "capture" | "review" | "archive";
+export type AutocapturePolicyRoute = "auto_capture" | "manual_review" | "policy_archive";
+export type AutocapturePolicyDashboardSurface = "handoff" | "capture_inbox" | "capture_policy";
+export type AutocapturePolicyRuleId =
+  | "low_risk_handoff_auto_capture"
+  | "review_risk_marker"
+  | "default_review_for_agent_handoff"
+  | "smoke_test_marker"
+  | "duplicate_text";
 
 export interface AutocapturePolicy {
   id: "default_autocapture_policy";
@@ -10,6 +17,7 @@ export interface AutocapturePolicy {
   mode: "policy_review";
   auto_canonical: false;
   canonical_requires_user_action: true;
+  capture_low_risk_without_review: true;
   archive_noise_without_review: true;
   rules: Array<{
     id: AutocapturePolicyRuleId;
@@ -30,9 +38,12 @@ export interface AutocapturePolicyResult {
   policy_id: AutocapturePolicy["id"];
   version: 1;
   decision: AutocapturePolicyDecision;
+  route: AutocapturePolicyRoute;
   target_state: RecordState;
   review_required: boolean;
+  user_action_required: boolean;
   auto_canonical: false;
+  dashboard_surface: AutocapturePolicyDashboardSurface;
   rule_ids: AutocapturePolicyRuleId[];
   reasons: string[];
   tags: string[];
@@ -46,12 +57,23 @@ export const DEFAULT_AUTOCAPTURE_POLICY: AutocapturePolicy = {
   mode: "policy_review",
   auto_canonical: false,
   canonical_requires_user_action: true,
+  capture_low_risk_without_review: true,
   archive_noise_without_review: true,
   rules: [
     {
+      id: "low_risk_handoff_auto_capture",
+      decision: "capture",
+      description: "Low-risk agent handoffs are retained locally for context packs without requiring user approval or canonical promotion."
+    },
+    {
+      id: "review_risk_marker",
+      decision: "review",
+      description: "Handoffs with decisions, risks, blockers, preferences, credentials, or approval language enter Capture Inbox for explicit user review."
+    },
+    {
       id: "default_review_for_agent_handoff",
       decision: "review",
-      description: "Normal agent handoffs enter Capture Inbox as candidates and require user approval before canonical memory."
+      description: "Legacy review route for older autocapture records that do not carry newer policy metadata."
     },
     {
       id: "smoke_test_marker",
@@ -88,8 +110,13 @@ function duplicateAutocaptureRecord(input: AutocapturePolicyInput): MorynRecord 
     .find((record) => normalizeText(displayRecordText(record)) === summary);
 }
 
+function needsManualReview(input: AutocapturePolicyInput): boolean {
+  const searchable = `${input.summary} ${input.current_task ?? ""}`.toLowerCase();
+  return /\b(decision|decided|risk|risky|blocker|blocked|warning|warn|preference|principle|credential|credentials|secret|token|password|security|permission|approval|approve|confirm|canonical|promote|delete|destructive)\b/.test(searchable);
+}
+
 export function evaluateAutocapturePolicy(input: AutocapturePolicyInput): AutocapturePolicyResult {
-  const searchable = input.summary.toLowerCase();
+  const searchable = `${input.summary} ${input.current_task ?? ""}`.toLowerCase();
   const ruleIds: AutocapturePolicyRuleId[] = [];
   const reasons: string[] = [];
   const duplicate = duplicateAutocaptureRecord(input);
@@ -114,9 +141,12 @@ export function evaluateAutocapturePolicy(input: AutocapturePolicyInput): Autoca
       policy_id: DEFAULT_AUTOCAPTURE_POLICY.id,
       version: DEFAULT_AUTOCAPTURE_POLICY.version,
       decision: "archive",
+      route: "policy_archive",
       target_state: "archived",
       review_required: false,
+      user_action_required: false,
       auto_canonical: false,
+      dashboard_surface: "capture_policy",
       rule_ids: ruleIds,
       reasons,
       tags: [...new Set(tags)],
@@ -125,16 +155,37 @@ export function evaluateAutocapturePolicy(input: AutocapturePolicyInput): Autoca
     };
   }
 
+  if (needsManualReview(input)) {
+    return {
+      policy_id: DEFAULT_AUTOCAPTURE_POLICY.id,
+      version: DEFAULT_AUTOCAPTURE_POLICY.version,
+      decision: "review",
+      route: "manual_review",
+      target_state: "candidate",
+      review_required: true,
+      user_action_required: true,
+      auto_canonical: false,
+      dashboard_surface: "capture_inbox",
+      rule_ids: ["review_risk_marker"],
+      reasons: ["review_risk_marker"],
+      tags: ["autocapture", "review", `host:${input.host}`],
+      confidence: 0.5
+    };
+  }
+
   return {
     policy_id: DEFAULT_AUTOCAPTURE_POLICY.id,
     version: DEFAULT_AUTOCAPTURE_POLICY.version,
-    decision: "review",
+    decision: "capture",
+    route: "auto_capture",
     target_state: "candidate",
-    review_required: true,
+    review_required: false,
+    user_action_required: false,
     auto_canonical: false,
-    rule_ids: ["default_review_for_agent_handoff"],
-    reasons: ["default_review_for_agent_handoff"],
-    tags: ["autocapture", "review", `host:${input.host}`],
-    confidence: 0.5
+    dashboard_surface: "handoff",
+    rule_ids: ["low_risk_handoff_auto_capture"],
+    reasons: ["low_risk_handoff_auto_capture"],
+    tags: ["autocapture", "auto-captured", `host:${input.host}`],
+    confidence: 0.45
   };
 }

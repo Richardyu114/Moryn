@@ -3053,29 +3053,33 @@ describe("MCP stdio server", () => {
           name: "capture_session",
           arguments: {
             project_path: projectPath,
-            summary: "MCP host finished the setup path.",
+            summary: "Decision: MCP host finished the setup path and approval flow needs review.",
             agent: { client: "claude-code", session_id: "mcp-host" },
-            current_task: "host adapter smoke",
+            current_task: "host adapter review",
             sync_remote: "git@github.com:user/moryn-store.git"
           }
         })) as {
           mode: string;
-          policy_decision: { policy_id: string; decision: string; review_required: boolean; auto_canonical: boolean };
-          record: { source: { client: string; session_id: string }; tags: string[]; content: { text: string; capture?: { policy?: { id: string; decision: string } } } };
+          policy_decision: { policy_id: string; decision: string; route: string; review_required: boolean; user_action_required: boolean; auto_canonical: boolean; dashboard_surface: string };
+          record: { source: { client: string; session_id: string }; tags: string[]; content: { text: string; capture?: { policy?: { id: string; decision: string; route: string } } } };
         };
         expect(capture.mode).toBe("capture_session");
         expect(capture.policy_decision).toMatchObject({
           policy_id: "default_autocapture_policy",
           decision: "review",
+          route: "manual_review",
           review_required: true,
-          auto_canonical: false
+          user_action_required: true,
+          auto_canonical: false,
+          dashboard_surface: "capture_inbox"
         });
         expect(capture.record.source).toMatchObject({ client: "claude", session_id: "mcp-host" });
         expect(capture.record.tags).toContain("host:claude");
-        expect(capture.record.content.text).toBe("MCP host finished the setup path.");
+        expect(capture.record.content.text).toBe("Decision: MCP host finished the setup path and approval flow needs review.");
         expect(capture.record.content.capture?.policy).toMatchObject({
           id: "default_autocapture_policy",
-          decision: "review"
+          decision: "review",
+          route: "manual_review"
         });
 
         const pack = parseTextContent(await client.callTool({
@@ -3112,7 +3116,7 @@ describe("MCP stdio server", () => {
           current_goal: { text: "continue via MCP", source: "context_pack.current_task" },
           open_threads: [
             expect.objectContaining({
-              text: "MCP host finished the setup path.",
+              text: "Decision: MCP host finished the setup path and approval flow needs review.",
               evidence: expect.objectContaining({ source: "sections.handoff.inbox[]" })
             })
           ],
