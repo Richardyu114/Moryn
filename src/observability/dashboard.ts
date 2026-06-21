@@ -3630,7 +3630,7 @@ function storeSignalsPanel(data: DashboardData): string {
     <details id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
       <summary class="dashboard-fold-summary">
         <span>Store Signals</span>
-        <small>agent activity / record quality / sync</small>
+        <small>Operational health signals</small>
       </summary>
       <section class="visual-grid">
         <div class="signal-card">
@@ -3675,7 +3675,7 @@ function debugInspectorPanel(data: DashboardData): string {
     <details class="panel debug-inspector" data-dashboard-detail="debug-inspector">
       <summary class="dashboard-fold-summary">
         <span>Debug Inspector</span>
-        <small>records / events / sync</small>
+        <small>Raw store inspection</small>
       </summary>
       <div class="inspector-grid">
         <details data-dashboard-detail="inspector:records">

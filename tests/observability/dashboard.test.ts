@@ -1012,12 +1012,15 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
       expect(html).not.toContain("<details open class=\"panel store-signals\"");
       expect(html).toContain("<span>Store Signals</span>");
-      expect(html).toContain("<small>agent activity / record quality / sync</small>");
+      expect(html).toContain("<small>Operational health signals</small>");
+      expect(html).not.toContain("<small>agent activity / record quality / sync</small>");
       expect(html).toContain("Agent Activity");
       expect(html).toContain("Record Quality");
       expect(html).toContain("Record Types");
       expect(html).toContain("Recent Value");
       expect(html).toContain("Debug Inspector");
+      expect(html).toContain("<small>Raw store inspection</small>");
+      expect(html).not.toContain("<small>records / events / sync</small>");
       expect(html).toContain("agent-bars");
       expect(html).toContain("state-stack");
       expect(html).toContain("type-bars");

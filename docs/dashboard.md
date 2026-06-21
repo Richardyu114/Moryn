@@ -476,7 +476,10 @@ listing implementation-oriented module names or collapsed-state counters on the
 first screen. It still holds `Clean Audit Reports`, `Store Signals`, `Recent
 Value`, and the raw `Debug Inspector` together so the first screen prioritizes
 attention items, review actions, and approval queues without removing local
-evidence.
+evidence. Nested evidence summaries also use purpose labels: `Store Signals`
+opens with `Operational health signals`, and `Debug Inspector` opens with `Raw
+store inspection`, while their expanded bodies still show agent activity,
+record quality, records, events, and sync detail.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without
