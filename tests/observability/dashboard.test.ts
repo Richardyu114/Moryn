@@ -760,7 +760,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<article class=\"attention warning\">");
       expect(html).toContain("<details class=\"panel supporting-evidence\" data-dashboard-detail=\"supporting-evidence\" aria-label=\"Supporting Evidence\">");
       expect(html).toContain("<span>Supporting Evidence</span>");
-      expect(html).toContain("<small>audit reports / store signals / debug inspector</small>");
+      expect(html).toContain("<small>4 evidence groups | collapsed by default</small>");
+      expect(html).not.toContain("<small>audit reports / store signals / debug inspector</small>");
       const supportingEvidenceIndex = html.indexOf("<details class=\"panel supporting-evidence\" data-dashboard-detail=\"supporting-evidence\" aria-label=\"Supporting Evidence\">");
       const storeSignalsIndex = html.indexOf("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
       const recentValueIndex = html.indexOf("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");

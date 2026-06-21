@@ -3310,6 +3310,10 @@ function debugInspectorPanel(data: DashboardData): string {
   `;
 }
 
+function supportingEvidenceSummary(): string {
+  return `${pluralize(4, "evidence group")} | collapsed by default`;
+}
+
 function supportingEvidencePanel(data: DashboardData): string {
   const reports = auditReports({
     memoryLifecycle: data.memory_lifecycle,
@@ -3319,7 +3323,7 @@ function supportingEvidencePanel(data: DashboardData): string {
     <details class="panel supporting-evidence" data-dashboard-detail="supporting-evidence" aria-label="Supporting Evidence">
       <summary class="dashboard-fold-summary supporting-evidence-fold">
         <span>Supporting Evidence</span>
-        <small>audit reports / store signals / debug inspector</small>
+        <small>${escapeHtml(supportingEvidenceSummary())}</small>
       </summary>
       <div class="supporting-evidence-list">
         ${reports}

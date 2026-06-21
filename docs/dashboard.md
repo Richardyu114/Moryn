@@ -408,10 +408,11 @@ signals remain inspectable without competing with action-oriented warnings.
 
 Clean audit reports, raw records, events, sync details, recent value, and store
 telemetry remain available in the lower `Supporting Evidence` panel. That
-collapsed group holds `Clean Audit Reports`, `Store Signals`, `Recent Value`,
-and the raw `Debug Inspector` together so the first screen prioritizes
-attention items, governance, review actions, and context readiness without
-removing local evidence.
+collapsed group summarizes the number of evidence groups instead of listing
+implementation-oriented module names on the first screen. It still holds `Clean
+Audit Reports`, `Store Signals`, `Recent Value`, and the raw `Debug Inspector`
+together so the first screen prioritizes attention items, governance, review
+actions, and context readiness without removing local evidence.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without
