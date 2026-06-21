@@ -449,9 +449,11 @@ signals, the whole `Needs Attention` panel is collapsed behind a summary such as
 `0 action signals | 1 info item | collapsed by default`, so a routine local-only
 or clean snapshot does not take over the first screen.
 
-Read-only diagnostic detail lives in the collapsed `Evidence Library`. It groups
-Health Check, Governance Hub, Context Pack Review, and Supporting Evidence under
-one evidence layer so the main path stays focused on action and review. The
+Read-only diagnostic detail lives in the collapsed `Evidence Library`. Its
+visible summary uses a purpose label, `Read-only diagnostics grouped here`,
+instead of listing every child module on the first screen. Health Check,
+Governance Hub, Context Pack Review, and Supporting Evidence stay nested under
+that evidence layer so the main path stays focused on action and review. The
 library is still fully local and auditable: each child panel keeps its
 `data-dashboard-detail` target, so Action Board buttons can open the parent
 library before scrolling to `governance-hub`, `context-pack-review`, or

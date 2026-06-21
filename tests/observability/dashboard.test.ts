@@ -938,7 +938,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<em class=\"action-board-next\">Inspect sync</em>");
       expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Evidence Library\">");
       expect(html).toContain("<span>Evidence Library</span>");
-      expect(html).toContain("<small>Health Check | Governance | Context | Supporting Evidence</small>");
+      expect(html).toContain("<small>Read-only diagnostics grouped here</small>");
+      expect(html).not.toContain("<small>Health Check | Governance | Context | Supporting Evidence</small>");
       const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
       const evidenceHealthCheckIndex = html.indexOf("data-dashboard-detail=\"health-check\"");
       const evidenceGovernanceIndex = html.indexOf("data-dashboard-detail=\"governance-hub\"");

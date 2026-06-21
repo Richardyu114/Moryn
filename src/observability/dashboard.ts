@@ -3726,12 +3726,16 @@ function supportingEvidencePanel(data: DashboardData): string {
   `;
 }
 
+function evidenceLibrarySummary(): string {
+  return "Read-only diagnostics grouped here";
+}
+
 function evidenceLibrary(data: DashboardData): string {
   return `
     <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Evidence Library">
       <summary class="dashboard-fold-summary evidence-library-fold">
         <span>Evidence Library</span>
-        <small>Health Check | Governance | Context | Supporting Evidence</small>
+        <small>${escapeHtml(evidenceLibrarySummary())}</small>
       </summary>
       <div class="evidence-library-list">
         ${healthCheckPanel(data.health_check)}
