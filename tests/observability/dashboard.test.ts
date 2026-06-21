@@ -740,6 +740,11 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<section class=\"overview-grid\" aria-label=\"Dashboard overview\">");
       expect(html).toContain("Needs Attention");
       expect(html).toContain("<section id=\"needs-attention\" class=\"panel\" data-dashboard-section=\"needs-attention\">");
+      expect(html).toContain("<div class=\"attention-focus\" aria-label=\"Needs Attention focus\">");
+      expect(html).toContain("<strong>1</strong> action signal");
+      expect(html).toContain("<span class=\"attention-focus-count warning\">1 warning</span>");
+      expect(html).toContain("<span class=\"attention-focus-count info\">1 info</span>");
+      expect(html).toContain("<em>Next: Review warning signals</em>");
       expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Quarantined records hidden\">");
       expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
       expect(html).toContain("<span>Info Checks</span>");

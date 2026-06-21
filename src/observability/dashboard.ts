@@ -2129,6 +2129,23 @@ function attentionItem(item: DashboardAttentionItem): string {
   `;
 }
 
+function attentionFocus(items: DashboardAttentionItem[]): string {
+  const critical = items.filter((item) => item.severity === "critical").length;
+  const warning = items.filter((item) => item.severity === "warning").length;
+  const info = items.filter((item) => item.severity === "info").length;
+  const actionSignals = critical + warning;
+  const next = critical > 0 ? "Review critical signals" : warning > 0 ? "Review warning signals" : "Inspect routine checks";
+  return `
+    <div class="attention-focus" aria-label="Needs Attention focus">
+      <span><strong>${escapeHtml(actionSignals)}</strong> ${escapeHtml(actionSignals === 1 ? "action signal" : "action signals")}</span>
+      <span class="attention-focus-count critical">${escapeHtml(pluralize(critical, "critical"))}</span>
+      <span class="attention-focus-count warning">${escapeHtml(pluralize(warning, "warning"))}</span>
+      <span class="attention-focus-count info">${escapeHtml(pluralize(info, "info"))}</span>
+      <em>Next: ${escapeHtml(next)}</em>
+    </div>
+  `;
+}
+
 function attentionItems(items: DashboardAttentionItem[]): string {
   if (items.length === 0) {
     return `<div class="empty-state">No issues detected in the current snapshot.</div>`;
@@ -2137,6 +2154,7 @@ function attentionItems(items: DashboardAttentionItem[]): string {
   const info = items.filter((item) => item.severity === "info");
   return `
     <div class="attention-list">
+      ${attentionFocus(items)}
       ${primary.map(attentionItem).join("")}
       ${info.length === 0 ? "" : `
         <details class="attention-info-group" data-dashboard-detail="attention-info-checks">
@@ -3727,6 +3745,36 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       overflow-wrap: anywhere;
     }
     .attention-list { display: grid; gap: 9px; }
+    .attention-focus {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      align-items: center;
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .attention-focus strong { color: var(--ink); font-size: 15px; }
+    .attention-focus-count {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
+      font-weight: 730;
+    }
+    .attention-focus-count.critical { color: var(--critical); }
+    .attention-focus-count.warning { color: var(--warning); }
+    .attention-focus-count.info { color: var(--info); }
+    .attention-focus em {
+      margin-left: auto;
+      color: var(--ink-2);
+      font-style: normal;
+      font-weight: 740;
+      overflow-wrap: anywhere;
+    }
     .attention-info-group {
       border: 1px solid var(--border);
       border-radius: 7px;
