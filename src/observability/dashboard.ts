@@ -3580,6 +3580,39 @@ function dashboardActionBoardScript(): string {
   </script>`;
 }
 
+function dashboardActionReceiptScript(): string {
+  return `
+  <script>
+    (() => {
+      const htmlEscape = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+      window.renderActionReceipt = (status, result) => {
+        if (!status || !result || typeof result !== "object") return;
+        const recordIds = Array.isArray(result.record_ids) ? result.record_ids : result.record_id ? [result.record_id] : [];
+        const eventIds = Array.isArray(result.event_ids) ? result.event_ids : result.event_id ? [result.event_id] : [];
+        const timelineCommands = eventIds.length > 0
+          ? eventIds.map((eventId) => "moryn timeline --event-id " + eventId)
+          : recordIds.map((recordId) => "moryn timeline --record-id " + recordId);
+        const recallCommands = recordIds.map((recordId) => "moryn recall --record-id " + recordId);
+        const countLabel = result.records_changed || result.migrated_records || recordIds.length || eventIds.length || 1;
+        status.classList.add("action-receipt");
+        status.innerHTML = \`
+          <span class="action-receipt-title">Approval receipt</span>
+          <span>\${htmlEscape(result.status || "applied")} | \${htmlEscape(countLabel)} write target</span>
+          \${result.plan_id ? \`<code>\${htmlEscape(result.plan_id)}</code>\` : ""}
+          \${recordIds.map((recordId) => \`<code>\${htmlEscape(recordId)}</code>\`).join("")}
+          \${eventIds.map((eventId) => \`<code>\${htmlEscape(eventId)}</code>\`).join("")}
+          \${timelineCommands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("")}
+          \${recallCommands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("")}
+        \`;
+      };
+    })();
+  </script>`;
+}
+
 function dashboardMaintenanceScript(): string {
   return `
   <script>
@@ -3644,7 +3677,10 @@ function dashboardMaintenanceScript(): string {
             approve.disabled = false;
             return;
           }
-          if (status) status.textContent = "Applied. Refreshing dashboard...";
+          if (status) {
+            status.textContent = "Applied. Receipt rendered below; refreshing dashboard...";
+            window.renderActionReceipt?.(status, result);
+          }
           await refreshFragment();
         } catch (error) {
           if (status) status.textContent = error instanceof Error ? error.message : "Approval failed.";
@@ -3707,7 +3743,10 @@ function dashboardCaptureInboxScript(): string {
             button.disabled = false;
             return;
           }
-          if (status) status.textContent = isReject ? "Rejected. Refreshing dashboard..." : "Approved. Refreshing dashboard...";
+          if (status) {
+            status.textContent = isReject ? "Rejected. Receipt rendered below; refreshing dashboard..." : "Approved. Receipt rendered below; refreshing dashboard...";
+            window.renderActionReceipt?.(status, result);
+          }
           await refreshFragment();
         } catch (error) {
           if (status) status.textContent = error instanceof Error ? error.message : "Capture Inbox action failed.";
@@ -4124,6 +4163,24 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .governance-heading span,
     .lifecycle-heading span,
     .capture-inbox-heading span, .capture-inbox-status { color: var(--muted); font-size: 12px; font-weight: 650; }
+    .action-receipt {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--signal-green);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin-top: 9px;
+      background: var(--surface);
+      color: var(--ink-2);
+    }
+    .action-receipt-title {
+      color: var(--ink);
+      font-weight: 780;
+    }
+    .action-receipt code { background: var(--surface-2); }
     .maintenance-list, .governance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
     .governance-heading { align-items: flex-start; margin-bottom: 10px; }
     .governance-counts {
@@ -4769,6 +4826,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
   <main${refreshAttributes}>${renderDashboardBody(data)}</main>
   ${dashboardRefreshScript(options.refreshIntervalMs)}
   ${dashboardActionBoardScript()}
+  ${dashboardActionReceiptScript()}
   ${dashboardMaintenanceScript()}
   ${dashboardCaptureInboxScript()}
 </body>

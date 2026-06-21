@@ -535,6 +535,13 @@ append-only events, and carry stale guards such as `active_candidate_record`,
 `active_candidate_group`, or `plan_hash`. Read-only actions record
 `writes: "none"`.
 
+After a dashboard approval or rejection succeeds, the browser renders a compact
+`Approval receipt` before refreshing the body. The receipt shows the returned
+status, plan id when present, changed record ids, written event ids, and
+read-only trace commands such as `moryn timeline --event-id <event_id>` and
+`moryn recall --record-id <record_id>`. It is a visibility layer only: it does
+not add background execution, retry writes, or a second mutation path.
+
 ### Context Pack Review
 
 When the dashboard is opened with `--project-id <id>` or `--project <path>`, it

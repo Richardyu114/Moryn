@@ -73,6 +73,8 @@ export type DashboardMaintenanceApprovalResult =
     to_project_id: string;
     migrated_records: number;
     events_written: number;
+    record_ids: string[];
+    event_ids: string[];
   }
   | {
     ok: false;
@@ -311,6 +313,8 @@ export async function approveMaintenancePlan(
     from_project_id: plan.from_project_id,
     to_project_id: plan.to_project_id,
     migrated_records: applied.migrated_records,
-    events_written: applied.events.length
+    events_written: applied.events.length,
+    record_ids: plan.record_ids,
+    event_ids: applied.events.map((event) => event.event_id)
   };
 }

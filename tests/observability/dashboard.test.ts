@@ -1906,6 +1906,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-maintenance-reject");
       expect(html).toContain("data-dashboard-action-id=\"maintenance.plan.approve.");
       expect(html).toContain("Applying repair...");
+      expect(html).toContain("renderActionReceipt");
+      expect(html).toContain("Approval receipt");
+      expect(html).toContain("moryn timeline --event-id");
+      expect(html).toContain("moryn recall --record-id");
+      expect(html).toContain("Applied. Receipt rendered below; refreshing dashboard...");
+      expect(html).toContain("Approved. Receipt rendered below; refreshing dashboard...");
+      expect(html).toContain("Rejected. Receipt rendered below; refreshing dashboard...");
       expect(html).not.toContain("window.confirm");
       expect(html).not.toContain("Technical details");
     });
@@ -3516,6 +3523,8 @@ describe("observability dashboard", () => {
           status: string;
           migrated_records: number;
           events_written: number;
+          record_ids: string[];
+          event_ids: string[];
         };
 
         expect(response.status).toBe(200);
@@ -3523,8 +3532,11 @@ describe("observability dashboard", () => {
           ok: true,
           status: "applied",
           migrated_records: 1,
-          events_written: 1
+          events_written: 1,
+          record_ids: [oldRecord.record.id]
         });
+        expect(applied.event_ids).toHaveLength(1);
+        expect(applied.event_ids[0]).toMatch(/^evt_/);
         expect((await engine.recall({ record_ids: [oldRecord.record.id], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
       } finally {
         await server.close();
