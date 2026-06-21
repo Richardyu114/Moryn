@@ -1662,8 +1662,8 @@ function buildActionBoard(input: {
       severity: actionBoardSeverity(confirmCount),
       summary: confirmCount === 0 ? "No approvals waiting" : pluralize(confirmCount, "approval waiting", "approvals waiting"),
       detail: "Explicit approvals stay in Capture Inbox and Review Queue.",
-      next_action_label: "Open Capture Inbox",
-      target: "capture-inbox"
+      next_action_label: confirmCount === 0 ? "No approval queue" : "Open approval queue",
+      target: confirmCount === 0 ? "needs-attention" : "capture-inbox"
     },
     {
       id: "review",
@@ -3365,6 +3365,11 @@ function dashboardActionBoardScript(): string {
         if (!(target instanceof HTMLElement)) return;
         if (target instanceof HTMLDetailsElement) {
           target.open = true;
+        }
+        let parent = target.closest("details");
+        while (parent instanceof HTMLDetailsElement) {
+          parent.open = true;
+          parent = parent.parentElement?.closest("details") ?? null;
         }
         target.scrollIntoView({ block: "start", behavior: "smooth" });
       });

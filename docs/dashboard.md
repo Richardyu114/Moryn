@@ -385,7 +385,10 @@ The Action Board is a derived summary only; it does not add mutation endpoints
 or hide the underlying panels. Clicking an Action Board card only scrolls to the
 matching local dashboard section and opens that section when it is a collapsed
 detail panel. Each card also shows a short next-action label so the first screen
-reads as a review cockpit instead of only a count summary.
+reads as a review cockpit instead of only a count summary. When no approval
+queue is rendered, the `Confirm` card points to `Needs Attention` as a stable
+zero-state target. If a target sits inside another collapsed detail panel, the
+dashboard opens the parent panels before scrolling.
 
 `Needs Attention` keeps warning and critical items directly visible. Informational
 checks are grouped under a collapsed `Info Checks` summary so routine status

@@ -696,7 +696,8 @@ describe("observability dashboard", () => {
         value: 0,
         severity: "good",
         summary: "No approvals waiting",
-        next_action_label: "Open Capture Inbox"
+        next_action_label: "No approval queue",
+        target: "needs-attention"
       });
       expect(data.action_board.items_by_id.review).toMatchObject({
         label: "Review",
@@ -723,16 +724,17 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<section class=\"hero\">");
       expect(html).toContain("<section class=\"action-board\" aria-label=\"Action Board\" data-action-board-nav>");
       expect(html).toContain("<h2>Action Board</h2>");
-      expect(html).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"confirm\" data-action-board-target=\"capture-inbox\" aria-controls=\"capture-inbox\">");
+      expect(html).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"confirm\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
       expect(html).toContain("<button type=\"button\" class=\"action-board-item warning\" data-action-board-item=\"review\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
       expect(html).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"inspect\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">");
       expect(html).toContain("<button type=\"button\" class=\"action-board-item info\" data-action-board-item=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
       expect(html).toContain("data-action-board-nav");
-      expect(html).toContain("<em class=\"action-board-next\">Open Capture Inbox</em>");
+      expect(html).toContain("<em class=\"action-board-next\">No approval queue</em>");
       expect(html).toContain("<em class=\"action-board-next\">Review warning signals</em>");
       expect(html).toContain("<em class=\"action-board-next\">Inspect Governance Hub</em>");
       expect(html).toContain("<em class=\"action-board-next\">Inspect sync state</em>");
       expect(html).toContain("target.open = true");
+      expect(html).toContain("target.closest(\"details\")");
       expect(html).toContain("target.scrollIntoView({ block: \"start\", behavior: \"smooth\" })");
       expect(html).toContain("Warnings and critical signals remain visible in Needs Attention.");
       expect(html).not.toContain("<section class=\"overview-grid\" aria-label=\"Dashboard overview\">");
@@ -2177,6 +2179,11 @@ describe("observability dashboard", () => {
       };
 
       expect(data.capture_inbox.total).toBe(1);
+      expect(data.action_board.items_by_id.confirm).toMatchObject({
+        value: 4,
+        next_action_label: "Open approval queue",
+        target: "capture-inbox"
+      });
       expect(data.capture_inbox.items[0]).toMatchObject({
         id: capture.record.id,
         text: "Codex finished Capture Inbox planning.",
@@ -2229,6 +2236,8 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Capture Inbox");
+      expect(html).toContain("<button type=\"button\" class=\"action-board-item warning\" data-action-board-item=\"confirm\" data-action-board-target=\"capture-inbox\" aria-controls=\"capture-inbox\">");
+      expect(html).toContain("<em class=\"action-board-next\">Open approval queue</em>");
       expect(html).toContain("1 candidate");
       expect(html).toContain("Codex finished Capture Inbox planning.");
       expect(html).toContain("Approve Memory");
