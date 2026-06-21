@@ -985,7 +985,19 @@ describe("observability dashboard", () => {
         expect(html).toContain("<strong>All clear</strong>");
         expect(html).toContain("<p>No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.</p>");
         expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">Inspect checks</button>");
-        expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card good\" data-dashboard-overview-card=\"action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\" data-dashboard-overview-source=\"action_board.items_by_id.inspect\">");
+        expect(html).not.toContain("<div class=\"dashboard-overview-grid\">");
+        expect(html).not.toContain("data-dashboard-overview-card=\"health\"");
+        expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
+        expect(html).not.toContain("data-dashboard-overview-card=\"context\"");
+        expect(html).not.toContain("data-dashboard-overview-card=\"sync\"");
+        expect(html).toContain("<details class=\"dashboard-overview-quiet\" data-dashboard-detail=\"dashboard-overview-quiet-cards\">");
+        expect(html).toContain("<span>Quiet Overview</span>");
+        expect(html).toContain("<small>4 quiet cards</small>");
+        expect(html).toContain("<div class=\"dashboard-overview-quiet-list\">");
+        expect(html).toContain("data-dashboard-overview-quiet-card=\"health\"");
+        expect(html).toContain("data-dashboard-overview-quiet-card=\"action\"");
+        expect(html).toContain("data-dashboard-overview-quiet-card=\"context\"");
+        expect(html).toContain("data-dashboard-overview-quiet-card=\"sync\"");
         expect(html).toContain("<span>Next</span>");
         expect(html).toContain("<strong>All clear</strong>");
         expect(html).toContain("<small>Inspect checks</small>");
@@ -1154,6 +1166,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>Open context</small>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\" data-dashboard-overview-source=\"action_board.items_by_id.sync\">");
       expect(html).toContain("<small>Inspect sync</small>");
+      expect(html).not.toContain("data-dashboard-overview-quiet-card=");
       expect(html).not.toContain("<small>action_board.items_by_id.sync</small>");
       expect(html).not.toContain("<small>context_pack_review</small>");
       expect(html).not.toContain("<article class=\"dashboard-overview-card");

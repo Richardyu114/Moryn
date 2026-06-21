@@ -415,17 +415,20 @@ hero block, so the first screen stays focused on review queues and local
 attention signals.
 
 Directly below the status strip, `Dashboard Overview` is the first-screen
-summary. It picks the most urgent derived Action Board item, shows four compact
-cards for current health, next action, context, and sync, and points each card
-back to its source path such as `health`, `action_board.items_by_id.review`,
-`context_pack_review`, or `action_board.items_by_id.sync`. The visible card
-footer uses a human navigation label such as `Review health`, `Open context`, or
-`Inspect sync`, while the internal source path stays available in
-`cards[].source` and `data-dashboard-overview-source` for audit tooling. Each
-overview card is also a local navigation button that reuses the same scroll
-targets as the Action Board. It does not add a new API endpoint, Safe Action
-Registry entry, or memory mutation path. Its job is to answer "what should I
-look at first?" while keeping the detailed panels folded underneath.
+summary. It picks the most urgent derived Action Board item, keeps non-good
+overview cards visible in the main grid, and groups good cards under `Quiet
+Overview` so an all-clear dashboard does not spend the first screen on green
+checks. The four derived cards for current health, next action, context, and
+sync still point back to source paths such as `health`,
+`action_board.items_by_id.review`, `context_pack_review`, or
+`action_board.items_by_id.sync`. The visible card footer uses a human navigation
+label such as `Review health`, `Open context`, or `Inspect sync`, while the
+internal source path stays available in `cards[].source` and
+`data-dashboard-overview-source` for audit tooling. Each overview card is also a
+local navigation button that reuses the same scroll targets as the Action Board.
+It does not add a new API endpoint, Safe Action Registry entry, or memory
+mutation path. Its job is to answer "what should I look at first?" while keeping
+the detailed panels folded underneath.
 Pure read-only inspections do not turn the overview headline into an urgent
 next action. If there are no confirmations, warnings, or sync actions, the
 overview reads `All clear` while still offering an `Inspect checks` navigation

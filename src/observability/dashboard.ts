@@ -2563,7 +2563,39 @@ function focusBriefPrimaryItem(actionBoardData: DashboardActionBoard): Dashboard
     };
 }
 
+function isActiveDashboardOverviewCard(card: DashboardOverviewCard): boolean {
+  return card.severity !== "good";
+}
+
+function dashboardOverviewCardButton(card: DashboardOverviewCard, dataAttribute = "data-dashboard-overview-card"): string {
+  return `
+          <button type="button" class="dashboard-overview-card ${escapeHtml(card.severity)}" ${dataAttribute}="${escapeHtml(card.id)}" data-action-board-target="${escapeHtml(card.target)}" aria-controls="${escapeHtml(card.target)}" data-dashboard-overview-source="${escapeHtml(card.source)}">
+            <span>${escapeHtml(card.label)}</span>
+            <strong>${escapeHtml(card.value)}</strong>
+            <p>${escapeHtml(card.summary)}</p>
+            <small>${escapeHtml(card.target_label)}</small>
+          </button>
+        `;
+}
+
+function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
+  if (cards.length === 0) return "";
+  return `
+      <details class="dashboard-overview-quiet" data-dashboard-detail="dashboard-overview-quiet-cards">
+        <summary class="dashboard-fold-summary dashboard-overview-quiet-fold">
+          <span>Quiet Overview</span>
+          <small>${escapeHtml(pluralize(cards.length, "quiet card"))}</small>
+        </summary>
+        <div class="dashboard-overview-quiet-list">
+          ${cards.map((card) => dashboardOverviewCardButton(card, "data-dashboard-overview-quiet-card")).join("")}
+        </div>
+      </details>
+  `;
+}
+
 function dashboardOverview(data: DashboardOverview): string {
+  const activeCards = data.cards.filter(isActiveDashboardOverviewCard);
+  const quietCards = data.cards.filter((card) => !isActiveDashboardOverviewCard(card));
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
@@ -2574,16 +2606,12 @@ function dashboardOverview(data: DashboardOverview): string {
         </div>
         <button type="button" class="dashboard-overview-action" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}">${escapeHtml(data.primary_action.label)}</button>
       </div>
-      <div class="dashboard-overview-grid">
-        ${data.cards.map((card) => `
-          <button type="button" class="dashboard-overview-card ${escapeHtml(card.severity)}" data-dashboard-overview-card="${escapeHtml(card.id)}" data-action-board-target="${escapeHtml(card.target)}" aria-controls="${escapeHtml(card.target)}" data-dashboard-overview-source="${escapeHtml(card.source)}">
-            <span>${escapeHtml(card.label)}</span>
-            <strong>${escapeHtml(card.value)}</strong>
-            <p>${escapeHtml(card.summary)}</p>
-            <small>${escapeHtml(card.target_label)}</small>
-          </button>
-        `).join("")}
-      </div>
+      ${activeCards.length === 0 ? "" : `
+        <div class="dashboard-overview-grid">
+          ${activeCards.map((card) => dashboardOverviewCardButton(card)).join("")}
+        </div>
+      `}
+      ${dashboardOverviewQuietCards(quietCards)}
       <div class="dashboard-overview-safety" aria-label="Dashboard safety">
         <span>Read-only overview</span>
         <span>Writes stay in ${escapeHtml(data.safety.mutation_surfaces.join(" and "))}</span>
@@ -4728,6 +4756,17 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       gap: 10px;
       margin-top: 9px;
     }
+    .dashboard-overview-quiet {
+      margin-top: 9px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 9px;
+    }
+    .dashboard-overview-quiet[open] > summary { margin-bottom: 8px; }
+    .dashboard-overview-quiet-list {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
     .dashboard-overview-card {
       appearance: none;
       border: 1px solid var(--border);
@@ -4758,6 +4797,19 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .dashboard-overview-card strong { margin-top: 4px; font-size: 16px; }
     .dashboard-overview-card p { margin: 5px 0 0; color: var(--ink-2); font-size: 12.5px; }
     .dashboard-overview-card small { margin-top: 4px; color: var(--muted); }
+    .dashboard-overview-quiet-list .dashboard-overview-card {
+      border-left-width: 1px;
+      padding: 8px;
+      background: var(--surface);
+      box-shadow: none;
+    }
+    .dashboard-overview-quiet-list .dashboard-overview-card strong {
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .dashboard-overview-quiet-list .dashboard-overview-card p {
+      color: var(--muted);
+    }
     .dashboard-overview-safety {
       display: flex;
       flex-wrap: wrap;
@@ -5980,7 +6032,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .event-row { border: 1px solid var(--border); border-radius: 7px; padding: 10px; background: var(--surface); }
     .event-row summary { display: flex; justify-content: space-between; gap: 10px; min-width: 0; }
     @media (max-width: 920px) {
-      header, .dashboard-overview-grid, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
