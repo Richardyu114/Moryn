@@ -1,5 +1,8 @@
-import { readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../../src/core/engine.js";
 import { initializeStore } from "../../src/core/config.js";
@@ -10,7 +13,10 @@ import {
   startDashboardServer,
   writeDashboardSnapshot
 } from "../../src/observability/dashboard.js";
+import { initializeGitSync } from "../../src/sync/git.js";
 import { withTempStore } from "../helpers/temp-store.js";
+
+const exec = promisify(execFile);
 
 describe("observability dashboard", () => {
   it("summarizes sync status, recent records, events, and agent activity", async () => {
@@ -111,6 +117,63 @@ describe("observability dashboard", () => {
         source_label: "Gemini"
       });
     });
+  });
+
+  it("reports configured dirty sync as Sync Pending instead of generic review", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-dashboard-sync-"));
+    const storePath = join(root, "store");
+    const remote = join(root, "remote.git");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      await initializeGitSync(storePath, remote);
+
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-06-01T00:01:00.000Z",
+        id: (prefix: string) => prefix === "rec" ? "rec_sync_pending" : "evt_sync_pending"
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Dirty sync should be shown as pending sync.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(data.sync).toMatchObject({
+        configured: true,
+        dirty: true,
+        sync_state: "dirty",
+        ahead: 0,
+        behind: 0
+      });
+      expect(data.health).toMatchObject({
+        status: "sync_pending",
+        label: "Sync Pending",
+        explanation: "Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device."
+      });
+      expect(html).toContain("<span class=\"health-badge warning\">Sync Pending</span>");
+      expect(html).toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
+      expect(html).toContain("<strong>Dashboard Status</strong>");
+      expect(html).toContain("<span>Sync Pending</span>");
+      expect(html).toContain("Local sync changes are waiting to be pushed or pulled");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("adds a read-only Governance Hub shell without writing events", async () => {

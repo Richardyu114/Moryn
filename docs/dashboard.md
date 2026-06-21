@@ -384,8 +384,10 @@ removing audit data from the page or from `/api/dashboard`.
 Health badge states:
 
 - `Healthy`: sync is clean and no urgent safety signals were detected.
-- `Needs Review`: local changes, ahead/behind remote state, unresolved
-  quarantined content, or candidate buildup needs a look.
+- `Sync Pending`: configured sync has local changes or ahead/behind remote
+  state; push or pull before cross-device handoff.
+- `Needs Review`: unresolved safety signals such as quarantined content need a
+  look before relying on the snapshot.
 - `Conflict`: sync reports a conflict.
 - `Local Only`: sync is not configured.
 

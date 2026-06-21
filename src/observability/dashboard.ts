@@ -181,7 +181,7 @@ export interface DashboardAgentCitation {
   timeline_command: string;
 }
 
-export type DashboardHealthStatus = "healthy" | "needs_review" | "conflict" | "local_only";
+export type DashboardHealthStatus = "healthy" | "needs_review" | "sync_pending" | "conflict" | "local_only";
 export type DashboardAttentionSeverity = "info" | "warning" | "critical";
 
 export interface DashboardHealth {
@@ -808,11 +808,19 @@ function buildHealth(sync: GitSyncStatus, records: MorynRecord[], generatedAt: s
       generated_at: generatedAt
     };
   }
-  if (sync.sync_state === "dirty" || (sync.ahead ?? 0) > 0 || (sync.behind ?? 0) > 0 || hidden > 0) {
+  if (hidden > 0) {
     return {
       status: "needs_review",
       label: "Needs Review",
-      explanation: "Moryn is usable, but sync position or safety signals deserve a quick look.",
+      explanation: "Moryn is usable, but unresolved safety signals deserve a quick look.",
+      generated_at: generatedAt
+    };
+  }
+  if (sync.sync_state === "dirty" || (sync.ahead ?? 0) > 0 || (sync.behind ?? 0) > 0) {
+    return {
+      status: "sync_pending",
+      label: "Sync Pending",
+      explanation: "Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device.",
       generated_at: generatedAt
     };
   }
@@ -1900,7 +1908,7 @@ function metric(label: string, value: unknown, hint?: string): string {
 function healthClass(status: DashboardHealthStatus): string {
   if (status === "healthy") return "good";
   if (status === "conflict") return "critical";
-  if (status === "needs_review") return "warning";
+  if (status === "needs_review" || status === "sync_pending") return "warning";
   return "info";
 }
 
