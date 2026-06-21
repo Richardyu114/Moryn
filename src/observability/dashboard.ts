@@ -2287,12 +2287,12 @@ function dashboardOverview(data: DashboardOverview): string {
       </div>
       <div class="dashboard-overview-grid">
         ${data.cards.map((card) => `
-          <article class="dashboard-overview-card ${escapeHtml(card.severity)}" data-dashboard-overview-card="${escapeHtml(card.id)}">
+          <button type="button" class="dashboard-overview-card ${escapeHtml(card.severity)}" data-dashboard-overview-card="${escapeHtml(card.id)}" data-action-board-target="${escapeHtml(card.target)}" aria-controls="${escapeHtml(card.target)}">
             <span>${escapeHtml(card.label)}</span>
             <strong>${escapeHtml(card.value)}</strong>
             <p>${escapeHtml(card.summary)}</p>
             <small>${escapeHtml(card.source)}</small>
-          </article>
+          </button>
         `).join("")}
       </div>
       <div class="dashboard-overview-safety" aria-label="Dashboard safety">
@@ -4203,13 +4203,21 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       margin-top: 9px;
     }
     .dashboard-overview-card {
+      appearance: none;
       border: 1px solid var(--border);
       border-left-width: 4px;
       border-radius: 6px;
       padding: 8px 9px;
       background: var(--surface-2);
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
       min-width: 0;
+      text-align: left;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
     }
+    .dashboard-overview-card:hover { border-color: #b8c0c8; box-shadow: 0 8px 18px rgba(21, 25, 30, 0.045); transform: translateY(-1px); }
+    .dashboard-overview-card:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .dashboard-overview-card.good { border-left-color: var(--good); }
     .dashboard-overview-card.info { border-left-color: var(--info); }
     .dashboard-overview-card.warning { border-left-color: var(--warning); }

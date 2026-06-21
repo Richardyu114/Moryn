@@ -55,6 +55,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("GET /api/dashboard");
     expect(dashboard).toContain("actions_by_id");
     expect(dashboard).toContain("data-dashboard-action-id");
+    expectText(dashboard, "Each overview card is also a local navigation button");
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Governance Hub, Context Pack Review, and Supporting Evidence");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");

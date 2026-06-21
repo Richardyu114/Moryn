@@ -896,13 +896,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Review warnings</strong>");
       expect(html).toContain("<p>Warnings and critical signals remain visible in Needs Attention.</p>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Review warnings</button>");
-      expect(html).toContain("<article class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"health\">");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"health\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
       expect(html).toContain("<span>Health</span>");
       expect(html).toContain("<strong>Local Only</strong>");
       expect(html).toContain("<small>health</small>");
-      expect(html).toContain("<article class=\"dashboard-overview-card warning\" data-dashboard-overview-card=\"action\">");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card warning\" data-dashboard-overview-card=\"action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
       expect(html).toContain("<span>Next</span>");
-      expect(html).toContain("<article class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"sync\">");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
+      expect(html).not.toContain("<article class=\"dashboard-overview-card");
       expect(html).toContain("<span>Read-only overview</span>");
       expect(html).toContain("<span>Writes stay in Capture Inbox and Review Queue</span>");
       expect(html).not.toContain("data-dashboard-focus-brief");
