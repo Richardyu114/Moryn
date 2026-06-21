@@ -361,11 +361,15 @@ export function diagnoseCapturePolicy(input: CapturePolicyDiagnoseInput): Captur
     reviewFinding(decisions),
     archiveFinding(decisions)
   ].filter((finding): finding is CapturePolicyFinding => finding !== undefined);
+  const sourceRecordsById = recordsById(records);
   const actions = uniqueActions([
     ...(decisions.some((decision) => decision.decision === "review") ? [reviewCaptureAction(input.project_id)] : []),
     ...decisions
       .filter((decision) => decision.decision === "archive")
-      .map((decision) => inspectArchivedAction(decision.record_id, input.project_id))
+      .map((decision) => inspectArchivedAction(
+        decision.record_id,
+        input.project_id ?? sourceRecordsById[decision.record_id]?.project_id
+      ))
   ], limit);
   const referencedRecordIds = new Set([
     ...findings.flatMap((finding) => finding.record_ids),

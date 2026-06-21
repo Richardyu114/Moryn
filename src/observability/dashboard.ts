@@ -1332,6 +1332,66 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult): string {
   `;
 }
 
+function capturePolicyInspectCommand(report: CapturePolicyResult, recordId: string): string {
+  return report.suggested_actions_by_id[`inspect:${recordId}`]?.command
+    ?? timelineRecordCommand(recordId, report.records_by_id[recordId]?.project_id);
+}
+
+function capturePolicyInspectAction(report: CapturePolicyResult, recordId: string): string {
+  return report.suggested_actions_by_id[`inspect:${recordId}`]?.recommended_action
+    ?? "inspect_policy_decision";
+}
+
+function capturePolicyDecisionCards(report: CapturePolicyResult): string {
+  return `
+    <div class="capture-policy-decisions">
+      ${report.decisions.slice(0, 8).map((decision) => {
+        const isReview = decision.decision === "review";
+        const inspectCommand = capturePolicyInspectCommand(report, decision.record_id);
+        const inspectAction = capturePolicyInspectAction(report, decision.record_id);
+        return `
+          <article
+            class="capture-policy-decision ${isReview ? "review" : "archived"}"
+            data-capture-policy-decision="${escapeHtml(decision.record_id)}"
+            ${isReview ? `data-capture-inbox-record="${escapeHtml(decision.record_id)}"` : ""}
+          >
+            <div class="capture-inbox-main">
+              <div>
+                <h3>${escapeHtml(isReview ? "Review in Capture Inbox" : "Policy archived")}</h3>
+                <p>${escapeHtml(decision.text)}</p>
+              </div>
+              <span class="pill ${isReview ? "state-candidate" : "state-archived"}">${escapeHtml(decision.decision)}</span>
+            </div>
+            <dl class="capture-inbox-summary">
+              <div><dt>Rule</dt><dd>${decision.rule_ids.map((ruleId) => `<code>${escapeHtml(ruleId)}</code>`).join(" ") || "none"}</dd></div>
+              <div><dt>State</dt><dd>${escapeHtml(decision.target_state)}<small>${escapeHtml(isReview ? "User action required" : "No inbox action")}</small></dd></div>
+              <div><dt>Evidence</dt><dd>${decision.evidence.map((evidence) => `<code>${escapeHtml(evidence.source)}</code>`).join(" ")}</dd></div>
+              <div><dt>Action</dt><dd>${escapeHtml(isReview ? "review_capture_inbox" : inspectAction)}<small>${escapeHtml(isReview ? "Uses Capture Inbox approval endpoints." : "Read-only timeline inspection.")}</small></dd></div>
+              <div><dt>Inspect</dt><dd><code>${escapeHtml(inspectCommand)}</code></dd></div>
+            </dl>
+            ${isReview ? `
+              <div class="capture-inbox-actions">
+                <button
+                  type="button"
+                  data-capture-inbox-reject
+                  data-endpoint="${escapeHtml(captureInboxRejectEndpoint(decision.record_id))}"
+                >Reject</button>
+                <button
+                  type="button"
+                  class="primary"
+                  data-capture-inbox-approve
+                  data-endpoint="${escapeHtml(captureInboxApproveEndpoint(decision.record_id))}"
+                >Approve Memory</button>
+              </div>
+              <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
+            ` : ""}
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function capturePolicyAuditPanel(report: CapturePolicyResult): string {
   if (report.stats.total_autocapture_records === 0) return "";
   const ruleSummary = Object.entries(report.stats.archived_by_rule)
@@ -1348,7 +1408,7 @@ function capturePolicyAuditPanel(report: CapturePolicyResult): string {
           <strong>capture_policy</strong>
           <code>${escapeHtml(report.policy.id)}</code>
         </div>
-        <span>Read-only</span>
+        <span>Report read-only</span>
         <span>No auto-canonical</span>
         <span>${escapeHtml(ruleSummary)}</span>
       </div>
@@ -1378,15 +1438,7 @@ function capturePolicyAuditPanel(report: CapturePolicyResult): string {
             </article>
           `).join("")}
         </div>
-        <ul class="capture-policy-rule-list">
-          ${report.decisions.slice(0, 8).map((decision) => `
-            <li>
-              <code>${escapeHtml(decision.record_id)}</code>
-              <strong>${escapeHtml(decision.decision)} / ${escapeHtml(decision.rule_ids.join(", ") || "policy")}</strong>
-              <span>${escapeHtml(decision.text)}</span>
-            </li>
-          `).join("")}
-        </ul>
+        ${capturePolicyDecisionCards(report)}
       </details>
     </section>
   `;
@@ -2207,7 +2259,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
     }
     .capture-policy-rule-list strong { color: var(--ink); }
-    .maintenance-plan, .lifecycle-finding, .lifecycle-action, .capture-inbox-group, .capture-inbox-item {
+    .maintenance-plan, .lifecycle-finding, .lifecycle-action, .capture-policy-decision, .capture-inbox-group, .capture-inbox-item {
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px;
@@ -2228,6 +2280,11 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .lifecycle-action.safe { border-left: 3px solid var(--good); }
     .lifecycle-action-details { margin-top: 10px; }
     .lifecycle-action-details summary { font-weight: 760; color: var(--ink); }
+    .capture-policy-decisions { display: grid; gap: 10px; margin-top: 10px; }
+    .capture-policy-decision { background: var(--surface); }
+    .capture-policy-decision.review { border-left: 3px solid var(--signal-blue); }
+    .capture-policy-decision.archived { border-left: 3px solid var(--signal-slate); }
+    .capture-policy-decision .capture-inbox-summary div:last-child { grid-column: 1 / -1; }
     .capture-inbox-group {
       background: var(--surface);
       box-shadow: 0 8px 18px rgba(21, 25, 30, 0.04);

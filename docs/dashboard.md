@@ -177,11 +177,21 @@ same local report as `moryn capture policy` and MCP `capture_policy`. It shows:
 - keyed findings such as `review_required` and `policy_archived`
 - safe dashboard or timeline inspection actions such as
   `inspect_policy_archived_record`
-- recent policy decisions with record ids, decision, rule ids, and text
+- recent policy decisions with record ids, decision, rule ids, text, evidence,
+  and the next action
 
-This panel explains automatic review/archive routing. It does not expose an
-Approve, Reject, Promote, Archive, or Apply endpoint; canonical memory still
-requires the Capture Inbox user action.
+This panel explains automatic review/archive routing without adding a second
+policy mutation surface. Decisions routed to `review` render the same explicit
+Capture Inbox user actions: `Review in Capture Inbox`, `Approve Memory`, and
+`Reject`. Decisions routed to `archive` render `Policy archived`,
+`inspect_policy_archived_record`, and a read-only timeline command such as
+`moryn timeline --record-id <record_id> --project-id <project_id> --before 3 --after 3`.
+Archived decisions do not expose Approve, Reject, Promote, Archive, or Apply
+buttons.
+
+Canonical memory still requires explicit Capture Inbox user action. Archived
+policy decisions stay inspectable and reversible through append-only history,
+but the dashboard does not turn them back into inbox items automatically.
 
 ### Memory Lifecycle
 
@@ -279,6 +289,8 @@ The first screen favors human-readable summaries over raw ids:
 - record type distribution
 - Memory Lifecycle retained/stale/archive review
 - Capture Inbox candidate approvals when autocaptured records need review
+- policy decisions that need review, using the same Capture Inbox approval
+  controls
 - recent valuable records, newest first
 - Review Queue maintenance plans when a project identity repair is available
 

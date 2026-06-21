@@ -1557,6 +1557,16 @@ describe("observability dashboard", () => {
       expect(html).toContain("Capture Policy Audit");
       expect(html).toContain("capture_policy");
       expect(html).toContain("inspect_policy_archived_record");
+      expect(html).toContain("data-capture-policy-decision=\"rec_capture_policy_1\"");
+      expect(html).toContain("data-capture-inbox-record=\"rec_capture_policy_1\"");
+      expect(html).toContain("api/capture-inbox/rec_capture_policy_1/approve");
+      expect(html).toContain("api/capture-inbox/rec_capture_policy_1/reject");
+      expect(html).toContain("Review in Capture Inbox");
+      expect(html).toContain("User action required");
+      expect(html).toContain("data-capture-policy-decision=\"rec_capture_policy_2\"");
+      expect(html).toContain("moryn timeline --record-id rec_capture_policy_2 --project-id moryn --before 3 --after 3");
+      expect(html).not.toContain("api/capture-inbox/rec_capture_policy_2/approve");
+      expect(html).not.toContain("api/capture-inbox/rec_capture_policy_2/reject");
       expect(html).toContain("smoke_test_marker");
       expect(html).toContain("Smoke test marker only.");
       expect(html).toContain("Useful handoff still needs user review.");
