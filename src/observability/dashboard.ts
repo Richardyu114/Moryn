@@ -22,6 +22,7 @@ const exec = promisify(execFile);
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const RECENT_VALUE_LIMIT = 8;
+const DASHBOARD_TEXT_EXCERPT_LIMIT = 240;
 const CAPTURE_NOISE_RULES: DashboardCaptureNoiseRule[] = [
   {
     id: "smoke_test_marker",
@@ -1874,6 +1875,23 @@ function shortText(text: string): string {
   return text.length > 180 ? `${text.slice(0, 177)}...` : text;
 }
 
+function textExcerpt(text: string, limit = DASHBOARD_TEXT_EXCERPT_LIMIT): { text: string; truncated: boolean } {
+  if (text.length <= limit) return { text, truncated: false };
+  const clipped = text.slice(0, limit).replace(/\s+\S*$/, "").trim();
+  return {
+    text: `${clipped || text.slice(0, limit).trim()}...`,
+    truncated: true
+  };
+}
+
+function textExcerptBlock(text: string, truncatedAttribute = "data-full-text-hidden"): string {
+  const excerpt = textExcerpt(text);
+  return `
+    <p${excerpt.truncated ? ` ${truncatedAttribute}="true"` : ""}>${escapeHtml(excerpt.text)}</p>
+    ${excerpt.truncated ? `<small>Full text available through timeline/recall.</small>` : ""}
+  `;
+}
+
 function metric(label: string, value: unknown, hint?: string): string {
   return `<div class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${hint ? `<small>${escapeHtml(hint)}</small>` : ""}</div>`;
 }
@@ -2159,7 +2177,7 @@ function contextPackReviewItemColumn(title: string, items: DashboardContextPackR
         <div class="context-pack-items">
           ${items.map((item) => `
             <article class="context-pack-item">
-              <p>${escapeHtml(item.text)}</p>
+              ${textExcerptBlock(item.text)}
               <small><code>${escapeHtml(item.evidence.source)}</code>${item.evidence.record_id ? ` <code>${escapeHtml(item.evidence.record_id)}</code>` : ""}</small>
             </article>
           `).join("")}
@@ -2255,7 +2273,7 @@ function capturePolicyDecisionCards(report: CapturePolicyResult): string {
             <div class="capture-inbox-main">
               <div>
                 <h3>${escapeHtml(title)}</h3>
-                <p>${escapeHtml(decision.text)}</p>
+                ${textExcerptBlock(decision.text)}
               </div>
               <span class="pill ${isReview || isCapture ? "state-candidate" : "state-archived"}">${escapeHtml(decision.decision)}</span>
             </div>
@@ -2431,7 +2449,7 @@ function recentValueCards(records: DashboardValueRecord[]): string {
             <span class="pill state-${escapeHtml(record.state)}">${escapeHtml(record.title)}</span>
             <time title="${escapeHtml(record.exact_time)}">${escapeHtml(record.relative_time)}</time>
           </div>
-          <p>${escapeHtml(record.summary)}</p>
+          ${textExcerptBlock(record.summary, "data-full-summary-hidden")}
           <footer>
             <span>${escapeHtml(record.source_label)}</span>
             <span>${escapeHtml(record.state)}</span>
@@ -2493,7 +2511,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
               <li>
                 <code>${escapeHtml(example.id)}</code>
                 <strong>${escapeHtml(example.rule_ids.join(", ") || "policy")}</strong>
-                <span>${escapeHtml(example.text)}${example.reason ? ` ${escapeHtml(example.reason)}` : ""}</span>
+                <span>${escapeHtml(textExcerpt(`${example.text}${example.reason ? ` ${example.reason}` : ""}`).text)}</span>
               </li>
             `).join("")}
           </ul>
@@ -2507,7 +2525,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
               <li>
                 <code>${escapeHtml(example.id)}</code>
                 <strong>${escapeHtml(example.rule_ids.join(", ") || "policy")}</strong>
-                <span>${escapeHtml(example.text)}${example.reason ? ` ${escapeHtml(example.reason)}` : ""}</span>
+                <span>${escapeHtml(textExcerpt(`${example.text}${example.reason ? ` ${example.reason}` : ""}`).text)}</span>
               </li>
             `).join("")}
           </ul>
@@ -2539,7 +2557,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
             <div class="capture-inbox-main">
               <div>
                 <h3>${escapeHtml(group.source_label)} capture group</h3>
-                <p>${escapeHtml(shortText(group.summary))}</p>
+                ${textExcerptBlock(group.summary)}
               </div>
               <span class="pill ${group.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(group.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
             </div>
@@ -2563,7 +2581,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
                     <div class="capture-inbox-main">
                       <div>
                         <h3>${escapeHtml(titleCase(item.type || item.kind))}</h3>
-                        <p>${escapeHtml(item.text)}</p>
+                        ${textExcerptBlock(item.text)}
                       </div>
                       <span class="pill ${item.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
                     </div>
@@ -2632,7 +2650,7 @@ function recordsTable(records: DashboardRecordSummary[]): string {
       <td>
         <details data-dashboard-detail="record:${escapeHtml(record.id)}">
           <summary>${escapeHtml(shortText(record.text))}</summary>
-          <p>${escapeHtml(record.text)}</p>
+          ${textExcerptBlock(record.text)}
           ${citationCommands(record.citation)}
         </details>
       </td>

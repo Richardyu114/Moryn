@@ -576,6 +576,45 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("renders Recent Value as compact excerpts while keeping full JSON data", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-06-01T00:01:00.000Z",
+        id: (prefix: string) => prefix === "rec" ? "rec_recent_long" : "evt_recent_long"
+      });
+      const longText = `Important compact recent value intro. ${"dashboard-noise ".repeat(80)}FULL_CONTENT_SENTINEL`;
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: longText, format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(data.recent_value[0]?.summary).toBe(longText);
+      expect(html).toContain("Important compact recent value intro.");
+      expect(html).toContain("data-full-summary-hidden=\"true\"");
+      expect(html).toContain("Full text available through timeline/recall.");
+      expect(html).not.toContain("FULL_CONTENT_SENTINEL");
+    });
+  });
+
   it("does not mark health as needs_review for quarantined records superseded by safe indexes", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

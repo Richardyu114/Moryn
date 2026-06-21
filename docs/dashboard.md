@@ -461,6 +461,12 @@ review pressure without expanding every low-level panel. Memory Lifecycle,
 Capture Policy Audit, and the raw Debug Inspector remain available, but their
 details are collapsed by default.
 
+Long record text is rendered as compact excerpts in the HTML dashboard,
+including Recent Value cards, Context Pack Review items, Capture Inbox cards,
+and Debug Inspector record details. `/api/dashboard` keeps the full JSON fields,
+and each card keeps timeline/recall commands so the full record remains
+auditable without making the page heavy.
+
 Recent values, recent records, recent events, and agent activity entries carry
 `citation` metadata when an event or record can be traced. Record citations
 include `record_id`, the latest known `event_id`, a `timeline_command`, and a
