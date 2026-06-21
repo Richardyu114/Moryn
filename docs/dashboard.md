@@ -451,6 +451,11 @@ The review summarizes:
 - the required end-of-session capture command through
   `next.actions_by_id.capture_session`
 
+The HTML dashboard keeps the quality gate and next action visible while placing
+Recent Decisions, Open Threads, and Risks under the collapsed `Context Evidence`
+section. `/api/dashboard` still returns the full `context_pack_review` payload
+with evidence paths.
+
 If the dashboard is opened without project context, the panel renders
 `Unavailable` and the JSON message is `Open the dashboard with --project-id or
 --project to review a project context pack.` The dashboard does not guess a project

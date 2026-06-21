@@ -1773,6 +1773,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("Context Pack Review");
       expect(html).toContain("agent_handoff");
       expect(html).toContain("Read-only");
+      expect(html).toContain("data-dashboard-detail=\"context-pack-evidence\"");
+      expect(html).toContain("<span>Context Evidence</span>");
+      expect(html).toContain("<small>1 decision | 1 thread | 1 risk</small>");
+      expect(html).not.toContain("<details open data-dashboard-detail=\"context-pack-evidence\"");
       expect(html).toContain("Dashboard should review context pack readiness.");
       expect(html).toContain("Codex finished handoff review implementation.");
       expect(html).toContain("Do not make dashboard context review mutate memory.");

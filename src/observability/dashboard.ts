@@ -2245,11 +2245,17 @@ function contextPackReviewPanel(review: DashboardContextPackReview): string {
         <div><dt>Evidence</dt><dd><code>${escapeHtml(pack.evidence.records)}</code> <code>${escapeHtml(pack.evidence.events)}</code> <code>${escapeHtml(pack.evidence.next)}</code></dd></div>
       </dl>
       ${contextPackReviewChecks(review)}
-      <div class="context-pack-grid">
-        ${contextPackReviewItemColumn("Recent Decisions", pack.recent_decisions)}
-        ${contextPackReviewItemColumn("Open Threads", pack.open_threads)}
-        ${contextPackReviewItemColumn("Risks", pack.risks)}
-      </div>
+      <details class="context-pack-evidence" data-dashboard-detail="context-pack-evidence">
+        <summary>
+          <span>Context Evidence</span>
+          <small>${escapeHtml(pluralize(pack.recent_decisions.length, "decision"))} | ${escapeHtml(pluralize(pack.open_threads.length, "thread"))} | ${escapeHtml(pluralize(pack.risks.length, "risk"))}</small>
+        </summary>
+        <div class="context-pack-grid">
+          ${contextPackReviewItemColumn("Recent Decisions", pack.recent_decisions)}
+          ${contextPackReviewItemColumn("Open Threads", pack.open_threads)}
+          ${contextPackReviewItemColumn("Risks", pack.risks)}
+        </div>
+      </details>
     </section>
   `;
 }
@@ -3298,6 +3304,26 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .context-pack-checks li code { grid-column: 1 / -1; }
     .context-pack-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
     .context-pack-grid h3 { margin-bottom: 8px; }
+    .context-pack-evidence {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px;
+      margin-top: 10px;
+      background: var(--surface);
+    }
+    .context-pack-evidence > summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--ink);
+      font-weight: 760;
+    }
+    .context-pack-evidence > summary small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .context-pack-evidence[open] > summary { margin-bottom: 10px; }
     .context-pack-items { display: grid; gap: 8px; }
     .context-pack-item {
       border: 1px solid var(--border);
