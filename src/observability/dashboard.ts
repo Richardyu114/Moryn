@@ -2148,7 +2148,7 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult): string {
   if (report.stats.total_records === 0 && totalFindings === 0 && totalActions === 0) return "";
   return `
     <details class="panel memory-lifecycle" data-dashboard-detail="memory-lifecycle-audit" aria-label="Memory Lifecycle">
-      <summary>
+      <summary class="dashboard-fold-summary">
         <span>Memory Lifecycle</span>
         <small>${escapeHtml(pluralize(totalFindings, "finding"))} | ${escapeHtml(pluralize(totalActions, "action"))}</small>
       </summary>
@@ -2246,7 +2246,7 @@ function contextPackReviewPanel(review: DashboardContextPackReview): string {
       </dl>
       ${contextPackReviewChecks(review)}
       <details class="context-pack-evidence" data-dashboard-detail="context-pack-evidence">
-        <summary>
+        <summary class="dashboard-fold-summary">
           <span>Context Evidence</span>
           <small>${escapeHtml(pluralize(pack.recent_decisions.length, "decision"))} | ${escapeHtml(pluralize(pack.open_threads.length, "thread"))} | ${escapeHtml(pluralize(pack.risks.length, "risk"))}</small>
         </summary>
@@ -2346,7 +2346,7 @@ function capturePolicyAuditPanel(report: CapturePolicyResult): string {
     .join(" / ") || "no archived noise";
   return `
     <details class="panel capture-policy-audit" data-dashboard-detail="capture-policy-audit" aria-label="Capture Policy Audit">
-      <summary>
+      <summary class="dashboard-fold-summary">
         <span>Capture Policy Audit</span>
         <small>${escapeHtml(pluralize(report.stats.auto_captured_records, "auto-captured"))} | ${escapeHtml(pluralize(report.stats.review_records, "review"))} | ${escapeHtml(pluralize(report.stats.policy_archived_records, "archived"))}</small>
       </summary>
@@ -2503,7 +2503,7 @@ function recentValueCards(records: DashboardValueRecord[]): string {
     </div>
     ${overflow.length === 0 ? "" : `
       <details class="recent-value-overflow" data-dashboard-detail="recent-value-overflow">
-        <summary>
+        <summary class="dashboard-fold-summary">
           <span>More Recent Value</span>
           <small>${escapeHtml(pluralize(overflow.length, "additional record"))}</small>
         </summary>
@@ -2785,7 +2785,7 @@ function renderDashboardBody(data: DashboardData): string {
     ${captureInbox(data.capture_inbox)}
 
     <details class="panel store-signals" data-dashboard-detail="store-signals">
-      <summary>
+      <summary class="dashboard-fold-summary">
         <span>Store Signals</span>
         <small>agent activity / record quality / sync</small>
       </summary>
@@ -2815,7 +2815,7 @@ function renderDashboardBody(data: DashboardData): string {
     </section>
 
     <details class="panel debug-inspector" data-dashboard-detail="debug-inspector">
-      <summary>
+      <summary class="dashboard-fold-summary">
         <span>Debug Inspector</span>
         <small>records / events / sync</small>
       </summary>
@@ -3311,18 +3311,6 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       margin-top: 10px;
       background: var(--surface);
     }
-    .context-pack-evidence > summary {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      color: var(--ink);
-      font-weight: 760;
-    }
-    .context-pack-evidence > summary small {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 650;
-    }
     .context-pack-evidence[open] > summary { margin-bottom: 10px; }
     .context-pack-items { display: grid; gap: 8px; }
     .context-pack-item {
@@ -3410,15 +3398,22 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .lifecycle-action.safe { border-left: 3px solid var(--good); }
     .lifecycle-action-details { margin-top: 10px; }
     .lifecycle-action-details summary { font-weight: 760; color: var(--ink); }
-    .memory-lifecycle > summary, .capture-policy-audit > summary, .store-signals > summary {
+    .dashboard-fold-summary {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      min-width: 0;
       color: var(--ink);
       font-weight: 760;
     }
-    .memory-lifecycle > summary small, .capture-policy-audit > summary small, .store-signals > summary small {
+    .dashboard-fold-summary span,
+    .dashboard-fold-summary small {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .dashboard-fold-summary small {
       color: var(--muted);
       font-size: 12px;
       font-weight: 650;
@@ -3613,34 +3608,9 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       margin-top: 10px;
       background: var(--surface);
     }
-    .recent-value-overflow > summary {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      color: var(--ink);
-      font-weight: 760;
-    }
-    .recent-value-overflow > summary small {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 650;
-    }
     .citation-links { display: grid; gap: 5px; min-width: 0; }
     .citation-links code { width: 100%; }
     .inspector-grid { display: grid; gap: 12px; }
-    .debug-inspector > summary {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      color: var(--ink);
-      font-weight: 760;
-    }
-    .debug-inspector > summary small {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 650;
-    }
     .debug-inspector[open] > summary { margin-bottom: 12px; }
     .table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
     table { width: 100%; min-width: 940px; table-layout: fixed; border-collapse: collapse; }

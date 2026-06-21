@@ -571,6 +571,10 @@ describe("observability dashboard", () => {
       expect(html).toContain(".metric:nth-child(3)");
       expect(html).toContain(".bar-row:nth-child(3)");
       expect(html).toContain(".value-card:nth-child(4)");
+      expect(html).toContain(".dashboard-fold-summary");
+      expect(html).toContain("flex-wrap: wrap");
+      expect(html).toContain("min-width: 0");
+      expect(html).toContain("overflow-wrap: anywhere");
       expect(html).not.toContain("Memory Quality");
       expect(html).toContain("overflow-wrap: anywhere");
       expect(html).toContain("table-layout: fixed");

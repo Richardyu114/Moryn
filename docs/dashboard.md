@@ -343,6 +343,10 @@ kept under the collapsed `Store Signals` panel. They remain available for local
 inspection, but the first screen prioritizes attention items, governance,
 review actions, context readiness, and recent value.
 
+Collapsed dashboard summaries wrap their title and count labels on narrow
+screens. This keeps secondary panels readable on mobile-sized windows without
+removing audit data from the page or from `/api/dashboard`.
+
 Health badge states:
 
 - `Healthy`: sync is clean and no urgent safety signals were detected.
