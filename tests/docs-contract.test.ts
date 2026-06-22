@@ -160,6 +160,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("POST /api/maintenance/plans/:plan_id/approve");
     expect(dashboard).toContain("plan_hash");
     expect(dashboard).toContain("decision card");
+    expect(dashboard).toContain("Approval checklist");
+    expect(dashboard).toContain("approval surface reads like a decision checklist instead of internal logs");
     expect(dashboard).toContain("recommended action");
     expect(dashboard).toContain("rollback path");
     expect(contracts).toContain("decision_card");

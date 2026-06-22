@@ -3138,13 +3138,18 @@ function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
   `;
 }
 
-function maintenanceReviewLog(plan: DashboardMaintenancePlan): string[] {
-  return [
-    "Detected: Project identity repair found records under an old project id.",
-    `Proposed change: ${maintenanceMoveSummary(plan)} from ${plan.from_project_id} to ${plan.to_project_id}.`,
-    "Approval gate: server re-runs the dry run and checks plan_hash before applying.",
-    "Audit trail: raw plan, record ids, rollback path, and equivalent CLI command are below."
-  ];
+function maintenanceApprovalChecklist(plan: DashboardMaintenancePlan): string {
+  return `
+    <div class="review-log approval-checklist" data-maintenance-review-log>
+      <h4>Approval checklist</h4>
+      <ol>
+        <li><strong>Issue:</strong> Project identity repair found records under an old project id.</li>
+        <li><strong>Proposed change:</strong> ${escapeHtml(maintenanceMoveSummary(plan))} from <code>${escapeHtml(plan.from_project_id)}</code> to <code>${escapeHtml(plan.to_project_id)}</code>.</li>
+        <li><strong>Safety gate:</strong> Server re-runs the dry run and checks <code>plan_hash</code> before writing.</li>
+        <li><strong>Audit path:</strong> Raw plan, record ids, rollback path, equivalent CLI command, and <code>plan_hash</code> stay below.</li>
+      </ol>
+    </div>
+  `;
 }
 
 function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
@@ -3223,7 +3228,7 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 <details class="maintenance-audit-trail" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
                   <summary>Audit trail</summary>
                   ${maintenanceDecisionRecord(plan)}
-                  ${reviewLogList(maintenanceReviewLog(plan), "data-maintenance-review-log")}
+                  ${maintenanceApprovalChecklist(plan)}
                 </details>
                 <details data-dashboard-detail="maintenance:${escapeHtml(plan.plan_id)}">
                   <summary>Evidence, rollback, and raw plan</summary>

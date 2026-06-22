@@ -301,8 +301,9 @@ The same card still includes the structured decision summary:
 Each plan also keeps an expandable `Audit trail`. The first thing inside it is
 a structured `Decision record`, not a raw event stream: detected condition, why
 it matters, proposed change, safety gate, approval writes, and where to audit or
-roll back. A compact plain-language `Review log` remains below that record for
-compatibility with the normalized governance review style.
+roll back. A compact `Approval checklist` remains below that record with
+plain-language Issue, Proposed change, Safety gate, and Audit path rows, so the
+approval surface reads like a decision checklist instead of internal logs.
 
 Evidence, rollback, and raw plan details are kept in an expandable section so
 the first screen stays readable without hiding audit data. That rollback path

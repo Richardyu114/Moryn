@@ -2423,7 +2423,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("Server re-runs the dry run and checks plan_hash before applying.");
       expect(html).toContain("data-maintenance-review-log");
       expect(html).toContain("<summary>Audit trail</summary>");
-      expect(html).toContain("<h4>Review log</h4>");
+      expect(html).toContain("<h4>Approval checklist</h4>");
+      expect(html).not.toContain("<div class=\"review-log\" data-maintenance-review-log>\n      <h4>Review log</h4>");
       expect(html).toContain("<h4>Decision record</h4>");
       expect(html).toContain("<strong>Detected</strong>");
       expect(html).toContain("<strong>Why this matters</strong>");
@@ -2437,10 +2438,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("The server re-runs the dry run and checks <code>plan_hash</code> before writing.");
       expect(html).toContain("Approving appends revise_record events only; Reject hides this card for the browser session.");
       expect(html).toContain("Raw plan, record ids, rollback path, equivalent CLI command, and <code>plan_hash</code> stay below.");
-      expect(html).toContain("Detected: Project identity repair found records under an old project id.");
-      expect(html).toContain("Proposed change: Move 1 record from repo-e6f0166fd942 to moryn.");
-      expect(html).toContain("Approval gate: server re-runs the dry run and checks plan_hash before applying.");
-      expect(html).toContain("Audit trail: raw plan, record ids, rollback path, and equivalent CLI command are below.");
+      expect(html).toContain("<strong>Issue:</strong> Project identity repair found records under an old project id.");
+      expect(html).toContain("<strong>Proposed change:</strong> Move 1 record from <code>repo-e6f0166fd942</code> to <code>moryn</code>.");
+      expect(html).toContain("<strong>Safety gate:</strong> Server re-runs the dry run and checks <code>plan_hash</code> before writing.");
+      expect(html).toContain("<strong>Audit path:</strong> Raw plan, record ids, rollback path, equivalent CLI command, and <code>plan_hash</code> stay below.");
       expect(html).toContain("Evidence, rollback, and raw plan");
       expect(html).toContain("data-maintenance-detail=\"evidence\"");
       expect(html).toContain("data-maintenance-detail=\"rollback\"");
