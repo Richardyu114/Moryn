@@ -2633,14 +2633,19 @@ function decisionSummaryChips(summary: DashboardDecisionSummary): string {
   return chips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
 }
 
+function decisionSummaryWriteLabel(writes: DashboardDecisionSummaryItem["writes"]): string {
+  if (writes === "append_only_events") return "Append-only events";
+  return "No memory writes";
+}
+
 function decisionSummary(data: DashboardDecisionSummary): string {
   if (data.total_decisions === 0) return "";
   return `
     <section id="decision-summary" class="panel decision-summary" data-dashboard-detail="decision-summary" aria-label="Decision Summary">
       <div class="decision-summary-heading">
         <div>
-          <h2>Decision Summary</h2>
-          <p>Explicit decisions only</p>
+          <h2>Pending Decisions</h2>
+          <p>Review explicit approvals</p>
         </div>
         <div class="decision-summary-counts">
           ${decisionSummaryChips(data)}
@@ -2655,7 +2660,7 @@ function decisionSummary(data: DashboardDecisionSummary): string {
             </div>
             <dl>
               <div><dt>Decision</dt><dd>${escapeHtml(item.decision_label)}</dd></div>
-              <div><dt>Writes</dt><dd>${escapeHtml(item.writes)}<small>${escapeHtml(item.safety_note)}</small></dd></div>
+              <div><dt>Write boundary</dt><dd>${escapeHtml(decisionSummaryWriteLabel(item.writes))}<small>${escapeHtml(item.safety_note)}</small></dd></div>
               <div><dt>Evidence</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
             </dl>
             <button type="button" class="decision-summary-link" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">${escapeHtml(item.target_label)}</button>
