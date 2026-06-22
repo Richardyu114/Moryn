@@ -4257,7 +4257,7 @@ function supportingEvidencePanel(data: DashboardData): string {
   return `
     <details class="panel supporting-evidence" data-dashboard-detail="supporting-evidence" aria-label="Supporting Evidence">
       <summary class="dashboard-fold-summary supporting-evidence-fold">
-        <span>Supporting Evidence</span>
+        <span>Audit Trail</span>
         <small>${escapeHtml(supportingEvidenceSummary())}</small>
       </summary>
       <div class="supporting-evidence-list">

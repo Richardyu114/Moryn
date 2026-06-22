@@ -66,11 +66,11 @@ describe("documentation contracts", () => {
     expectText(dashboard, "keeps non-good overview cards visible in the main grid");
     expectText(dashboard, "groups good cards under `Quiet Overview`");
     expect(dashboard).toContain("Evidence Library");
-    expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Supporting Evidence");
+    expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail");
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
     expectText(dashboard, "grouped first under `Inspection Evidence`");
     expectText(dashboard, "read-only findings do not look like pending approval work");
-    expectText(dashboard, "Routine Diagnostics and Supporting Evidence are grouped behind `Reference Evidence`");
+    expectText(dashboard, "Routine Diagnostics and Audit Trail are grouped behind `Reference Evidence`");
     expectText(dashboard, "Empty groups are omitted");
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");
     expectText(dashboard, "When there are no warning or critical action signals");
@@ -80,6 +80,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Dogfood Review");
     expect(dashboard).toContain("Issue brief");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
+    expectText(dashboard, "remain available inside the nested `Audit Trail` panel");
     expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Operational Evidence`");
     expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Inspector`");
     expectText(dashboard, "shows compact inspection rows with source, title, read-only next step, and evidence path");

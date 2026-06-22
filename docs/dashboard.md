@@ -265,7 +265,7 @@ panel.
 
 When Memory Lifecycle and Capture Policy Audit both have no current findings or
 suggested actions, the dashboard groups them under a collapsed `Clean Audit
-Reports` summary inside `Supporting Evidence`. The reports and their evidence
+Reports` summary inside `Audit Trail`. The reports and their evidence
 remain in the HTML and `/api/dashboard`; the grouping only reduces first-screen
 noise for clean checks.
 
@@ -499,8 +499,8 @@ like user work.
 Read-only diagnostic detail lives in the collapsed `Evidence Library`. Its
 visible summary uses a purpose label, `Read-only diagnostics grouped here`,
 instead of listing every child module on the first screen. Health Check, Recall
-Eval, Dogfood Review, Governance Hub, Context Pack Review, and Supporting
-Evidence stay nested under that evidence layer so the main path stays focused
+Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail
+stay nested under that evidence layer so the main path stays focused
 on action and review. The library is still fully local and auditable: each child
 panel keeps its `data-dashboard-detail` target, so Action Board buttons can open
 the parent library before scrolling to `governance-hub`,
@@ -511,7 +511,7 @@ Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack
 Review are grouped under `Routine Diagnostics`. Findings-oriented panels such
 as Dogfood Review, Governance Hub, or non-routine Health/Recall/Context checks
 are grouped first under `Inspection Evidence` so read-only findings do not look
-like pending approval work. Routine Diagnostics and Supporting Evidence are
+like pending approval work. Routine Diagnostics and Audit Trail are
 grouped behind `Reference Evidence`. Empty groups are omitted, so the library
 does not add a placeholder when there is only background evidence.
 The routine and background groups still keep the original child
@@ -531,10 +531,10 @@ the evidence layer. The library also does not add endpoints, Safe Action
 Registry entries, or memory mutation paths.
 
 Clean audit reports, raw records, events, sync details, recent value, and store
-telemetry remain available inside the nested `Supporting Evidence` panel. That
+telemetry remain available inside the nested `Audit Trail` panel. That
 collapsed group uses the purpose label `Audit logs and raw signals` instead of
 listing implementation-oriented module names or collapsed-state counters on the
-first screen. Inside Supporting Evidence, `Clean Audit Reports`, `Store
+first screen. Inside Audit Trail, `Clean Audit Reports`, `Store
 Signals`, and `Recent Value` are grouped under `Operational Evidence`; the raw
 `Debug Inspector` is grouped behind `Raw Inspector`. This keeps common audit
 evidence closer to the user while keeping record/event/sync internals available
