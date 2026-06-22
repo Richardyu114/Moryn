@@ -511,7 +511,7 @@ Inside Evidence Library, routine read-only diagnostics such as a healthy Health
 Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack
 Review are grouped under `Routine Diagnostics`. Findings-oriented panels such
 as Dogfood Review, Governance Hub, or non-routine Health/Recall/Context checks
-are grouped first under `Inspection Evidence` so read-only findings do not look
+are grouped first under `Read-only Findings` so read-only findings do not look
 like pending approval work. Routine Diagnostics and Audit Trail are
 grouped behind `Reference Evidence`. Empty groups are omitted, so the library
 does not add a placeholder when there is only background evidence.

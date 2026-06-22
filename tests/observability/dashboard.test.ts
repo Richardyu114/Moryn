@@ -773,8 +773,9 @@ describe("observability dashboard", () => {
       expect(dogfoodReviewIndex).toBeLessThan(evidenceBackgroundGroupIndex);
       expect(governanceHubIndex).toBeGreaterThan(evidenceReviewGroupIndex);
       expect(governanceHubIndex).toBeLessThan(evidenceBackgroundGroupIndex);
-      expect(html).toContain("<span>Inspection Evidence</span>");
+      expect(html).toContain("<span>Read-only Findings</span>");
       expect(html).toContain("inspection panels</small>");
+      expect(html).not.toContain("<span>Inspection Evidence</span>");
       expect(html).not.toContain("<span>Review Evidence</span>");
       expect(html).toContain("<span>Reference Evidence</span>");
       expect(html).toContain("reference panels</small>");

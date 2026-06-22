@@ -4313,7 +4313,7 @@ function evidenceLibraryReviewGroup(panels: string[]): string {
   return `
     <div class="evidence-library-group evidence-library-review" data-dashboard-detail="evidence-review-evidence">
       <div class="evidence-library-group-heading">
-        <span>Inspection Evidence</span>
+        <span>Read-only Findings</span>
         <small>${escapeHtml(pluralize(panels.length, "inspection panel"))}</small>
       </div>
       <div class="evidence-library-group-list">

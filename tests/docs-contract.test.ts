@@ -68,7 +68,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail");
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
-    expectText(dashboard, "grouped first under `Inspection Evidence`");
+    expectText(dashboard, "grouped first under `Read-only Findings`");
     expectText(dashboard, "read-only findings do not look like pending approval work");
     expectText(dashboard, "Routine Diagnostics and Audit Trail are grouped behind `Reference Evidence`");
     expectText(dashboard, "Empty groups are omitted");
