@@ -189,11 +189,32 @@ describe("observability dashboard", () => {
         label: "Sync Pending",
         explanation: "Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device."
       });
+      expect(data.attention_items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          severity: "warning",
+          title: "Sync changes not pushed",
+          description: "Local event history has changes that are not committed or pushed yet.",
+          action_label: "Push sync",
+          action_command: "moryn sync --push"
+        })
+      ]));
+      expect(data.action_board.items_by_id.sync).toMatchObject({
+        label: "Sync",
+        value: 1,
+        summary: "Sync Pending",
+        hint: "Local changes",
+        detail: "Local changes"
+      });
       expect(html).toContain("<span class=\"health-badge warning\">Sync Pending</span>");
       expect(html).toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).toContain("<strong>Dashboard Status</strong>");
       expect(html).toContain("<span>Sync Pending</span>");
       expect(html).toContain("Local sync changes are waiting to be pushed or pulled");
+      expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Sync changes not pushed\">");
+      expect(html).toContain("Local event history has changes that are not committed or pushed yet.");
+      expect(html).toContain("<div class=\"rail-labels\"><span>Remote</span><strong>Local Changes</strong><span>Local</span></div>");
+      expect(html).not.toContain("data-dashboard-detail=\"attention:Local store has uncommitted sync state\"");
+      expect(html).not.toContain("<div class=\"rail-labels\"><span>Remote</span><strong>Dirty</strong><span>Local</span></div>");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

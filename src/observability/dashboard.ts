@@ -1005,8 +1005,8 @@ function buildAttentionItems(sync: GitSyncStatus, records: MorynRecord[]): Dashb
   if (sync.sync_state === "dirty") {
     items.push({
       severity: "warning",
-      title: "Local store has uncommitted sync state",
-      description: "Local event history changed and has not been fully committed or pushed.",
+      title: "Sync changes not pushed",
+      description: "Local event history has changes that are not committed or pushed yet.",
       action_label: "Push sync",
       action_command: "moryn sync --push"
     });
@@ -2464,8 +2464,14 @@ function statusClass(sync: GitSyncStatus): string {
 }
 
 function syncLabel(sync: GitSyncStatus): string {
+  if (sync.sync_state === "dirty") return "Local changes";
   if (sync.sync_state) return titleCase(sync.sync_state);
   return sync.configured ? "Configured" : "Not configured";
+}
+
+function syncPositionLabel(sync: DashboardSyncPositionChart): string {
+  if (sync.state === "dirty") return "Local Changes";
+  return titleCase(sync.state);
 }
 
 function shortText(text: string): string {
@@ -3794,7 +3800,7 @@ function syncRail(sync: DashboardSyncPositionChart): string {
   const aheadWidth = Math.min(100, sync.ahead * 20);
   return `
     <div class="sync-rail ${sync.conflict ? "critical" : sync.dirty ? "warning" : ""}">
-      <div class="rail-labels"><span>Remote</span><strong>${escapeHtml(titleCase(sync.state))}</strong><span>Local</span></div>
+      <div class="rail-labels"><span>Remote</span><strong>${escapeHtml(syncPositionLabel(sync))}</strong><span>Local</span></div>
       <div class="rail">
         <span class="behind" style="width: ${escapeHtml(behindWidth)}%"></span>
         <i></i>

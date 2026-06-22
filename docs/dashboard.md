@@ -564,7 +564,7 @@ Health badge states:
 Attention items call out conditions such as:
 
 - sync conflict
-- dirty local store
+- local sync changes that have not been pushed
 - ahead or behind remote counts
 - unresolved quarantined records
 - quarantined records that have active safe replacement indexes
