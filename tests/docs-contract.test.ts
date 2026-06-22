@@ -73,8 +73,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Empty groups are omitted");
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");
     expectText(dashboard, "When there are no warning or critical action signals");
-    expectText(dashboard, "`Needs Attention` renders as a lightweight `needs-attention-quiet-line`");
-    expectText(dashboard, "preserving the `id=\"needs-attention\"` scroll target and collapsed Info Checks detail for audit");
+    expectText(dashboard, "the same scroll target renders as a lightweight `needs-attention-quiet-line`");
+    expectText(dashboard, "with the visible title `Info Checks`");
+    expectText(dashboard, "It preserves the `id=\"needs-attention\"` scroll target and collapsed Info Checks detail for audit");
     expect(dashboard).toContain("Dogfood Review");
     expect(dashboard).toContain("Issue brief");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");

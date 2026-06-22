@@ -2922,7 +2922,7 @@ function needsAttentionPanel(items: DashboardAttentionItem[]): string {
     return `
       <section id="needs-attention" class="needs-attention-quiet-line" data-dashboard-section="needs-attention" data-dashboard-detail="needs-attention">
         <div class="needs-attention-quiet-summary">
-          <span>Needs Attention</span>
+          <span>Info Checks</span>
           <small>${escapeHtml(attentionSummaryText(items))}</small>
         </div>
         ${attentionItems(items)}
