@@ -130,12 +130,11 @@ describe("observability dashboard", () => {
       });
 
       const html = renderDashboardHtml(data);
-      expect(html).toContain("<details id=\"needs-attention\" class=\"panel needs-attention quiet\" data-dashboard-detail=\"needs-attention\" data-dashboard-section=\"needs-attention\">");
+      expect(html).toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
       expect(html).toContain("<span>Needs Attention</span>");
       expect(html).toContain("<small>No action needed | 1 info check</small>");
       expect(html).not.toContain("<small>0 action signals | 1 info item | collapsed by default</small>");
-      expect(html).toContain("<div class=\"attention-list\">");
-      expect(html).toContain("<span class=\"attention-next-action\" data-attention-next-action>Inspect checks</span>");
+      expect(html).not.toContain("<details id=\"needs-attention\" class=\"panel needs-attention quiet\" data-dashboard-detail=\"needs-attention\" data-dashboard-section=\"needs-attention\">");
       expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
       expect(html).not.toContain("<section id=\"needs-attention\" class=\"panel\" data-dashboard-section=\"needs-attention\">");
       expect(html).not.toContain("data-dashboard-detail=\"decision-summary\"");

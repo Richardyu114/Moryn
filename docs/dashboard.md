@@ -481,15 +481,16 @@ audit readers, but the visible card footer uses the shorter `items[].hint`.
 This keeps the folded dashboard compact while preserving the machine-readable
 reason behind each navigation target.
 
-`Needs Attention` starts with a compact focus strip that counts action signals,
-non-zero warning checks, and non-zero informational checks, then shows the next
-review step as a dedicated action chip. Warning and critical items remain
-directly visible. Informational checks are grouped under a collapsed `Info
-Checks` summary so routine status signals remain inspectable without competing
-with action-oriented warnings. When there are no warning or critical action
-signals, the whole `Needs Attention` panel is collapsed behind a summary such as
-`No action needed | 1 info check`, so a routine local-only or clean snapshot
-does not take over the first screen.
+`Needs Attention` starts with a compact focus strip when warning or critical
+action signals exist. The strip counts action signals, non-zero warning checks,
+and non-zero informational checks, then shows the next review step as a
+dedicated action chip. Warning and critical items remain directly visible.
+Informational checks are grouped under a collapsed `Info Checks` summary so
+routine status signals remain inspectable without competing with
+action-oriented warnings. When there are no warning or critical action signals,
+`Needs Attention` renders as a lightweight `needs-attention-quiet-line` with a
+summary such as `No action needed | 1 info check`, while preserving the
+`id="needs-attention"` scroll target and collapsed Info Checks detail for audit.
 
 Read-only diagnostic detail lives in the collapsed `Evidence Library`. Its
 visible summary uses a purpose label, `Read-only diagnostics grouped here`,

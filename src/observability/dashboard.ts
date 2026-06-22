@@ -2915,13 +2915,13 @@ function needsAttentionPanel(items: DashboardAttentionItem[]): string {
   const actionSignals = items.filter((item) => item.severity !== "info").length;
   if (actionSignals === 0) {
     return `
-      <details id="needs-attention" class="panel needs-attention quiet" data-dashboard-detail="needs-attention" data-dashboard-section="needs-attention">
-        <summary class="dashboard-fold-summary">
+      <section id="needs-attention" class="needs-attention-quiet-line" data-dashboard-section="needs-attention" data-dashboard-detail="needs-attention">
+        <div class="needs-attention-quiet-summary">
           <span>Needs Attention</span>
           <small>${escapeHtml(attentionSummaryText(items))}</small>
-        </summary>
+        </div>
         ${attentionItems(items)}
-      </details>
+      </section>
     `;
   }
   return `
@@ -5166,10 +5166,31 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-color: var(--ink);
       color: #fff;
     }
-    .needs-attention.quiet[open] > summary { margin-bottom: 10px; }
-    .needs-attention.quiet .attention-list {
+    .needs-attention-quiet-line {
+      margin: -2px 0 12px;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    .needs-attention-quiet-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 9px;
+      align-items: center;
+    }
+    .needs-attention-quiet-summary span {
+      color: var(--ink);
+      font-weight: 760;
+    }
+    .needs-attention-quiet-summary small {
+      display: inline;
+    }
+    .needs-attention-quiet-line .attention-list {
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px solid var(--hairline);
-      padding-top: 10px;
+    }
+    .needs-attention-quiet-line .attention-focus {
+      display: none;
     }
     .attention-list { display: grid; gap: 9px; }
     .attention-focus {
