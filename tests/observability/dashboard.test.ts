@@ -205,11 +205,33 @@ describe("observability dashboard", () => {
         hint: "Local changes",
         detail: "Local changes"
       });
+      expect(data.action_board.items_by_id.review).toMatchObject({
+        label: "Review",
+        value: 1,
+        summary: "1 attention item",
+        hint: "Review sync changes",
+        detail: "Sync changes are the only warning signal in Needs Attention.",
+        next_action_label: "Review sync changes",
+        target: "needs-attention"
+      });
+      expect(data.dashboard_overview).toMatchObject({
+        headline: "Review sync changes",
+        detail: "Sync changes are the only warning signal in Needs Attention.",
+        primary_action: {
+          label: "Review sync changes",
+          target: "needs-attention",
+          source: "action_board.items_by_id.review"
+        }
+      });
       expect(html).toContain("<span class=\"health-badge warning\">Sync Pending</span>");
       expect(html).toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).toContain("<strong>Dashboard Status</strong>");
       expect(html).toContain("<span>Sync Pending</span>");
       expect(html).toContain("Local sync changes are waiting to be pushed or pulled");
+      expect(html).toContain("<strong>Review sync changes</strong>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Review sync changes</button>");
+      expect(html).toContain("<em class=\"action-board-next\">Review sync changes</em>");
+      expect(html).toContain("<span class=\"attention-next-action\" data-attention-next-action>Review sync changes</span>");
       expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Sync changes not pushed\">");
       expect(html).toContain("Local event history has changes that are not committed or pushed yet.");
       expect(html).toContain("<div class=\"rail-labels\"><span>Remote</span><strong>Local Changes</strong><span>Local</span></div>");

@@ -1803,6 +1803,27 @@ function actionBoardSeverity(count: number, fallback: DashboardActionBoardSeveri
   return count > 0 ? "warning" : fallback;
 }
 
+function reviewActionCopy(attentionItems: DashboardAttentionItem[]): {
+  hint: string;
+  detail: string;
+  next_action_label: string;
+} {
+  const actionItems = attentionItems.filter((item) => item.severity !== "info");
+  const syncOnly = actionItems.length === 1 && actionItems[0]?.action_command?.startsWith("moryn sync ") === true;
+  if (syncOnly) {
+    return {
+      hint: "Review sync changes",
+      detail: "Sync changes are the only warning signal in Needs Attention.",
+      next_action_label: "Review sync changes"
+    };
+  }
+  return {
+    hint: actionItems.length === 0 ? "No warning action" : "Review visible warnings",
+    detail: "Warnings and critical signals remain visible in Needs Attention.",
+    next_action_label: "Review warnings"
+  };
+}
+
 function buildActionBoard(input: {
   decisionSummary: DashboardDecisionSummary;
   attentionItems: DashboardAttentionItem[];
@@ -1812,6 +1833,7 @@ function buildActionBoard(input: {
 }): DashboardActionBoard {
   const confirmCount = input.decisionSummary.total_decisions;
   const reviewCount = input.attentionItems.filter((item) => item.severity !== "info").length;
+  const reviewCopy = reviewActionCopy(input.attentionItems);
   const inspectCount = input.governance.summary.safe_inspections;
   const syncNeedsAction = input.health.status === "sync_pending" || input.health.status === "conflict" || input.health.status === "local_only";
   const syncSeverity: DashboardActionBoardSeverity = input.health.status === "conflict"
@@ -1839,9 +1861,9 @@ function buildActionBoard(input: {
       value: reviewCount,
       severity: actionBoardSeverity(reviewCount),
       summary: reviewCount === 0 ? "No urgent review" : pluralize(reviewCount, "attention item"),
-      hint: reviewCount === 0 ? "No warning action" : "Review visible warnings",
-      detail: "Warnings and critical signals remain visible in Needs Attention.",
-      next_action_label: "Review warnings",
+      hint: reviewCopy.hint,
+      detail: reviewCopy.detail,
+      next_action_label: reviewCopy.next_action_label,
       target: "needs-attention"
     },
     {
@@ -2875,12 +2897,21 @@ function attentionItem(item: DashboardAttentionItem): string {
   `;
 }
 
+function attentionFocusNextAction(items: DashboardAttentionItem[]): string {
+  const critical = items.filter((item) => item.severity === "critical").length;
+  const warning = items.filter((item) => item.severity === "warning").length;
+  const reviewCopy = reviewActionCopy(items);
+  if (critical > 0) return "Review criticals";
+  if (warning > 0) return reviewCopy.next_action_label;
+  return "Inspect checks";
+}
+
 function attentionFocus(items: DashboardAttentionItem[]): string {
   const critical = items.filter((item) => item.severity === "critical").length;
   const warning = items.filter((item) => item.severity === "warning").length;
   const info = items.filter((item) => item.severity === "info").length;
   const actionSignals = critical + warning;
-  const next = critical > 0 ? "Review criticals" : warning > 0 ? "Review warnings" : "Inspect checks";
+  const next = attentionFocusNextAction(items);
   const chips: Array<{ severity: DashboardAttentionItem["severity"]; count: number }> = [
     { severity: "critical" as const, count: critical },
     { severity: "warning" as const, count: warning },
