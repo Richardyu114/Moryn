@@ -2875,15 +2875,17 @@ function attentionFocus(items: DashboardAttentionItem[]): string {
   const info = items.filter((item) => item.severity === "info").length;
   const actionSignals = critical + warning;
   const next = critical > 0 ? "Review criticals" : warning > 0 ? "Review warnings" : "Inspect checks";
-  const chips = [
-    { severity: "critical", count: critical },
-    { severity: "warning", count: warning },
-    { severity: "info", count: info }
+  const chips: Array<{ severity: DashboardAttentionItem["severity"]; count: number }> = [
+    { severity: "critical" as const, count: critical },
+    { severity: "warning" as const, count: warning },
+    { severity: "info" as const, count: info }
   ].filter((chip) => chip.count > 0);
+  const chipLabel = (chip: { severity: DashboardAttentionItem["severity"]; count: number }) =>
+    chip.severity === "info" ? pluralize(chip.count, "info check") : pluralize(chip.count, chip.severity);
   return `
     <div class="attention-focus" aria-label="Needs Attention focus">
       <span><strong>${escapeHtml(actionSignals)}</strong> ${escapeHtml(actionSignals === 1 ? "action signal" : "action signals")}</span>
-      ${chips.map((chip) => `<span class="attention-focus-count ${escapeHtml(chip.severity)}">${escapeHtml(pluralize(chip.count, chip.severity))}</span>`).join("")}
+      ${chips.map((chip) => `<span class="attention-focus-count ${escapeHtml(chip.severity)}">${escapeHtml(chipLabel(chip))}</span>`).join("")}
       <span class="attention-next-action" data-attention-next-action>${escapeHtml(next)}</span>
     </div>
   `;
