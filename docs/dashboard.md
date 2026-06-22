@@ -529,13 +529,14 @@ Clean audit reports, raw records, events, sync details, recent value, and store
 telemetry remain available inside the nested `Supporting Evidence` panel. That
 collapsed group uses the purpose label `Audit logs and raw signals` instead of
 listing implementation-oriented module names or collapsed-state counters on the
-first screen. It still holds `Clean Audit Reports`, `Store Signals`, `Recent
-Value`, and the raw `Debug Inspector` together so the first screen prioritizes
-attention items, review actions, and approval queues without removing local
-evidence. Nested evidence summaries also use purpose labels: `Store Signals`
-opens with `Operational health signals`, and `Debug Inspector` opens with `Raw
-store inspection`, while their expanded bodies still show agent activity,
-record quality, records, events, and sync detail.
+first screen. Inside Supporting Evidence, `Clean Audit Reports`, `Store
+Signals`, and `Recent Value` are grouped under `Operational Evidence`; the raw
+`Debug Inspector` is grouped behind `Raw Inspector`. This keeps common audit
+evidence closer to the user while keeping record/event/sync internals available
+without placing them at the same level. Nested evidence summaries also use
+purpose labels: `Store Signals` opens with `Operational health signals`, and
+`Debug Inspector` opens with `Raw store inspection`, while their expanded bodies
+still show agent activity, record quality, records, events, and sync detail.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without

@@ -4206,11 +4206,49 @@ function supportingEvidenceSummary(): string {
   return "Audit logs and raw signals";
 }
 
+function supportingEvidenceOperationalGroup(panels: string[]): string {
+  if (panels.length === 0) return "";
+  return `
+    <div class="supporting-evidence-group supporting-evidence-operational" data-dashboard-detail="supporting-operational-evidence">
+      <div class="supporting-evidence-group-heading">
+        <span>Operational Evidence</span>
+        <small>${escapeHtml(pluralize(panels.length, "evidence panel"))}</small>
+      </div>
+      <div class="supporting-evidence-group-list">
+        ${panels.join("")}
+      </div>
+    </div>
+  `;
+}
+
+function supportingEvidenceRawGroup(panels: string[]): string {
+  if (panels.length === 0) return "";
+  return `
+    <details class="supporting-evidence-group supporting-evidence-raw" data-dashboard-detail="supporting-raw-inspector">
+      <summary class="dashboard-fold-summary supporting-evidence-group-heading">
+        <span>Raw Inspector</span>
+        <small>${escapeHtml(pluralize(panels.length, "raw panel"))}</small>
+      </summary>
+      <div class="supporting-evidence-group-list">
+        ${panels.join("")}
+      </div>
+    </details>
+  `;
+}
+
 function supportingEvidencePanel(data: DashboardData): string {
   const reports = auditReports({
     memoryLifecycle: data.memory_lifecycle,
     capturePolicy: data.capture_policy
   });
+  const operationalPanels = [
+    reports,
+    storeSignalsPanel(data),
+    recentValuePanel(data.recent_value)
+  ].filter((panel) => panel.length > 0);
+  const rawPanels = [
+    debugInspectorPanel(data)
+  ].filter((panel) => panel.length > 0);
   return `
     <details class="panel supporting-evidence" data-dashboard-detail="supporting-evidence" aria-label="Supporting Evidence">
       <summary class="dashboard-fold-summary supporting-evidence-fold">
@@ -4218,10 +4256,8 @@ function supportingEvidencePanel(data: DashboardData): string {
         <small>${escapeHtml(supportingEvidenceSummary())}</small>
       </summary>
       <div class="supporting-evidence-list">
-        ${reports}
-        ${storeSignalsPanel(data)}
-        ${recentValuePanel(data.recent_value)}
-        ${debugInspectorPanel(data)}
+        ${supportingEvidenceOperationalGroup(operationalPanels)}
+        ${supportingEvidenceRawGroup(rawPanels)}
       </div>
     </details>
   `;
@@ -5400,7 +5436,42 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-top: 1px solid var(--hairline);
       padding-top: 10px;
     }
-    .supporting-evidence-list > .panel {
+    .supporting-evidence-group {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .supporting-evidence-raw {
+      border-top: 1px solid var(--hairline);
+      padding-top: 9px;
+    }
+    .supporting-evidence-raw[open] > summary { margin-bottom: 8px; }
+    .supporting-evidence-group-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 760;
+    }
+    .supporting-evidence-group-heading span {
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+    .supporting-evidence-group-heading small {
+      display: inline;
+      text-align: right;
+    }
+    .supporting-evidence-group-list {
+      display: grid;
+      gap: 10px;
+    }
+    .supporting-evidence-list > .panel,
+    .supporting-evidence-group-list > .panel,
+    .supporting-evidence-group-list > section.panel,
+    .supporting-evidence-group-list > details.panel {
       margin-bottom: 0;
       box-shadow: none;
       background: var(--surface);

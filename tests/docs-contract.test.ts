@@ -78,6 +78,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Dogfood Review");
     expect(dashboard).toContain("Issue brief");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
+    expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Operational Evidence`");
+    expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Inspector`");
     expectText(dashboard, "shows compact inspection rows with source, title, read-only next step, and evidence path");
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
