@@ -2490,12 +2490,17 @@ function textExcerptBlock(text: string, truncatedAttribute = "data-full-text-hid
 }
 
 function actionBoardSummary(data: DashboardActionBoard): string {
-  const activeItems = data.items.filter((item) => item.value > 0);
+  const activeItems = data.items.filter(isActiveActionBoardItem);
   if (activeItems.length === 0) return "all clear";
   return activeItems.map((item) => `${item.value} ${item.id}`).join(" / ");
 }
 
+function isReadOnlyInspectActionBoardItem(item: DashboardActionBoardItem): boolean {
+  return item.id === "inspect" && item.severity === "info";
+}
+
 function isActiveActionBoardItem(item: DashboardActionBoardItem): boolean {
+  if (isReadOnlyInspectActionBoardItem(item)) return false;
   return item.value > 0 || item.severity !== "good";
 }
 

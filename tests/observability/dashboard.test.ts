@@ -1016,6 +1016,16 @@ describe("observability dashboard", () => {
         expect(html).toContain("<span>Next</span>");
         expect(html).toContain("<strong>All clear</strong>");
         expect(html).toContain("<small>Inspect checks</small>");
+        expect(html).toContain("<details class=\"action-board\" aria-label=\"Action Board\" data-dashboard-detail=\"action-board\" data-action-board-nav>");
+        expect(html).toContain("<span>Action Board</span>");
+        expect(html).toContain("<small>all clear</small>");
+        expect(html).not.toContain("<small>1 inspect</small>");
+        expect(html).not.toContain("<div class=\"action-board-grid\">");
+        expect(html).toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");
+        expect(html).toContain("<span>Quiet Targets</span>");
+        expect(html).toContain("<small>4 quiet targets</small>");
+        expect(html).toContain("data-action-board-quiet-item=\"inspect\"");
+        expect(html).not.toContain("data-action-board-item=\"inspect\"");
         expect(html).not.toContain("data-governance-item=\"recall_eval:missing-dashboard-memory\"");
         expect(html).toContain("data-governance-safe-item=\"recall_eval:missing-dashboard-memory\"");
         expect(html).toContain("recall_eval.report.cases_by_id.missing-dashboard-memory");
