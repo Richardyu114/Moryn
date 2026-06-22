@@ -2596,7 +2596,14 @@ function focusBriefPrimaryItem(actionBoardData: DashboardActionBoard): Dashboard
     };
 }
 
-function isActiveDashboardOverviewCard(card: DashboardOverviewCard): boolean {
+function isSyncOnlyDashboardOverview(data: DashboardOverview): boolean {
+  return data.headline === "Review sync changes"
+    && data.primary_action.source === "action_board.items_by_id.review"
+    && data.cards_by_id.sync.value === "Sync Pending";
+}
+
+function isActiveDashboardOverviewCard(card: DashboardOverviewCard, data: DashboardOverview): boolean {
+  if (isSyncOnlyDashboardOverview(data)) return card.id === "action";
   return card.severity !== "good";
 }
 
@@ -2627,8 +2634,8 @@ function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
 }
 
 function dashboardOverview(data: DashboardOverview): string {
-  const activeCards = data.cards.filter(isActiveDashboardOverviewCard);
-  const quietCards = data.cards.filter((card) => !isActiveDashboardOverviewCard(card));
+  const activeCards = data.cards.filter((card) => isActiveDashboardOverviewCard(card, data));
+  const quietCards = data.cards.filter((card) => !isActiveDashboardOverviewCard(card, data));
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
