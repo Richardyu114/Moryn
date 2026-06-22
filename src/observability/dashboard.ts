@@ -4262,18 +4262,50 @@ function routineDiagnosticsPanel(panels: string[]): string {
   `;
 }
 
+function evidenceLibraryReviewGroup(panels: string[]): string {
+  if (panels.length === 0) return "";
+  return `
+    <div class="evidence-library-group evidence-library-review" data-dashboard-detail="evidence-review-evidence">
+      <div class="evidence-library-group-heading">
+        <span>Review Evidence</span>
+        <small>${escapeHtml(pluralize(panels.length, "review panel"))}</small>
+      </div>
+      <div class="evidence-library-group-list">
+        ${panels.join("")}
+      </div>
+    </div>
+  `;
+}
+
+function evidenceLibraryBackgroundGroup(panels: string[]): string {
+  if (panels.length === 0) return "";
+  return `
+    <details class="evidence-library-group evidence-library-background" data-dashboard-detail="evidence-background-evidence">
+      <summary class="dashboard-fold-summary evidence-library-group-heading">
+        <span>Background Evidence</span>
+        <small>${escapeHtml(pluralize(panels.length, "background panel"))}</small>
+      </summary>
+      <div class="evidence-library-group-list">
+        ${panels.join("")}
+      </div>
+    </details>
+  `;
+}
+
 function evidenceLibrary(data: DashboardData): string {
   const routinePanels = [
     isRoutineHealthCheck(data.health_check) ? healthCheckPanel(data.health_check) : undefined,
     isRoutineRecallEval(data.recall_eval) ? recallEvalPanel(data.recall_eval) : undefined,
     isRoutineContextPackReview(data.context_pack_review) ? contextPackReviewPanel(data.context_pack_review) : undefined
   ].filter((panel): panel is string => panel !== undefined);
-  const activePanels = [
+  const reviewPanels = [
     isRoutineHealthCheck(data.health_check) ? undefined : healthCheckPanel(data.health_check),
     isRoutineRecallEval(data.recall_eval) ? undefined : recallEvalPanel(data.recall_eval),
     dogfoodReviewPanel(data.dogfood_report),
     governanceHub(data.governance),
-    isRoutineContextPackReview(data.context_pack_review) ? undefined : contextPackReviewPanel(data.context_pack_review),
+    isRoutineContextPackReview(data.context_pack_review) ? undefined : contextPackReviewPanel(data.context_pack_review)
+  ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
+  const backgroundPanels = [
     routineDiagnosticsPanel(routinePanels),
     supportingEvidencePanel(data)
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
@@ -4284,7 +4316,8 @@ function evidenceLibrary(data: DashboardData): string {
         <small>${escapeHtml(evidenceLibrarySummary())}</small>
       </summary>
       <div class="evidence-library-list">
-        ${activePanels.join("")}
+        ${evidenceLibraryReviewGroup(reviewPanels)}
+        ${evidenceLibraryBackgroundGroup(backgroundPanels)}
       </div>
     </details>
   `;
@@ -5302,9 +5335,44 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-top: 1px solid var(--hairline);
       padding-top: 10px;
     }
+    .evidence-library-group {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .evidence-library-background {
+      border-top: 1px solid var(--hairline);
+      padding-top: 9px;
+    }
+    .evidence-library-background[open] > summary { margin-bottom: 8px; }
+    .evidence-library-group-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 760;
+    }
+    .evidence-library-group-heading span {
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+    .evidence-library-group-heading small {
+      display: inline;
+      text-align: right;
+    }
+    .evidence-library-group-list {
+      display: grid;
+      gap: 10px;
+    }
     .evidence-library-list > .panel,
     .evidence-library-list > section.panel,
-    .evidence-library-list > details.panel {
+    .evidence-library-list > details.panel,
+    .evidence-library-group-list > .panel,
+    .evidence-library-group-list > section.panel,
+    .evidence-library-group-list > details.panel {
       margin-bottom: 0;
       box-shadow: none;
       background: var(--surface);
