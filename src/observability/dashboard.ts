@@ -2520,6 +2520,13 @@ function textExcerptBlock(text: string, truncatedAttribute = "data-full-text-hid
 function actionBoardSummary(data: DashboardActionBoard): string {
   const activeItems = data.items.filter(isActiveActionBoardItem);
   if (activeItems.length === 0) return "all clear";
+  const review = data.items_by_id.review;
+  const sync = data.items_by_id.sync;
+  const syncOnly = activeItems.length === 2
+    && activeItems.every((item) => item.id === "review" || item.id === "sync")
+    && review.next_action_label === "Review sync changes"
+    && sync.value > 0;
+  if (syncOnly) return pluralize(sync.value, "sync issue");
   return activeItems.map((item) => `${item.value} ${item.id}`).join(" / ");
 }
 

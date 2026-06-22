@@ -240,6 +240,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-dashboard-overview-quiet-card=\"sync\"");
       expect(html).toContain("<em class=\"action-board-next\">Review sync changes</em>");
       expect(html).toContain("<span class=\"attention-next-action\" data-attention-next-action>Review sync changes</span>");
+      expect(html).toContain("<small>1 sync issue</small>");
+      expect(html).not.toContain("<small>1 review / 1 sync</small>");
+      expect(html).toContain("data-action-board-item=\"review\"");
+      expect(html).toContain("data-action-board-item=\"sync\"");
       expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Sync changes not pushed\">");
       expect(html).toContain("Local event history has changes that are not committed or pushed yet.");
       expect(html).toContain("<div class=\"rail-labels\"><span>Remote</span><strong>Local Changes</strong><span>Local</span></div>");
