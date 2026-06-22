@@ -70,7 +70,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
     expectText(dashboard, "grouped first under `Inspection Evidence`");
     expectText(dashboard, "read-only findings do not look like pending approval work");
-    expectText(dashboard, "Routine Diagnostics and Supporting Evidence are grouped behind `Background Evidence`");
+    expectText(dashboard, "Routine Diagnostics and Supporting Evidence are grouped behind `Reference Evidence`");
     expectText(dashboard, "Empty groups are omitted");
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");
     expectText(dashboard, "When there are no warning or critical action signals");
