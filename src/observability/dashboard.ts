@@ -4244,7 +4244,7 @@ function storeSignalsPanel(data: DashboardData): string {
 }
 
 function recentValuePanel(records: DashboardValueRecord[]): string {
-  const recentValueSummary = `${pluralize(records.length, "record")} | newest first | full details kept`;
+  const recentValueSummary = `${records.length} recent ${records.length === 1 ? "record" : "records"}`;
   return `
     <details class="panel recent-value-panel" data-dashboard-detail="recent-value">
       <summary class="dashboard-fold-summary recent-value-fold">
