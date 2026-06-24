@@ -437,7 +437,7 @@ Pure read-only inspections do not turn the overview headline into an urgent
 next action. If there are no confirmations, warnings, or sync actions, the
 overview reads `All clear` while still offering an `Inspect checks` navigation
 button to the Governance Hub. If pending sync is the only action signal, the
-overview keeps the `Next` card in the main grid and folds duplicate `Health`,
+overview relies on its headline and primary button, then folds `Health`, `Next`,
 `Context`, and `Sync` cards into `Quiet Overview`, preserving the cards in
 `/api/dashboard.dashboard_overview.cards` without repeating the same warning on
 the first screen.

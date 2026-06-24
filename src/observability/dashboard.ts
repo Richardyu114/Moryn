@@ -2610,7 +2610,7 @@ function isSyncOnlyDashboardOverview(data: DashboardOverview): boolean {
 }
 
 function isActiveDashboardOverviewCard(card: DashboardOverviewCard, data: DashboardOverview): boolean {
-  if (isSyncOnlyDashboardOverview(data)) return card.id === "action";
+  if (isSyncOnlyDashboardOverview(data)) return false;
   return card.severity !== "good";
 }
 

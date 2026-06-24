@@ -229,12 +229,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("Local sync changes are waiting to be pushed or pulled");
       expect(html).toContain("<strong>Review sync changes</strong>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Review sync changes</button>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card warning\" data-dashboard-overview-card=\"action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-dashboard-overview-source=\"action_board.items_by_id.review\">");
+      expect(html).not.toContain("<div class=\"dashboard-overview-grid\">");
+      expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"health\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"sync\"");
       expect(html).toContain("<details class=\"dashboard-overview-quiet\" data-dashboard-detail=\"dashboard-overview-quiet-cards\">");
-      expect(html).toContain("<small>3 quiet cards</small>");
+      expect(html).toContain("<small>4 quiet cards</small>");
       expect(html).toContain("data-dashboard-overview-quiet-card=\"health\"");
+      expect(html).toContain("data-dashboard-overview-quiet-card=\"action\"");
       expect(html).toContain("data-dashboard-overview-quiet-card=\"context\"");
       expect(html).toContain("data-dashboard-overview-quiet-card=\"sync\"");
       expect(html).toContain("<em class=\"action-board-next\">Review sync changes</em>");
