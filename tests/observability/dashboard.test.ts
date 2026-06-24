@@ -746,7 +746,7 @@ describe("observability dashboard", () => {
           "Detected: Some captured records are waiting for a human decision.",
           "Recommended next step: Review in Capture Inbox.",
           "Write boundary: requires explicit approval before append-only memory events.",
-          "Audit trail: capture_policy.findings_by_id.review_required"
+          "Evidence source: capture_policy.findings_by_id.review_required"
         ],
         safe_to_run: false,
         requires_user_confirmation: true,
@@ -763,7 +763,7 @@ describe("observability dashboard", () => {
           "Detected: Captured handoff records already handled by policy.",
           "Recommended next step: inspect_auto_captured_handoff.",
           "Write boundary: read-only inspection; no memory writes.",
-          "Audit trail: capture_policy.findings_by_id.auto_captured"
+          "Evidence source: capture_policy.findings_by_id.auto_captured"
         ],
         safe_to_run: true,
         requires_user_confirmation: false,
@@ -868,11 +868,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("<dt>Evidence source</dt><dd><code>capture_policy.findings_by_id.review_required</code></dd>");
       expect(html).toContain("data-governance-evidence");
       expect(html).toContain("data-governance-review-log");
-      expect(html).toContain("<h4>Review log</h4>");
+      expect(html).toContain("<h4>Review notes</h4>");
+      expect(html).not.toContain("<h4>Review log</h4>");
       expect(html).toContain("Detected: Some captured records are waiting for a human decision.");
       expect(html).toContain("Recommended next step: Review in Capture Inbox.");
       expect(html).toContain("Write boundary: requires explicit approval before append-only memory events.");
-      expect(html).toContain("Audit trail: capture_policy.findings_by_id.review_required");
+      expect(html).toContain("Evidence source: capture_policy.findings_by_id.review_required");
+      expect(html).not.toContain("Audit trail: capture_policy.findings_by_id.review_required");
       expect(html).toContain("<summary>Raw audit fields</summary>");
       expect(html).toContain("data-governance-item=\"capture_policy:review_required\"");
       expect(html).not.toContain("data-governance-item=\"memory_lifecycle:stale_records\"");

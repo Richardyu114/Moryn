@@ -85,6 +85,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Operational Evidence`");
     expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Inspector`");
     expectText(dashboard, "shows compact inspection rows with source, title, read-only next step, and evidence path");
+    expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "zero-count buckets are hidden from the collapsed summary");

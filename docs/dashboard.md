@@ -354,12 +354,12 @@ inspections are grouped under a collapsed `Safe Inspections` row; expanding it
 shows compact inspection rows with source, title, read-only next step, and
 evidence path. Items that need confirmation still lead with a compact `Finding
 summary` for records affected, safe next step, write boundary, and evidence
-source, then keep the plain-language `Review log` for detection and audit-trail
-detail. Raw fields such as source, category, action id, evidence path, and
-record ids stay available under `Raw audit fields`, while safe inspection detail
-remains in source panels such as Dogfood Review, Recall Eval, and the raw
-`/api/dashboard` payload. This keeps dogfood friction readable without forcing
-users to parse raw audit data first.
+source, then keep plain-language `Review notes` for detection, next step, write
+boundary, and evidence source. Raw fields such as source, category, action id,
+evidence path, and record ids stay available under `Raw audit fields`, while
+safe inspection detail remains in source panels such as Dogfood Review, Recall
+Eval, and the raw `/api/dashboard` payload. This keeps dogfood friction readable
+without forcing users to parse raw audit data first.
 
 Governance Hub does not add mutation endpoints. Items that require writes point
 back to existing explicit controls such as Capture Inbox approval/rejection or

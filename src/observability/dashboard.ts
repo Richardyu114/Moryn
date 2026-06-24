@@ -2035,7 +2035,7 @@ function governanceReviewLog(input: {
       requires_user_confirmation: input.requiresUserConfirmation,
       writes: input.writes
     })}`,
-    `Audit trail: ${input.evidencePath}`
+    `Evidence source: ${input.evidencePath}`
   ];
 }
 
@@ -3008,7 +3008,7 @@ function isSafeGovernanceInspection(item: DashboardGovernanceItem): boolean {
 function reviewLogList(items: string[], dataAttribute: string): string {
   return `
     <div class="review-log" ${dataAttribute}>
-      <h4>Review log</h4>
+      <h4>Review notes</h4>
       <ol>
         ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
       </ol>
