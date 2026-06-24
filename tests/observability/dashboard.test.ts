@@ -3236,7 +3236,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-dashboard-action-id=\"capture_inbox.queue");
       expect(html).not.toContain("<details class=\"capture-policy-summary\" data-dashboard-detail=\"capture-policy-summary\">");
       expect(html).toContain("<span>Capture Audit</span>");
-      expect(html).toContain("<small>manual review | no auto-canonical | 4 candidates</small>");
+      expect(html).toContain("<small>manual review | no auto-canonical | 4 candidates | auto-captured 0 | policy archived 0</small>");
+      expect(html).not.toContain("<small>manual review | no auto-canonical | 4 candidates</small>");
       expect(html).toContain("default_capture_review_policy");
       expect(html).toContain("Manual review");
       expect(html).toContain("No auto-canonical");
@@ -3615,6 +3616,8 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
       expect(html).toContain("Auto-captured handoff");
       expect(html).toContain("<small>1 captured | 0 review | 0 archived</small>");
+      expect(html).toContain("<small>manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0</small>");
+      expect(html).not.toContain("<small>manual review | no auto-canonical | 0 candidates</small>");
       expect(html).not.toContain("auto-captureds");
       expect(html).toContain("Auto-captured 1");
       expect(html).toContain("low_risk_handoff_auto_capture");

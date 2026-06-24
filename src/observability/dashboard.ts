@@ -3935,12 +3935,22 @@ function recentValueCards(records: DashboardValueRecord[]): string {
   `;
 }
 
+function captureInboxAuditSummary(items: DashboardCaptureInbox): string {
+  return [
+    "manual review",
+    "no auto-canonical",
+    pluralize(items.total, "candidate"),
+    `auto-captured ${items.autocapture_policy.auto_captured_total}`,
+    `policy archived ${items.autocapture_policy.archived_total}`
+  ].join(" | ");
+}
+
 function captureInboxAudit(items: DashboardCaptureInbox): string {
   return `
       <details class="capture-inbox-audit" data-dashboard-detail="capture-inbox-audit">
         <summary class="dashboard-fold-summary">
           <span>Capture Audit</span>
-          <small>manual review | no auto-canonical | ${escapeHtml(pluralize(items.total, "candidate"))}</small>
+          <small>${escapeHtml(captureInboxAuditSummary(items))}</small>
         </summary>
         <div class="capture-policy">
           <div>
