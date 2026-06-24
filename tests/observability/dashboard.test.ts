@@ -922,6 +922,12 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<article class=\"governance-item");
       expect(html).toContain("data-dashboard-detail=\"debug-inspector\"");
       expect(html).toContain("data-dashboard-detail=\"inspector:records\"");
+      expect(html).toContain("<details data-dashboard-detail=\"inspector:records\">\n          <summary>Record table</summary>");
+      expect(html).toContain("<details data-dashboard-detail=\"inspector:events\">\n          <summary>Event log</summary>");
+      expect(html).toContain("<details data-dashboard-detail=\"inspector:sync\">\n          <summary>Sync state</summary>");
+      expect(html).not.toContain("<details data-dashboard-detail=\"inspector:records\">\n          <summary>Records</summary>");
+      expect(html).not.toContain("<details data-dashboard-detail=\"inspector:events\">\n          <summary>Events</summary>");
+      expect(html).not.toContain("<details data-dashboard-detail=\"inspector:sync\">\n          <summary>Sync</summary>");
       expect(html).not.toContain("<details open data-dashboard-detail=\"inspector:records\">");
       expect(html).toContain("<details class=\"panel memory-lifecycle\" data-dashboard-detail=\"memory-lifecycle-audit\"");
       expect(html).toContain("<span>Memory Lifecycle</span>");

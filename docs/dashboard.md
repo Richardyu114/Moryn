@@ -613,8 +613,10 @@ common audit evidence closer to the user while keeping record/event/sync
 internals available without placing them at the same level. Nested evidence
 summaries also use purpose labels: `Store Signals` opens with `Operational
 health signals`, `Raw Inspector` opens with `Records, events, and sync`, and
-`Debug Inspector` opens with `Raw store inspection`, while their expanded bodies
-still show agent activity, record quality, records, events, and sync detail.
+`Debug Inspector` opens with `Raw store inspection`. Its child folds are labeled
+`Record table`, `Event log`, and `Sync state` instead of generic
+`Records`, `Events`, and `Sync`, while their expanded bodies still show agent
+activity, record quality, records, events, and sync detail.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without
