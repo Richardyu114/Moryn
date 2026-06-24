@@ -842,7 +842,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Inspection Evidence</span>");
       expect(html).not.toContain("<span>Review Evidence</span>");
       expect(html).toContain("<span>Reference Evidence</span>");
-      expect(html).toContain("reference panels</small>");
+      expect(html).toContain("<small>Routine checks and audit trail</small>");
+      expect(html).not.toContain("reference panels</small>");
       expect(html).not.toContain("<span>Background Evidence</span>");
       expect(html).toContain("data-dogfood-review-item=\"capture_review_backlog\"");
       expect(html).toContain("data-dogfood-review-item=\"failure_signals\"");
@@ -1322,7 +1323,8 @@ describe("observability dashboard", () => {
       const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
       expect(evidenceReviewGroupIndex).toBe(-1);
       expect(html).toContain("<span>Reference Evidence</span>");
-      expect(html).toContain("reference panels</small>");
+      expect(html).toContain("<small>Routine checks and audit trail</small>");
+      expect(html).not.toContain("reference panels</small>");
       expect(html).not.toContain("<span>Background Evidence</span>");
       const routineDiagnosticsIndex = html.indexOf("<details class=\"panel routine-diagnostics\" data-dashboard-detail=\"routine-diagnostics\" aria-label=\"Routine Diagnostics\">");
       const evidenceHealthCheckIndex = html.indexOf("data-dashboard-detail=\"health-check\"");

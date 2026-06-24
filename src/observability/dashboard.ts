@@ -4413,7 +4413,7 @@ function evidenceLibraryBackgroundGroup(panels: string[]): string {
     <details class="evidence-library-group evidence-library-background" data-dashboard-detail="evidence-background-evidence">
       <summary class="dashboard-fold-summary evidence-library-group-heading">
         <span>Reference Evidence</span>
-        <small>${escapeHtml(pluralize(panels.length, "reference panel"))}</small>
+        <small>Routine checks and audit trail</small>
       </summary>
       <div class="evidence-library-group-list">
         ${panels.join("")}

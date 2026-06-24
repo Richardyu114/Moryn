@@ -75,6 +75,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "grouped first under `Read-only Findings`");
     expectText(dashboard, "read-only findings do not look like pending approval work");
     expectText(dashboard, "Routine Diagnostics and Audit Trail are grouped behind `Reference Evidence`");
+    expectText(dashboard, "folded summary reads `Routine checks and audit trail`");
+    expectText(dashboard, "instead of listing reference-panel counts");
     expectText(dashboard, "Empty groups are omitted");
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");
     expectText(dashboard, "When there are no warning or critical action signals");
