@@ -1935,10 +1935,18 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Raw Inspector</span>");
       expect(html).toContain("<small>Records, events, and sync</small>");
       expect(html).not.toContain("<small>1 raw panel</small>");
+      const operationalSnapshotsPanel = "<details class=\"supporting-evidence-group supporting-evidence-snapshots\" data-dashboard-detail=\"supporting-operational-snapshots\">";
+      const operationalSnapshotsIndex = html.indexOf(operationalSnapshotsPanel);
       const storeSignalsIndex = html.indexOf("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
       const recentValueIndex = html.indexOf("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
       const debugInspectorIndex = html.indexOf("<details class=\"panel debug-inspector\" data-dashboard-detail=\"debug-inspector\">");
+      expect(operationalSnapshotsIndex).toBeGreaterThan(operationalEvidenceIndex);
+      expect(operationalSnapshotsIndex).toBeLessThan(rawInspectorIndex);
+      expect(html).toContain("<span>Operational Snapshots</span>");
+      expect(html).toContain("<small>Store signals and recent value</small>");
+      expect(html).not.toContain("<details open class=\"supporting-evidence-group supporting-evidence-snapshots\"");
       expect(storeSignalsIndex).toBeGreaterThan(operationalEvidenceIndex);
+      expect(storeSignalsIndex).toBeGreaterThan(operationalSnapshotsIndex);
       expect(recentValueIndex).toBeGreaterThan(storeSignalsIndex);
       expect(recentValueIndex).toBeLessThan(rawInspectorIndex);
       expect(debugInspectorIndex).toBeGreaterThan(rawInspectorIndex);

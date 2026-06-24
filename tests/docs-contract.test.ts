@@ -132,6 +132,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "row reads `Clean audits and store signals`");
     expectText(dashboard, "instead of listing child panel counts");
     expectText(dashboard, "`Operational Evidence` is collapsed by default inside `Audit Trail`");
+    expectText(dashboard, "`Store Signals` and `Recent Value` are nested under a collapsed `Operational Snapshots` row");
     expectText(dashboard, "collapsed by default behind a short recent-record count");
     expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
     expectText(dashboard, "timeline and recall trace commands under an `Audit trace` fold instead of a generic `Details` row");

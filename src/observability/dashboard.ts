@@ -4854,6 +4854,21 @@ function supportingEvidenceOperationalGroup(panels: string[]): string {
   `;
 }
 
+function supportingOperationalSnapshotsGroup(panels: string[]): string {
+  if (panels.length === 0) return "";
+  return `
+    <details class="supporting-evidence-group supporting-evidence-snapshots" data-dashboard-detail="supporting-operational-snapshots">
+      <summary class="dashboard-fold-summary supporting-evidence-group-heading">
+        <span>Operational Snapshots</span>
+        <small>Store signals and recent value</small>
+      </summary>
+      <div class="supporting-evidence-group-list">
+        ${panels.join("")}
+      </div>
+    </details>
+  `;
+}
+
 function supportingEvidenceRawGroup(panels: string[]): string {
   if (panels.length === 0) return "";
   return `
@@ -4874,10 +4889,13 @@ function supportingEvidencePanel(data: DashboardData): string {
     memoryLifecycle: data.memory_lifecycle,
     capturePolicy: data.capture_policy
   });
-  const operationalPanels = [
-    reports,
+  const snapshotPanels = [
     storeSignalsPanel(data),
     recentValuePanel(data.recent_value)
+  ].filter((panel) => panel.length > 0);
+  const operationalPanels = [
+    reports,
+    supportingOperationalSnapshotsGroup(snapshotPanels)
   ].filter((panel) => panel.length > 0);
   const rawPanels = [
     debugInspectorPanel(data)
@@ -6291,6 +6309,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       min-width: 0;
     }
     .supporting-evidence-operational[open] > summary { margin-bottom: 8px; }
+    .supporting-evidence-snapshots[open] > summary { margin-bottom: 8px; }
     .supporting-evidence-raw {
       border-top: 1px solid var(--hairline);
       padding-top: 9px;
