@@ -3299,7 +3299,7 @@ function attentionFocus(items: DashboardAttentionItem[]): string {
   const chipLabel = (chip: { severity: DashboardAttentionItem["severity"]; count: number }) =>
     chip.severity === "info" ? pluralize(chip.count, "info check") : pluralize(chip.count, chip.severity);
   return `
-    <div class="attention-focus" aria-label="Needs Attention focus">
+    <div class="attention-focus" aria-label="Action Signals focus">
       <span><strong>${escapeHtml(actionSignals)}</strong> ${escapeHtml(actionSignals === 1 ? "action signal" : "action signals")}</span>
       ${chips.map((chip) => `<span class="attention-focus-count ${escapeHtml(chip.severity)}">${escapeHtml(chipLabel(chip))}</span>`).join("")}
       <span class="attention-next-action" data-attention-next-action>${escapeHtml(next)}</span>
@@ -3353,8 +3353,11 @@ function needsAttentionPanel(items: DashboardAttentionItem[]): string {
     `;
   }
   return `
-    <section id="needs-attention" class="panel" data-dashboard-section="needs-attention">
-      <h2>Needs Attention</h2>
+    <section id="needs-attention" class="panel action-signals" data-dashboard-section="needs-attention" data-dashboard-detail="needs-attention">
+      <div class="action-signals-heading">
+        <h2>Action Signals</h2>
+        <small>Warnings and critical checks</small>
+      </div>
       ${attentionItems(items)}
     </section>
   `;
@@ -5997,6 +6000,21 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface-2);
       color: var(--muted);
       font-size: 12px;
+    }
+    .action-signals {
+      border-left: 4px solid var(--warning);
+    }
+    .action-signals-heading {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+    .action-signals-heading h2 { margin: 0; }
+    .action-signals-heading small {
+      color: var(--muted);
+      font-weight: 650;
     }
     .attention-focus strong { color: var(--ink); font-size: 15px; }
     .attention-focus-count {

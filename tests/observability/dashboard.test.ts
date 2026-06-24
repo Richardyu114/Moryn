@@ -1797,9 +1797,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("target.scrollIntoView({ block: \"start\", behavior: \"smooth\" })");
       expect(html).toContain("Warnings and critical signals remain visible in Needs Attention.");
       expect(html).not.toContain("<section class=\"overview-grid\" aria-label=\"Dashboard overview\">");
-      expect(html).toContain("Needs Attention");
-      expect(html).toContain("<section id=\"needs-attention\" class=\"panel\" data-dashboard-section=\"needs-attention\">");
-      expect(html).toContain("<div class=\"attention-focus\" aria-label=\"Needs Attention focus\">");
+      expect(html).toContain("Action Signals");
+      expect(html).toContain("<section id=\"needs-attention\" class=\"panel action-signals\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
+      expect(html).toContain("<h2>Action Signals</h2>");
+      expect(html).not.toContain("<h2>Needs Attention</h2>");
+      expect(html).toContain("<small>Warnings and critical checks</small>");
+      expect(html).toContain("<div class=\"attention-focus\" aria-label=\"Action Signals focus\">");
       expect(html).toContain("<strong>1</strong> action signal");
       expect(html).not.toContain("attention-focus-count critical");
       expect(html).toContain("<span class=\"attention-focus-count warning\">1 warning</span>");
