@@ -2495,10 +2495,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("repo-e6f0166fd942 to moryn");
       expect(html).toContain("Server re-runs the dry run and checks plan_hash before applying.");
       expect(html).toContain("data-maintenance-review-log");
-      expect(html).toContain("<summary>Audit trail</summary>");
-      expect(html).toContain("<h4>Approval checklist</h4>");
+      expect(html).toContain("<summary>Decision evidence</summary>");
+      expect(html).not.toContain("<summary>Audit trail</summary>");
+      expect(html).toContain("<h4>Before approving</h4>");
+      expect(html).not.toContain("<h4>Approval checklist</h4>");
       expect(html).not.toContain("<div class=\"review-log\" data-maintenance-review-log>\n      <h4>Review log</h4>");
-      expect(html).toContain("<h4>Decision record</h4>");
+      expect(html).toContain("<h4>Why this repair is proposed</h4>");
+      expect(html).not.toContain("<h4>Decision record</h4>");
       expect(html).toContain("<strong>Detected</strong>");
       expect(html).toContain("<strong>Why this matters</strong>");
       expect(html).toContain("<strong>Proposed change</strong>");

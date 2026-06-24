@@ -3199,7 +3199,7 @@ function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
 function maintenanceApprovalChecklist(plan: DashboardMaintenancePlan): string {
   return `
     <div class="review-log approval-checklist" data-maintenance-review-log>
-      <h4>Approval checklist</h4>
+      <h4>Before approving</h4>
       <ol>
         <li><strong>Issue:</strong> Project identity repair found records under an old project id.</li>
         <li><strong>Proposed change:</strong> ${escapeHtml(maintenanceMoveSummary(plan))} from <code>${escapeHtml(plan.from_project_id)}</code> to <code>${escapeHtml(plan.to_project_id)}</code>.</li>
@@ -3213,7 +3213,7 @@ function maintenanceApprovalChecklist(plan: DashboardMaintenancePlan): string {
 function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
   return `
     <div class="maintenance-decision-record" data-maintenance-decision-record>
-      <h4>Decision record</h4>
+      <h4>Why this repair is proposed</h4>
       <dl>
         <div>
           <dt><strong>Detected</strong></dt>
@@ -3284,7 +3284,7 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                   <div><dt>Action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
                 </dl>
                 <details class="maintenance-audit-trail" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
-                  <summary>Audit trail</summary>
+                  <summary>Decision evidence</summary>
                   ${maintenanceDecisionRecord(plan)}
                   ${maintenanceApprovalChecklist(plan)}
                 </details>
