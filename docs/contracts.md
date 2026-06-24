@@ -407,10 +407,12 @@ the `memory_doctor` CLI or MCP report shape. Its contract includes:
 
 Group ids are limited to `likely_noise`, `promotable`, `session_summaries`,
 and `needs_inspection`. Each group carries `record_ids`, `records[]`,
-`records_by_id`, `recommended_next_step`, `writes: "none"`, and an
-`evidence_path` such as `candidate_triage.groups_by_id.<group_id>`. The
-surface does not add Approve, Archive, Promote, Apply, background execution,
-or Safe Action Registry entries.
+`records_by_id`, `recommended_next_step`, `review_handoff`, `writes: "none"`,
+and an `evidence_path` such as
+`candidate_triage.groups_by_id.<group_id>`. `review_handoff` names the existing
+control to use next, guidance for the group, and the read-only write boundary.
+The surface does not add Approve, Archive, Promote, Apply, background
+execution, or Safe Action Registry entries.
 
 `/api/dashboard` also returns `context_pack_review`, a read-only project handoff
 readiness summary rendered as the dashboard `Context Pack Review` panel. When

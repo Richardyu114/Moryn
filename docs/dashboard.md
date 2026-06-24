@@ -384,10 +384,14 @@ Library rather than the main review path. `Candidate Triage` is grouped under
 `Read-only Findings` in the Evidence Library, and its folded row reads
 `Read-only candidate backlog` instead of repeating a candidate count. Expanding
 the panel shows candidate, group, and shown-record counts plus read-only next
-steps. Record ids, recall commands, and timeline commands stay behind a nested
-`Record samples` fold inside each group. `Record samples` renders only the
-first five full records per group and summarizes the remaining records as API
-evidence, so large backlogs stay inspectable without flooding the page.
+steps. Each candidate group starts with a compact `Review handoff` that points
+to an existing control such as Capture Inbox, Memory Doctor, timeline, or
+recall. It explains the next review surface and repeats that Candidate Triage
+is read-only before record ids appear. Record ids, recall commands, and
+timeline commands stay behind a nested `Record samples` fold inside each group.
+`Record samples` renders only the first five full records per group and
+summarizes the remaining records as API evidence, so large backlogs stay
+inspectable without flooding the page.
 `Candidate Triage` stays read-only and does not
 add Approve, Archive, Promote, Apply, or background execution controls; it is a
 decision-prep surface for existing review policies, not a new mutation path.

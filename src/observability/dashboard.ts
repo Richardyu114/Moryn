@@ -408,6 +408,13 @@ export interface DashboardGovernance {
 
 export type DashboardCandidateTriageGroupId = "likely_noise" | "promotable" | "session_summaries" | "needs_inspection";
 
+export interface DashboardCandidateTriageReviewHandoff {
+  label: string;
+  existing_control: string;
+  guidance: string;
+  write_boundary: "Candidate Triage is read-only";
+}
+
 export interface DashboardCandidateTriageRecord {
   id: string;
   kind: MorynRecord["kind"];
@@ -428,6 +435,7 @@ export interface DashboardCandidateTriageGroup {
   label: string;
   description: string;
   recommended_next_step: string;
+  review_handoff: DashboardCandidateTriageReviewHandoff;
   writes: "none";
   requires_user_confirmation: false;
   record_ids: string[];
@@ -2349,6 +2357,7 @@ function toCandidateTriageGroup(input: {
   label: string;
   description: string;
   recommended_next_step: string;
+  review_handoff: DashboardCandidateTriageReviewHandoff;
   records: DashboardCandidateTriageRecord[];
 }): DashboardCandidateTriageGroup {
   return {
@@ -2407,6 +2416,12 @@ function buildCandidateTriage(
       label: "Likely noise",
       description: "Candidates that look like smoke/test output or marker records.",
       recommended_next_step: "Inspect likely noise before archive",
+      review_handoff: {
+        label: "Archive review",
+        existing_control: "Capture Inbox or Memory Doctor",
+        guidance: "Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.",
+        write_boundary: "Candidate Triage is read-only"
+      },
       records: likelyNoise
     }),
     toCandidateTriageGroup({
@@ -2414,6 +2429,12 @@ function buildCandidateTriage(
       label: "Promotable candidates",
       description: "High-confidence candidate memories that may deserve explicit promotion.",
       recommended_next_step: "Inspect before promotion",
+      review_handoff: {
+        label: "Approval review",
+        existing_control: "Capture Inbox",
+        guidance: "Approve eligible Capture Inbox candidates only after checking provenance and record text.",
+        write_boundary: "Candidate Triage is read-only"
+      },
       records: promotable
     }),
     toCandidateTriageGroup({
@@ -2421,6 +2442,12 @@ function buildCandidateTriage(
       label: "Session summaries",
       description: "Agent handoff summaries that may be useful context but are not automatically canonical.",
       recommended_next_step: "Inspect handoff value",
+      review_handoff: {
+        label: "Handoff review",
+        existing_control: "Capture Inbox or timeline",
+        guidance: "Keep useful handoff summaries available for context; promote only when they describe durable memory.",
+        write_boundary: "Candidate Triage is read-only"
+      },
       records: sessionSummaries
     }),
     toCandidateTriageGroup({
@@ -2428,6 +2455,12 @@ function buildCandidateTriage(
       label: "Needs inspection",
       description: "Remaining candidate records that need a human read before any lifecycle decision.",
       recommended_next_step: "Inspect timeline",
+      review_handoff: {
+        label: "Inspection review",
+        existing_control: "Timeline, recall, or Capture Inbox",
+        guidance: "Use the trace commands first; decide later through an existing explicit review surface.",
+        write_boundary: "Candidate Triage is read-only"
+      },
       records: needsInspection
     })
   ].filter((group) => group.records.length > 0);
@@ -3593,6 +3626,20 @@ function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): st
   `;
 }
 
+function renderCandidateTriageHandoff(group: DashboardCandidateTriageGroup): string {
+  return `
+    <div class="candidate-triage-handoff" data-candidate-triage-handoff="${escapeHtml(group.id)}">
+      <h4>Review handoff</h4>
+      <dl>
+        <div><dt>Next step</dt><dd>${escapeHtml(group.review_handoff.label)}</dd></div>
+        <div><dt>Existing control</dt><dd>${escapeHtml(group.review_handoff.existing_control)}</dd></div>
+        <div><dt>Write boundary</dt><dd>${escapeHtml(group.review_handoff.write_boundary)}</dd></div>
+      </dl>
+      <p>${escapeHtml(group.review_handoff.guidance)}</p>
+    </div>
+  `;
+}
+
 function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
   const sampleRecords = group.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
   return `
@@ -3604,6 +3651,7 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
       </summary>
       <div class="candidate-triage-group-body">
         <p>${escapeHtml(group.description)}</p>
+        ${renderCandidateTriageHandoff(group)}
         <dl class="candidate-triage-brief">
           <div><dt>Write boundary</dt><dd>No memory writes</dd></div>
           <div><dt>Confirmation</dt><dd>Inspection only</dd></div>
@@ -6426,6 +6474,34 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       margin-top: 0;
       color: var(--muted);
       overflow-wrap: anywhere;
+    }
+    .candidate-triage-handoff {
+      display: grid;
+      gap: 7px;
+      border: 1px solid #c9d5e6;
+      border-left: 3px solid var(--signal-blue);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin: 8px 0 9px;
+      background: var(--signal-blue-soft);
+    }
+    .candidate-triage-handoff h4 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 12.5px;
+      font-weight: 780;
+    }
+    .candidate-triage-handoff dl {
+      margin: 0;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .candidate-triage-handoff dl div {
+      grid-template-columns: 112px minmax(0, 1fr);
+    }
+    .candidate-triage-handoff p {
+      margin: 0;
+      color: var(--ink-2);
+      font-size: 12.5px;
     }
     .candidate-triage-brief {
       margin-bottom: 9px;

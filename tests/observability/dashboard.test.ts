@@ -781,6 +781,12 @@ describe("observability dashboard", () => {
             id: string;
             label: string;
             recommended_next_step: string;
+            review_handoff: {
+              label: string;
+              existing_control: string;
+              guidance: string;
+              write_boundary: string;
+            };
             writes: string;
             requires_user_confirmation: boolean;
             record_ids: string[];
@@ -790,6 +796,12 @@ describe("observability dashboard", () => {
             id: string;
             record_ids: string[];
             evidence_path: string;
+            review_handoff: {
+              label: string;
+              existing_control: string;
+              guidance: string;
+              write_boundary: string;
+            };
           }>;
           selection_sources: Record<string, string>;
         };
@@ -820,12 +832,24 @@ describe("observability dashboard", () => {
       expect(data.candidate_triage.groups_by_id.likely_noise).toMatchObject({
         id: "likely_noise",
         record_ids: ["rec_candidate_triage_2"],
-        evidence_path: "candidate_triage.groups_by_id.likely_noise"
+        evidence_path: "candidate_triage.groups_by_id.likely_noise",
+        review_handoff: {
+          label: "Archive review",
+          existing_control: "Capture Inbox or Memory Doctor",
+          guidance: "Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.",
+          write_boundary: "Candidate Triage is read-only"
+        }
       });
       expect(data.candidate_triage.groups_by_id.promotable).toMatchObject({
         id: "promotable",
         record_ids: ["rec_candidate_triage_3"],
-        evidence_path: "candidate_triage.groups_by_id.promotable"
+        evidence_path: "candidate_triage.groups_by_id.promotable",
+        review_handoff: {
+          label: "Approval review",
+          existing_control: "Capture Inbox",
+          guidance: "Approve eligible Capture Inbox candidates only after checking provenance and record text.",
+          write_boundary: "Candidate Triage is read-only"
+        }
       });
       expect(data.candidate_triage.groups.map((group) => group.id)).toEqual([
         "likely_noise",
@@ -860,11 +884,21 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Likely noise</span>");
       expect(html).toContain("<strong>1 record</strong>");
       expect(html).toContain("<small>Inspect likely noise before archive</small>");
+      expect(html).toContain("<div class=\"candidate-triage-handoff\" data-candidate-triage-handoff=\"likely_noise\">");
+      expect(html).toContain("<h4>Review handoff</h4>");
+      expect(html).toContain("<dt>Existing control</dt><dd>Capture Inbox or Memory Doctor</dd>");
+      expect(html).toContain("<dt>Write boundary</dt><dd>Candidate Triage is read-only</dd>");
+      expect(html).toContain("Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.");
       expect(html).toContain("<details class=\"candidate-triage-record-samples\" data-dashboard-detail=\"candidate-triage-records:likely_noise\">");
       expect(html).toContain("<span>Record samples</span>");
       expect(html).toContain("<small>1 sample with trace commands</small>");
       expect(html).toContain("<span>Promotable candidates</span>");
       expect(html).toContain("<small>Inspect before promotion</small>");
+      expect(html).toContain("<div class=\"candidate-triage-handoff\" data-candidate-triage-handoff=\"promotable\">");
+      expect(html).toContain("<dt>Existing control</dt><dd>Capture Inbox</dd>");
+      expect(html).toContain("Approve eligible Capture Inbox candidates only after checking provenance and record text.");
+      expect(html).toContain(".candidate-triage-handoff {");
+      expect(html).toContain(".candidate-triage-handoff dl {");
       expect(html).toContain("<details class=\"candidate-triage-record-samples\" data-dashboard-detail=\"candidate-triage-records:promotable\">");
       expect(html).toContain("<span>Session summaries</span>");
       expect(html).toContain("<span>Needs inspection</span>");
