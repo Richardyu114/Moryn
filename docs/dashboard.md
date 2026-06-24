@@ -560,9 +560,11 @@ The routine and background groups still keep the original child
 before scrolling to the requested diagnostic.
 
 `Dogfood Review` is a read-only issue inbox for `dogfood_report.findings_by_id`.
-It renders only when the local report has findings. Each card leads with an
-`Issue brief` for impact, affected records, read-only next step, and evidence
-path, followed by the safe dashboard or timeline command already returned by
+It renders only when the local report has findings. Its folded row reads
+`Read-only dogfood finding` or `Read-only dogfood findings` instead of repeating
+finding and safe-step counts. Each card leads with an `Issue brief` for impact,
+affected records, read-only next step, and evidence path, followed by the safe
+dashboard or timeline command already returned by
 `dogfood_report.suggested_actions_by_id`. It does not add buttons, background
 execution, or a second mutation path.
 

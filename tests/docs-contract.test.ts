@@ -93,6 +93,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "It preserves the `id=\"needs-attention\"` scroll target and collapsed Info Checks detail for audit");
     expect(dashboard).toContain("Dogfood Review");
     expect(dashboard).toContain("Issue brief");
+    expectText(dashboard, "folded row reads `Read-only dogfood finding` or `Read-only dogfood findings`");
+    expectText(dashboard, "instead of repeating finding and safe-step counts");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
     expectText(dashboard, "remain available inside the nested `Audit Trail` panel");
     expectText(dashboard, "folded row reads `Clean lifecycle and capture audits`");

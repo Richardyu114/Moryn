@@ -2853,8 +2853,7 @@ function dogfoodActionForFinding(
 }
 
 function dogfoodReviewSummary(report: DogfoodReportResult): string {
-  const safeSteps = report.suggested_actions.filter((action) => action.safe_to_run).length;
-  return `${pluralize(report.findings.length, "finding")} | ${pluralize(safeSteps, "safe step")} | read-only`;
+  return report.findings.length === 1 ? "Read-only dogfood finding" : "Read-only dogfood findings";
 }
 
 function dogfoodReviewPanel(report: DogfoodReportResult): string {

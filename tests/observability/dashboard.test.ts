@@ -832,9 +832,13 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Governance Hub");
-      expect(html).toContain("<details class=\"panel dogfood-review\" data-dashboard-detail=\"dogfood-review\" aria-label=\"Dogfood Review\">");
-      expect(html).toContain("<span>Dogfood Review</span>");
-      expect(html).toContain("<small>2 findings | 2 safe steps | read-only</small>");
+      const dogfoodPanelStart = html.indexOf("<details class=\"panel dogfood-review\" data-dashboard-detail=\"dogfood-review\" aria-label=\"Dogfood Review\">");
+      const dogfoodPanelBody = html.indexOf("<div class=\"dogfood-review-body\">", dogfoodPanelStart);
+      const dogfoodPanelSummary = html.slice(dogfoodPanelStart, dogfoodPanelBody);
+      expect(dogfoodPanelStart).toBeGreaterThan(-1);
+      expect(dogfoodPanelSummary).toContain("<span>Dogfood Review</span>");
+      expect(dogfoodPanelSummary).toContain("<small>Read-only dogfood findings</small>");
+      expect(dogfoodPanelSummary).not.toContain("<small>2 findings | 2 safe steps | read-only</small>");
       expect(html).toContain("<small>Read-only findings and reference evidence</small>");
       expect(html).not.toContain("<small>1 finding group / 1 reference group</small>");
       expect(html).not.toContain("<small>Read-only diagnostics grouped here</small>");
