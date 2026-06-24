@@ -4427,9 +4427,10 @@ function evidenceLibrary(data: DashboardData): string {
   `;
 }
 
-function dashboardStatusSummary(health: DashboardHealth): string {
+function dashboardStatusSummary(data: DashboardData): string {
+  const health = data.health;
   const statusClass = healthClass(health.status);
-  if (health.status === "healthy") {
+  if (health.status === "healthy" || isSyncOnlyDashboardOverview(data.dashboard_overview)) {
     return `
     <p class="dashboard-status-line ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}"><strong>${escapeHtml(health.label)}</strong><span>${escapeHtml(health.explanation)}</span></p>
   `;
@@ -4454,7 +4455,7 @@ function renderDashboardBody(data: DashboardData): string {
       <span class="health-badge ${healthClass(data.health.status)}">${escapeHtml(data.health.label)}</span>
     </header>
 
-    ${dashboardStatusSummary(data.health)}
+    ${dashboardStatusSummary(data)}
 
     ${dashboardOverview(data.dashboard_overview)}
 
@@ -4863,6 +4864,9 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--signal-green);
       font-weight: 780;
     }
+    .dashboard-status-line.info strong { color: var(--signal-blue); }
+    .dashboard-status-line.warning strong { color: var(--signal-amber); }
+    .dashboard-status-line.critical strong { color: var(--signal-red); }
     .dashboard-status-line span {
       min-width: 0;
       overflow-wrap: anywhere;

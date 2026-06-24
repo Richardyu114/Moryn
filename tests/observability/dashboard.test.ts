@@ -224,9 +224,8 @@ describe("observability dashboard", () => {
         }
       });
       expect(html).toContain("<span class=\"health-badge warning\">Sync Pending</span>");
-      expect(html).toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
-      expect(html).toContain("<strong>Dashboard Status</strong>");
-      expect(html).toContain("<span>Sync Pending</span>");
+      expect(html).toContain("<p class=\"dashboard-status-line warning\" data-dashboard-status=\"sync_pending\"><strong>Sync Pending</strong><span>Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device.</span></p>");
+      expect(html).not.toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).toContain("Local sync changes are waiting to be pushed or pulled");
       expect(html).toContain("<strong>Review sync changes</strong>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Review sync changes</button>");

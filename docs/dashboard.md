@@ -412,8 +412,10 @@ The first screen favors human-readable summaries over raw ids:
 - Review Queue maintenance plans when a project identity repair is available
 
 The top health message stays below the header, but healthy snapshots render as a
-lightweight `dashboard-status-line` instead of a full status panel. Non-healthy
-states such as sync pending, local-only, review, or conflict still render the
+lightweight `dashboard-status-line` instead of a full status panel. Sync-only
+pending states also use the lightweight status line because the Overview already
+names the action as `Review sync changes`. Non-healthy states that need a
+separate explanation, such as local-only, review, or conflict, still render the
 full status strip because they need first-screen attention.
 
 Directly below the health message, `Dashboard Overview` is the first-screen
