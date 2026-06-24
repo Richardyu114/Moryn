@@ -662,7 +662,10 @@ The HTML dashboard includes a compact read-only `Moryn Health Check` panel near
 the top of the page. It is separate from the dashboard status badge: the badge
 summarizes current sync/dashboard state, while `health_check` reports local
 installation and store readiness. The panel stays collapsed by default behind a
-summary such as `needs attention | 1 warning | 0 failed`.
+plain-language summary such as `Healthy local store` or
+`needs attention | 1 warning`. Zero-count buckets are omitted from the folded
+row, while `/api/dashboard.health_check.summary` still includes the complete
+warning and failing counts for audit and tooling.
 
 `/api/dashboard.health_check` is the same read-only shape as `moryn health
 check` and MCP `health_check`. It checks store readability, event-log replay,

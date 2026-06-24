@@ -372,7 +372,8 @@ describe("observability dashboard", () => {
       });
       expect(html).toContain("<details class=\"panel health-check-panel\" data-dashboard-detail=\"health-check\" data-dashboard-section=\"health-check\">");
       expect(html).toContain("<span>Moryn Health Check</span>");
-      expect(html).toContain("<small>needs attention | 1 warning | 0 failed</small>");
+      expect(html).toContain("<small>needs attention | 1 warning</small>");
+      expect(html).not.toContain("<small>needs attention | 1 warning | 0 failed</small>");
       expect(html).toContain("moryn dashboard --serve --project-id moryn");
       expect(html).toContain("Read-only");
       expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
@@ -1348,6 +1349,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Routine Diagnostics</span>");
       expect(html).toContain("<small>Healthy checks and handoff readiness</small>");
       expect(html).not.toContain("<small>3 quiet checks</small>");
+      expect(html).toContain("<small>Healthy local store</small>");
+      expect(html).not.toContain("<small>healthy | 0 warnings | 0 failed</small>");
       const evidenceHealthCheckIndex = html.indexOf("data-dashboard-detail=\"health-check\"");
       const evidenceGovernanceIndex = html.indexOf("data-dashboard-detail=\"governance-hub\"");
       const dogfoodReviewIndex = html.indexOf("data-dashboard-detail=\"dogfood-review\"");

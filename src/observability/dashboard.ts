@@ -2720,8 +2720,21 @@ function healthCheckClass(status: HealthCheckReport["status"]): string {
   return "warning";
 }
 
+function healthCheckSummary(report: HealthCheckReport): string {
+  const status = report.status.replace(/_/g, " ");
+  if (report.summary.warning_checks === 0 && report.summary.failing_checks === 0) {
+    return report.status === "healthy" ? "Healthy local store" : status;
+  }
+
+  return [
+    status,
+    report.summary.warning_checks > 0 ? pluralize(report.summary.warning_checks, "warning") : undefined,
+    report.summary.failing_checks > 0 ? pluralize(report.summary.failing_checks, "failed check") : undefined
+  ].filter((part): part is string => Boolean(part)).join(" | ");
+}
+
 function healthCheckPanel(report: HealthCheckReport): string {
-  const summary = `${report.status.replace(/_/g, " ")} | ${pluralize(report.summary.warning_checks, "warning")} | ${report.summary.failing_checks} failed`;
+  const summary = healthCheckSummary(report);
   return `
     <details class="panel health-check-panel" data-dashboard-detail="health-check" data-dashboard-section="health-check">
       <summary class="dashboard-fold-summary">

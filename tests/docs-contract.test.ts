@@ -371,6 +371,9 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("health_check.suggested_actions_by_id.<action_id>");
     expect(dashboard).toContain("Moryn Health Check");
     expect(dashboard).toContain("health_check");
+    expectText(dashboard, "plain-language summary such as `Healthy local store` or `needs attention | 1 warning`");
+    expectText(dashboard, "Zero-count buckets are omitted from the folded row");
+    expectText(dashboard, "/api/dashboard.health_check.summary` still includes the complete warning and failing counts");
     expect(roadmap).toContain("health check");
   });
 
