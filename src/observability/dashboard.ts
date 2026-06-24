@@ -4936,15 +4936,15 @@ function routineDiagnosticsPanel(panels: string[]): string {
 function evidenceLibraryReviewGroup(panels: string[]): string {
   if (panels.length === 0) return "";
   return `
-    <div class="evidence-library-group evidence-library-review" data-dashboard-detail="evidence-review-evidence">
-      <div class="evidence-library-group-heading">
+    <details class="evidence-library-group evidence-library-review" data-dashboard-detail="evidence-review-evidence">
+      <summary class="dashboard-fold-summary evidence-library-group-heading">
         <span>Read-only Findings</span>
         <small>Findings to inspect</small>
-      </div>
+      </summary>
       <div class="evidence-library-group-list">
         ${panels.join("")}
       </div>
-    </div>
+    </details>
   `;
 }
 
@@ -6224,6 +6224,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       gap: 8px;
       min-width: 0;
     }
+    .evidence-library-review[open] > summary { margin-bottom: 8px; }
     .evidence-library-background {
       border-top: 1px solid var(--hairline);
       padding-top: 9px;

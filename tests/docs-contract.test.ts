@@ -97,6 +97,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Routine Diagnostics` opens with `Healthy checks and handoff readiness`");
     expectText(dashboard, "grouped first under `Read-only Findings`");
     expectText(dashboard, "whose row reads `Findings to inspect`");
+    expectText(dashboard, "`Read-only Findings` is collapsed by default inside `Evidence Library`");
     expectText(dashboard, "or expose child panel counts");
     expectText(dashboard, "read-only findings do not look like pending approval work");
     expectText(dashboard, "Routine Diagnostics and Audit Trail are grouped behind `Reference Evidence`");

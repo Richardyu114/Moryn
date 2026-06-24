@@ -609,7 +609,8 @@ with `Healthy checks and handoff readiness` so the folded row explains why these
 checks are quiet. Findings-oriented panels such as Dogfood Review, Governance
 Hub, or non-routine Health/Recall/Context checks
 are grouped first under `Read-only Findings`, whose row reads `Findings to
-inspect`, so read-only findings do not look like pending approval work or expose
+inspect`. `Read-only Findings` is collapsed by default inside `Evidence
+Library`, so read-only findings do not look like pending approval work or expose
 child panel counts. Routine Diagnostics and Audit Trail are
 grouped behind `Reference Evidence`, whose folded summary reads `Routine checks
 and audit trail` instead of listing reference-panel counts. Empty groups are

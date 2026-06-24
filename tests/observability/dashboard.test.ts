@@ -837,7 +837,8 @@ describe("observability dashboard", () => {
       expect(data.candidate_triage.groups.every((group) => group.requires_user_confirmation === false)).toBe(true);
 
       const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
-      const evidenceReviewGroupIndex = html.indexOf("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
+      const evidenceReviewGroupPanel = "<details class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">";
+      const evidenceReviewGroupIndex = html.indexOf(evidenceReviewGroupPanel);
       const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
       const captureInboxIndex = html.indexOf("data-dashboard-detail=\"capture-inbox\"");
       const candidateTriageIndex = html.indexOf("data-dashboard-detail=\"candidate-triage\"");
@@ -846,6 +847,8 @@ describe("observability dashboard", () => {
       expect(candidateTriageIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
       expect(candidateTriageIndex).toBeGreaterThan(captureInboxIndex);
       expect(html.slice(0, evidenceLibraryDetailIndex)).not.toContain("data-dashboard-detail=\"candidate-triage\"");
+      expect(html).not.toContain("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
+      expect(html).not.toContain("<details open class=\"evidence-library-group evidence-library-review\"");
       expect(html).toContain("<details class=\"panel candidate-triage\" data-dashboard-detail=\"candidate-triage\" aria-label=\"Candidate Triage Queue\">");
       expect(html).toContain("<span>Candidate Triage</span>");
       expect(html).toContain("<small>Read-only candidate backlog</small>");
@@ -1258,7 +1261,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Read-only diagnostics grouped here</small>");
       const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
       const evidenceBriefIndex = html.indexOf("<div class=\"evidence-library-brief\" data-evidence-library-brief>", evidenceLibraryDetailIndex);
-      const evidenceReviewGroupIndex = html.indexOf("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
+      const evidenceReviewGroupPanel = "<details class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">";
+      const evidenceReviewGroupIndex = html.indexOf(evidenceReviewGroupPanel);
       const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
       const dogfoodReviewIndex = html.indexOf("data-dashboard-detail=\"dogfood-review\"");
       const governanceHubIndex = html.indexOf("id=\"governance-hub\"");
@@ -1268,6 +1272,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<button type=\"button\" class=\"evidence-library-route\" data-evidence-library-route=\"findings\" data-action-board-target=\"evidence-review-evidence\" aria-controls=\"evidence-review-evidence\">");
       expect(evidenceReviewGroupIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
       expect(evidenceBackgroundGroupIndex).toBeGreaterThan(evidenceReviewGroupIndex);
+      expect(html).not.toContain("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
+      expect(html).not.toContain("<details open class=\"evidence-library-group evidence-library-review\"");
       expect(dogfoodReviewIndex).toBeGreaterThan(evidenceReviewGroupIndex);
       expect(dogfoodReviewIndex).toBeLessThan(evidenceBackgroundGroupIndex);
       expect(governanceHubIndex).toBeGreaterThan(evidenceReviewGroupIndex);
@@ -1809,12 +1815,15 @@ describe("observability dashboard", () => {
       const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
       const evidenceBriefIndex = html.indexOf("<div class=\"evidence-library-brief\" data-evidence-library-brief>", evidenceLibraryDetailIndex);
       const evidenceListIndex = html.indexOf("<div class=\"evidence-library-list\">", evidenceLibraryDetailIndex);
-      const evidenceReviewGroupIndex = html.indexOf("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
+      const evidenceReviewGroupPanel = "<details class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">";
+      const evidenceReviewGroupIndex = html.indexOf(evidenceReviewGroupPanel);
       const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
       const candidateTriageIndex = html.indexOf("data-dashboard-detail=\"candidate-triage\"");
       expect(evidenceReviewGroupIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
       expect(candidateTriageIndex).toBeGreaterThan(evidenceReviewGroupIndex);
       expect(candidateTriageIndex).toBeLessThan(evidenceBackgroundGroupIndex);
+      expect(html).not.toContain("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
+      expect(html).not.toContain("<details open class=\"evidence-library-group evidence-library-review\"");
       expect(html.slice(0, evidenceLibraryDetailIndex)).not.toContain("data-dashboard-detail=\"candidate-triage\"");
       expect(evidenceBriefIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
       expect(evidenceBriefIndex).toBeLessThan(evidenceListIndex);
