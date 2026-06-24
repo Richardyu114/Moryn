@@ -3834,6 +3834,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"clean-audit-report memory-lifecycle\" data-dashboard-detail=\"memory-lifecycle-audit\"");
       expect(html).toContain("<span>Memory Lifecycle</span>");
       expect(html).toContain("<small>No lifecycle work</small>");
+      expect(html).toContain("<summary>Lifecycle suggestions</summary>");
+      expect(html).not.toContain("<summary>Suggested actions</summary>");
+      expect(html).toContain("No lifecycle actions suggested.");
       expect(html).not.toContain("<small>0 findings | 0 actions</small>");
       expect(html).toContain("<details class=\"clean-audit-report capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
       expect(html).toContain("<span>Capture Policy Audit</span>");

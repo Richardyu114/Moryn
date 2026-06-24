@@ -3552,7 +3552,7 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult, panelClass = "panel
       ${lifecycleSummary(report)}
       ${lifecycleFindingList(report)}
       <details class="lifecycle-action-details" data-dashboard-detail="memory-lifecycle:${escapeHtml(report.generated_at)}">
-        <summary>Suggested actions</summary>
+        <summary>Lifecycle suggestions</summary>
         ${lifecycleActions(report)}
       </details>
     </details>
