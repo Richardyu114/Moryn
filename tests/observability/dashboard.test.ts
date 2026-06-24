@@ -2761,8 +2761,13 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>6 passed | 0 review</small>");
       expect(html).toContain("<ul class=\"context-pack-checks\">");
       expect(html).toContain("data-dashboard-detail=\"context-pack-evidence\"");
-      expect(html).toContain("<span>Context Evidence</span>");
-      expect(html).toContain("<small>1 decision | 1 thread | 1 risk</small>");
+      const contextEvidenceStart = html.indexOf("<details class=\"context-pack-evidence\" data-dashboard-detail=\"context-pack-evidence\">");
+      const contextEvidenceBody = html.indexOf("<div class=\"context-pack-grid\">", contextEvidenceStart);
+      const contextEvidenceSummary = html.slice(contextEvidenceStart, contextEvidenceBody);
+      expect(contextEvidenceStart).toBeGreaterThan(-1);
+      expect(contextEvidenceSummary).toContain("<span>Context Evidence</span>");
+      expect(contextEvidenceSummary).toContain("<small>Handoff evidence available</small>");
+      expect(contextEvidenceSummary).not.toContain("<small>1 decision | 1 thread | 1 risk</small>");
       expect(html).not.toContain("<details open data-dashboard-detail=\"context-pack-evidence\"");
       expect(html).toContain("Dashboard should review context pack readiness.");
       expect(html).toContain("Codex finished handoff review implementation.");

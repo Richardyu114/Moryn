@@ -758,10 +758,13 @@ quality checks, evidence paths, and context evidence for audit.
 
 Quality check coverage, context evidence counts, and required capture-action
 visibility remain visible in readiness chips and the expanded handoff brief. The
-Context Evidence summary only shows non-zero counts; when there are no decisions,
-open threads, or risks, it says `No handoff evidence` instead of listing three
-zero counts. `/api/dashboard` still returns the full `context_pack_review`
-payload with check ids, counts, and evidence paths.
+`Context Evidence` folded row reads `Handoff evidence available` when evidence
+exists, so the collapsed cockpit stays action-oriented instead of repeating
+decision, thread, and risk counts. When there are no decisions, open threads, or
+risks, it says `No handoff evidence` instead of listing three zero counts. The
+expanded readiness brief still shows concrete decision, thread, and risk counts,
+and `/api/dashboard` still returns the full `context_pack_review` payload with
+check ids, counts, and evidence paths.
 
 If the dashboard is opened without project context, the panel renders
 `Unavailable` and the JSON message is `Open the dashboard with --project-id or

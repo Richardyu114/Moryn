@@ -153,6 +153,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of repeating `passed | 0 review`");
     expectText(dashboard, "detailed check list still carries each check, source, and count");
     expectText(dashboard, "Quality check coverage, context evidence counts, and required capture-action visibility remain visible");
+    expectText(dashboard, "`Context Evidence` folded row reads `Handoff evidence available`");
+    expectText(dashboard, "expanded readiness brief still shows concrete decision, thread, and risk counts");
     expect(dashboard).toContain("does not guess a project");
     expect(dashboard).toContain("does not render Approve, Apply, Promote, Archive, or Reject controls");
     expect(dashboard).toContain("moryn capture policy");

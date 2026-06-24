@@ -3595,6 +3595,12 @@ function contextPackEvidenceSummary(pack: DashboardContextPackReview["handoff_pa
   return counts.length > 0 ? counts.join(" | ") : "No handoff evidence";
 }
 
+function contextPackEvidenceFoldSummary(pack: DashboardContextPackReview["handoff_pack"]): string {
+  return contextPackEvidenceSummary(pack) === "No handoff evidence"
+    ? "No handoff evidence"
+    : "Handoff evidence available";
+}
+
 function contextPackReviewPanel(review: DashboardContextPackReview): string {
   if (!review.available || !review.handoff_pack) {
     return `
@@ -3642,7 +3648,7 @@ function contextPackReviewPanel(review: DashboardContextPackReview): string {
         <details class="context-pack-evidence" data-dashboard-detail="context-pack-evidence">
           <summary class="dashboard-fold-summary">
             <span>Context Evidence</span>
-            <small>${escapeHtml(contextPackEvidenceSummary(pack))}</small>
+            <small>${escapeHtml(contextPackEvidenceFoldSummary(pack))}</small>
           </summary>
           <div class="context-pack-grid">
             ${contextPackReviewItemColumn("Recent Decisions", pack.recent_decisions)}
