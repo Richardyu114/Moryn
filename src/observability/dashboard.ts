@@ -3733,6 +3733,14 @@ function capturePolicyActionsList(report: CapturePolicyResult): string {
   `;
 }
 
+function capturePolicyAuditSummary(report: CapturePolicyResult): string {
+  return [
+    `${report.stats.auto_captured_records} captured`,
+    `${report.stats.review_records} review`,
+    `${report.stats.policy_archived_records} archived`
+  ].join(" | ");
+}
+
 function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "panel"): string {
   if (report.stats.total_autocapture_records === 0) return "";
   const capturedRuleSummary = Object.entries(report.stats.captured_by_rule)
@@ -3745,7 +3753,7 @@ function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "pane
     <details class="${escapeHtml(panelClass)} capture-policy-audit" data-dashboard-detail="capture-policy-audit" aria-label="Capture Policy Audit">
       <summary class="dashboard-fold-summary">
         <span>Capture Policy Audit</span>
-        <small>${escapeHtml(pluralize(report.stats.auto_captured_records, "auto-captured"))} | ${escapeHtml(pluralize(report.stats.review_records, "review"))} | ${escapeHtml(pluralize(report.stats.policy_archived_records, "archived"))}</small>
+        <small>${escapeHtml(capturePolicyAuditSummary(report))}</small>
       </summary>
       <div class="lifecycle-policy">
         <div>

@@ -3453,6 +3453,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("default_autocapture_policy");
       expect(html).toContain("Policy archived");
       expect(html).toContain("Capture Policy Audit");
+      expect(html).toContain("<small>0 captured | 1 review | 1 archived</small>");
+      expect(html).not.toContain("auto-captureds");
       expect(html).toContain("capture_policy");
       expect(html).toContain("inspect_policy_archived_record");
       expect(html).toContain("data-capture-policy-decision=\"rec_capture_policy_1\"");
@@ -3607,6 +3609,8 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Auto-captured handoff");
+      expect(html).toContain("<small>1 captured | 0 review | 0 archived</small>");
+      expect(html).not.toContain("auto-captureds");
       expect(html).toContain("Auto-captured 1");
       expect(html).toContain("low_risk_handoff_auto_capture");
       expect(html).toContain("Codex finished setup wizard polish.");

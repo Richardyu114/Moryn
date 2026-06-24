@@ -208,7 +208,9 @@ anything to canonical memory automatically.
 The dashboard includes a read-only `Capture Policy Audit` detail panel built
 from the same local report as `moryn capture policy` and MCP `capture_policy`.
 It is collapsed by default because Governance Hub summarizes the current policy
-findings first. When expanded, it shows:
+findings first. Its folded summary uses plain routing labels such as
+`captured`, `review`, and `archived` instead of internal field names. When
+expanded, it shows:
 
 - the active `default_autocapture_policy`
 - how many handoffs were auto-captured without review

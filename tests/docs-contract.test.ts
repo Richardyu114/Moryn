@@ -117,6 +117,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("does not render Approve, Apply, Promote, Archive, or Reject controls");
     expect(dashboard).toContain("moryn capture policy");
     expect(dashboard).toContain("capture_policy");
+    expectText(dashboard, "folded summary uses plain routing labels such as");
+    expect(dashboard).toContain("`captured`, `review`, and `archived`");
     expect(dashboard).toContain("Review in Capture Inbox");
     expect(dashboard).toContain("Auto-captured handoff");
     expect(dashboard).toContain("Approve Memory");
