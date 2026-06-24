@@ -4390,7 +4390,7 @@ function routineDiagnosticsPanel(panels: string[]): string {
     <details class="panel routine-diagnostics" data-dashboard-detail="routine-diagnostics" aria-label="Routine Diagnostics">
       <summary class="dashboard-fold-summary routine-diagnostics-fold">
         <span>Routine Diagnostics</span>
-        <small>${escapeHtml(pluralize(panels.length, "quiet check"))}</small>
+        <small>Healthy checks and handoff readiness</small>
       </summary>
       <div class="routine-diagnostics-list">
         ${panels.join("")}

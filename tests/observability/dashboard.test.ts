@@ -1333,6 +1333,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("reference panels</small>");
       expect(html).not.toContain("<span>Background Evidence</span>");
       const routineDiagnosticsIndex = html.indexOf("<details class=\"panel routine-diagnostics\" data-dashboard-detail=\"routine-diagnostics\" aria-label=\"Routine Diagnostics\">");
+      expect(html).toContain("<span>Routine Diagnostics</span>");
+      expect(html).toContain("<small>Healthy checks and handoff readiness</small>");
+      expect(html).not.toContain("<small>3 quiet checks</small>");
       const evidenceHealthCheckIndex = html.indexOf("data-dashboard-detail=\"health-check\"");
       const evidenceGovernanceIndex = html.indexOf("data-dashboard-detail=\"governance-hub\"");
       const dogfoodReviewIndex = html.indexOf("data-dashboard-detail=\"dogfood-review\"");

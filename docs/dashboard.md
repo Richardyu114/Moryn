@@ -530,8 +530,10 @@ so Action Board buttons can open the parent library before scrolling to
 
 Inside Evidence Library, routine read-only diagnostics such as a healthy Health
 Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack
-Review are grouped under `Routine Diagnostics`. Findings-oriented panels such
-as Dogfood Review, Governance Hub, or non-routine Health/Recall/Context checks
+Review are grouped under `Routine Diagnostics`. `Routine Diagnostics` opens
+with `Healthy checks and handoff readiness` so the folded row explains why these
+checks are quiet. Findings-oriented panels such as Dogfood Review, Governance
+Hub, or non-routine Health/Recall/Context checks
 are grouped first under `Read-only Findings` so read-only findings do not look
 like pending approval work. Routine Diagnostics and Audit Trail are
 grouped behind `Reference Evidence`, whose folded summary reads `Routine checks
