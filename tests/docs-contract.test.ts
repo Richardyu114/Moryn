@@ -91,6 +91,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "collapsed by default behind a short recent-record count");
     expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
     expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Inspector`");
+    expectText(dashboard, "`Raw Inspector` opens with `Records, events, and sync`");
     expectText(dashboard, "shows compact inspection rows with readable source labels, title, read-only next step, and evidence path");
     expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");
     expect(dashboard).toContain("Safe Action Registry");

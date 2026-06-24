@@ -4316,7 +4316,7 @@ function supportingEvidenceRawGroup(panels: string[]): string {
     <details class="supporting-evidence-group supporting-evidence-raw" data-dashboard-detail="supporting-raw-inspector">
       <summary class="dashboard-fold-summary supporting-evidence-group-heading">
         <span>Raw Inspector</span>
-        <small>${escapeHtml(pluralize(panels.length, "raw panel"))}</small>
+        <small>Records, events, and sync</small>
       </summary>
       <div class="supporting-evidence-group-list">
         ${panels.join("")}

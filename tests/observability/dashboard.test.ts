@@ -1385,6 +1385,8 @@ describe("observability dashboard", () => {
       expect(rawInspectorIndex).toBeGreaterThan(operationalEvidenceIndex);
       expect(html).toContain("<span>Operational Evidence</span>");
       expect(html).toContain("<span>Raw Inspector</span>");
+      expect(html).toContain("<small>Records, events, and sync</small>");
+      expect(html).not.toContain("<small>1 raw panel</small>");
       const storeSignalsIndex = html.indexOf("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
       const recentValueIndex = html.indexOf("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
       const debugInspectorIndex = html.indexOf("<details class=\"panel debug-inspector\" data-dashboard-detail=\"debug-inspector\">");
