@@ -830,6 +830,16 @@ describe("observability dashboard", () => {
       expect(data.candidate_triage.groups.every((group) => group.writes === "none")).toBe(true);
       expect(data.candidate_triage.groups.every((group) => group.requires_user_confirmation === false)).toBe(true);
 
+      const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
+      const evidenceReviewGroupIndex = html.indexOf("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
+      const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
+      const captureInboxIndex = html.indexOf("data-dashboard-detail=\"capture-inbox\"");
+      const candidateTriageIndex = html.indexOf("data-dashboard-detail=\"candidate-triage\"");
+      expect(candidateTriageIndex).toBeGreaterThan(evidenceReviewGroupIndex);
+      expect(candidateTriageIndex).toBeLessThan(evidenceBackgroundGroupIndex);
+      expect(candidateTriageIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
+      expect(candidateTriageIndex).toBeGreaterThan(captureInboxIndex);
+      expect(html.slice(0, evidenceLibraryDetailIndex)).not.toContain("data-dashboard-detail=\"candidate-triage\"");
       expect(html).toContain("<details class=\"panel candidate-triage\" data-dashboard-detail=\"candidate-triage\" aria-label=\"Candidate Triage Queue\">");
       expect(html).toContain("<span>Candidate Triage</span>");
       expect(html).toContain("<small>4 candidates grouped for review</small>");
@@ -1164,6 +1174,7 @@ describe("observability dashboard", () => {
       const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
       const dogfoodReviewIndex = html.indexOf("data-dashboard-detail=\"dogfood-review\"");
       const governanceHubIndex = html.indexOf("id=\"governance-hub\"");
+      const candidateTriageIndex = html.indexOf("data-dashboard-detail=\"candidate-triage\"");
       expect(evidenceBriefIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
       expect(evidenceBriefIndex).toBeLessThan(evidenceReviewGroupIndex);
       expect(html).toContain("<button type=\"button\" class=\"evidence-library-route\" data-evidence-library-route=\"findings\" data-action-board-target=\"evidence-review-evidence\" aria-controls=\"evidence-review-evidence\">");
@@ -1173,6 +1184,8 @@ describe("observability dashboard", () => {
       expect(dogfoodReviewIndex).toBeLessThan(evidenceBackgroundGroupIndex);
       expect(governanceHubIndex).toBeGreaterThan(evidenceReviewGroupIndex);
       expect(governanceHubIndex).toBeLessThan(evidenceBackgroundGroupIndex);
+      expect(candidateTriageIndex).toBeGreaterThan(evidenceReviewGroupIndex);
+      expect(candidateTriageIndex).toBeLessThan(evidenceBackgroundGroupIndex);
       expect(html).toContain("<span>Read-only Findings</span>");
       expect(html).toContain("<small>Findings to inspect</small>");
       expect(html).not.toContain("inspection panels</small>");
@@ -1652,9 +1665,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Health</span>");
       expect(html).toContain("<strong>1 attention item</strong>");
       expect(html).toContain("<em>Review warnings</em>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-work-lane good\" data-dashboard-work-lane=\"evidence\" data-action-board-target=\"evidence-library\" aria-controls=\"evidence-library\">");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-work-lane info\" data-dashboard-work-lane=\"evidence\" data-action-board-target=\"evidence-library\" aria-controls=\"evidence-library\">");
       expect(html).toContain("<span>Evidence</span>");
-      expect(html).toContain("<strong>Reference evidence only</strong>");
+      expect(html).toContain("<strong>Read-only findings and reference evidence</strong>");
       expect(html).toContain("<em>Open evidence library</em>");
       const workLanesStart = html.indexOf("data-dashboard-work-lanes");
       const workLanesEnd = html.indexOf("data-action-board-nav", workLanesStart);
@@ -1699,7 +1712,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Read-only inspections are grouped in Governance Hub.</small>");
       expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Evidence Library\">");
       expect(html).toContain("<span>Evidence Library</span>");
-      expect(html).toContain("<small>Reference evidence only</small>");
+      expect(html).toContain("<small>Read-only findings and reference evidence</small>");
       expect(html).not.toContain("<small>Read-only diagnostics grouped here</small>");
       expect(html).not.toContain("<small>Health Check | Governance | Context | Supporting Evidence</small>");
       const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
@@ -1707,12 +1720,16 @@ describe("observability dashboard", () => {
       const evidenceListIndex = html.indexOf("<div class=\"evidence-library-list\">", evidenceLibraryDetailIndex);
       const evidenceReviewGroupIndex = html.indexOf("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
       const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
-      expect(evidenceReviewGroupIndex).toBe(-1);
+      const candidateTriageIndex = html.indexOf("data-dashboard-detail=\"candidate-triage\"");
+      expect(evidenceReviewGroupIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
+      expect(candidateTriageIndex).toBeGreaterThan(evidenceReviewGroupIndex);
+      expect(candidateTriageIndex).toBeLessThan(evidenceBackgroundGroupIndex);
+      expect(html.slice(0, evidenceLibraryDetailIndex)).not.toContain("data-dashboard-detail=\"candidate-triage\"");
       expect(evidenceBriefIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
       expect(evidenceBriefIndex).toBeLessThan(evidenceListIndex);
       expect(html).toContain("<h3>Evidence map</h3>");
-      expect(html).toContain("<button type=\"button\" class=\"evidence-library-route\" data-evidence-library-route=\"findings\" data-action-board-target=\"evidence-library\" aria-controls=\"evidence-library\">");
-      expect(html).toContain("<strong>Findings</strong><span>No read-only findings</span><small>Skip unless the Evidence lane reports findings.</small>");
+      expect(html).toContain("<button type=\"button\" class=\"evidence-library-route\" data-evidence-library-route=\"findings\" data-action-board-target=\"evidence-review-evidence\" aria-controls=\"evidence-review-evidence\">");
+      expect(html).toContain("<strong>Findings</strong><span>Read-only findings available</span><small>Start here for dogfood, governance, or non-routine checks.</small>");
       expect(html).toContain("<button type=\"button\" class=\"evidence-library-route\" data-evidence-library-route=\"diagnostics\" data-action-board-target=\"routine-diagnostics\" aria-controls=\"routine-diagnostics\">");
       expect(html).toContain("<strong>Diagnostics</strong><span>Healthy checks and handoff readiness</span><small>Routine health, recall, and handoff context checks.</small>");
       expect(html).toContain("<button type=\"button\" class=\"evidence-library-route\" data-evidence-library-route=\"audit\" data-action-board-target=\"supporting-evidence\" aria-controls=\"supporting-evidence\">");
@@ -1724,6 +1741,12 @@ describe("observability dashboard", () => {
       expect(evidenceBriefHtml).not.toContain("Promote");
       expect(evidenceBriefHtml).not.toContain("Archive");
       expect(evidenceBriefHtml).not.toContain("Apply");
+      const candidateTriageHtml = html.slice(candidateTriageIndex, evidenceBackgroundGroupIndex);
+      expect(candidateTriageHtml).toContain("<span>Candidate Triage</span>");
+      expect(candidateTriageHtml).not.toContain("data-dashboard-action-id=\"candidate-triage");
+      expect(candidateTriageHtml).not.toContain("Approve Triage");
+      expect(candidateTriageHtml).not.toContain("Archive Group");
+      expect(candidateTriageHtml).not.toContain("Promote Selected");
       expect(html).toContain("<span>Reference Evidence</span>");
       expect(html).toContain("<small>Routine checks and audit trail</small>");
       expect(html).not.toContain("reference panels</small>");

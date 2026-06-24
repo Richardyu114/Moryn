@@ -2958,6 +2958,7 @@ function dashboardEvidenceLibrarySummary(data: DashboardData): { summary: string
     isRoutineRecallEval(data.recall_eval) ? undefined : "recall",
     data.dogfood_report.findings.length > 0 ? "dogfood" : undefined,
     data.governance.summary.total_items > 0 ? "governance" : undefined,
+    data.candidate_triage.available ? "candidate-triage" : undefined,
     isRoutineContextPackReview(data.context_pack_review) ? undefined : "context"
   ].filter((panel): panel is string => panel !== undefined).length;
   const backgroundPanelCount = [
@@ -4973,6 +4974,7 @@ function evidenceLibrary(data: DashboardData): string {
     isRoutineRecallEval(data.recall_eval) ? undefined : recallEvalPanel(data.recall_eval),
     dogfoodReviewPanel(data.dogfood_report),
     governanceHub(data.governance),
+    candidateTriagePanel(data.candidate_triage),
     isRoutineContextPackReview(data.context_pack_review) ? undefined : contextPackReviewPanel(data.context_pack_review)
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
   const backgroundPanels = [
@@ -5036,8 +5038,6 @@ function renderDashboardBody(data: DashboardData): string {
     ${needsAttentionPanel(data.attention_items)}
 
     ${maintenanceReviewQueue(data.maintenance.plans)}
-
-    ${candidateTriagePanel(data.candidate_triage)}
 
     ${captureInbox(data.capture_inbox)}
 
