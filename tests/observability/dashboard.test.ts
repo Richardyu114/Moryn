@@ -673,6 +673,183 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("adds a read-only candidate triage queue for memory doctor backlog", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z",
+            "2026-06-01T00:05:00.000Z",
+            "2026-06-01T00:06:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:07:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_candidate_triage_${++record}` : `evt_candidate_triage_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical baseline for candidate triage.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["smoke", "autocapture"],
+        content: { text: "Smoke marker from dashboard test.", format: "text" },
+        state: "candidate",
+        source: { client: "codex", session_id: "candidate-triage" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Always keep dashboard governance readable.", format: "text" },
+        state: "candidate",
+        priority: "high",
+        confidence: 0.95,
+        source: { client: "codex", session_id: "candidate-triage" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["handoff"],
+        content: { text: "Finished dashboard polish and ran release check.", format: "text" },
+        state: "candidate",
+        source: { client: "codex", session_id: "candidate-triage" }
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["scratch"],
+        content: { text: "Temporary implementation note.", format: "text" },
+        state: "candidate",
+        source: { client: "codex", session_id: "candidate-triage" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        candidate_triage: {
+          read_only: true;
+          available: boolean;
+          summary: {
+            total_candidates: number;
+            groups: number;
+            likely_noise: number;
+            promotable: number;
+            session_summaries: number;
+            needs_inspection: number;
+            shown_records: number;
+          };
+          groups: Array<{
+            id: string;
+            label: string;
+            recommended_next_step: string;
+            writes: string;
+            requires_user_confirmation: boolean;
+            record_ids: string[];
+            evidence_path: string;
+          }>;
+          groups_by_id: Record<string, {
+            id: string;
+            record_ids: string[];
+            evidence_path: string;
+          }>;
+          selection_sources: Record<string, string>;
+        };
+      };
+      const html = renderDashboardHtml(data);
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(data.candidate_triage).toMatchObject({
+        read_only: true,
+        available: true,
+        summary: {
+          total_candidates: 4,
+          groups: 4,
+          likely_noise: 1,
+          promotable: 1,
+          session_summaries: 1,
+          needs_inspection: 1,
+          shown_records: 4
+        },
+        selection_sources: {
+          candidate_triage: "candidate_triage",
+          group: "candidate_triage.groups_by_id.<group_id>",
+          group_id: "candidate_triage.groups_by_id.<group_id>.id",
+          record: "candidate_triage.groups_by_id.<group_id>.records[]",
+          record_id: "candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>.id"
+        }
+      });
+      expect(data.candidate_triage.groups_by_id.likely_noise).toMatchObject({
+        id: "likely_noise",
+        record_ids: ["rec_candidate_triage_2"],
+        evidence_path: "candidate_triage.groups_by_id.likely_noise"
+      });
+      expect(data.candidate_triage.groups_by_id.promotable).toMatchObject({
+        id: "promotable",
+        record_ids: ["rec_candidate_triage_3"],
+        evidence_path: "candidate_triage.groups_by_id.promotable"
+      });
+      expect(data.candidate_triage.groups.map((group) => group.id)).toEqual([
+        "likely_noise",
+        "promotable",
+        "session_summaries",
+        "needs_inspection"
+      ]);
+      expect(data.candidate_triage.groups.every((group) => group.writes === "none")).toBe(true);
+      expect(data.candidate_triage.groups.every((group) => group.requires_user_confirmation === false)).toBe(true);
+
+      expect(html).toContain("<details class=\"panel candidate-triage\" data-dashboard-detail=\"candidate-triage\" aria-label=\"Candidate Triage Queue\">");
+      expect(html).toContain("<span>Candidate Triage</span>");
+      expect(html).toContain("<small>4 candidates grouped for review</small>");
+      expect(html).toContain("<h2>Candidate Triage Queue</h2>");
+      expect(html).toContain("<span>Likely noise</span>");
+      expect(html).toContain("<strong>1 record</strong>");
+      expect(html).toContain("<small>Inspect likely noise before archive</small>");
+      expect(html).toContain("<span>Promotable candidates</span>");
+      expect(html).toContain("<small>Inspect before promotion</small>");
+      expect(html).toContain("<span>Session summaries</span>");
+      expect(html).toContain("<span>Needs inspection</span>");
+      expect(html).toContain("<code>rec_candidate_triage_2</code>");
+      expect(html).toContain("<code>rec_candidate_triage_3</code>");
+      expect(html).not.toContain("data-dashboard-action-id=\"candidate-triage");
+      expect(html).not.toContain("Approve Triage");
+      expect(html).not.toContain("Archive Group");
+      expect(html).not.toContain("Promote Selected");
+    });
+  });
+
   it("aggregates existing reports into Governance Hub items", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

@@ -377,6 +377,14 @@ in `/api/dashboard` and source panels.
 safe inspection when candidate records are accumulating faster than canonical
 records. It points back to the raw memory doctor evidence and does not add
 dashboard approval, archive, promote, apply, or background execution controls.
+When backlog exists, `candidate_triage` groups active candidate records into
+`likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`. The
+visible `Candidate Triage` panel stays collapsed by default, starts with group
+counts and read-only next steps, and keeps record ids, recall commands, and
+timeline commands inside expanded rows. `Candidate Triage` stays read-only and
+does not add Approve, Archive, Promote, Apply, or background execution controls;
+it is a decision-prep surface for existing review policies, not a new mutation
+path.
 Items that need confirmation still lead with a compact `Finding
 summary` for records affected, safe next step, write boundary, and evidence
 source, then keep plain-language `Review notes` for detection, next step, write
@@ -694,6 +702,7 @@ The JSON returned by `/api/dashboard` includes:
 - `capture_inbox.autocapture_policy`
 - `capture_policy`
 - `memory_doctor`
+- `candidate_triage`
 - `health_check`
 - `memory_lifecycle`
 - `dogfood_report`

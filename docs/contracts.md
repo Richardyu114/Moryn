@@ -392,6 +392,26 @@ raw JSON for audit. `memory_doctor` findings remain read-only dashboard
 governance inspections; they do not add dashboard approval, archive, promote,
 apply, background execution, or Safe Action Registry entries.
 
+`/api/dashboard` also returns `candidate_triage`, a read-only
+dashboard-derived grouping for active candidate records. It is built from the
+same locally replayed visible records used by the dashboard and does not change
+the `memory_doctor` CLI or MCP report shape. Its contract includes:
+
+- `candidate_triage.read_only: true`
+- `candidate_triage.generated_from.writes: "none"`
+- `candidate_triage.summary.total_candidates`
+- `candidate_triage.summary.shown_records`
+- `candidate_triage.groups[]`
+- `candidate_triage.groups_by_id.<group_id>`
+- `candidate_triage.selection_sources`
+
+Group ids are limited to `likely_noise`, `promotable`, `session_summaries`,
+and `needs_inspection`. Each group carries `record_ids`, `records[]`,
+`records_by_id`, `recommended_next_step`, `writes: "none"`, and an
+`evidence_path` such as `candidate_triage.groups_by_id.<group_id>`. The
+surface does not add Approve, Archive, Promote, Apply, background execution,
+or Safe Action Registry entries.
+
 `/api/dashboard` also returns `context_pack_review`, a read-only project handoff
 readiness summary rendered as the dashboard `Context Pack Review` panel. When
 the dashboard is served with `--project-id <id>` or `--project <path>`,

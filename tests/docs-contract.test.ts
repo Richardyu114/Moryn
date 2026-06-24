@@ -134,8 +134,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "compact inspection rows with readable source labels, title, read-only next step, and evidence path");
     expectText(dashboard, "`memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor` safe inspection");
     expectText(dashboard, "does not add dashboard approval, archive, promote, apply, or background execution controls");
+    expectText(dashboard, "`candidate_triage` groups active candidate records into `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`");
+    expectText(dashboard, "`Candidate Triage` stays read-only and does not add Approve, Archive, Promote, Apply, or background execution controls");
     expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");
     expectText(contracts, "`/api/dashboard` also returns `memory_doctor`, the same read-only report shape as `moryn memory doctor`");
+    expectText(contracts, "`/api/dashboard` also returns `candidate_triage`, a read-only dashboard-derived grouping for active candidate records");
+    expect(contracts).toContain("candidate_triage.groups_by_id.<group_id>");
     expect(contracts).toContain("memory_doctor.findings_by_id.candidate_backlog");
     expectText(contracts, "`memory_doctor` findings remain read-only dashboard governance inspections");
     expect(dashboard).toContain("Safe Action Registry");

@@ -103,6 +103,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
   capture_inbox: "capture_inbox",
   capture_policy: "capture_policy",
   memory_doctor: "memory_doctor",
+  candidate_triage: "candidate_triage",
   health_check: "health_check",
   context_pack_review: "context_pack_review",
   governance: "governance",
@@ -349,6 +350,14 @@ export const DASHBOARD_RECALL_EVAL_SELECTION_SOURCES = {
   suggested_action: "recall_eval.report.suggested_actions_by_id.<action_id>"
 } as const;
 
+export const DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES = {
+  candidate_triage: "candidate_triage",
+  group: "candidate_triage.groups_by_id.<group_id>",
+  group_id: "candidate_triage.groups_by_id.<group_id>.id",
+  record: "candidate_triage.groups_by_id.<group_id>.records[]",
+  record_id: "candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>.id"
+} as const;
+
 export type DashboardGovernanceSource = "capture_policy" | "memory_doctor" | "memory_lifecycle" | "maintenance" | "recall_eval" | "dogfood_report";
 export type DashboardGovernanceCategory =
   | "capture_review"
@@ -392,6 +401,59 @@ export interface DashboardGovernance {
   items: DashboardGovernanceItem[];
   items_by_id: Record<string, DashboardGovernanceItem>;
   selection_sources: typeof DASHBOARD_GOVERNANCE_SELECTION_SOURCES;
+}
+
+export type DashboardCandidateTriageGroupId = "likely_noise" | "promotable" | "session_summaries" | "needs_inspection";
+
+export interface DashboardCandidateTriageRecord {
+  id: string;
+  kind: MorynRecord["kind"];
+  type: string;
+  text: string;
+  source_label: string;
+  source_detail: string;
+  relative_time: string;
+  exact_time: string;
+  priority: MorynRecord["priority"];
+  confidence: number;
+  reason: string;
+  citation: DashboardRecordCitation;
+}
+
+export interface DashboardCandidateTriageGroup {
+  id: DashboardCandidateTriageGroupId;
+  label: string;
+  description: string;
+  recommended_next_step: string;
+  writes: "none";
+  requires_user_confirmation: false;
+  record_ids: string[];
+  records: DashboardCandidateTriageRecord[];
+  records_by_id: Record<string, DashboardCandidateTriageRecord>;
+  evidence_path: string;
+}
+
+export interface DashboardCandidateTriage {
+  read_only: true;
+  version: 1;
+  available: boolean;
+  generated_from: {
+    store: "local_event_history";
+    writes: "none";
+    sync_pull: false;
+  };
+  summary: {
+    total_candidates: number;
+    groups: number;
+    likely_noise: number;
+    promotable: number;
+    session_summaries: number;
+    needs_inspection: number;
+    shown_records: number;
+  };
+  groups: DashboardCandidateTriageGroup[];
+  groups_by_id: Partial<Record<DashboardCandidateTriageGroupId, DashboardCandidateTriageGroup>>;
+  selection_sources: typeof DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES;
 }
 
 export interface DashboardValueRecord {
@@ -636,6 +698,7 @@ export interface DashboardData {
   capture_inbox: DashboardCaptureInbox;
   capture_policy: CapturePolicyResult;
   memory_doctor: MemoryDoctorResult;
+  candidate_triage: DashboardCandidateTriage;
   health_check: HealthCheckReport;
   memory_lifecycle: MemoryLifecycleResult;
   dogfood_report: DogfoodReportResult;
@@ -2245,6 +2308,151 @@ function governanceFromRecallEval(review: DashboardRecallEval): DashboardGoverna
   });
 }
 
+function isCandidateTriageNoise(record: MorynRecord): boolean {
+  const searchable = `${record.tags.join(" ")} ${record.type} ${recordText(record)}`.toLowerCase();
+  return /\b(smoke|test|fixture|e2e|marker)\b/.test(searchable);
+}
+
+function isCandidateTriagePromotable(record: MorynRecord): boolean {
+  if (record.kind !== "memory") return false;
+  if (record.provenance?.method === "user-confirmed" || record.source.client === "user") return true;
+  return record.type === "rule" && record.priority === "high" && record.confidence >= 0.9;
+}
+
+function toCandidateTriageRecord(
+  record: MorynRecord,
+  eventsByRecord: Map<string, MorynEvent>,
+  nowIso: string,
+  reason: string
+): DashboardCandidateTriageRecord {
+  return {
+    id: record.id,
+    kind: record.kind,
+    type: record.type,
+    text: recordText(record),
+    source_label: humanSourceLabel(record.source),
+    source_detail: humanSourceDetail(record.source),
+    relative_time: relativeTime(record.updated_at, nowIso),
+    exact_time: record.updated_at,
+    priority: record.priority,
+    confidence: record.confidence,
+    reason,
+    citation: recordCitation(record, eventsByRecord)
+  };
+}
+
+function toCandidateTriageGroup(input: {
+  id: DashboardCandidateTriageGroupId;
+  label: string;
+  description: string;
+  recommended_next_step: string;
+  records: DashboardCandidateTriageRecord[];
+}): DashboardCandidateTriageGroup {
+  return {
+    ...input,
+    writes: "none",
+    requires_user_confirmation: false,
+    record_ids: input.records.map((record) => record.id),
+    records_by_id: Object.fromEntries(input.records.map((record) => [record.id, record])),
+    evidence_path: `candidate_triage.groups_by_id.${input.id}`
+  };
+}
+
+function buildCandidateTriage(
+  records: MorynRecord[],
+  eventsByRecord: Map<string, MorynEvent>,
+  nowIso: string,
+  limit: number
+): DashboardCandidateTriage {
+  const candidateRecords = records
+    .filter((record) => record.state === "candidate" && record.visibility === "active")
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at) || left.id.localeCompare(right.id));
+  const grouped = new Set<string>();
+  const takeGroup = (
+    predicate: (record: MorynRecord) => boolean,
+    reason: string
+  ): DashboardCandidateTriageRecord[] => {
+    const group = candidateRecords
+      .filter((record) => !grouped.has(record.id))
+      .filter(predicate)
+      .slice(0, limit)
+      .map((record) => toCandidateTriageRecord(record, eventsByRecord, nowIso, reason));
+    for (const record of group) grouped.add(record.id);
+    return group;
+  };
+
+  const likelyNoise = takeGroup(
+    isCandidateTriageNoise,
+    "Matches smoke, test, fixture, e2e, or marker language."
+  );
+  const promotable = takeGroup(
+    isCandidateTriagePromotable,
+    "Looks durable enough for promotion review, but still needs explicit user approval."
+  );
+  const sessionSummaries = takeGroup(
+    (record) => record.kind === "session_summary",
+    "Session summary candidate; inspect whether it should remain handoff context or become canonical memory."
+  );
+  const needsInspection = takeGroup(
+    () => true,
+    "No automatic bucket matched; inspect before deciding whether to keep, archive, revise, or promote."
+  );
+
+  const groups = [
+    toCandidateTriageGroup({
+      id: "likely_noise",
+      label: "Likely noise",
+      description: "Candidates that look like smoke/test output or marker records.",
+      recommended_next_step: "Inspect likely noise before archive",
+      records: likelyNoise
+    }),
+    toCandidateTriageGroup({
+      id: "promotable",
+      label: "Promotable candidates",
+      description: "High-confidence candidate memories that may deserve explicit promotion.",
+      recommended_next_step: "Inspect before promotion",
+      records: promotable
+    }),
+    toCandidateTriageGroup({
+      id: "session_summaries",
+      label: "Session summaries",
+      description: "Agent handoff summaries that may be useful context but are not automatically canonical.",
+      recommended_next_step: "Inspect handoff value",
+      records: sessionSummaries
+    }),
+    toCandidateTriageGroup({
+      id: "needs_inspection",
+      label: "Needs inspection",
+      description: "Remaining candidate records that need a human read before any lifecycle decision.",
+      recommended_next_step: "Inspect timeline",
+      records: needsInspection
+    })
+  ].filter((group) => group.records.length > 0);
+
+  return {
+    read_only: true,
+    version: 1,
+    available: groups.length > 0,
+    generated_from: {
+      store: "local_event_history",
+      writes: "none",
+      sync_pull: false
+    },
+    summary: {
+      total_candidates: candidateRecords.length,
+      groups: groups.length,
+      likely_noise: likelyNoise.length,
+      promotable: promotable.length,
+      session_summaries: sessionSummaries.length,
+      needs_inspection: needsInspection.length,
+      shown_records: groups.reduce((total, group) => total + group.records.length, 0)
+    },
+    groups,
+    groups_by_id: Object.fromEntries(groups.map((group) => [group.id, group])),
+    selection_sources: DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES
+  };
+}
+
 async function buildDashboardRecallEval(
   storePath: string,
   records: MorynRecord[],
@@ -2411,6 +2619,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     include_private: options.include_private === true,
     excluded_private_records: memoryDoctorAllRecords.length - memoryDoctorRecords.length
   });
+  const candidateTriageData = buildCandidateTriage(memoryDoctorRecords, eventsByRecord, generatedAt, limit);
   const dogfoodAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
   const dogfoodRecords = dogfoodAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
   const dogfoodRecordIds = new Set(dogfoodRecords.map((record) => record.id));
@@ -2506,6 +2715,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     capture_inbox: captureInboxData,
     capture_policy: capturePolicyData,
     memory_doctor: memoryDoctorData,
+    candidate_triage: candidateTriageData,
     health_check: healthCheckData,
     memory_lifecycle: memoryLifecycleData,
     dogfood_report: dogfoodReportData,
@@ -3327,6 +3537,84 @@ function governanceHub(governance: DashboardGovernance): string {
     <section id="governance-hub" class="panel governance-hub" aria-label="Governance Hub">
       ${body}
     </section>
+  `;
+}
+
+function candidateTriageSummary(triage: DashboardCandidateTriage): string {
+  if (!triage.available) return "No candidate backlog";
+  return `${pluralize(triage.summary.total_candidates, "candidate")} grouped for review`;
+}
+
+function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): string {
+  return `
+    <details class="candidate-triage-record" data-dashboard-detail="candidate-triage-record:${escapeHtml(record.id)}">
+      <summary class="candidate-triage-record-summary">
+        <span>
+          <strong>${escapeHtml(record.text)}</strong>
+          <small>${escapeHtml(`${record.source_label} | ${record.relative_time}`)}</small>
+        </span>
+        <span class="candidate-triage-record-meta">${escapeHtml(titleCase(record.kind))}</span>
+      </summary>
+      <dl>
+        <div><dt>Reason</dt><dd>${escapeHtml(record.reason)}</dd></div>
+        <div><dt>Source</dt><dd>${escapeHtml(record.source_detail)}</dd></div>
+        <div><dt>Priority</dt><dd>${escapeHtml(record.priority)}</dd></div>
+        <div><dt>Confidence</dt><dd>${escapeHtml(record.confidence.toFixed(2))}</dd></div>
+        <div><dt>Record</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>
+        <div><dt>Timeline</dt><dd><code>${escapeHtml(record.citation.timeline_command)}</code></dd></div>
+        <div><dt>Recall</dt><dd><code>${escapeHtml(record.citation.recall_command)}</code></dd></div>
+      </dl>
+    </details>
+  `;
+}
+
+function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
+  return `
+    <details class="candidate-triage-group" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}">
+      <summary class="dashboard-fold-summary">
+        <span>${escapeHtml(group.label)}</span>
+        <strong>${escapeHtml(pluralize(group.records.length, "record"))}</strong>
+        <small>${escapeHtml(group.recommended_next_step)}</small>
+      </summary>
+      <div class="candidate-triage-group-body">
+        <p>${escapeHtml(group.description)}</p>
+        <dl class="candidate-triage-brief">
+          <div><dt>Write boundary</dt><dd>No memory writes</dd></div>
+          <div><dt>Confirmation</dt><dd>Inspection only</dd></div>
+          <div><dt>Evidence</dt><dd><code>${escapeHtml(group.evidence_path)}</code></dd></div>
+        </dl>
+        <div class="candidate-triage-records">
+          ${group.records.map(renderCandidateTriageRecord).join("")}
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function candidateTriagePanel(triage: DashboardCandidateTriage): string {
+  if (!triage.available) return "";
+  return `
+    <details class="panel candidate-triage" data-dashboard-detail="candidate-triage" aria-label="Candidate Triage Queue">
+      <summary class="dashboard-fold-summary candidate-triage-fold">
+        <span>Candidate Triage</span>
+        <small>${escapeHtml(candidateTriageSummary(triage))}</small>
+      </summary>
+      <div class="candidate-triage-body">
+        <div class="candidate-triage-heading">
+          <div>
+            <h2>Candidate Triage Queue</h2>
+            <p>Read-only grouping for memory doctor backlog.</p>
+          </div>
+          <div class="candidate-triage-counts">
+            <span>${escapeHtml(pluralize(triage.summary.groups, "group"))}</span>
+            <span>${escapeHtml(pluralize(triage.summary.shown_records, "shown record"))}</span>
+          </div>
+        </div>
+        <div class="candidate-triage-list">
+          ${triage.groups.map(renderCandidateTriageGroup).join("")}
+        </div>
+      </div>
+    </details>
   `;
 }
 
@@ -4749,6 +5037,8 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${maintenanceReviewQueue(data.maintenance.plans)}
 
+    ${candidateTriagePanel(data.candidate_triage)}
+
     ${captureInbox(data.capture_inbox)}
 
     ${evidenceLibrary(data)}
@@ -5755,6 +6045,12 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-top: 0;
       padding-top: 0;
     }
+    .candidate-triage { border-left: 4px solid var(--signal-green); }
+    .candidate-triage[open] > summary { margin-bottom: 10px; }
+    .candidate-triage-body {
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
     .memory-lifecycle { border-left: 4px solid var(--signal-violet); }
     .clean-audit-reports { border-left: 4px solid var(--signal-violet); }
     .clean-audit-reports[open] > summary { margin-bottom: 10px; }
@@ -5946,6 +6242,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
     }
     .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
+    .candidate-triage-heading,
     .context-pack-heading,
     .governance-heading,
     .lifecycle-heading,
@@ -5957,6 +6254,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       min-width: 0;
     }
     .maintenance-heading span, .maintenance-status,
+    .candidate-triage-heading span,
     .context-pack-heading span,
     .governance-heading span,
     .lifecycle-heading span,
@@ -5979,7 +6277,86 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 780;
     }
     .action-receipt code { background: var(--surface-2); }
-    .maintenance-list, .governance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
+    .maintenance-list, .candidate-triage-list, .candidate-triage-records, .governance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
+    .candidate-triage-heading { align-items: flex-start; margin-bottom: 10px; }
+    .candidate-triage-heading p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12.5px;
+      overflow-wrap: anywhere;
+    }
+    .candidate-triage-counts {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+      min-width: 0;
+    }
+    .candidate-triage-counts span,
+    .candidate-triage-record-meta {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .candidate-triage-group {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+      background: var(--surface-2);
+    }
+    .candidate-triage-group[open] > summary { margin-bottom: 8px; }
+    .candidate-triage-group summary strong {
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 760;
+    }
+    .candidate-triage-group-body {
+      border-top: 1px solid var(--hairline);
+      padding-top: 9px;
+    }
+    .candidate-triage-group-body p {
+      margin-top: 0;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+    .candidate-triage-brief {
+      margin-bottom: 9px;
+    }
+    .candidate-triage-record {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .candidate-triage-record[open] > summary { margin-bottom: 8px; }
+    .candidate-triage-record-summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+    .candidate-triage-record-summary span:first-child {
+      min-width: 0;
+    }
+    .candidate-triage-record-summary strong,
+    .candidate-triage-record-summary small {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+    .candidate-triage-record-summary strong {
+      color: var(--ink);
+      font-weight: 760;
+    }
+    .candidate-triage-record-summary small {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
     .governance-heading { align-items: flex-start; margin-bottom: 10px; }
     .governance-counts {
       display: flex;
