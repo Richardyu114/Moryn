@@ -108,6 +108,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
     expectText(dashboard, "When `items[].hint` repeats the visible next-action label");
     expectText(dashboard, "instead of rendering duplicate footer text");
+    expectText(dashboard, "`Safe Inspections` row whose summary reads `Read-only checks ready`");
+    expectText(dashboard, "instead of repeating the Governance Hub count");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
     expectText(dashboard, "Visible write boundaries use user-readable labels such as `Append-only events`");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");

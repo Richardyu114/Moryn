@@ -3126,7 +3126,7 @@ function governanceHubBody(governance: DashboardGovernance): string {
           <details class="governance-safe-group" data-dashboard-detail="governance-safe-inspections">
             <summary class="dashboard-fold-summary">
               <span>Safe Inspections</span>
-              <small>${escapeHtml(pluralize(safeInspections.length, "read-only check"))}</small>
+              <small>Read-only checks ready</small>
             </summary>
             <div class="governance-safe-list" data-governance-safe-list>
               ${safeInspections.map(governanceSafeRow).join("")}
