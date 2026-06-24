@@ -93,6 +93,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Issue brief");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
     expectText(dashboard, "remain available inside the nested `Audit Trail` panel");
+    expectText(dashboard, "folded row reads `Clean lifecycle and capture audits`");
+    expectText(dashboard, "instead of listing the two clean child modules");
     expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Operational Evidence`");
     expectText(dashboard, "row reads `Clean audits and store signals`");
     expectText(dashboard, "instead of listing child panel counts");

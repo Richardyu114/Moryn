@@ -3810,7 +3810,7 @@ function auditReports(input: {
       <details class="panel clean-audit-reports" data-dashboard-detail="clean-audit-reports" aria-label="Clean Audit Reports">
         <summary class="dashboard-fold-summary clean-audit-reports-fold">
           <span>Clean Audit Reports</span>
-          <small>Memory Lifecycle clean | Capture Policy clean</small>
+          <small>Clean lifecycle and capture audits</small>
         </summary>
         <div class="clean-audit-list">
           ${memoryLifecyclePanel(input.memoryLifecycle, "clean-audit-report")}

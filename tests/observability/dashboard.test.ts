@@ -3715,7 +3715,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"panel clean-audit-reports\" data-dashboard-detail=\"clean-audit-reports\" aria-label=\"Clean Audit Reports\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary clean-audit-reports-fold\">");
       expect(html).toContain("<span>Clean Audit Reports</span>");
-      expect(html).toContain("<small>Memory Lifecycle clean | Capture Policy clean</small>");
+      expect(html).toContain("<small>Clean lifecycle and capture audits</small>");
+      expect(html).not.toContain("<small>Memory Lifecycle clean | Capture Policy clean</small>");
       expect(html).toContain("<div class=\"clean-audit-list\">");
       const supportingEvidenceIndex = html.indexOf("<details class=\"panel supporting-evidence\" data-dashboard-detail=\"supporting-evidence\" aria-label=\"Supporting Evidence\">");
       const cleanAuditIndex = html.indexOf("<details class=\"panel clean-audit-reports\" data-dashboard-detail=\"clean-audit-reports\" aria-label=\"Clean Audit Reports\">");
