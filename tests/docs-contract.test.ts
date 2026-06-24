@@ -149,6 +149,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "its folded row reads `Read-only candidate backlog` instead of repeating a candidate count");
     expectText(dashboard, "Each candidate group starts with a compact `Review handoff`");
     expectText(dashboard, "points to an existing control such as Capture Inbox, Memory Doctor, timeline, or recall");
+    expectText(dashboard, "group write-boundary and evidence fields move behind a collapsed `Audit boundary` row");
     expectText(dashboard, "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group");
     expectText(dashboard, "`Record samples` renders only the first five full records per group and summarizes the remaining records as API evidence");
     expectText(dashboard, "`Candidate Triage` stays read-only and does not add Approve, Archive, Promote, Apply, or background execution controls");

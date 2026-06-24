@@ -899,6 +899,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("Approve eligible Capture Inbox candidates only after checking provenance and record text.");
       expect(html).toContain(".candidate-triage-handoff {");
       expect(html).toContain(".candidate-triage-handoff dl {");
+      expect(html).toContain("<details class=\"candidate-triage-audit-boundary\" data-dashboard-detail=\"candidate-triage-audit:likely_noise\">");
+      expect(html).toContain("<span>Audit boundary</span>");
+      expect(html).toContain("<small>Read-only evidence and confirmation</small>");
+      expect(html).toContain("<code>candidate_triage.groups_by_id.likely_noise</code>");
+      expect(html).not.toContain("<dl class=\"candidate-triage-brief\">");
       expect(html).toContain("<details class=\"candidate-triage-record-samples\" data-dashboard-detail=\"candidate-triage-records:promotable\">");
       expect(html).toContain("<span>Session summaries</span>");
       expect(html).toContain("<span>Needs inspection</span>");

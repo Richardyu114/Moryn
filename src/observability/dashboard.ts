@@ -3640,6 +3640,22 @@ function renderCandidateTriageHandoff(group: DashboardCandidateTriageGroup): str
   `;
 }
 
+function renderCandidateTriageAuditBoundary(group: DashboardCandidateTriageGroup): string {
+  return `
+    <details class="candidate-triage-audit-boundary" data-dashboard-detail="candidate-triage-audit:${escapeHtml(group.id)}">
+      <summary class="dashboard-fold-summary">
+        <span>Audit boundary</span>
+        <small>Read-only evidence and confirmation</small>
+      </summary>
+      <dl>
+        <div><dt>Write boundary</dt><dd>No memory writes</dd></div>
+        <div><dt>Confirmation</dt><dd>Inspection only</dd></div>
+        <div><dt>Evidence</dt><dd><code>${escapeHtml(group.evidence_path)}</code></dd></div>
+      </dl>
+    </details>
+  `;
+}
+
 function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
   const sampleRecords = group.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
   return `
@@ -3652,11 +3668,7 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
       <div class="candidate-triage-group-body">
         <p>${escapeHtml(group.description)}</p>
         ${renderCandidateTriageHandoff(group)}
-        <dl class="candidate-triage-brief">
-          <div><dt>Write boundary</dt><dd>No memory writes</dd></div>
-          <div><dt>Confirmation</dt><dd>Inspection only</dd></div>
-          <div><dt>Evidence</dt><dd><code>${escapeHtml(group.evidence_path)}</code></dd></div>
-        </dl>
+        ${renderCandidateTriageAuditBoundary(group)}
         <details class="candidate-triage-record-samples" data-dashboard-detail="candidate-triage-records:${escapeHtml(group.id)}">
           <summary class="dashboard-fold-summary">
             <span>Record samples</span>
@@ -6503,8 +6515,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--ink-2);
       font-size: 12.5px;
     }
-    .candidate-triage-brief {
+    .candidate-triage-audit-boundary {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 7px 9px;
       margin-bottom: 9px;
+      background: var(--surface);
+    }
+    .candidate-triage-audit-boundary[open] > summary {
+      margin-bottom: 8px;
     }
     .candidate-triage-record-samples {
       border: 1px solid var(--hairline);
