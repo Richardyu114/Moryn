@@ -69,6 +69,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "keeps non-good overview cards visible in the main grid");
     expectText(dashboard, "groups good cards under `Reference Cards`");
     expectText(dashboard, "`Reference Cards` opens with `Healthy overview signals`");
+    expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
+    expectText(dashboard, "Decide -> Pending Decisions, Capture Inbox, or Review Queue confirmation");
+    expectText(dashboard, "Context -> Context Pack Review handoff readiness");
+    expectText(dashboard, "Health -> Needs Attention or Store Signals when sync is the active issue");
+    expectText(dashboard, "Evidence -> Evidence Library and Audit Trail");
+    expectText(dashboard, "The lanes are navigation only");
+    expectText(dashboard, "do not render Approve, Reject, Promote, Archive, or Apply controls");
+    expectText(dashboard, "do not add `data-dashboard-action-id`");
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail");
     expectText(dashboard, "visible summary is content-aware");

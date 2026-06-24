@@ -461,6 +461,23 @@ folded row reads as supporting context instead of another count to process.
 read-only and includes `evidence_sources` so agents can use the compact summary
 without losing the audit trail to the underlying dashboard data.
 
+Directly below the Overview, `Dashboard Work Lanes` groups the first screen into
+four stable local navigation routes:
+
+```text
+Decide   -> Pending Decisions, Capture Inbox, or Review Queue confirmation
+Context  -> Context Pack Review handoff readiness
+Health   -> Needs Attention or Store Signals when sync is the active issue
+Evidence -> Evidence Library and Audit Trail
+```
+
+Each lane is a button with a plain state, a short next step, and an existing
+`data-action-board-target`. The lanes are navigation only: they do not render
+Approve, Reject, Promote, Archive, or Apply controls, do not add
+`data-dashboard-action-id`, and do not create a new API payload. They make the
+dashboard easier to scan when many panels are present while preserving the
+existing Action Board, detail panels, and audit trail underneath.
+
 `Action Board` is a collapsed navigator by default. Its summary shows compact
 active counts such as `1 review / 1 sync`; zero-count buckets are hidden from
 the collapsed summary, and a fully quiet board reads `all clear`. Expanding it

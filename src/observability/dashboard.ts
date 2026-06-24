@@ -2668,6 +2668,97 @@ function dashboardOverview(data: DashboardOverview): string {
   `;
 }
 
+function workLaneButton(input: {
+  id: "decide" | "context" | "health" | "evidence";
+  label: string;
+  summary: string;
+  nextStep: string;
+  target: string;
+  severity: DashboardActionBoardSeverity;
+}): string {
+  return `
+        <button type="button" class="dashboard-work-lane ${escapeHtml(input.severity)}" data-dashboard-work-lane="${escapeHtml(input.id)}" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}">
+          <span>${escapeHtml(input.label)}</span>
+          <strong>${escapeHtml(input.summary)}</strong>
+          <em>${escapeHtml(input.nextStep)}</em>
+        </button>
+  `;
+}
+
+function dashboardHealthWorkLaneItem(board: DashboardActionBoard): DashboardActionBoardItem {
+  const review = board.items_by_id.review;
+  const sync = board.items_by_id.sync;
+  if (review.value === 0 && sync.value > 0) return sync;
+  if (review.detail === "Sync changes are the only warning signal in Needs Attention.") return sync;
+  return review;
+}
+
+function dashboardEvidenceLibrarySummary(data: DashboardData): { summary: string; hasFindings: boolean } {
+  const reviewPanelCount = [
+    isRoutineHealthCheck(data.health_check) ? undefined : "health",
+    isRoutineRecallEval(data.recall_eval) ? undefined : "recall",
+    data.dogfood_report.findings.length > 0 ? "dogfood" : undefined,
+    data.governance.summary.total_items > 0 ? "governance" : undefined,
+    isRoutineContextPackReview(data.context_pack_review) ? undefined : "context"
+  ].filter((panel): panel is string => panel !== undefined).length;
+  const backgroundPanelCount = [
+    "routine-diagnostics",
+    "supporting-evidence"
+  ].length;
+  return {
+    summary: evidenceLibrarySummary(reviewPanelCount > 0 ? 1 : 0, backgroundPanelCount > 0 ? 1 : 0),
+    hasFindings: reviewPanelCount > 0
+  };
+}
+
+function dashboardWorkLanes(data: DashboardData): string {
+  const confirm = data.action_board.items_by_id.confirm;
+  const healthLane = dashboardHealthWorkLaneItem(data.action_board);
+  const evidence = dashboardEvidenceLibrarySummary(data);
+  const contextSummary = data.context_pack_review.available
+    ? contextPackReviewSummary(data.context_pack_review)
+    : "Context unavailable";
+  const lanes = [
+    {
+      id: "decide" as const,
+      label: "Decide",
+      summary: confirm.summary,
+      nextStep: confirm.value > 0 ? confirm.next_action_label : "Inspect decision surfaces",
+      target: confirm.target,
+      severity: confirm.severity
+    },
+    {
+      id: "context" as const,
+      label: "Context",
+      summary: contextSummary,
+      nextStep: "Open handoff review",
+      target: "context-pack-review",
+      severity: overviewContextStatus(data.context_pack_review)
+    },
+    {
+      id: "health" as const,
+      label: "Health",
+      summary: healthLane.summary,
+      nextStep: healthLane.next_action_label,
+      target: healthLane.target,
+      severity: healthLane.severity
+    },
+    {
+      id: "evidence" as const,
+      label: "Evidence",
+      summary: evidence.summary,
+      nextStep: "Open evidence library",
+      target: "evidence-library",
+      severity: evidence.hasFindings ? "info" as const : "good" as const
+    }
+  ];
+  return `
+    <section class="dashboard-work-lanes" data-dashboard-work-lanes aria-label="Dashboard Work Lanes">
+      ${lanes.map(workLaneButton).join("")}
+    </section>
+  `;
+}
+
 function decisionSummaryChips(summary: DashboardDecisionSummary): string {
   const chips = [
     summary.summary.capture_inbox_groups > 0 ? `${summary.summary.capture_inbox_groups} Capture Inbox` : undefined,
@@ -4538,6 +4629,8 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${dashboardOverview(data.dashboard_overview)}
 
+    ${dashboardWorkLanes(data)}
+
     ${actionBoard(data.action_board)}
 
     ${decisionSummary(data.decision_summary)}
@@ -5073,6 +5166,58 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface-2);
       color: var(--muted);
       font-size: 12px;
+      font-weight: 720;
+      overflow-wrap: anywhere;
+    }
+    .dashboard-work-lanes {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 0 0 12px;
+    }
+    .dashboard-work-lane {
+      appearance: none;
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      min-height: 86px;
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--surface);
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+      box-shadow: 0 8px 18px rgba(21, 25, 30, 0.04);
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    }
+    .dashboard-work-lane:hover { border-color: #b8c0c8; box-shadow: 0 10px 20px rgba(21, 25, 30, 0.055); transform: translateY(-1px); }
+    .dashboard-work-lane:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .dashboard-work-lane.good { border-left-color: var(--good); }
+    .dashboard-work-lane.info { border-left-color: var(--info); }
+    .dashboard-work-lane.warning { border-left-color: var(--warning); }
+    .dashboard-work-lane.critical { border-left-color: var(--critical); }
+    .dashboard-work-lane span {
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 780;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .dashboard-work-lane strong {
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.2;
+      font-weight: 820;
+      overflow-wrap: anywhere;
+    }
+    .dashboard-work-lane em {
+      align-self: end;
+      color: var(--muted);
+      font-size: 12px;
+      font-style: normal;
       font-weight: 720;
       overflow-wrap: anywhere;
     }
@@ -6373,7 +6518,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .event-row { border: 1px solid var(--border); border-radius: 7px; padding: 10px; background: var(--surface); }
     .event-row summary { display: flex; justify-content: space-between; gap: 10px; min-width: 0; }
     @media (max-width: 920px) {
-      header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
