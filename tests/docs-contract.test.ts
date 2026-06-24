@@ -94,6 +94,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
     expectText(dashboard, "remain available inside the nested `Audit Trail` panel");
     expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Operational Evidence`");
+    expectText(dashboard, "row reads `Clean audits and store signals`");
+    expectText(dashboard, "instead of listing child panel counts");
     expectText(dashboard, "collapsed by default behind a short recent-record count");
     expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
     expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Inspector`");

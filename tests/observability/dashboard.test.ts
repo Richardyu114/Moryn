@@ -1402,6 +1402,8 @@ describe("observability dashboard", () => {
       expect(operationalEvidenceIndex).toBeGreaterThan(supportingEvidenceIndex);
       expect(rawInspectorIndex).toBeGreaterThan(operationalEvidenceIndex);
       expect(html).toContain("<span>Operational Evidence</span>");
+      expect(html).toContain("<small>Clean audits and store signals</small>");
+      expect(html).not.toContain("evidence panels</small>");
       expect(html).toContain("<span>Raw Inspector</span>");
       expect(html).toContain("<small>Records, events, and sync</small>");
       expect(html).not.toContain("<small>1 raw panel</small>");

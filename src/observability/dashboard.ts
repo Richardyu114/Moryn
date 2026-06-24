@@ -4312,7 +4312,7 @@ function supportingEvidenceOperationalGroup(panels: string[]): string {
     <div class="supporting-evidence-group supporting-evidence-operational" data-dashboard-detail="supporting-operational-evidence">
       <div class="supporting-evidence-group-heading">
         <span>Operational Evidence</span>
-        <small>${escapeHtml(pluralize(panels.length, "evidence panel"))}</small>
+        <small>Clean audits and store signals</small>
       </div>
       <div class="supporting-evidence-group-list">
         ${panels.join("")}
