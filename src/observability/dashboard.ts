@@ -3234,7 +3234,10 @@ function governanceSafeRow(item: DashboardGovernanceItem): string {
       <span>${escapeHtml(governanceSourceDisplayLabel(item.source))}</span>
       <strong>${escapeHtml(item.title)}</strong>
       <small>${escapeHtml(`${governanceActionDisplayLabel(item.action_label)} | Read-only`)}</small>
-      <code>${escapeHtml(item.evidence_path)}</code>
+      <details class="governance-safe-evidence">
+        <summary>Evidence path</summary>
+        <code>${escapeHtml(item.evidence_path)}</code>
+      </details>
     </div>
   `;
 }
@@ -6032,6 +6035,22 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .governance-safe-row small,
     .governance-safe-row code {
       grid-column: 2;
+    }
+    .governance-safe-evidence {
+      grid-column: 2;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .governance-safe-evidence summary {
+      cursor: pointer;
+      font-weight: 720;
+    }
+    .governance-safe-evidence code {
+      display: inline-block;
+      margin-top: 5px;
+      max-width: 100%;
+      overflow-wrap: anywhere;
     }
     .governance-item[open] > summary { margin-bottom: 8px; }
     .governance-item-summary {

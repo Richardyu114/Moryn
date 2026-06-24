@@ -546,6 +546,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-governance-safe-item=\"dogfood_report:failure_signals\"");
       expect(html).toContain("<span>Dogfood Review</span>");
       expect(html).toContain("<small>Inspect Failure Signals | Read-only</small>");
+      const safeRowStart = html.indexOf("data-governance-safe-item=\"dogfood_report:failure_signals\"");
+      const safeRowEnd = html.indexOf("</div>", safeRowStart);
+      const safeRow = html.slice(safeRowStart, safeRowEnd);
+      expect(safeRow).toContain("<details class=\"governance-safe-evidence\">");
+      expect(safeRow).toContain("<summary>Evidence path</summary>");
+      expect(safeRow).toContain("<code>dogfood_report.findings_by_id.failure_signals</code>");
+      expect(safeRow).not.toContain("<small>Inspect Failure Signals | Read-only</small>\n      <code>dogfood_report.findings_by_id.failure_signals</code>");
       expect(html).not.toContain("<section class=\"panel governance-hub\"");
     });
   });
