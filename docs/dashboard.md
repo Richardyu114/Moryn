@@ -444,7 +444,8 @@ button to the Governance Hub. If pending sync is the only action signal, the
 overview relies on its headline and primary button, then folds `Health`, `Next`,
 `Context`, and `Sync` cards into `Reference Cards`, preserving the cards in
 `/api/dashboard.dashboard_overview.cards` without repeating the same warning on
-the first screen.
+the first screen. `Reference Cards` opens with `Healthy overview signals` so the
+folded row reads as supporting context instead of another count to process.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary
@@ -481,6 +482,8 @@ non-zero. Reference checks keep the same `data-action-board-target` navigation
 controls, so users and agents can still open Needs Attention, Governance Hub,
 or Store Signals for audit without making empty checks or optional inspections
 look like active work.
+`Reference Checks` opens with `Quiet navigation checks` to keep that supporting
+role visible before expansion.
 
 When explicit approvals exist, the dashboard renders a compact `Pending
 Decisions` panel directly below the Action Board. `/api/dashboard.decision_summary`

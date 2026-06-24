@@ -66,6 +66,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the overview reads `All clear` while still offering an `Inspect checks` navigation button");
     expectText(dashboard, "keeps non-good overview cards visible in the main grid");
     expectText(dashboard, "groups good cards under `Reference Cards`");
+    expectText(dashboard, "`Reference Cards` opens with `Healthy overview signals`");
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail");
     expectText(dashboard, "visible summary is content-aware");
@@ -98,6 +99,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "zero-count buckets are hidden from the collapsed summary");
     expectText(dashboard, "zero-value `good` targets are grouped under `Reference Checks`");
+    expectText(dashboard, "`Reference Checks` opens with `Quiet navigation checks`");
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
     expectText(dashboard, "Visible write boundaries use user-readable labels such as `Append-only events`");

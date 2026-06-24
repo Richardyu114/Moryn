@@ -2557,7 +2557,7 @@ function actionBoardQuietTargets(items: DashboardActionBoardItem[]): string {
     <details class="action-board-quiet" data-dashboard-detail="action-board-quiet-targets">
       <summary class="dashboard-fold-summary action-board-quiet-fold">
         <span>Reference Checks</span>
-        <small>${escapeHtml(pluralize(items.length, "reference check"))}</small>
+        <small>Quiet navigation checks</small>
       </summary>
       <div class="action-board-quiet-list">
         ${items.map((item) => actionBoardItemButton(item, "data-action-board-quiet-item")).join("")}
@@ -2631,7 +2631,7 @@ function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
       <details class="dashboard-overview-quiet" data-dashboard-detail="dashboard-overview-quiet-cards">
         <summary class="dashboard-fold-summary dashboard-overview-quiet-fold">
           <span>Reference Cards</span>
-          <small>${escapeHtml(pluralize(cards.length, "reference card"))}</small>
+          <small>Healthy overview signals</small>
         </summary>
         <div class="dashboard-overview-quiet-list">
           ${cards.map((card) => dashboardOverviewCardButton(card, "data-dashboard-overview-quiet-card")).join("")}
