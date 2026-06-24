@@ -1909,7 +1909,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>4 evidence groups | collapsed by default</small>");
       expect(html).not.toContain("<small>audit reports / store signals / debug inspector</small>");
       const supportingEvidenceIndex = html.indexOf(supportingEvidencePanel);
-      const operationalEvidenceIndex = html.indexOf("<div class=\"supporting-evidence-group supporting-evidence-operational\" data-dashboard-detail=\"supporting-operational-evidence\">");
+      const operationalEvidencePanel = "<details class=\"supporting-evidence-group supporting-evidence-operational\" data-dashboard-detail=\"supporting-operational-evidence\">";
+      const operationalEvidenceIndex = html.indexOf(operationalEvidencePanel);
       const supportingEvidenceSummaryHtml = html.slice(supportingEvidenceIndex, operationalEvidenceIndex);
       expect(supportingEvidenceSummaryHtml).toContain("<span>Audit Trail</span>");
       expect(supportingEvidenceSummaryHtml).not.toContain("<span>Supporting Evidence</span>");
@@ -1917,6 +1918,8 @@ describe("observability dashboard", () => {
       const rawInspectorIndex = html.indexOf("<details class=\"supporting-evidence-group supporting-evidence-raw\" data-dashboard-detail=\"supporting-raw-inspector\">");
       expect(operationalEvidenceIndex).toBeGreaterThan(supportingEvidenceIndex);
       expect(rawInspectorIndex).toBeGreaterThan(operationalEvidenceIndex);
+      expect(html).not.toContain("<div class=\"supporting-evidence-group supporting-evidence-operational\" data-dashboard-detail=\"supporting-operational-evidence\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary supporting-evidence-group-heading\">");
       expect(html).toContain("<span>Operational Evidence</span>");
       expect(html).toContain("<small>Clean audits and store signals</small>");
       expect(html).not.toContain("evidence panels</small>");

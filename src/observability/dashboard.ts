@@ -4842,15 +4842,15 @@ function supportingEvidenceSummary(): string {
 function supportingEvidenceOperationalGroup(panels: string[]): string {
   if (panels.length === 0) return "";
   return `
-    <div class="supporting-evidence-group supporting-evidence-operational" data-dashboard-detail="supporting-operational-evidence">
-      <div class="supporting-evidence-group-heading">
+    <details class="supporting-evidence-group supporting-evidence-operational" data-dashboard-detail="supporting-operational-evidence">
+      <summary class="dashboard-fold-summary supporting-evidence-group-heading">
         <span>Operational Evidence</span>
         <small>Clean audits and store signals</small>
-      </div>
+      </summary>
       <div class="supporting-evidence-group-list">
         ${panels.join("")}
       </div>
-    </div>
+    </details>
   `;
 }
 
@@ -6289,6 +6289,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       gap: 8px;
       min-width: 0;
     }
+    .supporting-evidence-operational[open] > summary { margin-bottom: 8px; }
     .supporting-evidence-raw {
       border-top: 1px solid var(--hairline);
       padding-top: 9px;
