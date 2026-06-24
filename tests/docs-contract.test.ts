@@ -68,6 +68,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "groups good cards under `Reference Cards`");
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail");
+    expectText(dashboard, "visible summary is content-aware");
+    expectText(dashboard, "when there are findings it shows finding and reference group counts");
+    expectText(dashboard, "reads `Reference evidence only`");
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
     expectText(dashboard, "grouped first under `Read-only Findings`");
     expectText(dashboard, "read-only findings do not look like pending approval work");

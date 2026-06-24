@@ -824,6 +824,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"panel dogfood-review\" data-dashboard-detail=\"dogfood-review\" aria-label=\"Dogfood Review\">");
       expect(html).toContain("<span>Dogfood Review</span>");
       expect(html).toContain("<small>2 findings | 2 safe steps | read-only</small>");
+      expect(html).toContain("<small>1 finding group / 1 reference group</small>");
+      expect(html).not.toContain("<small>Read-only diagnostics grouped here</small>");
       const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
       const evidenceReviewGroupIndex = html.indexOf("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
       const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
@@ -1312,7 +1314,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Read-only inspections are grouped in Governance Hub.</small>");
       expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Evidence Library\">");
       expect(html).toContain("<span>Evidence Library</span>");
-      expect(html).toContain("<small>Read-only diagnostics grouped here</small>");
+      expect(html).toContain("<small>Reference evidence only</small>");
+      expect(html).not.toContain("<small>Read-only diagnostics grouped here</small>");
       expect(html).not.toContain("<small>Health Check | Governance | Context | Supporting Evidence</small>");
       const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
       const evidenceReviewGroupIndex = html.indexOf("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");

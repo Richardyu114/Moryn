@@ -4344,8 +4344,13 @@ function supportingEvidencePanel(data: DashboardData): string {
   `;
 }
 
-function evidenceLibrarySummary(): string {
-  return "Read-only diagnostics grouped here";
+function evidenceLibrarySummary(reviewGroupCount: number, backgroundGroupCount: number): string {
+  if (reviewGroupCount === 0 && backgroundGroupCount > 0) return "Reference evidence only";
+  const parts = [
+    reviewGroupCount > 0 ? pluralize(reviewGroupCount, "finding group") : undefined,
+    backgroundGroupCount > 0 ? pluralize(backgroundGroupCount, "reference group") : undefined
+  ].filter((part): part is string => part !== undefined);
+  return parts.length > 0 ? parts.join(" / ") : "No evidence groups";
 }
 
 function isRoutineHealthCheck(report: HealthCheckReport): boolean {
@@ -4426,11 +4431,12 @@ function evidenceLibrary(data: DashboardData): string {
     routineDiagnosticsPanel(routinePanels),
     supportingEvidencePanel(data)
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
+  const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   return `
     <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Evidence Library">
       <summary class="dashboard-fold-summary evidence-library-fold">
         <span>Evidence Library</span>
-        <small>${escapeHtml(evidenceLibrarySummary())}</small>
+        <small>${escapeHtml(evidenceSummary)}</small>
       </summary>
       <div class="evidence-library-list">
         ${evidenceLibraryReviewGroup(reviewPanels)}
