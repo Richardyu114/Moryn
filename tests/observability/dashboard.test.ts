@@ -1351,6 +1351,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>3 quiet checks</small>");
       expect(html).toContain("<small>Healthy local store</small>");
       expect(html).not.toContain("<small>healthy | 0 warnings | 0 failed</small>");
+      expect(html).toContain("<span>Recall Eval</span>");
+      expect(html).toContain("<small>No recall eval cases yet</small>");
+      expect(html).not.toContain("<small>Unavailable | no stored cases</small>");
       const evidenceHealthCheckIndex = html.indexOf("data-dashboard-detail=\"health-check\"");
       const evidenceGovernanceIndex = html.indexOf("data-dashboard-detail=\"governance-hub\"");
       const dogfoodReviewIndex = html.indexOf("data-dashboard-detail=\"dogfood-review\"");

@@ -2770,7 +2770,7 @@ function healthCheckPanel(report: HealthCheckReport): string {
 
 function recallEvalSummary(review: DashboardRecallEval): string {
   if (!review.available || !review.report) {
-    return review.errors.length > 0 ? "Unavailable | stored case error" : "Unavailable | no stored cases";
+    return review.errors.length > 0 ? "Recall eval case error" : "No recall eval cases yet";
   }
   const summary = review.report.summary;
   return `${pluralize(summary.total_cases, "case")} | ${pluralize(summary.failed_cases, "miss")} | ${pluralize(summary.privacy_leaks, "privacy leak")}`;

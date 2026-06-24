@@ -93,7 +93,9 @@ If active visible records include `type: "recall_eval_case"` with JSON
 normal recall and exposes the read-only result under `recall_eval`. Failed cases
 appear as safe Governance Hub inspections. The dashboard does not invent golden
 queries, write eval records, create an index, or add approval endpoints for
-Recall Eval.
+Recall Eval. When there are no active stored cases, the folded `Recall Eval`
+row reads `No recall eval cases yet`; the expanded panel still shows the
+read-only unavailable reason and zero-case stats.
 
 ### Capture Inbox
 

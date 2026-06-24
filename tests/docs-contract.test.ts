@@ -57,6 +57,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("decision_summary");
     expect(dashboard).toContain("recall_eval");
     expect(dashboard).toContain("recall_eval_case");
+    expectText(dashboard, "folded `Recall Eval` row reads `No recall eval cases yet`");
+    expectText(dashboard, "expanded panel still shows the read-only unavailable reason and zero-case stats");
     expect(dashboard).toContain("data-dashboard-action-id");
     expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");
     expectText(dashboard, "Sync-only pending states also use the lightweight status line");
