@@ -718,6 +718,10 @@ risks are present, the folded row keeps the useful exception as `Ready handoff
 context | no handoff evidence`. Expanding it shows the current goal, read-only
 boundary, quality checks, evidence paths, and context evidence. If checks need
 review, the panel can open by default so the problem stays visible.
+Inside the expanded panel, the `Quality Checks` child row reads
+`All quality checks passed` when there is no review work instead of repeating
+`passed | 0 review`; the detailed check list still carries each check, source,
+and count for audit.
 
 - `context_pack_review.generated_from.store: "local_event_history"`
 - `context_pack_review.generated_from.writes: "none"`

@@ -3464,11 +3464,14 @@ function contextPackReviewChecks(review: DashboardContextPackReview): string {
   if (checks.length === 0) return `<div class="empty-state">No context pack checks available.</div>`;
   const passed = checks.filter((check) => check.status === "pass").length;
   const needsReview = checks.length - passed;
+  const summary = needsReview === 0
+    ? "All quality checks passed"
+    : `${pluralize(needsReview, "check")} needs review`;
   return `
     <details class="context-pack-checks-fold" data-dashboard-detail="context-pack-checks">
       <summary class="dashboard-fold-summary">
         <span>Quality Checks</span>
-        <small>${escapeHtml(passed)} passed | ${escapeHtml(needsReview)} review</small>
+        <small>${escapeHtml(summary)}</small>
       </summary>
       <ul class="context-pack-checks">
         ${checks.map((check) => `

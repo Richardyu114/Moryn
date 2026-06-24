@@ -140,6 +140,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "folded row reads `Ready handoff context`");
     expectText(dashboard, "instead of repeating the quality and evidence counts");
     expectText(dashboard, "Ready handoff context | no handoff evidence");
+    expectText(dashboard, "`Quality Checks` child row reads `All quality checks passed`");
+    expectText(dashboard, "instead of repeating `passed | 0 review`");
+    expectText(dashboard, "detailed check list still carries each check, source, and count");
     expectText(dashboard, "Quality check coverage, context evidence counts, and required capture-action visibility remain visible");
     expect(dashboard).toContain("does not guess a project");
     expect(dashboard).toContain("does not render Approve, Apply, Promote, Archive, or Reject controls");
