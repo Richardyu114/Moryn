@@ -502,9 +502,12 @@ Lane clicks resolve either an element `id` or a matching `data-dashboard-detail`
 target, so routes such as `context-pack-review` and `evidence-library` open the
 collapsed detail panel before scrolling.
 
-`Action Board` is a collapsed navigator by default. Its summary shows compact
-active counts such as `1 review / 1 sync`; zero-count buckets are hidden from
-the collapsed summary, and a fully quiet board reads `all clear`. Expanding it
+`Action Board` is rendered as `Navigation Details` in the UI: a secondary,
+collapsed navigator below the first-screen Work Lanes rather than another
+primary card grid. `Navigation Details` opens with `Optional scroll targets`;
+the previous active-count summary remains as a quiet `action-board-activity`
+value such as `1 review / 1 sync`, `1 sync issue`, or `all clear`; zero-count
+buckets are hidden from the collapsed summary activity value. Expanding it
 still reveals the four scroll targets for:
 
 - `Confirm`: explicit decision units in Capture Inbox or Review Queue

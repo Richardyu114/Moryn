@@ -2830,10 +2830,11 @@ function actionBoard(data: DashboardActionBoard): string {
   const activeItems = data.items.filter(isActiveActionBoardItem);
   const quietItems = data.items.filter((item) => !isActiveActionBoardItem(item));
   return `
-    <details class="action-board" aria-label="Action Board" data-dashboard-detail="action-board" data-action-board-nav>
+    <details class="action-board action-board-secondary" aria-label="Navigation Details" data-dashboard-detail="action-board" data-action-board-nav>
       <summary class="dashboard-fold-summary action-board-fold">
-        <span>Action Board</span>
-        <small>${escapeHtml(actionBoardSummary(data))}</small>
+        <span>Navigation Details</span>
+        <small>Optional scroll targets</small>
+        <span class="action-board-activity">${escapeHtml(actionBoardSummary(data))}</span>
       </summary>
       ${activeItems.length === 0 ? "" : `
         <div class="action-board-grid">
@@ -5777,7 +5778,27 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding: 14px;
       margin-bottom: 14px;
     }
+    .action-board-secondary {
+      background: var(--surface-2);
+      border-color: var(--hairline);
+      box-shadow: none;
+      padding: 10px 12px;
+      margin: -2px 0 12px;
+    }
+    .action-board-secondary[open] { padding-bottom: 12px; }
     .action-board[open] > summary { margin-bottom: 10px; }
+    .action-board-secondary[open] > summary { margin-bottom: 9px; }
+    .action-board-activity {
+      margin-left: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
     .action-board-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
