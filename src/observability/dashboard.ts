@@ -4036,7 +4036,7 @@ function recentValueCard(record: DashboardValueRecord, extraClass = ""): string 
         <span>${escapeHtml(record.project_id ?? record.scope)}</span>
       </footer>
       <details data-dashboard-detail="value:${escapeHtml(record.id)}">
-        <summary>Details</summary>
+        <summary>Audit trace</summary>
         <dl>
           <div><dt>ID</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>
           ${record.citation.event_id ? `<div><dt>Event</dt><dd><code>${escapeHtml(record.citation.event_id)}</code></dd></div>` : ""}

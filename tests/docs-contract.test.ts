@@ -125,6 +125,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of listing child panel counts");
     expectText(dashboard, "collapsed by default behind a short recent-record count");
     expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
+    expectText(dashboard, "timeline and recall trace commands under an `Audit trace` fold instead of a generic `Details` row");
     expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Inspector`");
     expectText(dashboard, "`Raw Inspector` opens with `Records, events, and sync`");
     expectText(dashboard, "still shows the concrete safe-check count");

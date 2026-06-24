@@ -1562,6 +1562,18 @@ describe("observability dashboard", () => {
       expect(html).toContain("Important compact recent value intro.");
       expect(html).toContain("data-full-summary-hidden=\"true\"");
       expect(html).toContain("Full text available through timeline/recall.");
+      expect(html).toContain("<summary>Audit trace</summary>");
+      expect(html).not.toContain("<summary>Details</summary>");
+      const recentValueTraceStart = html.indexOf("<details data-dashboard-detail=\"value:rec_recent_long\">");
+      const recentValueTraceEnd = html.indexOf("</details>", recentValueTraceStart);
+      const recentValueTraceHtml = html.slice(recentValueTraceStart, recentValueTraceEnd);
+      expect(recentValueTraceHtml).toContain("<dt>ID</dt><dd><code>rec_recent_long</code></dd>");
+      expect(recentValueTraceHtml).toContain("<dt>Event</dt><dd><code>evt_recent_long</code></dd>");
+      expect(recentValueTraceHtml).toContain("<dt>Source</dt><dd>codex</dd>");
+      expect(recentValueTraceHtml).toContain("<dt>Kind</dt><dd>memory / decision</dd>");
+      expect(recentValueTraceHtml).toContain("<dt>Trace</dt>");
+      expect(recentValueTraceHtml).toContain("moryn timeline --record-id rec_recent_long");
+      expect(recentValueTraceHtml).toContain("moryn recall --record-id rec_recent_long");
       expect(html).not.toContain("FULL_CONTENT_SENTINEL");
     });
   });
