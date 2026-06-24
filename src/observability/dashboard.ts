@@ -4565,6 +4565,25 @@ function evidenceLibraryBackgroundGroup(panels: string[]): string {
   `;
 }
 
+function evidenceLibraryBrief(input: { reviewCount: number; routineCount: number; backgroundCount: number }): string {
+  return `
+      <div class="evidence-library-brief" data-evidence-library-brief>
+        <h3>Evidence map</h3>
+        <div class="evidence-library-brief-grid">
+          <div>
+            <strong>Findings</strong><span>${escapeHtml(input.reviewCount > 0 ? "Read-only findings available" : "No read-only findings")}</span><small>${escapeHtml(input.reviewCount > 0 ? "Start here for dogfood, governance, or non-routine checks." : "Skip unless the Evidence lane reports findings.")}</small>
+          </div>
+          <div>
+            <strong>Diagnostics</strong><span>Healthy checks and handoff readiness</span><small>${escapeHtml(input.routineCount > 0 ? "Routine health, recall, and handoff context checks." : "No routine diagnostics in this snapshot.")}</small>
+          </div>
+          <div>
+            <strong>Audit</strong><span>Audit logs and raw signals</span><small>${escapeHtml(input.backgroundCount > 0 ? "Clean audits, store signals, recent value, and raw inspector." : "No audit trail rendered in this snapshot.")}</small>
+          </div>
+        </div>
+      </div>
+  `;
+}
+
 function evidenceLibrary(data: DashboardData): string {
   const routinePanels = [
     isRoutineHealthCheck(data.health_check) ? healthCheckPanel(data.health_check) : undefined,
@@ -4589,6 +4608,7 @@ function evidenceLibrary(data: DashboardData): string {
         <span>Evidence Library</span>
         <small>${escapeHtml(evidenceSummary)}</small>
       </summary>
+      ${evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length })}
       <div class="evidence-library-list">
         ${evidenceLibraryReviewGroup(reviewPanels)}
         ${evidenceLibraryBackgroundGroup(backgroundPanels)}
@@ -5668,6 +5688,54 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-left: 4px solid var(--signal-slate);
     }
     .evidence-library[open] > summary { margin-bottom: 10px; }
+    .evidence-library-brief {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 9px;
+      background: var(--surface-2);
+      margin-bottom: 10px;
+    }
+    .evidence-library-brief h3 {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 780;
+      text-transform: uppercase;
+    }
+    .evidence-library-brief-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .evidence-library-brief-grid div {
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px;
+      background: var(--surface);
+    }
+    .evidence-library-brief-grid strong,
+    .evidence-library-brief-grid span,
+    .evidence-library-brief-grid small {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+    .evidence-library-brief-grid strong {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 780;
+    }
+    .evidence-library-brief-grid span {
+      margin-top: 3px;
+      color: var(--ink-2);
+      font-size: 12.5px;
+      font-weight: 720;
+    }
+    .evidence-library-brief-grid small {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
     .evidence-library-list {
       display: grid;
       gap: 10px;
@@ -6525,7 +6593,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .event-row { border: 1px solid var(--border); border-radius: 7px; padding: 10px; background: var(--surface); }
     .event-row summary { display: flex; justify-content: space-between; gap: 10px; min-width: 0; }
     @media (max-width: 920px) {
-      header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid, .evidence-library-brief-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }

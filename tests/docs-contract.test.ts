@@ -84,6 +84,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "visible summary is content-aware");
     expectText(dashboard, "when there are findings it reads `Read-only findings and reference evidence`");
     expectText(dashboard, "reads `Reference evidence only`");
+    expectText(dashboard, "starts with an `Evidence map` brief for `Findings`, `Diagnostics`, and `Audit`");
+    expectText(dashboard, "The brief is navigation copy only");
+    expectText(dashboard, "does not render Approve, Reject, Promote, Archive, or Apply controls");
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
     expectText(dashboard, "`Routine Diagnostics` opens with `Healthy checks and handoff readiness`");
     expectText(dashboard, "grouped first under `Read-only Findings`");
