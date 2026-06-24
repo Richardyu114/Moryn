@@ -359,6 +359,7 @@ export const DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES = {
 } as const;
 
 const CANDIDATE_TRIAGE_SAMPLE_LIMIT = 5;
+const DEBUG_INSPECTOR_ROW_LIMIT = 10;
 
 export type DashboardGovernanceSource = "capture_policy" | "memory_doctor" | "memory_lifecycle" | "maintenance" | "recall_eval" | "dogfood_report";
 export type DashboardGovernanceCategory =
@@ -4682,7 +4683,9 @@ function captureInbox(items: DashboardCaptureInbox): string {
 }
 
 function recordsTable(records: DashboardRecordSummary[]): string {
-  const rows = records.map((record) => `
+  const visibleRecords = records.slice(0, DEBUG_INSPECTOR_ROW_LIMIT);
+  const overflow = records.length - visibleRecords.length;
+  const rows = visibleRecords.map((record) => `
     <tr data-dashboard-citation="record:${escapeHtml(record.id)}">
       <td><code class="copy-id" title="${escapeHtml(record.id)}">${escapeHtml(record.id)}</code></td>
       <td>${escapeHtml(record.kind)}</td>
@@ -4718,13 +4721,16 @@ function recordsTable(records: DashboardRecordSummary[]): string {
         <tbody>${rows}</tbody>
       </table>
     </div>
+    ${overflow > 0 ? debugInspectorOverflow(overflow, "record", "recent_records") : ""}
   `;
 }
 
 function eventsTimeline(events: DashboardEventSummary[]): string {
+  const visibleEvents = events.slice(0, DEBUG_INSPECTOR_ROW_LIMIT);
+  const overflow = events.length - visibleEvents.length;
   return `
     <div class="event-list">
-      ${events.map((event) => `
+      ${visibleEvents.map((event) => `
         <details class="event-row" data-dashboard-detail="event:${escapeHtml(event.event_id)}" data-dashboard-citation="event:${escapeHtml(event.event_id)}">
           <summary>
             <span>${escapeHtml(titleCase(event.op))}</span>
@@ -4738,6 +4744,16 @@ function eventsTimeline(events: DashboardEventSummary[]): string {
           </dl>
         </details>
       `).join("")}
+    </div>
+    ${overflow > 0 ? debugInspectorOverflow(overflow, "event", "recent_events") : ""}
+  `;
+}
+
+function debugInspectorOverflow(count: number, kind: "record" | "event", evidencePath: "recent_records" | "recent_events"): string {
+  return `
+    <div class="debug-inspector-overflow">
+      <span class="debug-inspector-overflow-count">${escapeHtml(`${pluralize(count, `more ${kind}`)} kept in /api/dashboard`)}</span>
+      <span>Full ${escapeHtml(kind)} list stays in <code>${escapeHtml(evidencePath)}</code>.</span>
     </div>
   `;
 }
@@ -7174,6 +7190,23 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .event-list { display: grid; gap: 8px; }
     .event-row { border: 1px solid var(--border); border-radius: 7px; padding: 10px; background: var(--surface); }
     .event-row summary { display: flex; justify-content: space-between; gap: 10px; min-width: 0; }
+    .debug-inspector-overflow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      border: 1px dashed var(--border);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin-top: 8px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    .debug-inspector-overflow-count {
+      color: var(--ink);
+      font-weight: 740;
+    }
     @media (max-width: 920px) {
       header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid, .evidence-library-brief-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }

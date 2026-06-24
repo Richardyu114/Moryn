@@ -2021,6 +2021,67 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("keeps Debug Inspector rows budgeted while preserving full API evidence", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let minute = 0;
+          return () => `2026-06-01T00:${String(++minute).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_debug_budget_${++record}` : `evt_debug_budget_${++event}`;
+        })()
+      });
+
+      for (let index = 1; index <= 12; index++) {
+        await engine.write({
+          kind: "memory",
+          type: "note",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: `Debug inspector budget record ${index}.`, format: "text" },
+          state: "canonical",
+          confirmed: true,
+          source: { client: "codex", session_id: "debug-budget" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, {
+        limit: 12,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+      const debugStart = html.indexOf("<details class=\"panel debug-inspector\" data-dashboard-detail=\"debug-inspector\">");
+      const debugEnd = html.indexOf("</main>", debugStart);
+      const debugHtml = html.slice(debugStart, debugEnd);
+
+      expect(data.recent_records).toHaveLength(12);
+      expect(data.recent_events).toHaveLength(12);
+      expect(debugHtml.match(/data-dashboard-detail="record:rec_debug_budget_/g)).toHaveLength(10);
+      expect(debugHtml.match(/data-dashboard-detail="event:evt_debug_budget_/g)).toHaveLength(10);
+      expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_debug_budget_12\"");
+      expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_debug_budget_3\"");
+      expect(debugHtml).not.toContain("data-dashboard-detail=\"record:rec_debug_budget_2\"");
+      expect(debugHtml).not.toContain("data-dashboard-detail=\"record:rec_debug_budget_1\"");
+      expect(debugHtml).toContain("data-dashboard-detail=\"event:evt_debug_budget_12\"");
+      expect(debugHtml).toContain("data-dashboard-detail=\"event:evt_debug_budget_3\"");
+      expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_2\"");
+      expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_1\"");
+      expect(debugHtml).toContain("<span class=\"debug-inspector-overflow-count\">2 more records kept in /api/dashboard</span>");
+      expect(debugHtml).toContain("<code>recent_records</code>");
+      expect(debugHtml).toContain("<span class=\"debug-inspector-overflow-count\">2 more events kept in /api/dashboard</span>");
+      expect(debugHtml).toContain("<code>recent_events</code>");
+    });
+  });
+
   it("does not mark health as needs_review for quarantined records superseded by safe indexes", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
