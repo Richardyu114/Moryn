@@ -477,6 +477,9 @@ Approve, Reject, Promote, Archive, or Apply controls, do not add
 `data-dashboard-action-id`, and do not create a new API payload. They make the
 dashboard easier to scan when many panels are present while preserving the
 existing Action Board, detail panels, and audit trail underneath.
+Lane clicks resolve either an element `id` or a matching `data-dashboard-detail`
+target, so routes such as `context-pack-review` and `evidence-library` open the
+collapsed detail panel before scrolling.
 
 `Action Board` is a collapsed navigator by default. Its summary shows compact
 active counts such as `1 review / 1 sync`; zero-count buckets are hidden from

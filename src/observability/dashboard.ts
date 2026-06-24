@@ -4694,6 +4694,13 @@ function dashboardActionBoardScript(): string {
     (() => {
       const main = document.querySelector("main");
       if (!main) return;
+      const cssEscape = (value) => window.CSS?.escape ? window.CSS.escape(value) : value.replaceAll("\\\\", "\\\\\\\\").replaceAll('"', '\\"');
+      const findDashboardTarget = (targetId) => {
+        const byId = document.getElementById(targetId);
+        if (byId instanceof HTMLElement) return byId;
+        const byDetail = document.querySelector(\`[data-dashboard-detail="\${cssEscape(targetId)}"]\`);
+        return byDetail instanceof HTMLElement ? byDetail : null;
+      };
       main.addEventListener("click", (event) => {
         const clicked = event.target;
         if (!(clicked instanceof HTMLElement)) return;
@@ -4701,7 +4708,7 @@ function dashboardActionBoardScript(): string {
         if (!(trigger instanceof HTMLElement)) return;
         const targetId = trigger.dataset.actionBoardTarget;
         if (!targetId) return;
-        const target = document.getElementById(targetId);
+        const target = findDashboardTarget(targetId);
         if (!(target instanceof HTMLElement)) return;
         if (target instanceof HTMLDetailsElement) {
           target.open = true;

@@ -1410,6 +1410,10 @@ describe("observability dashboard", () => {
       expect(evidenceContextPackIndex).toBeLessThan(evidenceSupportingIndex);
       expect(evidenceSupportingIndex).toBeGreaterThan(evidenceBackgroundGroupIndex);
       expect(evidenceCaptureInboxIndex === -1 || evidenceCaptureInboxIndex < evidenceLibraryDetailIndex).toBe(true);
+      expect(html).toContain("const findDashboardTarget = (targetId) => {");
+      expect(html).toContain("document.getElementById(targetId)");
+      expect(html).toContain("document.querySelector(`[data-dashboard-detail=\"${cssEscape(targetId)}\"]`)");
+      expect(html).toContain("const target = findDashboardTarget(targetId);");
       expect(html).toContain("target.open = true");
       expect(html).toContain("target.closest(\"details\")");
       expect(html).toContain("target.scrollIntoView({ block: \"start\", behavior: \"smooth\" })");

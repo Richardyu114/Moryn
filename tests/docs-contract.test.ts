@@ -77,6 +77,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The lanes are navigation only");
     expectText(dashboard, "do not render Approve, Reject, Promote, Archive, or Apply controls");
     expectText(dashboard, "do not add `data-dashboard-action-id`");
+    expectText(dashboard, "Lane clicks resolve either an element `id` or a matching `data-dashboard-detail` target");
+    expectText(dashboard, "routes such as `context-pack-review` and `evidence-library` open the collapsed detail panel before scrolling");
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail");
     expectText(dashboard, "visible summary is content-aware");
