@@ -3062,12 +3062,25 @@ function governanceItem(item: DashboardGovernanceItem): string {
   `;
 }
 
+function governanceSourceDisplayLabel(source: DashboardGovernanceSource): string {
+  if (source === "capture_policy") return "Capture Policy";
+  if (source === "memory_lifecycle") return "Memory Lifecycle";
+  if (source === "maintenance") return "Review Queue";
+  if (source === "recall_eval") return "Recall Eval";
+  if (source === "dogfood_report") return "Dogfood Review";
+  return titleCase(source);
+}
+
+function governanceActionDisplayLabel(actionLabel: string): string {
+  return titleCase(actionLabel);
+}
+
 function governanceSafeRow(item: DashboardGovernanceItem): string {
   return `
     <div class="governance-safe-row ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-safe-item="${escapeHtml(item.id)}">
-      <span>${escapeHtml(item.source)}</span>
+      <span>${escapeHtml(governanceSourceDisplayLabel(item.source))}</span>
       <strong>${escapeHtml(item.title)}</strong>
-      <small>${escapeHtml(`${item.action_label} | Read-only`)}</small>
+      <small>${escapeHtml(`${governanceActionDisplayLabel(item.action_label)} | Read-only`)}</small>
       <code>${escapeHtml(item.evidence_path)}</code>
     </div>
   `;

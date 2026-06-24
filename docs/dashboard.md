@@ -351,8 +351,8 @@ requires user confirmation, Governance Hub stays directly visible. When it only
 contains safe read-only inspections, the whole hub is collapsed behind a compact
 summary so routine checks do not look like pending decisions. Safe read-only
 inspections are grouped under a collapsed `Safe Inspections` row; expanding it
-shows compact inspection rows with source, title, read-only next step, and
-evidence path. Items that need confirmation still lead with a compact `Finding
+shows compact inspection rows with readable source labels, title, read-only next
+step, and evidence path. Items that need confirmation still lead with a compact `Finding
 summary` for records affected, safe next step, write boundary, and evidence
 source, then keep plain-language `Review notes` for detection, next step, write
 boundary, and evidence source. Raw fields such as source, category, action id,

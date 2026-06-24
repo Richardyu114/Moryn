@@ -528,7 +528,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"governance-safe-group\" data-dashboard-detail=\"governance-safe-inspections\">");
       expect(html).not.toContain("data-governance-item=\"dogfood_report:failure_signals\"");
       expect(html).toContain("data-governance-safe-item=\"dogfood_report:failure_signals\"");
-      expect(html).toContain("<small>inspect_failure_signals | Read-only</small>");
+      expect(html).toContain("<span>Dogfood Review</span>");
+      expect(html).toContain("<small>Inspect Failure Signals | Read-only</small>");
       expect(html).not.toContain("<section class=\"panel governance-hub\"");
     });
   });
@@ -857,8 +858,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<div class=\"governance-safe-list\" data-governance-safe-list>");
       expect(html).toContain("class=\"governance-safe-row info\" data-dashboard-detail=\"governance:capture_policy:auto_captured\"");
       expect(html).toContain("class=\"governance-safe-row warning\" data-dashboard-detail=\"governance:dogfood_report:failure_signals\"");
-      expect(html).toContain("<span>dogfood_report</span>");
-      expect(html).toContain("<small>inspect_failure_signals | Read-only</small>");
+      expect(html).toContain("<span>Dogfood Review</span>");
+      expect(html).toContain("<small>Inspect Failure Signals | Read-only</small>");
+      expect(html).not.toContain("<span>dogfood_report</span>");
+      expect(html).not.toContain("<small>inspect_failure_signals | Read-only</small>");
       expect(html).toContain("<summary class=\"governance-item-summary\">");
       expect(html).toContain("data-governance-finding-summary");
       expect(html).toContain("<h4>Finding summary</h4>");
@@ -1102,7 +1105,9 @@ describe("observability dashboard", () => {
         expect(html).not.toContain("data-governance-item=\"recall_eval:missing-dashboard-memory\"");
         expect(html).toContain("data-governance-safe-item=\"recall_eval:missing-dashboard-memory\"");
         expect(html).toContain("recall_eval.report.cases_by_id.missing-dashboard-memory");
-        expect(html).toContain("revise_golden_case_or_memory");
+        expect(html).toContain("<small>Revise Golden Case Or Memory | Read-only</small>");
+        expect(html).not.toContain("<small>revise_golden_case_or_memory | Read-only</small>");
+        expect(JSON.stringify(data.governance)).toContain("revise_golden_case_or_memory");
         expect(html).toContain("<small>1 safe check</small>");
         expect(JSON.stringify(data.recall_eval)).not.toContain("Private");
       } finally {
