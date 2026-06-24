@@ -97,6 +97,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of listing the two clean child modules");
     expectText(dashboard, "`Memory Lifecycle` folded row reads `No lifecycle work`");
     expectText(dashboard, "instead of repeating `0 findings | 0 actions`");
+    expectText(dashboard, "`Capture Policy Audit` row follows the same rule");
+    expectText(dashboard, "clean reports read `No capture policy work`");
+    expectText(dashboard, "non-zero summaries omit empty buckets such as `0 captured`");
     expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Operational Evidence`");
     expectText(dashboard, "row reads `Clean audits and store signals`");
     expectText(dashboard, "instead of listing child panel counts");

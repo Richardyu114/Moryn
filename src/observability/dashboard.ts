@@ -3773,11 +3773,12 @@ function capturePolicyActionsList(report: CapturePolicyResult): string {
 }
 
 function capturePolicyAuditSummary(report: CapturePolicyResult): string {
-  return [
-    `${report.stats.auto_captured_records} captured`,
-    `${report.stats.review_records} review`,
-    `${report.stats.policy_archived_records} archived`
-  ].join(" | ");
+  const parts = [
+    report.stats.auto_captured_records > 0 ? `${report.stats.auto_captured_records} captured` : undefined,
+    report.stats.review_records > 0 ? `${report.stats.review_records} review` : undefined,
+    report.stats.policy_archived_records > 0 ? `${report.stats.policy_archived_records} archived` : undefined
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" | ") : "No capture policy work";
 }
 
 function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "panel"): string {

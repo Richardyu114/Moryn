@@ -3489,7 +3489,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("default_autocapture_policy");
       expect(html).toContain("Policy archived");
       expect(html).toContain("Capture Policy Audit");
-      expect(html).toContain("<small>0 captured | 1 review | 1 archived</small>");
+      expect(html).toContain("<small>1 review | 1 archived</small>");
+      expect(html).not.toContain("<small>0 captured | 1 review | 1 archived</small>");
       expect(html).not.toContain("auto-captureds");
       expect(html).toContain("capture_policy");
       expect(html).toContain("inspect_policy_archived_record");
@@ -3645,7 +3646,8 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Auto-captured handoff");
-      expect(html).toContain("<small>1 captured | 0 review | 0 archived</small>");
+      expect(html).toContain("<small>1 captured</small>");
+      expect(html).not.toContain("<small>1 captured | 0 review | 0 archived</small>");
       expect(html).toContain("<small>manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0</small>");
       expect(html).not.toContain("<small>manual review | no auto-canonical | 0 candidates</small>");
       expect(html).not.toContain("auto-captureds");
@@ -3734,6 +3736,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>No lifecycle work</small>");
       expect(html).not.toContain("<small>0 findings | 0 actions</small>");
       expect(html).toContain("<details class=\"clean-audit-report capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
+      expect(html).toContain("<span>Capture Policy Audit</span>");
+      expect(html).toContain("<small>No capture policy work</small>");
+      expect(html).not.toContain("<small>0 captured | 0 review | 0 archived</small>");
       expect(html).not.toContain("<div class=\"clean-audit-list\">\n          \n    <details class=\"panel memory-lifecycle\"");
       expect(html).not.toContain("data-governance-item=\"capture_policy:review_required\"");
       expect(html).not.toContain("api/capture-inbox/rec_policy_handled/approve");
