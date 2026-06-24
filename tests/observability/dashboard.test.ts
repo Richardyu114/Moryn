@@ -284,8 +284,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>all clear</small>");
       expect(html).not.toContain("<small>0 confirm / 0 review / 0 inspect / 0 sync</small>");
       expect(html).toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");
-      expect(html).toContain("<span>Quiet Targets</span>");
-      expect(html).toContain("<small>4 quiet targets</small>");
+      expect(html).toContain("<span>Reference Checks</span>");
+      expect(html).toContain("<small>4 reference checks</small>");
+      expect(html).not.toContain("<span>Quiet Targets</span>");
+      expect(html).not.toContain("<small>4 quiet targets</small>");
       expect(html).not.toContain("<div class=\"action-board-grid\">");
       expect(html).toContain("<div class=\"action-board-quiet-list\">");
       expect(html).toContain("data-action-board-quiet-item=\"confirm\"");
@@ -1089,8 +1091,10 @@ describe("observability dashboard", () => {
         expect(html).not.toContain("<small>1 inspect</small>");
         expect(html).not.toContain("<div class=\"action-board-grid\">");
         expect(html).toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");
-        expect(html).toContain("<span>Quiet Targets</span>");
-        expect(html).toContain("<small>4 quiet targets</small>");
+        expect(html).toContain("<span>Reference Checks</span>");
+        expect(html).toContain("<small>4 reference checks</small>");
+        expect(html).not.toContain("<span>Quiet Targets</span>");
+        expect(html).not.toContain("<small>4 quiet targets</small>");
         expect(html).toContain("data-action-board-quiet-item=\"inspect\"");
         expect(html).not.toContain("data-action-board-item=\"inspect\"");
         expect(html).not.toContain("data-governance-item=\"recall_eval:missing-dashboard-memory\"");
@@ -1281,8 +1285,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-item=\"inspect\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">");
       expect(html).toContain("<button type=\"button\" class=\"action-board-item info\" data-action-board-item=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
       expect(html).toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");
-      expect(html).toContain("<span>Quiet Targets</span>");
-      expect(html).toContain("<small>2 quiet targets</small>");
+      expect(html).toContain("<span>Reference Checks</span>");
+      expect(html).toContain("<small>2 reference checks</small>");
+      expect(html).not.toContain("<span>Quiet Targets</span>");
+      expect(html).not.toContain("<small>2 quiet targets</small>");
       expect(html).toContain("data-action-board-quiet-item=\"confirm\"");
       expect(html).toContain("data-action-board-quiet-item=\"inspect\"");
       expect(html).toContain("data-action-board-nav");

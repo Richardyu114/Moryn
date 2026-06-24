@@ -88,7 +88,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "zero-count buckets are hidden from the collapsed summary");
-    expectText(dashboard, "zero-value `good` targets are grouped under `Quiet Targets`");
+    expectText(dashboard, "zero-value `good` targets are grouped under `Reference Checks`");
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
     expectText(dashboard, "Visible write boundaries use user-readable labels such as `Append-only events`");

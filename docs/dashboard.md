@@ -470,10 +470,10 @@ When no approval queue is rendered, the `Confirm` card points to `Needs
 Attention` as a stable zero-state target. If a target sits inside another
 collapsed detail panel, the dashboard opens the parent panels before scrolling.
 When the Action Board is expanded, zero-value `good` targets are grouped under
-`Quiet Targets` instead of occupying the primary grid. Non-zero or non-good
+`Reference Checks` instead of occupying the primary grid. Non-zero or non-good
 items stay in the main Action Board grid, except pure read-only `Inspect`
-signals: safe inspections remain under `Quiet Targets` even when their count is
-non-zero. Quiet targets keep the same `data-action-board-target` navigation
+signals: safe inspections remain under `Reference Checks` even when their count is
+non-zero. Reference checks keep the same `data-action-board-target` navigation
 controls, so users and agents can still open Needs Attention, Governance Hub,
 or Store Signals for audit without making empty checks or optional inspections
 look like active work.
