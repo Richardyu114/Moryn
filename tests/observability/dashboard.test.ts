@@ -243,6 +243,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-dashboard-overview-quiet-card=\"action\"");
       expect(html).toContain("data-dashboard-overview-quiet-card=\"context\"");
       expect(html).toContain("data-dashboard-overview-quiet-card=\"sync\"");
+      expect(html).not.toContain("<small>Review sync changes</small>\n      <em class=\"action-board-next\">Review sync changes</em>");
       expect(html).toContain("<em class=\"action-board-next\">Review sync changes</em>");
       expect(html).toContain("<span class=\"attention-next-action\" data-attention-next-action>Review sync changes</span>");
       expect(html).toContain("<small>1 sync issue</small>");

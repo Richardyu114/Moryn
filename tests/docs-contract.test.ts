@@ -102,6 +102,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "zero-value `good` targets are grouped under `Reference Checks`");
     expectText(dashboard, "`Reference Checks` opens with `Quiet navigation checks`");
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
+    expectText(dashboard, "When `items[].hint` repeats the visible next-action label");
+    expectText(dashboard, "instead of rendering duplicate footer text");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
     expectText(dashboard, "Visible write boundaries use user-readable labels such as `Append-only events`");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");

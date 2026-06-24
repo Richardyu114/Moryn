@@ -2540,12 +2540,13 @@ function isActiveActionBoardItem(item: DashboardActionBoardItem): boolean {
 }
 
 function actionBoardItemButton(item: DashboardActionBoardItem, dataAttribute = "data-action-board-item"): string {
+  const hint = item.hint === item.next_action_label ? "" : `<small>${escapeHtml(item.hint)}</small>`;
   return `
     <button type="button" class="action-board-item ${escapeHtml(item.severity)}" ${dataAttribute}="${escapeHtml(item.id)}" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">
       <span>${escapeHtml(item.label)}</span>
       <strong>${escapeHtml(item.value)}</strong>
       <p>${escapeHtml(item.summary)}</p>
-      <small>${escapeHtml(item.hint)}</small>
+      ${hint}
       <em class="action-board-next">${escapeHtml(item.next_action_label)}</em>
     </button>
   `;

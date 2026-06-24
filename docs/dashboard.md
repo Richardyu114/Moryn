@@ -502,7 +502,9 @@ Queue controls.
 Action Board cards keep full explanations in `items[].detail` for agents and
 audit readers, but the visible card footer uses the shorter `items[].hint`.
 This keeps the folded dashboard compact while preserving the machine-readable
-reason behind each navigation target.
+reason behind each navigation target. When `items[].hint` repeats the visible
+next-action label, the card shows that phrase once as the action chip instead of
+rendering duplicate footer text.
 
 `Needs Attention` starts with a compact focus strip when warning or critical
 action signals exist. The strip counts action signals, non-zero warning checks,
