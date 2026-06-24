@@ -523,12 +523,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details id=\"governance-hub\" class=\"panel governance-hub\" data-dashboard-detail=\"governance-hub\" aria-label=\"Governance Hub\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary governance-hub-fold\">");
       expect(html).toContain("<span>Governance Hub</span>");
-      expect(html).toContain("<small>1 safe check</small>");
+      expect(html).toContain("<small>Read-only governance checks</small>");
+      expect(html).not.toContain("<small>1 safe check</small>");
       expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html.indexOf("data-dashboard-detail=\"evidence-library\"")).toBeLessThan(html.indexOf("data-dashboard-detail=\"governance-hub\""));
       expect(html).not.toContain("0 need confirmation");
       expect(html).not.toContain("0 private hidden");
       expect(html).not.toContain("<span>0 safe checks</span>");
+      expect(html).toContain("<span>1 safe check</span>");
       expect(html).toContain("<div class=\"governance-hub-body\">");
       expect(html).toContain("<details class=\"governance-safe-group\" data-dashboard-detail=\"governance-safe-inspections\">");
       expect(html).toContain("<span>Safe Inspections</span>");
@@ -1124,7 +1126,9 @@ describe("observability dashboard", () => {
         expect(html).toContain("<small>Revise Golden Case Or Memory | Read-only</small>");
         expect(html).not.toContain("<small>revise_golden_case_or_memory | Read-only</small>");
         expect(JSON.stringify(data.governance)).toContain("revise_golden_case_or_memory");
-        expect(html).toContain("<small>1 safe check</small>");
+        expect(html).toContain("<small>Read-only governance checks</small>");
+        expect(html).not.toContain("<small>1 safe check</small>");
+        expect(html).toContain("<span>1 safe check</span>");
         expect(JSON.stringify(data.recall_eval)).not.toContain("Private");
       } finally {
         await rm(remoteRoot, { recursive: true, force: true });

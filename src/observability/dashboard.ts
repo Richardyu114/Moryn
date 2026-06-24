@@ -3088,6 +3088,13 @@ function governanceSafeRow(item: DashboardGovernanceItem): string {
 }
 
 function governanceHubSummaryText(governance: DashboardGovernance): string {
+  if (
+    governance.summary.needs_user_action === 0
+    && governance.summary.hidden_private_records === 0
+    && governance.summary.safe_inspections > 0
+  ) {
+    return "Read-only governance checks";
+  }
   const counts = [
     governance.summary.needs_user_action > 0 ? pluralize(governance.summary.needs_user_action, "need confirmation", "need confirmation") : undefined,
     governance.summary.safe_inspections > 0 ? pluralize(governance.summary.safe_inspections, "safe check") : undefined,

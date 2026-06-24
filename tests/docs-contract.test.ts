@@ -100,7 +100,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
     expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Inspector`");
     expectText(dashboard, "`Raw Inspector` opens with `Records, events, and sync`");
-    expectText(dashboard, "shows compact inspection rows with readable source labels, title, read-only next step, and evidence path");
+    expectText(dashboard, "still shows the concrete safe-check count");
+    expectText(dashboard, "compact inspection rows with readable source labels, title, read-only next step, and evidence path");
     expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
@@ -110,6 +111,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
     expectText(dashboard, "When `items[].hint` repeats the visible next-action label");
     expectText(dashboard, "instead of rendering duplicate footer text");
+    expectText(dashboard, "row reads `Read-only governance checks`");
+    expectText(dashboard, "instead of repeating a safe-check count");
     expectText(dashboard, "`Safe Inspections` row whose summary reads `Read-only checks ready`");
     expectText(dashboard, "instead of repeating the Governance Hub count");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
