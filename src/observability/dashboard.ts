@@ -3494,6 +3494,11 @@ function contextPackReviewSummary(review: DashboardContextPackReview): string {
   const pack = review.handoff_pack;
   if (!pack) return "unavailable";
   const gate = pack.quality_gate;
+  if (gate.status === "ready" && gate.failed_check_ids.length === 0 && gate.warnings.length === 0) {
+    return contextPackEvidenceSummary(pack) === "No handoff evidence"
+      ? "Ready handoff context | no handoff evidence"
+      : "Ready handoff context";
+  }
   const checkSummary = gate.failed_check_ids.length === 0 && gate.warnings.length === 0 ? "all checks passed" : `${pluralize(gate.failed_check_ids.length, "failed check")} | ${pluralize(gate.warnings.length, "warning")}`;
   const evidenceSummary = contextPackEvidenceSummary(pack).toLowerCase();
   return `${gate.status} | ${checkSummary} | ${evidenceSummary}`;

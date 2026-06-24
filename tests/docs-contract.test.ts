@@ -135,6 +135,10 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("context_pack_review");
     expect(dashboard).toContain("handoff_pack.quality_gate");
     expect(dashboard).toContain("local_event_history");
+    expectText(dashboard, "folded row reads `Ready handoff context`");
+    expectText(dashboard, "instead of repeating the quality and evidence counts");
+    expectText(dashboard, "Ready handoff context | no handoff evidence");
+    expectText(dashboard, "Quality check coverage, context evidence counts, and required capture-action visibility remain visible");
     expect(dashboard).toContain("does not guess a project");
     expect(dashboard).toContain("does not render Approve, Apply, Promote, Archive, or Reject controls");
     expect(dashboard).toContain("moryn capture policy");

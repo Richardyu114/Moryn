@@ -707,13 +707,13 @@ is built from the dashboard's replayed local event history, not by calling the
 host adapter `context_pack` operation. It records:
 
 When available, the panel is collapsed by default behind a handoff readiness
-summary that shows the quality gate status, check coverage, non-zero context
-evidence counts, and whether the required capture action is visible. Expanding
-it shows the current goal, read-only boundary, quality checks, evidence paths,
-and context evidence. When the quality gate is `ready` with no failed checks or
-warnings, the summary says `all checks passed` and stays collapsed as a clean
-read-only signal. If checks need review, the panel can open by default so the
-problem stays visible.
+summary. When the quality gate is `ready` with no failed checks or warnings, the
+folded row reads `Ready handoff context` instead of repeating the quality and
+evidence counts already visible in readiness chips. If no decisions, threads, or
+risks are present, the folded row keeps the useful exception as `Ready handoff
+context | no handoff evidence`. Expanding it shows the current goal, read-only
+boundary, quality checks, evidence paths, and context evidence. If checks need
+review, the panel can open by default so the problem stays visible.
 
 - `context_pack_review.generated_from.store: "local_event_history"`
 - `context_pack_review.generated_from.writes: "none"`
@@ -740,10 +740,12 @@ coverage, the available evidence summary, and the exact `moryn capture session`
 command. The lower sections still expose the current goal, read-only boundary,
 quality checks, evidence paths, and context evidence for audit.
 
-The Context Evidence summary only shows non-zero counts; when there are no
-decisions, open threads, or risks, it says `No handoff evidence` instead of
-listing three zero counts. `/api/dashboard` still returns the full
-`context_pack_review` payload with check ids, counts, and evidence paths.
+Quality check coverage, context evidence counts, and required capture-action
+visibility remain visible in readiness chips and the expanded handoff brief. The
+Context Evidence summary only shows non-zero counts; when there are no decisions,
+open threads, or risks, it says `No handoff evidence` instead of listing three
+zero counts. `/api/dashboard` still returns the full `context_pack_review`
+payload with check ids, counts, and evidence paths.
 
 If the dashboard is opened without project context, the panel renders
 `Unavailable` and the JSON message is `Open the dashboard with --project-id or

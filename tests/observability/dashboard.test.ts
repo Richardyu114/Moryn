@@ -2729,7 +2729,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<details open class=\"panel context-pack-review\"");
       expect(html).toContain("<summary class=\"dashboard-fold-summary context-pack-review-fold\">");
       expect(html).toContain("<span>Context Pack Review</span>");
-      expect(html).toContain("<small>ready | all checks passed | 1 decision | 1 thread | 1 risk</small>");
+      expect(html).toContain("<small>Ready handoff context</small>");
+      expect(html).not.toContain("<small>ready | all checks passed | 1 decision | 1 thread | 1 risk</small>");
       expect(html).toContain("<div class=\"context-pack-readiness\" aria-label=\"Context Pack readiness\">");
       expect(html).toContain("<span class=\"context-pack-chip good\">Ready</span>");
       expect(html).toContain("<span class=\"context-pack-chip good\">6/6 checks</span>");
@@ -2777,7 +2778,8 @@ describe("observability dashboard", () => {
       expect(data.context_pack_review.handoff_pack?.recent_decisions).toHaveLength(0);
       expect(data.context_pack_review.handoff_pack?.open_threads).toHaveLength(0);
       expect(data.context_pack_review.handoff_pack?.risks).toHaveLength(0);
-      expect(html).toContain("<small>ready | all checks passed | no handoff evidence</small>");
+      expect(html).toContain("<small>Ready handoff context | no handoff evidence</small>");
+      expect(html).not.toContain("<small>ready | all checks passed | no handoff evidence</small>");
       expect(html).toContain("data-context-pack-brief");
       expect(html).toContain("Evidence available: No handoff evidence.");
       expect(html).not.toContain("<small>ready | all checks passed | 0 decisions | 0 threads | 0 risks</small>");
