@@ -75,6 +75,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
     expectText(dashboard, "`Routine Diagnostics` opens with `Healthy checks and handoff readiness`");
     expectText(dashboard, "grouped first under `Read-only Findings`");
+    expectText(dashboard, "whose row reads `Findings to inspect`");
+    expectText(dashboard, "or expose child panel counts");
     expectText(dashboard, "read-only findings do not look like pending approval work");
     expectText(dashboard, "Routine Diagnostics and Audit Trail are grouped behind `Reference Evidence`");
     expectText(dashboard, "folded summary reads `Routine checks and audit trail`");
