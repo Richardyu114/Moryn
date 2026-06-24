@@ -557,15 +557,18 @@ findings and reference evidence`, and when there is only routine/background
 material it reads `Reference evidence only`. It does not list every child module
 on the first screen. When expanded, it starts with an `Evidence map` brief for
 `Findings`, `Diagnostics`, and `Audit` so users can choose a route before
-reading nested panels. The brief is navigation copy only: it does not render
-Approve, Reject, Promote, Archive, or Apply controls and does not add
-`data-dashboard-action-id`. Health Check, Recall Eval, Dogfood Review,
-Governance Hub, Context Pack Review, and Audit Trail stay nested under that
-evidence layer so the main path stays focused on action and review. The library
-is still fully local and auditable: each child panel keeps its
-`data-dashboard-detail` target, so Action Board buttons can open the parent
-library before scrolling to `governance-hub`, `context-pack-review`, or
-`store-signals`.
+reading nested panels. The brief renders local route buttons that reuse the
+existing `data-action-board-target` behavior: `Findings` opens `Read-only
+Findings` when findings exist and otherwise stays on `Evidence Library`,
+`Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`.
+The brief is navigation copy only: it does not render Approve, Reject, Promote,
+Archive, or Apply controls and does not add `data-dashboard-action-id`. Health
+Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and
+Audit Trail stay nested under that evidence layer so the main path stays
+focused on action and review. The library is still fully local and auditable:
+each child panel keeps its `data-dashboard-detail` target, so Action Board
+buttons can open the parent library before scrolling to `governance-hub`,
+`context-pack-review`, or `store-signals`.
 
 Inside Evidence Library, routine read-only diagnostics such as a healthy Health
 Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack

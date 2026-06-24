@@ -4565,20 +4565,49 @@ function evidenceLibraryBackgroundGroup(panels: string[]): string {
   `;
 }
 
+function evidenceLibraryRoute(input: {
+  id: "findings" | "diagnostics" | "audit";
+  target: string;
+  title: string;
+  summary: string;
+  note: string;
+}): string {
+  return `
+          <button type="button" class="evidence-library-route" data-evidence-library-route="${escapeHtml(input.id)}" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}">
+            <strong>${escapeHtml(input.title)}</strong><span>${escapeHtml(input.summary)}</span><small>${escapeHtml(input.note)}</small>
+          </button>
+  `;
+}
+
 function evidenceLibraryBrief(input: { reviewCount: number; routineCount: number; backgroundCount: number }): string {
+  const findingsTarget = input.reviewCount > 0 ? "evidence-review-evidence" : "evidence-library";
+  const diagnosticsTarget = input.routineCount > 0 ? "routine-diagnostics" : "evidence-library";
+  const auditTarget = input.backgroundCount > 0 ? "supporting-evidence" : "evidence-library";
   return `
       <div class="evidence-library-brief" data-evidence-library-brief>
         <h3>Evidence map</h3>
         <div class="evidence-library-brief-grid">
-          <div>
-            <strong>Findings</strong><span>${escapeHtml(input.reviewCount > 0 ? "Read-only findings available" : "No read-only findings")}</span><small>${escapeHtml(input.reviewCount > 0 ? "Start here for dogfood, governance, or non-routine checks." : "Skip unless the Evidence lane reports findings.")}</small>
-          </div>
-          <div>
-            <strong>Diagnostics</strong><span>Healthy checks and handoff readiness</span><small>${escapeHtml(input.routineCount > 0 ? "Routine health, recall, and handoff context checks." : "No routine diagnostics in this snapshot.")}</small>
-          </div>
-          <div>
-            <strong>Audit</strong><span>Audit logs and raw signals</span><small>${escapeHtml(input.backgroundCount > 0 ? "Clean audits, store signals, recent value, and raw inspector." : "No audit trail rendered in this snapshot.")}</small>
-          </div>
+${evidenceLibraryRoute({
+    id: "findings",
+    target: findingsTarget,
+    title: "Findings",
+    summary: input.reviewCount > 0 ? "Read-only findings available" : "No read-only findings",
+    note: input.reviewCount > 0 ? "Start here for dogfood, governance, or non-routine checks." : "Skip unless the Evidence lane reports findings."
+  })}
+${evidenceLibraryRoute({
+    id: "diagnostics",
+    target: diagnosticsTarget,
+    title: "Diagnostics",
+    summary: "Healthy checks and handoff readiness",
+    note: input.routineCount > 0 ? "Routine health, recall, and handoff context checks." : "No routine diagnostics in this snapshot."
+  })}
+${evidenceLibraryRoute({
+    id: "audit",
+    target: auditTarget,
+    title: "Audit",
+    summary: "Audit logs and raw signals",
+    note: input.backgroundCount > 0 ? "Clean audits, store signals, recent value, and raw inspector." : "No audit trail rendered in this snapshot."
+  })}
         </div>
       </div>
   `;
@@ -5707,31 +5736,39 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
     }
-    .evidence-library-brief-grid div {
+    .evidence-library-route {
+      appearance: none;
       min-width: 0;
       border: 1px solid var(--hairline);
       border-radius: 7px;
       padding: 8px;
       background: var(--surface);
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
     }
-    .evidence-library-brief-grid strong,
-    .evidence-library-brief-grid span,
-    .evidence-library-brief-grid small {
+    .evidence-library-route:hover { border-color: #b8c0c8; box-shadow: 0 8px 18px rgba(21, 25, 30, 0.045); transform: translateY(-1px); }
+    .evidence-library-route:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .evidence-library-route strong,
+    .evidence-library-route span,
+    .evidence-library-route small {
       display: block;
       overflow-wrap: anywhere;
     }
-    .evidence-library-brief-grid strong {
+    .evidence-library-route strong {
       color: var(--ink);
       font-size: 13px;
       font-weight: 780;
     }
-    .evidence-library-brief-grid span {
+    .evidence-library-route span {
       margin-top: 3px;
       color: var(--ink-2);
       font-size: 12.5px;
       font-weight: 720;
     }
-    .evidence-library-brief-grid small {
+    .evidence-library-route small {
       margin-top: 3px;
       color: var(--muted);
       font-size: 12px;
