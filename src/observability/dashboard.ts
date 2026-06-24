@@ -3228,11 +3228,20 @@ function governanceActionDisplayLabel(actionLabel: string): string {
   return titleCase(actionLabel);
 }
 
+function governanceSafeRowTitle(item: DashboardGovernanceItem): string {
+  if (item.source === "memory_doctor" && item.category === "candidate_backlog") return "Candidate backlog";
+  if (item.source === "dogfood_report" && item.category === "dogfood_friction") {
+    if (item.action_label === "inspect_failure_signals") return "Failure signals";
+    if (item.action_label === "review_capture_inbox") return "Capture review backlog";
+  }
+  return item.title;
+}
+
 function governanceSafeRow(item: DashboardGovernanceItem): string {
   return `
     <div class="governance-safe-row ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-safe-item="${escapeHtml(item.id)}">
       <span>${escapeHtml(governanceSourceDisplayLabel(item.source))}</span>
-      <strong>${escapeHtml(item.title)}</strong>
+      <strong>${escapeHtml(governanceSafeRowTitle(item))}</strong>
       <small>${escapeHtml(`${governanceActionDisplayLabel(item.action_label)} | Read-only`)}</small>
       <details class="governance-safe-evidence">
         <summary>Evidence path</summary>

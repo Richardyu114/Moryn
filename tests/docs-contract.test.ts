@@ -151,6 +151,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Safe Inspections` row whose summary reads `Read-only checks ready`");
     expectText(dashboard, "instead of repeating the Governance Hub count");
     expectText(dashboard, "Safe inspection rows keep raw evidence paths behind an `Evidence path` fold");
+    expectText(dashboard, "Safe inspection rows use short display titles while full report titles remain in `/api/dashboard` and source panels");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
     expectText(dashboard, "Visible write boundaries use user-readable labels such as `Append-only events`");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
