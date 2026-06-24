@@ -142,6 +142,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "does not add dashboard approval, archive, promote, apply, or background execution controls");
     expectText(dashboard, "`candidate_triage` groups active candidate records into `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`");
     expectText(dashboard, "`Candidate Triage` is grouped under `Read-only Findings` in the Evidence Library");
+    expectText(dashboard, "its folded row reads `Read-only candidate backlog` instead of repeating a candidate count");
+    expectText(dashboard, "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group");
     expectText(dashboard, "`Candidate Triage` stays read-only and does not add Approve, Archive, Promote, Apply, or background execution controls");
     expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");
     expectText(contracts, "`/api/dashboard` also returns `memory_doctor`, the same read-only report shape as `moryn memory doctor`");

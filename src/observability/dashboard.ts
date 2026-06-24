@@ -3547,7 +3547,7 @@ function governanceHub(governance: DashboardGovernance): string {
 
 function candidateTriageSummary(triage: DashboardCandidateTriage): string {
   if (!triage.available) return "No candidate backlog";
-  return `${pluralize(triage.summary.total_candidates, "candidate")} grouped for review`;
+  return "Read-only candidate backlog";
 }
 
 function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): string {
@@ -3588,9 +3588,15 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
           <div><dt>Confirmation</dt><dd>Inspection only</dd></div>
           <div><dt>Evidence</dt><dd><code>${escapeHtml(group.evidence_path)}</code></dd></div>
         </dl>
-        <div class="candidate-triage-records">
-          ${group.records.map(renderCandidateTriageRecord).join("")}
-        </div>
+        <details class="candidate-triage-record-samples" data-dashboard-detail="candidate-triage-records:${escapeHtml(group.id)}">
+          <summary class="dashboard-fold-summary">
+            <span>Record samples</span>
+            <small>${escapeHtml(`${pluralize(group.records.length, "sample")} with trace commands`)}</small>
+          </summary>
+          <div class="candidate-triage-records">
+            ${group.records.map(renderCandidateTriageRecord).join("")}
+          </div>
+        </details>
       </div>
     </details>
   `;
@@ -3611,6 +3617,7 @@ function candidateTriagePanel(triage: DashboardCandidateTriage): string {
             <p>Read-only grouping for memory doctor backlog.</p>
           </div>
           <div class="candidate-triage-counts">
+            <span>${escapeHtml(pluralize(triage.summary.total_candidates, "candidate"))}</span>
             <span>${escapeHtml(pluralize(triage.summary.groups, "group"))}</span>
             <span>${escapeHtml(pluralize(triage.summary.shown_records, "shown record"))}</span>
           </div>
@@ -6365,6 +6372,13 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .candidate-triage-brief {
       margin-bottom: 9px;
     }
+    .candidate-triage-record-samples {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .candidate-triage-record-samples[open] > summary { margin-bottom: 8px; }
     .candidate-triage-record {
       border: 1px solid var(--border);
       border-radius: 7px;
