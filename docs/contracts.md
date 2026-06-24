@@ -376,11 +376,21 @@ for existing local reports. Its contract is:
 Each governance item includes `source`, `category`, `severity`, `title`,
 `summary`, `record_ids`, `evidence_path`, `action_label`, optional `action_id`,
 `safe_to_run`, `requires_user_confirmation`, and `writes`. Sources are limited
-to `capture_policy`, `memory_lifecycle`, `maintenance`, `recall_eval`, and
-`dogfood_report`.
+to `capture_policy`, `memory_doctor`, `memory_lifecycle`, `maintenance`,
+`recall_eval`, and `dogfood_report`.
 The hub does not create a new write endpoint: write-capable items point back to
 existing explicit Capture Inbox or maintenance approval actions, while
-lifecycle, recall eval, and dogfood entries remain inspection guidance.
+lifecycle, memory doctor, recall eval, and dogfood entries remain inspection
+guidance.
+
+`/api/dashboard` also returns `memory_doctor`, the same read-only report shape
+as `moryn memory doctor` and MCP `memory_doctor`. The dashboard uses
+`memory_doctor.findings_by_id.candidate_backlog` as a compact Governance Hub
+safe inspection when candidates are accumulating faster than canonical records.
+Other `memory_doctor` findings and suggested actions remain available in the
+raw JSON for audit. `memory_doctor` findings remain read-only dashboard
+governance inspections; they do not add dashboard approval, archive, promote,
+apply, background execution, or Safe Action Registry entries.
 
 `/api/dashboard` also returns `context_pack_review`, a read-only project handoff
 readiness summary rendered as the dashboard `Context Pack Review` panel. When

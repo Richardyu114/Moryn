@@ -550,6 +550,120 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("surfaces candidate backlog as a read-only memory doctor governance item", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z",
+            "2026-06-01T00:05:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:06:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_memory_doctor_${++record}` : `evt_memory_doctor_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical baseline for memory doctor governance.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      for (const text of [
+        "Candidate backlog item one.",
+        "Candidate backlog item two.",
+        "Candidate backlog item three.",
+        "Candidate backlog item four."
+      ]) {
+        await engine.write({
+          kind: "session_summary",
+          type: "summary",
+          scope: "project",
+          project_id: "moryn",
+          tags: ["autocapture"],
+          content: { text, format: "text" },
+          state: "candidate",
+          source: { client: "codex", session_id: "memory-doctor-dashboard-test" }
+        });
+      }
+
+      const beforeEvents = await readEvents(storePath);
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      }) as Awaited<ReturnType<typeof buildDashboardData>> & {
+        memory_doctor: {
+          read_only: boolean;
+          findings_by_id: Record<string, { summary: string; reason: string }>;
+          suggested_actions: Array<{ safe_to_run: boolean }>;
+        };
+      };
+      const html = renderDashboardHtml(data);
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(data.memory_doctor).toMatchObject({
+        read_only: true,
+        findings_by_id: {
+          candidate_backlog: {
+            summary: "Candidate records are accumulating faster than canonical records.",
+            reason: "4 candidate records vs 1 canonical records."
+          }
+        },
+        suggested_actions: []
+      });
+      expect(data.governance.sources).toMatchObject({
+        memory_doctor: true
+      });
+      expect(data.governance.items_by_id["memory_doctor:candidate_backlog"]).toMatchObject({
+        source: "memory_doctor",
+        category: "candidate_backlog",
+        severity: "warning",
+        title: "Candidate records are accumulating faster than canonical records.",
+        summary: "4 candidate records vs 1 canonical records.",
+        record_ids: [],
+        evidence_path: "memory_doctor.findings_by_id.candidate_backlog",
+        action_label: "Review candidate backlog",
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none",
+        review_log: [
+          "Detected: Candidate records are accumulating faster than canonical records.",
+          "Recommended next step: Review candidate backlog.",
+          "Write boundary: read-only inspection; no memory writes.",
+          "Evidence source: memory_doctor.findings_by_id.candidate_backlog"
+        ]
+      });
+      expect(data.actions.some((action) => action.source_path.startsWith("memory_doctor"))).toBe(false);
+
+      expect(html).toContain("data-governance-safe-item=\"memory_doctor:candidate_backlog\"");
+      expect(html).toContain("<span>Memory Doctor</span>");
+      expect(html).toContain("<small>Review Candidate Backlog | Read-only</small>");
+      expect(html).toContain("<code>memory_doctor.findings_by_id.candidate_backlog</code>");
+      expect(html).not.toContain("data-dashboard-action-id=\"memory_doctor");
+      expect(html).not.toContain("Apply Memory Doctor");
+      expect(html).not.toContain("Approve Backlog");
+      expect(html).not.toContain("Archive Backlog");
+    });
+  });
+
   it("aggregates existing reports into Governance Hub items", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
@@ -740,13 +854,14 @@ describe("observability dashboard", () => {
 
       expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
       expect(data.governance.summary).toMatchObject({
-        total_items: 6,
+        total_items: 7,
         needs_user_action: 2,
-        safe_inspections: 4,
+        safe_inspections: 5,
         hidden_private_records: 1
       });
       expect(data.governance.sources).toMatchObject({
         capture_policy: true,
+        memory_doctor: true,
         memory_lifecycle: true,
         maintenance: true,
         dogfood_report: true
@@ -782,6 +897,16 @@ describe("observability dashboard", () => {
           "Write boundary: read-only inspection; no memory writes.",
           "Evidence source: capture_policy.findings_by_id.auto_captured"
         ],
+        safe_to_run: true,
+        requires_user_confirmation: false,
+        writes: "none"
+      });
+      expect(data.governance.items_by_id["memory_doctor:candidate_backlog"]).toMatchObject({
+        source: "memory_doctor",
+        category: "candidate_backlog",
+        severity: "warning",
+        evidence_path: "memory_doctor.findings_by_id.candidate_backlog",
+        action_label: "Review candidate backlog",
         safe_to_run: true,
         requires_user_confirmation: false,
         writes: "none"
@@ -884,10 +1009,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"governance-safe-group\" data-dashboard-detail=\"governance-safe-inspections\">");
       expect(html).toContain("<span>Safe Inspections</span>");
       expect(html).toContain("<small>Read-only checks ready</small>");
-      expect(html).not.toContain("<small>4 read-only checks</small>");
+      expect(html).not.toContain("<small>5 read-only checks</small>");
       expect(html).toContain("<div class=\"governance-safe-list\" data-governance-safe-list>");
+      expect(html).toContain("class=\"governance-safe-row warning\" data-dashboard-detail=\"governance:memory_doctor:candidate_backlog\"");
       expect(html).toContain("class=\"governance-safe-row info\" data-dashboard-detail=\"governance:capture_policy:auto_captured\"");
       expect(html).toContain("class=\"governance-safe-row warning\" data-dashboard-detail=\"governance:dogfood_report:failure_signals\"");
+      expect(html).toContain("<span>Memory Doctor</span>");
       expect(html).toContain("<span>Dogfood Review</span>");
       expect(html).toContain("<small>Inspect Failure Signals | Read-only</small>");
       expect(html).not.toContain("<span>dogfood_report</span>");

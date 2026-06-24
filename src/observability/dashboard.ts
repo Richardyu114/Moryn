@@ -13,6 +13,7 @@ import { diagnoseDogfood, type DogfoodReportResult } from "../core/dogfood-repor
 import { createEngine } from "../core/engine.js";
 import { diagnoseHealthCheck, type HealthCheckReport } from "../core/health-check.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
+import { diagnoseMemory, type MemoryDoctorResult } from "../core/memory-doctor.js";
 import type { RecallEvalReport } from "../core/recall-eval.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
@@ -101,6 +102,7 @@ export const DASHBOARD_SELECTION_SOURCES = {
   action_id: "actions_by_id.<action_id>.action_id",
   capture_inbox: "capture_inbox",
   capture_policy: "capture_policy",
+  memory_doctor: "memory_doctor",
   health_check: "health_check",
   context_pack_review: "context_pack_review",
   governance: "governance",
@@ -332,6 +334,7 @@ export const DASHBOARD_GOVERNANCE_SELECTION_SOURCES = {
   action: "actions_by_id.<action_id>",
   action_id: "actions_by_id.<action_id>.action_id",
   capture_policy: "capture_policy",
+  memory_doctor: "memory_doctor",
   memory_lifecycle: "memory_lifecycle",
   maintenance: "maintenance",
   recall_eval: "recall_eval",
@@ -346,11 +349,12 @@ export const DASHBOARD_RECALL_EVAL_SELECTION_SOURCES = {
   suggested_action: "recall_eval.report.suggested_actions_by_id.<action_id>"
 } as const;
 
-export type DashboardGovernanceSource = "capture_policy" | "memory_lifecycle" | "maintenance" | "recall_eval" | "dogfood_report";
+export type DashboardGovernanceSource = "capture_policy" | "memory_doctor" | "memory_lifecycle" | "maintenance" | "recall_eval" | "dogfood_report";
 export type DashboardGovernanceCategory =
   | "capture_review"
   | "auto_capture"
   | "policy_archive"
+  | "candidate_backlog"
   | "memory_lifecycle"
   | "project_identity"
   | "recall_quality"
@@ -631,6 +635,7 @@ export interface DashboardData {
   recall_eval: DashboardRecallEval;
   capture_inbox: DashboardCaptureInbox;
   capture_policy: CapturePolicyResult;
+  memory_doctor: MemoryDoctorResult;
   health_check: HealthCheckReport;
   memory_lifecycle: MemoryLifecycleResult;
   dogfood_report: DogfoodReportResult;
@@ -2006,6 +2011,7 @@ function governanceDetectionLabel(source: DashboardGovernanceSource, category: D
     if (category === "auto_capture") return "Captured handoff records already handled by policy.";
     if (category === "policy_archive") return "Captured records were archived by policy.";
   }
+  if (source === "memory_doctor") return "Candidate records are accumulating faster than canonical records.";
   if (source === "memory_lifecycle") return "Memory lifecycle found records worth inspecting.";
   if (source === "maintenance") return "A maintenance plan is ready for explicit review.";
   if (source === "recall_eval") return "Recall eval found a golden case that normal recall missed.";
@@ -2113,6 +2119,35 @@ function governanceFromMemoryLifecycle(report: MemoryLifecycleResult): Dashboard
       })
     };
   });
+}
+
+function governanceFromMemoryDoctor(report: MemoryDoctorResult): DashboardGovernanceItem[] {
+  const finding = report.findings_by_id.candidate_backlog;
+  if (!finding) return [];
+  const evidencePath = "memory_doctor.findings_by_id.candidate_backlog";
+  const actionLabel = "Review candidate backlog";
+  return [{
+    id: governanceItemId("memory_doctor", finding.id),
+    source: "memory_doctor",
+    category: "candidate_backlog",
+    severity: finding.severity,
+    title: finding.summary,
+    summary: finding.reason,
+    record_ids: finding.record_ids ?? (finding.record_id ? [finding.record_id] : []),
+    evidence_path: evidencePath,
+    action_label: actionLabel,
+    safe_to_run: true,
+    requires_user_confirmation: false,
+    writes: "none",
+    review_log: governanceReviewLog({
+      source: "memory_doctor",
+      category: "candidate_backlog",
+      actionLabel,
+      evidencePath,
+      requiresUserConfirmation: false,
+      writes: "none"
+    })
+  }];
 }
 
 function governanceFromMaintenance(maintenance: DashboardMaintenanceData): DashboardGovernanceItem[] {
@@ -2277,6 +2312,7 @@ async function buildDashboardRecallEval(
 
 function buildDashboardGovernance(input: {
   capturePolicy: CapturePolicyResult;
+  memoryDoctor: MemoryDoctorResult;
   memoryLifecycle: MemoryLifecycleResult;
   maintenance: DashboardMaintenanceData;
   recallEval: DashboardRecallEval;
@@ -2285,6 +2321,7 @@ function buildDashboardGovernance(input: {
 }): DashboardGovernance {
   const items: DashboardGovernanceItem[] = [
     ...governanceFromCapturePolicy(input.capturePolicy),
+    ...governanceFromMemoryDoctor(input.memoryDoctor),
     ...governanceFromMemoryLifecycle(input.memoryLifecycle),
     ...governanceFromMaintenance(input.maintenance),
     ...governanceFromRecallEval(input.recallEval),
@@ -2302,6 +2339,7 @@ function buildDashboardGovernance(input: {
     },
     sources: {
       capture_policy: true,
+      memory_doctor: true,
       memory_lifecycle: true,
       maintenance: true,
       recall_eval: input.recallEval.available,
@@ -2364,6 +2402,15 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     private_record_ids: lifecycleAllRecords.filter(isPrivateRecord).map((record) => record.id),
     excluded_private_records: lifecycleAllRecords.length - lifecycleRecords.length
   });
+  const memoryDoctorAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
+  const memoryDoctorRecords = memoryDoctorAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
+  const memoryDoctorData = diagnoseMemory({
+    records: memoryDoctorRecords,
+    project_id: options.project_id,
+    limit,
+    include_private: options.include_private === true,
+    excluded_private_records: memoryDoctorAllRecords.length - memoryDoctorRecords.length
+  });
   const dogfoodAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
   const dogfoodRecords = dogfoodAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
   const dogfoodRecordIds = new Set(dogfoodRecords.map((record) => record.id));
@@ -2408,6 +2455,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const attentionItems = buildAttentionItems(sync, records);
   const governance = buildDashboardGovernance({
     capturePolicy: capturePolicyData,
+    memoryDoctor: memoryDoctorData,
     memoryLifecycle: memoryLifecycleData,
     maintenance: maintenanceData,
     recallEval: recallEvalData,
@@ -2457,6 +2505,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     recall_eval: recallEvalData,
     capture_inbox: captureInboxData,
     capture_policy: capturePolicyData,
+    memory_doctor: memoryDoctorData,
     health_check: healthCheckData,
     memory_lifecycle: memoryLifecycleData,
     dogfood_report: dogfoodReportData,

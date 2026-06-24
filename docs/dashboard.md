@@ -347,6 +347,7 @@ The live dashboard includes a compact `Governance Hub` when existing local
 reports have review or inspection items. It is a read-only summary over:
 
 - `capture_policy.findings_by_id`
+- `memory_doctor.findings_by_id`
 - `memory_lifecycle.findings_by_id`
 - `maintenance.plans_by_id`
 - `dogfood_report.findings_by_id`
@@ -367,6 +368,10 @@ Inspections` row whose summary reads `Read-only checks ready`, so the nested row
 explains its purpose instead of repeating the Governance Hub count; expanding it
 still shows the concrete safe-check count plus compact inspection rows with
 readable source labels, title, read-only next step, and evidence path.
+`memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor`
+safe inspection when candidate records are accumulating faster than canonical
+records. It points back to the raw memory doctor evidence and does not add
+dashboard approval, archive, promote, apply, or background execution controls.
 Items that need confirmation still lead with a compact `Finding
 summary` for records affected, safe next step, write boundary, and evidence
 source, then keep plain-language `Review notes` for detection, next step, write
@@ -683,6 +688,7 @@ The JSON returned by `/api/dashboard` includes:
 - `capture_inbox`
 - `capture_inbox.autocapture_policy`
 - `capture_policy`
+- `memory_doctor`
 - `health_check`
 - `memory_lifecycle`
 - `dogfood_report`
