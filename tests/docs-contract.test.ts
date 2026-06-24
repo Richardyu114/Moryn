@@ -81,6 +81,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of listing reference-panel counts");
     expectText(dashboard, "Empty groups are omitted");
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");
+    expectText(dashboard, "`Info Checks` detail opens with `Routine status checks`");
+    expectText(dashboard, "instead of repeating the focus-strip count");
     expectText(dashboard, "When there are no warning or critical action signals");
     expectText(dashboard, "the same scroll target renders as a lightweight `needs-attention-quiet-line`");
     expectText(dashboard, "with the visible title `Info Checks`");

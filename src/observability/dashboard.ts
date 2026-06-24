@@ -2957,7 +2957,7 @@ function attentionItems(items: DashboardAttentionItem[]): string {
         <details class="attention-info-group" data-dashboard-detail="attention-info-checks">
           <summary class="dashboard-fold-summary">
             <span>Info Checks</span>
-            <small>${escapeHtml(pluralize(info.length, "info item"))}</small>
+            <small>Routine status checks</small>
           </summary>
           <div class="attention-info-list">
             ${info.map(attentionItem).join("")}

@@ -512,12 +512,14 @@ and non-zero informational checks, then shows the next review step as a
 dedicated action chip. Warning and critical items remain directly visible.
 Informational checks are grouped under a collapsed `Info Checks` summary so
 routine status signals remain inspectable without competing with
-action-oriented warnings. When there are no warning or critical action signals,
-the same scroll target renders as a lightweight `needs-attention-quiet-line`
-with the visible title `Info Checks` and a summary such as `No action needed | 1
-info check`. It preserves the `id="needs-attention"` scroll target and collapsed
-Info Checks detail for audit without making routine informational checks look
-like user work.
+action-oriented warnings. The collapsed `Info Checks` detail opens with
+`Routine status checks` so the row explains its purpose instead of repeating the
+focus-strip count. When there are no warning or critical action signals, the
+same scroll target renders as a lightweight `needs-attention-quiet-line` with
+the visible title `Info Checks` and a summary such as `No action needed | 1 info
+check`. It preserves the `id="needs-attention"` scroll target and collapsed Info
+Checks detail for audit without making routine informational checks look like
+user work.
 
 Read-only diagnostic detail lives in the collapsed `Evidence Library`. Its
 visible summary is content-aware: when there are findings it reads `Read-only
