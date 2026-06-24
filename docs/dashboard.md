@@ -385,7 +385,10 @@ Library rather than the main review path. `Candidate Triage` is grouped under
 `Read-only candidate backlog` instead of repeating a candidate count. Expanding
 the panel shows candidate, group, and shown-record counts plus read-only next
 steps. Record ids, recall commands, and timeline commands stay behind a nested
-`Record samples` fold inside each group. `Candidate Triage` stays read-only and does not
+`Record samples` fold inside each group. `Record samples` renders only the
+first five full records per group and summarizes the remaining records as API
+evidence, so large backlogs stay inspectable without flooding the page.
+`Candidate Triage` stays read-only and does not
 add Approve, Archive, Promote, Apply, or background execution controls; it is a
 decision-prep surface for existing review policies, not a new mutation path.
 Items that need confirmation still lead with a compact `Finding

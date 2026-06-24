@@ -358,6 +358,8 @@ export const DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES = {
   record_id: "candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>.id"
 } as const;
 
+const CANDIDATE_TRIAGE_SAMPLE_LIMIT = 5;
+
 export type DashboardGovernanceSource = "capture_policy" | "memory_doctor" | "memory_lifecycle" | "maintenance" | "recall_eval" | "dogfood_report";
 export type DashboardGovernanceCategory =
   | "capture_review"
@@ -3573,7 +3575,25 @@ function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): st
   `;
 }
 
+function candidateTriageSampleSummary(group: DashboardCandidateTriageGroup): string {
+  const shownRecords = Math.min(group.records.length, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
+  if (shownRecords === group.records.length) return `${pluralize(shownRecords, "sample")} with trace commands`;
+  return `${shownRecords} of ${pluralize(group.records.length, "sample")} with trace commands`;
+}
+
+function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): string {
+  const hiddenRecords = Math.max(0, group.records.length - CANDIDATE_TRIAGE_SAMPLE_LIMIT);
+  if (hiddenRecords === 0) return "";
+  return `
+    <div class="candidate-triage-overflow">
+      <span class="candidate-triage-overflow-count">${escapeHtml(`${pluralize(hiddenRecords, "more record")} kept in API evidence`)}</span>
+      <span>Full group stays in <code>${escapeHtml(`${group.evidence_path}.records[]`)}</code> and Raw Inspector.</span>
+    </div>
+  `;
+}
+
 function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
+  const sampleRecords = group.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
   return `
     <details class="candidate-triage-group" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}">
       <summary class="dashboard-fold-summary">
@@ -3591,11 +3611,12 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
         <details class="candidate-triage-record-samples" data-dashboard-detail="candidate-triage-records:${escapeHtml(group.id)}">
           <summary class="dashboard-fold-summary">
             <span>Record samples</span>
-            <small>${escapeHtml(`${pluralize(group.records.length, "sample")} with trace commands`)}</small>
+            <small>${escapeHtml(candidateTriageSampleSummary(group))}</small>
           </summary>
           <div class="candidate-triage-records">
-            ${group.records.map(renderCandidateTriageRecord).join("")}
+            ${sampleRecords.map(renderCandidateTriageRecord).join("")}
           </div>
+          ${renderCandidateTriageOverflow(group)}
         </details>
       </div>
     </details>
@@ -6379,6 +6400,23 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
     }
     .candidate-triage-record-samples[open] > summary { margin-bottom: 8px; }
+    .candidate-triage-overflow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      border: 1px dashed var(--border);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin-top: 8px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    .candidate-triage-overflow-count {
+      color: var(--ink);
+      font-weight: 740;
+    }
     .candidate-triage-record {
       border: 1px solid var(--border);
       border-radius: 7px;

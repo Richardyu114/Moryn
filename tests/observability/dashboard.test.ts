@@ -874,6 +874,80 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("keeps candidate triage samples budgeted while preserving full API evidence", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let minute = 0;
+          return () => `2026-06-01T00:${String(++minute).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_budgeted_triage_${++record}` : `evt_budgeted_triage_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Canonical baseline for budgeted triage.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      for (let index = 1; index <= 7; index++) {
+        await engine.write({
+          kind: "agent_note",
+          type: "note",
+          scope: "project",
+          project_id: "moryn",
+          tags: ["scratch"],
+          content: { text: `Temporary scratch candidate ${index}.`, format: "text" },
+          state: "candidate",
+          source: { client: "codex", session_id: "budgeted-triage" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+      const needsInspection = data.candidate_triage.groups_by_id.needs_inspection;
+
+      expect(needsInspection?.record_ids).toHaveLength(7);
+      expect(needsInspection?.records_by_id.rec_budgeted_triage_8).toMatchObject({
+        id: "rec_budgeted_triage_8"
+      });
+
+      const groupStart = html.indexOf("data-dashboard-detail=\"candidate-triage:needs_inspection\"");
+      const groupEnd = html.indexOf("<details class=\"evidence-library-group evidence-library-background\"", groupStart);
+      const groupHtml = html.slice(groupStart, groupEnd);
+      expect(groupHtml).toContain("<strong>7 records</strong>");
+      expect(groupHtml).toContain("<small>5 of 7 samples with trace commands</small>");
+      expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_8\"");
+      expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_7\"");
+      expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_6\"");
+      expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_3\"");
+      expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_2\"");
+      expect(groupHtml).toContain("<span class=\"candidate-triage-overflow-count\">2 more records kept in API evidence</span>");
+      expect(groupHtml).toContain("<code>candidate_triage.groups_by_id.needs_inspection.records[]</code>");
+      expect(groupHtml).not.toContain("data-dashboard-action-id=\"candidate-triage");
+      expect(groupHtml).not.toContain("Approve Triage");
+      expect(groupHtml).not.toContain("Archive Group");
+      expect(groupHtml).not.toContain("Promote Selected");
+    });
+  });
+
   it("aggregates existing reports into Governance Hub items", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
