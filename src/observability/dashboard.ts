@@ -4364,11 +4364,8 @@ function supportingEvidencePanel(data: DashboardData): string {
 
 function evidenceLibrarySummary(reviewGroupCount: number, backgroundGroupCount: number): string {
   if (reviewGroupCount === 0 && backgroundGroupCount > 0) return "Reference evidence only";
-  const parts = [
-    reviewGroupCount > 0 ? pluralize(reviewGroupCount, "finding group") : undefined,
-    backgroundGroupCount > 0 ? pluralize(backgroundGroupCount, "reference group") : undefined
-  ].filter((part): part is string => part !== undefined);
-  return parts.length > 0 ? parts.join(" / ") : "No evidence groups";
+  if (reviewGroupCount > 0) return "Read-only findings and reference evidence";
+  return "No evidence groups";
 }
 
 function isRoutineHealthCheck(report: HealthCheckReport): boolean {

@@ -515,10 +515,10 @@ Info Checks detail for audit without making routine informational checks look
 like user work.
 
 Read-only diagnostic detail lives in the collapsed `Evidence Library`. Its
-visible summary is content-aware: when there are findings it shows finding and
-reference group counts, and when there is only routine/background material it
-reads `Reference evidence only`. It does not list every child module on the
-first screen. Health Check, Recall Eval, Dogfood Review, Governance Hub,
+visible summary is content-aware: when there are findings it reads `Read-only
+findings and reference evidence`, and when there is only routine/background
+material it reads `Reference evidence only`. It does not list every child module
+on the first screen. Health Check, Recall Eval, Dogfood Review, Governance Hub,
 Context Pack Review, and Audit Trail stay nested under that evidence layer so
 the main path stays focused on action and review. The library is still fully
 local and auditable: each child panel keeps its `data-dashboard-detail` target,
