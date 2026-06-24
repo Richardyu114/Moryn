@@ -420,8 +420,8 @@ full status strip because they need first-screen attention.
 
 Directly below the health message, `Dashboard Overview` is the first-screen
 summary. It picks the most urgent derived Action Board item, keeps non-good
-overview cards visible in the main grid, and groups good cards under `Quiet
-Overview` so an all-clear dashboard does not spend the first screen on green
+overview cards visible in the main grid, and groups good cards under `Reference
+Cards` so an all-clear dashboard does not spend the first screen on green
 checks. The four derived cards for current health, next action, context, and
 sync still point back to source paths such as `health`,
 `action_board.items_by_id.review`, `context_pack_review`, or
@@ -438,7 +438,7 @@ next action. If there are no confirmations, warnings, or sync actions, the
 overview reads `All clear` while still offering an `Inspect checks` navigation
 button to the Governance Hub. If pending sync is the only action signal, the
 overview relies on its headline and primary button, then folds `Health`, `Next`,
-`Context`, and `Sync` cards into `Quiet Overview`, preserving the cards in
+`Context`, and `Sync` cards into `Reference Cards`, preserving the cards in
 `/api/dashboard.dashboard_overview.cards` without repeating the same warning on
 the first screen.
 
