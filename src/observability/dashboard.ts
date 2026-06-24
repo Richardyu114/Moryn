@@ -3711,9 +3711,9 @@ function contextPackReviewPanel(review: DashboardContextPackReview): string {
       <summary class="dashboard-fold-summary context-pack-review-fold">
         <span>Context Pack Review</span>
         <small>${escapeHtml(contextPackReviewSummary(review))}</small>
-        ${contextPackReadinessChips(review)}
       </summary>
       <div class="context-pack-review-body">
+        ${contextPackReadinessChips(review)}
         <div class="context-pack-heading">
           <h2>Context Pack Review</h2>
           <span>${escapeHtml(gate.status)}</span>

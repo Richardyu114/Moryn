@@ -749,11 +749,11 @@ host adapter `context_pack` operation. It records:
 When available, the panel is collapsed by default behind a handoff readiness
 summary. When the quality gate is `ready` with no failed checks or warnings, the
 folded row reads `Ready handoff context` instead of repeating the quality and
-evidence counts already visible in readiness chips. If no decisions, threads, or
-risks are present, the folded row keeps the useful exception as `Ready handoff
-context | no handoff evidence`. Expanding it shows the current goal, read-only
-boundary, quality checks, evidence paths, and context evidence. If checks need
-review, the panel can open by default so the problem stays visible.
+evidence counts or readiness chips. If no decisions, threads, or risks are
+present, the folded row keeps the useful exception as `Ready handoff context |
+no handoff evidence`. Expanding it shows readiness chips, the current goal,
+read-only boundary, quality checks, evidence paths, and context evidence. If
+checks need review, the panel can open by default so the problem stays visible.
 Inside the expanded panel, the `Quality Checks` child row reads
 `All quality checks passed` when there is no review work instead of repeating
 `passed | 0 review`; the detailed check list still carries each check, source,
@@ -785,7 +785,7 @@ command. The lower sections still expose the current goal, read-only boundary,
 quality checks, evidence paths, and context evidence for audit.
 
 Quality check coverage, context evidence counts, and required capture-action
-visibility remain visible in readiness chips and the expanded handoff brief. The
+visibility remain visible in expanded readiness chips and the handoff brief. The
 `Context Evidence` folded row reads `Handoff evidence available` when evidence
 exists, so the collapsed cockpit stays action-oriented instead of repeating
 decision, thread, and risk counts. When there are no decisions, open threads, or

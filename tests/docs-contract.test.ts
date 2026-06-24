@@ -164,11 +164,13 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("local_event_history");
     expectText(dashboard, "folded row reads `Ready handoff context`");
     expectText(dashboard, "instead of repeating the quality and evidence counts");
+    expectText(dashboard, "instead of repeating the quality and evidence counts or readiness chips");
     expectText(dashboard, "Ready handoff context | no handoff evidence");
+    expectText(dashboard, "Expanding it shows readiness chips");
     expectText(dashboard, "`Quality Checks` child row reads `All quality checks passed`");
     expectText(dashboard, "instead of repeating `passed | 0 review`");
     expectText(dashboard, "detailed check list still carries each check, source, and count");
-    expectText(dashboard, "Quality check coverage, context evidence counts, and required capture-action visibility remain visible");
+    expectText(dashboard, "Quality check coverage, context evidence counts, and required capture-action visibility remain visible in expanded readiness chips");
     expectText(dashboard, "`Context Evidence` folded row reads `Handoff evidence available`");
     expectText(dashboard, "expanded readiness brief still shows concrete decision, thread, and risk counts");
     expect(dashboard).toContain("does not guess a project");
