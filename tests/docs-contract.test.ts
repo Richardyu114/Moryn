@@ -95,6 +95,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "remain available inside the nested `Audit Trail` panel");
     expectText(dashboard, "folded row reads `Clean lifecycle and capture audits`");
     expectText(dashboard, "instead of listing the two clean child modules");
+    expectText(dashboard, "`Memory Lifecycle` folded row reads `No lifecycle work`");
+    expectText(dashboard, "instead of repeating `0 findings | 0 actions`");
     expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Operational Evidence`");
     expectText(dashboard, "row reads `Clean audits and store signals`");
     expectText(dashboard, "instead of listing child panel counts");

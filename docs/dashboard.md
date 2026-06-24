@@ -271,7 +271,9 @@ suggested actions, the dashboard groups them under a collapsed `Clean Audit
 Reports` summary inside `Audit Trail`. Its folded row reads `Clean lifecycle
 and capture audits` instead of listing the two clean child modules. The reports
 and their evidence remain in the expanded HTML and `/api/dashboard`; the
-grouping only reduces first-screen noise for clean checks.
+grouping only reduces first-screen noise for clean checks. The nested `Memory
+Lifecycle` folded row reads `No lifecycle work` when there are no findings or
+actions instead of repeating `0 findings | 0 actions`.
 
 When `--project-id <id>` or `--project <path>` is provided, the lifecycle report
 uses the same project scope as the CLI report: matching project records plus

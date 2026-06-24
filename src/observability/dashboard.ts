@@ -3429,6 +3429,16 @@ function lifecycleActions(report: MemoryLifecycleResult): string {
   `;
 }
 
+function memoryLifecycleFoldSummary(report: MemoryLifecycleResult): string {
+  const findings = report.findings.length;
+  const actions = report.suggested_actions.length;
+  if (findings === 0 && actions === 0) return "No lifecycle work";
+  return [
+    findings > 0 ? pluralize(findings, "finding") : undefined,
+    actions > 0 ? pluralize(actions, "action") : undefined
+  ].filter((part): part is string => Boolean(part)).join(" | ");
+}
+
 function memoryLifecyclePanel(report: MemoryLifecycleResult, panelClass = "panel"): string {
   const totalFindings = report.findings.length;
   const totalActions = report.suggested_actions.length;
@@ -3437,7 +3447,7 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult, panelClass = "panel
     <details class="${escapeHtml(panelClass)} memory-lifecycle" data-dashboard-detail="memory-lifecycle-audit" aria-label="Memory Lifecycle">
       <summary class="dashboard-fold-summary">
         <span>Memory Lifecycle</span>
-        <small>${escapeHtml(pluralize(totalFindings, "finding"))} | ${escapeHtml(pluralize(totalActions, "action"))}</small>
+        <small>${escapeHtml(memoryLifecycleFoldSummary(report))}</small>
       </summary>
       <div class="lifecycle-policy">
         <div>
