@@ -3045,9 +3045,11 @@ function dashboardWorkLanes(data: DashboardData): string {
     }
   ];
   const hasBlockingLanes = lanes.some((lane) => lane.severity === "warning" || lane.severity === "critical");
-  const activeLanes = hasBlockingLanes ? lanes : lanes.filter((lane) => lane.id === "evidence");
+  const activeLanes = hasBlockingLanes
+    ? lanes.filter((lane) => lane.severity === "warning" || lane.severity === "critical")
+    : lanes.filter((lane) => lane.id === "evidence");
   const defaultLanes = activeLanes;
-  const backgroundLanes = hasBlockingLanes ? [] : lanes.filter((lane) => lane.id !== "evidence");
+  const backgroundLanes = lanes.filter((lane) => !activeLanes.includes(lane));
   const backgroundLaneNames = backgroundLanes.map((lane) => lane.label);
   const backgroundLaneSummary = backgroundLaneNames.length <= 1
     ? `${backgroundLaneNames.join("")} is quiet`
