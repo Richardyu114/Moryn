@@ -156,7 +156,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "group write-boundary and evidence fields move behind a collapsed `Audit boundary` row");
     expectText(dashboard, "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group");
     expectText(dashboard, "`Record samples` renders only the first five full records per group and summarizes the remaining records as API evidence");
-    expectText(dashboard, "`Record samples` rows use short sample labels in their folded summaries");
+    expectText(dashboard, "`Record samples` rows use short sample labels plus record ids in their folded summaries");
     expectText(dashboard, "Overflow rows read `More samples` with `Full group available in API and Raw Store`");
     expectText(dashboard, "the exact `candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind `API evidence path`");
     expectText(dashboard, "Full candidate text remains inside the expanded sample body and `/api/dashboard`");

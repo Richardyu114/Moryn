@@ -3593,7 +3593,7 @@ function candidateTriageSummary(triage: DashboardCandidateTriage): string {
 
 function candidateTriageRecordSampleTitle(record: DashboardCandidateTriageRecord): string {
   const label = record.kind.replace(/[_-]+/g, " ");
-  return `${label.charAt(0).toUpperCase()}${label.slice(1)} sample`;
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)} sample ${record.id}`;
 }
 
 function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): string {
