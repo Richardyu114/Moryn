@@ -4040,7 +4040,10 @@ function maintenanceCommandDetail(plan: DashboardMaintenancePlan): string {
           <span>Full command</span>
           <small>copy button uses full command</small>
         </summary>
-        <code>${escapeHtml(plan.decision_card.raw_evidence.command)}</code>
+        <div class="maintenance-command-detail">
+          <code>${escapeHtml(plan.decision_card.raw_evidence.command)}</code>
+          <button type="button" data-maintenance-copy data-command="${escapeHtml(plan.command)}">Copy command</button>
+        </div>
       </details>
     </div>
   `;
@@ -4127,7 +4130,6 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 </details>
                 <div class="maintenance-actions">
                   <button type="button" data-maintenance-reject>Reject</button>
-                  <button type="button" data-maintenance-copy data-command="${escapeHtml(plan.command)}">Copy command</button>
                   <button
                     type="button"
                     class="primary"
@@ -7631,6 +7633,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       flex-wrap: wrap;
       gap: 5px;
       min-width: 0;
+    }
+    .maintenance-command-detail {
+      display: grid;
+      gap: 8px;
+      align-items: start;
+      min-width: 0;
+    }
+    .maintenance-command-detail button {
+      justify-self: start;
     }
     .maintenance-overflow-count {
       display: inline-flex;

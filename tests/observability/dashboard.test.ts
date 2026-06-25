@@ -3704,6 +3704,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Full command: 6 archive commands, copy button uses full command\">");
       expect(html).toContain("<span>Full command</span>");
       expect(html).toContain("<small>copy button uses full command</small>");
+      const commandSummaryStart = html.indexOf("<div class=\"maintenance-command-summary\">");
+      const commandSummaryEnd = html.indexOf("</div>", html.indexOf("</details>", commandSummaryStart));
+      const commandSummaryHtml = html.slice(commandSummaryStart, commandSummaryEnd);
+      expect(commandSummaryHtml).toContain("data-maintenance-copy");
+      expect(commandSummaryHtml).toContain("Copy command");
       expect(html).toContain("data-command=\"moryn archive rec_large_noise_7");
       expect(html).toContain("rec_large_noise_2 --reason");
     });
@@ -3866,7 +3871,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("moryn project migrate --from moryn --to repo-e6f0166fd942 --apply --confirm");
       expect(html).toContain("repo-e6f0166fd942");
       expect(html).toContain("Apply Repair");
-      expect(html).toContain("Copy command");
+      const actionsStart = html.indexOf("<div class=\"maintenance-actions\">");
+      const actionsEnd = html.indexOf("</div>", actionsStart);
+      const actionsHtml = html.slice(actionsStart, actionsEnd);
+      expect(actionsHtml).toContain("data-maintenance-reject");
+      expect(actionsHtml).toContain("data-maintenance-approve");
+      expect(actionsHtml).not.toContain("data-maintenance-copy");
+      expect(actionsHtml).not.toContain("Copy command");
       expect(html).toContain("No private records included");
       expect(html).toContain("Dry-run completed");
       expect(html).toContain("Operation appends revise_record events only");

@@ -312,6 +312,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("A compact `Approval checklist` fold");
     expect(dashboard).toContain("Before approving");
     expect(dashboard).toContain("approval surface reads like a decision checklist instead of internal logs");
+    expect(dashboard).toContain("The `Copy command` button lives inside");
+    expect(dashboard).toContain("keeping the visible action bar focused on `Reject` and the explicit");
     expect(dashboard).toContain("recommended action");
     expect(dashboard).toContain("rollback path");
     expect(contracts).toContain("decision_card");

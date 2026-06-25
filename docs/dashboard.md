@@ -346,8 +346,10 @@ for candidate cleanup, matched record count, state distribution, private record
 counts, safety checks, equivalent CLI command, record ids, and `plan_hash`.
 Large plans keep the raw details budgeted: the visible row shows the first few
 record ids plus an overflow count, while `All record ids` and `Full command`
-remain available behind nested folds. The `Copy command` button still carries
-the full command for the rendered plan.
+remain available behind nested folds. The `Copy command` button lives inside
+the `Full command` fold and still carries the full command for the rendered
+plan, keeping the visible action bar focused on `Reject` and the explicit
+approval button.
 
 Approving the card posts only the current `plan_hash` to:
 
