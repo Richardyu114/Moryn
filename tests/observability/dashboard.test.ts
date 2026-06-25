@@ -5260,8 +5260,12 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<h2>Capture Inbox</h2>");
       expect(html).not.toContain("<details class=\"capture-inbox-audit\" data-dashboard-detail=\"capture-inbox-audit\">");
       expect(html).toContain("<details class=\"panel capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Capture Policy Audit: 1 captured\">");
+      expect(html).toContain("<span>Policy Decision History</span>");
+      expect(html).toContain("<small>Routing evidence</small>");
+      expect(html).not.toContain("<span>Capture Policy Audit</span>");
       expect(html).not.toContain("Moryn Health Check needs attention | 1 warning");
-      expect(html).toContain("<small>1 captured</small>");
+      expect(html).not.toContain("<small>1 captured</small>");
       expect(html).not.toContain("<small>1 captured | 0 review | 0 archived</small>");
       expect(html).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Capture Audit: manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0\">");
       expect(html).not.toContain("<small>manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0</small>");

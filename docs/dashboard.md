@@ -164,7 +164,10 @@ line. Expanding it shows policy ids, grouping, stale protection, rule counts,
 and rule ids.
 When there are no active Capture Inbox candidates, the main `Capture Inbox`
 panel is not rendered; auto-captured and policy-archived handoff evidence stays
-under `Capture Policy Audit` inside the evidence path.
+under the stable `capture-policy-audit` route inside the evidence path. If that
+route only contains read-only routing evidence, the visible folded title reads
+`Policy Decision History` with `Routing evidence` instead of showing
+`Capture Policy Audit` plus a count.
 
 `Approve Memory` posts to:
 
@@ -290,10 +293,13 @@ actions instead of repeating `0 findings | 0 actions`; its child suggestions
 fold reads `Lifecycle suggestions` instead of a generic `Suggested actions` row.
 The nested `Capture Policy Audit` row follows the same rule: clean reports read
 `No capture policy work`, and non-zero summaries omit empty buckets such as
-`0 captured`. `Policy Decision History` opens with `Routing evidence`, while
-the accessible summary keeps `Read-only routing evidence`, so historical
-capture, review, and archive decisions read as audit history instead of another
-action queue.
+`0 captured`. When the report has no review work and only auto-captured or
+policy-archived evidence, the outer folded row reads `Policy Decision History`
+with `Routing evidence` while keeping the stable `capture-policy-audit` route.
+The expanded history still opens with `Policy Decision History` and keeps
+`Read-only routing evidence` in the accessible summary, so historical capture,
+review, and archive decisions read as audit history instead of another action
+queue.
 
 When `--project-id <id>` or `--project <path>` is provided, the lifecycle report
 uses the same project scope as the CLI report: matching project records plus

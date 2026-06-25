@@ -4574,8 +4574,16 @@ function capturePolicyAuditSummary(report: CapturePolicyResult): string {
   return parts.length > 0 ? parts.join(" | ") : "No capture policy work";
 }
 
+function isReadOnlyCapturePolicyEvidence(report: CapturePolicyResult): boolean {
+  return report.stats.review_records === 0
+    && (report.stats.auto_captured_records > 0 || report.stats.policy_archived_records > 0)
+    && (report.findings.length > 0 || report.suggested_actions.length > 0);
+}
+
 function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "panel"): string {
   if (report.stats.total_autocapture_records === 0) return "";
+  const readOnlyEvidence = isReadOnlyCapturePolicyEvidence(report);
+  const summaryText = capturePolicyAuditSummary(report);
   const capturedRuleSummary = Object.entries(report.stats.captured_by_rule)
     .map(([ruleId, count]) => `${ruleId}: ${count}`)
     .join(" / ") || "no auto-captured handoffs";
@@ -4584,9 +4592,9 @@ function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "pane
     .join(" / ") || "no archived noise";
   return `
     <details class="${escapeHtml(panelClass)} capture-policy-audit" data-dashboard-detail="capture-policy-audit" aria-label="Capture Policy Audit">
-      <summary class="dashboard-fold-summary">
-        <span>Capture Policy Audit</span>
-        <small>${escapeHtml(capturePolicyAuditSummary(report))}</small>
+      <summary class="dashboard-fold-summary"${readOnlyEvidence ? ` aria-label="Capture Policy Audit: ${escapeHtml(summaryText)}"` : ""}>
+        <span>${escapeHtml(readOnlyEvidence ? "Policy Decision History" : "Capture Policy Audit")}</span>
+        <small>${escapeHtml(readOnlyEvidence ? "Routing evidence" : summaryText)}</small>
       </summary>
       <div class="lifecycle-policy">
         <div>
