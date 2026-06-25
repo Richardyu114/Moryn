@@ -391,10 +391,10 @@ background governance index instead of a second approval surface.
 Governance items render as compact expandable decision rows. When any item
 requires user confirmation, Governance Hub stays directly visible. When it only
 contains safe read-only inspections, the whole hub is collapsed behind a compact
-summary whose row reads `Read-only governance checks` instead of repeating a
-safe-check count. Safe read-only inspections are grouped under a collapsed `Safe
-Inspections` row whose summary reads `Background checks, read-only`, so the nested row
-explains its purpose instead of repeating the Governance Hub count; expanding it
+summary whose row reads `Reference checks` instead of repeating a safe-check
+count. Safe read-only inspections are grouped under a collapsed `Reference
+Checks` row whose summary reads `Read-only, no writes`, while keeping the stable
+`governance-safe-inspections` route for local navigation and tests. Expanding it
 still shows the concrete safe-check count plus compact inspection rows with
 readable source labels, title, and read-only next step.
 Safe inspection rows keep detection, next step, write boundary, and evidence
