@@ -3720,7 +3720,8 @@ describe("observability dashboard", () => {
       const noiseBriefStart = html.indexOf("<div class=\"maintenance-brief\" data-maintenance-brief>");
       const noiseBriefEnd = html.indexOf("</div>\n    </div>", noiseBriefStart);
       const noiseBriefHtml = html.slice(noiseBriefStart, noiseBriefEnd);
-      expect(noiseBriefHtml).toContain("<h4>Approval summary</h4>");
+      expect(noiseBriefHtml).toContain("<h4>Confirm preview</h4>");
+      expect(noiseBriefHtml).not.toContain("<h4>Approval summary</h4>");
       expect(noiseBriefHtml).toContain("<span>Archive 3 candidates</span>");
       expect(noiseBriefHtml).toContain("<span>Marker noise</span>");
       expect(noiseBriefHtml).toContain("<span>Plan hash checked</span>");
@@ -3922,7 +3923,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("Project identity repair");
       expect(html).toContain("data-maintenance-decision-summary");
       expect(html).toContain("data-maintenance-brief");
-      expect(html).toContain("<h4>Approval summary</h4>");
+      expect(html).toContain("<h4>Confirm preview</h4>");
       expect(html).toContain("<span>Move 1 record</span>");
       expect(html).toContain("<span>Plan hash checked</span>");
       expect(html).toContain("<span>No private records included</span>");
@@ -3935,6 +3936,7 @@ describe("observability dashboard", () => {
       const repairBriefEnd = html.indexOf("</div>\n    </div>", repairBriefStart);
       const repairBriefHtml = html.slice(repairBriefStart, repairBriefEnd);
       expect(repairBriefHtml).not.toContain("<h4>Decision brief</h4>");
+      expect(repairBriefHtml).not.toContain("<h4>Approval summary</h4>");
       expect(repairBriefHtml).not.toContain("This repair would relink 1 record from <code>repo-e6f0166fd942</code> to <code>moryn</code>.");
       expect(repairBriefHtml).not.toContain("Approval is explicit: the server re-runs the dry run and checks the same <code>plan_hash</code> before writing.");
       expect(repairBriefHtml).not.toContain("<dl class=\"maintenance-outcome\" data-maintenance-outcome>");
@@ -4646,10 +4648,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("1 candidate");
       expect(html).toContain("Codex finished Capture Inbox planning.");
       expect(html).toContain("data-capture-inbox-brief");
-      expect(html).toContain("<h4>Review summary</h4>");
+      expect(html).toContain("<h4>Confirm preview</h4>");
       expect(html).toContain("<span>Captured through Moryn host adapter autocapture.</span>");
       expect(html).toContain("<span>Approve appends memory</span>");
       expect(html).toContain("<span>Reject appends archive</span>");
+      expect(html).toContain("data-capture-inbox-group-brief");
+      expect(html).toContain("<span>Approve Group appends memory</span>");
+      expect(html).toContain("<span>Reject Group appends archive</span>");
+      expect(html).not.toContain("<h4>Review summary</h4>");
       expect(html).not.toContain("<h4>Decision brief</h4>");
       expect(html).not.toContain("Needs review because: Captured through Moryn host adapter autocapture.");
       expect(html).not.toContain("Approve Memory promotes this candidate to canonical memory with an append-only user event.");

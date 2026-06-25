@@ -3930,8 +3930,8 @@ function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
   const target = plan.type === "candidate_noise_archive" ? "Marker noise" : maintenanceChangeDetail(plan);
   return `
     <div class="maintenance-brief" data-maintenance-brief>
-      <h4>Approval summary</h4>
-      <div class="maintenance-brief-chips" aria-label="Approval summary">
+      <h4>Confirm preview</h4>
+      <div class="maintenance-brief-chips" aria-label="Confirm preview">
         <span>${escapeHtml(change)}</span>
         <span>${escapeHtml(target)}</span>
         <span>Plan hash checked</span>
@@ -4867,11 +4867,24 @@ function captureInboxDecisionBrief(item: DashboardCaptureInboxItem): string {
   const reason = item.provenance_reason ?? "Candidate memory is waiting for review.";
   return `
     <div class="capture-inbox-brief" data-capture-inbox-brief>
-      <h4>Review summary</h4>
-      <div class="capture-inbox-brief-chips" aria-label="Capture Inbox review summary">
+      <h4>Confirm preview</h4>
+      <div class="capture-inbox-brief-chips" aria-label="Confirm preview">
         <span>${escapeHtml(reason)}</span>
         <span>Approve appends memory</span>
         <span>Reject appends archive</span>
+      </div>
+    </div>
+  `;
+}
+
+function captureInboxGroupBrief(group: DashboardCaptureInboxGroup): string {
+  return `
+    <div class="capture-inbox-brief" data-capture-inbox-group-brief>
+      <h4>Confirm preview</h4>
+      <div class="capture-inbox-brief-chips" aria-label="Confirm preview">
+        <span>${escapeHtml(pluralize(group.total, "candidate"))}</span>
+        <span>Approve Group appends memory</span>
+        <span>Reject Group appends archive</span>
       </div>
     </div>
   `;
@@ -4916,6 +4929,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
               </div>
               <span class="pill ${group.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(group.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
             </div>
+            ${captureInboxGroupBrief(group)}
             <details class="capture-inbox-context" data-dashboard-detail="capture-inbox-context:${escapeHtml(group.id)}">
               <summary>Review context</summary>
               <dl class="capture-inbox-summary" data-capture-inbox-group-summary>

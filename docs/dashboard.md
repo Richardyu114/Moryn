@@ -126,9 +126,9 @@ Capture Inbox group metadata such as Source, Project, Items, and Captured is
 folded behind `Review context`, so the first group card stays focused on the
 source, short summary, noise signal, and explicit group actions.
 
-Each candidate detail row starts with a compact `Review summary` chip row so the
-user can see why it entered manual review and the append-only approve/reject
-boundary before reading trace details.
+Group cards and candidate detail rows start with a compact `Confirm preview`
+chip row so the user can see the candidate count or review reason plus the
+append-only approve/reject boundary before reading trace details.
 
 The same card still shows:
 
@@ -313,7 +313,7 @@ The approval card is a human-readable decision card. The queue is collapsed by
 default behind a short confirmation summary that reads `Approval required`
 instead of repeating decision and record counts. Counts remain in Pending
 Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`.
-Expanding it first shows a compact `Approval summary` chip row so the user can
+Expanding it first shows a compact `Confirm preview` chip row so the user can
 see the proposed change, target, `plan_hash` gate, and private-record scope
 without reading raw event language or an outcome table.
 

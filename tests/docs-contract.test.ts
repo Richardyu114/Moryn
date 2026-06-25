@@ -217,8 +217,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`");
-    expectText(dashboard, "Each candidate detail row starts with a compact `Review summary` chip row");
-    expectText(dashboard, "why it entered manual review and the append-only approve/reject boundary");
+    expectText(dashboard, "Group cards and candidate detail rows start with a compact `Confirm preview` chip row");
+    expectText(dashboard, "candidate count or review reason plus the append-only approve/reject boundary");
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
     expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut reads `Open info checks` instead of `Review warnings`");
     expectText(dashboard, "The collapsed `Page Shortcuts` summary still stays count-free");
@@ -337,7 +337,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("decision card");
     expect(dashboard).toContain("short confirmation summary that reads `Approval required`");
     expectText(dashboard, "Counts remain in Pending Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`");
-    expect(dashboard).toContain("compact `Approval summary` chip row");
+    expect(dashboard).toContain("compact `Confirm preview` chip row");
     expect(dashboard).toContain("proposed change, target, `plan_hash` gate, and private-record scope");
     expect(dashboard).toContain("without reading raw event language or an outcome table");
     expect(dashboard).toContain("The structured decision summary is folded behind `Decision summary`");
