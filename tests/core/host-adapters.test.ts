@@ -182,6 +182,35 @@ describe("host adapters", () => {
     });
   });
 
+  it("auto-captures verified implementation handoffs that mention smoke checks as evidence", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      await mkdir(projectPath, { recursive: true });
+      await initializeProjectConfig(projectPath, { project_id: "moryn" });
+
+      const result = await captureSession({
+        storePath,
+        projectPath,
+        summary: "Autocapture policy slice completed. Added regression tests for dashboard review-control wording, ran focused CLI smoke, host-adapters tests, typecheck, build, release check, pushed commit, and restarted dashboard.",
+        agent: { client: "codex", session_id: "verified-tests-1" },
+        currentTask: "autocapture policy"
+      });
+
+      expect(result.record.state).toBe("candidate");
+      expect(result.record.tags).toEqual(expect.arrayContaining(["autocapture", "auto-captured", "host:codex"]));
+      expect(result.record.tags).not.toContain("policy-archived");
+      expect(result.record.tags).not.toContain("review");
+      expect(result.policy_decision).toMatchObject({
+        decision: "capture",
+        route: "auto_capture",
+        review_required: false,
+        user_action_required: false,
+        dashboard_surface: "handoff",
+        rule_ids: ["low_risk_handoff_auto_capture"]
+      });
+    });
+  });
+
   it("keeps verified handoffs with explicit durable decisions in Capture Inbox review", async () => {
     await withInitializedTempStore(async (storePath) => {
       const projectPath = join(storePath, "project");

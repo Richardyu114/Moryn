@@ -135,11 +135,12 @@ function hasExplicitUserReviewMarker(searchable: string): boolean {
 
 export function evaluateAutocapturePolicy(input: AutocapturePolicyInput): AutocapturePolicyResult {
   const searchable = `${input.summary} ${input.current_task ?? ""}`.toLowerCase();
+  const verifiedImplementationHandoff = isVerifiedImplementationHandoff(searchable);
   const ruleIds: AutocapturePolicyRuleId[] = [];
   const reasons: string[] = [];
   const duplicate = duplicateAutocaptureRecord(input);
 
-  if (/\b(smoke|test|fixture|e2e|marker)\b/.test(searchable)) {
+  if (!verifiedImplementationHandoff && /\b(smoke|test|fixture|e2e|marker)\b/.test(searchable)) {
     ruleIds.push("smoke_test_marker");
     reasons.push("smoke_test_marker");
   }

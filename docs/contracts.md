@@ -115,12 +115,13 @@ stable evidence paths such as `sections.boot.project.important_decisions[]`,
 host provenance. Low-risk handoffs use `decision: "capture"` and remain local
 handoff evidence without requiring a user click. Completed implementation
 handoffs that mention dashboard review controls can still use this path when
-they also report verification. Explicit durable decisions, risks, blockers,
-credentials, permissions, canonical promotion, destructive actions, or approval
-language use `decision: "review"` and enter Capture Inbox as candidates.
-Obvious smoke/test or duplicate captures use `decision: "archive"` and are
-archived with policy evidence. The policy never makes canonical memory
-automatically.
+they also report verification; smoke/test language used as verification
+evidence does not make the handoff noise by itself. Explicit durable decisions,
+risks, blockers, credentials, permissions, canonical promotion, destructive
+actions, or approval language use `decision: "review"` and enter Capture Inbox
+as candidates. Obvious smoke/test or duplicate captures use `decision:
+"archive"` and are archived with policy evidence. The policy never makes
+canonical memory automatically.
 
 The timeline read operation is available through the same registry:
 

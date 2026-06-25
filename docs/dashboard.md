@@ -212,15 +212,16 @@ The rule id appears next to the signal so the suggestion stays explainable.
 capture reaches the inbox. Low-risk handoffs use `decision: "capture"` and are
 retained for context packs without user review or canonical promotion.
 Completed implementation handoffs that mention dashboard review controls can
-still stay on this path when they also report verification. Handoffs containing
-explicit durable decisions, risks, blockers, credentials, permissions,
-canonical promotion, destructive actions, or approval language use `decision:
-"review"` and enter Capture Inbox as reviewable candidates. Obvious smoke/test
-or duplicate captures use `decision: "archive"` and are policy-archived
-immediately with append-only record evidence, so the user does not have to click
-through routine noise. The dashboard shows auto-captured and archived counts,
-rule ids, and recent examples under the Autocapture Policy summary. The policy
-never promotes anything to canonical memory automatically.
+still stay on this path when they also report verification; smoke/test language
+used as verification evidence does not make the handoff noise by itself.
+Handoffs containing explicit durable decisions, risks, blockers, credentials,
+permissions, canonical promotion, destructive actions, or approval language use
+`decision: "review"` and enter Capture Inbox as reviewable candidates. Obvious
+smoke/test or duplicate captures use `decision: "archive"` and are
+policy-archived immediately with append-only record evidence, so the user does
+not have to click through routine noise. The dashboard shows auto-captured and
+archived counts, rule ids, and recent examples under the Autocapture Policy
+summary. The policy never promotes anything to canonical memory automatically.
 
 ### Capture Policy Audit
 
