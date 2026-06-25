@@ -672,7 +672,7 @@ Signals`, and `Recent Value` are grouped under `Operational Evidence`, whose
 row reads `Clean audits and store signals` instead of listing child panel
 counts. `Operational Evidence` is collapsed by default inside `Audit Trail`,
 and `Store Signals` and `Recent Value` are nested under a collapsed
-`Operational Snapshots` row, while the raw `Debug Inspector` is grouped behind
+`Store Snapshot` row, while the raw `Debug Inspector` is grouped behind
 `Raw Inspector`. This keeps
 common audit evidence closer to the user while keeping record/event/sync
 internals available without placing them at the same level. Nested evidence
