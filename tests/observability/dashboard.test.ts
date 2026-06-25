@@ -3959,6 +3959,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("Approve Group");
       expect(html).toContain("Reject Group");
       expect(html).toContain("Likely noise");
+      expect(html).toContain("<details class=\"capture-inbox-context\" data-dashboard-detail=\"capture-inbox-context:");
+      expect(html).toContain("<summary>Review context</summary>");
+      expect(html.indexOf("<summary>Review context</summary>")).toBeLessThan(
+        html.indexOf("<dl class=\"capture-inbox-summary\" data-capture-inbox-group-summary>")
+      );
       expect(html).toContain("Smoke test marker only.");
       expect(html).toContain(`<details class="capture-inbox-item" data-capture-inbox-record="${secondCodex.record.id}">`);
       expect(html).toContain("<summary class=\"capture-inbox-item-summary\">");

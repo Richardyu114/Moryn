@@ -4666,12 +4666,15 @@ function captureInbox(items: DashboardCaptureInbox): string {
               </div>
               <span class="pill ${group.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(group.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
             </div>
-            <dl class="capture-inbox-summary">
-              <div><dt>Source</dt><dd>${escapeHtml(group.source_label)}<small>${escapeHtml(group.source_detail)}</small></dd></div>
-              <div><dt>Project</dt><dd><code>${escapeHtml(group.project_id ?? "global")}</code></dd></div>
-              <div><dt>Items</dt><dd>${escapeHtml(pluralize(group.total, "candidate"))}<small>${escapeHtml(group.noise.suggested_action)} suggested</small></dd></div>
-              <div><dt>Captured</dt><dd><time title="${escapeHtml(group.latest_at)}">${escapeHtml(group.relative_time)}</time></dd></div>
-            </dl>
+            <details class="capture-inbox-context" data-dashboard-detail="capture-inbox-context:${escapeHtml(group.id)}">
+              <summary>Review context</summary>
+              <dl class="capture-inbox-summary" data-capture-inbox-group-summary>
+                <div><dt>Source</dt><dd>${escapeHtml(group.source_label)}<small>${escapeHtml(group.source_detail)}</small></dd></div>
+                <div><dt>Project</dt><dd><code>${escapeHtml(group.project_id ?? "global")}</code></dd></div>
+                <div><dt>Items</dt><dd>${escapeHtml(pluralize(group.total, "candidate"))}<small>${escapeHtml(group.noise.suggested_action)} suggested</small></dd></div>
+                <div><dt>Captured</dt><dd><time title="${escapeHtml(group.latest_at)}">${escapeHtml(group.relative_time)}</time></dd></div>
+              </dl>
+            </details>
             <details data-dashboard-detail="capture-group:${escapeHtml(group.id)}">
               <summary>Group details</summary>
               <dl>
@@ -7094,6 +7097,19 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       box-shadow: 0 8px 18px rgba(21, 25, 30, 0.04);
     }
     .capture-inbox-items { margin-top: 10px; }
+    .capture-inbox-context {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin: 0 0 10px;
+      background: var(--surface-2);
+    }
+    .capture-inbox-context[open] > summary { margin-bottom: 8px; }
+    .capture-inbox-context summary {
+      color: var(--ink);
+      font-weight: 720;
+    }
+    .capture-inbox-context .capture-inbox-summary { margin-bottom: 0; }
     .capture-inbox-item { background: var(--surface); }
     .capture-inbox-item[open] > summary { margin-bottom: 10px; }
     .capture-inbox-item-summary {

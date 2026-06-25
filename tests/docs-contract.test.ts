@@ -165,6 +165,7 @@ describe("documentation contracts", () => {
     expectText(contracts, "`memory_doctor` findings remain read-only dashboard governance inspections");
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
+    expectText(dashboard, "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`");
     expectText(dashboard, "zero-count buckets are hidden from the collapsed summary");
     expectText(dashboard, "zero-value `good` targets are grouped under `Reference Checks`");
     expectText(dashboard, "`Reference Checks` opens with `Quiet navigation checks`");

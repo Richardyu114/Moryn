@@ -114,6 +114,9 @@ candidate details inside each group, but the first read is "which group should I
 approve or reject?" rather than "click every event." Group cards keep Approve
 Group and Reject Group on the visible path; individual Approve Memory and Reject
 buttons stay available only after opening a candidate detail row.
+Capture Inbox group metadata such as Source, Project, Items, and Captured is
+folded behind `Review context`, so the first group card stays focused on the
+source, short summary, noise signal, and explicit group actions.
 
 Each candidate detail row starts with a compact `Decision brief` so the user can
 tell why it needs review and what each action does before reading trace details:
