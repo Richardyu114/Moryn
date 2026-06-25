@@ -2140,9 +2140,22 @@ describe("observability dashboard", () => {
           source: { client: "codex", session_id: "debug-budget" }
         });
       }
+      const noisySummaryRecord = await engine.write({
+        kind: "memory",
+        type: "artifact",
+        scope: "project",
+        project_id: "moryn",
+        content: {
+          text: "base64 IyBSZW53ZWkgV3JpdGluZyDigJQgTGljZW5zZQoKQ29weXJpZ2h0IChjKSAyMDI2 very long encoded artifact payload that should stay out of the folded Record Index summary.",
+          format: "text"
+        },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex", session_id: "debug-budget" }
+      });
 
       const data = await buildDashboardData(storePath, {
-        limit: 12,
+        limit: 13,
         project_id: "moryn",
         now: "2026-06-21T00:00:00.000Z"
       });
@@ -2151,21 +2164,31 @@ describe("observability dashboard", () => {
       const debugEnd = html.indexOf("</main>", debugStart);
       const debugHtml = html.slice(debugStart, debugEnd);
 
-      expect(data.recent_records).toHaveLength(12);
-      expect(data.recent_events).toHaveLength(12);
+      expect(data.recent_records).toHaveLength(13);
+      expect(data.recent_events).toHaveLength(13);
+      expect(debugHtml).toContain(`data-dashboard-detail="record:${noisySummaryRecord.record.id}"`);
+      const noisyRecordStart = debugHtml.indexOf(`data-dashboard-detail="record:${noisySummaryRecord.record.id}"`);
+      const noisyRecordEnd = debugHtml.indexOf("</summary>", noisyRecordStart);
+      const noisyRecordSummary = debugHtml.slice(noisyRecordStart, noisyRecordEnd);
+      expect(noisyRecordSummary).toContain("Memory artifact");
+      expect(noisyRecordSummary).toContain("Codex");
+      expect(noisyRecordSummary).not.toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
+      expect(debugHtml).toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
       expect(debugHtml.match(/data-dashboard-detail="record:rec_debug_budget_/g)).toHaveLength(10);
       expect(debugHtml.match(/data-dashboard-detail="event:evt_debug_budget_/g)).toHaveLength(10);
       expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_debug_budget_12\"");
-      expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_debug_budget_3\"");
+      expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_debug_budget_4\"");
+      expect(debugHtml).not.toContain("data-dashboard-detail=\"record:rec_debug_budget_3\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"record:rec_debug_budget_2\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"record:rec_debug_budget_1\"");
       expect(debugHtml).toContain("data-dashboard-detail=\"event:evt_debug_budget_12\"");
-      expect(debugHtml).toContain("data-dashboard-detail=\"event:evt_debug_budget_3\"");
+      expect(debugHtml).toContain("data-dashboard-detail=\"event:evt_debug_budget_4\"");
+      expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_3\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_2\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_1\"");
-      expect(debugHtml).toContain("<span class=\"debug-inspector-overflow-count\">2 more records kept in /api/dashboard</span>");
+      expect(debugHtml).toContain("<span class=\"debug-inspector-overflow-count\">3 more records kept in /api/dashboard</span>");
       expect(debugHtml).toContain("<code>recent_records</code>");
-      expect(debugHtml).toContain("<span class=\"debug-inspector-overflow-count\">2 more events kept in /api/dashboard</span>");
+      expect(debugHtml).toContain("<span class=\"debug-inspector-overflow-count\">3 more events kept in /api/dashboard</span>");
       expect(debugHtml).toContain("<code>recent_events</code>");
     });
   });

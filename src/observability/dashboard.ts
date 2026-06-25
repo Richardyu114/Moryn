@@ -4784,7 +4784,7 @@ function recordsTable(records: DashboardRecordSummary[]): string {
       <td><time title="${escapeHtml(record.updated_at)}">${escapeHtml(record.updated_at)}</time></td>
       <td>
         <details data-dashboard-detail="record:${escapeHtml(record.id)}">
-          <summary>${escapeHtml(shortText(record.text))}</summary>
+          <summary>${recordIndexSummary(record)}</summary>
           ${textExcerptBlock(record.text)}
           ${citationCommands(record.citation)}
         </details>
@@ -4810,6 +4810,13 @@ function recordsTable(records: DashboardRecordSummary[]): string {
       </table>
     </div>
     ${overflow > 0 ? debugInspectorOverflow(overflow, "record", "recent_records") : ""}
+  `;
+}
+
+function recordIndexSummary(record: DashboardRecordSummary): string {
+  return `
+    <span>${escapeHtml(`${titleCase(record.kind)} ${record.type}`)}</span>
+    <small>${escapeHtml(humanSourceLabel(record.source))}</small>
   `;
 }
 
