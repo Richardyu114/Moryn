@@ -75,6 +75,12 @@ Server endpoints:
   `plan_hash`.
 - `GET /healthz` returns a lightweight health response for deployment checks.
 
+Concurrent `GET /`, `GET /fragment`, and `GET /api/dashboard` requests share
+the same in-flight dashboard data build. After that build settles, the next
+read request rebuilds from the local store again, so refreshes still see new
+append-only events without multiplying one expensive snapshot across several
+simultaneous browser/API reads.
+
 The browser refreshes from `fragment` on the configured interval. The refresh
 URL is relative so the dashboard can also work behind a reverse proxy path such
 as `/moryn-dashboard/`.
@@ -597,6 +603,9 @@ critical signals, the quiet review shortcut reads `Open info checks` instead of
 `Review warnings`. The collapsed `Page Shortcuts` summary still stays
 count-free; the non-zero sync count remains visible on the expanded shortcut
 card and in `/api/dashboard.action_board`.
+When `Pending Decisions` is already rendered, expanded `Page Shortcuts` does not
+repeat the non-zero `Confirm` card; `/api/dashboard.action_board.items_by_id.confirm`
+still keeps the route and count for agents.
 When no approval queue is rendered, the `Confirm` card points to `Needs
 Attention` as a stable zero-state target. If a target sits inside another
 collapsed detail panel, the dashboard opens the parent panels before scrolling.

@@ -2837,6 +2837,10 @@ function isActiveActionBoardItem(item: DashboardActionBoardItem): boolean {
   return item.value > 0 || item.severity !== "good";
 }
 
+function isDuplicatedDecisionShortcut(item: DashboardActionBoardItem): boolean {
+  return item.id === "confirm" && item.value > 0;
+}
+
 function actionBoardItemButton(item: DashboardActionBoardItem, dataAttribute = "data-action-board-item"): string {
   const hint = item.hint === item.next_action_label ? "" : `<small>${escapeHtml(item.hint)}</small>`;
   return `
@@ -2866,8 +2870,9 @@ function actionBoardQuietTargets(items: DashboardActionBoardItem[]): string {
 }
 
 function actionBoard(data: DashboardActionBoard): string {
-  const activeItems = data.items.filter(isActiveActionBoardItem);
-  const quietItems = data.items.filter((item) => !isActiveActionBoardItem(item));
+  const shortcutItems = data.items.filter((item) => !isDuplicatedDecisionShortcut(item));
+  const activeItems = shortcutItems.filter(isActiveActionBoardItem);
+  const quietItems = shortcutItems.filter((item) => !isActiveActionBoardItem(item));
   return `
     <details class="action-board action-board-secondary" aria-label="Page Shortcuts" data-dashboard-detail="action-board" data-action-board-nav>
       <summary class="dashboard-fold-summary action-board-fold">
@@ -7804,6 +7809,18 @@ export function renderDashboardFragment(data: DashboardData): string {
   return renderDashboardBody(data);
 }
 
+export function createDashboardDataLoader<T>(build: () => Promise<T>): { load: () => Promise<T> } {
+  let inFlight: Promise<T> | undefined;
+  return {
+    load: () => {
+      inFlight ??= build().finally(() => {
+        inFlight = undefined;
+      });
+      return inFlight;
+    }
+  };
+}
+
 export async function writeDashboardSnapshot(storePath: string, options: DashboardOptions = {}): Promise<DashboardSnapshot> {
   const outputPath = join(storePath, "state", "dashboard", "index.html");
   const data = await buildDashboardData(storePath, options);
@@ -8047,6 +8064,11 @@ export async function startDashboardServer(storePath: string, options: Dashboard
   const refreshIntervalMs = dashboardRefreshInterval(options.refreshIntervalMs);
   const limit = dashboardLimit(options.limit);
   const includePrivate = options.include_private;
+  const dashboardDataLoader = createDashboardDataLoader(() => buildDashboardData(storePath, {
+    limit,
+    include_private: includePrivate,
+    project_id: options.project_id
+  }));
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${requestedPort}`}`);
     const includeBody = request.method !== "HEAD";
@@ -8114,17 +8136,17 @@ export async function startDashboardServer(storePath: string, options: Dashboard
         return;
       }
       if (url.pathname === "/" || url.pathname === "/index.html") {
-        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate, project_id: options.project_id });
+        const data = await dashboardDataLoader.load();
         sendResponse(response, 200, renderDashboardServerHtml(data, refreshIntervalMs), "text/html; charset=utf-8", includeBody);
         return;
       }
       if (url.pathname === "/fragment") {
-        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate, project_id: options.project_id });
+        const data = await dashboardDataLoader.load();
         sendResponse(response, 200, renderDashboardFragment(data), "text/html; charset=utf-8", includeBody);
         return;
       }
       if (url.pathname === "/api/dashboard") {
-        const data = await buildDashboardData(storePath, { limit, include_private: includePrivate, project_id: options.project_id });
+        const data = await dashboardDataLoader.load();
         sendResponse(response, 200, JSON.stringify(data), "application/json; charset=utf-8", includeBody);
         return;
       }

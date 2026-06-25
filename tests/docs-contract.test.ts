@@ -53,6 +53,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("moryn dashboard --serve --host 0.0.0.0 --port 8765");
     expect(dashboard).toContain("GET /fragment");
     expect(dashboard).toContain("GET /api/dashboard");
+    expectText(dashboard, "Concurrent `GET /`, `GET /fragment`, and `GET /api/dashboard` requests share the same in-flight dashboard data build");
+    expectText(dashboard, "After that build settles, the next read request rebuilds from the local store again");
     expect(dashboard).toContain("actions_by_id");
     expect(dashboard).toContain("decision_summary");
     expect(dashboard).toContain("recall_eval");
@@ -212,6 +214,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "zero-value `good` targets are grouped under `Quiet Shortcuts` while keeping the stable `action-board-quiet-targets` route");
     expectText(dashboard, "`Quiet Shortcuts` opens with `Background section links`");
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
+    expectText(dashboard, "When `Pending Decisions` is already rendered, expanded `Page Shortcuts` does not repeat the non-zero `Confirm` card");
+    expectText(dashboard, "`/api/dashboard.action_board.items_by_id.confirm` still keeps the route and count for agents");
     expectText(dashboard, "When `items[].hint` repeats the visible next-action label");
     expectText(dashboard, "instead of rendering duplicate footer text");
     expectText(dashboard, "The visible Evidence Library title is `Read-only Evidence`, while the stable route remains `data-dashboard-detail=\"evidence-library\"`");

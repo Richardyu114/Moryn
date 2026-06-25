@@ -9,6 +9,7 @@ import { initializeStore } from "../../src/core/config.js";
 import { readEvents } from "../../src/core/store.js";
 import {
   buildDashboardData,
+  createDashboardDataLoader,
   renderDashboardHtml,
   startDashboardServer,
   writeDashboardSnapshot
@@ -19,6 +20,32 @@ import { withTempStore } from "../helpers/temp-store.js";
 const exec = promisify(execFile);
 
 describe("observability dashboard", () => {
+  it("reuses an in-flight dashboard data build for concurrent server reads", async () => {
+    let calls = 0;
+    let release: ((value: { generation: number }) => void) | undefined;
+    const loader = createDashboardDataLoader(async () => {
+      calls += 1;
+      return await new Promise<{ generation: number }>((resolve) => {
+        release = resolve;
+      });
+    });
+
+    const first = loader.load();
+    const second = loader.load();
+    expect(calls).toBe(1);
+
+    release?.({ generation: 1 });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { generation: 1 },
+      { generation: 1 }
+    ]);
+
+    const third = loader.load();
+    expect(calls).toBe(2);
+    release?.({ generation: 2 });
+    await expect(third).resolves.toEqual({ generation: 2 });
+  });
+
   it("summarizes sync status, recent records, events, and agent activity", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
@@ -4526,8 +4553,11 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Capture Inbox");
-      expect(html).toContain("<button type=\"button\" class=\"action-board-item warning\" data-action-board-item=\"confirm\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\">");
-      expect(html).toContain("<em class=\"action-board-next\">Review decisions</em>");
+      expect(data.action_board.items_by_id.confirm).toMatchObject({
+        value: 1,
+        target: "decision-summary",
+        next_action_label: "Review decisions"
+      });
       expect(html).toContain("<section id=\"decision-summary\" class=\"panel decision-summary\" data-dashboard-detail=\"decision-summary\" aria-label=\"Decision Summary\">");
       expect(html).toContain("<h2>Pending Decisions</h2>");
       expect(html).toContain("Review 1 explicit approval before any memory write.");
@@ -4546,6 +4576,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-decision-summary-item=\"capture_inbox:");
       expect(html).toContain("data-action-board-target=\"capture-inbox\"");
       expect(html).not.toContain("data-dashboard-action-id=\"decision_summary");
+      const shortcutsStart = html.indexOf("data-dashboard-detail=\"action-board\"");
+      const shortcutsEnd = html.indexOf("data-dashboard-detail=\"evidence-library\"", shortcutsStart);
+      const shortcutsHtml = html.slice(shortcutsStart, shortcutsEnd);
+      expect(shortcutsHtml).not.toContain("data-action-board-item=\"confirm\"");
+      expect(shortcutsHtml).not.toContain("data-action-board-quiet-item=\"confirm\"");
+      expect(shortcutsHtml).not.toContain("<em class=\"action-board-next\">Review decisions</em>");
+      expect(shortcutsHtml).toContain("data-action-board-quiet-item=\"inspect\"");
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("data-action-board-nav"));
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"needs-attention\""));
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"capture-inbox\""));
