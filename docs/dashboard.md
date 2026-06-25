@@ -418,7 +418,7 @@ When backlog exists, `candidate_triage` groups active candidate records into
 `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`. The
 visible `Candidate Triage` panel stays collapsed by default inside Evidence
 Library rather than the main review path. `Candidate Triage` is grouped under
-`Read-only Findings` in the Evidence Library, and its folded row reads
+`Reference Findings` in the Evidence Library, and its folded row reads
 `Read-only candidate backlog` instead of repeating a candidate count. Expanding
 the panel shows candidate and group counts plus read-only next steps;
 shown-record counts stay in `/api/dashboard` and the nested `Record samples`
@@ -666,15 +666,15 @@ routine informational checks look like user work.
 Read-only diagnostic detail lives in the collapsed evidence layer. The visible
 Evidence Library title is `Read-only Evidence`, while the stable route remains
 `data-dashboard-detail="evidence-library"`. Its visible summary is
-content-aware: when there are findings it reads `Findings and references`
-while the accessible summary keeps `Read-only findings and reference evidence`;
+content-aware: when there are findings it reads `Reference material`
+while the accessible summary keeps `Read-only reference material`;
 when there is only routine/background material it reads `Reference evidence only`.
 It does not list every child module on the first screen. When expanded, it starts
-with a compact `Evidence routes` bar for `Findings`, `Diagnostics`, and `Audit`
+with a compact `Evidence index` bar for `Findings`, `Diagnostics`, and `Audit`
 so users can choose a route before reading nested panels. The route bar renders
 local buttons that reuse the
-existing `data-action-board-target` behavior: `Findings` opens `Read-only
-Findings` when findings exist and otherwise stays on `Evidence Library`,
+existing `data-action-board-target` behavior: `Findings` opens `Reference
+Findings` when read-only notes exist and otherwise stays on `Evidence Library`,
 `Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`.
 Those route buttons keep only the route label and current status visible in a
 single wrapping rail; the longer route hints stay in accessible labels so the
@@ -695,9 +695,9 @@ with `Checks ready` so the folded row stays compact, while the accessible
 summary keeps `Healthy checks and handoff readiness` for screen readers and
 audit tooling. Findings-oriented panels such as Dogfood Review, Governance
 Hub, or non-routine Health/Recall/Context checks
-are grouped first under `Read-only Findings`, whose row reads `Findings to
-inspect`. `Read-only Findings` is collapsed by default inside `Evidence
-Library`, so read-only findings do not look like pending approval work or expose
+are grouped first under `Reference Findings`, whose row reads `Read-only notes`.
+`Reference Findings` is collapsed by default inside `Evidence Library`, so
+read-only findings do not look like pending approval work or expose
 child panel counts. Routine Diagnostics and Audit Trail are
 grouped behind `Reference Evidence`, whose folded summary reads `Routine
 evidence`, while the accessible summary keeps `Routine checks and audit trail`

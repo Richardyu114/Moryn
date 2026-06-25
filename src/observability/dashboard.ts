@@ -5208,12 +5208,12 @@ function supportingEvidencePanel(data: DashboardData): string {
 
 function evidenceLibrarySummary(reviewGroupCount: number, backgroundGroupCount: number): string {
   if (reviewGroupCount === 0 && backgroundGroupCount > 0) return "Reference evidence only";
-  if (reviewGroupCount > 0) return "Read-only findings and reference evidence";
+  if (reviewGroupCount > 0) return "Read-only reference material";
   return "No evidence groups";
 }
 
 function evidenceLibraryVisibleSummary(reviewGroupCount: number, backgroundGroupCount: number): string {
-  if (reviewGroupCount > 0) return "Findings and references";
+  if (reviewGroupCount > 0) return "Reference material";
   return evidenceLibrarySummary(reviewGroupCount, backgroundGroupCount);
 }
 
@@ -5253,8 +5253,8 @@ function evidenceLibraryReviewGroup(panels: string[]): string {
   return `
     <details class="evidence-library-group evidence-library-review" data-dashboard-detail="evidence-review-evidence">
       <summary class="dashboard-fold-summary evidence-library-group-heading">
-        <span>Read-only Findings</span>
-        <small>Findings to inspect</small>
+        <span>Reference Findings</span>
+        <small>Read-only notes</small>
       </summary>
       <div class="evidence-library-group-list">
         ${panels.join("")}
@@ -5299,14 +5299,14 @@ function evidenceLibraryBrief(input: { reviewCount: number; routineCount: number
   const auditTarget = input.backgroundCount > 0 ? "supporting-evidence" : "evidence-library";
   return `
       <div class="evidence-library-brief" data-evidence-library-brief>
-        <h3>Evidence routes</h3>
-        <div class="evidence-library-routebar" role="list" aria-label="Evidence routes">
+        <h3>Evidence index</h3>
+        <div class="evidence-library-routebar" role="list" aria-label="Evidence index">
 ${evidenceLibraryRoute({
     id: "findings",
     target: findingsTarget,
     title: "Findings",
-    summary: input.reviewCount > 0 ? "Read-only findings available" : "No read-only findings",
-    note: input.reviewCount > 0 ? "Start here for dogfood, governance, or non-routine checks." : "Skip unless the Evidence lane reports findings."
+    summary: input.reviewCount > 0 ? "Reference notes" : "No read-only notes",
+    note: input.reviewCount > 0 ? "Read-only dogfood, governance, or non-routine checks." : "Skip unless the Evidence lane reports notes."
   })}
 ${evidenceLibraryRoute({
     id: "diagnostics",
