@@ -4816,14 +4816,15 @@ function captureInboxAudit(items: DashboardCaptureInbox): string {
 }
 
 function captureInboxDecisionBrief(item: DashboardCaptureInboxItem): string {
+  const reason = item.provenance_reason ?? "Candidate memory is waiting for review.";
   return `
     <div class="capture-inbox-brief" data-capture-inbox-brief>
-      <h4>Decision brief</h4>
-      <ul>
-        <li>Needs review because: ${escapeHtml(item.provenance_reason ?? "Candidate memory is waiting for review.")}</li>
-        <li>Approve Memory promotes this candidate to canonical memory with an append-only user event.</li>
-        <li>Reject archives it without deleting the local audit trail.</li>
-      </ul>
+      <h4>Review summary</h4>
+      <div class="capture-inbox-brief-chips" aria-label="Capture Inbox review summary">
+        <span>${escapeHtml(reason)}</span>
+        <span>Approve appends memory</span>
+        <span>Reject appends archive</span>
+      </div>
     </div>
   `;
 }
@@ -7420,12 +7421,14 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-size: 12px;
       font-weight: 780;
     }
-    .maintenance-brief-chips {
+    .maintenance-brief-chips,
+    .capture-inbox-brief-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
     }
-    .maintenance-brief-chips span {
+    .maintenance-brief-chips span,
+    .capture-inbox-brief-chips span {
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 2px 7px;

@@ -4530,10 +4530,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("1 candidate");
       expect(html).toContain("Codex finished Capture Inbox planning.");
       expect(html).toContain("data-capture-inbox-brief");
-      expect(html).toContain("<h4>Decision brief</h4>");
-      expect(html).toContain("Needs review because: Captured through Moryn host adapter autocapture.");
-      expect(html).toContain("Approve Memory promotes this candidate to canonical memory with an append-only user event.");
-      expect(html).toContain("Reject archives it without deleting the local audit trail.");
+      expect(html).toContain("<h4>Review summary</h4>");
+      expect(html).toContain("<span>Captured through Moryn host adapter autocapture.</span>");
+      expect(html).toContain("<span>Approve appends memory</span>");
+      expect(html).toContain("<span>Reject appends archive</span>");
+      expect(html).not.toContain("<h4>Decision brief</h4>");
+      expect(html).not.toContain("Needs review because: Captured through Moryn host adapter autocapture.");
+      expect(html).not.toContain("Approve Memory promotes this candidate to canonical memory with an append-only user event.");
+      expect(html).not.toContain("Reject archives it without deleting the local audit trail.");
       expect(html).toContain("Approve Memory");
       expect(html).toContain("Reject");
       expect(html).toContain(`data-endpoint=\"api/capture-inbox/${capture.record.id}/approve\"`);

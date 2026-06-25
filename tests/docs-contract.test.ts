@@ -200,6 +200,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`");
+    expectText(dashboard, "Each candidate detail row starts with a compact `Review summary` chip row");
+    expectText(dashboard, "why it entered manual review and the append-only approve/reject boundary");
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
     expectText(dashboard, "The collapsed `Page Shortcuts` summary still stays count-free");
     expectText(dashboard, "the non-zero sync count remains visible on the expanded shortcut card and in `/api/dashboard.action_board`");
