@@ -3745,12 +3745,13 @@ function renderCandidateTriageAuditBoundary(group: DashboardCandidateTriageGroup
 function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
   const sampleRecords = group.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
   const sampleSummary = candidateTriageSampleSummary(group);
+  const groupSummary = `${group.label}, ${pluralize(group.records.length, "record")}, ${group.recommended_next_step}`;
   return `
     <details class="candidate-triage-group" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}">
-      <summary class="dashboard-fold-summary">
+      <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`Candidate group: ${groupSummary}`)}">
         <span>${escapeHtml(group.label)}</span>
         <strong>${escapeHtml(pluralize(group.records.length, "record"))}</strong>
-        <small>${escapeHtml(group.recommended_next_step)}</small>
+        <small>Review path ready</small>
       </summary>
       <div class="candidate-triage-group-body">
         <p>${escapeHtml(group.description)}</p>
