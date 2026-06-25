@@ -168,7 +168,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Record samples` folded rows show only the visible sample count as `trace ready`");
     expectText(dashboard, "the candidate group name and shown/total count stay in the accessible summary label");
     expectText(dashboard, "Sample rows use short `Sample <record>` labels in their folded summaries");
-    expectText(dashboard, "the record kind stays in the right-side chip and the full kind/source/time wording stays in the accessible row label");
+    expectText(dashboard, "their visible secondary text reads `Trace ready`");
+    expectText(dashboard, "The record kind stays in the right-side chip and the full kind/source/time wording stays in the accessible row label");
     expectText(dashboard, "Overflow rows read `More samples` with a short `hidden, API ready` count");
     expectText(dashboard, "the group-specific hidden-record count, API/Raw Store cue, and exact `candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind a group-specific `API evidence path` fold");
     expectText(dashboard, "Full candidate text remains inside the expanded sample body and `/api/dashboard`");

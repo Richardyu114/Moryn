@@ -920,6 +920,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Likely noise: 1 sample with trace commands</small>");
       expect(html).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Session summary sample rec_candidate_triage_2 from Codex, ");
       expect(html).toContain("<strong>Sample rec_candidate_triage_2</strong>");
+      expect(html).toContain("<small>Trace ready</small>");
+      expect(html).not.toContain("<small>Codex | ");
       expect(html).toContain("<span class=\"candidate-triage-record-meta\">Session Summary</span>");
       expect(html).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Memory sample rec_candidate_triage_3 from Codex, ");
       expect(html).toContain("<strong>Sample rec_candidate_triage_3</strong>");
@@ -1028,6 +1030,8 @@ describe("observability dashboard", () => {
       expect(groupHtml).not.toContain("<small>5 of 7 samples with trace commands</small>");
       expect(groupHtml).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_budgeted_triage_8 from Codex, 19d ago\">");
       expect(groupHtml).toContain("<strong>Sample rec_budgeted_triage_8</strong>");
+      expect(groupHtml).toContain("<small>Trace ready</small>");
+      expect(groupHtml).not.toContain("<small>Codex | 19d ago</small>");
       expect(groupHtml).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_budgeted_triage_7 from Codex, 19d ago\">");
       expect(groupHtml).toContain("<strong>Sample rec_budgeted_triage_7</strong>");
       expect(groupHtml).not.toContain("<strong>Agent note sample rec_budgeted_triage_8</strong>");

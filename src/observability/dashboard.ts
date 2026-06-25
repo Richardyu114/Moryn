@@ -3654,7 +3654,7 @@ function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): st
       <summary class="candidate-triage-record-summary" aria-label="${escapeHtml(candidateTriageRecordAccessibleTitle(record))}">
         <span>
           <strong>${escapeHtml(candidateTriageRecordVisibleTitle(record))}</strong>
-          <small>${escapeHtml(`${record.source_label} | ${record.relative_time}`)}</small>
+          <small>Trace ready</small>
         </span>
         <span class="candidate-triage-record-meta">${escapeHtml(titleCase(record.kind))}</span>
       </summary>
