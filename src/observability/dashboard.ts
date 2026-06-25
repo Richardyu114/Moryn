@@ -2979,8 +2979,12 @@ function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
   `;
 }
 
-function dashboardOverview(data: DashboardOverview): string {
+function dashboardOverview(
+  data: DashboardOverview,
+  options: { showBackgroundStatus?: boolean } = {}
+): string {
   const visibleCards = data.cards.filter((card) => !isPrimaryDashboardOverviewCard(card, data));
+  const showBackgroundStatus = options.showBackgroundStatus ?? true;
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
@@ -2991,7 +2995,7 @@ function dashboardOverview(data: DashboardOverview): string {
         </div>
         <button type="button" class="dashboard-overview-action" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}">${escapeHtml(data.primary_action.label)}</button>
       </div>
-      ${dashboardOverviewQuietCards(visibleCards)}
+      ${showBackgroundStatus ? dashboardOverviewQuietCards(visibleCards) : ""}
       <div class="dashboard-overview-safety" aria-label="Dashboard safety">
         <span>Read-only overview</span>
         <span>Writes stay in ${escapeHtml(data.safety.mutation_surfaces.join(" and "))}</span>
@@ -3044,10 +3048,14 @@ function dashboardEvidenceLibrarySummary(data: DashboardData): { summary: string
   };
 }
 
-function dashboardWorkLanes(data: DashboardData): string {
+function dashboardWorkLanes(
+  data: DashboardData,
+  options: { showBackgroundLanes?: boolean } = {}
+): string {
   const confirm = data.action_board.items_by_id.confirm;
   const healthLane = dashboardHealthWorkLaneItem(data.action_board);
   const evidence = dashboardEvidenceLibrarySummary(data);
+  const showBackgroundLanes = options.showBackgroundLanes ?? true;
   const contextSummary = data.context_pack_review.available
     ? contextPackReviewSummary(data.context_pack_review)
     : "Context unavailable";
@@ -3098,7 +3106,7 @@ function dashboardWorkLanes(data: DashboardData): string {
   return `
     <section class="dashboard-work-lanes" data-dashboard-work-lanes aria-label="Dashboard Work Lanes">
       ${defaultLanes.map((lane) => workLaneButton(lane)).join("")}
-      ${backgroundLanes.length === 0 ? "" : `
+      ${!showBackgroundLanes || backgroundLanes.length === 0 ? "" : `
         <details class="dashboard-work-lanes-quiet" data-dashboard-detail="dashboard-work-lanes-background">
           <summary class="dashboard-fold-summary dashboard-work-lanes-quiet-fold" aria-label="Background Lanes: ${escapeHtml(backgroundLaneSummary)}">
             <span>Background Lanes</span>
@@ -5415,6 +5423,7 @@ function renderDashboardBody(data: DashboardData): string {
   const hasActionSignals = data.attention_items.some((item) => item.severity !== "info");
   const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
   const quietInfoPanel = hasActionSignals ? "" : needsAttentionPanel(data.attention_items);
+  const hasPendingDecisions = data.decision_summary.total_decisions > 0;
   return `
     <header>
       <div>
@@ -5429,9 +5438,9 @@ function renderDashboardBody(data: DashboardData): string {
 
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
 
-    ${dashboardOverview(data.dashboard_overview)}
+    ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus: !hasPendingDecisions })}
 
-    ${dashboardWorkLanes(data)}
+    ${dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions })}
 
     ${decisionSummary(data.decision_summary)}
 

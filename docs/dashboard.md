@@ -552,6 +552,10 @@ card still stays in `/api/dashboard.dashboard_overview.cards` and
 `cards_by_id` for audit tooling. `Background Status` opens with `Signals ready`,
 while the accessible summary keeps `Healthy signals kept for context` so the
 folded row reads as supporting context instead of another count to process.
+When `Pending Decisions` is rendered, the visible HTML skips `Background Status`
+and the stable `dashboard-overview-quiet-cards` route so the approval path stays
+uninterrupted; the overview cards remain in
+`/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary
@@ -585,6 +589,10 @@ folds quiet `Decide`, `Context`, and `Health` lanes under `Background Lanes`
 while preserving their same `data-action-board-target` routes. `Background
 Lanes` opens with `Quiet lanes ready`, while the accessible summary keeps the
 lane names, such as `Decide, Context, and Health are quiet`.
+When `Pending Decisions` is rendered, Work Lanes keep the active decision lane
+visible and skip `Background Lanes` and `dashboard-work-lanes-background` in the
+HTML; the same routes remain available through `/api/dashboard.action_board`,
+`Page Shortcuts`, and the underlying panels.
 
 `Action Board` is rendered as `Page Shortcuts` in the UI while keeping the
 stable `data-dashboard-detail="action-board"` route: a secondary, collapsed

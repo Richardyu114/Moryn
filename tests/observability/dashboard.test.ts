@@ -4100,6 +4100,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\">Review decisions</button>");
       expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"action\"");
+      expect(html).not.toContain("data-dashboard-detail=\"dashboard-overview-quiet-cards\"");
+      expect(html).not.toContain("<span>Background Status</span>");
+      expect(html).not.toContain("data-dashboard-detail=\"dashboard-work-lanes-background\"");
+      expect(html).not.toContain("<span>Background Lanes</span>");
       expect(html).toContain("<section id=\"decision-summary\" class=\"panel decision-summary\"");
       expect(html).toContain("<details id=\"maintenance-review-queue\"");
     });
@@ -4611,6 +4615,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-decision-summary-item=\"capture_inbox:");
       expect(html).toContain("data-action-board-target=\"capture-inbox\"");
       expect(html).not.toContain("data-dashboard-action-id=\"decision_summary");
+      expect(html).not.toContain("data-dashboard-detail=\"dashboard-overview-quiet-cards\"");
+      expect(html).not.toContain("<span>Background Status</span>");
+      expect(html).not.toContain("data-dashboard-detail=\"dashboard-work-lanes-background\"");
+      expect(html).not.toContain("<span>Background Lanes</span>");
       const shortcutsStart = html.indexOf("data-dashboard-detail=\"action-board\"");
       const shortcutsEnd = html.indexOf("data-dashboard-detail=\"evidence-library\"", shortcutsStart);
       const shortcutsHtml = html.slice(shortcutsStart, shortcutsEnd);

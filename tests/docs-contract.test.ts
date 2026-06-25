@@ -72,6 +72,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "keeps background cards under `Background Status` while keeping the stable `dashboard-overview-quiet-cards` route");
     expectText(dashboard, "`Background Status` opens with `Signals ready`");
     expectText(dashboard, "while the accessible summary keeps `Healthy signals kept for context`");
+    expectText(dashboard, "When `Pending Decisions` is rendered, the visible HTML skips `Background Status` and the stable `dashboard-overview-quiet-cards` route");
+    expectText(dashboard, "the overview cards remain in `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling");
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
     expectText(dashboard, "Decide -> Pending Decisions, Capture Inbox, or Review Queue confirmation");
     expectText(dashboard, "Context -> Context Pack Review handoff readiness");
@@ -88,6 +90,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "In all-clear states, the row keeps the read-only `Evidence` lane visible and folds quiet `Decide`, `Context`, and `Health` lanes under `Background Lanes`");
     expectText(dashboard, "`Background Lanes` opens with `Quiet lanes ready`");
     expectText(dashboard, "while the accessible summary keeps the lane names, such as `Decide, Context, and Health are quiet`");
+    expectText(dashboard, "When `Pending Decisions` is rendered, Work Lanes keep the active decision lane visible and skip `Background Lanes` and `dashboard-work-lanes-background` in the HTML");
+    expectText(dashboard, "the same routes remain available through `/api/dashboard.action_board`, `Page Shortcuts`, and the underlying panels");
     expectText(dashboard, "`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail=\"action-board\"` route");
     expectText(dashboard, "navigator below explicit review and action surfaces rather than another primary first-screen card grid");
     expectText(dashboard, "`Page Shortcuts` opens with `Optional section links`");
