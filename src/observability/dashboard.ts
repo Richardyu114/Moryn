@@ -2926,7 +2926,7 @@ function actionBoard(data: DashboardActionBoard): string {
 }
 
 function focusBriefPrimaryItem(actionBoardData: DashboardActionBoard): DashboardActionBoardItem {
-  const priority = ["review", "confirm", "sync"] as const;
+  const priority = ["confirm", "review", "sync"] as const;
   const inspectCount = actionBoardData.items_by_id.inspect.value;
   return priority
     .map((id) => actionBoardData.items_by_id[id])

@@ -74,6 +74,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "while the accessible summary keeps `Healthy signals kept for context`");
     expectText(dashboard, "When `Pending Decisions` is rendered, the visible HTML skips `Background Status` and the stable `dashboard-overview-quiet-cards` route");
     expectText(dashboard, "the overview cards remain in `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling");
+    expectText(dashboard, "If sync is also pending, Pending Decisions still owns the Overview headline and primary action");
+    expectText(dashboard, "sync remains visible through the health badge, Store Signals, and `/api/dashboard.dashboard_overview.cards`");
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
     expectText(dashboard, "Decide -> Pending Decisions, Capture Inbox, or Review Queue confirmation");
     expectText(dashboard, "Context -> Context Pack Review handoff readiness");

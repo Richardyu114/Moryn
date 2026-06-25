@@ -562,6 +562,9 @@ When `Pending Decisions` is rendered, the visible HTML skips `Background Status`
 and the stable `dashboard-overview-quiet-cards` route so the approval path stays
 uninterrupted; the overview cards remain in
 `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling.
+If sync is also pending, Pending Decisions still owns the Overview headline and
+primary action because it is the explicit confirmation path; sync remains visible
+through the health badge, Store Signals, and `/api/dashboard.dashboard_overview.cards`.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary

@@ -4139,6 +4139,92 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("keeps pending decisions ahead of sync warnings in the overview", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-dashboard-decision-sync-"));
+    const storePath = join(root, "store");
+    const remote = join(root, "remote.git");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      await initializeGitSync(storePath, remote);
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_decision_sync_${++record}` : `evt_decision_sync_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical project record keeps Moryn project visible.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Old project id creates a pending review decision while sync is dirty.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-01T00:05:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(data.health.status).toBe("sync_pending");
+      expect(data.decision_summary.total_decisions).toBe(1);
+      expect(data.action_board.items_by_id.review).toMatchObject({
+        value: 1,
+        next_action_label: "Review sync changes",
+        target: "needs-attention"
+      });
+      expect(data.dashboard_overview).toMatchObject({
+        headline: "Review decisions",
+        detail: "Explicit approvals stay in Capture Inbox and Review Queue.",
+        primary_action: {
+          label: "Review decisions",
+          target: "decision-summary",
+          source: "action_board.items_by_id.confirm"
+        }
+      });
+      expect(data.dashboard_overview.cards_by_id.sync).toMatchObject({
+        value: "Sync Pending",
+        target: "store-signals",
+        source: "action_board.items_by_id.sync"
+      });
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\">Review decisions</button>");
+      expect(html).toContain("<span class=\"health-badge warning\">Sync Pending</span>");
+      expect(html).toContain("<details id=\"maintenance-review-queue\"");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("adds a read-only Context Pack Review panel for project handoff readiness", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
