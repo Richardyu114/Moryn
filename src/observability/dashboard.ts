@@ -3641,7 +3641,7 @@ function candidateTriageRecordSampleTitle(record: DashboardCandidateTriageRecord
 }
 
 function candidateTriageRecordVisibleTitle(record: DashboardCandidateTriageRecord): string {
-  return `Sample ${recordLabel(record.id)}`;
+  return "Sample";
 }
 
 function candidateTriageRecordAccessibleTitle(record: DashboardCandidateTriageRecord): string {
