@@ -2272,7 +2272,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-full-summary-hidden=\"true\"");
       expect(html).toContain("Full text available through timeline/recall.");
       expect(html).toContain("<span>Trace commands</span>");
-      expect(html).toContain("<small>Memory decision rec_recent_long</small>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Trace commands: Memory decision rec_recent_long\">");
+      expect(html).toContain("<small>Audit commands</small>");
+      expect(html).not.toContain("<small>Memory decision rec_recent_long</small>");
       expect(html).not.toContain("<small>Memory decision</small>");
       expect(html).not.toContain("<summary>Audit trace</summary>");
       expect(html).not.toContain("<summary>Details</summary>");
@@ -2327,7 +2329,9 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(html).toContain("<span>Moryn Local rec_abcdef12</span>");
-      expect(html).toContain("<small>Skill codex_skill_bundle rec_abcdef12</small>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Trace commands: Skill codex_skill_bundle rec_abcdef12\">");
+      expect(html).toContain("<small>Audit commands</small>");
+      expect(html).not.toContain("<small>Skill codex_skill_bundle rec_abcdef12</small>");
       expect(html).not.toContain("<span>Moryn Local rec_abcdef1234567890abcdef1234567890</span>");
       expect(html).not.toContain("<small>Skill codex_skill_bundle rec_abcdef1234567890abcdef1234567890</small>");
       expect(html).toContain("<dt>ID</dt><dd><code>rec_abcdef1234567890abcdef1234567890</code></dd>");

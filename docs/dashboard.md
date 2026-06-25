@@ -966,8 +966,8 @@ the first four records and keeps additional records under `More Recent Value`.
 Recent Value card footers include short record-id context beside the readable
 source label, so repeated source/state/scope rows stay distinguishable.
 Every card keeps its timeline and recall trace commands under a `Trace commands`
-fold with kind/type and short record-id context instead of a generic `Details`
-row.
+fold whose visible summary reads `Audit commands`, while its accessible label
+keeps kind/type and short record-id context instead of a generic `Details` row.
 
 Quarantined records normally count as unresolved safety signals. If an active
 safe replacement index explicitly declares `content.supersedes_quarantined_record`
