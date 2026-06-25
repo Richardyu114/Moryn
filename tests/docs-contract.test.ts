@@ -209,7 +209,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("default_autocapture_policy");
     expect(dashboard).toContain("capture_inbox.autocapture_policy");
     expect(dashboard).toContain("Capture Policy Audit");
-    expectText(dashboard, "also summarizes auto-captured and policy-archived counts");
+    expectText(dashboard, "default row keeps only the manual-review and no-auto-canonical boundary visible");
+    expectText(dashboard, "candidate, auto-captured, and policy-archived counts stay in the accessible label and expanded audit detail");
     expect(dashboard).toContain("Context Pack Review");
     expect(dashboard).toContain("context_pack_review");
     expect(dashboard).toContain("handoff_pack.quality_gate");

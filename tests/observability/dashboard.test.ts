@@ -4190,7 +4190,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-dashboard-action-id=\"capture_inbox.queue");
       expect(html).not.toContain("<details class=\"capture-policy-summary\" data-dashboard-detail=\"capture-policy-summary\">");
       expect(html).toContain("<span>Capture Audit</span>");
-      expect(html).toContain("<small>manual review | no auto-canonical | 4 candidates | auto-captured 0 | policy archived 0</small>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Capture Audit: manual review | no auto-canonical | 4 candidates | auto-captured 0 | policy archived 0\">");
+      expect(html).toContain("<small>Manual review, no auto-canonical</small>");
+      expect(html).not.toContain("<small>manual review | no auto-canonical | 4 candidates | auto-captured 0 | policy archived 0</small>");
       expect(html).not.toContain("<small>manual review | no auto-canonical | 4 candidates</small>");
       expect(html).toContain("default_capture_review_policy");
       expect(html).toContain("Manual review");
@@ -4584,7 +4586,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("Moryn Health Check needs attention | 1 warning");
       expect(html).toContain("<small>1 captured</small>");
       expect(html).not.toContain("<small>1 captured | 0 review | 0 archived</small>");
-      expect(html).toContain("<small>manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0</small>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Capture Audit: manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0\">");
+      expect(html).toContain("<small>Manual review, no auto-canonical</small>");
+      expect(html).not.toContain("<small>manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0</small>");
       expect(html).not.toContain("<small>manual review | no auto-canonical | 0 candidates</small>");
       expect(html).not.toContain("auto-captureds");
       expect(html).toContain("Auto-captured 1");

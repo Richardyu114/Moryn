@@ -4604,11 +4604,12 @@ function captureInboxAuditSummary(items: DashboardCaptureInbox): string {
 }
 
 function captureInboxAudit(items: DashboardCaptureInbox): string {
+  const auditSummary = captureInboxAuditSummary(items);
   return `
       <details class="capture-inbox-audit" data-dashboard-detail="capture-inbox-audit">
-        <summary class="dashboard-fold-summary">
+        <summary class="dashboard-fold-summary" aria-label="Capture Audit: ${escapeHtml(auditSummary)}">
           <span>Capture Audit</span>
-          <small>${escapeHtml(captureInboxAuditSummary(items))}</small>
+          <small>Manual review, no auto-canonical</small>
         </summary>
         <div class="capture-policy">
           <div>

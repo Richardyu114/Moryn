@@ -155,10 +155,11 @@ The dashboard renders active Capture Inbox candidates first, so approval and
 rejection controls stay ahead of policy explanation. Capture Policy,
 Autocapture Policy, auto-captured examples, policy-archived examples, and rule
 ids remain available under the collapsed `Capture Audit` detail panel. The
-default row keeps the manual-review and no-auto-canonical boundary visible and
-also summarizes auto-captured and policy-archived counts, so users can see which
-captures did not require a click. Expanding it shows policy ids, grouping,
-stale protection, rule counts, and rule ids.
+default row keeps only the manual-review and no-auto-canonical boundary visible;
+candidate, auto-captured, and policy-archived counts stay in the accessible
+label and expanded audit detail so the folded row does not read like a log
+line. Expanding it shows policy ids, grouping, stale protection, rule counts,
+and rule ids.
 
 `Approve Memory` posts to:
 
