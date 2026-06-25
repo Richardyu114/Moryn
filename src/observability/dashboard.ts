@@ -3902,7 +3902,11 @@ function maintenanceApprovalChecklist(plan: DashboardMaintenancePlan): string {
     ? `${maintenanceMoveSummary(plan)} after confirming the records are test noise or obsolete markers.`
     : `${maintenanceMoveSummary(plan)} from ${plan.from_project_id ?? ""} to ${plan.to_project_id ?? ""}.`;
   return `
-    <div class="review-log approval-checklist" data-maintenance-review-log>
+    <details class="approval-checklist" data-dashboard-detail="maintenance-approval-checklist:${escapeHtml(plan.plan_id)}" data-maintenance-review-log>
+      <summary class="dashboard-fold-summary maintenance-approval-checklist-fold">
+        <span>Approval checklist</span>
+        <small>Issue, safety gate, and audit path</small>
+      </summary>
       <h4>Before approving</h4>
       <ol>
         <li><strong>Issue:</strong> ${escapeHtml(issue)}</li>
@@ -3910,7 +3914,7 @@ function maintenanceApprovalChecklist(plan: DashboardMaintenancePlan): string {
         <li><strong>Safety gate:</strong> Server re-runs the dry run and checks <code>plan_hash</code> before writing.</li>
         <li><strong>Audit path:</strong> ${maintenanceAuditPathHtml(plan)}</li>
       </ol>
-    </div>
+    </details>
   `;
 }
 
@@ -7059,19 +7063,22 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       margin: 8px 0;
       background: var(--surface-2);
     }
-    .review-log h4 {
+    .review-log h4,
+    .approval-checklist h4 {
       margin: 0 0 6px;
       color: var(--ink);
       font-size: 12px;
       font-weight: 780;
     }
-    .review-log ol {
+    .review-log ol,
+    .approval-checklist ol {
       display: grid;
       gap: 5px;
       margin: 0;
       padding-left: 19px;
     }
-    .review-log li {
+    .review-log li,
+    .approval-checklist li {
       color: var(--ink-2);
       overflow-wrap: anywhere;
     }
@@ -7457,6 +7464,14 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .maintenance-audit-trail[open] > summary { margin-bottom: 8px; }
     .maintenance-audit-trail summary { color: var(--ink); font-weight: 720; }
+    .approval-checklist {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin-top: 8px;
+      background: var(--surface);
+    }
+    .approval-checklist[open] > summary { margin-bottom: 8px; }
     .maintenance-decision-record {
       border: 1px solid var(--hairline);
       border-radius: 7px;

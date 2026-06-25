@@ -3809,8 +3809,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-maintenance-review-log");
       expect(html).toContain("<summary>Decision evidence</summary>");
       expect(html).not.toContain("<summary>Audit trail</summary>");
+      expect(html).toContain("<details class=\"approval-checklist\" data-dashboard-detail=\"maintenance-approval-checklist:");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-approval-checklist-fold\">");
+      expect(html).toContain("<span>Approval checklist</span>");
+      expect(html).toContain("<small>Issue, safety gate, and audit path</small>");
       expect(html).toContain("<h4>Before approving</h4>");
-      expect(html).not.toContain("<h4>Approval checklist</h4>");
+      expect(html).not.toContain("<div class=\"review-log approval-checklist\" data-maintenance-review-log>");
       expect(html).not.toContain("<div class=\"review-log\" data-maintenance-review-log>\n      <h4>Review log</h4>");
       expect(html).toContain("<h4>Why this repair is proposed</h4>");
       expect(html).not.toContain("<h4>Decision record</h4>");

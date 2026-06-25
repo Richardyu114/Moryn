@@ -304,6 +304,7 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("decision card");
     expect(dashboard).toContain("The structured decision summary is folded behind `Decision summary`");
     expect(dashboard).toContain("Decision evidence");
+    expect(dashboard).toContain("A compact `Approval checklist` fold");
     expect(dashboard).toContain("Before approving");
     expect(dashboard).toContain("approval surface reads like a decision checklist instead of internal logs");
     expect(dashboard).toContain("recommended action");

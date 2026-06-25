@@ -328,8 +328,8 @@ Each plan also keeps expandable `Decision evidence`. The first thing inside it
 is a structured `Why this repair is proposed` or `Why this cleanup is proposed`
 record, not a raw event stream:
 detected condition, why it matters, proposed change, safety gate, approval
-writes, and where to audit or roll back. A compact `Before approving` checklist
-remains below that record with
+writes, and where to audit or roll back. A compact `Approval checklist` fold
+keeps the `Before approving` checklist available below that record with
 plain-language Issue, Proposed change, Safety gate, and Audit path rows, so the
 approval surface reads like a decision checklist instead of internal logs.
 
