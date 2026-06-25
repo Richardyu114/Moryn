@@ -2189,7 +2189,8 @@ describe("observability dashboard", () => {
       const noisyRecordEnd = debugHtml.indexOf("</summary>", noisyRecordStart);
       const noisyRecordSummary = debugHtml.slice(noisyRecordStart, noisyRecordEnd);
       expect(noisyRecordSummary).toContain("Memory artifact");
-      expect(noisyRecordSummary).toContain("Codex");
+      expect(noisyRecordSummary).toContain(`Codex ${noisySummaryRecord.record.id}`);
+      expect(noisyRecordSummary).not.toContain("<small>Codex</small>");
       expect(noisyRecordSummary).not.toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
       expect(debugHtml).toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
       expect(debugHtml.match(/data-dashboard-detail="record:rec_debug_budget_/g)).toHaveLength(10);

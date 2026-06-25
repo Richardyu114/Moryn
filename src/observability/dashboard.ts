@@ -4825,7 +4825,7 @@ function recordsTable(records: DashboardRecordSummary[]): string {
 function recordIndexSummary(record: DashboardRecordSummary): string {
   return `
     <span>${escapeHtml(`${titleCase(record.kind)} ${record.type}`)}</span>
-    <small>${escapeHtml(humanSourceLabel(record.source))}</small>
+    <small>${escapeHtml(`${humanSourceLabel(record.source)} ${record.id}`)}</small>
   `;
 }
 
