@@ -503,6 +503,8 @@ describe("documentation contracts", () => {
     expectText(contracts, "Dogfood Review");
     expectText(contracts, "Capture review backlog uses the same review-required policy boundary as Capture Inbox and Health Check");
     expectText(dashboard, "Dogfood capture review backlog uses the same review-required policy boundary as Capture Inbox and Health Check");
+    expectText(contracts, "Older autocapture review metadata is rechecked against the current autocapture policy before it creates active review work");
+    expectText(contracts, "explicit durable decisions and preferences still require review");
     expect(contracts).toContain("Issue brief");
     expectText(contracts, "does not add dashboard API write endpoints");
     expect(roadmap).toContain("dogfood report");
@@ -533,12 +535,15 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Zero-count buckets are omitted from the folded row");
     expectText(dashboard, "/api/dashboard.health_check.summary` still includes the complete warning and failing counts");
     expectText(dashboard, "Capture Inbox backlog only counts candidates whose capture policy requires explicit review or user action");
+    expectText(dashboard, "Older autocapture review metadata is rechecked against the current autocapture policy before it appears as active Capture Inbox, Health Check, or Dogfood review work");
+    expectText(dashboard, "explicit durable decisions and preferences still require review");
     expectText(dashboard, "When there are no active Capture Inbox candidates, the main `Capture Inbox` panel is not rendered");
     expectText(dashboard, "auto-captured and policy-archived handoff evidence stays under the stable `capture-policy-audit` route inside the evidence path");
     expectText(dashboard, "the visible folded title reads `Policy Decision History` with `Routing evidence`");
     expectText(dashboard, "`MCP runtime freshness` is an informational check");
     expectText(dashboard, "restart the MCP host when MCP tool output disagrees with the CLI or dashboard after an upgrade, rebuild, or local link change");
     expectText(contracts, "The capture review backlog is scoped to candidates whose capture policy requires explicit review or user action");
+    expectText(contracts, "Older autocapture review metadata is rechecked against the current autocapture policy before it becomes a Health Check warning");
     expectText(contracts, "`health_check.checks_by_id.mcp_runtime` is informational");
     expectText(workflow, "restart the MCP host when MCP tool output disagrees with the CLI or dashboard after upgrading, rebuilding, or linking a local checkout");
     expect(roadmap).toContain("health check");

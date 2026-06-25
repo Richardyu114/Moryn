@@ -182,6 +182,34 @@ describe("host adapters", () => {
     });
   });
 
+  it("auto-captures verified dashboard route handoffs that mention waiting confirmation UI", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      await mkdir(projectPath, { recursive: true });
+      await initializeProjectConfig(projectPath, { project_id: "moryn" });
+
+      const result = await captureSession({
+        storePath,
+        projectPath,
+        summary: "Dashboard UI decluttering slice completed on main. The Overview now prioritizes explicit Pending Decisions over sync warnings when both are present: focusBriefPrimaryItem priority changed to confirm -> review -> sync. Sync pending remains visible through health badge, Store Signals, Action Board review/sync entries, and dashboard_overview cards/API evidence, but the first-screen headline and primary action stay on Review decisions / decision-summary when user confirmation is waiting. Added regression coverage for the combined pending decision + dirty sync scenario, preserved sync-only overview behavior, updated dashboard docs/docs-contract, verified dashboard suite, docs-contract suite, typecheck, build, release check, git diff check, live dashboard API, commit pushed, and dashboard service restarted.",
+        agent: { client: "codex", session_id: "dashboard-route-1" },
+        currentTask: "Moryn v0.2.0 dashboard UI decluttering and prioritization"
+      });
+
+      expect(result.record.state).toBe("candidate");
+      expect(result.record.tags).toEqual(expect.arrayContaining(["autocapture", "auto-captured", "host:codex"]));
+      expect(result.record.tags).not.toContain("review");
+      expect(result.policy_decision).toMatchObject({
+        decision: "capture",
+        route: "auto_capture",
+        review_required: false,
+        user_action_required: false,
+        dashboard_surface: "handoff",
+        rule_ids: ["low_risk_handoff_auto_capture"]
+      });
+    });
+  });
+
   it("auto-captures verified implementation handoffs that mention smoke checks as evidence", async () => {
     await withInitializedTempStore(async (storePath) => {
       const projectPath = join(storePath, "project");

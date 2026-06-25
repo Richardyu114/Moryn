@@ -2,6 +2,7 @@ import { operationArgumentsByTool } from "../operation-contracts.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { DEFAULT_AUTOCAPTURE_POLICY, type AutocapturePolicyDecision, type AutocapturePolicyRuleId } from "./autocapture-policy.js";
+import { currentAutocaptureDecisionForRecord, currentPolicyTreatsAsLowRiskCapture } from "./capture-review.js";
 import { displayRecordText } from "./content-text.js";
 import { commandForTimelineContext } from "./errors.js";
 import type { MorynEvent, MorynRecord, RecordState } from "./types.js";
@@ -174,6 +175,31 @@ function duplicateOfRecordId(record: MorynRecord): string | undefined {
   return typeof duplicate === "string" && duplicate.length > 0 ? duplicate : undefined;
 }
 
+function currentCaptureDecision(record: MorynRecord): {
+  decision: AutocapturePolicyDecision;
+  rule_ids: AutocapturePolicyRuleId[];
+  reasons: string[];
+  duplicate_of_record_id?: string;
+} | undefined {
+  const storedDecision = captureDecision(record);
+  const current = currentAutocaptureDecisionForRecord(record);
+  if (
+    storedDecision !== "review"
+    || record.state !== "candidate"
+    || record.visibility !== "active"
+    || current?.decision !== "capture"
+    || !currentPolicyTreatsAsLowRiskCapture(record)
+  ) {
+    return undefined;
+  }
+  return {
+    decision: current.decision,
+    rule_ids: current.rule_ids,
+    reasons: current.reasons,
+    ...(current.duplicate_of_record_id ? { duplicate_of_record_id: current.duplicate_of_record_id } : {})
+  };
+}
+
 function eventForRecord(events: MorynEvent[], recordId: string): MorynEvent | undefined {
   return events.find((event) => event.op === "upsert_record" && event.record.id === recordId);
 }
@@ -189,9 +215,11 @@ function evidenceForRecord(record: MorynRecord, events: MorynEvent[]): CapturePo
 }
 
 function decisionAudit(record: MorynRecord, events: MorynEvent[]): CapturePolicyDecisionAudit {
-  const decision = captureDecision(record);
-  const ruleIds = captureRuleIds(record);
+  const currentDecision = currentCaptureDecision(record);
+  const decision = currentDecision?.decision ?? captureDecision(record);
+  const ruleIds = currentDecision?.rule_ids ?? captureRuleIds(record);
   const reviewRequired = decision === "review" && record.state === "candidate" && record.visibility === "active";
+  const duplicateRecordId = currentDecision?.duplicate_of_record_id ?? duplicateOfRecordId(record);
   return {
     record_id: record.id,
     decision,
@@ -199,8 +227,8 @@ function decisionAudit(record: MorynRecord, events: MorynEvent[]): CapturePolicy
     review_required: reviewRequired,
     auto_canonical: false,
     rule_ids: ruleIds,
-    reasons: captureReasons(record, ruleIds),
-    ...(duplicateOfRecordId(record) ? { duplicate_of_record_id: duplicateOfRecordId(record) } : {}),
+    reasons: currentDecision?.reasons ?? captureReasons(record, ruleIds),
+    ...(duplicateRecordId ? { duplicate_of_record_id: duplicateRecordId } : {}),
     updated_at: record.updated_at,
     state: record.state,
     text: displayRecordText(record),

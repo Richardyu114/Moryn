@@ -5422,6 +5422,101 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("rechecks stale review metadata before surfacing low-risk handoffs in Capture Inbox", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-06-01T10:12:00.000Z",
+        id: (prefix: string) => prefix === "rec" ? "rec_stale_review_handoff" : "evt_stale_review_handoff"
+      });
+
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: {
+          format: "json",
+          text: "Dashboard UI decluttering slice completed on main. The Overview now prioritizes explicit Pending Decisions over sync warnings when both are present: focusBriefPrimaryItem priority changed to confirm -> review -> sync. Sync pending remains visible through health badge, Store Signals, Action Board review/sync entries, and dashboard_overview cards/API evidence, but the first-screen headline and primary action stay on Review decisions / decision-summary when user confirmation is waiting. Added regression coverage for the combined pending decision + dirty sync scenario, preserved sync-only overview behavior, updated dashboard docs/docs-contract, verified dashboard suite, docs-contract suite, typecheck, build, release check, git diff check, live dashboard API, commit pushed, and dashboard service restarted.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            current_task: "Moryn v0.2.0 dashboard UI decluttering and prioritization",
+            policy: {
+              id: "default_autocapture_policy",
+              version: 1,
+              decision: "review",
+              route: "manual_review",
+              review_required: true,
+              user_action_required: true,
+              auto_canonical: false,
+              dashboard_surface: "capture_inbox",
+              rule_ids: ["review_risk_marker"],
+              reasons: ["review_risk_marker"]
+            }
+          }
+        },
+        state: "candidate",
+        source: { client: "codex", session_id: "dashboard-route-1" },
+        provenance: {
+          method: "agent-proposed",
+          reason: "Captured through Moryn host adapter autocapture."
+        }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
+      const html = renderDashboardHtml(data);
+
+      expect(data.capture_inbox.total).toBe(0);
+      expect(data.capture_inbox.items).toHaveLength(0);
+      expect(data.health_check.status).toBe("healthy");
+      expect(data.health_check.stats.capture_review_candidates).toBe(0);
+      expect(data.health_check.checks_by_id.capture_review_backlog).toMatchObject({
+        status: "pass",
+        summary: "No active capture candidates need review."
+      });
+      expect(data.dogfood_report.findings_by_id.capture_review_backlog).toBeUndefined();
+      expect(data.dogfood_report.stats.autocapture_candidates).toBe(0);
+      expect(data.capture_policy.stats).toMatchObject({
+        total_autocapture_records: 1,
+        auto_captured_records: 1,
+        review_records: 0,
+        policy_archived_records: 0,
+        captured_by_rule: { low_risk_handoff_auto_capture: 1 }
+      });
+      expect(data.capture_policy.decisions_by_record_id.rec_stale_review_handoff).toMatchObject({
+        decision: "capture",
+        review_required: false,
+        auto_canonical: false,
+        rule_ids: ["low_risk_handoff_auto_capture"]
+      });
+      expect(data.capture_policy.findings_by_id.review_required).toBeUndefined();
+      expect(data.capture_policy.suggested_actions_by_id.review_capture_inbox).toBeUndefined();
+      expect(data.governance.items_by_id["capture_policy:review_required"]).toBeUndefined();
+      expect(data.governance.items_by_id["dogfood_report:capture_review_backlog"]).toBeUndefined();
+      expect(data.actions_by_id["capture_inbox.record.approve.rec_stale_review_handoff"]).toBeUndefined();
+      expect(data.actions_by_id["capture_inbox.record.reject.rec_stale_review_handoff"]).toBeUndefined();
+      expect(data.actions_by_id["capture_policy.inspect.rec_stale_review_handoff"]).toMatchObject({
+        action_id: "capture_policy.inspect.rec_stale_review_handoff",
+        surface: "capture_policy",
+        kind: "cli_command",
+        label: "inspect_auto_captured_handoff",
+        intent: "inspect"
+      });
+      expect(html).not.toContain("<section id=\"capture-inbox\" class=\"panel capture-inbox\" aria-label=\"Capture Inbox\">");
+      expect(html).not.toContain("api/capture-inbox/rec_stale_review_handoff/approve");
+      expect(html).not.toContain("api/capture-inbox/rec_stale_review_handoff/reject");
+      expect(html).not.toContain("data-governance-item=\"capture_policy:review_required\"");
+      expect(html).toContain("data-capture-policy-decision=\"rec_stale_review_handoff\"");
+      expect(html).toContain("low_risk_handoff_auto_capture");
+    });
+  });
+
   it("does not render Capture Policy review actions for records no longer actionable in Capture Inbox", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

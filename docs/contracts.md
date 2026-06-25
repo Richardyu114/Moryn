@@ -229,7 +229,9 @@ backlog, duplicate handoff text, and failure or timeout signals, keyed by
 or events; suggested actions are read-only dashboard or timeline checks.
 Capture review backlog uses the same review-required policy boundary as Capture
 Inbox and Health Check, so low-risk auto-captured handoffs do not create
-dogfood review work.
+dogfood review work. Older autocapture review metadata is rechecked against the
+current autocapture policy before it creates active review work; explicit
+durable decisions and preferences still require review.
 Failure or timeout findings are active-friction signals: completed session
 handoffs that also report successful verification stay in audit evidence rather
 than becoming dogfood warnings.
@@ -272,7 +274,9 @@ records or events; suggested actions are safe inspection commands such as
 `moryn dashboard --serve --project-id <id>` or `moryn project list`.
 The capture review backlog is scoped to candidates whose capture policy requires
 explicit review or user action; low-risk auto-captured handoffs remain audit
-evidence without becoming Health Check warnings.
+evidence without becoming Health Check warnings. Older autocapture review
+metadata is rechecked against the current autocapture policy before it becomes a
+Health Check warning.
 
 The read-only recall eval is available through the same registry:
 

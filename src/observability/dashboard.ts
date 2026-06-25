@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { normalizeAgentIdentity } from "../core/agent-identity.js";
 import { DEFAULT_AUTOCAPTURE_POLICY, type AutocapturePolicyDecision, type AutocapturePolicyRuleId } from "../core/autocapture-policy.js";
 import { diagnoseCapturePolicy, type CapturePolicyResult } from "../core/capture-policy-report.js";
+import { currentAutocaptureDecisionForRecord, currentPolicyTreatsAsLowRiskCapture, isCaptureReviewCandidate } from "../core/capture-review.js";
 import { displayRecordText } from "../core/content-text.js";
 import { diagnoseDogfood, type DogfoodReportResult } from "../core/dogfood-report.js";
 import { createEngine } from "../core/engine.js";
@@ -1282,14 +1283,7 @@ function maintenanceApproveActionId(plan: DashboardMaintenancePlan): string {
 }
 
 function isCaptureInboxCandidate(record: MorynRecord): boolean {
-  const decision = recordCapturePolicyDecision(record);
-  return record.state === "candidate"
-    && record.visibility === "active"
-    && record.tags.some((tag) => {
-      const normalized = tag.toLowerCase();
-      return normalized === "review";
-    })
-    && decision !== "capture";
+  return record.visibility === "active" && isCaptureReviewCandidate(record);
 }
 
 function captureGroupKey(record: MorynRecord): string {
@@ -1354,7 +1348,11 @@ function isAutoCapturedAutocapture(record: MorynRecord): boolean {
   return record.state === "candidate"
     && record.visibility === "active"
     && record.tags.some((tag) => tag.toLowerCase() === "autocapture")
-    && (record.tags.some((tag) => tag.toLowerCase() === "auto-captured") || recordCapturePolicyDecision(record) === "capture");
+    && (
+      record.tags.some((tag) => tag.toLowerCase() === "auto-captured")
+      || recordCapturePolicyDecision(record) === "capture"
+      || currentPolicyTreatsAsLowRiskCapture(record)
+    );
 }
 
 function isPolicyArchivedAutocapture(record: MorynRecord): boolean {
@@ -1374,7 +1372,7 @@ function buildAutocapturePolicySummary(records: MorynRecord[], limit: number): D
   const capturedByRule: Partial<Record<AutocapturePolicyRuleId, number>> = {};
   const archivedByRule: Partial<Record<AutocapturePolicyRuleId, number>> = {};
   for (const record of captured) {
-    const ruleIds = capturePolicyRuleIds(record);
+    const ruleIds = currentAutocaptureDecisionForRecord(record)?.rule_ids ?? capturePolicyRuleIds(record);
     for (const ruleId of ruleIds) {
       capturedByRule[ruleId] = (capturedByRule[ruleId] ?? 0) + 1;
     }
@@ -1398,7 +1396,7 @@ function buildAutocapturePolicySummary(records: MorynRecord[], limit: number): D
     auto_captured_examples: captured.slice(0, limit).map((record) => ({
       id: record.id,
       text: recordText(record),
-      rule_ids: capturePolicyRuleIds(record),
+      rule_ids: currentAutocaptureDecisionForRecord(record)?.rule_ids ?? capturePolicyRuleIds(record),
       reason: record.provenance?.reason
     })),
     archived_total: archived.length,

@@ -273,7 +273,9 @@ text, and failure or timeout signals, with keyed `findings_by_id`,
 actions stay inspection-oriented, such as dashboard review or timeline lookup.
 Capture review backlog follows the same review-required policy boundary as
 Capture Inbox, so low-risk auto-captured handoffs stay as audit evidence rather
-than dogfood review work.
+than dogfood review work. Older autocapture review metadata is rechecked against
+the current autocapture policy before it becomes active review work; explicit
+durable decisions and preferences still require review.
 MCP hosts call `dogfood_report`.
 
 Use `health check` for installation trust after setup, before dogfooding a new

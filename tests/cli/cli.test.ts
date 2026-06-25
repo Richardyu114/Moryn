@@ -4015,7 +4015,7 @@ describe("moryn CLI", () => {
         "--tag", "review",
         "--tag", "host:codex",
         "--content-json", JSON.stringify({
-          text: "CLI capture policy review candidate.",
+          text: "CLI capture policy candidate needs manual review.",
           format: "json",
           capture: {
             mode: "autocapture",

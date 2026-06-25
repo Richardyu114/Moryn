@@ -112,8 +112,12 @@ function duplicateAutocaptureRecord(input: AutocapturePolicyInput): MorynRecord 
 
 function needsManualReview(input: AutocapturePolicyInput): boolean {
   const searchable = `${input.summary} ${input.current_task ?? ""}`.toLowerCase();
-  if (isVerifiedImplementationHandoff(searchable) && !hasExplicitUserReviewMarker(searchable)) {
+  const verifiedImplementationHandoff = isVerifiedImplementationHandoff(searchable);
+  if (verifiedImplementationHandoff && !hasExplicitUserReviewMarker(searchable, verifiedImplementationHandoff)) {
     return false;
+  }
+  if (hasExplicitUserReviewMarker(searchable, verifiedImplementationHandoff)) {
+    return true;
   }
   return /\b(decision|decided|risk|risky|blocker|blocked|warning|warn|preference|principle|credential|credentials|secret|token|password|security|permission|approval|approve|confirm|canonical|promote|delete|destructive)\b/.test(searchable);
 }
@@ -123,14 +127,17 @@ function isVerifiedImplementationHandoff(searchable: string): boolean {
     && /\b(verified|passing|passed|typecheck|build|release check|suite|regression)\b/.test(searchable);
 }
 
-function hasExplicitUserReviewMarker(searchable: string): boolean {
+function hasExplicitUserReviewMarker(searchable: string, verifiedImplementationHandoff = false): boolean {
   return /\b(credential|credentials|secret|token|password|security|permission|canonical|promote|delete|destructive|blocker|blocked|risky)\b/.test(searchable)
     || /\b(decision|decided|preference|principle)\s*:/.test(searchable)
     || /\b(decision|decided|preference|principle)\s+(?:to|that)\b/.test(searchable)
     || /\brisk\s*:/.test(searchable)
-    || /\b(needs?|requires?|awaits?|waiting for|pending)\s+(?:user\s+|human\s+)?(?:review|approval|confirmation|confirm|decision)\b/.test(searchable)
-    || /\b(?:approval|confirmation|review)\s+(?:required|needed|pending)\b/.test(searchable)
-    || /\b(?:user|human)\s+(?:must|should|needs?|has to)\s+(?:review|approve|confirm|decide)\b/.test(searchable);
+    || (!verifiedImplementationHandoff && (
+      /\b(needs?|requires?|awaits?|waiting for|pending)\s+(?:user\s+|human\s+|manual\s+)?(?:review|approval|confirmation|confirm|decision)\b/.test(searchable)
+      || /\bmanual\s+review\b/.test(searchable)
+      || /\b(?:approval|confirmation|review)\s+(?:required|needed|pending)\b/.test(searchable)
+      || /\b(?:user|human)\s+(?:must|should|needs?|has to)\s+(?:review|approve|confirm|decide)\b/.test(searchable)
+    ));
 }
 
 export function evaluateAutocapturePolicy(input: AutocapturePolicyInput): AutocapturePolicyResult {

@@ -897,7 +897,10 @@ execution controls.
 Capture Inbox backlog only counts candidates whose capture policy requires
 explicit review or user action; low-risk auto-captured handoffs stay visible in
 Capture Policy and handoff evidence without making Health Check report a review
-warning.
+warning. Older autocapture review metadata is rechecked against the current
+autocapture policy before it appears as active Capture Inbox, Health Check, or
+Dogfood review work; explicit durable decisions and preferences still require
+review.
 
 ### Safe Action Registry
 

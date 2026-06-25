@@ -855,7 +855,7 @@ describe("core engine", () => {
         project_id: "moryn",
         tags: ["autocapture", "review", "host:codex"],
         content: {
-          text: "Codex finished dashboard approval polish.",
+          text: "Codex finished dashboard approval polish and needs manual review.",
           format: "json",
           capture: {
             mode: "autocapture",
