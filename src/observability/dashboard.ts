@@ -4639,8 +4639,7 @@ function captureInboxQueueSummary(items: DashboardCaptureInbox): string {
         <div>
           <h3>Queue summary</h3>
           <p>${escapeHtml(pluralize(items.total, "candidate"))} grouped into ${escapeHtml(pluralize(items.group_total, "review group"))}.</p>
-          <p>Default path: review by group first, then open item details only when needed.</p>
-          <p>Manual review: candidates become canonical only after Approve Memory or Approve Group.</p>
+          <p>Review groups first; open item details only when needed. Canonical memory still requires approval.</p>
         </div>
         <div class="capture-inbox-queue-chips" aria-label="Capture Inbox queue counts">
           <span>${escapeHtml(normalReview)} normal review</span>

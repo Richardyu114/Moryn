@@ -3943,8 +3943,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-capture-inbox-queue-summary");
       expect(html).toContain("<h3>Queue summary</h3>");
       expect(html).toContain("4 candidates grouped into 2 review groups.");
-      expect(html).toContain("Default path: review by group first, then open item details only when needed.");
-      expect(html).toContain("Manual review: candidates become canonical only after Approve Memory or Approve Group.");
+      expect(html).toContain("Review groups first; open item details only when needed. Canonical memory still requires approval.");
+      expect(html).not.toContain("Default path: review by group first, then open item details only when needed.");
+      expect(html).not.toContain("Manual review: candidates become canonical only after Approve Memory or Approve Group.");
       expect(html).toContain("<span>2 normal review</span>");
       expect(html).toContain("<span>2 likely noise</span>");
       expect(html.indexOf("data-capture-inbox-queue-summary")).toBeLessThan(inboxListIndex);
