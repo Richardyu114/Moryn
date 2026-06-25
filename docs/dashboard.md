@@ -592,9 +592,11 @@ detail panel. Each card also shows a short verb-first next-action label such as
 `Review decisions`, `Review warnings`, `Open governance`, or `Inspect sync`, so
 the first screen reads as a review cockpit instead of only a count summary. If
 sync is the only warning signal, the review action uses `Review sync changes`
-instead of the generic `Review warnings` label. The collapsed `Page Shortcuts`
-summary still stays count-free; the non-zero sync count remains visible on the
-expanded shortcut card and in `/api/dashboard.action_board`.
+instead of the generic `Review warnings` label. When there are no warning or
+critical signals, the quiet review shortcut reads `Open info checks` instead of
+`Review warnings`. The collapsed `Page Shortcuts` summary still stays
+count-free; the non-zero sync count remains visible on the expanded shortcut
+card and in `/api/dashboard.action_board`.
 When no approval queue is rendered, the `Confirm` card points to `Needs
 Attention` as a stable zero-state target. If a target sits inside another
 collapsed detail panel, the dashboard opens the parent panels before scrolling.

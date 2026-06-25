@@ -1907,7 +1907,7 @@ function reviewActionCopy(attentionItems: DashboardAttentionItem[]): {
   return {
     hint: actionItems.length === 0 ? "No warning action" : "Review visible warnings",
     detail: "Warnings and critical signals remain visible in Needs Attention.",
-    next_action_label: "Review warnings"
+    next_action_label: actionItems.length === 0 ? "Open info checks" : "Review warnings"
   };
 }
 

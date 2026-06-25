@@ -3857,6 +3857,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Move 1 record</span>");
       expect(html).toContain("<span>Plan hash checked</span>");
       expect(html).toContain("<span>No private records included</span>");
+      const quietShortcutsStart = html.indexOf("data-dashboard-detail=\"action-board-quiet-targets\"");
+      const quietShortcutsEnd = html.indexOf("</details>", quietShortcutsStart);
+      const quietShortcutsHtml = html.slice(quietShortcutsStart, quietShortcutsEnd);
+      expect(quietShortcutsHtml).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-quiet-item=\"review\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
+      expect(quietShortcutsHtml).toContain("<em class=\"action-board-next\">Open info checks</em>");
+      expect(quietShortcutsHtml).not.toContain("<em class=\"action-board-next\">Review warnings</em>");
       const repairBriefStart = html.indexOf("<div class=\"maintenance-brief\" data-maintenance-brief>");
       const repairBriefEnd = html.indexOf("</div>\n    </div>", repairBriefStart);
       const repairBriefHtml = html.slice(repairBriefStart, repairBriefEnd);
