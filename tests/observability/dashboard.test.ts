@@ -1334,8 +1334,8 @@ describe("observability dashboard", () => {
 
       expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
       expect(data.governance.summary).toMatchObject({
-        total_items: 7,
-        needs_user_action: 2,
+        total_items: 6,
+        needs_user_action: 1,
         safe_inspections: 5,
         hidden_private_records: 1
       });
@@ -1402,18 +1402,15 @@ describe("observability dashboard", () => {
         requires_user_confirmation: false,
         writes: "none"
       });
-      expect(data.governance.items_by_id[`maintenance:${maintenancePlan?.plan_id}`]).toMatchObject({
-        source: "maintenance",
-        category: "project_identity",
-        severity: "warning",
-        record_ids: ["rec_governance_item_2"],
-        evidence_path: `maintenance.plans_by_id.${maintenancePlan?.plan_id}`,
-        action_label: "Apply Repair",
-        action_id: maintenanceActionId,
-        safe_to_run: false,
-        requires_user_confirmation: true,
-        writes: "append_only_events"
+      expect(data.maintenance.plans_by_id[maintenancePlan?.plan_id ?? ""]).toBeDefined();
+      expect(data.decision_summary.items_by_id[`maintenance_review:${maintenancePlan?.plan_hash.replace(/^sha256:/, "")}`]).toMatchObject({
+        surface: "maintenance_review",
+        title: "Project identity repair",
+        decision_label: "Apply Repair",
+        primary_action_id: maintenanceActionId,
+        evidence_path: "maintenance.plans[]"
       });
+      expect(data.governance.items_by_id[`maintenance:${maintenancePlan?.plan_id}`]).toBeUndefined();
       expect(data.governance.items_by_id["dogfood_report:capture_review_backlog"]).toMatchObject({
         source: "dogfood_report",
         category: "dogfood_friction",
@@ -1576,6 +1573,75 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Capture Policy Audit</span>");
       expect(html).not.toContain("<section class=\"panel memory-lifecycle\"");
       expect(html).not.toContain("<section class=\"panel capture-policy-audit\"");
+    });
+  });
+
+  it("keeps maintenance approvals in Review Queue instead of duplicating them in Governance Hub", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_governance_dedupe_${++record}` : `evt_governance_dedupe_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn governance dedupe context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Old project id record should only be approved from Review Queue.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-01T00:05:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(data.maintenance.plans).toHaveLength(1);
+      expect(data.decision_summary.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          surface: "maintenance_review",
+          title: "Project identity repair",
+          decision_label: "Apply Repair",
+          target: "maintenance-review-queue"
+        })
+      ]));
+      expect(data.governance.summary.needs_user_action).toBe(0);
+      expect(data.governance.items.some((item) => item.source === "maintenance")).toBe(false);
+      expect(html).toContain("Review Queue");
+      expect(html).toContain("Project identity repair");
+      expect(html).not.toContain("maintenance.plans_by_id.project_migrate");
     });
   });
 

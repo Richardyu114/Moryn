@@ -2226,7 +2226,9 @@ function governanceFromMemoryDoctor(report: MemoryDoctorResult): DashboardGovern
 }
 
 function governanceFromMaintenance(maintenance: DashboardMaintenanceData): DashboardGovernanceItem[] {
-  return maintenance.plans.map((plan): DashboardGovernanceItem => {
+  return maintenance.plans
+    .filter((plan) => !plan.approval.requires_user_confirmation)
+    .map((plan): DashboardGovernanceItem => {
     const evidencePath = `maintenance.plans_by_id.${plan.plan_id}`;
     const actionLabel = maintenancePrimaryActionLabel(plan);
     return {

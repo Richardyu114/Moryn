@@ -370,7 +370,8 @@ reports have review or inspection items. It is a read-only summary over:
 - `capture_policy.findings_by_id`
 - `memory_doctor.findings_by_id`
 - `memory_lifecycle.findings_by_id`
-- `maintenance.plans_by_id`
+- maintenance plan availability, while explicit approval cards stay in
+  `Review Queue`
 - `dogfood_report.findings_by_id`
 
 Each normalized item carries `source`, `category`, `severity`, `record_ids`,
@@ -379,6 +380,9 @@ metadata. The hub counts items that need user confirmation, safe read-only
 inspections, and private records hidden by the dashboard boundary. The visible
 summary only shows non-zero counts, or `All clear` when no count needs attention,
 so zero-value governance states do not compete with actual review work.
+Maintenance plans that already appear as `Pending Decisions` and `Review Queue`
+cards are not repeated as Governance Hub confirmation rows; the hub remains a
+background governance index instead of a second approval surface.
 
 Governance items render as compact expandable decision rows. When any item
 requires user confirmation, Governance Hub stays directly visible. When it only
