@@ -410,8 +410,10 @@ summarizes the remaining records as API evidence, so large backlogs stay
 inspectable without flooding the page. `Record samples` folded rows show only
 the visible sample count as `trace ready`; the candidate group name and
 shown/total count stay in the accessible summary label. Sample rows use short
-sample labels plus short record-id context in their folded summaries, so
-repeated source/type rows stay distinguishable. Overflow
+`Sample <record>` labels in their folded summaries; the record kind stays in the
+right-side chip and the full kind/source/time wording stays in the accessible
+row label, so repeated source/type rows stay distinguishable without repeating
+the kind twice. Overflow
 rows read `More samples` with a group-specific hidden-record count and API/Raw
 Store cue, while the exact
 `candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind a

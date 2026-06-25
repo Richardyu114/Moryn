@@ -3640,12 +3640,20 @@ function candidateTriageRecordSampleTitle(record: DashboardCandidateTriageRecord
   return `${label.charAt(0).toUpperCase()}${label.slice(1)} sample ${recordLabel(record.id)}`;
 }
 
+function candidateTriageRecordVisibleTitle(record: DashboardCandidateTriageRecord): string {
+  return `Sample ${recordLabel(record.id)}`;
+}
+
+function candidateTriageRecordAccessibleTitle(record: DashboardCandidateTriageRecord): string {
+  return `${candidateTriageRecordSampleTitle(record)} from ${record.source_label}, ${record.relative_time}`;
+}
+
 function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): string {
   return `
     <details class="candidate-triage-record" data-dashboard-detail="candidate-triage-record:${escapeHtml(record.id)}">
-      <summary class="candidate-triage-record-summary">
+      <summary class="candidate-triage-record-summary" aria-label="${escapeHtml(candidateTriageRecordAccessibleTitle(record))}">
         <span>
-          <strong>${escapeHtml(candidateTriageRecordSampleTitle(record))}</strong>
+          <strong>${escapeHtml(candidateTriageRecordVisibleTitle(record))}</strong>
           <small>${escapeHtml(`${record.source_label} | ${record.relative_time}`)}</small>
         </span>
         <span class="candidate-triage-record-meta">${escapeHtml(titleCase(record.kind))}</span>

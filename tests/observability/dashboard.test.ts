@@ -914,8 +914,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Record samples</span>");
       expect(html).toContain("<small>1 sample, trace ready</small>");
       expect(html).not.toContain("<small>Likely noise: 1 sample with trace commands</small>");
-      expect(html).toContain("<strong>Session summary sample rec_candidate_triage_2</strong>");
-      expect(html).toContain("<strong>Memory sample rec_candidate_triage_3</strong>");
+      expect(html).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Session summary sample rec_candidate_triage_2 from Codex, ");
+      expect(html).toContain("<strong>Sample rec_candidate_triage_2</strong>");
+      expect(html).toContain("<span class=\"candidate-triage-record-meta\">Session Summary</span>");
+      expect(html).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Memory sample rec_candidate_triage_3 from Codex, ");
+      expect(html).toContain("<strong>Sample rec_candidate_triage_3</strong>");
+      expect(html).toContain("<span class=\"candidate-triage-record-meta\">Memory</span>");
+      expect(html).not.toContain("<strong>Session summary sample rec_candidate_triage_2</strong>");
+      expect(html).not.toContain("<strong>Memory sample rec_candidate_triage_3</strong>");
       expect(html).toContain("<div><dt>Text</dt><dd>Smoke marker from dashboard test.</dd></div>");
       expect(html).toContain("<div><dt>Text</dt><dd>Always keep dashboard governance readable.</dd></div>");
       expect(html).not.toContain("<strong>Smoke marker from dashboard test.</strong>");
@@ -1010,8 +1016,12 @@ describe("observability dashboard", () => {
       expect(groupHtml).toContain("<small>3 samples, trace ready</small>");
       expect(groupHtml).not.toContain("<small>Needs inspection: 3 of 7 samples with trace commands</small>");
       expect(groupHtml).not.toContain("<small>5 of 7 samples with trace commands</small>");
-      expect(groupHtml).toContain("<strong>Agent note sample rec_budgeted_triage_8</strong>");
-      expect(groupHtml).toContain("<strong>Agent note sample rec_budgeted_triage_7</strong>");
+      expect(groupHtml).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_budgeted_triage_8 from Codex, 19d ago\">");
+      expect(groupHtml).toContain("<strong>Sample rec_budgeted_triage_8</strong>");
+      expect(groupHtml).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_budgeted_triage_7 from Codex, 19d ago\">");
+      expect(groupHtml).toContain("<strong>Sample rec_budgeted_triage_7</strong>");
+      expect(groupHtml).not.toContain("<strong>Agent note sample rec_budgeted_triage_8</strong>");
+      expect(groupHtml).not.toContain("<strong>Agent note sample rec_budgeted_triage_7</strong>");
       expect(groupHtml).not.toContain("<strong>Agent note sample</strong>");
       expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_8\"");
       expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_7\"");
@@ -1099,9 +1109,14 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
       const generatedId = "rec_abcdef1234567890abcdef1234567890";
 
-      expect(html).toContain("<strong>Memory sample rec_abcdef12</strong>");
+      expect(html).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Memory sample rec_abcdef12 from Codex, 19d ago\">");
+      expect(html).toContain("<strong>Sample rec_abcdef12</strong>");
+      expect(html).not.toContain(`<strong>Sample ${generatedId}</strong>`);
+      expect(html).not.toContain("<strong>Memory sample rec_abcdef12</strong>");
       expect(html).not.toContain(`<strong>Memory sample ${generatedId}</strong>`);
-      expect(html).toContain("<strong>Agent note sample rec_candidate_short_context</strong>");
+      expect(html).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_candidate_short_context from Codex, 19d ago\">");
+      expect(html).toContain("<strong>Sample rec_candidate_short_context</strong>");
+      expect(html).not.toContain("<strong>Agent note sample rec_candidate_short_context</strong>");
       expect(html).toContain(`<div><dt>Record</dt><dd><code>${generatedId}</code></dd></div>`);
       expect(html).toContain(`moryn timeline --record-id ${generatedId}`);
       expect(html).toContain(`moryn recall --record-id ${generatedId}`);
