@@ -3094,7 +3094,7 @@ function decisionSummaryRouteChips(item: DashboardDecisionSummaryItem): string {
     item.decision_label,
     decisionSummaryWriteLabel(item.writes),
     "approval required",
-    item.evidence_path
+    "Audit evidence"
   ].map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
 }
 

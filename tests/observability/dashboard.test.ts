@@ -3826,7 +3826,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("Move 1 record from the old project id into moryn.");
       expect(html).toContain("<span>Append-only events</span>");
       expect(html).toContain("<span>approval required</span>");
-      expect(html).toContain("<span>maintenance.plans[]</span>");
+      expect(html).toContain("<span>Audit evidence</span>");
+      expect(html).not.toContain("<span>maintenance.plans[]</span>");
       expect(html).not.toContain("<details class=\"decision-summary-evidence\" data-dashboard-detail=\"decision-summary-evidence:");
       expect(html).not.toContain("<summary>Evidence source</summary>");
       expect(html).not.toContain("<dt>Path</dt><dd><code>maintenance.plans[]</code></dd>");
@@ -4526,7 +4527,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("Approve Group or Reject Group");
       expect(html).toContain("<span>Append-only events</span>");
       expect(html).toContain("<span>approval required</span>");
-      expect(html).toContain("<span>capture_inbox.groups[]</span>");
+      expect(html).toContain("<span>Audit evidence</span>");
+      expect(html).not.toContain("<span>capture_inbox.groups[]</span>");
       expect(html).not.toContain("Approve Group promotes candidates; Reject Group archives them. Both append audit events.");
       expect(html).not.toContain("<dt>Write boundary</dt><dd>Append-only events<small>Approve Group promotes candidates; Reject Group archives them. Both append audit events.</small></dd>");
       expect(html).not.toContain("<dt>Path</dt><dd><code>capture_inbox.groups[]</code></dd>");
