@@ -245,7 +245,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Quiet Overview</span>");
       expect(html).not.toContain("<small>4 quiet cards</small>");
       expect(html).toContain("data-dashboard-overview-quiet-card=\"health\"");
-      expect(html).toContain("data-dashboard-overview-quiet-card=\"action\"");
+      expect(html).not.toContain("data-dashboard-overview-quiet-card=\"action\"");
       expect(html).toContain("data-dashboard-overview-quiet-card=\"context\"");
       expect(html).toContain("data-dashboard-overview-quiet-card=\"sync\"");
       expect(html).toContain("<section class=\"dashboard-work-lanes\" data-dashboard-work-lanes aria-label=\"Dashboard Work Lanes\">");
@@ -1831,12 +1831,10 @@ describe("observability dashboard", () => {
         expect(html).not.toContain("<small>4 quiet cards</small>");
         expect(html).toContain("<div class=\"dashboard-overview-quiet-list\">");
         expect(html).toContain("data-dashboard-overview-quiet-card=\"health\"");
-        expect(html).toContain("data-dashboard-overview-quiet-card=\"action\"");
+        expect(html).not.toContain("data-dashboard-overview-quiet-card=\"action\"");
         expect(html).toContain("data-dashboard-overview-quiet-card=\"context\"");
         expect(html).toContain("data-dashboard-overview-quiet-card=\"sync\"");
-        expect(html).toContain("<span>Next</span>");
         expect(html).toContain("<strong>All clear</strong>");
-        expect(html).toContain("<small>Inspect checks</small>");
         expect(html).toContain("<details class=\"action-board action-board-secondary\" aria-label=\"Page Shortcuts\" data-dashboard-detail=\"action-board\" data-action-board-nav>");
         expect(html).toContain("<span>Page Shortcuts</span>");
         expect(html).toContain("<small>Optional section links</small>");
@@ -2033,9 +2031,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Health</span>");
       expect(html).toContain("<strong>Local Only</strong>");
       expect(html).toContain("<small>Review health</small>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card warning\" data-dashboard-overview-card=\"action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-dashboard-overview-source=\"action_board.items_by_id.review\">");
-      expect(html).toContain("<span>Next</span>");
-      expect(html).toContain("<small>Review warnings</small>");
+      expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-card warning\" data-dashboard-overview-card=\"action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-dashboard-overview-source=\"action_board.items_by_id.review\">");
       expect(html).toContain("<small>Open context</small>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-card=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\" data-dashboard-overview-source=\"action_board.items_by_id.sync\">");
       expect(html).toContain("<small>Inspect sync</small>");
@@ -3856,6 +3852,78 @@ describe("observability dashboard", () => {
       expect(html).toContain("Rejected. Receipt rendered below; refreshing dashboard...");
       expect(html).not.toContain("window.confirm");
       expect(html).not.toContain("Technical details");
+    });
+  });
+
+  it("does not repeat the primary decision action as an overview card", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_overview_dedupe_${++record}` : `evt_overview_dedupe_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn overview context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "repo-e6f0166fd942",
+        tags: ["moryn"],
+        content: { text: "Old project id record creates one Review Queue decision.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-01T00:05:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(data.dashboard_overview.headline).toBe("Review decisions");
+      expect(data.dashboard_overview.primary_action).toMatchObject({
+        label: "Review decisions",
+        target: "decision-summary",
+        source: "action_board.items_by_id.confirm"
+      });
+      expect(data.dashboard_overview.cards_by_id.action).toMatchObject({
+        id: "action",
+        label: "Next",
+        value: "Review decisions",
+        source: "action_board.items_by_id.confirm"
+      });
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\">Review decisions</button>");
+      expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
+      expect(html).not.toContain("data-dashboard-overview-quiet-card=\"action\"");
+      expect(html).toContain("<section id=\"decision-summary\" class=\"panel decision-summary\"");
+      expect(html).toContain("<details id=\"maintenance-review-queue\"");
     });
   });
 

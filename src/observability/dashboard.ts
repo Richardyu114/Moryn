@@ -2917,7 +2917,12 @@ function isSyncOnlyDashboardOverview(data: DashboardOverview): boolean {
 
 function isActiveDashboardOverviewCard(card: DashboardOverviewCard, data: DashboardOverview): boolean {
   if (isSyncOnlyDashboardOverview(data)) return false;
+  if (card.source === data.primary_action.source) return false;
   return card.severity !== "good";
+}
+
+function isPrimaryDashboardOverviewCard(card: DashboardOverviewCard, data: DashboardOverview): boolean {
+  return card.source === data.primary_action.source;
 }
 
 function dashboardOverviewCardButton(card: DashboardOverviewCard, dataAttribute = "data-dashboard-overview-card"): string {
@@ -2947,8 +2952,9 @@ function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
 }
 
 function dashboardOverview(data: DashboardOverview): string {
-  const activeCards = data.cards.filter((card) => isActiveDashboardOverviewCard(card, data));
-  const quietCards = data.cards.filter((card) => !isActiveDashboardOverviewCard(card, data));
+  const visibleCards = data.cards.filter((card) => !isPrimaryDashboardOverviewCard(card, data));
+  const activeCards = visibleCards.filter((card) => isActiveDashboardOverviewCard(card, data));
+  const quietCards = visibleCards.filter((card) => !isActiveDashboardOverviewCard(card, data));
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
