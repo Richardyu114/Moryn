@@ -373,13 +373,13 @@ requires user confirmation, Governance Hub stays directly visible. When it only
 contains safe read-only inspections, the whole hub is collapsed behind a compact
 summary whose row reads `Read-only governance checks` instead of repeating a
 safe-check count. Safe read-only inspections are grouped under a collapsed `Safe
-Inspections` row whose summary reads `Read-only checks ready`, so the nested row
+Inspections` row whose summary reads `Background checks, read-only`, so the nested row
 explains its purpose instead of repeating the Governance Hub count; expanding it
 still shows the concrete safe-check count plus compact inspection rows with
-readable source labels, title, read-only next step, and evidence path.
-Safe inspection rows keep raw evidence paths behind an `Evidence path` fold
-whose summary names the inspection row, so the first visible row reads as
-guidance while the exact selection source remains available for audit.
+readable source labels, title, and read-only next step.
+Safe inspection rows keep detection, next step, write boundary, and evidence
+source behind a `Review notes` fold, so the first visible row reads as guidance
+while the exact selection source remains available for audit.
 Safe inspection rows use short display titles while full report titles remain
 in `/api/dashboard` and source panels.
 `memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor`

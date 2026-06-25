@@ -146,7 +146,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Record Index` and `Event Timeline` render only the first ten rows each and summarize overflow as `/api/dashboard` evidence");
     expectText(dashboard, "`Record Index` record rows use short kind/type/source plus short record-id summaries in their folded row instead of raw record text");
     expectText(dashboard, "still shows the concrete safe-check count");
-    expectText(dashboard, "compact inspection rows with readable source labels, title, read-only next step, and evidence path");
+    expectText(dashboard, "compact inspection rows with readable source labels, title, and read-only next step");
     expectText(dashboard, "`memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor` safe inspection");
     expectText(dashboard, "does not add dashboard approval, archive, promote, apply, or background execution controls");
     expectText(dashboard, "`candidate_triage` groups active candidate records into `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`");
@@ -184,9 +184,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The visible Evidence Library title is `Read-only Evidence`, while the stable route remains `data-dashboard-detail=\"evidence-library\"`");
     expectText(dashboard, "row reads `Read-only governance checks`");
     expectText(dashboard, "instead of repeating a safe-check count");
-    expectText(dashboard, "`Safe Inspections` row whose summary reads `Read-only checks ready`");
+    expectText(dashboard, "`Safe Inspections` row whose summary reads `Background checks, read-only`");
     expectText(dashboard, "instead of repeating the Governance Hub count");
-    expectText(dashboard, "Safe inspection rows keep raw evidence paths behind an `Evidence path` fold whose summary names the inspection row");
+    expectText(dashboard, "Safe inspection rows keep detection, next step, write boundary, and evidence source behind a `Review notes` fold");
     expectText(dashboard, "Safe inspection rows use short display titles while full report titles remain in `/api/dashboard` and source panels");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
     expectText(dashboard, "Visible write boundaries use user-readable labels such as `Append-only events`");

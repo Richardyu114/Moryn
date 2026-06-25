@@ -3518,19 +3518,35 @@ function governanceSafeRowTitle(item: DashboardGovernanceItem): string {
   return item.title;
 }
 
+function governanceSafeReviewNote(note: string): string {
+  const evidencePrefix = "Evidence source: ";
+  if (note.startsWith(evidencePrefix)) {
+    return `Evidence source: <code>${escapeHtml(note.slice(evidencePrefix.length))}</code>`;
+  }
+  return escapeHtml(note);
+}
+
+function governanceSafeReviewNotes(item: DashboardGovernanceItem): string {
+  return `
+      <details class="governance-safe-notes" data-dashboard-detail="governance-notes:${escapeHtml(item.id)}">
+        <summary class="dashboard-fold-summary">
+          <span>Review notes</span>
+          <small>Detection, boundary, and evidence</small>
+        </summary>
+        <ol>
+          ${item.review_log.map((note) => `<li>${governanceSafeReviewNote(note)}</li>`).join("")}
+        </ol>
+      </details>
+  `;
+}
+
 function governanceSafeRow(item: DashboardGovernanceItem): string {
   return `
     <div class="governance-safe-row ${escapeHtml(item.severity)}" data-dashboard-detail="governance:${escapeHtml(item.id)}" data-governance-safe-item="${escapeHtml(item.id)}">
       <span>${escapeHtml(governanceSourceDisplayLabel(item.source))}</span>
       <strong>${escapeHtml(governanceSafeRowTitle(item))}</strong>
       <small>${escapeHtml(`${governanceActionDisplayLabel(item.action_label)} | Read-only`)}</small>
-      <details class="governance-safe-evidence">
-        <summary class="dashboard-fold-summary">
-          <span>Evidence path</span>
-          <small>${escapeHtml(governanceSafeRowTitle(item))}</small>
-        </summary>
-        <code>${escapeHtml(item.evidence_path)}</code>
-      </details>
+      ${governanceSafeReviewNotes(item)}
     </div>
   `;
 }
@@ -3581,7 +3597,7 @@ function governanceHubBody(governance: DashboardGovernance): string {
           <details class="governance-safe-group" data-dashboard-detail="governance-safe-inspections">
             <summary class="dashboard-fold-summary">
               <span>Safe Inspections</span>
-              <small>Read-only checks ready</small>
+              <small>Background checks, read-only</small>
             </summary>
             <div class="governance-safe-list" data-governance-safe-list>
               ${safeInspections.map(governanceSafeRow).join("")}
@@ -6831,20 +6847,23 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .governance-safe-row code {
       grid-column: 2;
     }
-    .governance-safe-evidence {
+    .governance-safe-notes {
       grid-column: 2;
       min-width: 0;
       color: var(--muted);
       font-size: 12px;
     }
-    .governance-safe-evidence summary {
+    .governance-safe-notes summary {
       cursor: pointer;
       font-weight: 720;
     }
-    .governance-safe-evidence code {
-      display: inline-block;
-      margin-top: 5px;
-      max-width: 100%;
+    .governance-safe-notes ol {
+      margin: 7px 0 0 18px;
+      padding: 0;
+      display: grid;
+      gap: 4px;
+    }
+    .governance-safe-notes li {
       overflow-wrap: anywhere;
     }
     .governance-item[open] > summary { margin-bottom: 8px; }
