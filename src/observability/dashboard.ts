@@ -1856,7 +1856,7 @@ function buildDecisionSummary(input: {
     id: `maintenance_review:${plan.plan_hash.replace(/^sha256:/, "")}`,
     surface: "maintenance_review",
     title: plan.decision_card.title,
-    summary: plan.decision_card.issue,
+    summary: maintenanceDecisionSummaryText(plan),
     decision_label: maintenancePrimaryActionLabel(plan),
     target: "maintenance-review-queue",
     target_label: "Open Review Queue",
@@ -1877,6 +1877,13 @@ function buildDecisionSummary(input: {
     items,
     items_by_id: Object.fromEntries(items.map((item) => [item.id, item]))
   };
+}
+
+function maintenanceDecisionSummaryText(plan: DashboardMaintenancePlan): string {
+  if (plan.type === "candidate_noise_archive") {
+    return `${maintenanceMoveSummary(plan)} that look like smoke/e2e marker noise.`;
+  }
+  return `${maintenanceMoveSummary(plan)} from the old project id into ${plan.to_project_id ?? "the current project"}.`;
 }
 
 function actionBoardSeverity(count: number, fallback: DashboardActionBoardSeverity = "good"): DashboardActionBoardSeverity {
@@ -3103,6 +3110,19 @@ function decisionSummaryWriteLabel(writes: DashboardDecisionSummaryItem["writes"
   return "No memory writes";
 }
 
+function decisionSummaryIntro(data: DashboardDecisionSummary): string {
+  return `Review ${pluralize(data.total_decisions, "explicit approval")} before any memory write.`;
+}
+
+function decisionSummaryRouteChips(item: DashboardDecisionSummaryItem): string {
+  return [
+    item.decision_label,
+    decisionSummaryWriteLabel(item.writes),
+    "approval required",
+    item.evidence_path
+  ].map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
+}
+
 function decisionSummary(data: DashboardDecisionSummary): string {
   if (data.total_decisions === 0) return "";
   return `
@@ -3110,7 +3130,7 @@ function decisionSummary(data: DashboardDecisionSummary): string {
       <div class="decision-summary-heading">
         <div>
           <h2>Pending Decisions</h2>
-          <p>Review explicit approvals</p>
+          <p>${escapeHtml(decisionSummaryIntro(data))}</p>
         </div>
         <div class="decision-summary-counts">
           ${decisionSummaryChips(data)}
@@ -3119,21 +3139,16 @@ function decisionSummary(data: DashboardDecisionSummary): string {
       <div class="decision-summary-list">
         ${data.items.map((item) => `
           <article class="decision-summary-item" data-decision-summary-item="${escapeHtml(item.id)}">
-            <div>
-              <strong>${escapeHtml(item.title)}</strong>
-              <p>${escapeHtml(item.summary)}</p>
+            <div class="decision-summary-item-main">
+              <div>
+                <strong>${escapeHtml(item.title)}</strong>
+                <p>${escapeHtml(item.summary)}</p>
+              </div>
+              <button type="button" class="decision-summary-link" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">${escapeHtml(item.target_label)}</button>
             </div>
-            <dl>
-              <div><dt>Decision</dt><dd>${escapeHtml(item.decision_label)}</dd></div>
-              <div><dt>Write boundary</dt><dd>${escapeHtml(decisionSummaryWriteLabel(item.writes))}<small>${escapeHtml(item.safety_note)}</small></dd></div>
-            </dl>
-            <details class="decision-summary-evidence" data-dashboard-detail="decision-summary-evidence:${escapeHtml(item.id)}">
-              <summary>Evidence source</summary>
-              <dl>
-                <div><dt>Path</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
-              </dl>
-            </details>
-            <button type="button" class="decision-summary-link" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">${escapeHtml(item.target_label)}</button>
+            <div class="decision-summary-route" aria-label="Decision route">
+              ${decisionSummaryRouteChips(item)}
+            </div>
           </article>
         `).join("")}
       </div>
@@ -6360,11 +6375,18 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .decision-summary-item {
       display: grid;
-      gap: 8px;
+      gap: 7px;
       border: 1px solid var(--hairline);
       border-radius: 7px;
-      padding: 10px;
+      padding: 9px;
       background: var(--surface-2);
+      min-width: 0;
+    }
+    .decision-summary-item-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
       min-width: 0;
     }
     .decision-summary-item strong {
@@ -6378,26 +6400,21 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--muted);
       overflow-wrap: anywhere;
     }
-    .decision-summary-item dl {
-      margin: 0;
+    .decision-summary-route {
+      display: flex;
+      flex-wrap: wrap;
       gap: 5px;
     }
-    .decision-summary-item dl div {
-      grid-template-columns: 76px minmax(0, 1fr);
-    }
-    .decision-summary-evidence {
-      border: 1px solid var(--hairline);
-      border-radius: 7px;
-      padding: 7px 8px;
+    .decision-summary-route span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
       background: var(--surface);
-    }
-    .decision-summary-evidence[open] > summary { margin-bottom: 7px; }
-    .decision-summary-evidence summary {
-      color: var(--ink);
-      font-size: 12.5px;
+      color: var(--muted);
+      font-size: 12px;
       font-weight: 720;
+      overflow-wrap: anywhere;
     }
-    .decision-summary-evidence dl { margin: 0; }
     .decision-summary-link {
       justify-self: start;
       background: var(--ink);

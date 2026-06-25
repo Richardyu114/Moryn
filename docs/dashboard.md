@@ -612,16 +612,17 @@ When explicit approvals exist, the dashboard renders a compact `Pending
 Decisions` panel directly below the Action Board. `/api/dashboard.decision_summary`
 returns the same read-only shape. It counts human decision units, not raw
 approve/reject buttons: one Capture Inbox group is one decision, and one Review
-Queue maintenance plan is one decision. Each item shows the plain-language
-decision, write boundary, and navigation target. Pending Decisions keeps machine
-evidence paths behind an `Evidence source` fold, such as
-`capture_inbox.groups[]` or `maintenance.plans[]`. Visible write boundaries use
-user-readable labels such as `Append-only events`, while the JSON contract keeps
-machine-readable fields such as `writes: "append_only_events"`. It references
-existing Safe Action Registry ids through `primary_action_id` and
-`secondary_action_id`, but it does not add a new endpoint, background executor,
-or second approval path. Actual writes remain inside Capture Inbox and Review
-Queue controls.
+Queue maintenance plan is one decision. The visible panel is a route summary:
+each item shows a short action-oriented summary, user-readable route chips such
+as `Append-only events` and `approval required`, the machine evidence path as a
+chip, and one navigation button to the owning confirmation surface. It does not
+repeat the full safety note, raw evidence fold, or approval controls that already
+live in Capture Inbox or Review Queue. The JSON contract keeps those audit fields
+in `items[]`, including `writes: "append_only_events"`, `safety_note`,
+`evidence_path`, `primary_action_id`, and `secondary_action_id`, but the HTML
+keeps Pending Decisions as a compact routing layer. It does not add a new
+endpoint, background executor, or second approval path. Actual writes remain
+inside Capture Inbox and Review Queue controls.
 
 Action Board cards keep full explanations in `items[].detail` for agents and
 audit readers, but the visible card footer uses the shorter `items[].hint`.

@@ -206,8 +206,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Safe inspection rows keep detection, next step, write boundary, and evidence source behind a `Review notes` fold");
     expectText(dashboard, "Safe inspection rows use short display titles while full report titles remain in `/api/dashboard` and source panels");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
-    expectText(dashboard, "Visible write boundaries use user-readable labels such as `Append-only events`");
-    expectText(dashboard, "Pending Decisions keeps machine evidence paths behind an `Evidence source` fold");
+    expectText(dashboard, "The visible panel is a route summary");
+    expectText(dashboard, "route chips such as `Append-only events` and `approval required`");
+    expectText(dashboard, "It does not repeat the full safety note, raw evidence fold, or approval controls");
+    expectText(dashboard, "The JSON contract keeps those audit fields in `items[]`");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
     expectText(dashboard, "Actual writes remain inside Capture Inbox and Review Queue controls");
     expectText(dashboard, "After a dashboard approval or rejection succeeds, the browser renders a compact `Action receipt`");
