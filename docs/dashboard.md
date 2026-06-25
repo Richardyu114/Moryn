@@ -416,8 +416,8 @@ shown/total count stay in the accessible summary label. Sample rows use short
 right-side chip and the full kind/source/time wording stays in the accessible
 row label, so repeated source/type rows stay distinguishable without repeating
 the kind twice. Overflow
-rows read `More samples` with a group-specific hidden-record count and API/Raw
-Store cue, while the exact
+rows read `More samples` with a short `hidden, API ready` count, while the
+group-specific hidden-record count, API/Raw Store cue, and exact
 `candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind a
 group-specific `API evidence path` fold. Full candidate text remains inside the
 expanded sample body and `/api/dashboard`.

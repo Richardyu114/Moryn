@@ -3686,13 +3686,14 @@ function candidateTriageSampleVisibleSummary(group: DashboardCandidateTriageGrou
 function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): string {
   const hiddenRecords = Math.max(0, group.records.length - CANDIDATE_TRIAGE_SAMPLE_LIMIT);
   if (hiddenRecords === 0) return "";
+  const overflowSummary = `${group.label}: ${hiddenRecords} hidden in API and Raw Store`;
   return `
     <div class="candidate-triage-overflow">
       <span class="candidate-triage-overflow-count">${escapeHtml(`${pluralize(hiddenRecords, "more record")} kept in API evidence`)}</span>
       <details class="candidate-triage-overflow-path" data-dashboard-detail="candidate-triage-overflow:${escapeHtml(group.id)}">
-        <summary class="dashboard-fold-summary">
+        <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`More samples: ${overflowSummary}`)}">
           <span>More samples</span>
-          <small>${escapeHtml(`${group.label}: ${hiddenRecords} hidden in API and Raw Store`)}</small>
+          <small>${escapeHtml(`${hiddenRecords} hidden, API ready`)}</small>
         </summary>
         <p>Use the API evidence path or Raw Store when the displayed samples are not enough.</p>
         <details class="candidate-triage-overflow-evidence" data-dashboard-detail="candidate-triage-overflow-evidence:${escapeHtml(group.id)}">
