@@ -2852,8 +2852,8 @@ function actionBoardQuietTargets(items: DashboardActionBoardItem[]): string {
   return `
     <details class="action-board-quiet" data-dashboard-detail="action-board-quiet-targets">
       <summary class="dashboard-fold-summary action-board-quiet-fold">
-        <span>Reference Checks</span>
-        <small>Quiet navigation checks</small>
+        <span>Quiet Shortcuts</span>
+        <small>Background section links</small>
       </summary>
       <div class="action-board-quiet-list">
         ${items.map((item) => actionBoardItemButton(item, "data-action-board-quiet-item")).join("")}

@@ -168,8 +168,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`");
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
     expectText(dashboard, "zero-count buckets are hidden from the collapsed summary");
-    expectText(dashboard, "zero-value `good` targets are grouped under `Reference Checks`");
-    expectText(dashboard, "`Reference Checks` opens with `Quiet navigation checks`");
+    expectText(dashboard, "zero-value `good` targets are grouped under `Quiet Shortcuts` while keeping the stable `action-board-quiet-targets` route");
+    expectText(dashboard, "`Quiet Shortcuts` opens with `Background section links`");
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
     expectText(dashboard, "When `items[].hint` repeats the visible next-action label");
     expectText(dashboard, "instead of rendering duplicate footer text");
