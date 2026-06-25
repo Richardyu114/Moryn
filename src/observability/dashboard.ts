@@ -4932,7 +4932,7 @@ function supportingEvidenceOperationalGroup(panels: string[]): string {
   return `
     <details class="supporting-evidence-group supporting-evidence-operational" data-dashboard-detail="supporting-operational-evidence">
       <summary class="dashboard-fold-summary supporting-evidence-group-heading">
-        <span>Operational Evidence</span>
+        <span>Audit Evidence</span>
         <small>Clean audits and store signals</small>
       </summary>
       <div class="supporting-evidence-group-list">

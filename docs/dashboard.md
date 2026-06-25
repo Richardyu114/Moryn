@@ -668,9 +668,9 @@ telemetry remain available inside the nested `Audit Trail` panel. That
 collapsed group uses the purpose label `Audit logs and raw signals` instead of
 listing implementation-oriented module names or collapsed-state counters on the
 first screen. Inside Audit Trail, `Clean Audit Reports`, `Store
-Signals`, and `Recent Value` are grouped under `Operational Evidence`, whose
-row reads `Clean audits and store signals` instead of listing child panel
-counts. `Operational Evidence` is collapsed by default inside `Audit Trail`,
+Signals`, and `Recent Value` are grouped under `Audit Evidence`, whose row
+reads `Clean audits and store signals` instead of listing child panel counts.
+`Audit Evidence` is collapsed by default inside `Audit Trail`,
 and `Store Signals` and `Recent Value` are nested under a collapsed
 `Store Snapshot` row, while the raw `Debug Inspector` is grouped behind
 `Raw Inspector`. This keeps

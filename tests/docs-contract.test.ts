@@ -129,10 +129,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "clean reports read `No capture policy work`");
     expectText(dashboard, "non-zero summaries omit empty buckets such as `0 captured`");
     expectText(dashboard, "`Policy Decision History` opens with `Read-only routing evidence`");
-    expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Operational Evidence`");
+    expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Audit Evidence`");
     expectText(dashboard, "row reads `Clean audits and store signals`");
     expectText(dashboard, "instead of listing child panel counts");
-    expectText(dashboard, "`Operational Evidence` is collapsed by default inside `Audit Trail`");
+    expectText(dashboard, "`Audit Evidence` is collapsed by default inside `Audit Trail`");
     expectText(dashboard, "`Store Signals` and `Recent Value` are nested under a collapsed `Store Snapshot` row");
     expectText(dashboard, "collapsed by default behind a short recent-record count");
     expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
