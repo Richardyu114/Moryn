@@ -383,15 +383,16 @@ visible `Candidate Triage` panel stays collapsed by default inside Evidence
 Library rather than the main review path. `Candidate Triage` is grouped under
 `Read-only Findings` in the Evidence Library, and its folded row reads
 `Read-only candidate backlog` instead of repeating a candidate count. Expanding
-the panel shows candidate, group, and shown-record counts plus read-only next
-steps. Each candidate group starts with a compact `Review handoff` that points
-to an existing control such as Capture Inbox, Memory Doctor, timeline, or
-recall. It explains the next review surface and repeats that Candidate Triage
-is read-only before record ids appear. The group write-boundary and evidence
-fields move behind a collapsed `Audit boundary` row, so the expanded group
-starts with the review handoff instead of raw audit fields. Record ids, recall
-commands, and timeline commands stay behind a nested `Record samples` fold
-inside each group.
+the panel shows candidate and group counts plus read-only next steps;
+shown-record counts stay in `/api/dashboard` and the nested `Record samples`
+summaries. Each candidate group starts with a compact `Review handoff` that
+points to an existing control such as Capture Inbox, Memory Doctor, timeline,
+or recall. It explains the next review surface and repeats that Candidate
+Triage is read-only before record ids appear. The group write-boundary and
+evidence fields move behind a collapsed `Audit boundary` row, so the expanded
+group starts with the review handoff instead of raw audit fields. Record ids,
+recall commands, and timeline commands stay behind a nested `Record samples`
+fold inside each group.
 `Record samples` renders only the first five full records per group and
 summarizes the remaining records as API evidence, so large backlogs stay
 inspectable without flooding the page.

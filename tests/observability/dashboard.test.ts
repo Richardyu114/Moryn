@@ -880,7 +880,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<h2>Candidate Triage Queue</h2>");
       expect(html).toContain("<span>4 candidates</span>");
       expect(html).toContain("<span>4 groups</span>");
-      expect(html).toContain("<span>4 shown records</span>");
+      expect(data.candidate_triage.summary.shown_records).toBe(4);
+      expect(html).not.toContain("<span>4 shown records</span>");
       expect(html).toContain("<span>Likely noise</span>");
       expect(html).toContain("<strong>1 record</strong>");
       expect(html).toContain("<small>Inspect likely noise before archive</small>");

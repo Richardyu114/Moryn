@@ -3701,7 +3701,6 @@ function candidateTriagePanel(triage: DashboardCandidateTriage): string {
           <div class="candidate-triage-counts">
             <span>${escapeHtml(pluralize(triage.summary.total_candidates, "candidate"))}</span>
             <span>${escapeHtml(pluralize(triage.summary.groups, "group"))}</span>
-            <span>${escapeHtml(pluralize(triage.summary.shown_records, "shown record"))}</span>
           </div>
         </div>
         <div class="candidate-triage-list">

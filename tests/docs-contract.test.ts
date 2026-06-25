@@ -147,6 +147,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`candidate_triage` groups active candidate records into `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`");
     expectText(dashboard, "`Candidate Triage` is grouped under `Read-only Findings` in the Evidence Library");
     expectText(dashboard, "its folded row reads `Read-only candidate backlog` instead of repeating a candidate count");
+    expectText(dashboard, "Expanding the panel shows candidate and group counts plus read-only next steps");
+    expectText(dashboard, "shown-record counts stay in `/api/dashboard` and the nested `Record samples` summaries");
     expectText(dashboard, "Each candidate group starts with a compact `Review handoff`");
     expectText(dashboard, "points to an existing control such as Capture Inbox, Memory Doctor, timeline, or recall");
     expectText(dashboard, "group write-boundary and evidence fields move behind a collapsed `Audit boundary` row");
