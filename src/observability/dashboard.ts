@@ -5422,8 +5422,8 @@ function dashboardStatusSummary(data: DashboardData): string {
 function renderDashboardBody(data: DashboardData): string {
   const hasActionSignals = data.attention_items.some((item) => item.severity !== "info");
   const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
-  const quietInfoPanel = hasActionSignals ? "" : needsAttentionPanel(data.attention_items);
   const hasPendingDecisions = data.decision_summary.total_decisions > 0;
+  const quietInfoPanel = hasActionSignals || hasPendingDecisions ? "" : needsAttentionPanel(data.attention_items);
   const shortcutPanel = hasPendingDecisions ? "" : actionBoard(data.action_board);
   return `
     <header>

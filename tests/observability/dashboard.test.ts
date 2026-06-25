@@ -3904,9 +3904,10 @@ describe("observability dashboard", () => {
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(
         html.indexOf("data-dashboard-detail=\"maintenance-review-queue\"")
       );
-      expect(html.indexOf("data-dashboard-detail=\"maintenance-review-queue\"")).toBeLessThan(
-        html.indexOf("id=\"needs-attention\"")
-      );
+      expect(data.attention_items.some((item) => item.severity === "info")).toBe(true);
+      expect(html).not.toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\"");
+      expect(html).not.toContain("data-dashboard-detail=\"attention-info-checks\"");
+      expect(html).not.toContain("<span>Info Checks</span>");
       expect(html).not.toContain("data-dashboard-detail=\"action-board\"");
       expect(html).not.toContain("data-action-board-nav");
       expect(html).not.toContain("<span>Page Shortcuts</span>");
@@ -4624,9 +4625,11 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-dashboard-detail=\"action-board\"");
       expect(html).not.toContain("data-action-board-nav");
       expect(html).not.toContain("<span>Page Shortcuts</span>");
-      expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"needs-attention\""));
+      expect(data.attention_items.every((item) => item.severity === "info")).toBe(true);
+      expect(html).not.toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\"");
+      expect(html).not.toContain("data-dashboard-detail=\"attention-info-checks\"");
+      expect(html).not.toContain("<span>Info Checks</span>");
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"capture-inbox\""));
-      expect(html.indexOf("id=\"capture-inbox\"")).toBeLessThan(html.indexOf("id=\"needs-attention\""));
       expect(html.indexOf("id=\"capture-inbox\"")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).toContain("1 candidate");
       expect(html).toContain("Codex finished Capture Inbox planning.");
