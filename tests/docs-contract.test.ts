@@ -136,7 +136,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Store Signals` and `Recent Value` are nested under a collapsed `Operational Snapshots` row");
     expectText(dashboard, "collapsed by default behind a short recent-record count");
     expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
-    expectText(dashboard, "timeline and recall trace commands under an `Audit trace` fold instead of a generic `Details` row");
+    expectText(dashboard, "timeline and recall trace commands under a `Trace commands` fold instead of a generic `Details` row");
     expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Inspector`");
     expectText(dashboard, "`Raw Inspector` opens with `Records, events, and sync`");
     expectText(dashboard, "child folds are labeled `Record Index`, `Event Timeline`, and `Sync Snapshot`");
