@@ -703,6 +703,10 @@ Findings` when read-only notes exist and otherwise stays on `Evidence Library`,
 Those route buttons keep only the route label and current status visible in a
 single wrapping rail; the longer route hints stay in accessible labels so the
 expanded evidence entry does not become another card grid or prose panel.
+When `Pending Decisions` is rendered, the visible HTML skips the
+`Evidence index` route bar; the Evidence Library still keeps
+`Reference Findings`, `Reference Evidence`, and the underlying `/api/dashboard`
+data.
 The route bar is navigation copy only: it does not render Approve, Reject, Promote,
 Archive, or Apply controls and does not add `data-dashboard-action-id`. Health
 Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and

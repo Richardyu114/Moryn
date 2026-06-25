@@ -106,6 +106,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "starts with a compact `Evidence index` bar for `Findings`, `Diagnostics`, and `Audit`");
     expectText(dashboard, "single wrapping rail");
     expectText(dashboard, "does not become another card grid or prose panel");
+    expectText(dashboard, "When `Pending Decisions` is rendered, the visible HTML skips the `Evidence index` route bar");
+    expectText(dashboard, "the Evidence Library still keeps `Reference Findings`, `Reference Evidence`, and the underlying `/api/dashboard` data");
     expectText(dashboard, "The route bar renders local buttons that reuse the existing `data-action-board-target` behavior");
     expectText(dashboard, "`Findings` opens `Reference Findings` when read-only notes exist and otherwise stays on `Evidence Library`");
     expectText(dashboard, "`Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`");

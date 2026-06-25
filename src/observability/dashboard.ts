@@ -5367,7 +5367,11 @@ ${evidenceLibraryRoute({
   `;
 }
 
-function evidenceLibrary(data: DashboardData): string {
+function evidenceLibrary(
+  data: DashboardData,
+  options: { showEvidenceIndex?: boolean } = {}
+): string {
+  const showEvidenceIndex = options.showEvidenceIndex ?? true;
   const routinePanels = [
     isRoutineHealthCheck(data.health_check) ? healthCheckPanel(data.health_check) : undefined,
     isRoutineRecallEval(data.recall_eval) ? recallEvalPanel(data.recall_eval) : undefined,
@@ -5393,7 +5397,7 @@ function evidenceLibrary(data: DashboardData): string {
         <span>Read-only Evidence</span>
         <small>${escapeHtml(visibleEvidenceSummary)}</small>
       </summary>
-      ${evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length })}
+      ${showEvidenceIndex ? evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length }) : ""}
       <div class="evidence-library-list">
         ${evidenceLibraryReviewGroup(reviewPanels)}
         ${evidenceLibraryBackgroundGroup(backgroundPanels)}
@@ -5455,7 +5459,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${shortcutPanel}
 
-    ${evidenceLibrary(data)}
+    ${evidenceLibrary(data, { showEvidenceIndex: !hasPendingDecisions })}
   `;
 }
 
