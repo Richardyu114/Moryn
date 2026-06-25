@@ -5301,12 +5301,12 @@ function dashboardActionReceiptScript(): string {
             <strong>\${htmlEscape(receipt.status)}</strong>
           </div>
           <dl class="action-receipt-grid">
-            <div><dt>Result</dt><dd>\${htmlEscape(receipt.status)}</dd></div>
-            <div><dt>Changed</dt><dd>\${htmlEscape(receipt.changed)}</dd></div>
-            \${receipt.context.length > 0 ? \`<div><dt>Context</dt><dd>\${receipt.context.map((value) => \`<code>\${htmlEscape(value)}</code>\`).join(" ")}</dd></div>\` : ""}
+            <div><dt>Outcome</dt><dd>\${htmlEscape(receipt.status)}</dd></div>
+            <div><dt>Write targets</dt><dd>\${htmlEscape(receipt.changed)}</dd></div>
+            \${receipt.context.length > 0 ? \`<div><dt>Decision context</dt><dd>\${receipt.context.map((value) => \`<code>\${htmlEscape(value)}</code>\`).join(" ")}</dd></div>\` : ""}
             \${receipt.record_ids.length > 0 ? \`<div><dt>Records</dt><dd>\${receipt.record_ids.map((recordId) => \`<code>\${htmlEscape(recordId)}</code>\`).join(" ")}</dd></div>\` : ""}
             \${receipt.event_ids.length > 0 ? \`<div><dt>Events</dt><dd>\${receipt.event_ids.map((eventId) => \`<code>\${htmlEscape(eventId)}</code>\`).join(" ")}</dd></div>\` : ""}
-            <div class="action-receipt-commands"><dt>Audit commands</dt><dd>\${receipt.commands.length > 0 ? receipt.commands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("") : "No read-only trace command returned."}</dd></div>
+            <div class="action-receipt-commands"><dt>Audit next</dt><dd>\${receipt.commands.length > 0 ? receipt.commands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("") : "No read-only trace command returned."}</dd></div>
           </dl>
         </div>
       \`;

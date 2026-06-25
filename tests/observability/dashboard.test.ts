@@ -3241,9 +3241,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("<section id=\"last-action-receipt\"");
       expect(html).toContain("moryn.dashboard.lastActionReceipt");
       expect(html).toContain("Action receipt");
-      expect(html).toContain("Result");
-      expect(html).toContain("Changed");
-      expect(html).toContain("Audit commands");
+      expect(html).toContain("Outcome");
+      expect(html).toContain("Write targets");
+      expect(html).toContain("Decision context");
+      expect(html).toContain("Audit next");
+      expect(html).not.toContain("<dt>Result</dt>");
+      expect(html).not.toContain("<dt>Changed</dt>");
+      expect(html).not.toContain("<dt>Context</dt>");
+      expect(html).not.toContain("<dt>Audit commands</dt>");
       expect(html).toContain("moryn timeline --event-id");
       expect(html).toContain("moryn recall --record-id");
       expect(html).toContain("Applied. Receipt rendered below; refreshing dashboard...");

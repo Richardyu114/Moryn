@@ -790,10 +790,11 @@ After a dashboard approval or rejection succeeds, the browser renders a compact
 `Action receipt` before refreshing the body. The receipt is restored after
 dashboard fragment refreshes, so the last explicit action remains visible
 instead of disappearing when the queue updates. It uses readable rows for
-Result, Changed, Records, Events, and Audit commands, including read-only trace
-commands such as `moryn timeline --event-id <event_id>` and `moryn recall
---record-id <record_id>`. It is a visibility layer only: it does not add
-background execution, retry writes, or a second mutation path.
+Outcome, Write targets, Decision context, Records, Events, and Audit next,
+including read-only trace commands such as
+`moryn timeline --event-id <event_id>` and
+`moryn recall --record-id <record_id>`. It is a visibility layer only: it does
+not add background execution, retry writes, or a second mutation path.
 
 ### Context Pack Review
 
