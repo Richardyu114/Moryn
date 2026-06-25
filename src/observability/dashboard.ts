@@ -5407,8 +5407,6 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${dashboardWorkLanes(data)}
 
-    ${actionBoard(data.action_board)}
-
     ${decisionSummary(data.decision_summary)}
 
     ${needsAttentionPanel(data.attention_items)}
@@ -5416,6 +5414,8 @@ function renderDashboardBody(data: DashboardData): string {
     ${maintenanceReviewQueue(data.maintenance.plans)}
 
     ${captureInbox(data.capture_inbox)}
+
+    ${actionBoard(data.action_board)}
 
     ${evidenceLibrary(data)}
   `;
@@ -6230,7 +6230,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-color: var(--hairline);
       box-shadow: none;
       padding: 10px 12px;
-      margin: -2px 0 12px;
+      margin: 0 0 14px;
     }
     .action-board-secondary[open] { padding-bottom: 12px; }
     .action-board[open] > summary { margin-bottom: 10px; }

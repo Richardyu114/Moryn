@@ -2051,7 +2051,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-dashboard-action-id=\"overview");
       expect(html).toContain("<section class=\"dashboard-work-lanes\" data-dashboard-work-lanes aria-label=\"Dashboard Work Lanes\">");
       expect(html.indexOf("data-dashboard-overview")).toBeLessThan(html.indexOf("data-dashboard-work-lanes"));
-      expect(html.indexOf("data-dashboard-work-lanes")).toBeLessThan(html.indexOf("data-action-board-nav"));
+      expect(html.indexOf("data-dashboard-work-lanes")).toBeLessThan(html.indexOf("id=\"needs-attention\""));
       expect(html).toContain("<button type=\"button\" class=\"dashboard-work-lane good\" data-dashboard-work-lane=\"decide\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
       expect(html).toContain("<span>Decide</span>");
       expect(html).toContain("<strong>No approvals waiting</strong>");
@@ -2085,6 +2085,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span class=\"action-board-activity\">1 review / 1 sync</span>");
       expect(html).not.toContain("<small>0 confirm / 1 review / 0 inspect / 1 sync</small>");
       expect(html).toContain("<div class=\"action-board-grid\">");
+      expect(html.indexOf("data-action-board-nav")).toBeGreaterThan(html.indexOf("id=\"needs-attention\""));
+      expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).not.toContain("<section class=\"action-board\" aria-label=\"Action Board\" data-action-board-nav>");
       expect(html).not.toContain("<span>Action Board</span>");
       expect(html).not.toContain("<h2>Action Board</h2>");
@@ -4441,8 +4443,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-decision-summary-item=\"capture_inbox:");
       expect(html).toContain("data-action-board-target=\"capture-inbox\"");
       expect(html).not.toContain("data-dashboard-action-id=\"decision_summary");
-      expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeGreaterThan(html.indexOf("data-action-board-nav"));
+      expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("data-action-board-nav"));
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"needs-attention\""));
+      expect(html.indexOf("id=\"capture-inbox\"")).toBeLessThan(html.indexOf("data-action-board-nav"));
+      expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).toContain("1 candidate");
       expect(html).toContain("Codex finished Capture Inbox planning.");
       expect(html).toContain("data-capture-inbox-brief");

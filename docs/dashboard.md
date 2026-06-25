@@ -571,8 +571,8 @@ names, such as `Decide, Context, and Health are quiet`.
 
 `Action Board` is rendered as `Page Shortcuts` in the UI while keeping the
 stable `data-dashboard-detail="action-board"` route: a secondary, collapsed
-navigator below the first-screen Work Lanes rather than another primary card
-grid. `Page Shortcuts` opens with `Optional section links`; the previous
+navigator below explicit review and action surfaces rather than another primary
+first-screen card grid. `Page Shortcuts` opens with `Optional section links`; the previous
 active-count summary remains as a quiet `action-board-activity` value such as
 `1 review / 1 sync`, `1 sync issue`, or `all clear`; zero-count buckets are
 hidden from the collapsed summary activity value. Expanding it still reveals

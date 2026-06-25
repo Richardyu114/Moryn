@@ -84,6 +84,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Background Lanes` opens with `Quiet lanes ready`");
     expectText(dashboard, "while the accessible summary keeps the lane names, such as `Decide, Context, and Health are quiet`");
     expectText(dashboard, "`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail=\"action-board\"` route");
+    expectText(dashboard, "navigator below explicit review and action surfaces rather than another primary first-screen card grid");
     expectText(dashboard, "`Page Shortcuts` opens with `Optional section links`");
     expectText(dashboard, "the previous active-count summary remains as a quiet `action-board-activity` value");
     expect(dashboard).toContain("Evidence Library");
