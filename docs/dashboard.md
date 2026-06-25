@@ -656,11 +656,11 @@ collapsed `Info Checks` summary so routine status signals remain inspectable
 without competing with action-oriented warnings. The collapsed `Info Checks`
 detail opens with `Routine status checks` so the row explains its purpose
 instead of repeating the focus-strip count. When there are no warning or
-critical action signals, the same scroll target renders as a lightweight
-`needs-attention-quiet-line` with the visible title `Info Checks` and a summary
-such as `No action needed | 1 info check`. It preserves the `id="needs-attention"`
-scroll target and collapsed Info Checks detail for audit without making routine
-informational checks look like user work.
+critical action signals, the same scroll target renders as a quiet
+`needs-attention-quiet-line` anchor. It contains only the collapsed `Info Checks`
+detail and does not render the focus strip or a separate quiet summary. This
+preserves the `id="needs-attention"` scroll target for audit without making
+routine informational checks look like user work.
 
 Read-only diagnostic detail lives in the collapsed evidence layer. The visible
 Evidence Library title is `Read-only Evidence`, while the stable route remains

@@ -3380,38 +3380,33 @@ function attentionItems(items: DashboardAttentionItem[]): string {
     <div class="attention-list">
       ${attentionFocus(items)}
       ${primary.map(attentionItem).join("")}
-      ${info.length === 0 ? "" : `
+      ${infoChecksGroup(info)}
+    </div>
+  `;
+}
+
+function infoChecksGroup(items: DashboardAttentionItem[]): string {
+  if (items.length === 0) return "";
+  return `
         <details class="attention-info-group" data-dashboard-detail="attention-info-checks">
           <summary class="dashboard-fold-summary">
             <span>Info Checks</span>
             <small>Routine status checks</small>
           </summary>
           <div class="attention-info-list">
-            ${info.map(attentionItem).join("")}
+            ${items.map(attentionItem).join("")}
           </div>
         </details>
-      `}
-    </div>
   `;
-}
-
-function attentionSummaryText(items: DashboardAttentionItem[]): string {
-  const actionSignals = items.filter((item) => item.severity !== "info").length;
-  const info = items.filter((item) => item.severity === "info").length;
-  if (actionSignals === 0) return `No action needed | ${pluralize(info, "info check")}`;
-  return `${pluralize(actionSignals, "action signal")} | ${pluralize(info, "info check")}`;
 }
 
 function needsAttentionPanel(items: DashboardAttentionItem[]): string {
   const actionSignals = items.filter((item) => item.severity !== "info").length;
   if (actionSignals === 0) {
+    const info = items.filter((item) => item.severity === "info");
     return `
       <section id="needs-attention" class="needs-attention-quiet-line" data-dashboard-section="needs-attention" data-dashboard-detail="needs-attention">
-        <div class="needs-attention-quiet-summary">
-          <span>Info Checks</span>
-          <small>${escapeHtml(attentionSummaryText(items))}</small>
-        </div>
-        ${attentionItems(items)}
+        ${infoChecksGroup(info)}
       </section>
     `;
   }
@@ -6414,27 +6409,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--muted);
       font-size: 12.5px;
     }
-    .needs-attention-quiet-summary {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 9px;
-      align-items: center;
-    }
-    .needs-attention-quiet-summary span {
-      color: var(--ink);
-      font-weight: 760;
-    }
-    .needs-attention-quiet-summary small {
-      display: inline;
-    }
-    .needs-attention-quiet-line .attention-list {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid var(--hairline);
-    }
-    .needs-attention-quiet-line .attention-focus {
-      display: none;
-    }
+    .needs-attention-quiet-line .attention-info-group { margin: 0; }
     .attention-list { display: grid; gap: 9px; }
     .attention-focus {
       display: flex;

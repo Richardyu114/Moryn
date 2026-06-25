@@ -124,9 +124,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Action Signals` opens with `Warnings and critical checks`");
     expectText(dashboard, "the section preserves `id=\"needs-attention\"` and `data-dashboard-detail=\"needs-attention\"`");
     expectText(dashboard, "When there are no warning or critical action signals");
-    expectText(dashboard, "the same scroll target renders as a lightweight `needs-attention-quiet-line`");
-    expectText(dashboard, "with the visible title `Info Checks`");
-    expectText(dashboard, "It preserves the `id=\"needs-attention\"` scroll target and collapsed Info Checks detail for audit");
+    expectText(dashboard, "the same scroll target renders as a quiet `needs-attention-quiet-line` anchor");
+    expectText(dashboard, "It contains only the collapsed `Info Checks` detail");
+    expectText(dashboard, "does not render the focus strip or a separate quiet summary");
     expect(dashboard).toContain("Dogfood Review");
     expect(dashboard).toContain("Issue brief");
     expectText(dashboard, "folded row reads `Read-only dogfood finding` or `Read-only dogfood findings`");
