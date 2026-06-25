@@ -3666,7 +3666,7 @@ function renderCandidateTriageAuditBoundary(group: DashboardCandidateTriageGroup
     <details class="candidate-triage-audit-boundary" data-dashboard-detail="candidate-triage-audit:${escapeHtml(group.id)}">
       <summary class="dashboard-fold-summary">
         <span>Audit boundary</span>
-        <small>Read-only evidence and confirmation</small>
+        <small>${escapeHtml(`${group.label} audit boundary`)}</small>
       </summary>
       <dl>
         <div><dt>Write boundary</dt><dd>No memory writes</dd></div>

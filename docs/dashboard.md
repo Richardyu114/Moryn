@@ -398,8 +398,9 @@ summaries. Each candidate group starts with a compact `Review handoff` that
 points to an existing control such as Capture Inbox, Memory Doctor, timeline,
 or recall. It explains the next review surface and repeats that Candidate
 Triage is read-only before record ids appear. The group write-boundary and
-evidence fields move behind a collapsed `Audit boundary` row, so the expanded
-group starts with the review handoff instead of raw audit fields. Record ids,
+evidence fields move behind a collapsed `Audit boundary` row whose folded
+summary names the candidate group, so the expanded group starts with the review
+handoff instead of raw audit fields. Record ids,
 recall commands, and timeline commands stay behind a nested `Record samples`
 fold inside each group.
 `Record samples` renders only the first five full records per group and

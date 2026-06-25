@@ -912,7 +912,9 @@ describe("observability dashboard", () => {
       expect(html).toContain(".candidate-triage-handoff dl {");
       expect(html).toContain("<details class=\"candidate-triage-audit-boundary\" data-dashboard-detail=\"candidate-triage-audit:likely_noise\">");
       expect(html).toContain("<span>Audit boundary</span>");
-      expect(html).toContain("<small>Read-only evidence and confirmation</small>");
+      expect(html).toContain("<small>Likely noise audit boundary</small>");
+      expect(html).toContain("<small>Promotable candidates audit boundary</small>");
+      expect(html).not.toContain("<small>Read-only evidence and confirmation</small>");
       expect(html).toContain("<code>candidate_triage.groups_by_id.likely_noise</code>");
       expect(html).not.toContain("<dl class=\"candidate-triage-brief\">");
       expect(html).toContain("<details class=\"candidate-triage-record-samples\" data-dashboard-detail=\"candidate-triage-records:promotable\">");
