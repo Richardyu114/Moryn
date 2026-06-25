@@ -2812,6 +2812,12 @@ function textExcerptBlock(text: string, truncatedAttribute = "data-full-text-hid
   `;
 }
 
+function recordLabel(recordId: string): string {
+  const generated = recordId.match(/^rec_[0-9a-f]{16,}$/i);
+  if (!generated) return recordId;
+  return recordId.slice(0, 12);
+}
+
 function actionBoardSummary(data: DashboardActionBoard): string {
   const activeItems = data.items.filter(isActiveActionBoardItem);
   if (activeItems.length === 0) return "all clear";
@@ -4506,14 +4512,14 @@ function recentValueCard(record: DashboardValueRecord, extraClass = ""): string 
       </div>
       ${textExcerptBlock(record.summary, "data-full-summary-hidden")}
       <footer>
-        <span>${escapeHtml(`${record.source_label} ${record.id}`)}</span>
+        <span>${escapeHtml(`${record.source_label} ${recordLabel(record.id)}`)}</span>
         <span>${escapeHtml(record.state)}</span>
         <span>${escapeHtml(record.project_id ?? record.scope)}</span>
       </footer>
       <details data-dashboard-detail="value:${escapeHtml(record.id)}">
         <summary class="dashboard-fold-summary">
           <span>Trace commands</span>
-          <small>${escapeHtml(`${titleCase(record.kind)} ${record.type} ${record.id}`)}</small>
+          <small>${escapeHtml(`${titleCase(record.kind)} ${record.type} ${recordLabel(record.id)}`)}</small>
         </summary>
         <dl>
           <div><dt>ID</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>
@@ -4825,7 +4831,7 @@ function recordsTable(records: DashboardRecordSummary[]): string {
 function recordIndexSummary(record: DashboardRecordSummary): string {
   return `
     <span>${escapeHtml(`${titleCase(record.kind)} ${record.type}`)}</span>
-    <small>${escapeHtml(`${humanSourceLabel(record.source)} ${record.id}`)}</small>
+    <small>${escapeHtml(`${humanSourceLabel(record.source)} ${recordLabel(record.id)}`)}</small>
   `;
 }
 

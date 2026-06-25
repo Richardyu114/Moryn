@@ -2127,6 +2127,45 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("uses short generated record labels in Recent Value cards while preserving full trace ids", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: () => "2026-06-01T00:01:00.000Z",
+        id: (prefix: string) => prefix === "rec" ? "rec_abcdef1234567890abcdef1234567890" : "evt_recent_hash"
+      });
+
+      await engine.write({
+        kind: "skill",
+        type: "codex_skill_bundle",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Generated record id should stay compact in visible labels.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "moryn-local" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(html).toContain("<span>Moryn Local rec_abcdef12</span>");
+      expect(html).toContain("<small>Skill codex_skill_bundle rec_abcdef12</small>");
+      expect(html).not.toContain("<span>Moryn Local rec_abcdef1234567890abcdef1234567890</span>");
+      expect(html).not.toContain("<small>Skill codex_skill_bundle rec_abcdef1234567890abcdef1234567890</small>");
+      expect(html).toContain("<dt>ID</dt><dd><code>rec_abcdef1234567890abcdef1234567890</code></dd>");
+      expect(html).toContain("moryn recall --record-id rec_abcdef1234567890abcdef1234567890");
+    });
+  });
+
   it("keeps Debug Inspector rows budgeted while preserving full API evidence", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
@@ -2142,7 +2181,11 @@ describe("observability dashboard", () => {
         id: (() => {
           let record = 0;
           let event = 0;
-          return (prefix: string) => prefix === "rec" ? `rec_debug_budget_${++record}` : `evt_debug_budget_${++event}`;
+          return (prefix: string) => {
+            if (prefix !== "rec") return `evt_debug_budget_${++event}`;
+            record += 1;
+            return record === 13 ? "rec_1234567890abcdef1234567890abcdef" : `rec_debug_budget_${record}`;
+          };
         })()
       });
 
@@ -2189,11 +2232,13 @@ describe("observability dashboard", () => {
       const noisyRecordEnd = debugHtml.indexOf("</summary>", noisyRecordStart);
       const noisyRecordSummary = debugHtml.slice(noisyRecordStart, noisyRecordEnd);
       expect(noisyRecordSummary).toContain("Memory artifact");
-      expect(noisyRecordSummary).toContain(`Codex ${noisySummaryRecord.record.id}`);
+      expect(noisyRecordSummary).toContain("Codex rec_12345678");
+      expect(noisyRecordSummary).not.toContain(`Codex ${noisySummaryRecord.record.id}`);
       expect(noisyRecordSummary).not.toContain("<small>Codex</small>");
       expect(noisyRecordSummary).not.toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
       expect(debugHtml).toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
-      expect(debugHtml.match(/data-dashboard-detail="record:rec_debug_budget_/g)).toHaveLength(10);
+      expect(debugHtml.match(/data-dashboard-detail="record:rec_debug_budget_/g)).toHaveLength(9);
+      expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_1234567890abcdef1234567890abcdef\"");
       expect(debugHtml.match(/data-dashboard-detail="event:evt_debug_budget_/g)).toHaveLength(10);
       expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_debug_budget_12\"");
       expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_debug_budget_4\"");

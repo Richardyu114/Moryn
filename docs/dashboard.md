@@ -685,10 +685,10 @@ health signals`, `Raw Store` opens with `Records, events, and sync`, and
 `Record Index`, `Event Timeline`, and `Sync Snapshot` instead of generic
 `Records`, `Events`, and `Sync`. `Record Index` and `Event Timeline` render
 only the first ten rows each and summarize overflow as `/api/dashboard`
-evidence. `Record Index` record rows use short kind/type/source plus record-id
-summaries in their folded row instead of raw record text, while their expanded bodies still
-keep agent activity, record quality, records, events, and sync detail
-inspectable.
+evidence. `Record Index` record rows use short kind/type/source plus short
+record-id summaries in their folded row instead of raw record text, while their
+expanded bodies still keep agent activity, record quality, records, events, and
+sync detail inspectable.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without
@@ -935,10 +935,11 @@ The HTML dashboard keeps `Recent Value` collapsed by default behind a short
 recent-record count. Newest-first ordering, full details, and trace commands
 stay inside the expanded panel and `/api/dashboard` payload. Expanding it shows
 the first four records and keeps additional records under `More Recent Value`.
-Recent Value card footers include record-id context beside the readable source
-label, so repeated source/state/scope rows stay distinguishable.
+Recent Value card footers include short record-id context beside the readable
+source label, so repeated source/state/scope rows stay distinguishable.
 Every card keeps its timeline and recall trace commands under a `Trace commands`
-fold with kind/type and record-id context instead of a generic `Details` row.
+fold with kind/type and short record-id context instead of a generic `Details`
+row.
 
 Quarantined records normally count as unresolved safety signals. If an active
 safe replacement index explicitly declares `content.supersedes_quarantined_record`
