@@ -109,7 +109,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "or expose child panel counts");
     expectText(dashboard, "read-only findings do not look like pending approval work");
     expectText(dashboard, "Routine Diagnostics and Audit Trail are grouped behind `Reference Evidence`");
-    expectText(dashboard, "folded summary reads `Routine checks and audit trail`");
+    expectText(dashboard, "folded summary reads `Routine evidence`");
+    expectText(dashboard, "while the accessible summary keeps `Routine checks and audit trail`");
     expectText(dashboard, "instead of listing reference-panel counts");
     expectText(dashboard, "Empty groups are omitted");
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");

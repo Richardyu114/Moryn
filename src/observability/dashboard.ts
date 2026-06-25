@@ -5142,9 +5142,9 @@ function evidenceLibraryBackgroundGroup(panels: string[]): string {
   if (panels.length === 0) return "";
   return `
     <details class="evidence-library-group evidence-library-background" data-dashboard-detail="evidence-background-evidence">
-      <summary class="dashboard-fold-summary evidence-library-group-heading">
+      <summary class="dashboard-fold-summary evidence-library-group-heading" aria-label="Reference Evidence: Routine checks and audit trail">
         <span>Reference Evidence</span>
-        <small>Routine checks and audit trail</small>
+        <small>Routine evidence</small>
       </summary>
       <div class="evidence-library-group-list">
         ${panels.join("")}
