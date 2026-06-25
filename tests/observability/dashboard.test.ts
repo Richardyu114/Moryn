@@ -1079,9 +1079,22 @@ describe("observability dashboard", () => {
       const needsInspection = data.candidate_triage.groups_by_id.needs_inspection;
 
       expect(needsInspection?.record_ids).toHaveLength(7);
+      expect(needsInspection?.records).toHaveLength(3);
+      expect(needsInspection?.records.map((record) => record.id)).toEqual([
+        "rec_budgeted_triage_8",
+        "rec_budgeted_triage_7",
+        "rec_budgeted_triage_6"
+      ]);
       expect(needsInspection?.records_by_id.rec_budgeted_triage_8).toMatchObject({
         id: "rec_budgeted_triage_8"
       });
+      expect(needsInspection?.records_by_id.rec_budgeted_triage_5).toEqual({
+        id: "rec_budgeted_triage_5",
+        record_index: 3,
+        evidence_path: "candidate_triage.groups_by_id.needs_inspection.record_ids[3]"
+      });
+      expect(JSON.stringify(data.candidate_triage)).toContain("Temporary scratch candidate 7.");
+      expect(JSON.stringify(data.candidate_triage)).not.toContain("Temporary scratch candidate 4.");
 
       const groupStart = html.indexOf("data-dashboard-detail=\"candidate-triage:needs_inspection\"");
       const groupEnd = html.indexOf("<details class=\"evidence-library-group evidence-library-background\"", groupStart);
@@ -1111,15 +1124,15 @@ describe("observability dashboard", () => {
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_4\"");
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_3\"");
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_2\"");
-      expect(groupHtml).toContain("<span class=\"candidate-triage-overflow-count\">4 more records kept in API evidence</span>");
+      expect(groupHtml).toContain("<span class=\"candidate-triage-overflow-count\">4 more records indexed in API evidence</span>");
       expect(groupHtml).toContain("<span>More samples</span>");
-      expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"More samples: Needs inspection: 4 hidden in API and Raw Store\">");
-      expect(groupHtml).toContain("<small>4 hidden, API ready</small>");
+      expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"More samples: Needs inspection: 4 hidden in API index and Raw Store\">");
+      expect(groupHtml).toContain("<small>4 hidden, indexed</small>");
       expect(groupHtml).not.toContain("<small>Needs inspection: 4 hidden in API and Raw Store</small>");
       expect(groupHtml).not.toContain("<small>Full group available in API and Raw Store</small>");
       expect(groupHtml).toContain("<span>API evidence path</span>");
-      expect(groupHtml).toContain("<small>Needs inspection records</small>");
-      expect(groupHtml).toContain("<code>candidate_triage.groups_by_id.needs_inspection.records[]</code>");
+      expect(groupHtml).toContain("<small>Needs inspection index</small>");
+      expect(groupHtml).toContain("<code>candidate_triage.groups_by_id.needs_inspection.records_by_id</code>");
       expect(groupHtml).not.toContain("Full group stays in <code>candidate_triage.groups_by_id.needs_inspection.records[]</code> and Raw Store.");
       expect(groupHtml).not.toContain("Full group available in API and Raw Inspector");
       expect(groupHtml).not.toContain("data-dashboard-action-id=\"candidate-triage");

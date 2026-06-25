@@ -2386,15 +2386,19 @@ function toCandidateTriageGroup(input: {
   review_handoff: DashboardCandidateTriageReviewHandoff;
   records: DashboardCandidateTriageRecord[];
 }): DashboardCandidateTriageGroup {
+  const sampleRecords = input.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
   return {
     ...input,
+    records: sampleRecords,
     writes: "none",
     requires_user_confirmation: false,
     record_ids: input.records.map((record) => record.id),
     records_by_id: Object.fromEntries(input.records.map((record, index) => [record.id, {
       id: record.id,
       record_index: index,
-      evidence_path: `candidate_triage.groups_by_id.${input.id}.records[${index}]`
+      evidence_path: index < CANDIDATE_TRIAGE_SAMPLE_LIMIT
+        ? `candidate_triage.groups_by_id.${input.id}.records[${index}]`
+        : `candidate_triage.groups_by_id.${input.id}.record_ids[${index}]`
     }])),
     evidence_path: `candidate_triage.groups_by_id.${input.id}`
   };
@@ -3704,35 +3708,35 @@ function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): st
 }
 
 function candidateTriageSampleSummary(group: DashboardCandidateTriageGroup): string {
-  const shownRecords = Math.min(group.records.length, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
-  if (shownRecords === group.records.length) return `${group.label}: ${pluralize(shownRecords, "sample")} with trace commands`;
-  return `${group.label}: ${shownRecords} of ${pluralize(group.records.length, "sample")} with trace commands`;
+  const shownRecords = group.records.length;
+  const totalRecords = group.record_ids.length;
+  if (shownRecords === totalRecords) return `${group.label}: ${pluralize(shownRecords, "sample")} with trace commands`;
+  return `${group.label}: ${shownRecords} of ${pluralize(totalRecords, "sample")} with trace commands`;
 }
 
 function candidateTriageSampleVisibleSummary(group: DashboardCandidateTriageGroup): string {
-  const shownRecords = Math.min(group.records.length, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
-  return `${pluralize(shownRecords, "sample")}, trace ready`;
+  return `${pluralize(group.records.length, "sample")}, trace ready`;
 }
 
 function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): string {
-  const hiddenRecords = Math.max(0, group.records.length - CANDIDATE_TRIAGE_SAMPLE_LIMIT);
+  const hiddenRecords = Math.max(0, group.record_ids.length - group.records.length);
   if (hiddenRecords === 0) return "";
-  const overflowSummary = `${group.label}: ${hiddenRecords} hidden in API and Raw Store`;
+  const overflowSummary = `${group.label}: ${hiddenRecords} hidden in API index and Raw Store`;
   return `
     <div class="candidate-triage-overflow">
-      <span class="candidate-triage-overflow-count">${escapeHtml(`${pluralize(hiddenRecords, "more record")} kept in API evidence`)}</span>
+      <span class="candidate-triage-overflow-count">${escapeHtml(`${pluralize(hiddenRecords, "more record")} indexed in API evidence`)}</span>
       <details class="candidate-triage-overflow-path" data-dashboard-detail="candidate-triage-overflow:${escapeHtml(group.id)}">
         <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`More samples: ${overflowSummary}`)}">
           <span>More samples</span>
-          <small>${escapeHtml(`${hiddenRecords} hidden, API ready`)}</small>
+          <small>${escapeHtml(`${hiddenRecords} hidden, indexed`)}</small>
         </summary>
-        <p>Use the API evidence path or Raw Store when the displayed samples are not enough.</p>
+        <p>Use the API index or Raw Store when the displayed samples are not enough.</p>
         <details class="candidate-triage-overflow-evidence" data-dashboard-detail="candidate-triage-overflow-evidence:${escapeHtml(group.id)}">
           <summary class="dashboard-fold-summary">
             <span>API evidence path</span>
-            <small>${escapeHtml(`${group.label} records`)}</small>
+            <small>${escapeHtml(`${group.label} index`)}</small>
           </summary>
-          <code>${escapeHtml(`${group.evidence_path}.records[]`)}</code>
+          <code>${escapeHtml(`${group.evidence_path}.records_by_id`)}</code>
         </details>
       </details>
     </div>
@@ -3786,14 +3790,13 @@ function renderCandidateTriageGroupContext(group: DashboardCandidateTriageGroup)
 }
 
 function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
-  const sampleRecords = group.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
   const sampleSummary = candidateTriageSampleSummary(group);
-  const groupSummary = `${group.label}, ${pluralize(group.records.length, "record")}, ${group.recommended_next_step}`;
+  const groupSummary = `${group.label}, ${pluralize(group.record_ids.length, "record")}, ${group.recommended_next_step}`;
   return `
     <details class="candidate-triage-group" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}">
       <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`Candidate group: ${groupSummary}`)}">
         <span>${escapeHtml(group.label)}</span>
-        <strong>${escapeHtml(pluralize(group.records.length, "record"))}</strong>
+        <strong>${escapeHtml(pluralize(group.record_ids.length, "record"))}</strong>
         <small>Review path ready</small>
       </summary>
       <div class="candidate-triage-group-body">
@@ -3806,7 +3809,7 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
             <small>${escapeHtml(candidateTriageSampleVisibleSummary(group))}</small>
           </summary>
           <div class="candidate-triage-records">
-            ${sampleRecords.map(renderCandidateTriageRecord).join("")}
+            ${group.records.map(renderCandidateTriageRecord).join("")}
           </div>
           ${renderCandidateTriageOverflow(group)}
         </details>

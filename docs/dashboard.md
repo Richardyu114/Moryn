@@ -431,7 +431,7 @@ of raw audit fields. Record ids,
 recall commands, and timeline commands stay behind a nested `Record samples`
 fold inside each group.
 `Record samples` renders only the first three full records per group and
-summarizes the remaining records as API evidence, so large backlogs stay
+summarizes the remaining records as API index evidence, so large backlogs stay
 inspectable without flooding the page. `Record samples` folded rows show only
 the visible sample count as `trace ready`; the candidate group name and
 shown/total count stay in the accessible summary label. Sample rows use the
@@ -439,17 +439,20 @@ short visible label `Sample`, and their visible secondary text reads `Trace
 ready`. The record kind stays in the right-side chip, while the full
 kind/source/time wording and record id stay in the accessible row label, so
 repeated source/type rows stay distinguishable without stretching the folded
-row. Overflow rows read `More samples` with a short `hidden, API ready` count,
+row. Overflow rows read `More samples` with a short `hidden, indexed` count,
 while the group-specific hidden-record count, API/Raw Store cue, and exact
-`candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind a
+`candidate_triage.groups_by_id.<group_id>.records_by_id` path is kept behind a
 group-specific `API evidence path` fold. Full candidate text remains inside the
-expanded sample body and `/api/dashboard`. To avoid duplicating large candidate
-bodies in JSON, `candidate_triage.groups_by_id.<group_id>.records[]` keeps the
-full records while
+expanded sample body only for visible samples. To avoid flooding
+`/api/dashboard`, `candidate_triage.groups_by_id.<group_id>.records[]` keeps
+only the visible sample records while
+`candidate_triage.groups_by_id.<group_id>.record_ids[]` and
+`candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>` preserve
+the full group index, record order, and exact sample-or-index evidence path.
 `candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>` is a
-lightweight index with the record id, array index, and exact record evidence
-path. The top-level `candidate_triage.groups[]` list is summary-only; expanded
-group details, records, and record indexes live under
+lightweight index, not a second copy of the candidate body.
+The top-level `candidate_triage.groups[]` list is summary-only; expanded group
+details, visible records, and record indexes live under
 `candidate_triage.groups_by_id.<group_id>`.
 `Candidate Triage` stays read-only and does not
 add Approve, Archive, Promote, Apply, or background execution controls; it is a
