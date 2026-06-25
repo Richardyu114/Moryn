@@ -113,11 +113,14 @@ stable evidence paths such as `sections.boot.project.important_decisions[]`,
 `capture_session` evaluates `default_autocapture_policy`, returns
 `policy_decision`, and writes an autocapture `session_summary` with normalized
 host provenance. Low-risk handoffs use `decision: "capture"` and remain local
-handoff evidence without requiring a user click. Handoffs with decisions, risks,
-blockers, credentials, permissions, or approval language use `decision:
-"review"` and enter Capture Inbox as candidates. Obvious smoke/test or duplicate
-captures use `decision: "archive"` and are archived with policy evidence. The
-policy never makes canonical memory automatically.
+handoff evidence without requiring a user click. Completed implementation
+handoffs that mention dashboard review controls can still use this path when
+they also report verification. Explicit durable decisions, risks, blockers,
+credentials, permissions, canonical promotion, destructive actions, or approval
+language use `decision: "review"` and enter Capture Inbox as candidates.
+Obvious smoke/test or duplicate captures use `decision: "archive"` and are
+archived with policy evidence. The policy never makes canonical memory
+automatically.
 
 The timeline read operation is available through the same registry:
 
@@ -355,9 +358,11 @@ signals include stable rule ids such as `smoke_test_marker` and
 `duplicate_text` so dashboard suggestions remain explainable.
 `default_autocapture_policy` is the write-time policy used by
 `capture_session`: low-risk captures are auto-captured for handoff evidence,
-risk-marked captures are routed to review, and obvious smoke/test or duplicate
-captures are policy-archived without entering the review queue. Auto-captured
-and archived examples stay inspectable through
+verified completed implementation handoffs can stay auto-captured even when
+they describe dashboard review controls, risk-marked captures are routed to
+review, and obvious smoke/test or duplicate captures are policy-archived
+without entering the review queue. Auto-captured and archived examples stay
+inspectable through
 `capture_inbox.autocapture_policy`.
 
 `/api/dashboard` also returns a Safe Action Registry under `actions[]` and

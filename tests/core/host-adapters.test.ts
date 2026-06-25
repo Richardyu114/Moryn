@@ -153,6 +153,89 @@ describe("host adapters", () => {
     });
   });
 
+  it("auto-captures verified dashboard implementation handoffs that mention review controls", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      await mkdir(projectPath, { recursive: true });
+      await initializeProjectConfig(projectPath, { project_id: "moryn" });
+
+      const result = await captureSession({
+        storePath,
+        projectPath,
+        summary: "Dashboard approve slice completed. Review Queue copy, the Approve button, and Pending Decisions routing were updated. Verified dashboard suite, typecheck, build, release check, commit pushed, and dashboard service restarted.",
+        agent: { client: "codex", session_id: "dashboard-complete-1" },
+        currentTask: "dashboard approve review controls"
+      });
+
+      expect(result.record.state).toBe("candidate");
+      expect(result.record.tags).toEqual(expect.arrayContaining(["autocapture", "auto-captured", "host:codex"]));
+      expect(result.record.tags).not.toContain("review");
+      expect(result.policy_decision).toMatchObject({
+        decision: "capture",
+        route: "auto_capture",
+        target_state: "candidate",
+        review_required: false,
+        user_action_required: false,
+        dashboard_surface: "handoff",
+        rule_ids: ["low_risk_handoff_auto_capture"]
+      });
+    });
+  });
+
+  it("keeps verified handoffs with explicit durable decisions in Capture Inbox review", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      await mkdir(projectPath, { recursive: true });
+      await initializeProjectConfig(projectPath, { project_id: "moryn" });
+
+      const result = await captureSession({
+        storePath,
+        projectPath,
+        summary: "Dashboard implementation completed and verified. Decision: make automatic capture the default for all future handoffs.",
+        agent: { client: "codex", session_id: "dashboard-decision-1" },
+        currentTask: "dashboard policy decision"
+      });
+
+      expect(result.record.tags).toEqual(expect.arrayContaining(["autocapture", "review", "host:codex"]));
+      expect(result.record.tags).not.toContain("auto-captured");
+      expect(result.policy_decision).toMatchObject({
+        decision: "review",
+        route: "manual_review",
+        review_required: true,
+        user_action_required: true,
+        dashboard_surface: "capture_inbox",
+        rule_ids: ["review_risk_marker"]
+      });
+    });
+  });
+
+  it("keeps verified handoffs with durable user preferences in Capture Inbox review", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const projectPath = join(storePath, "project");
+      await mkdir(projectPath, { recursive: true });
+      await initializeProjectConfig(projectPath, { project_id: "moryn" });
+
+      const result = await captureSession({
+        storePath,
+        projectPath,
+        summary: "Dashboard copy update completed and verified. Preference: keep dashboard approvals sparse and avoid repeated status panels.",
+        agent: { client: "codex", session_id: "dashboard-preference-1" },
+        currentTask: "dashboard polish"
+      });
+
+      expect(result.record.tags).toEqual(expect.arrayContaining(["autocapture", "review", "host:codex"]));
+      expect(result.record.tags).not.toContain("auto-captured");
+      expect(result.policy_decision).toMatchObject({
+        decision: "review",
+        route: "manual_review",
+        review_required: true,
+        user_action_required: true,
+        dashboard_surface: "capture_inbox",
+        rule_ids: ["review_risk_marker"]
+      });
+    });
+  });
+
   it("policy-archives obvious autocapture noise without entering the review inbox", async () => {
     await withInitializedTempStore(async (storePath) => {
       const projectPath = join(storePath, "project");
