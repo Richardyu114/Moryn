@@ -3622,8 +3622,8 @@ function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): st
 
 function candidateTriageSampleSummary(group: DashboardCandidateTriageGroup): string {
   const shownRecords = Math.min(group.records.length, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
-  if (shownRecords === group.records.length) return `${pluralize(shownRecords, "sample")} with trace commands`;
-  return `${shownRecords} of ${pluralize(group.records.length, "sample")} with trace commands`;
+  if (shownRecords === group.records.length) return `${group.label}: ${pluralize(shownRecords, "sample")} with trace commands`;
+  return `${group.label}: ${shownRecords} of ${pluralize(group.records.length, "sample")} with trace commands`;
 }
 
 function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): string {
