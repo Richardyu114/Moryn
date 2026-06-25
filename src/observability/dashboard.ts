@@ -2927,8 +2927,8 @@ function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
   return `
       <details class="dashboard-overview-quiet" data-dashboard-detail="dashboard-overview-quiet-cards">
         <summary class="dashboard-fold-summary dashboard-overview-quiet-fold">
-          <span>Reference Cards</span>
-          <small>Healthy overview signals</small>
+          <span>Background Status</span>
+          <small>Healthy signals kept for context</small>
         </summary>
         <div class="dashboard-overview-quiet-list">
           ${cards.map((card) => dashboardOverviewCardButton(card, "data-dashboard-overview-quiet-card")).join("")}

@@ -494,11 +494,13 @@ Pure read-only inspections do not turn the overview headline into an urgent
 next action. If there are no confirmations, warnings, or sync actions, the
 overview reads `All clear` while still offering an `Inspect checks` navigation
 button to the Governance Hub. If pending sync is the only action signal, the
-overview relies on its headline and primary button, then folds `Health`, `Next`,
-`Context`, and `Sync` cards into `Reference Cards`, preserving the cards in
+overview relies on its headline and primary button, then groups good cards under
+`Background Status` while keeping the stable `dashboard-overview-quiet-cards`
+route. The `Health`, `Next`, `Context`, and `Sync` cards remain preserved in
 `/api/dashboard.dashboard_overview.cards` without repeating the same warning on
-the first screen. `Reference Cards` opens with `Healthy overview signals` so the
-folded row reads as supporting context instead of another count to process.
+the first screen. `Background Status` opens with `Healthy signals kept for
+context` so the folded row reads as supporting context instead of another count
+to process.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary
