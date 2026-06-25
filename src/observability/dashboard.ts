@@ -4513,7 +4513,7 @@ function recentValueCard(record: DashboardValueRecord, extraClass = ""): string 
       <details data-dashboard-detail="value:${escapeHtml(record.id)}">
         <summary class="dashboard-fold-summary">
           <span>Trace commands</span>
-          <small>${escapeHtml(`${titleCase(record.kind)} ${record.type}`)}</small>
+          <small>${escapeHtml(`${titleCase(record.kind)} ${record.type} ${record.id}`)}</small>
         </summary>
         <dl>
           <div><dt>ID</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>

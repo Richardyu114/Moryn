@@ -2103,7 +2103,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-full-summary-hidden=\"true\"");
       expect(html).toContain("Full text available through timeline/recall.");
       expect(html).toContain("<span>Trace commands</span>");
-      expect(html).toContain("<small>Memory decision</small>");
+      expect(html).toContain("<small>Memory decision rec_recent_long</small>");
+      expect(html).not.toContain("<small>Memory decision</small>");
       expect(html).not.toContain("<summary>Audit trace</summary>");
       expect(html).not.toContain("<summary>Details</summary>");
       expect(html).not.toContain("<summary>Trace commands</summary>");
