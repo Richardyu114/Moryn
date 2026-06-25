@@ -338,6 +338,10 @@ the first screen stays readable without hiding audit data. That rollback path
 section includes source and target project ids for migrations, archive reasons
 for candidate cleanup, matched record count, state distribution, private record
 counts, safety checks, equivalent CLI command, record ids, and `plan_hash`.
+Large plans keep the raw details budgeted: the visible row shows the first few
+record ids plus an overflow count, while `All record ids` and `Full command`
+remain available behind nested folds. The `Copy command` button still carries
+the full command for the rendered plan.
 
 Approving the card posts only the current `plan_hash` to:
 

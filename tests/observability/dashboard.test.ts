@@ -3542,6 +3542,79 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("keeps large maintenance archive plans compact while preserving raw ids and commands", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z",
+            "2026-06-01T00:05:00.000Z",
+            "2026-06-01T00:06:00.000Z",
+            "2026-06-01T00:07:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:08:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_large_noise_${++record}` : `evt_large_noise_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn project context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      for (let index = 1; index <= 6; index += 1) {
+        await engine.write({
+          kind: "session_summary",
+          type: "summary",
+          scope: "project",
+          project_id: "moryn",
+          tags: ["moryn", index % 2 === 0 ? "smoke" : "marker"],
+          content: { text: `Smoke marker candidate ${index} from dashboard e2e.`, format: "text" },
+          source: { client: "codex" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
+      const plan = data.maintenance.plans.find((candidate) => candidate.type === "candidate_noise_archive");
+      expect(plan?.record_ids).toHaveLength(6);
+      const html = renderDashboardHtml(data);
+
+      expect(html).toContain("<dt>Record ids</dt>");
+      expect(html).toContain("<div class=\"maintenance-record-id-summary\">");
+      expect(html).toContain("<span class=\"maintenance-overflow-count\">3 more record ids kept below</span>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"All record ids: 6 record ids\">");
+      expect(html).toContain("<span>All record ids</span>");
+      expect(html).toContain("<small>6 ids, audit ready</small>");
+      expect(html).toContain("<div class=\"maintenance-record-id-list\">");
+      expect(html).toContain("<dt>Command</dt>");
+      expect(html).toContain("<div class=\"maintenance-command-summary\">");
+      expect(html).toContain("<code>6 archive commands</code>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Full command: 6 archive commands, copy button uses full command\">");
+      expect(html).toContain("<span>Full command</span>");
+      expect(html).toContain("<small>copy button uses full command</small>");
+      expect(html).toContain("data-command=\"moryn archive rec_large_noise_7");
+      expect(html).toContain("rec_large_noise_2 --reason");
+    });
+  });
+
   it("renders maintenance review queue controls", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

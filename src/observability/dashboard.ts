@@ -27,6 +27,7 @@ const MAX_LIMIT = 100;
 const RECENT_VALUE_LIMIT = 8;
 const RECENT_VALUE_VISIBLE_LIMIT = 4;
 const DASHBOARD_TEXT_EXCERPT_LIMIT = 240;
+const MAINTENANCE_RAW_SAMPLE_LIMIT = 3;
 const CAPTURE_NOISE_RULES: DashboardCaptureNoiseRule[] = [
   {
     id: "smoke_test_marker",
@@ -3959,6 +3960,52 @@ function maintenanceReviewQueueSummary(plans: DashboardMaintenancePlan[]): strin
   return `${pluralize(plans.length, "decision")} to review | ${pluralize(recordTotal, noun)} ${action} | approval required`;
 }
 
+function maintenanceRecordIdsDetail(plan: DashboardMaintenancePlan): string {
+  const recordIds = plan.decision_card.raw_evidence.record_ids;
+  const visibleRecordIds = recordIds.slice(0, MAINTENANCE_RAW_SAMPLE_LIMIT);
+  const hiddenRecordIds = recordIds.length - visibleRecordIds.length;
+  return `
+    <div class="maintenance-record-id-summary">
+      <div class="maintenance-record-id-preview">
+        ${visibleRecordIds.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}
+      </div>
+      ${hiddenRecordIds > 0 ? `<span class="maintenance-overflow-count">${escapeHtml(`${pluralize(hiddenRecordIds, "more record id")} kept below`)}</span>` : ""}
+      <details class="maintenance-raw-overflow" data-dashboard-detail="maintenance-record-ids:${escapeHtml(plan.plan_id)}">
+        <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`All record ids: ${pluralize(recordIds.length, "record id")}`)}">
+          <span>All record ids</span>
+          <small>${escapeHtml(`${recordIds.length} ids, audit ready`)}</small>
+        </summary>
+        <div class="maintenance-record-id-list">
+          ${recordIds.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+function maintenanceCommandCount(plan: DashboardMaintenancePlan): string {
+  if (plan.type === "candidate_noise_archive") {
+    return pluralize(plan.record_ids.length, "archive command");
+  }
+  return "1 migration command";
+}
+
+function maintenanceCommandDetail(plan: DashboardMaintenancePlan): string {
+  const commandCount = maintenanceCommandCount(plan);
+  return `
+    <div class="maintenance-command-summary">
+      <code>${escapeHtml(commandCount)}</code>
+      <details class="maintenance-raw-overflow" data-dashboard-detail="maintenance-command:${escapeHtml(plan.plan_id)}">
+        <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`Full command: ${commandCount}, copy button uses full command`)}">
+          <span>Full command</span>
+          <small>copy button uses full command</small>
+        </summary>
+        <code>${escapeHtml(plan.decision_card.raw_evidence.command)}</code>
+      </details>
+    </div>
+  `;
+}
+
 function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
   if (plans.length === 0) return "";
   return `
@@ -4032,8 +4079,8 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                         <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id ?? "")}</code></dd></div>`}
                         <div><dt>Records</dt><dd>${escapeHtml(maintenanceStateSummary(plan.dry_run.states) || "none")}</dd></div>
                         <div><dt>Private records</dt><dd>${escapeHtml(maintenancePrivateSummary(plan))}</dd></div>
-                        <div><dt>Record ids</dt><dd>${plan.decision_card.raw_evidence.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
-                        <div><dt>Command</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.command)}</code></dd></div>
+                        <div><dt>Record ids</dt><dd>${maintenanceRecordIdsDetail(plan)}</dd></div>
+                        <div><dt>Command</dt><dd>${maintenanceCommandDetail(plan)}</dd></div>
                       </dl>
                     </section>
                   </div>
@@ -7490,6 +7537,37 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
     }
     .maintenance-checks li span { font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .maintenance-record-id-summary,
+    .maintenance-command-summary {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+    .maintenance-record-id-preview,
+    .maintenance-record-id-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      min-width: 0;
+    }
+    .maintenance-overflow-count {
+      display: inline-flex;
+      width: fit-content;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+    .maintenance-raw-overflow {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 7px 8px;
+      background: var(--surface);
+    }
+    .maintenance-raw-overflow[open] > summary { margin-bottom: 7px; }
     .maintenance-actions, .capture-inbox-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 10px; }
     button {
       min-height: 32px;
