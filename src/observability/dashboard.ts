@@ -3635,9 +3635,9 @@ function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): st
       <details class="candidate-triage-overflow-path" data-dashboard-detail="candidate-triage-overflow:${escapeHtml(group.id)}">
         <summary class="dashboard-fold-summary">
           <span>More samples</span>
-          <small>Full group available in API and Raw Inspector</small>
+          <small>Full group available in API and Raw Store</small>
         </summary>
-        <p>Use the API evidence path or Raw Inspector when the displayed samples are not enough.</p>
+        <p>Use the API evidence path or Raw Store when the displayed samples are not enough.</p>
         <details>
           <summary>API evidence path</summary>
           <code>${escapeHtml(`${group.evidence_path}.records[]`)}</code>

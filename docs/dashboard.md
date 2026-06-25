@@ -406,7 +406,7 @@ fold inside each group.
 summarizes the remaining records as API evidence, so large backlogs stay
 inspectable without flooding the page. `Record samples` rows use short sample
 labels in their folded summaries. Overflow rows read `More samples` with `Full
-group available in API and Raw Inspector`, while the exact
+group available in API and Raw Store`, while the exact
 `candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind `API
 evidence path`. Full candidate text remains inside the expanded sample body and
 `/api/dashboard`.
