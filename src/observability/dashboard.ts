@@ -3586,17 +3586,23 @@ function candidateTriageSummary(triage: DashboardCandidateTriage): string {
   return "Read-only candidate backlog";
 }
 
+function candidateTriageRecordSampleTitle(record: DashboardCandidateTriageRecord): string {
+  const label = record.kind.replace(/[_-]+/g, " ");
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)} sample`;
+}
+
 function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): string {
   return `
     <details class="candidate-triage-record" data-dashboard-detail="candidate-triage-record:${escapeHtml(record.id)}">
       <summary class="candidate-triage-record-summary">
         <span>
-          <strong>${escapeHtml(record.text)}</strong>
+          <strong>${escapeHtml(candidateTriageRecordSampleTitle(record))}</strong>
           <small>${escapeHtml(`${record.source_label} | ${record.relative_time}`)}</small>
         </span>
         <span class="candidate-triage-record-meta">${escapeHtml(titleCase(record.kind))}</span>
       </summary>
       <dl>
+        <div><dt>Text</dt><dd>${escapeHtml(record.text)}</dd></div>
         <div><dt>Reason</dt><dd>${escapeHtml(record.reason)}</dd></div>
         <div><dt>Source</dt><dd>${escapeHtml(record.source_detail)}</dd></div>
         <div><dt>Priority</dt><dd>${escapeHtml(record.priority)}</dd></div>

@@ -893,6 +893,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"candidate-triage-record-samples\" data-dashboard-detail=\"candidate-triage-records:likely_noise\">");
       expect(html).toContain("<span>Record samples</span>");
       expect(html).toContain("<small>1 sample with trace commands</small>");
+      expect(html).toContain("<strong>Session summary sample</strong>");
+      expect(html).toContain("<strong>Memory sample</strong>");
+      expect(html).toContain("<div><dt>Text</dt><dd>Smoke marker from dashboard test.</dd></div>");
+      expect(html).toContain("<div><dt>Text</dt><dd>Always keep dashboard governance readable.</dd></div>");
+      expect(html).not.toContain("<strong>Smoke marker from dashboard test.</strong>");
+      expect(html).not.toContain("<strong>Always keep dashboard governance readable.</strong>");
       expect(html).toContain("<span>Promotable candidates</span>");
       expect(html).toContain("<small>Inspect before promotion</small>");
       expect(html).toContain("<div class=\"candidate-triage-handoff\" data-candidate-triage-handoff=\"promotable\">");

@@ -395,7 +395,9 @@ recall commands, and timeline commands stay behind a nested `Record samples`
 fold inside each group.
 `Record samples` renders only the first five full records per group and
 summarizes the remaining records as API evidence, so large backlogs stay
-inspectable without flooding the page.
+inspectable without flooding the page. `Record samples` rows use short sample
+labels in their folded summaries. Full candidate text remains inside the
+expanded sample body and `/api/dashboard`.
 `Candidate Triage` stays read-only and does not
 add Approve, Archive, Promote, Apply, or background execution controls; it is a
 decision-prep surface for existing review policies, not a new mutation path.
