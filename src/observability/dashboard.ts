@@ -3632,7 +3632,17 @@ function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): st
   return `
     <div class="candidate-triage-overflow">
       <span class="candidate-triage-overflow-count">${escapeHtml(`${pluralize(hiddenRecords, "more record")} kept in API evidence`)}</span>
-      <span>Full group stays in <code>${escapeHtml(`${group.evidence_path}.records[]`)}</code> and Raw Inspector.</span>
+      <details class="candidate-triage-overflow-path" data-dashboard-detail="candidate-triage-overflow:${escapeHtml(group.id)}">
+        <summary class="dashboard-fold-summary">
+          <span>More samples</span>
+          <small>Full group available in API and Raw Inspector</small>
+        </summary>
+        <p>Use the API evidence path or Raw Inspector when the displayed samples are not enough.</p>
+        <details>
+          <summary>API evidence path</summary>
+          <code>${escapeHtml(`${group.evidence_path}.records[]`)}</code>
+        </details>
+      </details>
     </div>
   `;
 }
