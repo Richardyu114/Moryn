@@ -632,10 +632,10 @@ informational checks look like user work.
 Read-only diagnostic detail lives in the collapsed evidence layer. The visible
 Evidence Library title is `Read-only Evidence`, while the stable route remains
 `data-dashboard-detail="evidence-library"`. Its visible summary is
-content-aware: when there are findings it reads `Read-only findings and
-reference evidence`, and when there is only routine/background material it
-reads `Reference evidence only`. It does not list every child module on the
-first screen. When expanded, it starts with an `Evidence map` brief for
+content-aware: when there are findings it reads `Findings and references`
+while the accessible summary keeps `Read-only findings and reference evidence`;
+when there is only routine/background material it reads `Reference evidence only`.
+It does not list every child module on the first screen. When expanded, it starts with an `Evidence map` brief for
 `Findings`, `Diagnostics`, and `Audit` so users can choose a route before
 reading nested panels. The brief renders local route buttons that reuse the
 existing `data-action-board-target` behavior: `Findings` opens `Read-only

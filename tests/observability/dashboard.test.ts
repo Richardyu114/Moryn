@@ -1446,7 +1446,9 @@ describe("observability dashboard", () => {
       expect(dogfoodPanelSummary).toContain("<span>Dogfood Review</span>");
       expect(dogfoodPanelSummary).toContain("<small>Read-only dogfood findings</small>");
       expect(dogfoodPanelSummary).not.toContain("<small>2 findings | 2 safe steps | read-only</small>");
-      expect(html).toContain("<small>Read-only findings and reference evidence</small>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Read-only Evidence: Read-only findings and reference evidence\">");
+      expect(html).toContain("<small>Findings and references</small>");
+      expect(html).not.toContain("<small>Read-only findings and reference evidence</small>");
       expect(html).not.toContain("<small>1 finding group / 1 reference group</small>");
       expect(html).not.toContain("<small>Read-only diagnostics grouped here</small>");
       const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
@@ -2035,8 +2037,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Warnings and critical signals remain visible in Needs Attention.</small>");
       expect(html).not.toContain("<small>Read-only inspections are grouped in Governance Hub.</small>");
       expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Read-only Evidence\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Read-only Evidence: Read-only findings and reference evidence\">");
       expect(html).toContain("<span>Read-only Evidence</span>");
-      expect(html).toContain("<small>Read-only findings and reference evidence</small>");
+      expect(html).toContain("<small>Findings and references</small>");
+      expect(html).not.toContain("<small>Read-only findings and reference evidence</small>");
       expect(html).not.toContain("<span>Evidence Library</span>");
       expect(html).not.toContain("<small>Read-only diagnostics grouped here</small>");
       expect(html).not.toContain("<small>Health Check | Governance | Context | Supporting Evidence</small>");

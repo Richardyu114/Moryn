@@ -5086,6 +5086,11 @@ function evidenceLibrarySummary(reviewGroupCount: number, backgroundGroupCount: 
   return "No evidence groups";
 }
 
+function evidenceLibraryVisibleSummary(reviewGroupCount: number, backgroundGroupCount: number): string {
+  if (reviewGroupCount > 0) return "Findings and references";
+  return evidenceLibrarySummary(reviewGroupCount, backgroundGroupCount);
+}
+
 function isRoutineHealthCheck(report: HealthCheckReport): boolean {
   return report.status === "healthy" && report.summary.warning_checks === 0 && report.summary.failing_checks === 0;
 }
@@ -5215,11 +5220,12 @@ function evidenceLibrary(data: DashboardData): string {
     supportingEvidencePanel(data)
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
   const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
+  const visibleEvidenceSummary = evidenceLibraryVisibleSummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   return `
     <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Read-only Evidence">
-      <summary class="dashboard-fold-summary evidence-library-fold">
+      <summary class="dashboard-fold-summary evidence-library-fold" aria-label="${escapeHtml(`Read-only Evidence: ${evidenceSummary}`)}">
         <span>Read-only Evidence</span>
-        <small>${escapeHtml(evidenceSummary)}</small>
+        <small>${escapeHtml(visibleEvidenceSummary)}</small>
       </summary>
       ${evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length })}
       <div class="evidence-library-list">

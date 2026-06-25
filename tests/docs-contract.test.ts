@@ -87,7 +87,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail");
     expectText(dashboard, "visible summary is content-aware");
-    expectText(dashboard, "when there are findings it reads `Read-only findings and reference evidence`");
+    expectText(dashboard, "when there are findings it reads `Findings and references`");
+    expectText(dashboard, "while the accessible summary keeps `Read-only findings and reference evidence`");
     expectText(dashboard, "reads `Reference evidence only`");
     expectText(dashboard, "starts with an `Evidence map` brief for `Findings`, `Diagnostics`, and `Audit`");
     expectText(dashboard, "renders local route buttons that reuse the existing `data-action-board-target` behavior");
