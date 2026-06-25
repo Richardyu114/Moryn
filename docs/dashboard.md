@@ -403,7 +403,7 @@ summary names the candidate group, so the expanded group starts with the review
 handoff instead of raw audit fields. Record ids,
 recall commands, and timeline commands stay behind a nested `Record samples`
 fold inside each group.
-`Record samples` renders only the first five full records per group and
+`Record samples` renders only the first three full records per group and
 summarizes the remaining records as API evidence, so large backlogs stay
 inspectable without flooding the page. `Record samples` summaries include the
 candidate group name, and rows use short sample labels plus short record-id

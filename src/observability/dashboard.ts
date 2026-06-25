@@ -358,7 +358,7 @@ export const DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES = {
   record_id: "candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>.id"
 } as const;
 
-const CANDIDATE_TRIAGE_SAMPLE_LIMIT = 5;
+const CANDIDATE_TRIAGE_SAMPLE_LIMIT = 3;
 const DEBUG_INSPECTOR_ROW_LIMIT = 10;
 
 export type DashboardGovernanceSource = "capture_policy" | "memory_doctor" | "memory_lifecycle" | "maintenance" | "recall_eval" | "dogfood_report";

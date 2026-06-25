@@ -990,7 +990,7 @@ describe("observability dashboard", () => {
       const groupEnd = html.indexOf("<details class=\"evidence-library-group evidence-library-background\"", groupStart);
       const groupHtml = html.slice(groupStart, groupEnd);
       expect(groupHtml).toContain("<strong>7 records</strong>");
-      expect(groupHtml).toContain("<small>Needs inspection: 5 of 7 samples with trace commands</small>");
+      expect(groupHtml).toContain("<small>Needs inspection: 3 of 7 samples with trace commands</small>");
       expect(groupHtml).not.toContain("<small>5 of 7 samples with trace commands</small>");
       expect(groupHtml).toContain("<strong>Agent note sample rec_budgeted_triage_8</strong>");
       expect(groupHtml).toContain("<strong>Agent note sample rec_budgeted_triage_7</strong>");
@@ -998,11 +998,13 @@ describe("observability dashboard", () => {
       expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_8\"");
       expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_7\"");
       expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_6\"");
+      expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_5\"");
+      expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_4\"");
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_3\"");
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_2\"");
-      expect(groupHtml).toContain("<span class=\"candidate-triage-overflow-count\">2 more records kept in API evidence</span>");
+      expect(groupHtml).toContain("<span class=\"candidate-triage-overflow-count\">4 more records kept in API evidence</span>");
       expect(groupHtml).toContain("<span>More samples</span>");
-      expect(groupHtml).toContain("<small>Needs inspection: 2 hidden in API and Raw Store</small>");
+      expect(groupHtml).toContain("<small>Needs inspection: 4 hidden in API and Raw Store</small>");
       expect(groupHtml).not.toContain("<small>Full group available in API and Raw Store</small>");
       expect(groupHtml).toContain("<span>API evidence path</span>");
       expect(groupHtml).toContain("<small>Needs inspection records</small>");
