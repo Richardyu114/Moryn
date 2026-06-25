@@ -673,11 +673,11 @@ reads `Clean audits and store signals` instead of listing child panel counts.
 `Audit Evidence` is collapsed by default inside `Audit Trail`,
 and `Store Signals` and `Recent Value` are nested under a collapsed
 `Store Snapshot` row, while the raw `Debug Inspector` is grouped behind
-`Raw Inspector`. This keeps
+`Raw Store`. This keeps
 common audit evidence closer to the user while keeping record/event/sync
 internals available without placing them at the same level. Nested evidence
 summaries also use purpose labels: `Store Signals` opens with `Operational
-health signals`, `Raw Inspector` opens with `Records, events, and sync`, and
+health signals`, `Raw Store` opens with `Records, events, and sync`, and
 `Debug Inspector` opens with `Raw store inspection`. Its child folds are labeled
 `Record Index`, `Event Timeline`, and `Sync Snapshot` instead of generic
 `Records`, `Events`, and `Sync`. `Record Index` and `Event Timeline` render

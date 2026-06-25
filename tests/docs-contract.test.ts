@@ -137,8 +137,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "collapsed by default behind a short recent-record count");
     expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
     expectText(dashboard, "timeline and recall trace commands under a `Trace commands` fold instead of a generic `Details` row");
-    expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Inspector`");
-    expectText(dashboard, "`Raw Inspector` opens with `Records, events, and sync`");
+    expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Store`");
+    expectText(dashboard, "`Raw Store` opens with `Records, events, and sync`");
     expectText(dashboard, "child folds are labeled `Record Index`, `Event Timeline`, and `Sync Snapshot`");
     expectText(dashboard, "`Record Index` and `Event Timeline` render only the first ten rows each and summarize overflow as `/api/dashboard` evidence");
     expectText(dashboard, "still shows the concrete safe-check count");

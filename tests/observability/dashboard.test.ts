@@ -1995,7 +1995,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Operational Evidence</span>");
       expect(html).toContain("<small>Clean audits and store signals</small>");
       expect(html).not.toContain("evidence panels</small>");
-      expect(html).toContain("<span>Raw Inspector</span>");
+      expect(html).toContain("<span>Raw Store</span>");
+      expect(html).not.toContain("<span>Raw Inspector</span>");
       expect(html).toContain("<small>Records, events, and sync</small>");
       expect(html).not.toContain("<small>1 raw panel</small>");
       const storeSnapshotPanel = "<details class=\"supporting-evidence-group supporting-evidence-snapshots\" data-dashboard-detail=\"supporting-operational-snapshots\">";
