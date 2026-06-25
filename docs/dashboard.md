@@ -933,7 +933,7 @@ recent-record count. Newest-first ordering, full details, and trace commands
 stay inside the expanded panel and `/api/dashboard` payload. Expanding it shows
 the first four records and keeps additional records under `More Recent Value`.
 Every card keeps its timeline and recall trace commands under a `Trace commands`
-fold instead of a generic `Details` row.
+fold with kind/type context instead of a generic `Details` row.
 
 Quarantined records normally count as unresolved safety signals. If an active
 safe replacement index explicitly declares `content.supersedes_quarantined_record`
