@@ -157,8 +157,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group");
     expectText(dashboard, "`Record samples` renders only the first five full records per group and summarizes the remaining records as API evidence");
     expectText(dashboard, "`Record samples` rows use short sample labels plus record ids in their folded summaries");
-    expectText(dashboard, "Overflow rows read `More samples` with `Full group available in API and Raw Store`");
-    expectText(dashboard, "the exact `candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind `API evidence path`");
+    expectText(dashboard, "Overflow rows read `More samples` with a group-specific hidden-record count and API/Raw Store cue");
+    expectText(dashboard, "the exact `candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind a group-specific `API evidence path` fold");
     expectText(dashboard, "Full candidate text remains inside the expanded sample body and `/api/dashboard`");
     expectText(dashboard, "`Candidate Triage` stays read-only and does not add Approve, Archive, Promote, Apply, or background execution controls");
     expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");

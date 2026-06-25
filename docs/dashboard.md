@@ -407,11 +407,11 @@ fold inside each group.
 summarizes the remaining records as API evidence, so large backlogs stay
 inspectable without flooding the page. `Record samples` rows use short sample
 labels plus record ids in their folded summaries, so repeated source/type rows
-stay distinguishable. Overflow rows read `More samples` with `Full
-group available in API and Raw Store`, while the exact
-`candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind `API
-evidence path`. Full candidate text remains inside the expanded sample body and
-`/api/dashboard`.
+stay distinguishable. Overflow rows read `More samples` with a group-specific
+hidden-record count and API/Raw Store cue, while the exact
+`candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind a
+group-specific `API evidence path` fold. Full candidate text remains inside the
+expanded sample body and `/api/dashboard`.
 `Candidate Triage` stays read-only and does not
 add Approve, Archive, Promote, Apply, or background execution controls; it is a
 decision-prep surface for existing review policies, not a new mutation path.
