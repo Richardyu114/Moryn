@@ -79,8 +79,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "do not add `data-dashboard-action-id`");
     expectText(dashboard, "Lane clicks resolve either an element `id` or a matching `data-dashboard-detail` target");
     expectText(dashboard, "routes such as `context-pack-review` and `evidence-library` open the collapsed detail panel before scrolling");
-    expectText(dashboard, "`Action Board` is rendered as `Navigation Details` in the UI");
-    expectText(dashboard, "`Navigation Details` opens with `Optional scroll targets`");
+    expectText(dashboard, "`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail=\"action-board\"` route");
+    expectText(dashboard, "`Page Shortcuts` opens with `Optional section links`");
     expectText(dashboard, "the previous active-count summary remains as a quiet `action-board-activity` value");
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail");

@@ -526,13 +526,14 @@ Lane clicks resolve either an element `id` or a matching `data-dashboard-detail`
 target, so routes such as `context-pack-review` and `evidence-library` open the
 collapsed detail panel before scrolling.
 
-`Action Board` is rendered as `Navigation Details` in the UI: a secondary,
-collapsed navigator below the first-screen Work Lanes rather than another
-primary card grid. `Navigation Details` opens with `Optional scroll targets`;
-the previous active-count summary remains as a quiet `action-board-activity`
-value such as `1 review / 1 sync`, `1 sync issue`, or `all clear`; zero-count
-buckets are hidden from the collapsed summary activity value. Expanding it
-still reveals the four scroll targets for:
+`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the
+stable `data-dashboard-detail="action-board"` route: a secondary, collapsed
+navigator below the first-screen Work Lanes rather than another primary card
+grid. `Page Shortcuts` opens with `Optional section links`; the previous
+active-count summary remains as a quiet `action-board-activity` value such as
+`1 review / 1 sync`, `1 sync issue`, or `all clear`; zero-count buckets are
+hidden from the collapsed summary activity value. Expanding it still reveals
+the four scroll targets for:
 
 - `Confirm`: explicit decision units in Capture Inbox or Review Queue
 - `Review`: warning or critical attention signals
@@ -589,7 +590,7 @@ When warning or critical action signals exist, the `needs-attention` scroll
 target renders as `Action Signals`. `Action Signals` opens with `Warnings and
 critical checks`, then shows a compact focus strip; the section preserves
 `id="needs-attention"` and `data-dashboard-detail="needs-attention"` so existing
-overview, Work Lane, and Navigation Details routes keep working. The strip
+overview, Work Lane, and Page Shortcuts routes keep working. The strip
 counts action signals, non-zero warning checks, and non-zero informational
 checks, then shows the next review step as a dedicated action chip. Warning and
 critical items remain directly visible. Informational checks are grouped under a

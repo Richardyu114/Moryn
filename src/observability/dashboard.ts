@@ -2866,10 +2866,10 @@ function actionBoard(data: DashboardActionBoard): string {
   const activeItems = data.items.filter(isActiveActionBoardItem);
   const quietItems = data.items.filter((item) => !isActiveActionBoardItem(item));
   return `
-    <details class="action-board action-board-secondary" aria-label="Navigation Details" data-dashboard-detail="action-board" data-action-board-nav>
+    <details class="action-board action-board-secondary" aria-label="Page Shortcuts" data-dashboard-detail="action-board" data-action-board-nav>
       <summary class="dashboard-fold-summary action-board-fold">
-        <span>Navigation Details</span>
-        <small>Optional scroll targets</small>
+        <span>Page Shortcuts</span>
+        <small>Optional section links</small>
         <span class="action-board-activity">${escapeHtml(actionBoardSummary(data))}</span>
       </summary>
       ${activeItems.length === 0 ? "" : `
