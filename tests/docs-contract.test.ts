@@ -197,6 +197,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Full candidate text remains inside the expanded sample body and `/api/dashboard`");
     expectText(dashboard, "To avoid duplicating large candidate bodies in JSON");
     expectText(dashboard, "`candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>` is a lightweight index");
+    expectText(dashboard, "The top-level `candidate_triage.groups[]` list is summary-only");
+    expectText(dashboard, "expanded group details, records, and record indexes live under `candidate_triage.groups_by_id.<group_id>`");
     expectText(dashboard, "`Candidate Triage` stays read-only and does not add Approve, Archive, Promote, Apply, or background execution controls");
     expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");
     expectText(contracts, "`/api/dashboard` also returns `memory_doctor`, the same read-only report shape as `moryn memory doctor`");

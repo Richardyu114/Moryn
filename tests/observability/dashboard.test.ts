@@ -928,6 +928,8 @@ describe("observability dashboard", () => {
         "session_summaries",
         "needs_inspection"
       ]);
+      expect(data.candidate_triage.groups[0]).not.toHaveProperty("records");
+      expect(data.candidate_triage.groups[0]).not.toHaveProperty("records_by_id");
       expect(data.candidate_triage.groups.every((group) => group.writes === "none")).toBe(true);
       expect(data.candidate_triage.groups.every((group) => group.requires_user_confirmation === false)).toBe(true);
 

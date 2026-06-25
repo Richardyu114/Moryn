@@ -448,7 +448,9 @@ bodies in JSON, `candidate_triage.groups_by_id.<group_id>.records[]` keeps the
 full records while
 `candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>` is a
 lightweight index with the record id, array index, and exact record evidence
-path.
+path. The top-level `candidate_triage.groups[]` list is summary-only; expanded
+group details, records, and record indexes live under
+`candidate_triage.groups_by_id.<group_id>`.
 `Candidate Triage` stays read-only and does not
 add Approve, Archive, Promote, Apply, or background execution controls; it is a
 decision-prep surface for existing review policies, not a new mutation path.

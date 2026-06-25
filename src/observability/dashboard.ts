@@ -437,6 +437,16 @@ export interface DashboardCandidateTriageRecordIndex {
   evidence_path: string;
 }
 
+export interface DashboardCandidateTriageGroupSummary {
+  id: DashboardCandidateTriageGroupId;
+  label: string;
+  recommended_next_step: string;
+  writes: "none";
+  requires_user_confirmation: false;
+  record_ids: string[];
+  evidence_path: string;
+}
+
 export interface DashboardCandidateTriageGroup {
   id: DashboardCandidateTriageGroupId;
   label: string;
@@ -469,7 +479,7 @@ export interface DashboardCandidateTriage {
     needs_inspection: number;
     shown_records: number;
   };
-  groups: DashboardCandidateTriageGroup[];
+  groups: DashboardCandidateTriageGroupSummary[];
   groups_by_id: Partial<Record<DashboardCandidateTriageGroupId, DashboardCandidateTriageGroup>>;
   selection_sources: typeof DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES;
 }
@@ -2390,6 +2400,18 @@ function toCandidateTriageGroup(input: {
   };
 }
 
+function toCandidateTriageGroupSummary(group: DashboardCandidateTriageGroup): DashboardCandidateTriageGroupSummary {
+  return {
+    id: group.id,
+    label: group.label,
+    recommended_next_step: group.recommended_next_step,
+    writes: group.writes,
+    requires_user_confirmation: group.requires_user_confirmation,
+    record_ids: group.record_ids,
+    evidence_path: group.evidence_path
+  };
+}
+
 function buildCandidateTriage(
   records: MorynRecord[],
   eventsByRecord: Map<string, MorynEvent>,
@@ -2503,7 +2525,7 @@ function buildCandidateTriage(
       needs_inspection: needsInspection.length,
       shown_records: groups.reduce((total, group) => total + group.records.length, 0)
     },
-    groups,
+    groups: groups.map(toCandidateTriageGroupSummary),
     groups_by_id: Object.fromEntries(groups.map((group) => [group.id, group])),
     selection_sources: DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES
   };
@@ -3813,7 +3835,7 @@ function candidateTriagePanel(triage: DashboardCandidateTriage): string {
           </div>
         </div>
         <div class="candidate-triage-list">
-          ${triage.groups.map(renderCandidateTriageGroup).join("")}
+          ${triage.groups.map((group) => triage.groups_by_id[group.id]).filter((group): group is DashboardCandidateTriageGroup => group !== undefined).map(renderCandidateTriageGroup).join("")}
         </div>
       </div>
     </details>
