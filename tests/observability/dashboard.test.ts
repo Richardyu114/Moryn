@@ -422,6 +422,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Moryn Health Check</span>");
       expect(html).toContain("<small>needs attention | 1 warning</small>");
       expect(html).not.toContain("<small>needs attention | 1 warning | 0 failed</small>");
+      expect(html).toContain("MCP runtime freshness");
+      expect(html).toContain("MCP hosts load Moryn when the host process starts.");
+      expect(html).toContain("restart the MCP host");
       expect(html).toContain("moryn dashboard --serve --project-id moryn");
       expect(html).toContain("Read-only");
       expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));

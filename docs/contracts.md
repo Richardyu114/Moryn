@@ -255,9 +255,12 @@ The MCP equivalent is:
 `health_check.stats.<field>`, and read-only next steps under
 `health_check.suggested_actions_by_id.<action_id>`. It checks store
 readability, event-log replay, project context, default private boundary, and
-capture review backlog. It does not mutate records or events; suggested actions
-are safe inspection commands such as `moryn dashboard --serve --project-id <id>`
-or `moryn project list`.
+capture review backlog. `health_check.checks_by_id.mcp_runtime` is
+informational: long-running MCP hosts load Moryn when the host process starts,
+so restart the MCP host when MCP tool output disagrees with the CLI or dashboard
+after upgrading, rebuilding, or linking a local checkout. It does not mutate
+records or events; suggested actions are safe inspection commands such as
+`moryn dashboard --serve --project-id <id>` or `moryn project list`.
 The capture review backlog is scoped to candidates whose capture policy requires
 explicit review or user action; low-risk auto-captured handoffs remain audit
 evidence without becoming Health Check warnings.

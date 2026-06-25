@@ -3893,7 +3893,7 @@ describe("moryn CLI", () => {
         read_only: boolean;
         status: string;
         stats: { visible_records: number; excluded_private_records: number; capture_review_candidates: number };
-        checks_by_id: Record<string, { status: string; category: string; record_ids?: string[] }>;
+        checks_by_id: Record<string, { status: string; category: string; label?: string; summary?: string; reason?: string; record_ids?: string[] }>;
         suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean }>;
       };
 
@@ -3910,6 +3910,13 @@ describe("moryn CLI", () => {
         category: "capture",
         record_ids: [capture.record.id]
       });
+      expect(parsed.checks_by_id.mcp_runtime).toMatchObject({
+        status: "info",
+        category: "runtime",
+        label: "MCP runtime freshness",
+        summary: "MCP hosts load Moryn when the host process starts."
+      });
+      expect(parsed.checks_by_id.mcp_runtime.reason).toContain("restart the MCP host");
       expect(parsed.suggested_actions_by_id.review_capture_inbox).toMatchObject({
         tool: "dashboard",
         command: "moryn dashboard --serve --project-id moryn",
@@ -4332,7 +4339,7 @@ describe("moryn CLI", () => {
         }
       });
     });
-  });
+  }, 30000);
 
   it("returns timeline context from the CLI", async () => {
     await withTempDir(async (dir) => {

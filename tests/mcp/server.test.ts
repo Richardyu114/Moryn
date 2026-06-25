@@ -3173,13 +3173,19 @@ describe("MCP stdio server", () => {
         })) as {
           read_only: boolean;
           status: string;
-          checks_by_id: Record<string, { status: string; category: string }>;
+          checks_by_id: Record<string, { status: string; category: string; summary?: string; reason?: string }>;
           suggested_actions_by_id: Record<string, { tool: string; safe_to_run: boolean }>;
         };
         expect(health.read_only).toBe(true);
         expect(health.status).toBe("needs_attention");
         expect(health.checks_by_id.store_readable).toMatchObject({ status: "pass", category: "store" });
         expect(health.checks_by_id.capture_review_backlog).toMatchObject({ status: "warning", category: "capture" });
+        expect(health.checks_by_id.mcp_runtime).toMatchObject({
+          status: "info",
+          category: "runtime",
+          summary: "MCP hosts load Moryn when the host process starts."
+        });
+        expect(health.checks_by_id.mcp_runtime.reason).toContain("restart the MCP host");
         expect(health.suggested_actions_by_id.review_capture_inbox).toMatchObject({
           tool: "dashboard",
           safe_to_run: true

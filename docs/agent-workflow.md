@@ -286,8 +286,10 @@ moryn health check \
 ```
 
 The result is read-only. It reports store readability, event-log replay,
-project context, hidden private records, and capture review backlog with keyed
-`checks_by_id` and `suggested_actions_by_id`. Suggested actions are safe
+project context, hidden private records, capture review backlog, and MCP runtime
+freshness with keyed `checks_by_id` and `suggested_actions_by_id`. Agents should
+restart the MCP host when MCP tool output disagrees with the CLI or dashboard after
+upgrading, rebuilding, or linking a local checkout. Suggested actions are safe
 inspection steps such as opening the dashboard or listing known projects. MCP
 hosts call `health_check`.
 

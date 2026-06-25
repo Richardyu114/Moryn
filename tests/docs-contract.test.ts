@@ -534,7 +534,11 @@ describe("documentation contracts", () => {
     expectText(dashboard, "When there are no active Capture Inbox candidates, the main `Capture Inbox` panel is not rendered");
     expectText(dashboard, "auto-captured and policy-archived handoff evidence stays under the stable `capture-policy-audit` route inside the evidence path");
     expectText(dashboard, "the visible folded title reads `Policy Decision History` with `Routing evidence`");
+    expectText(dashboard, "`MCP runtime freshness` is an informational check");
+    expectText(dashboard, "restart the MCP host when MCP tool output disagrees with the CLI or dashboard after an upgrade, rebuild, or local link change");
     expectText(contracts, "The capture review backlog is scoped to candidates whose capture policy requires explicit review or user action");
+    expectText(contracts, "`health_check.checks_by_id.mcp_runtime` is informational");
+    expectText(workflow, "restart the MCP host when MCP tool output disagrees with the CLI or dashboard after upgrading, rebuilding, or linking a local checkout");
     expect(roadmap).toContain("health check");
   });
 

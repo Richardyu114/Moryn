@@ -456,6 +456,13 @@ describe("core engine", () => {
         category: "capture",
         record_ids: [capture.record.id]
       });
+      expect(report.checks_by_id.mcp_runtime).toMatchObject({
+        status: "info",
+        category: "runtime",
+        label: "MCP runtime freshness",
+        summary: "MCP hosts load Moryn when the host process starts."
+      });
+      expect(report.checks_by_id.mcp_runtime.reason).toContain("restart the MCP host");
       expect(report.suggested_actions_by_id.review_capture_inbox).toMatchObject({
         tool: "dashboard",
         command: "moryn dashboard --serve --project-id moryn",

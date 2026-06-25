@@ -874,10 +874,14 @@ warning and failing counts for audit and tooling.
 
 `/api/dashboard.health_check` is the same read-only shape as `moryn health
 check` and MCP `health_check`. It checks store readability, event-log replay,
-project context, default private boundary, and Capture Inbox backlog. Suggested
-actions are safe inspection commands only, such as opening the dashboard or
-listing known projects. The panel does not add Apply, Approve, repair, retry,
-or background execution controls.
+project context, default private boundary, Capture Inbox backlog, and MCP
+runtime freshness. `MCP runtime freshness` is an informational check, not a
+pending decision: long-running MCP hosts load Moryn when the host process
+starts, so restart the MCP host when MCP tool output disagrees with the CLI or
+dashboard after an upgrade, rebuild, or local link change. Suggested actions are
+safe inspection commands only, such as opening the dashboard or listing known
+projects. The panel does not add Apply, Approve, repair, retry, or background
+execution controls.
 Capture Inbox backlog only counts candidates whose capture policy requires
 explicit review or user action; low-risk auto-captured handoffs stay visible in
 Capture Policy and handoff evidence without making Health Check report a review

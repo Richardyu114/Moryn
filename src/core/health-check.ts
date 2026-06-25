@@ -8,7 +8,7 @@ import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata 
 
 export type HealthCheckStatus = "healthy" | "needs_attention" | "unhealthy";
 export type HealthCheckComponentStatus = "pass" | "info" | "warning" | "fail";
-export type HealthCheckCategory = "store" | "project" | "capture" | "privacy";
+export type HealthCheckCategory = "store" | "project" | "capture" | "privacy" | "runtime";
 
 export interface HealthCheckInput {
   project_id?: string;
@@ -300,6 +300,17 @@ function captureReviewBacklogCheck(reviewCandidates: MorynRecord[], events: Mory
   };
 }
 
+function mcpRuntimeFreshnessCheck(): HealthCheckItem {
+  return {
+    id: "mcp_runtime",
+    category: "runtime",
+    status: "info",
+    label: "MCP runtime freshness",
+    summary: "MCP hosts load Moryn when the host process starts.",
+    reason: "After upgrading, rebuilding, or linking a local checkout, restart the MCP host if MCP tool output disagrees with the CLI or dashboard."
+  };
+}
+
 function privateBoundaryCheck(excludedPrivateRecords: number): HealthCheckItem {
   return {
     id: "private_boundary",
@@ -332,6 +343,7 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     eventLogReplayableCheck(input.events),
     projectContextCheck(input.project_id, projectRecords),
     captureReviewBacklogCheck(reviewCandidates, input.events),
+    mcpRuntimeFreshnessCheck(),
     privateBoundaryCheck(excludedPrivateRecords)
   ];
   const actions = [
