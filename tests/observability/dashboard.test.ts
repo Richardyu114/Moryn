@@ -237,7 +237,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-dashboard-overview-card=\"sync\"");
       expect(html).toContain("<details class=\"dashboard-overview-quiet\" data-dashboard-detail=\"dashboard-overview-quiet-cards\">");
       expect(html).toContain("<span>Background Status</span>");
-      expect(html).toContain("<small>Healthy signals kept for context</small>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-overview-quiet-fold\" aria-label=\"Background Status: Healthy signals kept for context\">");
+      expect(html).toContain("<small>Signals ready</small>");
+      expect(html).not.toContain("<small>Healthy signals kept for context</small>");
       expect(html).not.toContain("<small>4 reference cards</small>");
       expect(html).not.toContain("<span>Reference Cards</span>");
       expect(html).not.toContain("<span>Quiet Overview</span>");
@@ -1749,7 +1751,9 @@ describe("observability dashboard", () => {
         expect(html).not.toContain("data-dashboard-overview-card=\"sync\"");
         expect(html).toContain("<details class=\"dashboard-overview-quiet\" data-dashboard-detail=\"dashboard-overview-quiet-cards\">");
         expect(html).toContain("<span>Background Status</span>");
-        expect(html).toContain("<small>Healthy signals kept for context</small>");
+        expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-overview-quiet-fold\" aria-label=\"Background Status: Healthy signals kept for context\">");
+        expect(html).toContain("<small>Signals ready</small>");
+        expect(html).not.toContain("<small>Healthy signals kept for context</small>");
         expect(html).not.toContain("<small>4 reference cards</small>");
         expect(html).not.toContain("<span>Reference Cards</span>");
         expect(html).not.toContain("<span>Quiet Overview</span>");

@@ -516,8 +516,9 @@ overview relies on its headline and primary button, then groups good cards under
 `Background Status` while keeping the stable `dashboard-overview-quiet-cards`
 route. The `Health`, `Next`, `Context`, and `Sync` cards remain preserved in
 `/api/dashboard.dashboard_overview.cards` without repeating the same warning on
-the first screen. `Background Status` opens with `Healthy signals kept for
-context` so the folded row reads as supporting context instead of another count
+the first screen. `Background Status` opens with `Signals ready`, while the
+accessible summary keeps `Healthy signals kept for context` so the folded row
+reads as supporting context instead of another count
 to process.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is

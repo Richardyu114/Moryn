@@ -68,7 +68,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the overview reads `All clear` while still offering an `Inspect checks` navigation button");
     expectText(dashboard, "keeps non-good overview cards visible in the main grid");
     expectText(dashboard, "groups good cards under `Background Status` while keeping the stable `dashboard-overview-quiet-cards` route");
-    expectText(dashboard, "`Background Status` opens with `Healthy signals kept for context`");
+    expectText(dashboard, "`Background Status` opens with `Signals ready`");
+    expectText(dashboard, "while the accessible summary keeps `Healthy signals kept for context`");
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
     expectText(dashboard, "Decide -> Pending Decisions, Capture Inbox, or Review Queue confirmation");
     expectText(dashboard, "Context -> Context Pack Review handoff readiness");

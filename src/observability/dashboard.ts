@@ -2932,9 +2932,9 @@ function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
   if (cards.length === 0) return "";
   return `
       <details class="dashboard-overview-quiet" data-dashboard-detail="dashboard-overview-quiet-cards">
-        <summary class="dashboard-fold-summary dashboard-overview-quiet-fold">
+        <summary class="dashboard-fold-summary dashboard-overview-quiet-fold" aria-label="Background Status: Healthy signals kept for context">
           <span>Background Status</span>
-          <small>Healthy signals kept for context</small>
+          <small>Signals ready</small>
         </summary>
         <div class="dashboard-overview-quiet-list">
           ${cards.map((card) => dashboardOverviewCardButton(card, "data-dashboard-overview-quiet-card")).join("")}
