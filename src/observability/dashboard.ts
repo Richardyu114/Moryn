@@ -3696,15 +3696,18 @@ function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): st
 
 function renderCandidateTriageHandoff(group: DashboardCandidateTriageGroup): string {
   return `
-    <div class="candidate-triage-handoff" data-candidate-triage-handoff="${escapeHtml(group.id)}">
-      <h4>Review handoff</h4>
+    <details class="candidate-triage-review-path" data-dashboard-detail="candidate-triage-review-path:${escapeHtml(group.id)}" data-candidate-triage-handoff="${escapeHtml(group.id)}">
+      <summary class="dashboard-fold-summary">
+        <span>Review path</span>
+        <small>${escapeHtml(`${group.review_handoff.label} via ${group.review_handoff.existing_control}`)}</small>
+      </summary>
       <dl>
         <div><dt>Next step</dt><dd>${escapeHtml(group.review_handoff.label)}</dd></div>
         <div><dt>Existing control</dt><dd>${escapeHtml(group.review_handoff.existing_control)}</dd></div>
         <div><dt>Write boundary</dt><dd>${escapeHtml(group.review_handoff.write_boundary)}</dd></div>
       </dl>
       <p>${escapeHtml(group.review_handoff.guidance)}</p>
-    </div>
+    </details>
   `;
 }
 
@@ -6689,7 +6692,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--muted);
       overflow-wrap: anywhere;
     }
-    .candidate-triage-handoff {
+    .candidate-triage-review-path {
       display: grid;
       gap: 7px;
       border: 1px solid #c9d5e6;
@@ -6699,20 +6702,17 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       margin: 8px 0 9px;
       background: var(--signal-blue-soft);
     }
-    .candidate-triage-handoff h4 {
-      margin: 0;
-      color: var(--ink);
-      font-size: 12.5px;
-      font-weight: 780;
+    .candidate-triage-review-path[open] > summary {
+      margin-bottom: 7px;
     }
-    .candidate-triage-handoff dl {
+    .candidate-triage-review-path dl {
       margin: 0;
       grid-template-columns: minmax(0, 1fr);
     }
-    .candidate-triage-handoff dl div {
+    .candidate-triage-review-path dl div {
       grid-template-columns: 112px minmax(0, 1fr);
     }
-    .candidate-triage-handoff p {
+    .candidate-triage-review-path p {
       margin: 0;
       color: var(--ink-2);
       font-size: 12.5px;

@@ -394,13 +394,14 @@ Library rather than the main review path. `Candidate Triage` is grouped under
 `Read-only candidate backlog` instead of repeating a candidate count. Expanding
 the panel shows candidate and group counts plus read-only next steps;
 shown-record counts stay in `/api/dashboard` and the nested `Record samples`
-summaries. Each candidate group starts with a compact `Review handoff` that
-points to an existing control such as Capture Inbox, Memory Doctor, timeline,
-or recall. It explains the next review surface and repeats that Candidate
-Triage is read-only before record ids appear. The group write-boundary and
-evidence fields move behind a collapsed `Audit boundary` row whose folded
-summary names the candidate group, so the expanded group starts with the review
-handoff instead of raw audit fields. Record ids,
+summaries. Each candidate group keeps its next review surface behind a compact
+`Review path` fold that points to an existing control such as Capture Inbox,
+Memory Doctor, timeline, or recall. It explains the next review surface and
+repeats that Candidate Triage is read-only without filling the expanded group
+by default. The group write-boundary and evidence fields move behind a collapsed
+`Audit boundary` row whose folded summary names the candidate group, so the
+expanded group stays focused on review path, audit boundary, and samples instead
+of raw audit fields. Record ids,
 recall commands, and timeline commands stay behind a nested `Record samples`
 fold inside each group.
 `Record samples` renders only the first three full records per group and
