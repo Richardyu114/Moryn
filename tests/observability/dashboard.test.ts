@@ -847,6 +847,17 @@ describe("observability dashboard", () => {
             id: string;
             record_ids: string[];
             evidence_path: string;
+            records: Array<{
+              id: string;
+              text: string;
+            }>;
+            records_by_id: Record<string, {
+              id: string;
+              record_index: number;
+              evidence_path: string;
+              text?: string;
+              citation?: unknown;
+            }>;
             review_handoff: {
               label: string;
               existing_control: string;
@@ -890,6 +901,15 @@ describe("observability dashboard", () => {
           guidance: "Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.",
           write_boundary: "Candidate Triage is read-only"
         }
+      });
+      expect(data.candidate_triage.groups_by_id.likely_noise.records[0]).toMatchObject({
+        id: "rec_candidate_triage_2",
+        text: "Smoke marker from dashboard test."
+      });
+      expect(data.candidate_triage.groups_by_id.likely_noise.records_by_id.rec_candidate_triage_2).toEqual({
+        id: "rec_candidate_triage_2",
+        record_index: 0,
+        evidence_path: "candidate_triage.groups_by_id.likely_noise.records[0]"
       });
       expect(data.candidate_triage.groups_by_id.promotable).toMatchObject({
         id: "promotable",

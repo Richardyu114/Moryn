@@ -195,6 +195,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Overflow rows read `More samples` with a short `hidden, API ready` count");
     expectText(dashboard, "the group-specific hidden-record count, API/Raw Store cue, and exact `candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind a group-specific `API evidence path` fold");
     expectText(dashboard, "Full candidate text remains inside the expanded sample body and `/api/dashboard`");
+    expectText(dashboard, "To avoid duplicating large candidate bodies in JSON");
+    expectText(dashboard, "`candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>` is a lightweight index");
     expectText(dashboard, "`Candidate Triage` stays read-only and does not add Approve, Archive, Promote, Apply, or background execution controls");
     expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");
     expectText(contracts, "`/api/dashboard` also returns `memory_doctor`, the same read-only report shape as `moryn memory doctor`");

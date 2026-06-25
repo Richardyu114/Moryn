@@ -443,7 +443,12 @@ row. Overflow rows read `More samples` with a short `hidden, API ready` count,
 while the group-specific hidden-record count, API/Raw Store cue, and exact
 `candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind a
 group-specific `API evidence path` fold. Full candidate text remains inside the
-expanded sample body and `/api/dashboard`.
+expanded sample body and `/api/dashboard`. To avoid duplicating large candidate
+bodies in JSON, `candidate_triage.groups_by_id.<group_id>.records[]` keeps the
+full records while
+`candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>` is a
+lightweight index with the record id, array index, and exact record evidence
+path.
 `Candidate Triage` stays read-only and does not
 add Approve, Archive, Promote, Apply, or background execution controls; it is a
 decision-prep surface for existing review policies, not a new mutation path.

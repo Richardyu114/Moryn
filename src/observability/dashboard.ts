@@ -431,6 +431,12 @@ export interface DashboardCandidateTriageRecord {
   citation: DashboardRecordCitation;
 }
 
+export interface DashboardCandidateTriageRecordIndex {
+  id: string;
+  record_index: number;
+  evidence_path: string;
+}
+
 export interface DashboardCandidateTriageGroup {
   id: DashboardCandidateTriageGroupId;
   label: string;
@@ -441,7 +447,7 @@ export interface DashboardCandidateTriageGroup {
   requires_user_confirmation: false;
   record_ids: string[];
   records: DashboardCandidateTriageRecord[];
-  records_by_id: Record<string, DashboardCandidateTriageRecord>;
+  records_by_id: Record<string, DashboardCandidateTriageRecordIndex>;
   evidence_path: string;
 }
 
@@ -2375,7 +2381,11 @@ function toCandidateTriageGroup(input: {
     writes: "none",
     requires_user_confirmation: false,
     record_ids: input.records.map((record) => record.id),
-    records_by_id: Object.fromEntries(input.records.map((record) => [record.id, record])),
+    records_by_id: Object.fromEntries(input.records.map((record, index) => [record.id, {
+      id: record.id,
+      record_index: index,
+      evidence_path: `candidate_triage.groups_by_id.${input.id}.records[${index}]`
+    }])),
     evidence_path: `candidate_triage.groups_by_id.${input.id}`
   };
 }
