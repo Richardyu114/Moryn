@@ -494,6 +494,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Zero-count buckets are omitted from the folded row");
     expectText(dashboard, "/api/dashboard.health_check.summary` still includes the complete warning and failing counts");
     expectText(dashboard, "Capture Inbox backlog only counts candidates whose capture policy requires explicit review or user action");
+    expectText(dashboard, "When there are no active Capture Inbox candidates, the main `Capture Inbox` panel is not rendered");
+    expectText(dashboard, "auto-captured and policy-archived handoff evidence stays under `Capture Policy Audit` inside the evidence path");
     expectText(contracts, "The capture review backlog is scoped to candidates whose capture policy requires explicit review or user action");
     expect(roadmap).toContain("health check");
   });

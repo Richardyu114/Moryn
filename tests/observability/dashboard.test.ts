@@ -5078,15 +5078,17 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Auto-captured handoff");
+      expect(html).not.toContain("<section id=\"capture-inbox\" class=\"panel capture-inbox\" aria-label=\"Capture Inbox\">");
+      expect(html).not.toContain("<h2>Capture Inbox</h2>");
+      expect(html).not.toContain("<details class=\"capture-inbox-audit\" data-dashboard-detail=\"capture-inbox-audit\">");
+      expect(html).toContain("<details class=\"panel capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
       expect(html).not.toContain("Moryn Health Check needs attention | 1 warning");
       expect(html).toContain("<small>1 captured</small>");
       expect(html).not.toContain("<small>1 captured | 0 review | 0 archived</small>");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Capture Audit: manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0\">");
-      expect(html).toContain("<small>Manual review, no auto-canonical</small>");
+      expect(html).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Capture Audit: manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0\">");
       expect(html).not.toContain("<small>manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0</small>");
       expect(html).not.toContain("<small>manual review | no auto-canonical | 0 candidates</small>");
       expect(html).not.toContain("auto-captureds");
-      expect(html).toContain("Auto-captured 1");
       expect(html).toContain("low_risk_handoff_auto_capture");
       expect(html).toContain("Codex finished setup wizard polish.");
       expect(html).toContain("inspect_auto_captured_handoff");

@@ -160,6 +160,9 @@ candidate, auto-captured, and policy-archived counts stay in the accessible
 label and expanded audit detail so the folded row does not read like a log
 line. Expanding it shows policy ids, grouping, stale protection, rule counts,
 and rule ids.
+When there are no active Capture Inbox candidates, the main `Capture Inbox`
+panel is not rendered; auto-captured and policy-archived handoff evidence stays
+under `Capture Policy Audit` inside the evidence path.
 
 `Approve Memory` posts to:
 

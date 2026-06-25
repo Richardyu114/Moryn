@@ -4870,7 +4870,7 @@ function captureInboxQueueSummary(items: DashboardCaptureInbox): string {
 }
 
 function captureInbox(items: DashboardCaptureInbox): string {
-  if (items.total === 0 && items.autocapture_policy.auto_captured_total === 0 && items.autocapture_policy.archived_total === 0) return "";
+  if (items.total === 0) return "";
   return `
     <section id="capture-inbox" class="panel capture-inbox" aria-label="Capture Inbox">
       <div class="capture-inbox-heading">
