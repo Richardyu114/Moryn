@@ -3849,12 +3849,15 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                   </div>
                 </div>
                 ${maintenanceReviewBrief(plan)}
-                <dl class="maintenance-summary maintenance-decision-summary" data-maintenance-decision-summary>
-                  <div><dt>Why</dt><dd>${escapeHtml(plan.decision_card.impact)}</dd></div>
-                  <div><dt>Change</dt><dd>${escapeHtml(maintenanceMoveSummary(plan))}<small>${escapeHtml(`${plan.from_project_id} to ${plan.to_project_id}`)}</small></dd></div>
-                  <div><dt>Safety</dt><dd>${escapeHtml("Server re-runs the dry run and checks plan_hash before applying.")}<small>${escapeHtml(maintenancePrivateSummary(plan))}</small></dd></div>
-                  <div><dt>Action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
-                </dl>
+                <details class="maintenance-decision-summary-fold" data-dashboard-detail="maintenance-decision-summary:${escapeHtml(plan.plan_id)}">
+                  <summary>Decision summary</summary>
+                  <dl class="maintenance-summary maintenance-decision-summary" data-maintenance-decision-summary>
+                    <div><dt>Why</dt><dd>${escapeHtml(plan.decision_card.impact)}</dd></div>
+                    <div><dt>Change</dt><dd>${escapeHtml(maintenanceMoveSummary(plan))}<small>${escapeHtml(`${plan.from_project_id} to ${plan.to_project_id}`)}</small></dd></div>
+                    <div><dt>Safety</dt><dd>${escapeHtml("Server re-runs the dry run and checks plan_hash before applying.")}<small>${escapeHtml(maintenancePrivateSummary(plan))}</small></dd></div>
+                    <div><dt>Action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
+                  </dl>
+                </details>
                 <details class="maintenance-audit-trail" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
                   <summary>Decision evidence</summary>
                   ${maintenanceDecisionRecord(plan)}

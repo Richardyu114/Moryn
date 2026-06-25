@@ -303,7 +303,9 @@ repair is worth approving without reading raw event language:
 - why approval is explicit
 - whether private records are included or skipped
 
-The same card still includes the structured decision summary:
+The structured decision summary is folded behind `Decision summary`, so the
+first expanded queue view stays focused on the short brief and explicit controls.
+Opening it still shows:
 
 - why the repair exists
 - what records move between project ids
