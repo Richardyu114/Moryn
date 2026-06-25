@@ -248,7 +248,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Actual writes remain inside Capture Inbox and Review Queue controls");
     expectText(dashboard, "After a dashboard approval or rejection succeeds, the browser renders a compact `Action receipt`");
     expectText(dashboard, "The receipt is restored after dashboard fragment refreshes");
-    expectText(dashboard, "Outcome, Write targets, Decision context, Records, Events, and Audit next");
+    expectText(dashboard, "Outcome, Decision, Write boundary, Write targets, Decision context, Records, Events, Audit status, and Audit next");
+    expectText(dashboard, "`Write boundary` reads `Append-only events`");
+    expectText(dashboard, "`Audit status` reads `Traceable by timeline` when event ids are returned");
     expect(dashboard).toContain("all clear");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/reject");

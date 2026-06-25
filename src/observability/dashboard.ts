@@ -5558,6 +5558,18 @@ function dashboardActionReceiptScript(): string {
         .replaceAll("_", " ")
         .replace(/\\b\\w/g, (match) => match.toUpperCase());
       const receiptTarget = () => document.getElementById("last-action-receipt");
+      const decisionLabel = (result) => {
+        const status = String(result.status || "");
+        if (result.plan_id) return "User approved Review Queue plan.";
+        if (result.group_id) {
+          if (status === "rejected") return "User rejected Capture Inbox group.";
+          if (status === "approved") return "User approved Capture Inbox group.";
+          return "User reviewed Capture Inbox group.";
+        }
+        if (status === "rejected") return "User rejected Capture Inbox candidate.";
+        if (status === "approved") return "User approved Capture Inbox candidate.";
+        return "User confirmed dashboard action.";
+      };
       const receiptFromResult = (result) => {
         const recordIds = Array.isArray(result.record_ids) ? result.record_ids : result.record_id ? [result.record_id] : [];
         const eventIds = Array.isArray(result.event_ids) ? result.event_ids : result.event_id ? [result.event_id] : [];
@@ -5568,7 +5580,10 @@ function dashboardActionReceiptScript(): string {
         const changedCount = Number(result.records_changed || result.migrated_records || recordIds.length || eventIds.length || 1);
         return {
           status: titleCase(result.status),
+          decision: decisionLabel(result),
+          write_boundary: "Append-only events",
           changed: pluralize(changedCount, "write target"),
+          audit_status: eventIds.length > 0 ? "Traceable by timeline" : "No event id returned",
           context: [result.plan_id, result.group_id].filter(Boolean),
           record_ids: recordIds,
           event_ids: eventIds,
@@ -5584,10 +5599,13 @@ function dashboardActionReceiptScript(): string {
           </div>
           <dl class="action-receipt-grid">
             <div><dt>Outcome</dt><dd>\${htmlEscape(receipt.status)}</dd></div>
+            <div><dt>Decision</dt><dd>\${htmlEscape(receipt.decision)}</dd></div>
+            <div><dt>Write boundary</dt><dd>\${htmlEscape(receipt.write_boundary)}</dd></div>
             <div><dt>Write targets</dt><dd>\${htmlEscape(receipt.changed)}</dd></div>
             \${receipt.context.length > 0 ? \`<div><dt>Decision context</dt><dd>\${receipt.context.map((value) => \`<code>\${htmlEscape(value)}</code>\`).join(" ")}</dd></div>\` : ""}
             \${receipt.record_ids.length > 0 ? \`<div><dt>Records</dt><dd>\${receipt.record_ids.map((recordId) => \`<code>\${htmlEscape(recordId)}</code>\`).join(" ")}</dd></div>\` : ""}
             \${receipt.event_ids.length > 0 ? \`<div><dt>Events</dt><dd>\${receipt.event_ids.map((eventId) => \`<code>\${htmlEscape(eventId)}</code>\`).join(" ")}</dd></div>\` : ""}
+            <div><dt>Audit status</dt><dd>\${htmlEscape(receipt.audit_status)}</dd></div>
             <div class="action-receipt-commands"><dt>Audit next</dt><dd>\${receipt.commands.length > 0 ? receipt.commands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("") : "No read-only trace command returned."}</dd></div>
           </dl>
         </div>
@@ -6802,7 +6820,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       grid-template-columns: repeat(2, minmax(0, 1fr));
       margin: 0;
     }
-    .action-receipt-grid div { grid-template-columns: 86px minmax(0, 1fr); }
+    .action-receipt-grid div { grid-template-columns: 112px minmax(0, 1fr); }
     .action-receipt-grid .action-receipt-commands { grid-column: 1 / -1; }
     .action-receipt-commands dd {
       display: flex;
