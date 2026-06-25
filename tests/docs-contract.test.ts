@@ -86,7 +86,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail=\"action-board\"` route");
     expectText(dashboard, "navigator below explicit review and action surfaces rather than another primary first-screen card grid");
     expectText(dashboard, "`Page Shortcuts` opens with `Optional section links`");
-    expectText(dashboard, "the previous active-count summary remains as a quiet `action-board-activity` value");
+    expectText(dashboard, "The collapsed `Page Shortcuts` summary does not repeat active counts");
+    expectText(dashboard, "Counts remain in the expanded shortcut cards and `/api/dashboard.action_board`");
     expect(dashboard).toContain("Evidence Library");
     expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail");
     expectText(dashboard, "visible summary is content-aware");
@@ -197,7 +198,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`");
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
-    expectText(dashboard, "zero-count buckets are hidden from the collapsed summary");
+    expectText(dashboard, "The collapsed `Page Shortcuts` summary still stays count-free");
+    expectText(dashboard, "the non-zero sync count remains visible on the expanded shortcut card and in `/api/dashboard.action_board`");
     expectText(dashboard, "zero-value `good` targets are grouped under `Quiet Shortcuts` while keeping the stable `action-board-quiet-targets` route");
     expectText(dashboard, "`Quiet Shortcuts` opens with `Background section links`");
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");

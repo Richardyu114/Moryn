@@ -2828,19 +2828,6 @@ function recordLabel(recordId: string): string {
   return recordId.slice(0, 12);
 }
 
-function actionBoardSummary(data: DashboardActionBoard): string {
-  const activeItems = data.items.filter(isActiveActionBoardItem);
-  if (activeItems.length === 0) return "all clear";
-  const review = data.items_by_id.review;
-  const sync = data.items_by_id.sync;
-  const syncOnly = activeItems.length === 2
-    && activeItems.every((item) => item.id === "review" || item.id === "sync")
-    && review.next_action_label === "Review sync changes"
-    && sync.value > 0;
-  if (syncOnly) return pluralize(sync.value, "sync issue");
-  return activeItems.map((item) => `${item.value} ${item.id}`).join(" / ");
-}
-
 function isReadOnlyInspectActionBoardItem(item: DashboardActionBoardItem): boolean {
   return item.id === "inspect" && item.severity === "info";
 }
@@ -2886,7 +2873,6 @@ function actionBoard(data: DashboardActionBoard): string {
       <summary class="dashboard-fold-summary action-board-fold">
         <span>Page Shortcuts</span>
         <small>Optional section links</small>
-        <span class="action-board-activity">${escapeHtml(actionBoardSummary(data))}</span>
       </summary>
       ${activeItems.length === 0 ? "" : `
         <div class="action-board-grid">
@@ -6248,17 +6234,6 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .action-board-secondary[open] { padding-bottom: 12px; }
     .action-board[open] > summary { margin-bottom: 10px; }
     .action-board-secondary[open] > summary { margin-bottom: 9px; }
-    .action-board-activity {
-      margin-left: auto;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 2px 7px;
-      background: var(--surface);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 760;
-      overflow-wrap: anywhere;
-    }
     .action-board-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));

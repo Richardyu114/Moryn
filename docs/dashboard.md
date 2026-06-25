@@ -581,11 +581,12 @@ names, such as `Decide, Context, and Health are quiet`.
 `Action Board` is rendered as `Page Shortcuts` in the UI while keeping the
 stable `data-dashboard-detail="action-board"` route: a secondary, collapsed
 navigator below explicit review and action surfaces rather than another primary
-first-screen card grid. `Page Shortcuts` opens with `Optional section links`; the previous
-active-count summary remains as a quiet `action-board-activity` value such as
-`1 review / 1 sync`, `1 sync issue`, or `all clear`; zero-count buckets are
-hidden from the collapsed summary activity value. Expanding it still reveals
-the four scroll targets for:
+first-screen card grid. `Page Shortcuts` opens with `Optional section links`.
+The collapsed `Page Shortcuts` summary does not repeat active counts such as
+`1 review / 1 sync`, `1 sync issue`, or `all clear`, so it reads as navigation
+rather than another status queue. Counts remain in the expanded shortcut cards
+and `/api/dashboard.action_board`. Expanding it still reveals the four scroll
+targets for:
 
 - `Confirm`: explicit decision units in Capture Inbox or Review Queue
 - `Review`: warning or critical attention signals
@@ -599,9 +600,9 @@ detail panel. Each card also shows a short verb-first next-action label such as
 `Review decisions`, `Review warnings`, `Open governance`, or `Inspect sync`, so
 the first screen reads as a review cockpit instead of only a count summary. If
 sync is the only warning signal, the review action uses `Review sync changes`
-instead of the generic `Review warnings` label, and the collapsed Action Board
-summary reads `1 sync issue` instead of duplicating the same condition as
-`1 review / 1 sync`.
+instead of the generic `Review warnings` label. The collapsed `Page Shortcuts`
+summary still stays count-free; the non-zero sync count remains visible on the
+expanded shortcut card and in `/api/dashboard.action_board`.
 When no approval queue is rendered, the `Confirm` card points to `Needs
 Attention` as a stable zero-state target. If a target sits inside another
 collapsed detail panel, the dashboard opens the parent panels before scrolling.

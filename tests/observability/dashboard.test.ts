@@ -259,7 +259,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"action-board action-board-secondary\" aria-label=\"Page Shortcuts\" data-dashboard-detail=\"action-board\" data-action-board-nav>");
       expect(html).toContain("<span>Page Shortcuts</span>");
       expect(html).toContain("<small>Optional section links</small>");
-      expect(html).toContain("<span class=\"action-board-activity\">1 sync issue</span>");
+      expect(html).not.toContain("<span class=\"action-board-activity\">1 sync issue</span>");
+      expect(html).not.toContain("action-board-activity");
       expect(html).not.toContain("<span>Navigation Details</span>");
       expect(html).not.toContain("<small>1 review / 1 sync</small>");
       expect(html).toContain("data-action-board-item=\"review\"");
@@ -300,7 +301,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"action-board action-board-secondary\" aria-label=\"Page Shortcuts\" data-dashboard-detail=\"action-board\" data-action-board-nav>");
       expect(html).toContain("<span>Page Shortcuts</span>");
       expect(html).toContain("<small>Optional section links</small>");
-      expect(html).toContain("<span class=\"action-board-activity\">all clear</span>");
+      expect(html).not.toContain("<span class=\"action-board-activity\">all clear</span>");
+      expect(html).not.toContain("action-board-activity");
       expect(html).not.toContain("<span>Navigation Details</span>");
       expect(html).not.toContain("<small>0 confirm / 0 review / 0 inspect / 0 sync</small>");
       expect(html).toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");
@@ -1850,7 +1852,8 @@ describe("observability dashboard", () => {
         expect(html).toContain("<details class=\"action-board action-board-secondary\" aria-label=\"Page Shortcuts\" data-dashboard-detail=\"action-board\" data-action-board-nav>");
         expect(html).toContain("<span>Page Shortcuts</span>");
         expect(html).toContain("<small>Optional section links</small>");
-        expect(html).toContain("<span class=\"action-board-activity\">all clear</span>");
+        expect(html).not.toContain("<span class=\"action-board-activity\">all clear</span>");
+        expect(html).not.toContain("action-board-activity");
         expect(html).not.toContain("<small>1 inspect</small>");
         expect(html).not.toContain("<div class=\"action-board-grid\">");
         expect(html).toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");
@@ -2097,7 +2100,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"dashboard-fold-summary action-board-fold\">");
       expect(html).toContain("<span>Page Shortcuts</span>");
       expect(html).toContain("<small>Optional section links</small>");
-      expect(html).toContain("<span class=\"action-board-activity\">1 review / 1 sync</span>");
+      expect(html).not.toContain("<span class=\"action-board-activity\">1 review / 1 sync</span>");
+      expect(html).not.toContain("action-board-activity");
       expect(html).not.toContain("<small>0 confirm / 1 review / 0 inspect / 1 sync</small>");
       expect(html).toContain("<div class=\"action-board-grid\">");
       expect(html.indexOf("data-action-board-nav")).toBeGreaterThan(html.indexOf("id=\"needs-attention\""));
