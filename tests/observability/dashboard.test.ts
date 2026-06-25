@@ -902,8 +902,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>1 record</strong>");
       expect(html).toContain("<small>Inspect likely noise before archive</small>");
       expect(html).toContain("<details class=\"candidate-triage-review-path\" data-dashboard-detail=\"candidate-triage-review-path:likely_noise\" data-candidate-triage-handoff=\"likely_noise\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Review path: Archive review via Capture Inbox or Memory Doctor\">");
       expect(html).toContain("<span>Review path</span>");
-      expect(html).toContain("<small>Archive review via Capture Inbox or Memory Doctor</small>");
+      expect(html).toContain("<small>Archive review</small>");
+      expect(html).not.toContain("<small>Archive review via Capture Inbox or Memory Doctor</small>");
       expect(html).not.toContain("<div class=\"candidate-triage-handoff\" data-candidate-triage-handoff=\"likely_noise\">");
       expect(html).not.toContain("<h4>Review handoff</h4>");
       expect(html).toContain("<dt>Existing control</dt><dd>Capture Inbox or Memory Doctor</dd>");
@@ -929,7 +931,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Promotable candidates</span>");
       expect(html).toContain("<small>Inspect before promotion</small>");
       expect(html).toContain("<details class=\"candidate-triage-review-path\" data-dashboard-detail=\"candidate-triage-review-path:promotable\" data-candidate-triage-handoff=\"promotable\">");
-      expect(html).toContain("<small>Approval review via Capture Inbox</small>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Review path: Approval review via Capture Inbox\">");
+      expect(html).toContain("<small>Approval review</small>");
+      expect(html).not.toContain("<small>Approval review via Capture Inbox</small>");
       expect(html).toContain("<dt>Existing control</dt><dd>Capture Inbox</dd>");
       expect(html).toContain("Approve eligible Capture Inbox candidates only after checking provenance and record text.");
       expect(html).toContain(".candidate-triage-review-path {");

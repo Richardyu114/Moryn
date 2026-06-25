@@ -396,10 +396,12 @@ Library rather than the main review path. `Candidate Triage` is grouped under
 the panel shows candidate and group counts plus read-only next steps;
 shown-record counts stay in `/api/dashboard` and the nested `Record samples`
 summaries. Each candidate group keeps its next review surface behind a compact
-`Review path` fold that points to an existing control such as Capture Inbox,
-Memory Doctor, timeline, or recall. It explains the next review surface and
-repeats that Candidate Triage is read-only without filling the expanded group
-by default. The group write-boundary and evidence fields move behind a collapsed
+`Review path` fold. Folded `Review path` rows show only the next review label,
+while the existing-control route stays in the accessible summary label and
+expanded fields. The expanded fold points to an existing control such as
+Capture Inbox, Memory Doctor, timeline, or recall, explains the next review
+surface, and repeats that Candidate Triage is read-only without filling the
+expanded group by default. The group write-boundary and evidence fields move behind a collapsed
 `Audit boundary` row whose folded summary names the candidate group, so the
 expanded group stays focused on review path, audit boundary, and samples instead
 of raw audit fields. Record ids,

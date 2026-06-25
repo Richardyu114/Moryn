@@ -157,7 +157,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Expanding the panel shows candidate and group counts plus read-only next steps");
     expectText(dashboard, "shown-record counts stay in `/api/dashboard` and the nested `Record samples` summaries");
     expectText(dashboard, "Each candidate group keeps its next review surface behind a compact `Review path` fold");
-    expectText(dashboard, "points to an existing control such as Capture Inbox, Memory Doctor, timeline, or recall");
+    expectText(dashboard, "Folded `Review path` rows show only the next review label");
+    expectText(dashboard, "the existing-control route stays in the accessible summary label and expanded fields");
+    expectText(dashboard, "The expanded fold points to an existing control such as Capture Inbox, Memory Doctor, timeline, or recall");
     expectText(dashboard, "group write-boundary and evidence fields move behind a collapsed `Audit boundary` row whose folded");
     expectText(dashboard, "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group");
     expectText(dashboard, "`Record samples` renders only the first three full records per group and summarizes the remaining records as API evidence");

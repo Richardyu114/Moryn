@@ -3708,11 +3708,12 @@ function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): st
 }
 
 function renderCandidateTriageHandoff(group: DashboardCandidateTriageGroup): string {
+  const reviewPath = `${group.review_handoff.label} via ${group.review_handoff.existing_control}`;
   return `
     <details class="candidate-triage-review-path" data-dashboard-detail="candidate-triage-review-path:${escapeHtml(group.id)}" data-candidate-triage-handoff="${escapeHtml(group.id)}">
-      <summary class="dashboard-fold-summary">
+      <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`Review path: ${reviewPath}`)}">
         <span>Review path</span>
-        <small>${escapeHtml(`${group.review_handoff.label} via ${group.review_handoff.existing_control}`)}</small>
+        <small>${escapeHtml(group.review_handoff.label)}</small>
       </summary>
       <dl>
         <div><dt>Next step</dt><dd>${escapeHtml(group.review_handoff.label)}</dd></div>
