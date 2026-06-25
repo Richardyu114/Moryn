@@ -3907,9 +3907,9 @@ describe("observability dashboard", () => {
       expect(html.indexOf("data-dashboard-detail=\"maintenance-review-queue\"")).toBeLessThan(
         html.indexOf("id=\"needs-attention\"")
       );
-      expect(html.indexOf("id=\"needs-attention\"")).toBeLessThan(
-        html.indexOf("data-action-board-nav")
-      );
+      expect(html).not.toContain("data-dashboard-detail=\"action-board\"");
+      expect(html).not.toContain("data-action-board-nav");
+      expect(html).not.toContain("<span>Page Shortcuts</span>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-review-fold\">");
       expect(html).toContain("<span>Review Queue</span>");
       expect(html).toContain("<small>Approval required</small>");
@@ -3922,12 +3922,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Move 1 record</span>");
       expect(html).toContain("<span>Plan hash checked</span>");
       expect(html).toContain("<span>No private records included</span>");
-      const quietShortcutsStart = html.indexOf("data-dashboard-detail=\"action-board-quiet-targets\"");
-      const quietShortcutsEnd = html.indexOf("</details>", quietShortcutsStart);
-      const quietShortcutsHtml = html.slice(quietShortcutsStart, quietShortcutsEnd);
-      expect(quietShortcutsHtml).toContain("<button type=\"button\" class=\"action-board-item good\" data-action-board-quiet-item=\"review\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
-      expect(quietShortcutsHtml).toContain("<em class=\"action-board-next\">Open info checks</em>");
-      expect(quietShortcutsHtml).not.toContain("<em class=\"action-board-next\">Review warnings</em>");
+      expect(data.action_board.items_by_id.review).toMatchObject({
+        target: "needs-attention",
+        next_action_label: "Open info checks"
+      });
+      expect(data.action_board.items_by_id.review.next_action_label).not.toBe("Review warnings");
       const repairBriefStart = html.indexOf("<div class=\"maintenance-brief\" data-maintenance-brief>");
       const repairBriefEnd = html.indexOf("</div>\n    </div>", repairBriefStart);
       const repairBriefHtml = html.slice(repairBriefStart, repairBriefEnd);
@@ -4104,6 +4103,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Background Status</span>");
       expect(html).not.toContain("data-dashboard-detail=\"dashboard-work-lanes-background\"");
       expect(html).not.toContain("<span>Background Lanes</span>");
+      expect(html).not.toContain("data-dashboard-detail=\"action-board\"");
+      expect(html).not.toContain("data-action-board-nav");
+      expect(html).not.toContain("<span>Page Shortcuts</span>");
       expect(html).toContain("<section id=\"decision-summary\" class=\"panel decision-summary\"");
       expect(html).toContain("<details id=\"maintenance-review-queue\"");
     });
@@ -4619,19 +4621,13 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Background Status</span>");
       expect(html).not.toContain("data-dashboard-detail=\"dashboard-work-lanes-background\"");
       expect(html).not.toContain("<span>Background Lanes</span>");
-      const shortcutsStart = html.indexOf("data-dashboard-detail=\"action-board\"");
-      const shortcutsEnd = html.indexOf("data-dashboard-detail=\"evidence-library\"", shortcutsStart);
-      const shortcutsHtml = html.slice(shortcutsStart, shortcutsEnd);
-      expect(shortcutsHtml).not.toContain("data-action-board-item=\"confirm\"");
-      expect(shortcutsHtml).not.toContain("data-action-board-quiet-item=\"confirm\"");
-      expect(shortcutsHtml).not.toContain("<em class=\"action-board-next\">Review decisions</em>");
-      expect(shortcutsHtml).toContain("data-action-board-quiet-item=\"inspect\"");
-      expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("data-action-board-nav"));
+      expect(html).not.toContain("data-dashboard-detail=\"action-board\"");
+      expect(html).not.toContain("data-action-board-nav");
+      expect(html).not.toContain("<span>Page Shortcuts</span>");
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"needs-attention\""));
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"capture-inbox\""));
       expect(html.indexOf("id=\"capture-inbox\"")).toBeLessThan(html.indexOf("id=\"needs-attention\""));
-      expect(html.indexOf("id=\"capture-inbox\"")).toBeLessThan(html.indexOf("data-action-board-nav"));
-      expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
+      expect(html.indexOf("id=\"capture-inbox\"")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).toContain("1 candidate");
       expect(html).toContain("Codex finished Capture Inbox planning.");
       expect(html).toContain("data-capture-inbox-brief");

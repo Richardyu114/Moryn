@@ -224,8 +224,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "zero-value `good` targets are grouped under `Quiet Shortcuts` while keeping the stable `action-board-quiet-targets` route");
     expectText(dashboard, "`Quiet Shortcuts` opens with `Background section links`");
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
-    expectText(dashboard, "When `Pending Decisions` is already rendered, expanded `Page Shortcuts` does not repeat the non-zero `Confirm` card");
-    expectText(dashboard, "`/api/dashboard.action_board.items_by_id.confirm` still keeps the route and count for agents");
+    expectText(dashboard, "When `Pending Decisions` is already rendered, the visible HTML skips `Page Shortcuts` and the stable `data-dashboard-detail=\"action-board\"` route");
+    expectText(dashboard, "`/api/dashboard.action_board` still keeps every shortcut item for agents and audit tooling");
     expectText(dashboard, "When `items[].hint` repeats the visible next-action label");
     expectText(dashboard, "instead of rendering duplicate footer text");
     expectText(dashboard, "The visible Evidence Library title is `Read-only Evidence`, while the stable route remains `data-dashboard-detail=\"evidence-library\"`");

@@ -5424,6 +5424,7 @@ function renderDashboardBody(data: DashboardData): string {
   const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
   const quietInfoPanel = hasActionSignals ? "" : needsAttentionPanel(data.attention_items);
   const hasPendingDecisions = data.decision_summary.total_decisions > 0;
+  const shortcutPanel = hasPendingDecisions ? "" : actionBoard(data.action_board);
   return `
     <header>
       <div>
@@ -5452,7 +5453,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${quietInfoPanel}
 
-    ${actionBoard(data.action_board)}
+    ${shortcutPanel}
 
     ${evidenceLibrary(data)}
   `;
