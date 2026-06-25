@@ -1895,7 +1895,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<button type=\"button\" class=\"evidence-library-route\" data-evidence-library-route=\"diagnostics\" data-action-board-target=\"routine-diagnostics\" aria-controls=\"routine-diagnostics\">");
       expect(html).toContain("<strong>Diagnostics</strong><span>Healthy checks and handoff readiness</span><small>Routine health, recall, and handoff context checks.</small>");
       expect(html).toContain("<button type=\"button\" class=\"evidence-library-route\" data-evidence-library-route=\"audit\" data-action-board-target=\"supporting-evidence\" aria-controls=\"supporting-evidence\">");
-      expect(html).toContain("<strong>Audit</strong><span>Audit logs and raw signals</span><small>Clean audits, store signals, recent value, and raw inspector.</small>");
+      expect(html).toContain("<strong>Audit</strong><span>Audit logs and raw signals</span><small>Clean audits, store signals, recent value, and raw store.</small>");
+      expect(html).not.toContain("<strong>Audit</strong><span>Audit logs and raw signals</span><small>Clean audits, store signals, recent value, and raw inspector.</small>");
       const evidenceBriefHtml = html.slice(evidenceBriefIndex, evidenceListIndex);
       expect(evidenceBriefHtml).not.toContain("data-dashboard-action-id");
       expect(evidenceBriefHtml).not.toContain("Approve");

@@ -5110,7 +5110,7 @@ ${evidenceLibraryRoute({
     target: auditTarget,
     title: "Audit",
     summary: "Audit logs and raw signals",
-    note: input.backgroundCount > 0 ? "Clean audits, store signals, recent value, and raw inspector." : "No audit trail rendered in this snapshot."
+    note: input.backgroundCount > 0 ? "Clean audits, store signals, recent value, and raw store." : "No audit trail rendered in this snapshot."
   })}
         </div>
       </div>
