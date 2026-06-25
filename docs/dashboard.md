@@ -298,17 +298,20 @@ global records. Private-tagged records remain hidden unless
 ### Review Queue
 
 The live dashboard can include a `Review Queue` for local maintenance plans. In
-the first version, the only interactive plan is project identity repair:
+the first version, interactive plans stay narrow and auditable:
 `project_identity_split` discovered by `memory doctor` becomes a
-`project_migrate` dry-run plan.
+`project_migrate` dry-run plan, and smoke/e2e/marker candidate noise becomes a
+candidate cleanup plan that can append `archive_record` events only after user
+approval.
 
 The approval card is a human-readable decision card. The queue is collapsed by
 default behind a confirmation summary that shows the number of decisions to
-review, records that would move, and that approval is still required. Expanding
+review, records that would move or candidates that would be archived, and that approval is still required. Expanding
 it first shows a compact `Decision brief` so the user can decide whether the
-repair is worth approving without reading raw event language:
+plan is worth approving without reading raw event language:
 
 - what the repair would relink
+- what candidate cleanup would archive after confirmation
 - why approval is explicit
 - whether private records are included or skipped
 
@@ -317,12 +320,13 @@ first expanded queue view stays focused on the short brief and explicit controls
 Opening it still shows:
 
 - why the repair exists
-- what records move between project ids
+- what records move between project ids or which candidates would be archived
 - the safety boundary, including server-side dry-run and `plan_hash` checking
 - the recommended action
 
 Each plan also keeps expandable `Decision evidence`. The first thing inside it
-is a structured `Why this repair is proposed` record, not a raw event stream:
+is a structured `Why this repair is proposed` or `Why this cleanup is proposed`
+record, not a raw event stream:
 detected condition, why it matters, proposed change, safety gate, approval
 writes, and where to audit or roll back. A compact `Before approving` checklist
 remains below that record with
@@ -331,9 +335,9 @@ approval surface reads like a decision checklist instead of internal logs.
 
 Evidence, rollback, and raw plan details are kept in an expandable section so
 the first screen stays readable without hiding audit data. That rollback path
-section includes source and target project ids, matched record count, state
-distribution, private record counts, safety checks, equivalent CLI command,
-record ids, and `plan_hash`.
+section includes source and target project ids for migrations, archive reasons
+for candidate cleanup, matched record count, state distribution, private record
+counts, safety checks, equivalent CLI command, record ids, and `plan_hash`.
 
 Approving the card posts only the current `plan_hash` to:
 
@@ -344,8 +348,10 @@ POST /api/maintenance/plans/:plan_id/approve
 The browser does not send arbitrary record ids or migration arguments. The
 server reconstructs the current plan from the local store, re-runs the dry run,
 compares the submitted `plan_hash`, and applies only when the hash still
-matches. Stale approvals return `409` with `status: "stale_plan"`. `Reject` is
-browser-session-only and does not write store events.
+matches. Project repair approvals append `revise_record` events. Candidate
+noise approvals append `archive_record` events and never delete records. Stale
+approvals return `409` with `status: "stale_plan"`. `Reject` is browser-session-only
+and does not write store events.
 
 If the dashboard is served with `--include-private`, matching private-tagged
 records are included in the dry run and the copied command includes

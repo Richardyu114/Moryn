@@ -270,10 +270,10 @@ moryn dashboard --serve --host 127.0.0.1 --port 8765 --project-id moryn
 ```
 
 The local Review Queue shows generated repair plans as decision cards: issue,
-impact, recommended action, evidence, rollback path, and an Approve Repair
+impact, recommended action, evidence, rollback path, and an explicit approval
 button. Raw evidence still exposes the dry-run hash, private record counts,
 record ids, safety checks, and CLI command. Approval re-runs the plan server
-side before writing append-only migration events.
+side before writing append-only migration or archive events.
 
 The same live dashboard also shows a Capture Inbox for active review candidate
 records. Approve Memory appends a confirmed `promote_record` event to make the
@@ -368,11 +368,12 @@ threads, risks, `handoff_pack.quality_gate`, and the
 `next.actions_by_id.capture_session` end action. Without explicit project
 context this panel stays unavailable instead of guessing a project.
 
-When `memory doctor` detects a project identity split, the live dashboard can
-show a local `Review Queue`. The first interactive repair flow is intentionally
-narrow: review the dry-run plan, inspect `plan_hash` and safety checks, then
-approve the append-only project migration from the browser. The server re-runs
-the dry run before applying and rejects stale approvals.
+When `memory doctor` detects a project identity split or candidate smoke/e2e
+marker noise, the live dashboard can show a local `Review Queue`. The first
+interactive flows are intentionally narrow: review the dry-run plan, inspect
+`plan_hash` and safety checks, then approve append-only project migration or
+candidate archive events from the browser. The server re-runs the dry run before
+applying and rejects stale approvals.
 
 See [Dashboard](docs/dashboard.md) for endpoints, access modes, and
 troubleshooting.

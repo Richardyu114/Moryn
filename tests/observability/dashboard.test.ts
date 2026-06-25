@@ -3382,6 +3382,166 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("turns marker noise candidates into an explicit Review Queue archive plan", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z",
+            "2026-06-01T00:05:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:06:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_noise_plan_${++record}` : `evt_noise_plan_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn project context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const marker = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn", "marker"],
+        content: { text: "Marker candidate from dashboard smoke test.", format: "text" },
+        source: { client: "codex" }
+      });
+      const smoke = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn", "smoke"],
+        content: { text: "Smoke candidate left by package e2e.", format: "text" },
+        source: { client: "codex" }
+      });
+      const e2e = await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "E2E marker note should be reviewed before archive.", format: "text" },
+        state: "candidate",
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn", "private", "smoke"],
+        content: { text: "Private smoke marker stays out unless include-private is set.", format: "text" },
+        source: { client: "codex" }
+      });
+
+      const data = await buildDashboardData(storePath, { limit: 10, project_id: "moryn" });
+      const plan = data.maintenance.plans.find((candidate) => candidate.type === "candidate_noise_archive");
+      expect(plan).toBeDefined();
+      const planActionId = `maintenance.plan.approve.${plan?.plan_hash.replace(/^sha256:/, "")}`;
+      const html = renderDashboardHtml(data);
+
+      expect(plan).toMatchObject({
+        plan_id: "candidate_noise_archive:moryn",
+        type: "candidate_noise_archive",
+        finding_id: "candidate_marker_noise",
+        command: "moryn archive rec_noise_plan_4 --reason 'Memory doctor: e2e marker/noise candidate' && moryn archive rec_noise_plan_3 --reason 'Memory doctor: e2e marker/noise candidate' && moryn archive rec_noise_plan_2 --reason 'Memory doctor: e2e marker/noise candidate'",
+        dry_run: {
+          matched_records: 3,
+          skipped_private_records: 1,
+          included_private_records: 0,
+          states: {
+            candidate: 3
+          }
+        },
+        decision_card: {
+          title: "Candidate noise cleanup",
+          issue: "3 candidate records look like smoke/e2e marker noise.",
+          impact: "Candidate review stays noisy until confirmed test markers are archived.",
+          recommended_action: "Archive these candidates only after confirming they are test noise or obsolete markers.",
+          rollback_path: "If this was wrong, use the record ids and timeline events below to inspect the append-only archive before restoring manually.",
+          evidence: expect.arrayContaining([
+            "Matched records: 3 records; 3 candidate.",
+            "Private records: 1 private record skipped.",
+            "Write behavior: append-only archive_record events; no deletion."
+          ])
+        }
+      });
+      expect(plan?.record_ids).toEqual([
+        e2e.record.id,
+        smoke.record.id,
+        marker.record.id
+      ]);
+      expect(plan?.safety_checks).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: "dry_run_completed", ok: true }),
+        expect.objectContaining({ id: "candidate_noise_detected", ok: true }),
+        expect.objectContaining({ id: "no_private_records", ok: true }),
+        expect.objectContaining({ id: "append_only", ok: true })
+      ]));
+      expect(data.actions_by_id[planActionId]).toMatchObject({
+        action_id: planActionId,
+        surface: "maintenance_review",
+        kind: "dashboard_api",
+        label: "Archive Noise",
+        intent: "approve",
+        target: {
+          type: "maintenance_plan",
+          id: "candidate_noise_archive:moryn",
+          plan_hash: plan?.plan_hash
+        },
+        method: "POST",
+        endpoint: "api/maintenance/plans/candidate_noise_archive%3Amoryn/approve",
+        request_body: {
+          plan_hash: plan?.plan_hash
+        },
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "plan_hash"
+        },
+        source_path: "maintenance.plans[]"
+      });
+      expect(data.decision_summary.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          surface: "maintenance_review",
+          title: "Candidate noise cleanup",
+          decision_label: "Archive Noise",
+          safety_note: "Archive Noise appends archive_record events only after the plan_hash guard passes.",
+          evidence_path: "maintenance.plans[]"
+        })
+      ]));
+      expect(html).toContain("Candidate noise cleanup");
+      expect(html).toContain("This cleanup would archive 3 candidate records that look like smoke/e2e marker noise.");
+      expect(html).toContain("Archive 3 candidates");
+      expect(html).toContain("Approving appends archive_record events only; Reject hides this card for the browser session.");
+      expect(html).toContain("<strong>Issue:</strong> Candidate cleanup found smoke/e2e marker noise.");
+      expect(html).toContain("Archive Noise");
+      expect(html).toContain("Operation appends archive_record events only");
+    });
+  });
+
   it("renders maintenance review queue controls", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
@@ -5322,6 +5482,130 @@ describe("observability dashboard", () => {
         expect(applied.event_ids).toHaveLength(1);
         expect(applied.event_ids[0]).toMatch(/^evt_/);
         expect((await engine.recall({ record_ids: [oldRecord.record.id], project_id: "moryn" })).results[0]?.record.project_id).toBe("moryn");
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("approves candidate noise archive plans from the dashboard server", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z",
+            "2026-06-01T00:05:00.000Z",
+            "2026-06-01T00:06:00.000Z",
+            "2026-06-01T00:07:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:08:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_noise_apply_${++record}` : `evt_noise_apply_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "Canonical Moryn context.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      const marker = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn", "marker"],
+        content: { text: "Marker candidate from dashboard smoke test.", format: "text" },
+        source: { client: "codex" }
+      });
+      const smoke = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn", "smoke"],
+        content: { text: "Smoke candidate left by package e2e.", format: "text" },
+        source: { client: "codex" }
+      });
+      const e2e = await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["moryn"],
+        content: { text: "E2E marker note should be reviewed before archive.", format: "text" },
+        state: "candidate",
+        source: { client: "codex" }
+      });
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10,
+        project_id: "moryn"
+      });
+      try {
+        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+          maintenance: {
+            plans: Array<{ plan_id: string; plan_hash: string; type: string }>;
+          };
+        };
+        const plan = dashboard.maintenance.plans.find((candidate) => candidate.type === "candidate_noise_archive");
+        expect(plan).toBeDefined();
+
+        const response = await fetch(new URL(`/api/maintenance/plans/${encodeURIComponent(plan?.plan_id ?? "")}/approve`, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ plan_hash: plan?.plan_hash })
+        });
+        const applied = await response.json() as {
+          ok: boolean;
+          status: string;
+          archived_records: number;
+          records_changed: number;
+          events_written: number;
+          record_ids: string[];
+          event_ids: string[];
+        };
+
+        expect(response.status).toBe(200);
+        expect(applied).toMatchObject({
+          ok: true,
+          status: "applied",
+          archived_records: 3,
+          records_changed: 3,
+          events_written: 3,
+          record_ids: [
+            e2e.record.id,
+            smoke.record.id,
+            marker.record.id
+          ]
+        });
+        expect(applied.event_ids).toHaveLength(3);
+        expect(applied.event_ids.every((eventId) => /^evt_/.test(eventId))).toBe(true);
+        const recalled = await engine.recall({
+          record_ids: [e2e.record.id, smoke.record.id, marker.record.id],
+          states: ["archived"],
+          project_id: "moryn"
+        });
+        expect(recalled.results.map((result) => result.record.state)).toEqual(["archived", "archived", "archived"]);
       } finally {
         await server.close();
       }

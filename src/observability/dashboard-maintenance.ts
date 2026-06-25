@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { displayRecordText } from "../core/content-text.js";
 import { createEngine } from "../core/engine.js";
 import { replayEvents } from "../core/replay.js";
 import { readEvents } from "../core/store.js";
@@ -6,11 +7,12 @@ import type { MorynRecord, RecordState } from "../core/types.js";
 
 const PRIVATE_RECORD_TAGS = new Set(["private", "secret", "sensitive"]);
 const GENERIC_TAGS = new Set(["javascript", "node", "nodejs", "typescript"]);
+const ARCHIVE_MARKER_REASON = "Memory doctor: e2e marker/noise candidate";
 
-export type DashboardMaintenancePlanType = "project_identity_repair";
+export type DashboardMaintenancePlanType = "project_identity_repair" | "candidate_noise_archive";
 
 export interface DashboardMaintenanceSafetyCheck {
-  id: "dry_run_completed" | "target_project_explicit" | "no_private_records" | "append_only";
+  id: "dry_run_completed" | "target_project_explicit" | "candidate_noise_detected" | "no_private_records" | "append_only";
   label: string;
   ok: boolean;
 }
@@ -34,9 +36,9 @@ export interface DashboardMaintenancePlan {
   plan_id: string;
   plan_hash: string;
   type: DashboardMaintenancePlanType;
-  finding_id: "project_identity_split";
-  from_project_id: string;
-  to_project_id: string;
+  finding_id: "project_identity_split" | "candidate_marker_noise";
+  from_project_id?: string;
+  to_project_id?: string;
   command: string;
   record_ids: string[];
   dry_run: {
@@ -69,9 +71,21 @@ export type DashboardMaintenanceApprovalResult =
     status: "applied";
     plan_id: string;
     plan_hash: string;
-    from_project_id: string;
-    to_project_id: string;
+    from_project_id?: string;
+    to_project_id?: string;
     migrated_records: number;
+    records_changed: number;
+    events_written: number;
+    record_ids: string[];
+    event_ids: string[];
+  }
+  | {
+    ok: true;
+    status: "applied";
+    plan_id: string;
+    plan_hash: string;
+    archived_records: number;
+    records_changed: number;
     events_written: number;
     record_ids: string[];
     event_ids: string[];
@@ -96,6 +110,12 @@ function meaningfulTags(record: MorynRecord): string[] {
 function hasSharedMeaningfulTag(left: MorynRecord[], record: MorynRecord): boolean {
   const leftTags = new Set(left.flatMap(meaningfulTags));
   return meaningfulTags(record).some((tag) => leftTags.has(tag));
+}
+
+function isMarkerNoiseCandidate(record: MorynRecord): boolean {
+  if (record.state !== "candidate") return false;
+  const haystack = `${record.kind} ${record.type} ${record.tags.join(" ")} ${displayRecordText(record)}`.toLowerCase();
+  return /\b(?:e2e|smoke|marker)\b/.test(haystack);
 }
 
 function stableRecordSort(left: MorynRecord, right: MorynRecord): number {
@@ -151,14 +171,97 @@ export function projectMigrateApplyCommand(fromProjectId: string, toProjectId: s
 
 function planHash(input: {
   type: DashboardMaintenancePlanType;
-  from_project_id: string;
-  to_project_id: string;
+  from_project_id?: string;
+  to_project_id?: string;
   record_ids: string[];
   updated_at_by_record_id: Record<string, string>;
   include_private: boolean;
 }): string {
   const stableJson = JSON.stringify(input);
   return `sha256:${createHash("sha256").update(stableJson).digest("hex")}`;
+}
+
+function candidateArchiveApplyCommand(records: MorynRecord[]): string {
+  return records
+    .map((record) => [
+      "moryn",
+      "archive",
+      shellQuote(record.id),
+      "--reason",
+      shellQuote(ARCHIVE_MARKER_REASON)
+    ].join(" "))
+    .join(" && ");
+}
+
+function buildCandidateNoiseArchivePlan(
+  allRecords: MorynRecord[],
+  projectId: string,
+  includePrivate: boolean
+): DashboardMaintenancePlan | undefined {
+  const matchingRecords = allRecords
+    .filter((record) => record.project_id === projectId)
+    .filter(isMarkerNoiseCandidate)
+    .sort(stableRecordSort);
+  const records = matchingRecords.filter((record) => includePrivate || !isPrivateRecord(record));
+  if (records.length === 0) return undefined;
+
+  const skippedPrivateRecords = matchingRecords.length - records.length;
+  const includedPrivateRecords = records.filter(isPrivateRecord).length;
+  const recordIds = records.map((record) => record.id);
+  const states = stateCounts(records);
+  const hash = planHash({
+    type: "candidate_noise_archive",
+    to_project_id: projectId,
+    record_ids: recordIds,
+    updated_at_by_record_id: Object.fromEntries(records.map((record) => [record.id, record.updated_at])),
+    include_private: includePrivate
+  });
+  const command = candidateArchiveApplyCommand(records);
+  const safetyChecks: DashboardMaintenanceSafetyCheck[] = [
+    { id: "dry_run_completed", label: "Dry-run completed", ok: true },
+    { id: "candidate_noise_detected", label: "Only smoke/e2e/marker candidates selected", ok: true },
+    { id: "no_private_records", label: "No private records included", ok: includedPrivateRecords === 0 },
+    { id: "append_only", label: "Operation appends archive_record events only", ok: true }
+  ];
+
+  return {
+    plan_id: `candidate_noise_archive:${projectId}`,
+    plan_hash: hash,
+    type: "candidate_noise_archive",
+    finding_id: "candidate_marker_noise",
+    to_project_id: projectId,
+    command,
+    record_ids: recordIds,
+    dry_run: {
+      matched_records: records.length,
+      skipped_private_records: skippedPrivateRecords,
+      included_private_records: includedPrivateRecords,
+      states
+    },
+    safety_checks: safetyChecks,
+    approval: {
+      requires_user_confirmation: true,
+      safe_to_auto_apply: false
+    },
+    decision_card: {
+      title: "Candidate noise cleanup",
+      issue: `${pluralize(records.length, "candidate record")} look${records.length === 1 ? "s" : ""} like smoke/e2e marker noise.`,
+      impact: "Candidate review stays noisy until confirmed test markers are archived.",
+      recommended_action: "Archive these candidates only after confirming they are test noise or obsolete markers.",
+      rollback_path: "If this was wrong, use the record ids and timeline events below to inspect the append-only archive before restoring manually.",
+      evidence: [
+        `Matched records: ${pluralize(records.length, "record")}; ${stateSummary(states)}.`,
+        `Private records: ${privateRecordsSummary(skippedPrivateRecords, includedPrivateRecords)}`,
+        "Write behavior: append-only archive_record events; no deletion."
+      ],
+      raw_evidence: {
+        plan_hash: hash,
+        command,
+        record_ids: recordIds,
+        safety_checks: safetyChecks
+      }
+    }
+  };
 }
 
 function buildProjectIdentityPlan(
@@ -257,6 +360,8 @@ export function buildDashboardMaintenance(
   const plans = relatedProjectIds
     .map((fromProjectId) => buildProjectIdentityPlan(allRecords, fromProjectId, projectId, includePrivate))
     .filter((plan): plan is DashboardMaintenancePlan => plan !== undefined);
+  const candidateNoiseArchivePlan = buildCandidateNoiseArchivePlan(allRecords, projectId, includePrivate);
+  if (candidateNoiseArchivePlan) plans.push(candidateNoiseArchivePlan);
 
   return {
     plans,
@@ -296,9 +401,35 @@ export async function approveMaintenancePlan(
   }
 
   const engine = createEngine({ storePath });
+  if (plan.type === "candidate_noise_archive") {
+    const eventIds: string[] = [];
+    for (const recordId of plan.record_ids) {
+      const archived = await engine.archive({
+        record_id: recordId,
+        reason: ARCHIVE_MARKER_REASON,
+        source: { client: "dashboard", session_id: "dashboard-maintenance-approval" }
+      });
+      eventIds.push(archived.event.event_id);
+    }
+
+    return {
+      ok: true,
+      status: "applied",
+      plan_id: plan.plan_id,
+      plan_hash: plan.plan_hash,
+      archived_records: plan.record_ids.length,
+      records_changed: plan.record_ids.length,
+      events_written: eventIds.length,
+      record_ids: plan.record_ids,
+      event_ids: eventIds
+    };
+  }
+
+  const fromProjectId = plan.from_project_id ?? "";
+  const toProjectId = plan.to_project_id ?? "";
   const applied = await engine.migrateProject({
-    from_project_id: plan.from_project_id,
-    to_project_id: plan.to_project_id,
+    from_project_id: fromProjectId,
+    to_project_id: toProjectId,
     dry_run: false,
     confirmed: true,
     include_private: options.include_private === true,
@@ -310,9 +441,10 @@ export async function approveMaintenancePlan(
     status: "applied",
     plan_id: plan.plan_id,
     plan_hash: plan.plan_hash,
-    from_project_id: plan.from_project_id,
-    to_project_id: plan.to_project_id,
+    from_project_id: fromProjectId,
+    to_project_id: toProjectId,
     migrated_records: applied.migrated_records,
+    records_changed: applied.migrated_records,
     events_written: applied.events.length,
     record_ids: plan.record_ids,
     event_ids: applied.events.map((event) => event.event_id)

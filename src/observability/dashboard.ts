@@ -1796,7 +1796,7 @@ function maintenanceActions(plans: DashboardMaintenancePlan[]): DashboardAction[
     action_id: maintenanceApproveActionId(plan),
     surface: "maintenance_review",
     kind: "dashboard_api",
-    label: "Apply Repair",
+    label: maintenancePrimaryActionLabel(plan),
     intent: "approve",
     target: {
       type: "maintenance_plan",
@@ -1856,13 +1856,13 @@ function buildDecisionSummary(input: {
     surface: "maintenance_review",
     title: plan.decision_card.title,
     summary: plan.decision_card.issue,
-    decision_label: "Apply Repair",
+    decision_label: maintenancePrimaryActionLabel(plan),
     target: "maintenance-review-queue",
     target_label: "Open Review Queue",
     primary_action_id: maintenanceApproveActionId(plan),
     requires_user_confirmation: true,
     writes: "append_only_events",
-    safety_note: "Apply Repair appends revise_record events only after the plan_hash guard passes.",
+    safety_note: maintenanceActionSafetyNote(plan),
     evidence_path: "maintenance.plans[]"
   }));
   const items = [...captureInboxItems, ...maintenanceItems];
@@ -2227,11 +2227,11 @@ function governanceFromMemoryDoctor(report: MemoryDoctorResult): DashboardGovern
 function governanceFromMaintenance(maintenance: DashboardMaintenanceData): DashboardGovernanceItem[] {
   return maintenance.plans.map((plan): DashboardGovernanceItem => {
     const evidencePath = `maintenance.plans_by_id.${plan.plan_id}`;
-    const actionLabel = "Apply Repair";
+    const actionLabel = maintenancePrimaryActionLabel(plan);
     return {
       id: governanceItemId("maintenance", plan.plan_id),
       source: "maintenance",
-      category: "project_identity",
+      category: plan.type === "candidate_noise_archive" ? "candidate_backlog" : "project_identity",
       severity: "warning",
       title: plan.decision_card.issue,
       summary: plan.decision_card.impact,
@@ -2244,7 +2244,7 @@ function governanceFromMaintenance(maintenance: DashboardMaintenanceData): Dashb
       writes: "append_only_events",
       review_log: governanceReviewLog({
         source: "maintenance",
-        category: "project_identity",
+        category: plan.type === "candidate_noise_archive" ? "candidate_backlog" : "project_identity",
         actionLabel,
         evidencePath,
         requiresUserConfirmation: true,
@@ -3833,16 +3833,49 @@ function maintenanceEvidenceList(plan: DashboardMaintenancePlan): string {
   `;
 }
 
+function maintenancePrimaryActionLabel(plan: DashboardMaintenancePlan): string {
+  return plan.type === "candidate_noise_archive" ? "Archive Noise" : "Apply Repair";
+}
+
+function maintenanceActionSafetyNote(plan: DashboardMaintenancePlan): string {
+  const eventName = plan.type === "candidate_noise_archive" ? "archive_record" : "revise_record";
+  return `${maintenancePrimaryActionLabel(plan)} appends ${eventName} events only after the plan_hash guard passes.`;
+}
+
 function maintenanceMoveSummary(plan: DashboardMaintenancePlan): string {
+  if (plan.type === "candidate_noise_archive") {
+    return `Archive ${pluralize(plan.dry_run.matched_records, "candidate")}`;
+  }
   return `Move ${pluralize(plan.dry_run.matched_records, "record")}`;
 }
 
+function maintenanceChangeDetail(plan: DashboardMaintenancePlan): string {
+  if (plan.type === "candidate_noise_archive") {
+    return "confirmed smoke/e2e marker noise to archived";
+  }
+  return `${plan.from_project_id ?? ""} to ${plan.to_project_id ?? ""}`;
+}
+
+function maintenanceAuditPath(plan: DashboardMaintenancePlan): string {
+  return plan.type === "candidate_noise_archive"
+    ? "Raw plan, record ids, equivalent archive commands, and plan_hash stay below."
+    : "Raw plan, record ids, rollback path, equivalent CLI command, and plan_hash stay below.";
+}
+
+function maintenanceAuditPathHtml(plan: DashboardMaintenancePlan): string {
+  const [before, after = ""] = maintenanceAuditPath(plan).split("plan_hash");
+  return `${escapeHtml(before)}<code>plan_hash</code>${escapeHtml(after)}`;
+}
+
 function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
+  const firstLine = plan.type === "candidate_noise_archive"
+    ? `This cleanup would archive ${escapeHtml(pluralize(plan.dry_run.matched_records, "candidate record"))} that look like smoke/e2e marker noise.`
+    : `This repair would relink ${escapeHtml(pluralize(plan.dry_run.matched_records, "record"))} from <code>${escapeHtml(plan.from_project_id ?? "")}</code> to <code>${escapeHtml(plan.to_project_id ?? "")}</code>.`;
   return `
     <div class="maintenance-brief" data-maintenance-brief>
       <h4>Decision brief</h4>
       <ul>
-        <li>This repair would relink ${escapeHtml(pluralize(plan.dry_run.matched_records, "record"))} from <code>${escapeHtml(plan.from_project_id)}</code> to <code>${escapeHtml(plan.to_project_id)}</code>.</li>
+        <li>${firstLine}</li>
         <li>Approval is explicit: the server re-runs the dry run and checks the same <code>plan_hash</code> before writing.</li>
         <li>${escapeHtml(maintenancePrivateSummary(plan))}.</li>
       </ul>
@@ -3851,35 +3884,54 @@ function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
 }
 
 function maintenanceApprovalChecklist(plan: DashboardMaintenancePlan): string {
+  const issue = plan.type === "candidate_noise_archive"
+    ? "Candidate cleanup found smoke/e2e marker noise."
+    : "Project identity repair found records under an old project id.";
+  const proposedChange = plan.type === "candidate_noise_archive"
+    ? `${maintenanceMoveSummary(plan)} after confirming the records are test noise or obsolete markers.`
+    : `${maintenanceMoveSummary(plan)} from ${plan.from_project_id ?? ""} to ${plan.to_project_id ?? ""}.`;
   return `
     <div class="review-log approval-checklist" data-maintenance-review-log>
       <h4>Before approving</h4>
       <ol>
-        <li><strong>Issue:</strong> Project identity repair found records under an old project id.</li>
-        <li><strong>Proposed change:</strong> ${escapeHtml(maintenanceMoveSummary(plan))} from <code>${escapeHtml(plan.from_project_id)}</code> to <code>${escapeHtml(plan.to_project_id)}</code>.</li>
+        <li><strong>Issue:</strong> ${escapeHtml(issue)}</li>
+        <li><strong>Proposed change:</strong> ${plan.type === "candidate_noise_archive" ? escapeHtml(proposedChange) : `${escapeHtml(maintenanceMoveSummary(plan))} from <code>${escapeHtml(plan.from_project_id ?? "")}</code> to <code>${escapeHtml(plan.to_project_id ?? "")}</code>.`}</li>
         <li><strong>Safety gate:</strong> Server re-runs the dry run and checks <code>plan_hash</code> before writing.</li>
-        <li><strong>Audit path:</strong> Raw plan, record ids, rollback path, equivalent CLI command, and <code>plan_hash</code> stay below.</li>
+        <li><strong>Audit path:</strong> ${maintenanceAuditPathHtml(plan)}</li>
       </ol>
     </div>
   `;
 }
 
 function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
+  const heading = plan.type === "candidate_noise_archive" ? "Why this cleanup is proposed" : "Why this repair is proposed";
+  const detected = plan.type === "candidate_noise_archive"
+    ? "Candidate cleanup found smoke/e2e marker noise."
+    : "Project identity repair found records under an old project id.";
+  const why = plan.type === "candidate_noise_archive"
+    ? "Review stays noisy when verification markers remain active candidates."
+    : "Boot and recall can miss these records until the project id is repaired.";
+  const proposed = plan.type === "candidate_noise_archive"
+    ? `${maintenanceMoveSummary(plan)} after user confirmation.`
+    : `${maintenanceMoveSummary(plan)} from ${plan.from_project_id ?? ""} to ${plan.to_project_id ?? ""}.`;
+  const approvalWrites = plan.type === "candidate_noise_archive"
+    ? "Approving appends archive_record events only; Reject hides this card for the browser session."
+    : "Approving appends revise_record events only; Reject hides this card for the browser session.";
   return `
     <div class="maintenance-decision-record" data-maintenance-decision-record>
-      <h4>Why this repair is proposed</h4>
+      <h4>${escapeHtml(heading)}</h4>
       <dl>
         <div>
           <dt><strong>Detected</strong></dt>
-          <dd>Project identity repair found records under an old project id.</dd>
+          <dd>${escapeHtml(detected)}</dd>
         </div>
         <div>
           <dt><strong>Why this matters</strong></dt>
-          <dd>Boot and recall can miss these records until the project id is repaired.</dd>
+          <dd>${escapeHtml(why)}</dd>
         </div>
         <div>
           <dt><strong>Proposed change</strong></dt>
-          <dd>${escapeHtml(maintenanceMoveSummary(plan))} from <code>${escapeHtml(plan.from_project_id)}</code> to <code>${escapeHtml(plan.to_project_id)}</code>.</dd>
+          <dd>${plan.type === "candidate_noise_archive" ? escapeHtml(proposed) : `${escapeHtml(maintenanceMoveSummary(plan))} from <code>${escapeHtml(plan.from_project_id ?? "")}</code> to <code>${escapeHtml(plan.to_project_id ?? "")}</code>.`}</dd>
         </div>
         <div>
           <dt><strong>Safety gate</strong></dt>
@@ -3887,11 +3939,11 @@ function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
         </div>
         <div>
           <dt><strong>Approval writes</strong></dt>
-          <dd>Approving appends revise_record events only; Reject hides this card for the browser session.</dd>
+          <dd>${escapeHtml(approvalWrites)}</dd>
         </div>
         <div>
           <dt><strong>Audit path</strong></dt>
-          <dd>Raw plan, record ids, rollback path, equivalent CLI command, and <code>plan_hash</code> stay below.</dd>
+          <dd>${maintenanceAuditPathHtml(plan)}</dd>
         </div>
       </dl>
     </div>
@@ -3900,7 +3952,11 @@ function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
 
 function maintenanceReviewQueueSummary(plans: DashboardMaintenancePlan[]): string {
   const recordTotal = plans.reduce((total, plan) => total + plan.dry_run.matched_records, 0);
-  return `${pluralize(plans.length, "decision")} to review | ${pluralize(recordTotal, "record")} to move | approval required`;
+  const allArchive = plans.every((plan) => plan.type === "candidate_noise_archive");
+  const allProjectRepair = plans.every((plan) => plan.type === "project_identity_repair");
+  const noun = allArchive ? "candidate" : "record";
+  const action = allArchive ? "to archive" : allProjectRepair ? "to move" : "to review";
+  return `${pluralize(plans.length, "decision")} to review | ${pluralize(recordTotal, noun)} ${action} | approval required`;
 }
 
 function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
@@ -3935,7 +3991,7 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                   <summary>Decision summary</summary>
                   <dl class="maintenance-summary maintenance-decision-summary" data-maintenance-decision-summary>
                     <div><dt>Why</dt><dd>${escapeHtml(plan.decision_card.impact)}</dd></div>
-                    <div><dt>Change</dt><dd>${escapeHtml(maintenanceMoveSummary(plan))}<small>${escapeHtml(`${plan.from_project_id} to ${plan.to_project_id}`)}</small></dd></div>
+                    <div><dt>Change</dt><dd>${escapeHtml(maintenanceMoveSummary(plan))}<small>${escapeHtml(maintenanceChangeDetail(plan))}</small></dd></div>
                     <div><dt>Safety</dt><dd>${escapeHtml("Server re-runs the dry run and checks plan_hash before applying.")}<small>${escapeHtml(maintenancePrivateSummary(plan))}</small></dd></div>
                     <div><dt>Action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
                   </dl>
@@ -3969,8 +4025,11 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                       <dl>
                         <div><dt>Plan</dt><dd><code>${escapeHtml(plan.plan_id)}</code></dd></div>
                         <div><dt>plan_hash</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.plan_hash)}</code></dd></div>
-                        <div><dt>Old project id</dt><dd><code>${escapeHtml(plan.from_project_id)}</code></dd></div>
-                        <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id)}</code></dd></div>
+                        ${plan.type === "candidate_noise_archive"
+                          ? `<div><dt>Reason</dt><dd><code>Memory doctor: e2e marker/noise candidate</code></dd></div>
+                        <div><dt>Project</dt><dd><code>${escapeHtml(plan.to_project_id ?? "")}</code></dd></div>`
+                          : `<div><dt>Old project id</dt><dd><code>${escapeHtml(plan.from_project_id ?? "")}</code></dd></div>
+                        <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id ?? "")}</code></dd></div>`}
                         <div><dt>Records</dt><dd>${escapeHtml(maintenanceStateSummary(plan.dry_run.states) || "none")}</dd></div>
                         <div><dt>Private records</dt><dd>${escapeHtml(maintenancePrivateSummary(plan))}</dd></div>
                         <div><dt>Record ids</dt><dd>${plan.decision_card.raw_evidence.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
@@ -3989,7 +4048,8 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                     data-dashboard-action-id="${escapeHtml(maintenanceApproveActionId(plan))}"
                     data-endpoint="${escapeHtml(maintenancePlanEndpoint(plan))}"
                     data-plan-hash="${escapeHtml(plan.plan_hash)}"
-                  >Apply Repair</button>
+                    data-loading-label="${escapeHtml(plan.type === "candidate_noise_archive" ? "Archiving noise..." : "Applying repair...")}"
+                  >${escapeHtml(maintenancePrimaryActionLabel(plan))}</button>
                 </div>
                 <p class="maintenance-status" data-maintenance-status role="status" aria-live="polite"></p>
               </article>
@@ -5499,7 +5559,7 @@ function dashboardMaintenanceScript(): string {
         const approve = target.closest("[data-maintenance-approve]");
         if (!(approve instanceof HTMLButtonElement)) return;
         approve.disabled = true;
-        if (status) status.textContent = "Applying repair...";
+        if (status) status.textContent = approve.dataset.loadingLabel || "Applying...";
         try {
           const response = await fetch(approve.dataset.endpoint || "", {
             method: "POST",

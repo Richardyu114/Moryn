@@ -365,6 +365,11 @@ surface, kind, label, intent, target, endpoint or command, request body, safety,
 and source path metadata. Rendered buttons include `data-dashboard-action-id`
 with the same id. This registry is an audit and selection surface; it does not
 create a background executor or add any automatic write path.
+Review Queue approvals post only `plan_hash` to
+`POST /api/maintenance/plans/:plan_id/approve`; the server reconstructs the
+current plan before writing. Project identity repair plans append
+`revise_record` events, while candidate noise cleanup plans append
+`archive_record` events after explicit approval.
 
 `/api/dashboard` also returns `governance`, a read-only normalized review queue
 for existing local reports. Its contract is:
