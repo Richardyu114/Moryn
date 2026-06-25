@@ -173,6 +173,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
     expectText(dashboard, "When `items[].hint` repeats the visible next-action label");
     expectText(dashboard, "instead of rendering duplicate footer text");
+    expectText(dashboard, "The visible Evidence Library title is `Read-only Evidence`, while the stable route remains `data-dashboard-detail=\"evidence-library\"`");
     expectText(dashboard, "row reads `Read-only governance checks`");
     expectText(dashboard, "instead of repeating a safe-check count");
     expectText(dashboard, "`Safe Inspections` row whose summary reads `Read-only checks ready`");

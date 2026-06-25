@@ -3044,7 +3044,7 @@ function dashboardWorkLanes(data: DashboardData): string {
       id: "evidence" as const,
       label: "Evidence",
       summary: evidence.summary,
-      nextStep: "Open evidence library",
+      nextStep: "Open read-only evidence",
       target: "evidence-library",
       severity: evidence.hasFindings ? "info" as const : "good" as const
     }
@@ -5124,9 +5124,9 @@ function evidenceLibrary(data: DashboardData): string {
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
   const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   return `
-    <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Evidence Library">
+    <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Read-only Evidence">
       <summary class="dashboard-fold-summary evidence-library-fold">
-        <span>Evidence Library</span>
+        <span>Read-only Evidence</span>
         <small>${escapeHtml(evidenceSummary)}</small>
       </summary>
       ${evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length })}

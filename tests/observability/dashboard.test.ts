@@ -1809,7 +1809,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<button type=\"button\" class=\"dashboard-work-lane info\" data-dashboard-work-lane=\"evidence\" data-action-board-target=\"evidence-library\" aria-controls=\"evidence-library\">");
       expect(html).toContain("<span>Evidence</span>");
       expect(html).toContain("<strong>Read-only findings and reference evidence</strong>");
-      expect(html).toContain("<em>Open evidence library</em>");
+      expect(html).toContain("<em>Open read-only evidence</em>");
+      expect(html).not.toContain("<em>Open evidence library</em>");
       const workLanesStart = html.indexOf("data-dashboard-work-lanes");
       const workLanesEnd = html.indexOf("data-action-board-nav", workLanesStart);
       const workLanesHtml = html.slice(workLanesStart, workLanesEnd);
@@ -1853,9 +1854,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Explicit approvals stay in Capture Inbox and Review Queue.</small>");
       expect(html).not.toContain("<small>Warnings and critical signals remain visible in Needs Attention.</small>");
       expect(html).not.toContain("<small>Read-only inspections are grouped in Governance Hub.</small>");
-      expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Evidence Library\">");
-      expect(html).toContain("<span>Evidence Library</span>");
+      expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Read-only Evidence\">");
+      expect(html).toContain("<span>Read-only Evidence</span>");
       expect(html).toContain("<small>Read-only findings and reference evidence</small>");
+      expect(html).not.toContain("<span>Evidence Library</span>");
       expect(html).not.toContain("<small>Read-only diagnostics grouped here</small>");
       expect(html).not.toContain("<small>Health Check | Governance | Context | Supporting Evidence</small>");
       const evidenceLibraryDetailIndex = html.indexOf("data-dashboard-detail=\"evidence-library\"");
