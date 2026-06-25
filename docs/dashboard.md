@@ -406,8 +406,9 @@ fold inside each group.
 `Record samples` renders only the first five full records per group and
 summarizes the remaining records as API evidence, so large backlogs stay
 inspectable without flooding the page. `Record samples` summaries include the
-candidate group name, and rows use short sample labels plus record ids in their
-folded summaries, so repeated source/type rows stay distinguishable. Overflow
+candidate group name, and rows use short sample labels plus short record-id
+context in their folded summaries, so repeated source/type rows stay
+distinguishable. Overflow
 rows read `More samples` with a group-specific hidden-record count and API/Raw
 Store cue, while the exact
 `candidate_triage.groups_by_id.<group_id>.records[]` path is kept behind a

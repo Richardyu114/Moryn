@@ -1016,6 +1016,78 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("shortens generated candidate triage sample ids while preserving full audit ids", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let minute = 0;
+          return () => `2026-06-01T00:${String(++minute).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          const recordIds = [
+            "rec_candidate_short_baseline",
+            "rec_abcdef1234567890abcdef1234567890",
+            "rec_candidate_short_context"
+          ];
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? recordIds[record++] : `evt_candidate_short_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Canonical baseline for short candidate sample labels.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Keep generated candidate sample ids compact in folded dashboard rows.", format: "text" },
+        state: "candidate",
+        priority: "high",
+        confidence: 0.95,
+        source: { client: "codex", session_id: "candidate-short-labels" }
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "note",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Readable id candidate keeps its full label.", format: "text" },
+        state: "candidate",
+        source: { client: "codex", session_id: "candidate-short-labels" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+      const generatedId = "rec_abcdef1234567890abcdef1234567890";
+
+      expect(html).toContain("<strong>Memory sample rec_abcdef12</strong>");
+      expect(html).not.toContain(`<strong>Memory sample ${generatedId}</strong>`);
+      expect(html).toContain("<strong>Agent note sample rec_candidate_short_context</strong>");
+      expect(html).toContain(`<div><dt>Record</dt><dd><code>${generatedId}</code></dd></div>`);
+      expect(html).toContain(`moryn timeline --record-id ${generatedId}`);
+      expect(html).toContain(`moryn recall --record-id ${generatedId}`);
+    });
+  });
+
   it("aggregates existing reports into Governance Hub items", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
