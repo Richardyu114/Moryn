@@ -171,6 +171,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Folded `Review path` rows show only the next review label");
     expectText(dashboard, "the existing-control route stays in the accessible summary label and expanded fields");
     expectText(dashboard, "The expanded fold points to an existing control such as Capture Inbox, Memory Doctor, timeline, or recall");
+    expectText(dashboard, "Candidate group description text stays behind a collapsed `Group context` row");
+    expectText(dashboard, "expanded groups lead with review path, audit boundary, and samples instead of prose");
     expectText(dashboard, "Candidate group folded rows keep the visible next-step hint to `Review path ready`");
     expectText(dashboard, "the full recommended next step stays in the accessible group summary and the nested `Review path` fold");
     expectText(dashboard, "group write-boundary and evidence fields move behind a collapsed `Audit boundary` row whose folded");

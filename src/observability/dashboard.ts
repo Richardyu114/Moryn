@@ -3753,6 +3753,18 @@ function renderCandidateTriageAuditBoundary(group: DashboardCandidateTriageGroup
   `;
 }
 
+function renderCandidateTriageGroupContext(group: DashboardCandidateTriageGroup): string {
+  return `
+    <details class="candidate-triage-group-context" data-dashboard-detail="candidate-triage-context:${escapeHtml(group.id)}">
+      <summary class="dashboard-fold-summary">
+        <span>Group context</span>
+        <small>${escapeHtml(`${group.label} context`)}</small>
+      </summary>
+      <p>${escapeHtml(group.description)}</p>
+    </details>
+  `;
+}
+
 function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
   const sampleRecords = group.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
   const sampleSummary = candidateTriageSampleSummary(group);
@@ -3765,7 +3777,7 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
         <small>Review path ready</small>
       </summary>
       <div class="candidate-triage-group-body">
-        <p>${escapeHtml(group.description)}</p>
+        ${renderCandidateTriageGroupContext(group)}
         ${renderCandidateTriageHandoff(group)}
         ${renderCandidateTriageAuditBoundary(group)}
         <details class="candidate-triage-record-samples" data-dashboard-detail="candidate-triage-records:${escapeHtml(group.id)}">
@@ -6835,6 +6847,21 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       margin-top: 0;
       color: var(--muted);
       overflow-wrap: anywhere;
+    }
+    .candidate-triage-group-context {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 7px 9px;
+      margin-bottom: 8px;
+      background: var(--surface);
+    }
+    .candidate-triage-group-context[open] > summary {
+      margin-bottom: 7px;
+    }
+    .candidate-triage-group-context p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12.5px;
     }
     .candidate-triage-review-path {
       display: grid;

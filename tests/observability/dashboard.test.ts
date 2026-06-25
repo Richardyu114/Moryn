@@ -905,6 +905,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>1 record</strong>");
       expect(html).toContain("<small>Review path ready</small>");
       expect(html).not.toContain("<small>Inspect likely noise before archive</small>");
+      expect(html).toContain("<details class=\"candidate-triage-group-context\" data-dashboard-detail=\"candidate-triage-context:likely_noise\">");
+      expect(html).toContain("<span>Group context</span>");
+      expect(html).toContain("<small>Likely noise context</small>");
+      expect(html).toContain("<p>Candidates that look like smoke/test output or marker records.</p>");
+      expect(html).not.toContain("<div class=\"candidate-triage-group-body\">\n        <p>Candidates that look like smoke/test output or marker records.</p>");
       expect(html).toContain("<details class=\"candidate-triage-review-path\" data-dashboard-detail=\"candidate-triage-review-path:likely_noise\" data-candidate-triage-handoff=\"likely_noise\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Review path: Archive review via Capture Inbox or Memory Doctor\">");
       expect(html).toContain("<span>Review path</span>");
@@ -938,6 +943,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Promotable candidates</span>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Candidate group: Promotable candidates, 1 record, Inspect before promotion\">");
       expect(html).not.toContain("<small>Inspect before promotion</small>");
+      expect(html).toContain("<details class=\"candidate-triage-group-context\" data-dashboard-detail=\"candidate-triage-context:promotable\">");
+      expect(html).toContain("<small>Promotable candidates context</small>");
+      expect(html).toContain("<p>High-confidence candidate memories that may deserve explicit promotion.</p>");
       expect(html).toContain("<details class=\"candidate-triage-review-path\" data-dashboard-detail=\"candidate-triage-review-path:promotable\" data-candidate-triage-handoff=\"promotable\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Review path: Approval review via Capture Inbox\">");
       expect(html).toContain("<small>Approval review</small>");

@@ -416,7 +416,9 @@ while the existing-control route stays in the accessible summary label and
 expanded fields. The expanded fold points to an existing control such as
 Capture Inbox, Memory Doctor, timeline, or recall, explains the next review
 surface, and repeats that Candidate Triage is read-only without filling the
-expanded group by default. Candidate group folded rows keep the visible next-step
+expanded group by default. Candidate group description text stays behind a
+collapsed `Group context` row, so expanded groups lead with review path, audit
+boundary, and samples instead of prose. Candidate group folded rows keep the visible next-step
 hint to `Review path ready`; the full recommended next step stays in the
 accessible group summary and the nested `Review path` fold. The group write-boundary and evidence fields move behind a collapsed
 `Audit boundary` row whose folded summary names the candidate group, so the
