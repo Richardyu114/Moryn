@@ -5136,9 +5136,10 @@ function evidenceLibraryRoute(input: {
   summary: string;
   note: string;
 }): string {
+  const ariaLabel = `${input.title}: ${input.summary}. ${input.note}`;
   return `
-          <button type="button" class="evidence-library-route" data-evidence-library-route="${escapeHtml(input.id)}" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}">
-            <strong>${escapeHtml(input.title)}</strong><span>${escapeHtml(input.summary)}</span><small>${escapeHtml(input.note)}</small>
+          <button type="button" class="evidence-library-route" data-evidence-library-route="${escapeHtml(input.id)}" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}" aria-label="${escapeHtml(ariaLabel)}">
+            <strong>${escapeHtml(input.title)}</strong><span>${escapeHtml(input.summary)}</span>
           </button>
   `;
 }
@@ -6445,8 +6446,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .evidence-library-route:hover { border-color: #b8c0c8; box-shadow: 0 8px 18px rgba(21, 25, 30, 0.045); transform: translateY(-1px); }
     .evidence-library-route:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .evidence-library-route strong,
-    .evidence-library-route span,
-    .evidence-library-route small {
+    .evidence-library-route span {
       display: block;
       overflow-wrap: anywhere;
     }
@@ -6460,11 +6460,6 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--ink-2);
       font-size: 12.5px;
       font-weight: 720;
-    }
-    .evidence-library-route small {
-      margin-top: 3px;
-      color: var(--muted);
-      font-size: 12px;
     }
     .evidence-library-list {
       display: grid;

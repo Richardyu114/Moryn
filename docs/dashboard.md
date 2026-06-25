@@ -633,6 +633,9 @@ reading nested panels. The brief renders local route buttons that reuse the
 existing `data-action-board-target` behavior: `Findings` opens `Read-only
 Findings` when findings exist and otherwise stays on `Evidence Library`,
 `Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`.
+Those route buttons keep only the route label and current status visible; the
+longer route hints stay in accessible labels so the folded evidence map does
+not become another prose panel.
 The brief is navigation copy only: it does not render Approve, Reject, Promote,
 Archive, or Apply controls and does not add `data-dashboard-action-id`. Health
 Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and

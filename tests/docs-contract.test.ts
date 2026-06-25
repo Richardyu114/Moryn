@@ -93,6 +93,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "renders local route buttons that reuse the existing `data-action-board-target` behavior");
     expectText(dashboard, "`Findings` opens `Read-only Findings` when findings exist and otherwise stays on `Evidence Library`");
     expectText(dashboard, "`Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`");
+    expectText(dashboard, "route buttons keep only the route label and current status visible");
+    expectText(dashboard, "longer route hints stay in accessible labels");
     expectText(dashboard, "The brief is navigation copy only");
     expectText(dashboard, "does not render Approve, Reject, Promote, Archive, or Apply controls");
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
