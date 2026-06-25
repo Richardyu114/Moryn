@@ -179,6 +179,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Visible write boundaries use user-readable labels such as `Append-only events`");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
     expectText(dashboard, "Actual writes remain inside Capture Inbox and Review Queue controls");
+    expectText(dashboard, "After a dashboard approval or rejection succeeds, the browser renders a compact `Action receipt`");
+    expectText(dashboard, "The receipt is restored after dashboard fragment refreshes");
+    expectText(dashboard, "Result, Changed, Records, Events, and Audit commands");
     expect(dashboard).toContain("all clear");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/reject");

@@ -5152,6 +5152,8 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${dashboardStatusSummary(data)}
 
+    <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
+
     ${dashboardOverview(data.dashboard_overview)}
 
     ${dashboardWorkLanes(data)}
@@ -5204,6 +5206,7 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
           if (!response.ok) return;
           main.innerHTML = await response.text();
           restoreDetailState(detailState);
+          window.restoreActionReceipt?.();
         } catch {
           // Keep the last successful render visible if a refresh fails.
         }
@@ -5253,31 +5256,74 @@ function dashboardActionReceiptScript(): string {
   return `
   <script>
     (() => {
+      const receiptKey = "moryn.dashboard.lastActionReceipt";
       const htmlEscape = (value) => String(value ?? "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;");
-      window.renderActionReceipt = (status, result) => {
-        if (!status || !result || typeof result !== "object") return;
+      const pluralize = (count, singular, plural = singular + "s") => count + " " + (count === 1 ? singular : plural);
+      const titleCase = (value) => String(value || "applied")
+        .replaceAll("_", " ")
+        .replace(/\\b\\w/g, (match) => match.toUpperCase());
+      const receiptTarget = () => document.getElementById("last-action-receipt");
+      const receiptFromResult = (result) => {
         const recordIds = Array.isArray(result.record_ids) ? result.record_ids : result.record_id ? [result.record_id] : [];
         const eventIds = Array.isArray(result.event_ids) ? result.event_ids : result.event_id ? [result.event_id] : [];
         const timelineCommands = eventIds.length > 0
           ? eventIds.map((eventId) => "moryn timeline --event-id " + eventId)
           : recordIds.map((recordId) => "moryn timeline --record-id " + recordId);
         const recallCommands = recordIds.map((recordId) => "moryn recall --record-id " + recordId);
-        const countLabel = result.records_changed || result.migrated_records || recordIds.length || eventIds.length || 1;
-        status.classList.add("action-receipt");
-        status.innerHTML = \`
-          <span class="action-receipt-title">Approval receipt</span>
-          <span>\${htmlEscape(result.status || "applied")} | \${htmlEscape(countLabel)} write target</span>
-          \${result.plan_id ? \`<code>\${htmlEscape(result.plan_id)}</code>\` : ""}
-          \${recordIds.map((recordId) => \`<code>\${htmlEscape(recordId)}</code>\`).join("")}
-          \${eventIds.map((eventId) => \`<code>\${htmlEscape(eventId)}</code>\`).join("")}
-          \${timelineCommands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("")}
-          \${recallCommands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("")}
-        \`;
+        const changedCount = Number(result.records_changed || result.migrated_records || recordIds.length || eventIds.length || 1);
+        return {
+          status: titleCase(result.status),
+          changed: pluralize(changedCount, "write target"),
+          context: [result.plan_id, result.group_id].filter(Boolean),
+          record_ids: recordIds,
+          event_ids: eventIds,
+          commands: [...timelineCommands, ...recallCommands],
+          saved_at: new Date().toISOString()
+        };
       };
+      const receiptHtml = (receipt) => \`
+        <div class="action-receipt-layout">
+          <div class="action-receipt-head">
+            <span class="action-receipt-title">Action receipt</span>
+            <strong>\${htmlEscape(receipt.status)}</strong>
+          </div>
+          <dl class="action-receipt-grid">
+            <div><dt>Result</dt><dd>\${htmlEscape(receipt.status)}</dd></div>
+            <div><dt>Changed</dt><dd>\${htmlEscape(receipt.changed)}</dd></div>
+            \${receipt.context.length > 0 ? \`<div><dt>Context</dt><dd>\${receipt.context.map((value) => \`<code>\${htmlEscape(value)}</code>\`).join(" ")}</dd></div>\` : ""}
+            \${receipt.record_ids.length > 0 ? \`<div><dt>Records</dt><dd>\${receipt.record_ids.map((recordId) => \`<code>\${htmlEscape(recordId)}</code>\`).join(" ")}</dd></div>\` : ""}
+            \${receipt.event_ids.length > 0 ? \`<div><dt>Events</dt><dd>\${receipt.event_ids.map((eventId) => \`<code>\${htmlEscape(eventId)}</code>\`).join(" ")}</dd></div>\` : ""}
+            <div class="action-receipt-commands"><dt>Audit commands</dt><dd>\${receipt.commands.length > 0 ? receipt.commands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("") : "No read-only trace command returned."}</dd></div>
+          </dl>
+        </div>
+      \`;
+      const renderReceiptInto = (target, receipt) => {
+        if (!(target instanceof HTMLElement)) return;
+        target.hidden = false;
+        target.classList.add("action-receipt");
+        target.innerHTML = receiptHtml(receipt);
+      };
+      window.restoreActionReceipt = () => {
+        try {
+          const stored = sessionStorage.getItem(receiptKey);
+          if (!stored) return;
+          renderReceiptInto(receiptTarget(), JSON.parse(stored));
+        } catch {
+          sessionStorage.removeItem(receiptKey);
+        }
+      };
+      window.renderActionReceipt = (status, result) => {
+        if (!result || typeof result !== "object") return;
+        const receipt = receiptFromResult(result);
+        sessionStorage.setItem(receiptKey, JSON.stringify(receipt));
+        renderReceiptInto(status, receipt);
+        renderReceiptInto(receiptTarget(), receipt);
+      };
+      window.restoreActionReceipt();
     })();
   </script>`;
 }
@@ -5301,6 +5347,7 @@ function dashboardMaintenanceScript(): string {
         if (!response.ok) return;
         main.innerHTML = await response.text();
         hideRejectedPlans();
+        window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
         const text = await response.text();
@@ -5370,6 +5417,7 @@ function dashboardCaptureInboxScript(): string {
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
+        window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
         const text = await response.text();
@@ -6422,11 +6470,12 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .governance-heading span,
     .lifecycle-heading span,
     .capture-inbox-heading span, .capture-inbox-status { color: var(--muted); font-size: 12px; font-weight: 650; }
+    .last-action-receipt[hidden] { display: none; }
+    .last-action-receipt {
+      margin-top: 0;
+      border-left: 4px solid var(--signal-green);
+    }
     .action-receipt {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
       border: 1px solid var(--border);
       border-left: 3px solid var(--signal-green);
       border-radius: 7px;
@@ -6435,9 +6484,38 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
       color: var(--ink-2);
     }
+    .last-action-receipt.action-receipt { margin-bottom: 12px; }
+    .action-receipt-layout { display: grid; gap: 8px; width: 100%; }
+    .action-receipt-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 6px;
+      align-items: center;
+    }
     .action-receipt-title {
       color: var(--ink);
       font-weight: 780;
+    }
+    .action-receipt-head strong {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--signal-green-soft);
+      color: var(--signal-green);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .action-receipt-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin: 0;
+    }
+    .action-receipt-grid div { grid-template-columns: 86px minmax(0, 1fr); }
+    .action-receipt-grid .action-receipt-commands { grid-column: 1 / -1; }
+    .action-receipt-commands dd {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
     }
     .action-receipt code { background: var(--surface-2); }
     .maintenance-list, .candidate-triage-list, .candidate-triage-records, .governance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
