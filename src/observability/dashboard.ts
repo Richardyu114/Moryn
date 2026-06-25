@@ -3092,8 +3092,13 @@ function decisionSummary(data: DashboardDecisionSummary): string {
             <dl>
               <div><dt>Decision</dt><dd>${escapeHtml(item.decision_label)}</dd></div>
               <div><dt>Write boundary</dt><dd>${escapeHtml(decisionSummaryWriteLabel(item.writes))}<small>${escapeHtml(item.safety_note)}</small></dd></div>
-              <div><dt>Evidence</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
             </dl>
+            <details class="decision-summary-evidence" data-dashboard-detail="decision-summary-evidence:${escapeHtml(item.id)}">
+              <summary>Evidence source</summary>
+              <dl>
+                <div><dt>Path</dt><dd><code>${escapeHtml(item.evidence_path)}</code></dd></div>
+              </dl>
+            </details>
             <button type="button" class="decision-summary-link" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">${escapeHtml(item.target_label)}</button>
           </article>
         `).join("")}
@@ -6137,6 +6142,19 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .decision-summary-item dl div {
       grid-template-columns: 76px minmax(0, 1fr);
     }
+    .decision-summary-evidence {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 7px 8px;
+      background: var(--surface);
+    }
+    .decision-summary-evidence[open] > summary { margin-bottom: 7px; }
+    .decision-summary-evidence summary {
+      color: var(--ink);
+      font-size: 12.5px;
+      font-weight: 720;
+    }
+    .decision-summary-evidence dl { margin: 0; }
     .decision-summary-link {
       justify-self: start;
       background: var(--ink);

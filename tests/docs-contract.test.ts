@@ -180,6 +180,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Safe inspection rows use short display titles while full report titles remain in `/api/dashboard` and source panels");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
     expectText(dashboard, "Visible write boundaries use user-readable labels such as `Append-only events`");
+    expectText(dashboard, "Pending Decisions keeps machine evidence paths behind an `Evidence source` fold");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
     expectText(dashboard, "Actual writes remain inside Capture Inbox and Review Queue controls");
     expectText(dashboard, "After a dashboard approval or rejection succeeds, the browser renders a compact `Action receipt`");

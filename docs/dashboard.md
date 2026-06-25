@@ -564,7 +564,8 @@ Decisions` panel directly below the Action Board. `/api/dashboard.decision_summa
 returns the same read-only shape. It counts human decision units, not raw
 approve/reject buttons: one Capture Inbox group is one decision, and one Review
 Queue maintenance plan is one decision. Each item shows the plain-language
-decision, write boundary, evidence path, and navigation target such as
+decision, write boundary, and navigation target. Pending Decisions keeps machine
+evidence paths behind an `Evidence source` fold, such as
 `capture_inbox.groups[]` or `maintenance.plans[]`. Visible write boundaries use
 user-readable labels such as `Append-only events`, while the JSON contract keeps
 machine-readable fields such as `writes: "append_only_events"`. It references

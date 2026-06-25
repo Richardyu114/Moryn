@@ -3161,6 +3161,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("Project identity repair");
       expect(html).toContain("Apply Repair appends revise_record events only after the plan_hash guard passes.");
       expect(html).toContain("<dt>Write boundary</dt><dd>Append-only events<small>Apply Repair appends revise_record events only after the plan_hash guard passes.</small></dd>");
+      expect(html).toContain("<details class=\"decision-summary-evidence\" data-dashboard-detail=\"decision-summary-evidence:");
+      expect(html).toContain("<summary>Evidence source</summary>");
+      expect(html).toContain("<dt>Path</dt><dd><code>maintenance.plans[]</code></dd>");
+      expect(html).not.toContain("<dt>Evidence</dt><dd><code>maintenance.plans[]</code></dd>");
       expect(html).not.toContain("<dt>Writes</dt><dd>append_only_events");
       expect(html).toContain("data-action-board-target=\"maintenance-review-queue\"");
       expect(html).toContain("<details id=\"maintenance-review-queue\" class=\"maintenance-review-summary\" data-dashboard-detail=\"maintenance-review-queue\">");
@@ -3748,6 +3752,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("Approve Group or Reject Group");
       expect(html).toContain("Approve Group promotes candidates; Reject Group archives them. Both append audit events.");
       expect(html).toContain("<dt>Write boundary</dt><dd>Append-only events<small>Approve Group promotes candidates; Reject Group archives them. Both append audit events.</small></dd>");
+      expect(html).toContain("<dt>Path</dt><dd><code>capture_inbox.groups[]</code></dd>");
+      expect(html).not.toContain("<dt>Evidence</dt><dd><code>capture_inbox.groups[]</code></dd>");
       expect(html).not.toContain("<dt>Writes</dt><dd>append_only_events");
       expect(html).toContain("data-decision-summary-item=\"capture_inbox:");
       expect(html).toContain("data-action-board-target=\"capture-inbox\"");
