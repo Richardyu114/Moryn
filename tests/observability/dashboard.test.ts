@@ -1720,6 +1720,22 @@ describe("observability dashboard", () => {
         expect(html).toContain("<small>Read-only governance checks</small>");
         expect(html).not.toContain("<small>1 safe check</small>");
         expect(html).toContain("<span>1 safe check</span>");
+        expect(html).toContain("<details class=\"dashboard-work-lanes-quiet\" data-dashboard-detail=\"dashboard-work-lanes-background\">");
+        expect(html).toContain("<span>Background Lanes</span>");
+        expect(html).toContain("<small>Decide, Context, and Health are quiet</small>");
+        const workLanesStart = html.indexOf("data-dashboard-work-lanes");
+        const workLanesEnd = html.indexOf("data-action-board-nav", workLanesStart);
+        const workLanesHtml = html.slice(workLanesStart, workLanesEnd);
+        const activeWorkLanesHtml = workLanesHtml.slice(0, workLanesHtml.indexOf("data-dashboard-detail=\"dashboard-work-lanes-background\""));
+        const quietWorkLanesHtml = workLanesHtml.slice(workLanesHtml.indexOf("data-dashboard-detail=\"dashboard-work-lanes-background\""));
+        expect(activeWorkLanesHtml).toContain("data-dashboard-work-lane=\"evidence\"");
+        expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"decide\"");
+        expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"context\"");
+        expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"health\"");
+        expect(quietWorkLanesHtml).toContain("data-dashboard-work-lane-quiet=\"decide\"");
+        expect(quietWorkLanesHtml).toContain("data-dashboard-work-lane-quiet=\"context\"");
+        expect(quietWorkLanesHtml).toContain("data-dashboard-work-lane-quiet=\"health\"");
+        expect(quietWorkLanesHtml).not.toContain("data-dashboard-work-lane-quiet=\"evidence\"");
         expect(JSON.stringify(data.recall_eval)).not.toContain("Private");
       } finally {
         await rm(remoteRoot, { recursive: true, force: true });
@@ -3592,7 +3608,10 @@ describe("observability dashboard", () => {
       expect(contextPackSummaryHtml).not.toContain("6/6 checks");
       expect(contextPackSummaryHtml).not.toContain("3 evidence items");
       expect(contextPackSummaryHtml).not.toContain("Capture action visible");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-work-lane good\" data-dashboard-work-lane=\"context\" data-action-board-target=\"context-pack-review\" aria-controls=\"context-pack-review\">");
+      expect(html).toContain("<details class=\"dashboard-work-lanes-quiet\" data-dashboard-detail=\"dashboard-work-lanes-background\">");
+      expect(html).toContain("<span>Background Lanes</span>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-work-lane good\" data-dashboard-work-lane-quiet=\"context\" data-action-board-target=\"context-pack-review\" aria-controls=\"context-pack-review\">");
+      expect(html).not.toContain("<button type=\"button\" class=\"dashboard-work-lane good\" data-dashboard-work-lane=\"context\" data-action-board-target=\"context-pack-review\" aria-controls=\"context-pack-review\">");
       expect(html).toContain("<strong>Ready handoff context</strong>");
       expect(html).toContain("<em>Open handoff review</em>");
       expect(html).not.toContain("<small>ready | all checks passed | 1 decision | 1 thread | 1 risk</small>");

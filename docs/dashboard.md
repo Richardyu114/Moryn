@@ -534,6 +534,12 @@ existing Action Board, detail panels, and audit trail underneath.
 Lane clicks resolve either an element `id` or a matching `data-dashboard-detail`
 target, so routes such as `context-pack-review` and `evidence-library` open the
 collapsed detail panel before scrolling.
+When warning or critical signals exist, the Work Lanes keep the full four-route
+row visible so the first screen does not hide active review paths. In all-clear
+states, the row keeps the read-only `Evidence` lane visible and folds quiet
+`Decide`, `Context`, and `Health` lanes under `Background Lanes` while
+preserving their same `data-action-board-target` routes. `Background Lanes`
+opens with a plain quiet-state summary rather than another count.
 
 `Action Board` is rendered as `Page Shortcuts` in the UI while keeping the
 stable `data-dashboard-detail="action-board"` route: a secondary, collapsed

@@ -2977,9 +2977,9 @@ function workLaneButton(input: {
   nextStep: string;
   target: string;
   severity: DashboardActionBoardSeverity;
-}): string {
+}, dataAttribute = "data-dashboard-work-lane"): string {
   return `
-        <button type="button" class="dashboard-work-lane ${escapeHtml(input.severity)}" data-dashboard-work-lane="${escapeHtml(input.id)}" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}">
+        <button type="button" class="dashboard-work-lane ${escapeHtml(input.severity)}" ${dataAttribute}="${escapeHtml(input.id)}" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}">
           <span>${escapeHtml(input.label)}</span>
           <strong>${escapeHtml(input.summary)}</strong>
           <em>${escapeHtml(input.nextStep)}</em>
@@ -3055,9 +3055,28 @@ function dashboardWorkLanes(data: DashboardData): string {
       severity: evidence.hasFindings ? "info" as const : "good" as const
     }
   ];
+  const hasBlockingLanes = lanes.some((lane) => lane.severity === "warning" || lane.severity === "critical");
+  const activeLanes = hasBlockingLanes ? lanes : lanes.filter((lane) => lane.id === "evidence");
+  const defaultLanes = activeLanes;
+  const backgroundLanes = hasBlockingLanes ? [] : lanes.filter((lane) => lane.id !== "evidence");
+  const backgroundLaneNames = backgroundLanes.map((lane) => lane.label);
+  const backgroundLaneSummary = backgroundLaneNames.length <= 1
+    ? `${backgroundLaneNames.join("")} is quiet`
+    : `${backgroundLaneNames.slice(0, -1).join(", ")}, and ${backgroundLaneNames.at(-1)} are quiet`;
   return `
     <section class="dashboard-work-lanes" data-dashboard-work-lanes aria-label="Dashboard Work Lanes">
-      ${lanes.map(workLaneButton).join("")}
+      ${defaultLanes.map((lane) => workLaneButton(lane)).join("")}
+      ${backgroundLanes.length === 0 ? "" : `
+        <details class="dashboard-work-lanes-quiet" data-dashboard-detail="dashboard-work-lanes-background">
+          <summary class="dashboard-fold-summary dashboard-work-lanes-quiet-fold">
+            <span>Background Lanes</span>
+            <small>${escapeHtml(backgroundLaneSummary)}</small>
+          </summary>
+          <div class="dashboard-work-lanes-quiet-list">
+            ${backgroundLanes.map((lane) => workLaneButton(lane, "data-dashboard-work-lane-quiet")).join("")}
+          </div>
+        </details>
+      `}
     </section>
   `;
 }
@@ -5806,6 +5825,17 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       gap: 10px;
       margin: 0 0 12px;
     }
+    .dashboard-work-lanes-quiet {
+      grid-column: 1 / -1;
+      border-top: 1px solid var(--hairline);
+      padding-top: 8px;
+    }
+    .dashboard-work-lanes-quiet[open] > summary { margin-bottom: 8px; }
+    .dashboard-work-lanes-quiet-list {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
     .dashboard-work-lane {
       appearance: none;
       display: grid;
@@ -5851,6 +5881,21 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-style: normal;
       font-weight: 720;
       overflow-wrap: anywhere;
+    }
+    .dashboard-work-lanes-quiet-list .dashboard-work-lane {
+      min-height: 68px;
+      border-left-width: 1px;
+      padding: 8px;
+      background: var(--surface-2);
+      box-shadow: none;
+    }
+    .dashboard-work-lanes-quiet-list .dashboard-work-lane strong {
+      color: var(--ink-2);
+      font-size: 13px;
+      font-weight: 760;
+    }
+    .dashboard-work-lanes-quiet-list .dashboard-work-lane em {
+      font-size: 11.5px;
     }
     .health-check-panel {
       border-left: 4px solid var(--signal-blue);
@@ -7478,7 +7523,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 740;
     }
     @media (max-width: 920px) {
-      header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid, .evidence-library-brief-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid, .evidence-library-brief-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
