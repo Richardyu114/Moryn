@@ -3835,6 +3835,15 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<dt>Writes</dt><dd>append_only_events");
       expect(html).toContain("data-action-board-target=\"maintenance-review-queue\"");
       expect(html).toContain("<details id=\"maintenance-review-queue\" class=\"maintenance-review-summary\" data-dashboard-detail=\"maintenance-review-queue\">");
+      expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(
+        html.indexOf("data-dashboard-detail=\"maintenance-review-queue\"")
+      );
+      expect(html.indexOf("data-dashboard-detail=\"maintenance-review-queue\"")).toBeLessThan(
+        html.indexOf("id=\"needs-attention\"")
+      );
+      expect(html.indexOf("id=\"needs-attention\"")).toBeLessThan(
+        html.indexOf("data-action-board-nav")
+      );
       expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-review-fold\">");
       expect(html).toContain("<span>Review Queue</span>");
       expect(html).toContain("<small>Approval required</small>");
@@ -4528,6 +4537,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-dashboard-action-id=\"decision_summary");
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("data-action-board-nav"));
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"needs-attention\""));
+      expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"capture-inbox\""));
+      expect(html.indexOf("id=\"capture-inbox\"")).toBeLessThan(html.indexOf("id=\"needs-attention\""));
       expect(html.indexOf("id=\"capture-inbox\"")).toBeLessThan(html.indexOf("data-action-board-nav"));
       expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).toContain("1 candidate");

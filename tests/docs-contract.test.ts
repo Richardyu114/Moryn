@@ -130,6 +130,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the same scroll target renders as a quiet `needs-attention-quiet-line` anchor");
     expectText(dashboard, "It contains only the collapsed `Info Checks` detail");
     expectText(dashboard, "does not render the focus strip or a separate quiet summary");
+    expectText(dashboard, "the quiet `Info Checks` anchor renders after the owning Capture Inbox or Review Queue surface");
+    expectText(dashboard, "so routine status does not interrupt the approval path");
     expect(dashboard).toContain("Dogfood Review");
     expect(dashboard).toContain("Issue brief");
     expectText(dashboard, "folded row reads `Read-only dogfood finding` or `Read-only dogfood findings`");

@@ -5372,6 +5372,9 @@ function dashboardStatusSummary(data: DashboardData): string {
 }
 
 function renderDashboardBody(data: DashboardData): string {
+  const hasActionSignals = data.attention_items.some((item) => item.severity !== "info");
+  const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
+  const quietInfoPanel = hasActionSignals ? "" : needsAttentionPanel(data.attention_items);
   return `
     <header>
       <div>
@@ -5392,11 +5395,13 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${decisionSummary(data.decision_summary)}
 
-    ${needsAttentionPanel(data.attention_items)}
+    ${actionSignalsPanel}
 
     ${maintenanceReviewQueue(data.maintenance.plans)}
 
     ${captureInbox(data.capture_inbox)}
+
+    ${quietInfoPanel}
 
     ${actionBoard(data.action_board)}
 

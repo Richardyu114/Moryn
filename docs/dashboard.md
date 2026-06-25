@@ -649,7 +649,10 @@ critical action signals, the same scroll target renders as a quiet
 `needs-attention-quiet-line` anchor. It contains only the collapsed `Info Checks`
 detail and does not render the focus strip or a separate quiet summary. This
 preserves the `id="needs-attention"` scroll target for audit without making
-routine informational checks look like user work.
+routine informational checks look like user work. When explicit Pending
+Decisions are present, the quiet `Info Checks` anchor renders after the owning
+Capture Inbox or Review Queue surface so routine status does not interrupt the
+approval path.
 
 Read-only diagnostic detail lives in the collapsed evidence layer. The visible
 Evidence Library title is `Read-only Evidence`, while the stable route remains
