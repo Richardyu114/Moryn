@@ -3860,6 +3860,7 @@ describe("observability dashboard", () => {
       expect(plan?.record_ids).toHaveLength(6);
       const html = renderDashboardHtml(data);
 
+      expect(html).toContain("<span>Audit details</span>");
       expect(html).toContain("<dt>Record ids</dt>");
       expect(html).toContain("<div class=\"maintenance-record-id-summary\">");
       expect(html).toContain("<span class=\"maintenance-overflow-count\">3 more record ids kept below</span>");
@@ -4027,7 +4028,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("repo-e6f0166fd942 to moryn");
       expect(html).toContain("Server re-runs the dry run and checks plan_hash before applying.");
       expect(html).toContain("data-maintenance-review-log");
-      expect(html).toContain("<summary>Decision evidence</summary>");
+      expect(html).toContain("<details class=\"maintenance-audit-details\" data-dashboard-detail=\"maintenance-audit:");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-audit-details-fold\">");
+      expect(html).toContain("<span>Audit details</span>");
+      expect(html).toContain("<small>Decision record, checklist, rollback, raw plan</small>");
+      expect(html).not.toContain("<summary>Decision evidence</summary>");
+      expect(html).not.toContain("<summary>Evidence, rollback, and raw plan</summary>");
       expect(html).not.toContain("<summary>Audit trail</summary>");
       expect(html).toContain("<details class=\"approval-checklist\" data-dashboard-detail=\"maintenance-approval-checklist:");
       expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-approval-checklist-fold\">");
@@ -4054,7 +4060,6 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Proposed change:</strong> Move 1 record from <code>repo-e6f0166fd942</code> to <code>moryn</code>.");
       expect(html).toContain("<strong>Safety gate:</strong> Server re-runs the dry run and checks <code>plan_hash</code> before writing.");
       expect(html).toContain("<strong>Audit path:</strong> Raw plan, record ids, rollback path, equivalent CLI command, and <code>plan_hash</code> stay below.");
-      expect(html).toContain("Evidence, rollback, and raw plan");
       expect(html).toContain("data-maintenance-detail=\"evidence\"");
       expect(html).toContain("data-maintenance-detail=\"rollback\"");
       expect(html).toContain("data-maintenance-detail=\"raw-plan\"");

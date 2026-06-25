@@ -4103,13 +4103,13 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                     <div><dt>Action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
                   </dl>
                 </details>
-                <details class="maintenance-audit-trail" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
-                  <summary>Decision evidence</summary>
+                <details class="maintenance-audit-details" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
+                  <summary class="dashboard-fold-summary maintenance-audit-details-fold">
+                    <span>Audit details</span>
+                    <small>Decision record, checklist, rollback, raw plan</small>
+                  </summary>
                   ${maintenanceDecisionRecord(plan)}
                   ${maintenanceApprovalChecklist(plan)}
-                </details>
-                <details data-dashboard-detail="maintenance:${escapeHtml(plan.plan_id)}">
-                  <summary>Evidence, rollback, and raw plan</summary>
                   <div class="maintenance-detail-grid">
                     <section data-maintenance-detail="evidence">
                       <h4>Evidence</h4>
@@ -7570,15 +7570,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .maintenance-outcome dd {
       color: var(--ink-2);
     }
-    .maintenance-audit-trail {
+    .maintenance-audit-details {
       border: 1px solid var(--hairline);
       border-radius: 7px;
       padding: 8px 9px;
       margin: 8px 0 10px;
       background: var(--surface);
     }
-    .maintenance-audit-trail[open] > summary { margin-bottom: 8px; }
-    .maintenance-audit-trail summary { color: var(--ink); font-weight: 720; }
+    .maintenance-audit-details[open] > summary { margin-bottom: 8px; }
+    .maintenance-audit-details summary { color: var(--ink); font-weight: 720; }
     .approval-checklist {
       border: 1px solid var(--hairline);
       border-radius: 7px;
@@ -7613,7 +7613,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .maintenance-decision-record dt { color: var(--ink); }
     .maintenance-decision-record dd { color: var(--ink-2); }
-    .maintenance-audit-trail .review-log {
+    .maintenance-audit-details .review-log {
       border: 0;
       padding: 0;
       margin: 0;

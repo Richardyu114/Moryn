@@ -335,20 +335,22 @@ Opening it still shows:
 - the safety boundary, including server-side dry-run and `plan_hash` checking
 - the recommended action
 
-Each plan also keeps expandable `Decision evidence`. The first thing inside it
-is a structured `Why this repair is proposed` or `Why this cleanup is proposed`
-record, not a raw event stream:
+Each plan also keeps one expandable `Audit details` fold instead of several
+separate evidence folds. The first thing inside it is a structured `Why this
+repair is proposed` or `Why this cleanup is proposed` record, not a raw event
+stream:
 detected condition, why it matters, proposed change, safety gate, approval
 writes, and where to audit or roll back. A compact `Approval checklist` fold
 keeps the `Before approving` checklist available below that record with
 plain-language Issue, Proposed change, Safety gate, and Audit path rows, so the
 approval surface reads like a decision checklist instead of internal logs.
 
-Evidence, rollback, and raw plan details are kept in an expandable section so
-the first screen stays readable without hiding audit data. That rollback path
+Evidence, rollback, and raw plan details stay inside the same `Audit details`
+fold, so the first screen stays readable without hiding audit data. That audit
 section includes source and target project ids for migrations, archive reasons
 for candidate cleanup, matched record count, state distribution, private record
-counts, safety checks, equivalent CLI command, record ids, and `plan_hash`.
+counts, safety checks, equivalent CLI command, record ids, rollback path, and
+`plan_hash`.
 Large plans keep the raw details budgeted: the visible row shows the first few
 record ids plus an overflow count, while `All record ids` and `Full command`
 remain available behind nested folds. The `Copy command` button lives inside

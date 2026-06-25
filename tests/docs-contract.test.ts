@@ -345,10 +345,11 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("proposed change, target, `plan_hash` gate, and private-record scope");
     expect(dashboard).toContain("without reading raw event language or an outcome table");
     expect(dashboard).toContain("The structured decision summary is folded behind `Decision summary`");
-    expect(dashboard).toContain("Decision evidence");
+    expect(dashboard).toContain("one expandable `Audit details` fold instead of several");
     expect(dashboard).toContain("A compact `Approval checklist` fold");
     expect(dashboard).toContain("Before approving");
     expect(dashboard).toContain("approval surface reads like a decision checklist instead of internal logs");
+    expect(dashboard).toContain("Evidence, rollback, and raw plan details stay inside the same `Audit details`");
     expect(dashboard).toContain("The `Copy command` button lives inside");
     expect(dashboard).toContain("keeping the visible action bar focused on `Reject` and the explicit");
     expect(dashboard).toContain("recommended action");
