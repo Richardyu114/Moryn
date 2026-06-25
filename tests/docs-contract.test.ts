@@ -153,7 +153,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Raw Store` opens with `Records, events, and sync`");
     expectText(dashboard, "child folds are labeled `Record Index`, `Event Timeline`, and `Sync Snapshot`");
     expectText(dashboard, "`Record Index` and `Event Timeline` render only the first ten rows each and summarize overflow as `/api/dashboard` evidence");
-    expectText(dashboard, "`Record Index` record rows use short kind/type/source plus short record-id summaries in their folded row instead of raw record text");
+    expectText(dashboard, "`Record Index` record rows use short record-id summaries and a `Details` hint");
+    expectText(dashboard, "while the accessible label and table columns keep kind, type, source, and record-id context");
     expectText(dashboard, "still shows the concrete safe-check count");
     expectText(dashboard, "compact inspection rows with readable source labels, title, and read-only next step");
     expectText(dashboard, "`memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor` safe inspection");

@@ -4856,7 +4856,7 @@ function recordsTable(records: DashboardRecordSummary[]): string {
       <td><time title="${escapeHtml(record.updated_at)}">${escapeHtml(record.updated_at)}</time></td>
       <td>
         <details data-dashboard-detail="record:${escapeHtml(record.id)}">
-          <summary>${recordIndexSummary(record)}</summary>
+          <summary aria-label="${escapeHtml(recordIndexAccessibleSummary(record))}">${recordIndexSummary(record)}</summary>
           ${textExcerptBlock(record.text)}
           ${citationCommands(record.citation)}
         </details>
@@ -4887,9 +4887,13 @@ function recordsTable(records: DashboardRecordSummary[]): string {
 
 function recordIndexSummary(record: DashboardRecordSummary): string {
   return `
-    <span>${escapeHtml(`${titleCase(record.kind)} ${record.type}`)}</span>
-    <small>${escapeHtml(`${humanSourceLabel(record.source)} ${recordLabel(record.id)}`)}</small>
+    <span>${escapeHtml(`Record ${recordLabel(record.id)}`)}</span>
+    <small>Details</small>
   `;
+}
+
+function recordIndexAccessibleSummary(record: DashboardRecordSummary): string {
+  return `Record Index: ${titleCase(record.kind)} ${record.type} from ${humanSourceLabel(record.source)} ${recordLabel(record.id)}`;
 }
 
 function eventsTimeline(events: DashboardEventSummary[]): string {

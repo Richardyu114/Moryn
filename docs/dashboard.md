@@ -711,10 +711,11 @@ health signals`, `Raw Store` opens with `Records, events, and sync`, and
 `Record Index`, `Event Timeline`, and `Sync Snapshot` instead of generic
 `Records`, `Events`, and `Sync`. `Record Index` and `Event Timeline` render
 only the first ten rows each and summarize overflow as `/api/dashboard`
-evidence. `Record Index` record rows use short kind/type/source plus short
-record-id summaries in their folded row instead of raw record text, while their
-expanded bodies still keep agent activity, record quality, records, events, and
-sync detail inspectable.
+evidence. `Record Index` record rows use short record-id summaries and a
+`Details` hint in their folded row instead of raw record text or machine type
+names, while the accessible label and table columns keep kind, type, source, and
+record-id context. Expanded bodies still keep agent activity, record quality,
+records, events, and sync detail inspectable.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without

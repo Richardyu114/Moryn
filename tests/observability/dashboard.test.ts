@@ -2337,6 +2337,10 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(html).toContain("<span>Moryn Local rec_abcdef12</span>");
+      expect(html).toContain("<summary aria-label=\"Record Index: Skill codex_skill_bundle from Moryn Local rec_abcdef12\">");
+      expect(html).toContain("<span>Record rec_abcdef12</span>");
+      expect(html).toContain("<small>Details</small>");
+      expect(html).not.toContain("<span>Skill codex_skill_bundle</span>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Trace commands: Skill codex_skill_bundle rec_abcdef12\">");
       expect(html).toContain("<small>Audit commands</small>");
       expect(html).not.toContain("<small>Skill codex_skill_bundle rec_abcdef12</small>");
