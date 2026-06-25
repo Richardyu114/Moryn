@@ -454,7 +454,17 @@ Hosts should treat `execution.ready_to_run` as the immediate run gate. A
 read-only action can be safe, while a write that needs authored content should
 remain blocked until the content is supplied.
 
-## Smoke Test
+## Smoke Tests
+
+Validate the v0.2 default dogfood path locally:
+
+```bash
+npm run smoke:dogfood-demo
+```
+
+This uses a temporary local store to run setup, context pack, low-risk
+autocapture, review-routed handoff, and dashboard snapshot checks without
+touching user data.
 
 Validate the lifecycle path locally:
 

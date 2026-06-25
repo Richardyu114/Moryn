@@ -44,7 +44,8 @@ describe("release check", () => {
       "package/dist/cli.js",
       "package/dist/index.js",
       "package/dist/mcp/server.js",
-      "package/scripts/agent-lifecycle-smoke.js"
+      "package/scripts/agent-lifecycle-smoke.js",
+      "package/scripts/dogfood-demo-smoke.js"
     ])).not.toThrow();
 
     expect(() => assertPackageFilesComplete([
@@ -59,7 +60,8 @@ describe("release check", () => {
       "package/docs/moryn-design.md",
       "package/dist/index.js",
       "package/dist/mcp/server.js",
-      "package/scripts/agent-lifecycle-smoke.js"
+      "package/scripts/agent-lifecycle-smoke.js",
+      "package/scripts/dogfood-demo-smoke.js"
     ])).toThrow(/missing required package files: dist\/cli\.js/);
 
     expect(() => assertPackageFilesComplete([
@@ -74,7 +76,8 @@ describe("release check", () => {
       "package/docs/moryn-design.md",
       "package/dist/cli.js",
       "package/dist/index.js",
-      "package/dist/mcp/server.js"
+      "package/dist/mcp/server.js",
+      "package/scripts/dogfood-demo-smoke.js"
     ])).toThrow(/missing required package files: scripts\/agent-lifecycle-smoke\.js/);
 
     expect(() => assertPackageFilesComplete([
@@ -89,7 +92,8 @@ describe("release check", () => {
       "package/dist/cli.js",
       "package/dist/index.js",
       "package/dist/mcp/server.js",
-      "package/scripts/agent-lifecycle-smoke.js"
+      "package/scripts/agent-lifecycle-smoke.js",
+      "package/scripts/dogfood-demo-smoke.js"
     ])).toThrow(/missing required package files: docs\/moryn-design\.md/);
 
     expect(() => assertPackageFilesComplete([
@@ -104,8 +108,25 @@ describe("release check", () => {
       "package/dist/cli.js",
       "package/dist/index.js",
       "package/dist/mcp/server.js",
-      "package/scripts/agent-lifecycle-smoke.js"
+      "package/scripts/agent-lifecycle-smoke.js",
+      "package/scripts/dogfood-demo-smoke.js"
     ])).toThrow(/missing required package files: docs\/agent-install-prompt\.md/);
+
+    expect(() => assertPackageFilesComplete([
+      "package/package.json",
+      "package/LICENSE",
+      "package/README.md",
+      "package/docs/agent-install-prompt.md",
+      "package/docs/agent-workflow.md",
+      "package/docs/contracts.md",
+      "package/docs/development.md",
+      "package/docs/implementation-roadmap.md",
+      "package/docs/moryn-design.md",
+      "package/dist/cli.js",
+      "package/dist/index.js",
+      "package/dist/mcp/server.js",
+      "package/scripts/agent-lifecycle-smoke.js"
+    ])).toThrow(/missing required package files: scripts\/dogfood-demo-smoke\.js/);
   });
 
   it("runs the local release gate and skips external Git validation without a remote", async () => {

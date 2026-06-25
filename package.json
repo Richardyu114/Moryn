@@ -13,7 +13,8 @@
   },
   "bin": {
     "moryn": "dist/cli.js",
-    "moryn-agent-smoke": "scripts/agent-lifecycle-smoke.js"
+    "moryn-agent-smoke": "scripts/agent-lifecycle-smoke.js",
+    "moryn-dogfood-demo": "scripts/dogfood-demo-smoke.js"
   },
   "keywords": [
     "agent",
@@ -28,13 +29,15 @@
     "README.md",
     "docs",
     "assets",
-    "scripts/agent-lifecycle-smoke.js"
+    "scripts/agent-lifecycle-smoke.js",
+    "scripts/dogfood-demo-smoke.js"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli.ts",
     "release:check": "tsx scripts/release-check.ts",
     "smoke:agent-lifecycle": "node scripts/agent-lifecycle-smoke.js",
+    "smoke:dogfood-demo": "node scripts/dogfood-demo-smoke.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

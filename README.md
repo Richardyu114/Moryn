@@ -427,8 +427,13 @@ npm run build
 npm run typecheck
 npm test
 npm run release:check
+npm run smoke:dogfood-demo
 npm run smoke:agent-lifecycle
 ```
+
+`npm run smoke:dogfood-demo` runs the v0.2 default path end to end on a
+temporary local store: setup, context pack, low-risk autocapture, review-routed
+handoff, and dashboard snapshot evidence.
 
 The release check builds, typechecks, tests, checks packed-package contents, and
 optionally validates a private Git remote:

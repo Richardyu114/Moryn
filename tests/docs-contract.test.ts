@@ -366,6 +366,10 @@ describe("documentation contracts", () => {
     expect(readme).toContain("moryn context pack --project . --agent codex");
     expect(readme).toContain("moryn capture session --project . --agent codex --summary");
     expect(readme).toContain("moryn capture policy --project . --limit 20");
+    expect(readme).toContain("npm run smoke:dogfood-demo");
+    expect(readme).toContain("low-risk autocapture");
+    expect(workflow).toContain("npm run smoke:dogfood-demo");
+    expect(workflow).toContain("dashboard snapshot checks");
     expect(readme).toContain("Handoff Pack v0.2");
     expect(readme).toContain("recent decisions");
     expect(workflow).toContain("handoff_pack");

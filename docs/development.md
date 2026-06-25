@@ -22,11 +22,15 @@ npm run build
 npm run typecheck
 npm test
 npm run release:check
+npm run smoke:dogfood-demo
 npm run smoke:agent-lifecycle
 ```
 
 `npm run release:check` runs build, typecheck, tests, package-content checks,
 and optional private Git remote validation.
+`npm run smoke:dogfood-demo` validates the v0.2 default path on a temporary
+local store: setup, context pack, low-risk autocapture, review-routed handoff,
+and dashboard snapshot evidence.
 
 To validate with a real remote, use a dedicated test repository:
 
@@ -96,6 +100,7 @@ The npm package includes:
 - `docs`
 - `assets`
 - `scripts/agent-lifecycle-smoke.js`
+- `scripts/dogfood-demo-smoke.js`
 
 The release check rejects private Moryn store data such as `.moryn/`,
 `events/`, `snapshots/`, `indexes/`, `config.json`, or packed tarballs.
@@ -132,11 +137,12 @@ Implementation history and future work belong in:
 Before publishing:
 
 1. Run `npm run release:check`.
-2. Run `npm run smoke:agent-lifecycle`.
-3. Inspect `npm pack --dry-run --json`.
-4. Confirm no private memory store data is included.
-5. Confirm README and docs describe the current public interface.
-6. Publish only to the official npm registry:
+2. Run `npm run smoke:dogfood-demo`.
+3. Run `npm run smoke:agent-lifecycle`.
+4. Inspect `npm pack --dry-run --json`.
+5. Confirm no private memory store data is included.
+6. Confirm README and docs describe the current public interface.
+7. Publish only to the official npm registry:
 
    ```bash
    npm publish --dry-run --access public --registry https://registry.npmjs.org

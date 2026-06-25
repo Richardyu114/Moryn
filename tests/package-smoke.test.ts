@@ -858,4 +858,28 @@ describe("published package smoke", () => {
       }
     });
   }, 120000);
+
+  it("installs the packed package and runs the dogfood demo smoke without dev dependencies", async () => {
+    await withTempDir(async (dir) => {
+      const pack = await exec("npm", ["pack", "--silent"], { cwd: process.cwd() });
+      const tarball = join(process.cwd(), pack.stdout.trim().split(/\s+/).at(-1) ?? "");
+
+      try {
+        await exec("npm", ["init", "-y"], { cwd: dir });
+        await exec("npm", ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--silent", tarball], { cwd: dir });
+
+        const smoke = join(dir, "node_modules", ".bin", "moryn-dogfood-demo");
+        const result = await exec(smoke, [], { cwd: dir });
+
+        expect(result.stdout).toContain("dogfood demo smoke passed");
+        expect(result.stdout).toContain("low-risk handoff auto-captured");
+        expect(result.stdout).toContain("review handoff routed to Capture Inbox");
+        expect(result.stdout).toContain("dashboard snapshot generated");
+      } finally {
+        if (tarball) {
+          await rm(tarball, { force: true });
+        }
+      }
+    });
+  }, 120000);
 });
