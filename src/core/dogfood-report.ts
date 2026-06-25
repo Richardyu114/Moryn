@@ -105,6 +105,8 @@ export const DOGFOOD_REPORT_SELECTION_SOURCES = {
 } as const;
 
 const FAILURE_WORDS = /\b(?:fail(?:ed|ure)?|timeout|timed out|error|blocked|stuck|regression|flaky)\b/i;
+const RESOLVED_IMPLEMENTATION_WORDS = /\b(?:added|aligned|completed|complete|finished|fixed|parameterized|resolved|implemented|updated|shipped|landed|committed|pushed|restarted)\b/i;
+const VERIFICATION_WORDS = /\b(?:verified|verification completed|passing|passed|typecheck|build|release check|tests? passed|regression tests?|healthy|zero\s+\w+(?:\s+\w+){0,3}\s+(?:backlog|candidates|items)|no\s+dogfood\s+\w+(?:\s+\w+){0,2}\s+backlog)\b/i;
 
 function countBy<T extends string>(values: T[]): Partial<Record<T, number>> {
   const counts: Partial<Record<T, number>> = {};
@@ -138,7 +140,12 @@ function textKey(record: MorynRecord): string {
 function isFailureSignal(record: MorynRecord): boolean {
   if (record.state === "archived" || record.state === "quarantined") return false;
   const haystack = `${record.kind} ${record.type} ${record.tags.join(" ")} ${displayRecordText(record)}`;
+  if (record.kind === "session_summary" && isResolvedImplementationHandoff(haystack)) return false;
   return FAILURE_WORDS.test(haystack);
+}
+
+function isResolvedImplementationHandoff(text: string): boolean {
+  return RESOLVED_IMPLEMENTATION_WORDS.test(text) && VERIFICATION_WORDS.test(text);
 }
 
 function duplicateAutocaptureGroups(records: MorynRecord[]): MorynRecord[][] {

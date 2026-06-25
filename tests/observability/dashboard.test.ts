@@ -624,6 +624,59 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("excludes unrelated global records from project dogfood findings", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let tick = 0;
+          return () => `2026-06-01T00:01:${String(tick++).padStart(2, "0")}.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_project_dogfood_${++record}` : `evt_project_dogfood_${++event}`;
+        })()
+      });
+
+      const projectFailure = await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Dogfood timeout blocked the dashboard review.", format: "text" },
+        source: { client: "codex", session_id: "project-dogfood" }
+      });
+      const unrelatedGlobal = await engine.write({
+        kind: "memory",
+        type: "notion_publish_event",
+        scope: "global",
+        tags: ["notion", "verified-publish"],
+        content: { text: "Global Notion publish failed once but was verified in another workflow.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex", session_id: "global-dogfood" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+
+      expect(data.dogfood_report.findings_by_id.failure_signals).toMatchObject({
+        record_ids: [projectFailure.record.id]
+      });
+      expect(data.dogfood_report.findings_by_id.failure_signals?.record_ids).not.toContain(unrelatedGlobal.record.id);
+      expect(data.dogfood_report.records_by_id[unrelatedGlobal.record.id]).toBeUndefined();
+      expect(JSON.stringify(data.dogfood_report)).not.toContain("Global Notion publish failed once");
+    });
+  });
+
   it("surfaces candidate backlog as a read-only memory doctor governance item", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

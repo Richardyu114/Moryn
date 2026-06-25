@@ -230,6 +230,11 @@ or events; suggested actions are read-only dashboard or timeline checks.
 Capture review backlog uses the same review-required policy boundary as Capture
 Inbox and Health Check, so low-risk auto-captured handoffs do not create
 dogfood review work.
+Failure or timeout findings are active-friction signals: completed session
+handoffs that also report successful verification stay in audit evidence rather
+than becoming dogfood warnings.
+Project-scoped dashboard dogfood reports use project-scoped records for those
+findings, so unrelated global records do not become project dogfood work.
 The dashboard renders the same findings as a collapsed read-only `Dogfood
 Review` issue inbox with `Issue brief`, impact, affected records, read-only next
 step, evidence path, and safe inspection command. It does not add dashboard API

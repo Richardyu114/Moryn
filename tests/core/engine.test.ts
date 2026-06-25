@@ -665,6 +665,182 @@ describe("core engine", () => {
     });
   });
 
+  it("does not treat resolved implementation handoffs as active dogfood failure signals", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-20T00:02:${String(tick++).padStart(2, "0")}.000Z`
+      });
+
+      const resolved = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "auto-captured", "host:codex"],
+        content: {
+          format: "json",
+          text: "Fixed the dashboard timeout false-positive. Verification completed: regression tests passed, typecheck passed, build passed, release check passed, and dashboard restarted.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "capture",
+              route: "auto_capture",
+              review_required: false,
+              user_action_required: false,
+              auto_canonical: false,
+              dashboard_surface: "handoff",
+              rule_ids: ["low_risk_handoff_auto_capture"],
+              reasons: ["low_risk_handoff_auto_capture"]
+            }
+          }
+        },
+        source: { client: "codex", session_id: "resolved-timeout" }
+      });
+      const activeFailure = await engine.write({
+        kind: "agent_note",
+        type: "failure",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dogfood", "timeout"],
+        content: { text: "Dashboard refresh is blocked by a timeout in the dogfood report.", format: "text" },
+        source: { client: "codex", session_id: "active-timeout" }
+      });
+
+      const report = await engine.dogfoodReport({ project_id: "moryn", limit: 20 });
+
+      expect(report.stats.failure_signal_records).toBe(1);
+      expect(report.findings_by_id.failure_signals).toMatchObject({
+        category: "friction",
+        record_ids: [activeFailure.record.id]
+      });
+      expect(report.findings_by_id.failure_signals?.record_ids).not.toContain(resolved.record.id);
+    });
+  });
+
+  it("does not treat verified added-change handoffs as active dogfood failure signals", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-20T00:03:${String(tick++).padStart(2, "0")}.000Z`
+      });
+
+      const resolved = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "auto-captured", "host:codex"],
+        content: {
+          format: "json",
+          text: "Added regression coverage for project-context error recovery. Verified focused tests, typecheck, full suite, release check, dist dogfood, and lifecycle smoke.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "capture",
+              route: "auto_capture",
+              review_required: false,
+              user_action_required: false,
+              auto_canonical: false,
+              dashboard_surface: "handoff",
+              rule_ids: ["low_risk_handoff_auto_capture"],
+              reasons: ["low_risk_handoff_auto_capture"]
+            }
+          }
+        },
+        source: { client: "codex", session_id: "resolved-regression" }
+      });
+      const activeFailure = await engine.write({
+        kind: "agent_note",
+        type: "failure",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dogfood", "regression"],
+        content: { text: "Regression remains blocked in dashboard routing.", format: "text" },
+        source: { client: "codex", session_id: "active-regression" }
+      });
+
+      const report = await engine.dogfoodReport({ project_id: "moryn", limit: 20 });
+
+      expect(report.stats.failure_signal_records).toBe(1);
+      expect(report.findings_by_id.failure_signals?.record_ids).toEqual([activeFailure.record.id]);
+      expect(report.findings_by_id.failure_signals?.record_ids).not.toContain(resolved.record.id);
+    });
+  });
+
+  it("does not treat healthy restarted handoffs as active dogfood failure signals", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-20T00:05:${String(tick++).padStart(2, "0")}.000Z`
+      });
+
+      const resolved = await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "review", "host:codex"],
+        content: {
+          format: "text",
+          text: "Aligned capture review backlog semantics. Added shared capture review predicate, regression coverage, docs contract updates, pushed main commit, and restarted dashboard with healthy health_check, zero capture review candidates, zero Capture Inbox items, and no dogfood capture backlog."
+        },
+        source: { client: "codex", session_id: "healthy-restarted" }
+      });
+      const activeFailure = await engine.write({
+        kind: "agent_note",
+        type: "failure",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dogfood", "blocked"],
+        content: { text: "Capture review backlog remains blocked after dashboard restart.", format: "text" },
+        source: { client: "codex", session_id: "active-blocked" }
+      });
+
+      const report = await engine.dogfoodReport({ project_id: "moryn", limit: 20 });
+
+      expect(report.stats.failure_signal_records).toBe(1);
+      expect(report.findings_by_id.failure_signals?.record_ids).toEqual([activeFailure.record.id]);
+      expect(report.findings_by_id.failure_signals?.record_ids).not.toContain(resolved.record.id);
+    });
+  });
+
+  it("keeps canonical memory failure language visible in dogfood signals", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-20T00:04:${String(tick++).padStart(2, "0")}.000Z`
+      });
+
+      const canonical = await engine.write({
+        kind: "memory",
+        type: "release_roadmap",
+        scope: "project",
+        project_id: "moryn",
+        state: "canonical",
+        tags: ["roadmap"],
+        content: {
+          format: "text",
+          text: "Added release principles. One risk remains blocked until dashboard review noise is reduced."
+        },
+        source: { client: "codex", session_id: "canonical-risk" }
+      });
+
+      const report = await engine.dogfoodReport({ project_id: "moryn", limit: 20 });
+
+      expect(report.stats.failure_signal_records).toBe(1);
+      expect(report.findings_by_id.failure_signals?.record_ids).toEqual([canonical.record.id]);
+    });
+  });
+
   it("audits autocapture policy decisions without mutating or exposing private records", async () => {
     await withInitializedTempStore(async (storePath) => {
       let tick = 0;

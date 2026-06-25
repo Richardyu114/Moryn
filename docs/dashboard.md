@@ -758,6 +758,12 @@ execution, or a second mutation path.
 Dogfood capture review backlog uses the same review-required policy boundary as
 Capture Inbox and Health Check, so low-risk auto-captured handoffs remain
 read-only audit evidence instead of dogfood review work.
+Failure-signal findings focus on active friction; completed session handoffs
+that also report successful verification stay in audit evidence instead of
+appearing as new dogfood warnings.
+When the dashboard is scoped to a project, Dogfood Review uses project-scoped
+records for those findings so unrelated global notes do not appear as project
+work.
 
 It does not contain Capture Inbox approvals or Review Queue maintenance
 approvals. Those explicit confirmation surfaces stay on the main path, outside

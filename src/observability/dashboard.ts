@@ -792,6 +792,10 @@ function recordProjectMatchesDashboard(record: MorynRecord, projectId: string | 
   return !projectId || record.project_id === projectId || record.scope === "global";
 }
 
+function recordProjectMatchesDogfood(record: MorynRecord, projectId: string | undefined): boolean {
+  return !projectId || record.project_id === projectId;
+}
+
 function isRecallEvalCaseRecord(record: MorynRecord): boolean {
   return record.type === "recall_eval_case";
 }
@@ -2702,7 +2706,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     excluded_private_records: memoryDoctorAllRecords.length - memoryDoctorRecords.length
   });
   const candidateTriageData = buildCandidateTriage(memoryDoctorRecords, eventsByRecord, generatedAt, limit);
-  const dogfoodAllRecords = allRecords.filter((record) => recordProjectMatchesDashboard(record, options.project_id));
+  const dogfoodAllRecords = allRecords.filter((record) => recordProjectMatchesDogfood(record, options.project_id));
   const dogfoodRecords = dogfoodAllRecords.filter((record) => isVisibleForDashboard(record, options.include_private));
   const dogfoodRecordIds = new Set(dogfoodRecords.map((record) => record.id));
   const dogfoodEvents = events.filter((event) => {
