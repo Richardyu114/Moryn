@@ -305,6 +305,9 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("plan_hash");
     expect(dashboard).toContain("decision card");
     expect(dashboard).toContain("The structured decision summary is folded behind `Decision summary`");
+    expect(dashboard).toContain("The visible brief also spells out the outcome of `Approve` and `Reject` before");
+    expect(dashboard).toContain("`Approve` appends guarded append-only events and does not delete records");
+    expect(dashboard).toContain("`Reject` hides the card only for the current browser session and leaves store history unchanged");
     expect(dashboard).toContain("Decision evidence");
     expect(dashboard).toContain("A compact `Approval checklist` fold");
     expect(dashboard).toContain("Before approving");

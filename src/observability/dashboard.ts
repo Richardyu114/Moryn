@@ -3860,8 +3860,12 @@ function maintenancePrimaryActionLabel(plan: DashboardMaintenancePlan): string {
   return plan.type === "candidate_noise_archive" ? "Archive Noise" : "Apply Repair";
 }
 
+function maintenanceApprovalEventName(plan: DashboardMaintenancePlan): "archive_record" | "revise_record" {
+  return plan.type === "candidate_noise_archive" ? "archive_record" : "revise_record";
+}
+
 function maintenanceActionSafetyNote(plan: DashboardMaintenancePlan): string {
-  const eventName = plan.type === "candidate_noise_archive" ? "archive_record" : "revise_record";
+  const eventName = maintenanceApprovalEventName(plan);
   return `${maintenancePrimaryActionLabel(plan)} appends ${eventName} events only after the plan_hash guard passes.`;
 }
 
@@ -3894,6 +3898,7 @@ function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
   const firstLine = plan.type === "candidate_noise_archive"
     ? `This cleanup would archive ${escapeHtml(pluralize(plan.dry_run.matched_records, "candidate record"))} that look like smoke/e2e marker noise.`
     : `This repair would relink ${escapeHtml(pluralize(plan.dry_run.matched_records, "record"))} from <code>${escapeHtml(plan.from_project_id ?? "")}</code> to <code>${escapeHtml(plan.to_project_id ?? "")}</code>.`;
+  const eventName = maintenanceApprovalEventName(plan);
   return `
     <div class="maintenance-brief" data-maintenance-brief>
       <h4>Decision brief</h4>
@@ -3902,6 +3907,16 @@ function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
         <li>Approval is explicit: the server re-runs the dry run and checks the same <code>plan_hash</code> before writing.</li>
         <li>${escapeHtml(maintenancePrivateSummary(plan))}.</li>
       </ul>
+      <dl class="maintenance-outcome" data-maintenance-outcome>
+        <div>
+          <dt>Approve</dt>
+          <dd>Appends <code>${escapeHtml(eventName)}</code> events after the <code>plan_hash</code> check; no records are deleted.</dd>
+        </div>
+        <div>
+          <dt>Reject</dt>
+          <dd>Hides this card for this browser session only; store history is unchanged.</dd>
+        </div>
+      </dl>
     </div>
   `;
 }
@@ -3941,9 +3956,8 @@ function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
   const proposed = plan.type === "candidate_noise_archive"
     ? `${maintenanceMoveSummary(plan)} after user confirmation.`
     : `${maintenanceMoveSummary(plan)} from ${plan.from_project_id ?? ""} to ${plan.to_project_id ?? ""}.`;
-  const approvalWrites = plan.type === "candidate_noise_archive"
-    ? "Approving appends archive_record events only; Reject hides this card for the browser session."
-    : "Approving appends revise_record events only; Reject hides this card for the browser session.";
+  const eventName = maintenanceApprovalEventName(plan);
+  const approvalWrites = `Approving appends ${eventName} events only; Reject hides this card for the browser session.`;
   return `
     <div class="maintenance-decision-record" data-maintenance-decision-record>
       <h4>${escapeHtml(heading)}</h4>
@@ -7481,6 +7495,23 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .maintenance-brief li, .capture-inbox-brief li, .context-pack-brief li {
       color: var(--ink-2);
       overflow-wrap: anywhere;
+    }
+    .maintenance-outcome {
+      border-top: 1px solid var(--hairline);
+      margin: 8px 0 0;
+      padding-top: 8px;
+      gap: 6px;
+    }
+    .maintenance-outcome div {
+      grid-template-columns: 76px minmax(0, 1fr);
+      gap: 8px;
+    }
+    .maintenance-outcome dt {
+      color: var(--ink);
+      font-weight: 780;
+    }
+    .maintenance-outcome dd {
+      color: var(--ink-2);
     }
     .maintenance-audit-trail {
       border: 1px solid var(--hairline);

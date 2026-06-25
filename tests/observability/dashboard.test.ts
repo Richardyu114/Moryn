@@ -3622,6 +3622,12 @@ describe("observability dashboard", () => {
       ]));
       expect(html).toContain("Candidate noise cleanup");
       expect(html).toContain("This cleanup would archive 3 candidate records that look like smoke/e2e marker noise.");
+      const noiseOutcomeStart = html.indexOf("<dl class=\"maintenance-outcome\" data-maintenance-outcome>");
+      const noiseOutcomeHtml = html.slice(noiseOutcomeStart, html.indexOf("</dl>", noiseOutcomeStart));
+      expect(noiseOutcomeHtml).toContain("<dt>Approve</dt>");
+      expect(noiseOutcomeHtml).toContain("<dd>Appends <code>archive_record</code> events after the <code>plan_hash</code> check; no records are deleted.</dd>");
+      expect(noiseOutcomeHtml).toContain("<dt>Reject</dt>");
+      expect(noiseOutcomeHtml).toContain("<dd>Hides this card for this browser session only; store history is unchanged.</dd>");
       expect(html).toContain("Archive 3 candidates");
       expect(html).toContain("Approving appends archive_record events only; Reject hides this card for the browser session.");
       expect(html).toContain("<strong>Issue:</strong> Candidate cleanup found smoke/e2e marker noise.");
@@ -3799,6 +3805,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("<h4>Decision brief</h4>");
       expect(html).toContain("This repair would relink 1 record from <code>repo-e6f0166fd942</code> to <code>moryn</code>.");
       expect(html).toContain("Approval is explicit: the server re-runs the dry run and checks the same <code>plan_hash</code> before writing.");
+      const repairOutcomeStart = html.indexOf("<dl class=\"maintenance-outcome\" data-maintenance-outcome>");
+      const repairOutcomeHtml = html.slice(repairOutcomeStart, html.indexOf("</dl>", repairOutcomeStart));
+      expect(repairOutcomeHtml).toContain("<dt>Approve</dt>");
+      expect(repairOutcomeHtml).toContain("<dd>Appends <code>revise_record</code> events after the <code>plan_hash</code> check; no records are deleted.</dd>");
+      expect(repairOutcomeHtml).toContain("<dt>Reject</dt>");
+      expect(repairOutcomeHtml).toContain("<dd>Hides this card for this browser session only; store history is unchanged.</dd>");
       expect(html).toContain("No private records included.");
       expect(html).toContain("Review before write");
       expect(html).toContain("Plan hash guard");

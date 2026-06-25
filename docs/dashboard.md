@@ -315,6 +315,12 @@ plan is worth approving without reading raw event language:
 - why approval is explicit
 - whether private records are included or skipped
 
+The visible brief also spells out the outcome of `Approve` and `Reject` before
+the user reaches raw evidence:
+
+- `Approve` appends guarded append-only events and does not delete records
+- `Reject` hides the card only for the current browser session and leaves store history unchanged
+
 The structured decision summary is folded behind `Decision summary`, so the
 first expanded queue view stays focused on the short brief and explicit controls.
 Opening it still shows:
