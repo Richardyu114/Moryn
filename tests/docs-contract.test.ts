@@ -99,7 +99,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The brief is navigation copy only");
     expectText(dashboard, "does not render Approve, Reject, Promote, Archive, or Apply controls");
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
-    expectText(dashboard, "`Routine Diagnostics` opens with `Healthy checks and handoff readiness`");
+    expectText(dashboard, "`Routine Diagnostics` opens with `Checks ready`");
+    expectText(dashboard, "while the accessible summary keeps `Healthy checks and handoff readiness`");
     expectText(dashboard, "grouped first under `Read-only Findings`");
     expectText(dashboard, "whose row reads `Findings to inspect`");
     expectText(dashboard, "`Read-only Findings` is collapsed by default inside `Evidence Library`");

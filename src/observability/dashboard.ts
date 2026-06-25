@@ -5111,9 +5111,9 @@ function routineDiagnosticsPanel(panels: string[]): string {
   if (panels.length === 0) return "";
   return `
     <details class="panel routine-diagnostics" data-dashboard-detail="routine-diagnostics" aria-label="Routine Diagnostics">
-      <summary class="dashboard-fold-summary routine-diagnostics-fold">
+      <summary class="dashboard-fold-summary routine-diagnostics-fold" aria-label="Routine Diagnostics: Healthy checks and handoff readiness">
         <span>Routine Diagnostics</span>
-        <small>Healthy checks and handoff readiness</small>
+        <small>Checks ready</small>
       </summary>
       <div class="routine-diagnostics-list">
         ${panels.join("")}

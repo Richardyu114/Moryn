@@ -656,8 +656,9 @@ buttons can open the parent library before scrolling to `governance-hub`,
 Inside Evidence Library, routine read-only diagnostics such as a healthy Health
 Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack
 Review are grouped under `Routine Diagnostics`. `Routine Diagnostics` opens
-with `Healthy checks and handoff readiness` so the folded row explains why these
-checks are quiet. Findings-oriented panels such as Dogfood Review, Governance
+with `Checks ready` so the folded row stays compact, while the accessible
+summary keeps `Healthy checks and handoff readiness` for screen readers and
+audit tooling. Findings-oriented panels such as Dogfood Review, Governance
 Hub, or non-routine Health/Recall/Context checks
 are grouped first under `Read-only Findings`, whose row reads `Findings to
 inspect`. `Read-only Findings` is collapsed by default inside `Evidence
