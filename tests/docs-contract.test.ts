@@ -128,6 +128,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Capture Policy Audit` row follows the same rule");
     expectText(dashboard, "clean reports read `No capture policy work`");
     expectText(dashboard, "non-zero summaries omit empty buckets such as `0 captured`");
+    expectText(dashboard, "`Policy Decision History` opens with `Read-only routing evidence`");
     expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Operational Evidence`");
     expectText(dashboard, "row reads `Clean audits and store signals`");
     expectText(dashboard, "instead of listing child panel counts");

@@ -4369,7 +4369,10 @@ function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "pane
       </div>
       ${capturePolicyFindingList(report)}
       <details class="lifecycle-action-details" data-dashboard-detail="capture-policy:${escapeHtml(report.policy.id)}">
-        <summary>Policy decisions and read-only actions</summary>
+        <summary class="dashboard-fold-summary">
+          <span>Policy Decision History</span>
+          <small>Read-only routing evidence</small>
+        </summary>
         ${capturePolicyActionsList(report)}
         ${capturePolicyDecisionCards(report)}
       </details>

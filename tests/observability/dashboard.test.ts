@@ -4448,6 +4448,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"clean-audit-report capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
       expect(html).toContain("<span>Capture Policy Audit</span>");
       expect(html).toContain("<small>No capture policy work</small>");
+      expect(html).toContain("<details class=\"lifecycle-action-details\" data-dashboard-detail=\"capture-policy:default_autocapture_policy\">");
+      expect(html).toContain("<span>Policy Decision History</span>");
+      expect(html).toContain("<small>Read-only routing evidence</small>");
+      expect(html).not.toContain("<summary>Policy decisions and read-only actions</summary>");
       expect(html).not.toContain("<small>0 captured | 0 review | 0 archived</small>");
       expect(html).not.toContain("<div class=\"clean-audit-list\">\n          \n    <details class=\"panel memory-lifecycle\"");
       expect(html).not.toContain("data-governance-item=\"capture_policy:review_required\"");
