@@ -285,9 +285,10 @@ actions instead of repeating `0 findings | 0 actions`; its child suggestions
 fold reads `Lifecycle suggestions` instead of a generic `Suggested actions` row.
 The nested `Capture Policy Audit` row follows the same rule: clean reports read
 `No capture policy work`, and non-zero summaries omit empty buckets such as
-`0 captured`. `Policy Decision History` opens with `Read-only routing evidence`
-so historical capture, review, and archive decisions read as audit history
-instead of another action queue.
+`0 captured`. `Policy Decision History` opens with `Routing evidence`, while
+the accessible summary keeps `Read-only routing evidence`, so historical
+capture, review, and archive decisions read as audit history instead of another
+action queue.
 
 When `--project-id <id>` or `--project <path>` is provided, the lifecycle report
 uses the same project scope as the CLI report: matching project records plus

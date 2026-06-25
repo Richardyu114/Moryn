@@ -4735,7 +4735,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>No capture policy work</small>");
       expect(html).toContain("<details class=\"lifecycle-action-details\" data-dashboard-detail=\"capture-policy:default_autocapture_policy\">");
       expect(html).toContain("<span>Policy Decision History</span>");
-      expect(html).toContain("<small>Read-only routing evidence</small>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Policy Decision History: Read-only routing evidence\">");
+      expect(html).toContain("<small>Routing evidence</small>");
+      expect(html).not.toContain("<small>Read-only routing evidence</small>");
       expect(html).not.toContain("<summary>Policy decisions and read-only actions</summary>");
       expect(html).not.toContain("<small>0 captured | 0 review | 0 archived</small>");
       expect(html).not.toContain("<div class=\"clean-audit-list\">\n          \n    <details class=\"panel memory-lifecycle\"");
