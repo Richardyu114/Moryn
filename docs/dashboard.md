@@ -677,11 +677,11 @@ internals available without placing them at the same level. Nested evidence
 summaries also use purpose labels: `Store Signals` opens with `Operational
 health signals`, `Raw Inspector` opens with `Records, events, and sync`, and
 `Debug Inspector` opens with `Raw store inspection`. Its child folds are labeled
-`Record table`, `Event log`, and `Sync state` instead of generic
-`Records`, `Events`, and `Sync`. `Record table` and `Event log` render only the
-first ten rows each and summarize overflow as `/api/dashboard` evidence, while
-their expanded bodies still keep agent activity, record quality, records,
-events, and sync detail inspectable.
+`Record Index`, `Event Timeline`, and `Sync Snapshot` instead of generic
+`Records`, `Events`, and `Sync`. `Record Index` and `Event Timeline` render
+only the first ten rows each and summarize overflow as `/api/dashboard`
+evidence, while their expanded bodies still keep agent activity, record
+quality, records, events, and sync detail inspectable.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without

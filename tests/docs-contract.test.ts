@@ -138,8 +138,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "timeline and recall trace commands under an `Audit trace` fold instead of a generic `Details` row");
     expectText(dashboard, "the raw `Debug Inspector` is grouped behind `Raw Inspector`");
     expectText(dashboard, "`Raw Inspector` opens with `Records, events, and sync`");
-    expectText(dashboard, "child folds are labeled `Record table`, `Event log`, and `Sync state`");
-    expectText(dashboard, "`Record table` and `Event log` render only the first ten rows each and summarize overflow as `/api/dashboard` evidence");
+    expectText(dashboard, "child folds are labeled `Record Index`, `Event Timeline`, and `Sync Snapshot`");
+    expectText(dashboard, "`Record Index` and `Event Timeline` render only the first ten rows each and summarize overflow as `/api/dashboard` evidence");
     expectText(dashboard, "still shows the concrete safe-check count");
     expectText(dashboard, "compact inspection rows with readable source labels, title, read-only next step, and evidence path");
     expectText(dashboard, "`memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor` safe inspection");

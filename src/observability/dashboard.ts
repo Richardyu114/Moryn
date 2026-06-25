@@ -4897,15 +4897,15 @@ function debugInspectorPanel(data: DashboardData): string {
       </summary>
       <div class="inspector-grid">
         <details data-dashboard-detail="inspector:records">
-          <summary>Record table</summary>
+          <summary>Record Index</summary>
           ${recordsTable(data.recent_records)}
         </details>
         <details data-dashboard-detail="inspector:events">
-          <summary>Event log</summary>
+          <summary>Event Timeline</summary>
           ${eventsTimeline(data.recent_events)}
         </details>
         <details data-dashboard-detail="inspector:sync">
-          <summary>Sync state</summary>
+          <summary>Sync Snapshot</summary>
           <dl>
             <div><dt>Remote</dt><dd>${escapeHtml(sync.remote ?? "not configured")}</dd></div>
             <div><dt>Branch</dt><dd>${escapeHtml(sync.branch ?? "unknown")}</dd></div>
