@@ -92,13 +92,15 @@ describe("documentation contracts", () => {
     expectText(dashboard, "when there are findings it reads `Findings and references`");
     expectText(dashboard, "while the accessible summary keeps `Read-only findings and reference evidence`");
     expectText(dashboard, "reads `Reference evidence only`");
-    expectText(dashboard, "starts with an `Evidence map` brief for `Findings`, `Diagnostics`, and `Audit`");
-    expectText(dashboard, "renders local route buttons that reuse the existing `data-action-board-target` behavior");
+    expectText(dashboard, "starts with a compact `Evidence routes` bar for `Findings`, `Diagnostics`, and `Audit`");
+    expectText(dashboard, "single wrapping rail");
+    expectText(dashboard, "does not become another card grid or prose panel");
+    expectText(dashboard, "The route bar renders local buttons that reuse the existing `data-action-board-target` behavior");
     expectText(dashboard, "`Findings` opens `Read-only Findings` when findings exist and otherwise stays on `Evidence Library`");
     expectText(dashboard, "`Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`");
     expectText(dashboard, "route buttons keep only the route label and current status visible");
     expectText(dashboard, "longer route hints stay in accessible labels");
-    expectText(dashboard, "The brief is navigation copy only");
+    expectText(dashboard, "The route bar is navigation copy only");
     expectText(dashboard, "does not render Approve, Reject, Promote, Archive, or Apply controls");
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
     expectText(dashboard, "`Routine Diagnostics` opens with `Checks ready`");

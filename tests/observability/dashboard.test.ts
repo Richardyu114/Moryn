@@ -1476,6 +1476,10 @@ describe("observability dashboard", () => {
       expect(candidateTriageIndex).toBeGreaterThan(evidenceReviewGroupIndex);
       expect(candidateTriageIndex).toBeLessThan(evidenceBackgroundGroupIndex);
       expect(html).toContain("<span>Read-only Findings</span>");
+      expect(html).toContain("<h3>Evidence routes</h3>");
+      expect(html).toContain("<div class=\"evidence-library-routebar\" role=\"list\" aria-label=\"Evidence routes\">");
+      expect(html).not.toContain("<h3>Evidence map</h3>");
+      expect(html).not.toContain("<div class=\"evidence-library-brief-grid\">");
       expect(html).toContain("<small>Findings to inspect</small>");
       expect(html).not.toContain("inspection panels</small>");
       expect(html).not.toContain("<span>Inspection Evidence</span>");
@@ -2132,7 +2136,10 @@ describe("observability dashboard", () => {
       expect(html.slice(0, evidenceLibraryDetailIndex)).not.toContain("data-dashboard-detail=\"candidate-triage\"");
       expect(evidenceBriefIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
       expect(evidenceBriefIndex).toBeLessThan(evidenceListIndex);
-      expect(html).toContain("<h3>Evidence map</h3>");
+      expect(html).toContain("<h3>Evidence routes</h3>");
+      expect(html).toContain("<div class=\"evidence-library-routebar\" role=\"list\" aria-label=\"Evidence routes\">");
+      expect(html).not.toContain("<h3>Evidence map</h3>");
+      expect(html).not.toContain("<div class=\"evidence-library-brief-grid\">");
       expect(html).toContain("class=\"evidence-library-route\" data-evidence-library-route=\"findings\"");
       expect(html).toContain("data-action-board-target=\"evidence-review-evidence\" aria-controls=\"evidence-review-evidence\" aria-label=\"Findings: Read-only findings available. Start here for dogfood, governance, or non-routine checks.\"");
       expect(html).toContain("<strong>Findings</strong><span>Read-only findings available</span>");

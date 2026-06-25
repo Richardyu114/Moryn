@@ -5296,7 +5296,7 @@ function evidenceLibraryRoute(input: {
 }): string {
   const ariaLabel = `${input.title}: ${input.summary}. ${input.note}`;
   return `
-          <button type="button" class="evidence-library-route" data-evidence-library-route="${escapeHtml(input.id)}" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}" aria-label="${escapeHtml(ariaLabel)}">
+          <button type="button" class="evidence-library-route" data-evidence-library-route="${escapeHtml(input.id)}" role="listitem" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}" aria-label="${escapeHtml(ariaLabel)}">
             <strong>${escapeHtml(input.title)}</strong><span>${escapeHtml(input.summary)}</span>
           </button>
   `;
@@ -5308,8 +5308,8 @@ function evidenceLibraryBrief(input: { reviewCount: number; routineCount: number
   const auditTarget = input.backgroundCount > 0 ? "supporting-evidence" : "evidence-library";
   return `
       <div class="evidence-library-brief" data-evidence-library-brief>
-        <h3>Evidence map</h3>
-        <div class="evidence-library-brief-grid">
+        <h3>Evidence routes</h3>
+        <div class="evidence-library-routebar" role="list" aria-label="Evidence routes">
 ${evidenceLibraryRoute({
     id: "findings",
     target: findingsTarget,
@@ -6586,17 +6586,21 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 780;
       text-transform: uppercase;
     }
-    .evidence-library-brief-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
+    .evidence-library-routebar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
     }
     .evidence-library-route {
       appearance: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1 1 210px;
       min-width: 0;
       border: 1px solid var(--hairline);
-      border-radius: 7px;
-      padding: 8px;
+      border-radius: 6px;
+      padding: 6px 8px;
       background: var(--surface);
       color: inherit;
       cursor: pointer;
@@ -6604,23 +6608,22 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       text-align: left;
       transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
     }
-    .evidence-library-route:hover { border-color: #b8c0c8; box-shadow: 0 8px 18px rgba(21, 25, 30, 0.045); transform: translateY(-1px); }
+    .evidence-library-route:hover { border-color: #b8c0c8; box-shadow: 0 6px 14px rgba(21, 25, 30, 0.04); transform: translateY(-1px); }
     .evidence-library-route:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .evidence-library-route strong,
     .evidence-library-route span {
-      display: block;
       overflow-wrap: anywhere;
     }
     .evidence-library-route strong {
       color: var(--ink);
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 780;
+      white-space: nowrap;
     }
     .evidence-library-route span {
-      margin-top: 3px;
-      color: var(--ink-2);
-      font-size: 12.5px;
-      font-weight: 720;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
     }
     .evidence-library-list {
       display: grid;
@@ -7729,7 +7732,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 740;
     }
     @media (max-width: 920px) {
-      header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid, .evidence-library-brief-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }

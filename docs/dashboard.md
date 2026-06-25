@@ -655,16 +655,17 @@ Evidence Library title is `Read-only Evidence`, while the stable route remains
 content-aware: when there are findings it reads `Findings and references`
 while the accessible summary keeps `Read-only findings and reference evidence`;
 when there is only routine/background material it reads `Reference evidence only`.
-It does not list every child module on the first screen. When expanded, it starts with an `Evidence map` brief for
-`Findings`, `Diagnostics`, and `Audit` so users can choose a route before
-reading nested panels. The brief renders local route buttons that reuse the
+It does not list every child module on the first screen. When expanded, it starts
+with a compact `Evidence routes` bar for `Findings`, `Diagnostics`, and `Audit`
+so users can choose a route before reading nested panels. The route bar renders
+local buttons that reuse the
 existing `data-action-board-target` behavior: `Findings` opens `Read-only
 Findings` when findings exist and otherwise stays on `Evidence Library`,
 `Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`.
-Those route buttons keep only the route label and current status visible; the
-longer route hints stay in accessible labels so the folded evidence map does
-not become another prose panel.
-The brief is navigation copy only: it does not render Approve, Reject, Promote,
+Those route buttons keep only the route label and current status visible in a
+single wrapping rail; the longer route hints stay in accessible labels so the
+expanded evidence entry does not become another card grid or prose panel.
+The route bar is navigation copy only: it does not render Approve, Reject, Promote,
 Archive, or Apply controls and does not add `data-dashboard-action-id`. Health
 Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and
 Audit Trail stay nested under that evidence layer so the main path stays
