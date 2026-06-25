@@ -5175,8 +5175,8 @@ function supportingEvidenceRawGroup(panels: string[]): string {
   return `
     <details class="supporting-evidence-group supporting-evidence-raw" data-dashboard-detail="supporting-raw-inspector">
       <summary class="dashboard-fold-summary supporting-evidence-group-heading">
-        <span>Raw Store</span>
-        <small>Records, events, and sync</small>
+        <span>Debug Raw Store</span>
+        <small>Debug-only records, events, and sync</small>
       </summary>
       <div class="supporting-evidence-group-list">
         ${panels.join("")}
