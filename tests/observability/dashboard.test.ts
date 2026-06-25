@@ -1361,13 +1361,15 @@ describe("observability dashboard", () => {
       expect(data.governance.items_by_id["dogfood_report:capture_review_backlog"]).toMatchObject({
         source: "dogfood_report",
         category: "dogfood_friction",
-        record_ids: ["rec_governance_item_4", "rec_governance_item_3"],
+        record_ids: ["rec_governance_item_3"],
         evidence_path: "dogfood_report.findings_by_id.capture_review_backlog",
         action_label: "review_capture_inbox",
         safe_to_run: true,
         requires_user_confirmation: false,
         writes: "none"
       });
+      expect(data.governance.items_by_id["dogfood_report:capture_review_backlog"].record_ids)
+        .not.toContain("rec_governance_item_4");
       expect(data.governance.items_by_id["dogfood_report:failure_signals"]).toMatchObject({
         source: "dogfood_report",
         category: "dogfood_friction",
@@ -1429,7 +1431,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-dogfood-review-item=\"capture_review_backlog\"");
       expect(html).toContain("data-dogfood-review-item=\"failure_signals\"");
       expect(html).toContain("<h4>Issue brief</h4>");
-      expect(html).toContain("<dt>Impact</dt><dd>2 autocapture/review candidate records are active.</dd>");
+      expect(html).toContain("<dt>Impact</dt><dd>1 autocapture/review candidate record is active.</dd>");
+      expect(html).not.toContain("<dt>Impact</dt><dd>2 autocapture/review candidate records are active.</dd>");
       expect(html).toContain("<dt>Read-only next step</dt><dd>review_capture_inbox</dd>");
       expect(html).toContain("<dt>Evidence</dt><dd><code>dogfood_report.findings_by_id.failure_signals</code></dd>");
       expect(html).toContain("<code>moryn dashboard --serve --project-id moryn</code>");
@@ -4466,6 +4469,12 @@ describe("observability dashboard", () => {
 
       expect(data.capture_inbox.total).toBe(0);
       expect(data.capture_inbox.items).toHaveLength(0);
+      expect(data.health_check.status).toBe("healthy");
+      expect(data.health_check.stats.capture_review_candidates).toBe(0);
+      expect(data.health_check.checks_by_id.capture_review_backlog).toMatchObject({
+        status: "pass",
+        summary: "No active capture candidates need review."
+      });
       expect(data.capture_inbox.autocapture_policy).toMatchObject({
         auto_captured_total: 1,
         captured_by_rule: { low_risk_handoff_auto_capture: 1 },
@@ -4518,6 +4527,7 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Auto-captured handoff");
+      expect(html).not.toContain("Moryn Health Check needs attention | 1 warning");
       expect(html).toContain("<small>1 captured</small>");
       expect(html).not.toContain("<small>1 captured | 0 review | 0 archived</small>");
       expect(html).toContain("<small>manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0</small>");

@@ -408,11 +408,12 @@ describe("documentation contracts", () => {
   });
 
   it("documents the read-only dogfood report surface", async () => {
-    const [readme, workflow, contracts, roadmap] = await Promise.all([
+    const [readme, workflow, contracts, roadmap, dashboard] = await Promise.all([
       readFile("README.md", "utf8"),
       readFile("docs/agent-workflow.md", "utf8"),
       readFile("docs/contracts.md", "utf8"),
-      readFile("docs/implementation-roadmap.md", "utf8")
+      readFile("docs/implementation-roadmap.md", "utf8"),
+      readFile("docs/dashboard.md", "utf8")
     ]);
 
     for (const document of [readme, workflow, contracts]) {
@@ -426,6 +427,8 @@ describe("documentation contracts", () => {
     expect(contracts).toContain("dogfood_report.findings_by_id.<finding_id>");
     expect(contracts).toContain("dogfood_report.suggested_actions_by_id.<action_id>");
     expectText(contracts, "Dogfood Review");
+    expectText(contracts, "Capture review backlog uses the same review-required policy boundary as Capture Inbox and Health Check");
+    expectText(dashboard, "Dogfood capture review backlog uses the same review-required policy boundary as Capture Inbox and Health Check");
     expect(contracts).toContain("Issue brief");
     expectText(contracts, "does not add dashboard API write endpoints");
     expect(roadmap).toContain("dogfood report");
@@ -455,6 +458,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "plain-language summary such as `Healthy local store` or `needs attention | 1 warning`");
     expectText(dashboard, "Zero-count buckets are omitted from the folded row");
     expectText(dashboard, "/api/dashboard.health_check.summary` still includes the complete warning and failing counts");
+    expectText(dashboard, "Capture Inbox backlog only counts candidates whose capture policy requires explicit review or user action");
+    expectText(contracts, "The capture review backlog is scoped to candidates whose capture policy requires explicit review or user action");
     expect(roadmap).toContain("health check");
   });
 

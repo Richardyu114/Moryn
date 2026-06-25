@@ -210,9 +210,11 @@ moryn dogfood report --project . --limit 20
 ```
 
 It reports capture review backlog, duplicate handoff text, and failure or
-timeout signals from local records and events. Suggested actions point to
-dashboard or timeline inspection and stay `safe_to_run: true` read-only checks.
-The MCP tool name is `dogfood_report`.
+timeout signals from local records and events. Capture backlog follows the same
+review-required policy boundary as Capture Inbox; low-risk auto-captured
+handoffs remain audit evidence rather than review work. Suggested actions point
+to dashboard or timeline inspection and stay `safe_to_run: true` read-only
+checks. The MCP tool name is `dogfood_report`.
 
 For installation trust and store readiness, use the read-only health check:
 

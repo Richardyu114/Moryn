@@ -465,6 +465,57 @@ describe("core engine", () => {
     });
   });
 
+  it("does not treat auto-captured low-risk handoffs as Capture Inbox health backlog", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-21T00:01:${String(tick++).padStart(2, "0")}.000Z`
+      });
+
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "auto-captured", "host:codex"],
+        content: {
+          format: "json",
+          text: "Codex captured a low-risk handoff for context packs.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "capture",
+              route: "auto_capture",
+              review_required: false,
+              user_action_required: false,
+              auto_canonical: false,
+              dashboard_surface: "handoff",
+              rule_ids: ["low_risk_handoff_auto_capture"],
+              reasons: ["low_risk_handoff_auto_capture"]
+            }
+          }
+        },
+        source: { client: "codex", session_id: "health-auto-capture" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const report = await engine.healthCheck({ project_id: "moryn", limit: 20 });
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(report.status).toBe("healthy");
+      expect(report.stats.capture_review_candidates).toBe(0);
+      expect(report.checks_by_id.capture_review_backlog).toMatchObject({
+        status: "pass",
+        category: "capture",
+        summary: "No active capture candidates need review."
+      });
+      expect(report.suggested_actions_by_id.review_capture_inbox).toBeUndefined();
+    });
+  });
+
   it("reports dogfood friction signals without mutating the store", async () => {
     await withInitializedTempStore(async (storePath) => {
       let tick = 0;
@@ -558,6 +609,52 @@ describe("core engine", () => {
       const failureEvent = beforeEvents.find((event) => event.op === "upsert_record" && event.record.id === failureNote.record.id);
       expect(report.events_by_id).toHaveProperty(failureEvent?.event_id as string);
       expect(JSON.stringify(report)).not.toContain("Private dogfood failure");
+    });
+  });
+
+  it("does not route low-risk auto-captured handoffs to dogfood capture review backlog", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      let tick = 0;
+      const engine = createEngine({
+        storePath,
+        now: () => `2026-06-20T00:01:${String(tick++).padStart(2, "0")}.000Z`
+      });
+
+      await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["autocapture", "auto-captured", "host:codex"],
+        content: {
+          format: "json",
+          text: "Codex finished a low-risk handoff for dogfood context.",
+          capture: {
+            mode: "autocapture",
+            host: "codex",
+            policy: {
+              id: "default_autocapture_policy",
+              decision: "capture",
+              route: "auto_capture",
+              review_required: false,
+              user_action_required: false,
+              auto_canonical: false,
+              dashboard_surface: "handoff",
+              rule_ids: ["low_risk_handoff_auto_capture"],
+              reasons: ["low_risk_handoff_auto_capture"]
+            }
+          }
+        },
+        source: { client: "codex", session_id: "dogfood-auto-capture" }
+      });
+
+      const beforeEvents = await readEvents(storePath);
+      const report = await engine.dogfoodReport({ project_id: "moryn", limit: 20 });
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(report.stats.autocapture_candidates).toBe(0);
+      expect(report.findings_by_id.capture_review_backlog).toBeUndefined();
+      expect(report.suggested_actions_by_id.review_capture_inbox).toBeUndefined();
     });
   });
 

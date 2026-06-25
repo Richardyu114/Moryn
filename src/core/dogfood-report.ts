@@ -1,6 +1,7 @@
 import { operationArgumentsByTool } from "../operation-contracts.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
+import { isCaptureReviewCandidate } from "./capture-review.js";
 import { displayRecordText } from "./content-text.js";
 import { commandForTimelineContext } from "./errors.js";
 import type { MorynEvent, MorynRecord, RecordKind, RecordState } from "./types.js";
@@ -134,12 +135,6 @@ function textKey(record: MorynRecord): string {
   return displayRecordText(record).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function isAutocaptureCandidate(record: MorynRecord): boolean {
-  return record.state === "candidate"
-    && record.kind === "session_summary"
-    && (record.tags.includes("autocapture") || record.tags.includes("review"));
-}
-
 function isFailureSignal(record: MorynRecord): boolean {
   if (record.state === "archived" || record.state === "quarantined") return false;
   const haystack = `${record.kind} ${record.type} ${record.tags.join(" ")} ${displayRecordText(record)}`;
@@ -148,7 +143,7 @@ function isFailureSignal(record: MorynRecord): boolean {
 
 function duplicateAutocaptureGroups(records: MorynRecord[]): MorynRecord[][] {
   const groups = new Map<string, MorynRecord[]>();
-  for (const record of records.filter(isAutocaptureCandidate)) {
+  for (const record of records.filter(isCaptureReviewCandidate)) {
     const key = textKey(record);
     if (!key) continue;
     groups.set(key, [...(groups.get(key) ?? []), record]);
@@ -168,7 +163,7 @@ function stats(records: MorynRecord[], events: MorynEvent[], excludedPrivateReco
     total_events: events.length,
     states: countBy(records.map((record) => record.state)),
     kinds: countBy(records.map((record) => record.kind)),
-    autocapture_candidates: records.filter(isAutocaptureCandidate).length,
+    autocapture_candidates: records.filter(isCaptureReviewCandidate).length,
     duplicate_text_groups: duplicateGroups.length,
     failure_signal_records: records.filter(isFailureSignal).length
   };
@@ -186,7 +181,7 @@ function evidenceForRecords(source: string, records: MorynRecord[], events: Mory
 }
 
 function captureBacklogFinding(records: MorynRecord[], events: MorynEvent[], projectId: string | undefined): DogfoodFinding | undefined {
-  const captures = records.filter(isAutocaptureCandidate);
+  const captures = records.filter(isCaptureReviewCandidate);
   if (!captures.length) return undefined;
   const recordIds = captures.map((record) => record.id);
   return {

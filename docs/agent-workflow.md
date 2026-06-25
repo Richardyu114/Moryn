@@ -271,6 +271,9 @@ The result is read-only. It reports capture review backlog, duplicate handoff
 text, and failure or timeout signals, with keyed `findings_by_id`,
 `suggested_actions_by_id`, `records_by_id`, and `events_by_id`. Suggested
 actions stay inspection-oriented, such as dashboard review or timeline lookup.
+Capture review backlog follows the same review-required policy boundary as
+Capture Inbox, so low-risk auto-captured handoffs stay as audit evidence rather
+than dogfood review work.
 MCP hosts call `dogfood_report`.
 
 Use `health check` for installation trust after setup, before dogfooding a new

@@ -1,6 +1,7 @@
 import { operationArgumentsByTool } from "../operation-contracts.js";
 import { actionExecution, actionSafety } from "./action-safety.js";
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
+import { isCaptureReviewCandidate } from "./capture-review.js";
 import { displayRecordText } from "./content-text.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
@@ -102,12 +103,6 @@ export const HEALTH_CHECK_SELECTION_SOURCES = {
   action_id: "suggested_actions_by_id.<action_id>.action_id",
   stat: "stats.<field>"
 } as const;
-
-function isCaptureReviewCandidate(record: MorynRecord): boolean {
-  return record.state === "candidate"
-    && record.kind === "session_summary"
-    && (record.tags.includes("autocapture") || record.tags.includes("review"));
-}
 
 function isPrivateRecord(record: MorynRecord): boolean {
   return record.tags.includes("private");

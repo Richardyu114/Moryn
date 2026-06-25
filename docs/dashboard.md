@@ -661,6 +661,9 @@ affected records, read-only next step, and evidence path, followed by the safe
 dashboard or timeline command already returned by
 `dogfood_report.suggested_actions_by_id`. It does not add buttons, background
 execution, or a second mutation path.
+Dogfood capture review backlog uses the same review-required policy boundary as
+Capture Inbox and Health Check, so low-risk auto-captured handoffs remain
+read-only audit evidence instead of dogfood review work.
 
 It does not contain Capture Inbox approvals or Review Queue maintenance
 approvals. Those explicit confirmation surfaces stay on the main path, outside
@@ -786,6 +789,10 @@ project context, default private boundary, and Capture Inbox backlog. Suggested
 actions are safe inspection commands only, such as opening the dashboard or
 listing known projects. The panel does not add Apply, Approve, repair, retry,
 or background execution controls.
+Capture Inbox backlog only counts candidates whose capture policy requires
+explicit review or user action; low-risk auto-captured handoffs stay visible in
+Capture Policy and handoff evidence without making Health Check report a review
+warning.
 
 ### Safe Action Registry
 

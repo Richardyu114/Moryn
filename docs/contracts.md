@@ -223,6 +223,9 @@ backlog, duplicate handoff text, and failure or timeout signals, keyed by
 `dogfood_report.findings_by_id.<finding_id>`, plus inspection suggestions under
 `dogfood_report.suggested_actions_by_id.<action_id>`. It does not mutate records
 or events; suggested actions are read-only dashboard or timeline checks.
+Capture review backlog uses the same review-required policy boundary as Capture
+Inbox and Health Check, so low-risk auto-captured handoffs do not create
+dogfood review work.
 The dashboard renders the same findings as a collapsed read-only `Dogfood
 Review` issue inbox with `Issue brief`, impact, affected records, read-only next
 step, evidence path, and safe inspection command. It does not add dashboard API
@@ -255,6 +258,9 @@ readability, event-log replay, project context, default private boundary, and
 capture review backlog. It does not mutate records or events; suggested actions
 are safe inspection commands such as `moryn dashboard --serve --project-id <id>`
 or `moryn project list`.
+The capture review backlog is scoped to candidates whose capture policy requires
+explicit review or user action; low-risk auto-captured handoffs remain audit
+evidence without becoming Health Check warnings.
 
 The read-only recall eval is available through the same registry:
 
