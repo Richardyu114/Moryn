@@ -311,10 +311,10 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("decision card");
     expect(dashboard).toContain("short confirmation summary that reads `Approval required`");
     expectText(dashboard, "Counts remain in Pending Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`");
+    expect(dashboard).toContain("compact `Approval summary` chip row");
+    expect(dashboard).toContain("proposed change, target, `plan_hash` gate, and private-record scope");
+    expect(dashboard).toContain("without reading raw event language or an outcome table");
     expect(dashboard).toContain("The structured decision summary is folded behind `Decision summary`");
-    expect(dashboard).toContain("The visible brief also spells out the outcome of `Approve` and `Reject` before");
-    expect(dashboard).toContain("`Approve` appends guarded append-only events and does not delete records");
-    expect(dashboard).toContain("`Reject` hides the card only for the current browser session and leaves store history unchanged");
     expect(dashboard).toContain("Decision evidence");
     expect(dashboard).toContain("A compact `Approval checklist` fold");
     expect(dashboard).toContain("Before approving");

@@ -3878,28 +3878,17 @@ function maintenanceAuditPathHtml(plan: DashboardMaintenancePlan): string {
 }
 
 function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
-  const firstLine = plan.type === "candidate_noise_archive"
-    ? `This cleanup would archive ${escapeHtml(pluralize(plan.dry_run.matched_records, "candidate record"))} that look like smoke/e2e marker noise.`
-    : `This repair would relink ${escapeHtml(pluralize(plan.dry_run.matched_records, "record"))} from <code>${escapeHtml(plan.from_project_id ?? "")}</code> to <code>${escapeHtml(plan.to_project_id ?? "")}</code>.`;
-  const eventName = maintenanceApprovalEventName(plan);
+  const change = maintenanceMoveSummary(plan);
+  const target = plan.type === "candidate_noise_archive" ? "Marker noise" : maintenanceChangeDetail(plan);
   return `
     <div class="maintenance-brief" data-maintenance-brief>
-      <h4>Decision brief</h4>
-      <ul>
-        <li>${firstLine}</li>
-        <li>Approval is explicit: the server re-runs the dry run and checks the same <code>plan_hash</code> before writing.</li>
-        <li>${escapeHtml(maintenancePrivateSummary(plan))}.</li>
-      </ul>
-      <dl class="maintenance-outcome" data-maintenance-outcome>
-        <div>
-          <dt>Approve</dt>
-          <dd>Appends <code>${escapeHtml(eventName)}</code> events after the <code>plan_hash</code> check; no records are deleted.</dd>
-        </div>
-        <div>
-          <dt>Reject</dt>
-          <dd>Hides this card for this browser session only; store history is unchanged.</dd>
-        </div>
-      </dl>
+      <h4>Approval summary</h4>
+      <div class="maintenance-brief-chips" aria-label="Approval summary">
+        <span>${escapeHtml(change)}</span>
+        <span>${escapeHtml(target)}</span>
+        <span>Plan hash checked</span>
+        <span>${escapeHtml(maintenancePrivateSummary(plan))}</span>
+      </div>
     </div>
   `;
 }
@@ -7431,13 +7420,28 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-size: 12px;
       font-weight: 780;
     }
-    .maintenance-brief ul, .capture-inbox-brief ul, .context-pack-brief ul {
+    .maintenance-brief-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .maintenance-brief-chips span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+      overflow-wrap: anywhere;
+    }
+    .capture-inbox-brief ul, .context-pack-brief ul {
       display: grid;
       gap: 6px;
       margin: 0;
       padding-left: 18px;
     }
-    .maintenance-brief li, .capture-inbox-brief li, .context-pack-brief li {
+    .capture-inbox-brief li, .context-pack-brief li {
       color: var(--ink-2);
       overflow-wrap: anywhere;
     }

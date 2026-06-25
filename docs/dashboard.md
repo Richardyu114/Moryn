@@ -311,22 +311,12 @@ The approval card is a human-readable decision card. The queue is collapsed by
 default behind a short confirmation summary that reads `Approval required`
 instead of repeating decision and record counts. Counts remain in Pending
 Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`.
-Expanding it first shows a compact `Decision brief` so the user can decide
-whether the plan is worth approving without reading raw event language:
-
-- what the repair would relink
-- what candidate cleanup would archive after confirmation
-- why approval is explicit
-- whether private records are included or skipped
-
-The visible brief also spells out the outcome of `Approve` and `Reject` before
-the user reaches raw evidence:
-
-- `Approve` appends guarded append-only events and does not delete records
-- `Reject` hides the card only for the current browser session and leaves store history unchanged
+Expanding it first shows a compact `Approval summary` chip row so the user can
+see the proposed change, target, `plan_hash` gate, and private-record scope
+without reading raw event language or an outcome table.
 
 The structured decision summary is folded behind `Decision summary`, so the
-first expanded queue view stays focused on the short brief and explicit controls.
+first expanded queue view stays focused on the short summary and explicit controls.
 Opening it still shows:
 
 - why the repair exists
