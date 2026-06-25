@@ -562,7 +562,9 @@ describe("observability dashboard", () => {
       expect(safeRow).toContain("<strong>Failure signals</strong>");
       expect(safeRow).not.toContain("<strong>Recent dogfood notes contain failure or timeout language.</strong>");
       expect(safeRow).toContain("<details class=\"governance-safe-evidence\">");
-      expect(safeRow).toContain("<summary>Evidence path</summary>");
+      expect(safeRow).toContain("<span>Evidence path</span>");
+      expect(safeRow).toContain("<small>Failure signals</small>");
+      expect(safeRow).not.toContain("<summary>Evidence path</summary>");
       expect(safeRow).toContain("<code>dogfood_report.findings_by_id.failure_signals</code>");
       expect(safeRow).not.toContain("<small>Inspect Failure Signals | Read-only</small>\n      <code>dogfood_report.findings_by_id.failure_signals</code>");
       expect(html).not.toContain("<section class=\"panel governance-hub\"");

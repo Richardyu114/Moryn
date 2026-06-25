@@ -377,9 +377,9 @@ Inspections` row whose summary reads `Read-only checks ready`, so the nested row
 explains its purpose instead of repeating the Governance Hub count; expanding it
 still shows the concrete safe-check count plus compact inspection rows with
 readable source labels, title, read-only next step, and evidence path.
-Safe inspection rows keep raw evidence paths behind an `Evidence path` fold, so
-the first visible row reads as guidance while the exact selection source remains
-available for audit.
+Safe inspection rows keep raw evidence paths behind an `Evidence path` fold
+whose summary names the inspection row, so the first visible row reads as
+guidance while the exact selection source remains available for audit.
 Safe inspection rows use short display titles while full report titles remain
 in `/api/dashboard` and source panels.
 `memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor`

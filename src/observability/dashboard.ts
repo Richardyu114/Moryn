@@ -3500,7 +3500,10 @@ function governanceSafeRow(item: DashboardGovernanceItem): string {
       <strong>${escapeHtml(governanceSafeRowTitle(item))}</strong>
       <small>${escapeHtml(`${governanceActionDisplayLabel(item.action_label)} | Read-only`)}</small>
       <details class="governance-safe-evidence">
-        <summary>Evidence path</summary>
+        <summary class="dashboard-fold-summary">
+          <span>Evidence path</span>
+          <small>${escapeHtml(governanceSafeRowTitle(item))}</small>
+        </summary>
         <code>${escapeHtml(item.evidence_path)}</code>
       </details>
     </div>
