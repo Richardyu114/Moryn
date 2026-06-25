@@ -935,6 +935,8 @@ The HTML dashboard keeps `Recent Value` collapsed by default behind a short
 recent-record count. Newest-first ordering, full details, and trace commands
 stay inside the expanded panel and `/api/dashboard` payload. Expanding it shows
 the first four records and keeps additional records under `More Recent Value`.
+Recent Value card footers include record-id context beside the readable source
+label, so repeated source/state/scope rows stay distinguishable.
 Every card keeps its timeline and recall trace commands under a `Trace commands`
 fold with kind/type and record-id context instead of a generic `Details` row.
 

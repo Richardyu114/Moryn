@@ -2110,6 +2110,11 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<summary>Trace commands</summary>");
       const recentValueTraceStart = html.indexOf("<details data-dashboard-detail=\"value:rec_recent_long\">");
       const recentValueTraceEnd = html.indexOf("</details>", recentValueTraceStart);
+      const recentValueCardStart = html.indexOf("<article class=\"value-card\" data-dashboard-citation=\"record:rec_recent_long\">");
+      const recentValueCardEnd = html.indexOf("</article>", recentValueCardStart);
+      const recentValueCardHtml = html.slice(recentValueCardStart, recentValueCardEnd);
+      expect(recentValueCardHtml).toContain("<span>Codex rec_recent_long</span>");
+      expect(recentValueCardHtml).not.toContain("<footer>\n        <span>Codex</span>");
       const recentValueTraceHtml = html.slice(recentValueTraceStart, recentValueTraceEnd);
       expect(recentValueTraceHtml).toContain("<dt>ID</dt><dd><code>rec_recent_long</code></dd>");
       expect(recentValueTraceHtml).toContain("<dt>Event</dt><dd><code>evt_recent_long</code></dd>");

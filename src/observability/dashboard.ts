@@ -4506,7 +4506,7 @@ function recentValueCard(record: DashboardValueRecord, extraClass = ""): string 
       </div>
       ${textExcerptBlock(record.summary, "data-full-summary-hidden")}
       <footer>
-        <span>${escapeHtml(record.source_label)}</span>
+        <span>${escapeHtml(`${record.source_label} ${record.id}`)}</span>
         <span>${escapeHtml(record.state)}</span>
         <span>${escapeHtml(record.project_id ?? record.scope)}</span>
       </footer>
