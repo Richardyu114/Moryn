@@ -2301,10 +2301,11 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Operational Evidence</span>");
       expect(html).toContain("<small>Clean audits and store signals</small>");
       expect(html).not.toContain("evidence panels</small>");
-      expect(html).toContain("<span>Debug Raw Store</span>");
-      expect(html).not.toContain("<span>Raw Store</span>");
+      expect(html).toContain("<span>Raw Store Reference</span>");
+      expect(html).not.toContain("<span>Debug Raw Store</span>");
       expect(html).not.toContain("<span>Raw Inspector</span>");
-      expect(html).toContain("<small>Debug-only records, events, and sync</small>");
+      expect(html).toContain("<small>Optional raw records</small>");
+      expect(html).not.toContain("<small>Debug-only records, events, and sync</small>");
       expect(html).not.toContain("<small>Records, events, and sync</small>");
       expect(html).not.toContain("<small>1 raw panel</small>");
       const storeSnapshotPanel = "<details class=\"supporting-evidence-group supporting-evidence-snapshots\" data-dashboard-detail=\"supporting-operational-snapshots\">";
@@ -2332,8 +2333,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("Record Quality");
       expect(html).toContain("Record Types");
       expect(html).toContain("Recent Value");
-      expect(html).toContain("Debug Inspector");
-      expect(html).toContain("<small>Raw store inspection</small>");
+      expect(html).toContain("<span>Raw Store Inspector</span>");
+      expect(html).not.toContain("<span>Debug Inspector</span>");
+      expect(html).toContain("<small>Optional raw inspection</small>");
+      expect(html).not.toContain("<small>Raw store inspection</small>");
       expect(html).not.toContain("<small>records / events / sync</small>");
       expect(html).toContain("agent-bars");
       expect(html).toContain("state-stack");
@@ -2470,7 +2473,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("keeps Debug Inspector rows budgeted while preserving full API evidence", async () => {
+  it("keeps Raw Store Inspector rows budgeted while preserving full API evidence", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",

@@ -5091,8 +5091,8 @@ function debugInspectorPanel(data: DashboardData): string {
   return `
     <details class="panel debug-inspector" data-dashboard-detail="debug-inspector">
       <summary class="dashboard-fold-summary">
-        <span>Debug Inspector</span>
-        <small>Raw store inspection</small>
+        <span>Raw Store Inspector</span>
+        <small>Optional raw inspection</small>
       </summary>
       <div class="inspector-grid">
         <details data-dashboard-detail="inspector:records">
@@ -5158,8 +5158,8 @@ function supportingEvidenceRawGroup(panels: string[]): string {
   return `
     <details class="supporting-evidence-group supporting-evidence-raw" data-dashboard-detail="supporting-raw-inspector">
       <summary class="dashboard-fold-summary supporting-evidence-group-heading">
-        <span>Debug Raw Store</span>
-        <small>Debug-only records, events, and sync</small>
+        <span>Raw Store Reference</span>
+        <small>Optional raw records</small>
       </summary>
       <div class="supporting-evidence-group-list">
         ${panels.join("")}

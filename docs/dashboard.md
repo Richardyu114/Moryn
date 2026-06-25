@@ -721,13 +721,13 @@ Signals`, and `Recent Value` are grouped under `Audit Evidence`, whose row
 reads `Clean audits and store signals` instead of listing child panel counts.
 `Audit Evidence` is collapsed by default inside `Audit Trail`,
 and `Store Signals` and `Recent Value` are nested under a collapsed
-`Store Snapshot` row, while the raw `Debug Inspector` is grouped behind
-`Debug Raw Store`. This keeps
+`Store Snapshot` row, while the raw inspector is grouped behind
+`Raw Store Reference`. This keeps
 common audit evidence closer to the user while keeping record/event/sync
 internals available without placing them at the same level. Nested evidence
 summaries also use purpose labels: `Store Signals` opens with `Operational
-health signals`, `Debug Raw Store` opens with `Debug-only records, events, and sync`, and
-`Debug Inspector` opens with `Raw store inspection`. Its child folds are labeled
+health signals`, `Raw Store Reference` opens with `Optional raw records`, and
+`Raw Store Inspector` opens with `Optional raw inspection`. Its child folds are labeled
 `Record Index`, `Event Timeline`, and `Sync Snapshot` instead of generic
 `Records`, `Events`, and `Sync`. `Record Index` and `Event Timeline` render
 only the first ten rows each and summarize overflow as `/api/dashboard`
@@ -942,12 +942,12 @@ review pressure without expanding every low-level panel. Recall Eval misses use
 `source: "recall_eval"` and `category: "recall_quality"` with evidence paths
 such as `recall_eval.report.cases_by_id.<case_id>`, safe-to-run inspection
 metadata, and `writes: "none"`. Memory Lifecycle, Capture Policy Audit, Recall
-Eval, and the raw Debug Inspector remain available, but their details are
+Eval, and the raw store inspector remain available, but their details are
 collapsed by default.
 
 Long record text is rendered as compact excerpts in the HTML dashboard,
 including Recent Value cards, Context Pack Review items, Capture Inbox cards,
-and Debug Inspector record details. `/api/dashboard` keeps the full JSON fields,
+and Raw Store Inspector record details. `/api/dashboard` keeps the full JSON fields,
 and each card keeps timeline/recall commands so the full record remains
 auditable without making the page heavy.
 
