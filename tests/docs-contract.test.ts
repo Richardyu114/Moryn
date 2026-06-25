@@ -80,7 +80,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Lane clicks resolve either an element `id` or a matching `data-dashboard-detail` target");
     expectText(dashboard, "routes such as `context-pack-review` and `evidence-library` open the collapsed detail panel before scrolling");
     expectText(dashboard, "In all-clear states, the row keeps the read-only `Evidence` lane visible and folds quiet `Decide`, `Context`, and `Health` lanes under `Background Lanes`");
-    expectText(dashboard, "`Background Lanes` opens with a plain quiet-state summary rather than another count");
+    expectText(dashboard, "`Background Lanes` opens with `Quiet lanes ready`");
+    expectText(dashboard, "while the accessible summary keeps the lane names, such as `Decide, Context, and Health are quiet`");
     expectText(dashboard, "`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail=\"action-board\"` route");
     expectText(dashboard, "`Page Shortcuts` opens with `Optional section links`");
     expectText(dashboard, "the previous active-count summary remains as a quiet `action-board-activity` value");

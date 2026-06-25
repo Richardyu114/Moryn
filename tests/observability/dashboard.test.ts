@@ -1788,7 +1788,9 @@ describe("observability dashboard", () => {
         expect(html).toContain("<span>1 safe check</span>");
         expect(html).toContain("<details class=\"dashboard-work-lanes-quiet\" data-dashboard-detail=\"dashboard-work-lanes-background\">");
         expect(html).toContain("<span>Background Lanes</span>");
-        expect(html).toContain("<small>Decide, Context, and Health are quiet</small>");
+        expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-work-lanes-quiet-fold\" aria-label=\"Background Lanes: Decide, Context, and Health are quiet\">");
+        expect(html).toContain("<small>Quiet lanes ready</small>");
+        expect(html).not.toContain("<small>Decide, Context, and Health are quiet</small>");
         const workLanesStart = html.indexOf("data-dashboard-work-lanes");
         const workLanesEnd = html.indexOf("data-action-board-nav", workLanesStart);
         const workLanesHtml = html.slice(workLanesStart, workLanesEnd);
@@ -3686,6 +3688,7 @@ describe("observability dashboard", () => {
       expect(contextPackSummaryHtml).not.toContain("Capture action visible");
       expect(html).toContain("<details class=\"dashboard-work-lanes-quiet\" data-dashboard-detail=\"dashboard-work-lanes-background\">");
       expect(html).toContain("<span>Background Lanes</span>");
+      expect(html).toContain("<small>Quiet lanes ready</small>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-work-lane good\" data-dashboard-work-lane-quiet=\"context\" data-action-board-target=\"context-pack-review\" aria-controls=\"context-pack-review\">");
       expect(html).not.toContain("<button type=\"button\" class=\"dashboard-work-lane good\" data-dashboard-work-lane=\"context\" data-action-board-target=\"context-pack-review\" aria-controls=\"context-pack-review\">");
       expect(html).toContain("<strong>Ready handoff context</strong>");

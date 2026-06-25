@@ -3068,9 +3068,9 @@ function dashboardWorkLanes(data: DashboardData): string {
       ${defaultLanes.map((lane) => workLaneButton(lane)).join("")}
       ${backgroundLanes.length === 0 ? "" : `
         <details class="dashboard-work-lanes-quiet" data-dashboard-detail="dashboard-work-lanes-background">
-          <summary class="dashboard-fold-summary dashboard-work-lanes-quiet-fold">
+          <summary class="dashboard-fold-summary dashboard-work-lanes-quiet-fold" aria-label="Background Lanes: ${escapeHtml(backgroundLaneSummary)}">
             <span>Background Lanes</span>
-            <small>${escapeHtml(backgroundLaneSummary)}</small>
+            <small>Quiet lanes ready</small>
           </summary>
           <div class="dashboard-work-lanes-quiet-list">
             ${backgroundLanes.map((lane) => workLaneButton(lane, "data-dashboard-work-lane-quiet")).join("")}
