@@ -63,11 +63,11 @@ describe("documentation contracts", () => {
     expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");
     expectText(dashboard, "Sync-only pending states also use the lightweight status line");
     expectText(dashboard, "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip");
-    expectText(dashboard, "Each overview card is also a local navigation button");
+    expectText(dashboard, "first-screen Overview to the headline, primary action, read-only boundary, and a collapsed `Background Status` fold");
+    expectText(dashboard, "Each background overview card is also a local navigation button");
     expectText(dashboard, "Pure read-only inspections do not turn the overview headline into an urgent next action");
     expectText(dashboard, "the overview reads `All clear` while still offering an `Inspect checks` navigation button");
-    expectText(dashboard, "keeps non-good overview cards visible in the main grid");
-    expectText(dashboard, "groups good cards under `Background Status` while keeping the stable `dashboard-overview-quiet-cards` route");
+    expectText(dashboard, "keeps background cards under `Background Status` while keeping the stable `dashboard-overview-quiet-cards` route");
     expectText(dashboard, "`Background Status` opens with `Signals ready`");
     expectText(dashboard, "while the accessible summary keeps `Healthy signals kept for context`");
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");

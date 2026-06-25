@@ -2922,12 +2922,6 @@ function isSyncOnlyDashboardOverview(data: DashboardOverview): boolean {
     && data.cards_by_id.sync.value === "Sync Pending";
 }
 
-function isActiveDashboardOverviewCard(card: DashboardOverviewCard, data: DashboardOverview): boolean {
-  if (isSyncOnlyDashboardOverview(data)) return false;
-  if (card.source === data.primary_action.source) return false;
-  return card.severity !== "good";
-}
-
 function isPrimaryDashboardOverviewCard(card: DashboardOverviewCard, data: DashboardOverview): boolean {
   return card.source === data.primary_action.source;
 }
@@ -2960,8 +2954,6 @@ function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
 
 function dashboardOverview(data: DashboardOverview): string {
   const visibleCards = data.cards.filter((card) => !isPrimaryDashboardOverviewCard(card, data));
-  const activeCards = visibleCards.filter((card) => isActiveDashboardOverviewCard(card, data));
-  const quietCards = visibleCards.filter((card) => !isActiveDashboardOverviewCard(card, data));
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
@@ -2972,12 +2964,7 @@ function dashboardOverview(data: DashboardOverview): string {
         </div>
         <button type="button" class="dashboard-overview-action" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}">${escapeHtml(data.primary_action.label)}</button>
       </div>
-      ${activeCards.length === 0 ? "" : `
-        <div class="dashboard-overview-grid">
-          ${activeCards.map((card) => dashboardOverviewCardButton(card)).join("")}
-        </div>
-      `}
-      ${dashboardOverviewQuietCards(quietCards)}
+      ${dashboardOverviewQuietCards(visibleCards)}
       <div class="dashboard-overview-safety" aria-label="Dashboard safety">
         <span>Read-only overview</span>
         <span>Writes stay in ${escapeHtml(data.safety.mutation_surfaces.join(" and "))}</span>
@@ -5922,12 +5909,6 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       white-space: nowrap;
     }
     .dashboard-overview-action:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
-    .dashboard-overview-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 9px;
-    }
     .dashboard-overview-quiet {
       margin-top: 9px;
       border-top: 1px solid var(--hairline);
@@ -7732,7 +7713,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 740;
     }
     @media (max-width: 920px) {
-      header, .dashboard-overview-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
