@@ -3579,7 +3579,7 @@ function governanceHubBody(governance: DashboardGovernance): string {
       <div class="governance-heading">
         <div>
           <h2>Governance Hub</h2>
-          <p><code>governance.summary</code></p>
+          <p>Read-only inspection index</p>
         </div>
         <div class="governance-counts">
           ${governanceCountChips(governance)}

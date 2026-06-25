@@ -221,6 +221,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of repeating the Governance Hub count");
     expectText(dashboard, "Safe inspection rows keep detection, next step, write boundary, and evidence source behind a `Review notes` fold");
     expectText(dashboard, "Safe inspection rows use short display titles while full report titles remain in `/api/dashboard` and source panels");
+    expectText(dashboard, "The expanded Governance Hub heading reads `Read-only inspection index` instead of exposing `governance.summary` as visible UI copy");
+    expectText(dashboard, "The JSON contract still keeps `governance.summary` for agents and audit tooling");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
     expectText(dashboard, "The visible panel is a route summary");
     expectText(dashboard, "route chips such as `Append-only events`, `approval required`, and `Audit evidence`");

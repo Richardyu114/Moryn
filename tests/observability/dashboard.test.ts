@@ -554,6 +554,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>0 safe checks</span>");
       expect(html).toContain("<span>1 safe check</span>");
       expect(html).toContain("<div class=\"governance-hub-body\">");
+      expect(html).toContain("<p>Read-only inspection index</p>");
+      expect(html).not.toContain("<p><code>governance.summary</code></p>");
       expect(html).toContain("<details class=\"governance-safe-group\" data-dashboard-detail=\"governance-safe-inspections\">");
       expect(html).toContain("<span>Safe Inspections</span>");
       expect(html).toContain("<small>Background checks, read-only</small>");
@@ -1569,7 +1571,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-governance-safe-item=\"memory_lifecycle:stale_records\"");
       expect(html).not.toContain("data-governance-item=\"dogfood_report:failure_signals\"");
       expect(html).toContain("data-governance-safe-item=\"dogfood_report:failure_signals\"");
-      expect(html).toContain("governance.summary");
+      expect(data.governance.summary.total_items).toBeGreaterThan(0);
+      expect(html).not.toContain("<p><code>governance.summary</code></p>");
       expect(html).toContain("capture_policy.findings_by_id.review_required");
       expect(html).toContain("Read-only");
       expect(html).toContain("User confirmation");

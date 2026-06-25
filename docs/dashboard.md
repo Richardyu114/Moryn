@@ -950,6 +950,10 @@ metadata, and `writes: "none"`. Memory Lifecycle, Capture Policy Audit, Recall
 Eval, and the raw store inspector remain available, but their details are
 collapsed by default.
 
+The expanded Governance Hub heading reads `Read-only inspection index` instead
+of exposing `governance.summary` as visible UI copy. The JSON contract still
+keeps `governance.summary` for agents and audit tooling.
+
 Long record text is rendered as compact excerpts in the HTML dashboard,
 including Recent Value cards, Context Pack Review items, Capture Inbox cards,
 and Raw Store Inspector record details. `/api/dashboard` keeps the full JSON fields,
