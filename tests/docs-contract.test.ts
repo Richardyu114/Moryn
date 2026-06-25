@@ -306,6 +306,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("POST /api/maintenance/plans/:plan_id/approve");
     expect(dashboard).toContain("plan_hash");
     expect(dashboard).toContain("decision card");
+    expect(dashboard).toContain("short confirmation summary that reads `Approval required`");
+    expectText(dashboard, "Counts remain in Pending Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`");
     expect(dashboard).toContain("The structured decision summary is folded behind `Decision summary`");
     expect(dashboard).toContain("The visible brief also spells out the outcome of `Approve` and `Reject` before");
     expect(dashboard).toContain("`Approve` appends guarded append-only events and does not delete records");

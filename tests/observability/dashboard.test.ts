@@ -3808,7 +3808,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details id=\"maintenance-review-queue\" class=\"maintenance-review-summary\" data-dashboard-detail=\"maintenance-review-queue\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-review-fold\">");
       expect(html).toContain("<span>Review Queue</span>");
-      expect(html).toContain("<small>1 decision to review | 1 record to move | approval required</small>");
+      expect(html).toContain("<small>Approval required</small>");
+      expect(html).not.toContain("<small>1 decision to review | 1 record to move | approval required</small>");
       expect(html).toContain("<div class=\"maintenance-review-body\">");
       expect(html).toContain("Project identity repair");
       expect(html).toContain("data-maintenance-decision-summary");

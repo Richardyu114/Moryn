@@ -308,10 +308,11 @@ candidate cleanup plan that can append `archive_record` events only after user
 approval.
 
 The approval card is a human-readable decision card. The queue is collapsed by
-default behind a confirmation summary that shows the number of decisions to
-review, records that would move or candidates that would be archived, and that approval is still required. Expanding
-it first shows a compact `Decision brief` so the user can decide whether the
-plan is worth approving without reading raw event language:
+default behind a short confirmation summary that reads `Approval required`
+instead of repeating decision and record counts. Counts remain in Pending
+Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`.
+Expanding it first shows a compact `Decision brief` so the user can decide
+whether the plan is worth approving without reading raw event language:
 
 - what the repair would relink
 - what candidate cleanup would archive after confirmation

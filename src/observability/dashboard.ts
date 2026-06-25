@@ -3972,15 +3972,6 @@ function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
   `;
 }
 
-function maintenanceReviewQueueSummary(plans: DashboardMaintenancePlan[]): string {
-  const recordTotal = plans.reduce((total, plan) => total + plan.dry_run.matched_records, 0);
-  const allArchive = plans.every((plan) => plan.type === "candidate_noise_archive");
-  const allProjectRepair = plans.every((plan) => plan.type === "project_identity_repair");
-  const noun = allArchive ? "candidate" : "record";
-  const action = allArchive ? "to archive" : allProjectRepair ? "to move" : "to review";
-  return `${pluralize(plans.length, "decision")} to review | ${pluralize(recordTotal, noun)} ${action} | approval required`;
-}
-
 function maintenanceRecordIdsDetail(plan: DashboardMaintenancePlan): string {
   const recordIds = plan.decision_card.raw_evidence.record_ids;
   const visibleRecordIds = recordIds.slice(0, MAINTENANCE_RAW_SAMPLE_LIMIT);
@@ -4037,7 +4028,7 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
       <details id="maintenance-review-queue" class="maintenance-review-summary" data-dashboard-detail="maintenance-review-queue">
         <summary class="dashboard-fold-summary maintenance-review-fold">
           <span>Review Queue</span>
-          <small>${escapeHtml(maintenanceReviewQueueSummary(plans))}</small>
+          <small>Approval required</small>
         </summary>
         <div class="maintenance-review-body">
           <div class="maintenance-list">
