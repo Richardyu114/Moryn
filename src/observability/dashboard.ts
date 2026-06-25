@@ -3670,6 +3670,11 @@ function candidateTriageSampleSummary(group: DashboardCandidateTriageGroup): str
   return `${group.label}: ${shownRecords} of ${pluralize(group.records.length, "sample")} with trace commands`;
 }
 
+function candidateTriageSampleVisibleSummary(group: DashboardCandidateTriageGroup): string {
+  const shownRecords = Math.min(group.records.length, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
+  return `${pluralize(shownRecords, "sample")}, trace ready`;
+}
+
 function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): string {
   const hiddenRecords = Math.max(0, group.records.length - CANDIDATE_TRIAGE_SAMPLE_LIMIT);
   if (hiddenRecords === 0) return "";
@@ -3729,6 +3734,7 @@ function renderCandidateTriageAuditBoundary(group: DashboardCandidateTriageGroup
 
 function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
   const sampleRecords = group.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
+  const sampleSummary = candidateTriageSampleSummary(group);
   return `
     <details class="candidate-triage-group" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}">
       <summary class="dashboard-fold-summary">
@@ -3741,9 +3747,9 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
         ${renderCandidateTriageHandoff(group)}
         ${renderCandidateTriageAuditBoundary(group)}
         <details class="candidate-triage-record-samples" data-dashboard-detail="candidate-triage-records:${escapeHtml(group.id)}">
-          <summary class="dashboard-fold-summary">
+          <summary class="dashboard-fold-summary" aria-label="Record samples: ${escapeHtml(sampleSummary)}">
             <span>Record samples</span>
-            <small>${escapeHtml(candidateTriageSampleSummary(group))}</small>
+            <small>${escapeHtml(candidateTriageSampleVisibleSummary(group))}</small>
           </summary>
           <div class="candidate-triage-records">
             ${sampleRecords.map(renderCandidateTriageRecord).join("")}

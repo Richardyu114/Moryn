@@ -910,8 +910,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<dt>Write boundary</dt><dd>Candidate Triage is read-only</dd>");
       expect(html).toContain("Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.");
       expect(html).toContain("<details class=\"candidate-triage-record-samples\" data-dashboard-detail=\"candidate-triage-records:likely_noise\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Record samples: Likely noise: 1 sample with trace commands\">");
       expect(html).toContain("<span>Record samples</span>");
-      expect(html).toContain("<small>Likely noise: 1 sample with trace commands</small>");
+      expect(html).toContain("<small>1 sample, trace ready</small>");
+      expect(html).not.toContain("<small>Likely noise: 1 sample with trace commands</small>");
       expect(html).toContain("<strong>Session summary sample rec_candidate_triage_2</strong>");
       expect(html).toContain("<strong>Memory sample rec_candidate_triage_3</strong>");
       expect(html).toContain("<div><dt>Text</dt><dd>Smoke marker from dashboard test.</dd></div>");
@@ -1004,7 +1006,9 @@ describe("observability dashboard", () => {
       const groupEnd = html.indexOf("<details class=\"evidence-library-group evidence-library-background\"", groupStart);
       const groupHtml = html.slice(groupStart, groupEnd);
       expect(groupHtml).toContain("<strong>7 records</strong>");
-      expect(groupHtml).toContain("<small>Needs inspection: 3 of 7 samples with trace commands</small>");
+      expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Record samples: Needs inspection: 3 of 7 samples with trace commands\">");
+      expect(groupHtml).toContain("<small>3 samples, trace ready</small>");
+      expect(groupHtml).not.toContain("<small>Needs inspection: 3 of 7 samples with trace commands</small>");
       expect(groupHtml).not.toContain("<small>5 of 7 samples with trace commands</small>");
       expect(groupHtml).toContain("<strong>Agent note sample rec_budgeted_triage_8</strong>");
       expect(groupHtml).toContain("<strong>Agent note sample rec_budgeted_triage_7</strong>");
