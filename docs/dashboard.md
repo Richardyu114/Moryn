@@ -933,6 +933,10 @@ optional sync remote. Readiness suggestions such as `open_dashboard`,
 startup commands. The folded Health Check brief shows only status plus safe and
 needs-input counts; concrete readiness commands stay inside the expanded
 `Readiness Actions` details, grouped under `Safe to run` and `Needs input`.
+Full check rows stay inside the nested `Check Details` fold. `Check Details`
+summarizes pass, info, warning, and failed counts before listing individual
+checks, so expanded Health Check still starts with setup readiness instead of a
+full diagnostic transcript.
 When served from the dashboard CLI, pass `--readiness-host <host>` and
 `--sync-remote <remote>` to make this embedded Health Check match the host and
 sync context you would pass to `moryn health check --host <host> --sync-remote

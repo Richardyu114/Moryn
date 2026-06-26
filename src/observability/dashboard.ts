@@ -3249,6 +3249,15 @@ function healthCheckActionSummary(report: HealthCheckReport): { safe: number; ne
   };
 }
 
+function healthCheckCheckSummary(report: HealthCheckReport): string {
+  return [
+    report.summary.passing_checks > 0 ? pluralize(report.summary.passing_checks, "pass", "pass") : undefined,
+    report.summary.info_checks > 0 ? pluralize(report.summary.info_checks, "info", "info") : undefined,
+    report.summary.warning_checks > 0 ? pluralize(report.summary.warning_checks, "warning") : undefined,
+    report.summary.failing_checks > 0 ? pluralize(report.summary.failing_checks, "failed check") : undefined
+  ].filter((part): part is string => Boolean(part)).join(" | ");
+}
+
 function healthCheckActionRequirement(action: HealthCheckReport["suggested_actions"][number]): string {
   if (action.required_fields.length === 0) return action.safe_to_run ? "Read-only" : "Needs review";
   return `Requires ${action.required_fields.map((field) => field.replace(/_/g, " ")).join(", ")}`;
@@ -3305,6 +3314,28 @@ function healthCheckReadinessActions(report: HealthCheckReport): string {
   `;
 }
 
+function healthCheckDetails(report: HealthCheckReport): string {
+  if (report.checks.length === 0) return "";
+  return `
+        <details class="health-check-details" data-dashboard-detail="health-check-details">
+          <summary class="dashboard-fold-summary">
+            <span>Check Details</span>
+            <small>${escapeHtml(healthCheckCheckSummary(report))}</small>
+          </summary>
+          <div class="health-check-list">
+            ${report.checks.map((check) => `
+              <article class="health-check-item ${escapeHtml(check.status)}">
+                <span>${escapeHtml(titleCase(check.status))}</span>
+                <strong>${escapeHtml(check.label)}</strong>
+                <p>${escapeHtml(check.summary)}</p>
+                <small>${escapeHtml(check.reason)}</small>
+              </article>
+            `).join("")}
+          </div>
+        </details>
+  `;
+}
+
 function healthCheckPanel(report: HealthCheckReport): string {
   const summary = healthCheckSummary(report);
   const actionSummary = healthCheckActionSummary(report);
@@ -3328,16 +3359,7 @@ function healthCheckPanel(report: HealthCheckReport): string {
           <div><dt>Capture review</dt><dd>${escapeHtml(report.stats.capture_review_candidates)}</dd></div>
         </dl>
         ${healthCheckReadinessActions(report)}
-        <div class="health-check-list">
-          ${report.checks.map((check) => `
-            <article class="health-check-item ${escapeHtml(check.status)}">
-              <span>${escapeHtml(titleCase(check.status))}</span>
-              <strong>${escapeHtml(check.label)}</strong>
-              <p>${escapeHtml(check.summary)}</p>
-              <small>${escapeHtml(check.reason)}</small>
-            </article>
-          `).join("")}
-        </div>
+        ${healthCheckDetails(report)}
       </div>
     </details>
   `;
@@ -6432,13 +6454,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .health-check-stats dt { color: var(--muted); font-size: 11.5px; font-weight: 720; }
     .health-check-stats dd { margin: 3px 0 0; color: var(--ink); font-size: 17px; font-weight: 800; }
-    .health-check-readiness-actions {
+    .health-check-readiness-actions,
+    .health-check-details {
       border: 1px solid var(--hairline);
       border-radius: 7px;
       padding: 8px 9px;
       background: var(--surface-2);
     }
-    .health-check-readiness-actions[open] > summary { margin-bottom: 9px; }
+    .health-check-readiness-actions[open] > summary,
+    .health-check-details[open] > summary { margin-bottom: 9px; }
     .health-check-action-groups {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));

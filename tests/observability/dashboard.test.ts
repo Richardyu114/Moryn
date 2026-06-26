@@ -471,6 +471,16 @@ describe("observability dashboard", () => {
       expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("moryn dashboard --serve --project-id moryn");
       expect(html).toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
       expect(html).toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
+      expect(html).toContain("<details class=\"health-check-details\" data-dashboard-detail=\"health-check-details\">");
+      expect(html).toContain("<span>Check Details</span>");
+      expect(html).toContain("<small>4 pass | 4 info | 1 warning</small>");
+      const readinessActionsIndex = html.indexOf("data-dashboard-detail=\"health-check-readiness-actions\"");
+      const checkDetailsIndex = html.indexOf("data-dashboard-detail=\"health-check-details\"");
+      const healthCheckListIndex = html.indexOf("<div class=\"health-check-list\">", checkDetailsIndex);
+      expect(readinessActionsIndex).toBeGreaterThan(-1);
+      expect(checkDetailsIndex).toBeGreaterThan(readinessActionsIndex);
+      expect(healthCheckListIndex).toBeGreaterThan(checkDetailsIndex);
+      expect(html.indexOf("MCP runtime freshness")).toBeGreaterThan(healthCheckListIndex);
       expect(html).toContain("Requires summary");
       expect(html).toContain("Read-only");
       expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
