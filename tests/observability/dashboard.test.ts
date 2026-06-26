@@ -4137,8 +4137,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("Review before write");
       expect(html).toContain("Plan hash guard");
       expect(html).toContain("<details class=\"maintenance-decision-summary-fold\" data-dashboard-detail=\"maintenance-decision-summary:");
-      expect(html).toContain("<summary>Decision summary</summary>");
-      expect(html.indexOf("<summary>Decision summary</summary>")).toBeLessThan(
+      expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-decision-summary-summary\">");
+      expect(html).toContain("<span>Decision summary</span>");
+      expect(html).toContain("<small>Why, change, safety, action</small>");
+      expect(html).not.toContain("<summary>Decision summary</summary>");
+      expect(html.indexOf("<summary class=\"dashboard-fold-summary maintenance-decision-summary-summary\">")).toBeLessThan(
         html.indexOf("<dl class=\"maintenance-summary maintenance-decision-summary\" data-maintenance-decision-summary>")
       );
       expect(html).toContain("Why");

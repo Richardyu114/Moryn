@@ -4233,7 +4233,10 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 </div>
                 ${maintenanceReviewBrief(plan)}
                 <details class="maintenance-decision-summary-fold" data-dashboard-detail="maintenance-decision-summary:${escapeHtml(plan.plan_id)}">
-                  <summary>Decision summary</summary>
+                  <summary class="dashboard-fold-summary maintenance-decision-summary-summary">
+                    <span>Decision summary</span>
+                    <small>Why, change, safety, action</small>
+                  </summary>
                   <dl class="maintenance-summary maintenance-decision-summary" data-maintenance-decision-summary>
                     <div><dt>Why</dt><dd>${escapeHtml(plan.decision_card.impact)}</dd></div>
                     <div><dt>Change</dt><dd>${escapeHtml(maintenanceMoveSummary(plan))}<small>${escapeHtml(maintenanceChangeDetail(plan))}</small></dd></div>
