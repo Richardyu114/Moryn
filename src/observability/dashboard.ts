@@ -365,7 +365,6 @@ export const DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES = {
 
 const CANDIDATE_TRIAGE_SAMPLE_LIMIT = 3;
 const CANDIDATE_TRIAGE_PROMOTION_REASON = "User approved Candidate Triage promotion draft.";
-const DEBUG_INSPECTOR_ROW_LIMIT = 10;
 
 export type DashboardGovernanceSource = "capture_policy" | "memory_doctor" | "memory_lifecycle" | "maintenance" | "recall_eval" | "dogfood_report";
 export type DashboardGovernanceCategory =
@@ -4523,115 +4522,6 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
     </section>
   `;
 }
-function lifecycleSummary(report: MemoryLifecycleResult): string {
-  const stats = report.stats;
-  return `
-    <dl class="lifecycle-summary">
-      <div><dt>Archive candidates</dt><dd>${escapeHtml(stats.archive_candidate_records)}<small>review before archive</small></dd></div>
-      <div><dt>Stale records</dt><dd>${escapeHtml(stats.stale_records)}<small>inspect timeline</small></dd></div>
-      <div><dt>Retained</dt><dd>${escapeHtml(stats.retained_records)}<small>kept by policy</small></dd></div>
-      <div><dt>Private boundary</dt><dd>${escapeHtml(stats.excluded_private_records)} hidden<small>${escapeHtml(stats.private_retained_records)} private retained</small></dd></div>
-    </dl>
-  `;
-}
-
-function lifecycleFindingList(report: MemoryLifecycleResult): string {
-  if (report.findings.length === 0) {
-    return `<div class="empty-state">No lifecycle findings for this snapshot.</div>`;
-  }
-  return `
-    <div class="lifecycle-findings">
-      ${report.findings.map((finding) => `
-        <article class="lifecycle-finding ${escapeHtml(finding.severity)}">
-          <div>
-            <strong>${escapeHtml(finding.summary)}</strong>
-            <span>${escapeHtml(titleCase(finding.severity))}</span>
-          </div>
-          <p>${escapeHtml(finding.reason)}</p>
-          <small>${escapeHtml(pluralize(finding.record_ids.length, "record"))}: ${finding.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</small>
-        </article>
-      `).join("")}
-    </div>
-  `;
-}
-
-function lifecycleActions(report: MemoryLifecycleResult): string {
-  if (report.suggested_actions.length === 0) {
-    return `<div class="empty-state">No lifecycle actions suggested.</div>`;
-  }
-  return `
-    <div class="lifecycle-actions">
-      ${report.suggested_actions.slice(0, 6).map((action) => `
-        <article class="lifecycle-action ${action.safe_to_run ? "safe" : "review"}">
-          <div>
-            <span class="pill ${action.safe_to_run ? "state-canonical" : "warning"}">${escapeHtml(action.safe_to_run ? "Read-only" : "Needs review")}</span>
-            <strong>${escapeHtml(action.recommended_action)}</strong>
-          </div>
-          <code>${escapeHtml(action.command)}</code>
-          <small>${escapeHtml(action.required_when)}</small>
-        </article>
-      `).join("")}
-    </div>
-  `;
-}
-
-function memoryLifecycleFoldSummary(report: MemoryLifecycleResult): string {
-  const findings = report.findings.length;
-  const actions = report.suggested_actions.length;
-  if (findings === 0 && actions === 0) return "No lifecycle work";
-  return [
-    findings > 0 ? pluralize(findings, "finding") : undefined,
-    actions > 0 ? pluralize(actions, "action") : undefined
-  ].filter((part): part is string => Boolean(part)).join(" | ");
-}
-
-function isCleanMemoryLifecycle(report: MemoryLifecycleResult): boolean {
-  return report.findings.length === 0 && report.suggested_actions.length === 0;
-}
-
-function memoryLifecycleReference(): string {
-  return `
-      <article class="memory-lifecycle-reference" data-dashboard-detail="memory-lifecycle:index" data-memory-lifecycle-reference>
-        <strong>Memory Lifecycle Index</strong>
-        <span>No lifecycle work indexed</span>
-        <code>memory_lifecycle</code>
-      </article>
-      <p>Open <code>/api/dashboard</code> for lifecycle policy, record assessments, findings, and suggested actions.</p>
-  `;
-}
-
-function memoryLifecyclePanel(report: MemoryLifecycleResult, panelClass = "panel"): string {
-  const totalFindings = report.findings.length;
-  const totalActions = report.suggested_actions.length;
-  if (report.stats.total_records === 0 && totalFindings === 0 && totalActions === 0) return "";
-  return `
-    <details class="${escapeHtml(panelClass)} memory-lifecycle" data-dashboard-detail="memory-lifecycle-audit" aria-label="Memory Lifecycle">
-      <summary class="dashboard-fold-summary">
-        <span>Memory Lifecycle</span>
-        <small>${escapeHtml(memoryLifecycleFoldSummary(report))}</small>
-      </summary>
-      ${isCleanMemoryLifecycle(report) ? memoryLifecycleReference() : `
-      <div class="lifecycle-policy">
-        <div>
-          <strong>Lifecycle Policy</strong>
-          <code>${escapeHtml(report.policy.id)}</code>
-        </div>
-        <span>Read-only</span>
-        <span>${escapeHtml(report.policy.stale_after_days)}d stale</span>
-        <span>${escapeHtml(report.policy.archive_after_days)}d archive review</span>
-        <span>low confidence &lt; ${escapeHtml(report.policy.low_confidence_threshold)}</span>
-      </div>
-      ${lifecycleSummary(report)}
-      ${lifecycleFindingList(report)}
-      <details class="lifecycle-action-details" data-dashboard-detail="memory-lifecycle:${escapeHtml(report.generated_at)}">
-        <summary>Lifecycle suggestions</summary>
-        ${lifecycleActions(report)}
-      </details>
-      `}
-    </details>
-  `;
-}
-
 function contextPackReviewChecks(review: DashboardContextPackReview): string {
   const checks = review.handoff_pack?.quality_gate.checks ?? [];
   if (checks.length === 0) return `<div class="empty-state">No context pack checks available.</div>`;
@@ -4831,245 +4721,11 @@ function contextPackReviewPanel(review: DashboardContextPackReview): string {
   `;
 }
 
-function capturePolicyInspectCommand(report: CapturePolicyResult, recordId: string): string {
-  return report.suggested_actions_by_id[`inspect:${recordId}`]?.command
-    ?? timelineRecordCommand(recordId, report.records_by_id[recordId]?.project_id);
-}
-
-function capturePolicyInspectAction(report: CapturePolicyResult, recordId: string): string {
-  return report.suggested_actions_by_id[`inspect:${recordId}`]?.recommended_action
-    ?? "inspect_policy_decision";
-}
-
-function capturePolicyDecisionCards(report: CapturePolicyResult): string {
-  return `
-    <div class="capture-policy-decisions">
-      ${report.decisions.slice(0, 8).map((decision) => {
-        const isReview = decision.decision === "review";
-        const isCapture = decision.decision === "capture";
-        const isActionableReview = decision.review_required;
-        const inspectCommand = capturePolicyInspectCommand(report, decision.record_id);
-        const inspectAction = capturePolicyInspectAction(report, decision.record_id);
-        const title = isActionableReview
-          ? "Review in Capture Inbox"
-          : isReview
-            ? "Review already handled"
-            : isCapture
-              ? "Auto-captured handoff"
-              : "Policy archived";
-        const stateHint = isActionableReview
-          ? "User action required"
-          : isCapture
-            ? "No user action required"
-            : "No inbox action";
-        return `
-          <article
-            class="capture-policy-decision ${isReview ? "review" : isCapture ? "captured" : "archived"}"
-            data-capture-policy-decision="${escapeHtml(decision.record_id)}"
-            ${isActionableReview ? `data-capture-inbox-record="${escapeHtml(decision.record_id)}"` : ""}
-          >
-            <div class="capture-inbox-main">
-              <div>
-                <h3>${escapeHtml(title)}</h3>
-                ${textExcerptBlock(decision.text)}
-              </div>
-              <span class="pill ${isReview || isCapture ? "state-candidate" : "state-archived"}">${escapeHtml(decision.decision)}</span>
-            </div>
-            <dl class="capture-inbox-summary">
-              <div><dt>Rule</dt><dd>${decision.rule_ids.map((ruleId) => `<code>${escapeHtml(ruleId)}</code>`).join(" ") || "none"}</dd></div>
-              <div><dt>State</dt><dd>${escapeHtml(isActionableReview ? decision.target_state : decision.state)}<small>${escapeHtml(stateHint)}</small></dd></div>
-              <div><dt>Evidence</dt><dd>${decision.evidence.map((evidence) => `<code>${escapeHtml(evidence.source)}</code>`).join(" ")}</dd></div>
-              <div><dt>Action</dt><dd>${escapeHtml(isActionableReview ? "review_capture_inbox" : inspectAction)}<small>${escapeHtml(isActionableReview ? "Uses Capture Inbox approval endpoints." : "Read-only timeline inspection.")}</small></dd></div>
-              <div><dt>Inspect</dt><dd><code>${escapeHtml(inspectCommand)}</code></dd></div>
-            </dl>
-            ${isActionableReview ? `
-              <div class="capture-inbox-actions">
-                <button
-                  type="button"
-                  data-capture-inbox-reject
-                  data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("reject", decision.record_id))}"
-                  data-endpoint="${escapeHtml(captureInboxRejectEndpoint(decision.record_id))}"
-                >Reject</button>
-                <button
-                  type="button"
-                  class="primary"
-                  data-capture-inbox-approve
-                  data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("approve", decision.record_id))}"
-                  data-endpoint="${escapeHtml(captureInboxApproveEndpoint(decision.record_id))}"
-                >Approve Memory</button>
-              </div>
-              <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
-            ` : ""}
-          </article>
-        `;
-      }).join("")}
-    </div>
-  `;
-}
-
-function capturePolicyFindingList(report: CapturePolicyResult): string {
-  if (report.findings.length === 0) {
-    return `<div class="empty-state">No capture policy findings for this snapshot.</div>`;
-  }
-  return `
-    <div class="lifecycle-findings">
-      ${report.findings.map((finding) => `
-        <article class="lifecycle-finding ${escapeHtml(finding.severity)}">
-          <div>
-            <strong>${escapeHtml(finding.summary)}</strong>
-            <span>${escapeHtml(finding.category)}</span>
-          </div>
-          <p>${escapeHtml(finding.reason)}</p>
-          <small>${finding.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</small>
-        </article>
-      `).join("")}
-    </div>
-  `;
-}
-
-function capturePolicyRoutingBrief(report: CapturePolicyResult): string {
-  const parts = [
-    report.stats.auto_captured_records > 0 ? pluralize(report.stats.auto_captured_records, "auto-captured handoff") : undefined,
-    report.stats.policy_archived_records > 0 ? pluralize(report.stats.policy_archived_records, "policy-archived handoff") : undefined
-  ].filter((part): part is string => part !== undefined);
-  return `
-    <div class="capture-policy-routing-brief" aria-label="Capture policy routing brief">
-      <h4>Routing brief</h4>
-      <div>
-        <strong>No capture inbox work</strong>
-        ${parts.map((part) => `<span>${escapeHtml(part)}</span>`).join("")}
-        <code>capture_policy.decisions_by_record_id</code>
-      </div>
-    </div>
-  `;
-}
-
-function capturePolicyActionsList(report: CapturePolicyResult): string {
-  if (report.suggested_actions.length === 0) {
-    return `<div class="empty-state">No capture policy actions suggested.</div>`;
-  }
-  return `
-    <div class="lifecycle-actions">
-      ${report.suggested_actions.slice(0, 6).map((action) => `
-        <article class="lifecycle-action safe">
-          <div>
-            <span class="pill state-canonical">Read-only</span>
-            <strong>${escapeHtml(action.recommended_action)}</strong>
-          </div>
-          <code>${escapeHtml(action.command)}</code>
-          <small>${escapeHtml(action.required_when)}</small>
-        </article>
-      `).join("")}
-    </div>
-  `;
-}
-
-function capturePolicyAuditSummary(report: CapturePolicyResult): string {
-  const parts = [
-    report.stats.auto_captured_records > 0 ? `${report.stats.auto_captured_records} captured` : undefined,
-    report.stats.review_records > 0 ? `${report.stats.review_records} review` : undefined,
-    report.stats.policy_archived_records > 0 ? `${report.stats.policy_archived_records} archived` : undefined
-  ].filter((part): part is string => Boolean(part));
-  return parts.length > 0 ? parts.join(" | ") : "No capture policy work";
-}
-
-function isReadOnlyCapturePolicyEvidence(report: CapturePolicyResult): boolean {
-  return report.stats.review_records === 0
-    && (report.stats.auto_captured_records > 0 || report.stats.policy_archived_records > 0)
-    && (report.findings.length > 0 || report.suggested_actions.length > 0);
-}
-
-function capturePolicyReference(report: CapturePolicyResult): string {
-  const routeParts = [
-    report.stats.auto_captured_records > 0 ? `${report.stats.auto_captured_records} captured` : undefined,
-    report.stats.policy_archived_records > 0 ? `${report.stats.policy_archived_records} archived` : undefined
-  ].filter((part): part is string => part !== undefined);
-  const indexSummary = routeParts.length > 0
-    ? `${routeParts.join(" | ")} ${routeParts.length === 1 ? "route" : "routes"} indexed`
-    : "No capture policy work indexed";
-  return `
-      <article class="capture-policy-reference" data-dashboard-detail="capture-policy:index" data-capture-policy-reference>
-        <strong>Capture Policy Index</strong>
-        <span>${escapeHtml(indexSummary)}</span>
-        <code>capture_policy</code>
-      </article>
-      <p>Open <code>/api/dashboard</code> for capture policy findings, safe inspection actions, decisions, rule ids, evidence paths, and trace commands.</p>
-  `;
-}
-
-function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "panel"): string {
-  if (report.stats.total_autocapture_records === 0) return "";
-  const readOnlyEvidence = isReadOnlyCapturePolicyEvidence(report);
-  const summaryText = capturePolicyAuditSummary(report);
-  const capturedRuleSummary = Object.entries(report.stats.captured_by_rule)
-    .map(([ruleId, count]) => `${ruleId}: ${count}`)
-    .join(" / ") || "no auto-captured handoffs";
-  const ruleSummary = Object.entries(report.stats.archived_by_rule)
-    .map(([ruleId, count]) => `${ruleId}: ${count}`)
-    .join(" / ") || "no archived noise";
-  return `
-    <details class="${escapeHtml(panelClass)} capture-policy-audit" data-dashboard-detail="capture-policy-audit" aria-label="Capture Policy Audit">
-      <summary class="dashboard-fold-summary"${readOnlyEvidence ? ` aria-label="Capture Policy Audit: ${escapeHtml(summaryText)}"` : ""}>
-        <span>${escapeHtml(readOnlyEvidence ? "Policy Decision History" : "Capture Policy Audit")}</span>
-        <small>${escapeHtml(readOnlyEvidence ? "Routing evidence" : summaryText)}</small>
-      </summary>
-      ${readOnlyEvidence || isCleanCapturePolicy(report) ? capturePolicyReference(report) : `
-      <div class="lifecycle-policy">
-        <div>
-          <strong>capture_policy</strong>
-          <code>${escapeHtml(report.policy.id)}</code>
-        </div>
-        <span>Report read-only</span>
-        <span>No auto-canonical</span>
-        <span>${escapeHtml(capturedRuleSummary)}</span>
-        <span>${escapeHtml(ruleSummary)}</span>
-      </div>
-      ${readOnlyEvidence ? capturePolicyRoutingBrief(report) : capturePolicyFindingList(report)}
-      <details class="lifecycle-action-details" data-dashboard-detail="capture-policy:${escapeHtml(report.policy.id)}">
-        <summary class="dashboard-fold-summary" aria-label="Routing details: Read-only evidence">
-          <span>Routing details</span>
-          <small>Read-only evidence</small>
-        </summary>
-        ${readOnlyEvidence ? capturePolicyFindingList(report) : ""}
-        ${capturePolicyActionsList(report)}
-        ${capturePolicyDecisionCards(report)}
-      </details>
-      `}
-    </details>
-  `;
-}
-
-function isCleanCapturePolicy(report: CapturePolicyResult): boolean {
-  return report.stats.total_autocapture_records > 0
-    && report.findings.length === 0
-    && report.suggested_actions.length === 0;
-}
-
-function auditReports(input: {
-  memoryLifecycle: MemoryLifecycleResult;
-  capturePolicy: CapturePolicyResult;
-}): string {
-  const memoryLifecycle = memoryLifecyclePanel(input.memoryLifecycle);
-  const capturePolicy = capturePolicyAuditPanel(input.capturePolicy);
-  if (!memoryLifecycle && !capturePolicy) return "";
-  if (isCleanMemoryLifecycle(input.memoryLifecycle) && isCleanCapturePolicy(input.capturePolicy)) {
-    return `
-      <details class="panel clean-audit-reports" data-dashboard-detail="clean-audit-reports" aria-label="Clean Audit Reports">
-        <summary class="dashboard-fold-summary clean-audit-reports-fold">
-          <span>Clean Audit Reports</span>
-          <small>Clean lifecycle and capture audits</small>
-        </summary>
-        <div class="clean-audit-list">
-          ${memoryLifecyclePanel(input.memoryLifecycle, "clean-audit-report")}
-          ${capturePolicyAuditPanel(input.capturePolicy, "clean-audit-report")}
-        </div>
-      </details>
-    `;
-  }
-  return `
-    ${memoryLifecycle}
-    ${capturePolicy}
-  `;
+function hasAuditReportData(memoryLifecycle: MemoryLifecycleResult, capturePolicy: CapturePolicyResult): boolean {
+  return memoryLifecycle.stats.total_records > 0
+    || memoryLifecycle.findings.length > 0
+    || memoryLifecycle.suggested_actions.length > 0
+    || capturePolicy.stats.total_autocapture_records > 0;
 }
 
 function agentBars(agents: DashboardAgentChartItem[]): string {
@@ -5143,18 +4799,6 @@ function citationCommands(citation: DashboardRecordCitation | DashboardEventCita
       <code>${escapeHtml(citation.timeline_command)}</code>
       ${"recall_command" in citation && citation.recall_command ? `<code>${escapeHtml(citation.recall_command)}</code>` : ""}
     </div>
-  `;
-}
-
-function recentValueReference(records: DashboardValueRecord[]): string {
-  const recordSummary = `${pluralize(records.length, "recent record")} available`;
-  return `
-    <article class="recent-value-reference" data-dashboard-detail="recent-value:index">
-      <strong>Recent Value Index</strong>
-      <span>${escapeHtml(recordSummary)}</span>
-      <code>recent_value</code>
-    </article>
-    <p>Open <code>/api/dashboard</code> for newest-first recent value records, full summaries, and trace commands.</p>
   `;
 }
 
@@ -5418,97 +5062,6 @@ function captureInbox(items: DashboardCaptureInbox): string {
   `;
 }
 
-function recordsTable(records: DashboardRecordSummary[]): string {
-  const visibleRecords = records.slice(0, DEBUG_INSPECTOR_ROW_LIMIT);
-  const overflow = records.length - visibleRecords.length;
-  const rows = visibleRecords.map((record) => `
-    <tr data-dashboard-citation="record:${escapeHtml(record.id)}">
-      <td><code class="copy-id" title="${escapeHtml(record.id)}">${escapeHtml(record.id)}</code></td>
-      <td>${escapeHtml(record.kind)}</td>
-      <td>${escapeHtml(record.type)}</td>
-      <td>${escapeHtml(record.scope)}${record.project_id ? `<small title="${escapeHtml(record.project_id)}">${escapeHtml(record.project_id)}</small>` : ""}</td>
-      <td><span class="pill state-${escapeHtml(record.state)}">${escapeHtml(record.state)}</span></td>
-      <td><span class="truncate" title="${escapeHtml(sourceLabel(record.source))}">${escapeHtml(humanSourceLabel(record.source))}</span></td>
-      <td><time title="${escapeHtml(record.updated_at)}">${escapeHtml(record.updated_at)}</time></td>
-      <td>
-        <details data-dashboard-detail="record:${escapeHtml(record.id)}">
-          <summary aria-label="${escapeHtml(recordIndexAccessibleSummary(record))}">${recordIndexSummary(record)}</summary>
-          ${textExcerptBlock(record.text)}
-          ${citationCommands(record.citation)}
-        </details>
-      </td>
-    </tr>
-  `).join("");
-  return `
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Kind</th>
-            <th>Type</th>
-            <th>Scope</th>
-            <th>State</th>
-            <th>Source</th>
-            <th>Updated</th>
-            <th>Content</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    ${overflow > 0 ? debugInspectorOverflow(overflow, "record", "recent_records") : ""}
-  `;
-}
-
-function recordIndexSummary(record: DashboardRecordSummary): string {
-  return `
-    <span>${escapeHtml(`Record ${recordLabel(record.id)}`)}</span>
-    <small>Details</small>
-  `;
-}
-
-function recordIndexAccessibleSummary(record: DashboardRecordSummary): string {
-  return `Record details: ${titleCase(record.kind)} ${record.type} from ${humanSourceLabel(record.source)} ${recordLabel(record.id)}`;
-}
-
-function eventsTimeline(events: DashboardEventSummary[]): string {
-  const visibleEvents = events.slice(0, DEBUG_INSPECTOR_ROW_LIMIT);
-  const overflow = events.length - visibleEvents.length;
-  return `
-    <div class="event-list">
-      ${visibleEvents.map((event) => `
-        <details class="event-row" data-dashboard-detail="event:${escapeHtml(event.event_id)}" data-dashboard-citation="event:${escapeHtml(event.event_id)}">
-          <summary>
-            <span>${escapeHtml(eventSummaryLabel(event.op))}</span>
-            <time>${escapeHtml(event.created_at)}</time>
-          </summary>
-          <dl>
-            <div><dt>Event</dt><dd><code>${escapeHtml(event.event_id)}</code></dd></div>
-            ${event.record_id ? `<div><dt>Record</dt><dd><code>${escapeHtml(event.record_id)}</code></dd></div>` : ""}
-            <div><dt>Source</dt><dd>${escapeHtml(sourceLabel(event.source))}</dd></div>
-            <div><dt>Trace</dt><dd>${citationCommands(event.citation)}</dd></div>
-          </dl>
-        </details>
-      `).join("")}
-    </div>
-    ${overflow > 0 ? debugInspectorOverflow(overflow, "event", "recent_events") : ""}
-  `;
-}
-
-function eventSummaryLabel(op: string): string {
-  return op === "upsert_record" ? "Record update" : titleCase(op);
-}
-
-function debugInspectorOverflow(count: number, kind: "record" | "event", evidencePath: "recent_records" | "recent_events"): string {
-  return `
-    <div class="debug-inspector-overflow">
-      <span class="debug-inspector-overflow-count">${escapeHtml(`${pluralize(count, `more ${kind}`)} kept in /api/dashboard`)}</span>
-      <span>Full ${escapeHtml(kind)} list stays in <code>${escapeHtml(evidencePath)}</code>.</span>
-    </div>
-  `;
-}
-
 function syncActionBrief(data: DashboardData): string {
   const syncLane = data.action_board.items_by_id.sync;
   if (syncLane.value === 0 || (syncLane.severity !== "warning" && syncLane.severity !== "critical")) return "";
@@ -5597,185 +5150,66 @@ function storeSignalsPanel(data: DashboardData, options: { open?: boolean; inclu
   `;
 }
 
-function recentValuePanel(records: DashboardValueRecord[]): string {
-  const recentValueSummary = `${records.length} recent ${records.length === 1 ? "record" : "records"}`;
-  return `
-    <details class="panel recent-value-panel" data-dashboard-detail="recent-value">
-      <summary class="dashboard-fold-summary recent-value-fold">
-        <span>Recent Value</span>
-        <small>${escapeHtml(recentValueSummary)}</small>
-      </summary>
-      <div class="recent-value-body">
-        ${recentValueReference(records)}
-      </div>
-    </details>
-  `;
-}
-
-type DebugInspectorReference = {
-  id: "inspector:records" | "inspector:events" | "inspector:sync";
-  label: string;
-  summary: string;
-  path: "recent_records" | "recent_events" | "sync";
-};
-
-function debugInspectorReferenceCard(reference: DebugInspectorReference): string {
-  return `
-        <article class="debug-inspector-reference" data-dashboard-detail="${escapeHtml(reference.id)}">
-          <strong>${escapeHtml(reference.label)}</strong>
-          <span>${escapeHtml(reference.summary)}</span>
-          <code>${escapeHtml(reference.path)}</code>
-        </article>
-  `;
-}
-
-function debugInspectorPanel(data: DashboardData): string {
-  const references: DebugInspectorReference[] = [
-    {
-      id: "inspector:records",
-      label: "Record Index",
-      summary: `${pluralize(data.recent_records.length, "recent record")} available`,
-      path: "recent_records"
-    },
-    {
-      id: "inspector:events",
-      label: "Event Timeline",
-      summary: `${pluralize(data.recent_events.length, "recent event")} available`,
-      path: "recent_events"
-    },
-    {
-      id: "inspector:sync",
-      label: "Sync Snapshot",
-      summary: "Sync metadata available",
-      path: "sync"
-    }
-  ];
-  return `
-    <details class="panel debug-inspector" data-dashboard-detail="debug-inspector">
-      <summary class="dashboard-fold-summary">
-        <span>Raw Store Inspector</span>
-        <small>API-backed raw evidence</small>
-      </summary>
-      <div class="debug-inspector-index" aria-label="Raw Store API index">
-        ${references.map(debugInspectorReferenceCard).join("")}
-        <p>Open <code>/api/dashboard</code> for full raw records, events, and sync metadata.</p>
-      </div>
-    </details>
-  `;
-}
-
 function supportingEvidenceSummary(): string {
   return "Optional trace data";
 }
 
 type SupportingEvidenceSummaryRow = {
-  id: "audit-evidence" | "store-snapshot" | "raw-store-reference";
+  id: "audit-reports" | "store-snapshot" | "raw-store";
   label: string;
   summary: string;
+  route: string;
+  paths: Array<{ label: string; route: string }>;
 };
 
 function supportingEvidenceSummaryRow(row: SupportingEvidenceSummaryRow): string {
   return `
-        <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="${escapeHtml(row.id)}">
+        <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="${escapeHtml(row.id)}" data-dashboard-detail="${escapeHtml(row.route)}">
           <div>
             <strong>${escapeHtml(row.label)}</strong>
             <span>${escapeHtml(row.summary)}</span>
           </div>
-          <small>Reference</small>
+          <small>${row.paths.map((path) => `<code data-dashboard-detail="${escapeHtml(path.route)}">${escapeHtml(path.label)}</code>`).join("")}</small>
         </article>
-  `;
-}
-
-function supportingEvidenceOperationalGroup(panels: string[]): string {
-  if (panels.length === 0) return "";
-  return `
-    <details class="supporting-evidence-group supporting-evidence-operational" data-dashboard-detail="supporting-operational-evidence">
-      <summary class="dashboard-fold-summary supporting-evidence-group-heading">
-        <span>Audit Evidence</span>
-        <small>Clean audits and store signals</small>
-      </summary>
-      <div class="supporting-evidence-group-list">
-        ${panels.join("")}
-      </div>
-    </details>
-  `;
-}
-
-function supportingOperationalSnapshotsGroup(panels: string[]): string {
-  if (panels.length === 0) return "";
-  return `
-    <details class="supporting-evidence-group supporting-evidence-snapshots" data-dashboard-detail="supporting-operational-snapshots">
-      <summary class="dashboard-fold-summary supporting-evidence-group-heading">
-        <span>Store Snapshot</span>
-        <small>Store context</small>
-      </summary>
-      <div class="supporting-evidence-group-list">
-        ${panels.join("")}
-      </div>
-    </details>
-  `;
-}
-
-function supportingEvidenceRawGroup(panels: string[]): string {
-  if (panels.length === 0) return "";
-  return `
-    <details class="supporting-evidence-group supporting-evidence-raw" data-dashboard-detail="supporting-raw-inspector">
-      <summary class="dashboard-fold-summary supporting-evidence-group-heading">
-        <span>Raw Store Reference</span>
-        <small>Optional raw records</small>
-      </summary>
-      <div class="supporting-evidence-group-list">
-        ${panels.join("")}
-      </div>
-    </details>
   `;
 }
 
 function supportingEvidencePanel(data: DashboardData, options: { includeStoreSignals?: boolean } = {}): string {
   const includeStoreSignals = options.includeStoreSignals ?? true;
-  const reports = auditReports({
-    memoryLifecycle: data.memory_lifecycle,
-    capturePolicy: data.capture_policy
-  });
-  const snapshotPanels = [
-    includeStoreSignals ? storeSignalsPanel(data) : "",
-    recentValuePanel(data.recent_value)
-  ].filter((panel) => panel.length > 0);
-  const operationalPanels = [
-    reports,
-    supportingOperationalSnapshotsGroup(snapshotPanels)
-  ].filter((panel) => panel.length > 0);
-  const rawPanels = [
-    debugInspectorPanel(data)
-  ].filter((panel) => panel.length > 0);
+  const hasAuditReports = hasAuditReportData(data.memory_lifecycle, data.capture_policy);
   const summaryRows: SupportingEvidenceSummaryRow[] = [
-    ...(operationalPanels.length > 0 ? [{
-      id: "audit-evidence" as const,
-      label: "Audit Evidence",
-      summary: "Clean audits and store signals"
+    ...(hasAuditReports ? [{
+      id: "audit-reports" as const,
+      label: "Audit Reports",
+      summary: "Lifecycle and capture policy evidence",
+      route: "supporting-operational-evidence",
+      paths: [
+        { label: "memory_lifecycle", route: "memory-lifecycle-audit" },
+        { label: "capture_policy", route: "capture-policy-audit" }
+      ]
     }] : []),
-    ...(snapshotPanels.length > 0 ? [{
+    ...(includeStoreSignals || data.recent_value.length > 0 ? [{
       id: "store-snapshot" as const,
       label: "Store Snapshot",
-      summary: "Store context"
+      summary: "Store signals and recent value",
+      route: "supporting-operational-snapshots",
+      paths: [
+        { label: "sync", route: "store-signals" },
+        { label: "recent_value", route: "recent-value" }
+      ]
     }] : []),
-    ...(rawPanels.length > 0 ? [{
-      id: "raw-store-reference" as const,
-      label: "Raw Store Reference",
-      summary: "Optional raw records"
-    }] : [])
+    {
+      id: "raw-store" as const,
+      label: "Raw Store",
+      summary: "Records, events, and sync metadata",
+      route: "debug-inspector",
+      paths: [
+        { label: "recent_records", route: "inspector:records" },
+        { label: "recent_events", route: "inspector:events" },
+        { label: "sync", route: "inspector:sync" }
+      ]
+    }
   ];
-  const detailGroups = [
-    supportingEvidenceOperationalGroup(operationalPanels),
-    supportingEvidenceRawGroup(rawPanels)
-  ].filter((panel) => panel.length > 0);
-  const reportSummary = operationalPanels.length > 0 && rawPanels.length > 0
-    ? "Store signals and raw reference"
-    : operationalPanels.length > 0
-      ? "Store signals"
-      : rawPanels.length > 0
-        ? "Raw reference"
-        : "No reports";
   return `
     <details class="panel supporting-evidence" data-dashboard-detail="supporting-evidence" aria-label="Supporting Evidence">
       <summary class="dashboard-fold-summary supporting-evidence-fold">
@@ -5783,18 +5217,10 @@ function supportingEvidencePanel(data: DashboardData, options: { includeStoreSig
         <small>${escapeHtml(supportingEvidenceSummary())}</small>
       </summary>
       <div class="supporting-evidence-list">
-        <div class="supporting-evidence-summary-list" aria-label="Audit Trail summary">
+        <div class="supporting-evidence-index" aria-label="Audit Trail API index">
           ${summaryRows.map(supportingEvidenceSummaryRow).join("")}
+          <p>Open <code>/api/dashboard</code> for full audit reports, store snapshots, raw records, recent events, sync metadata, and trace commands.</p>
         </div>
-        <details class="supporting-evidence-full-details" data-dashboard-detail="supporting-evidence-full-details">
-          <summary class="dashboard-fold-summary">
-            <span>Audit Reports</span>
-            <small>${escapeHtml(reportSummary)}</small>
-          </summary>
-          <div class="supporting-evidence-full-list">
-            ${detailGroups.join("")}
-          </div>
-        </details>
       </div>
     </details>
   `;
@@ -7359,85 +6785,6 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-top: 1px solid var(--hairline);
       padding-top: 10px;
     }
-    .memory-lifecycle { border-left: 4px solid var(--signal-violet); }
-    .memory-lifecycle-reference {
-      display: grid;
-      gap: 5px;
-      min-width: 0;
-      border: 1px solid var(--hairline);
-      border-left: 4px solid var(--info);
-      border-radius: 7px;
-      padding: 9px;
-      background: var(--surface);
-    }
-    .memory-lifecycle-reference strong {
-      color: var(--ink);
-      font-weight: 780;
-      overflow-wrap: anywhere;
-    }
-    .memory-lifecycle-reference span,
-    .memory-lifecycle-reference code,
-    .memory-lifecycle > p {
-      overflow-wrap: anywhere;
-    }
-    .memory-lifecycle-reference span,
-    .memory-lifecycle > p {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .memory-lifecycle-reference code {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 700;
-    }
-    .capture-policy-reference {
-      display: grid;
-      gap: 5px;
-      min-width: 0;
-      border: 1px solid var(--hairline);
-      border-left: 4px solid var(--info);
-      border-radius: 7px;
-      padding: 9px;
-      background: var(--surface);
-    }
-    .capture-policy-reference strong {
-      color: var(--ink);
-      font-weight: 780;
-      overflow-wrap: anywhere;
-    }
-    .capture-policy-reference span,
-    .capture-policy-reference code,
-    .capture-policy-audit > p {
-      overflow-wrap: anywhere;
-    }
-    .capture-policy-reference span,
-    .capture-policy-audit > p {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .capture-policy-reference code {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 700;
-    }
-    .clean-audit-reports { border-left: 4px solid var(--signal-violet); }
-    .clean-audit-reports[open] > summary { margin-bottom: 10px; }
-    .clean-audit-list {
-      display: grid;
-      gap: 10px;
-      border-top: 1px solid var(--hairline);
-      padding-top: 10px;
-    }
-    .clean-audit-report {
-      border: 1px solid var(--border);
-      border-left-width: 3px;
-      border-radius: 8px;
-      padding: 10px;
-      background: var(--surface-2);
-    }
-    .clean-audit-report[open] > summary { margin-bottom: 8px; }
     .store-signals { border-left: 4px solid var(--signal-slate); }
     .capture-inbox { border-left: 4px solid var(--signal-blue); }
     .evidence-library {
@@ -7631,9 +6978,18 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-top: 1px solid var(--hairline);
       padding-top: 10px;
     }
-    .supporting-evidence-summary-list {
+    .supporting-evidence-index {
       display: grid;
       gap: 8px;
+    }
+    .supporting-evidence-index p {
+      margin: 0;
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12.5px;
     }
     .supporting-evidence-summary-row {
       display: flex;
@@ -7667,63 +7023,11 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-size: 12px;
       font-weight: 700;
     }
-    .supporting-evidence-full-details {
-      border: 1px solid var(--hairline);
-      border-radius: 7px;
-      padding: 8px 9px;
-      background: var(--surface-2);
-    }
-    .supporting-evidence-full-details[open] > summary { margin-bottom: 9px; }
-    .supporting-evidence-full-list {
-      display: grid;
-      gap: 10px;
-      border-top: 1px solid var(--hairline);
-      padding-top: 10px;
-    }
-    .supporting-evidence-group {
-      display: grid;
-      gap: 8px;
-      min-width: 0;
-    }
-    .supporting-evidence-operational[open] > summary { margin-bottom: 8px; }
-    .supporting-evidence-snapshots[open] > summary { margin-bottom: 8px; }
-    .supporting-evidence-raw {
-      border-top: 1px solid var(--hairline);
-      padding-top: 9px;
-    }
-    .supporting-evidence-raw[open] > summary { margin-bottom: 8px; }
-    .supporting-evidence-group-heading {
+    .supporting-evidence-summary-row small {
       display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      min-width: 0;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 760;
-    }
-    .supporting-evidence-group-heading span {
-      color: var(--ink);
-      overflow-wrap: anywhere;
-    }
-    .supporting-evidence-group-heading small {
-      display: inline;
-      text-align: right;
-    }
-    .supporting-evidence-group-list {
-      display: grid;
-      gap: 10px;
-    }
-    .supporting-evidence-list > .panel,
-    .supporting-evidence-full-list > .panel,
-    .supporting-evidence-full-list > section.panel,
-    .supporting-evidence-full-list > details.panel,
-    .supporting-evidence-group-list > .panel,
-    .supporting-evidence-group-list > section.panel,
-    .supporting-evidence-group-list > details.panel {
-      margin-bottom: 0;
-      box-shadow: none;
-      background: var(--surface);
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 4px;
     }
     .maintenance-heading, .maintenance-plan-main, .maintenance-actions,
     .candidate-triage-heading,
@@ -7826,7 +7130,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       gap: 5px;
     }
     .action-receipt code { background: var(--surface-2); }
-    .maintenance-list, .candidate-triage-list, .candidate-triage-records, .governance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
+    .maintenance-list, .candidate-triage-list, .candidate-triage-records, .governance-list, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
     .candidate-triage-heading { align-items: flex-start; margin-bottom: 10px; }
     .candidate-triage-heading p {
       margin: 4px 0 0;
@@ -8496,27 +7800,12 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
     }
     .capture-policy-rule-list strong { color: var(--ink); }
-    .maintenance-plan, .lifecycle-finding, .lifecycle-action, .capture-policy-decision, .capture-inbox-group, .capture-inbox-item {
+    .maintenance-plan, .capture-inbox-group, .capture-inbox-item {
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px;
       background: var(--surface-2);
     }
-    .lifecycle-finding, .lifecycle-action { background: var(--surface); }
-    .lifecycle-finding div, .lifecycle-action div {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 7px;
-    }
-    .lifecycle-finding strong, .lifecycle-action strong { color: var(--ink); font-weight: 760; }
-    .lifecycle-finding span, .lifecycle-action small { color: var(--muted); font-size: 12px; font-weight: 650; }
-    .lifecycle-action code { display: block; width: 100%; margin: 6px 0; }
-    .lifecycle-action.review { border-left: 3px solid var(--warning); }
-    .lifecycle-action.safe { border-left: 3px solid var(--good); }
-    .lifecycle-action-details { margin-top: 10px; }
-    .lifecycle-action-details summary { font-weight: 760; color: var(--ink); }
     .dashboard-fold-summary {
       display: flex;
       align-items: center;
@@ -8537,7 +7826,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-size: 12px;
       font-weight: 650;
     }
-    .memory-lifecycle[open] > summary, .capture-policy-audit[open] > summary, .store-signals[open] > summary { margin-bottom: 12px; }
+    .store-signals[open] > summary { margin-bottom: 12px; }
     .store-signals .visual-grid { margin-top: 0; }
     .sync-position-focus { margin-bottom: 10px; }
     .store-sync-details {
@@ -8560,11 +7849,6 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface-2);
       min-width: 0;
     }
-    .capture-policy-decisions { display: grid; gap: 10px; margin-top: 10px; }
-    .capture-policy-decision { background: var(--surface); }
-    .capture-policy-decision.review { border-left: 3px solid var(--signal-blue); }
-    .capture-policy-decision.archived { border-left: 3px solid var(--signal-slate); }
-    .capture-policy-decision .capture-inbox-summary div:last-child { grid-column: 1 / -1; }
     .capture-inbox-group {
       background: var(--surface);
       box-shadow: 0 8px 18px rgba(21, 25, 30, 0.04);
@@ -8805,13 +8089,13 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 560;
       overflow-wrap: anywhere;
     }
-    .maintenance-summary, .lifecycle-summary, .capture-inbox-summary {
+    .maintenance-summary, .capture-inbox-summary {
       margin: 0 0 10px;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
     }
-    .maintenance-summary div, .lifecycle-summary div, .capture-inbox-summary div {
+    .maintenance-summary div, .capture-inbox-summary div {
       display: grid;
       grid-template-columns: 104px minmax(0, 1fr);
       gap: 8px;
@@ -8822,7 +8106,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       min-width: 0;
     }
     .maintenance-summary div:last-child { grid-column: 1 / -1; }
-    .maintenance-summary small, .lifecycle-summary small, .capture-inbox-summary small { margin-top: 3px; }
+    .maintenance-summary small, .capture-inbox-summary small { margin-top: 3px; }
     .maintenance-plan > details {
       border: 1px solid var(--border);
       border-radius: 7px;
@@ -9011,62 +8295,9 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .rail .behind { justify-self: end; }
     .rail .ahead { justify-self: start; background: var(--accent); }
     .rail i { position: relative; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 3px solid var(--accent); justify-self: center; box-shadow: 0 0 0 4px rgba(33,113,94,0.1); }
-    .recent-value-panel[open] > summary { margin-bottom: 10px; }
-    .recent-value-body {
-      border-top: 1px solid var(--hairline);
-      padding-top: 10px;
-    }
-    .recent-value-reference {
-      display: grid;
-      gap: 5px;
-      min-width: 0;
-      border: 1px solid var(--hairline);
-      border-radius: 7px;
-      padding: 9px;
-      background: var(--surface);
-    }
-    .recent-value-reference strong {
-      color: var(--ink);
-      font-weight: 760;
-      overflow-wrap: anywhere;
-    }
-    .recent-value-reference span { color: var(--muted); overflow-wrap: anywhere; }
     .citation-links { display: grid; gap: 5px; min-width: 0; }
     .citation-links code { width: 100%; }
     .inspector-grid { display: grid; gap: 12px; }
-    .debug-inspector[open] > summary { margin-bottom: 12px; }
-    .debug-inspector-index {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .debug-inspector-index p {
-      grid-column: 1 / -1;
-      margin-top: 2px;
-      color: var(--muted);
-      font-size: 12.5px;
-    }
-    .debug-inspector-reference {
-      display: grid;
-      gap: 5px;
-      min-width: 0;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      padding: 9px;
-      background: var(--surface-2);
-    }
-    .debug-inspector-reference strong {
-      color: var(--ink);
-      font-size: 13px;
-      font-weight: 760;
-      overflow-wrap: anywhere;
-    }
-    .debug-inspector-reference span {
-      color: var(--muted);
-      font-size: 12px;
-      overflow-wrap: anywhere;
-    }
-    .debug-inspector-reference code { width: 100%; }
     .table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
     table { width: 100%; min-width: 940px; table-layout: fixed; border-collapse: collapse; }
     th, td { padding: 9px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
@@ -9078,28 +8309,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .copy-id { max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
-    .event-list { display: grid; gap: 8px; }
-    .event-row { border: 1px solid var(--border); border-radius: 7px; padding: 10px; background: var(--surface); }
-    .event-row summary { display: flex; justify-content: space-between; gap: 10px; min-width: 0; }
-    .debug-inspector-overflow {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
-      border: 1px dashed var(--border);
-      border-radius: 7px;
-      padding: 8px 9px;
-      margin-top: 8px;
-      background: var(--surface);
-      color: var(--muted);
-      font-size: 12.5px;
-    }
-    .debug-inspector-overflow-count {
-      color: var(--ink);
-      font-weight: 740;
-    }
     @media (max-width: 920px) {
-      header, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .debug-inspector-index { grid-template-columns: 1fr; }
+      header, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
@@ -9119,7 +8330,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions { display: grid; justify-content: stretch; }
       .capture-inbox-item-summary { grid-template-columns: 1fr; }
       .capture-inbox-item-meta { justify-content: flex-start; }
-      .maintenance-summary, .context-pack-summary, .context-pack-grid, .health-check-action-groups, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
+      .maintenance-summary, .context-pack-summary, .context-pack-grid, .health-check-action-groups, .capture-inbox-summary { grid-template-columns: 1fr; }
       .governance-finding-summary dl { grid-template-columns: 1fr; }
       .governance-counts { justify-content: flex-start; }
       .governance-item-summary { align-items: flex-start; display: grid; }

@@ -171,20 +171,17 @@ The Capture Inbox also exposes a default Capture Policy:
 - noise rule ids `smoke_test_marker` and `duplicate_text`
 
 The dashboard renders active Capture Inbox candidates first, so approval and
-rejection controls stay ahead of policy explanation. Capture Policy,
-Autocapture Policy, auto-captured examples, policy-archived examples, and rule
-ids remain available under the collapsed `Capture Audit` detail panel. The
-default row keeps only the manual-review and no-auto-canonical boundary visible;
-candidate, auto-captured, and policy-archived counts stay in the accessible
-label and expanded audit detail so the folded row does not read like a log
-line. Expanding it shows policy ids, grouping, stale protection, rule counts,
-and rule ids.
+rejection controls stay ahead of policy explanation. The visible Capture Policy
+summary keeps only the manual-review and no-auto-canonical boundary visible,
+while policy ids, auto-captured examples, policy-archived examples, rule ids,
+and full counts stay in `/api/dashboard.capture_policy` and the Audit Trail
+index chips. Candidate, auto-captured, and policy-archived counts stay in the
+accessible label so the folded row does not read like a log line.
 When there are no active Capture Inbox candidates, the main `Capture Inbox`
 panel is not rendered; auto-captured and policy-archived handoff evidence stays
-under the stable `capture-policy-audit` route inside the evidence path. If that
-route only contains read-only routing evidence, the visible folded title reads
-`Policy Decision History` with `Routing evidence` instead of showing
-`Capture Policy Audit` plus a count.
+in `/api/dashboard.capture_policy` and the stable `capture_policy` Audit Trail
+chip. That route is an index target only; it does not render a second visible
+policy history panel.
 
 `Approve Memory` posts to:
 
@@ -242,41 +239,23 @@ summary. The policy never promotes anything to canonical memory automatically.
 
 ### Capture Policy Audit
 
-The dashboard includes a read-only `Capture Policy Audit` detail panel built
-from the same local report as `moryn capture policy` and MCP `capture_policy`.
-It is collapsed by default because Governance Hub summarizes the current policy
-findings first. Its folded summary uses plain routing labels such as
-`captured`, `review`, and `archived` instead of internal field names. When
-expanded, it shows:
+The dashboard builds a read-only `capture_policy` report from the same local
+source as `moryn capture policy` and MCP `capture_policy`, but Audit Trail no
+longer renders a full `Capture Policy Audit` panel. The visible HTML keeps a
+stable `capture_policy` chip with `data-dashboard-detail="capture-policy-audit"`
+inside the `Audit Reports` row; keyed findings, decisions, rule ids, evidence
+paths, suggested inspect actions, and timeline commands remain in
+`/api/dashboard.capture_policy`.
 
-- the active `default_autocapture_policy`
-- how many handoffs were auto-captured without review
-- how many autocaptured records currently require review
-- how many were policy-archived before entering Capture Inbox
-- captured counts by rule id
-- archived counts by rule id
-- keyed findings such as `auto_captured`, `review_required`, and
-  `policy_archived`
-- safe dashboard or timeline inspection actions such as
-  `inspect_auto_captured_handoff` and `inspect_policy_archived_record`
-- recent policy decisions with record ids, decision, rule ids, text, evidence,
-  and the next action
-
-This panel explains automatic capture/review/archive routing without adding a
-second policy mutation surface. Historical decisions stay inspectable, but only
-active candidate records still waiting in Capture Inbox count as
-`review_required` findings or Governance Hub user actions. Decisions routed to
-`capture` render
-`Auto-captured handoff`, `inspect_auto_captured_handoff`, and a read-only
-timeline command. Decisions routed to `review` render the same explicit Capture
-Inbox user actions only while they are still actionable: `Review in Capture Inbox`,
-`Approve Memory`, and `Reject`. Already handled review decisions render
-read-only inspection details instead.
-Decisions routed to `archive` render `Policy archived`,
-`inspect_policy_archived_record`, and a read-only timeline command such as
-`moryn timeline --record-id <record_id> --project-id <project_id> --before 3 --after 3`.
-Auto-captured and archived decisions do not expose Approve, Reject, Promote,
-Archive, or Apply buttons.
+Governance Hub summarizes policy findings that need attention, while Capture
+Inbox renders the only approval controls for active review candidates. This
+explains automatic capture/review/archive routing without adding a second policy
+mutation surface. Historical decisions stay inspectable through JSON and
+timeline commands, but only active candidate records still waiting in Capture
+Inbox count as `review_required` findings or Governance Hub user actions.
+Decisions routed to `capture` or `archive` remain read-only evidence such as
+`inspect_auto_captured_handoff` and `inspect_policy_archived_record`. They do
+not expose Approve, Reject, Promote, Archive, or Apply buttons.
 
 Canonical memory still requires explicit Capture Inbox user action.
 Auto-captured and archived policy decisions stay inspectable and reversible
@@ -285,49 +264,19 @@ inbox items automatically.
 
 ### Memory Lifecycle
 
-The dashboard includes a read-only `Memory Lifecycle` detail panel built from
-the same local report as `moryn memory lifecycle` and MCP `memory_lifecycle`.
-It is collapsed by default because Governance Hub summarizes lifecycle findings
-first. When expanded, it classifies visible records as:
+The dashboard builds a read-only `memory_lifecycle` report from the same local
+source as `moryn memory lifecycle` and MCP `memory_lifecycle`, but Audit Trail no
+longer renders a full `Memory Lifecycle` detail panel. The visible HTML keeps a
+stable `memory_lifecycle` chip with `data-dashboard-detail="memory-lifecycle-audit"`
+inside the `Audit Reports` row; the active
+`default_memory_lifecycle_policy`, record assessments, findings, suggested
+actions, and safe timeline/recall commands remain in
+`/api/dashboard.memory_lifecycle`.
 
-- retained
-- stale
-- archive candidates
-- private-retained when `--include-private` is explicit
-
-The panel shows the active `default_memory_lifecycle_policy`, finding counts,
-private-boundary counts, and suggested inspection commands. Timeline and recall
-commands are safe read-only checks. Archive suggestions are displayed as CLI
-commands with `safe_to_run: false`; the dashboard does not provide an Apply or
-Approve Lifecycle button and does not mutate the store while generating the
-panel.
-
-When Memory Lifecycle and Capture Policy Audit both have no current findings or
-suggested actions, the dashboard groups them under a collapsed `Clean Audit
-Reports` summary inside `Audit Trail`. Its folded row reads `Clean lifecycle
-and capture audits` instead of listing the two clean child modules. The reports
-and their evidence remain in the expanded HTML and `/api/dashboard`; the
-grouping only reduces first-screen noise for clean checks. The nested `Memory
-Lifecycle` folded row reads `No lifecycle work` when there are no findings or
-actions instead of repeating `0 findings | 0 actions`; expanding that clean row
-renders a single `Memory Lifecycle Index` card mapped to
-`/api/dashboard.memory_lifecycle`. The clean lifecycle HTML does not repeat the
-policy id, stale/archive thresholds, empty finding states, or an empty
-`Lifecycle suggestions` fold. Full lifecycle policy, record assessments,
-findings, and suggested actions remain in `/api/dashboard.memory_lifecycle`.
-The nested `Capture Policy Audit` row follows the same rule: clean reports read
-`No capture policy work`, and non-zero summaries omit empty buckets such as
-`0 captured`. When the report has no review work and only auto-captured or
-policy-archived evidence, the outer folded row reads `Policy Decision History`
-with `Routing evidence` while keeping the stable `capture-policy-audit` route.
-Expanding read-only routing-only or clean reports renders a single
-`Capture Policy Index` card mapped to `/api/dashboard.capture_policy`. The
-dashboard HTML does not render routing briefs, `Routing details`, per-decision
-cards, rule ids, evidence paths, or timeline commands there. Keyed findings,
-suggested inspect actions, decisions, rule ids, evidence paths, and trace
-commands remain in `/api/dashboard.capture_policy`. If active review work is
-present, Capture Policy Audit still renders the detailed review rows and
-Capture Inbox controls through the normal explicit approval path.
+Governance Hub summarizes lifecycle findings first. Archive suggestions remain
+review work with `safe_to_run: false`, and safe timeline/recall inspections
+remain read-only. The dashboard does not provide an Apply or Approve Lifecycle
+button and does not mutate the store while generating lifecycle data.
 
 When `--project-id <id>` or `--project <path>` is provided, the lifecycle report
 uses the same project scope as the CLI report: matching project records plus
@@ -872,11 +821,11 @@ read-only findings do not look like pending approval work or expose
 child panel counts. Routine Diagnostics and Audit Trail are
 grouped behind `Routine Reference`, whose folded summary reads `Checks and
 audit`, while the accessible summary keeps `Routine checks and audit trail`
-instead of listing reference-panel counts. Expanding `Audit Trail` shows
-lightweight Audit Evidence, Store Snapshot, and Raw Store Reference rows first;
-the original evidence groups stay inside the nested `Audit Reports`
-section. Empty groups are omitted, so the library does not add a placeholder
-when there is only background evidence.
+instead of listing reference-panel counts. Expanding `Audit Trail` shows the
+single `Audit Trail API index` with `Audit Reports`, `Store Snapshot`, and
+`Raw Store` rows. Empty audit report rows are omitted when there is no lifecycle
+or capture policy data, so the library does not add a placeholder when there is
+only background evidence.
 The routine and background groups still keep the original child
 `data-dashboard-detail` targets through compact route buttons, so local
 navigation can open the parent group before scrolling to the requested
@@ -912,38 +861,32 @@ approvals. Those explicit confirmation surfaces stay on the main path, outside
 the evidence layer. The library also does not add endpoints, Safe Action
 Registry entries, or memory mutation paths.
 
-Clean audit reports, raw records, events, sync details, recent value, and store
-telemetry remain available inside the nested `Audit Trail` panel. When sync is
-promoted onto the active path, Audit Trail keeps Recent Value and raw sync
-snapshot evidence while the single visible `store-signals` panel stays on the
-main path. Here, the collapsed
+Audit reports, raw records, events, sync details, recent value, and store
+telemetry remain available through `/api/dashboard`, while the visible
+`Audit Trail` panel renders only a single `Audit Trail API index`. The collapsed
 `Audit Trail` row reads `Optional trace data` instead of listing
 implementation-oriented module names or collapsed-state counters on the first
-screen, and the Evidence index `Audit` route also reads `Optional trace data` while
-still opening the same `Audit Trail` route. Inside Audit Trail, `Clean Audit
-Reports`, `Store Signals`, and `Recent Value` are grouped under `Audit
-Evidence`, whose row reads `Clean audits and store signals` instead of listing
-child panel counts.
-`Audit Evidence` is collapsed by default inside `Audit Trail`,
-and `Store Signals` and `Recent Value` are nested under a collapsed
-`Store Snapshot` row. `Store Snapshot` row reads `Store context` instead of
-listing child module names, while the raw inspector is grouped behind
-`Raw Store Reference`. This keeps
-common audit evidence closer to the user while keeping record/event/sync
-internals available without placing them at the same level. Nested evidence
-summaries also use purpose labels: `Store Signals` opens with `Operational
-health signals`, `Raw Store Reference` opens with `Optional raw records`, and
-`Raw Store Inspector` opens with `API-backed raw evidence`. It renders only three
-lightweight API index cards labeled `Record Index`, `Event Timeline`, and
-`Sync Snapshot`, mapped to `/api/dashboard.recent_records[]`,
-`/api/dashboard.recent_events[]`, and `/api/dashboard.sync`. The dashboard HTML
-does not inline raw record tables, event rows, or sync detail fields there; full
-raw records, event operations, trace commands, and sync metadata stay in
-`/api/dashboard` for agents and audit tooling. This keeps the stable
-`debug-inspector` and `inspector:*` routes while preventing raw evidence from
-becoming another large visible log.
-Expanded bodies still keep agent activity, record quality, and API-backed raw
-evidence inspectable.
+screen, and the Evidence index `Audit` route also reads `Optional trace data`
+while still opening the same `Audit Trail` route.
+
+Expanding `Audit Trail` shows three lightweight rows:
+
+- `Audit Reports`, with route `supporting-operational-evidence` and chips for
+  `memory_lifecycle` and `capture_policy`
+- `Store Snapshot`, with route `supporting-operational-snapshots` and chips for
+  `sync` and `recent_value`
+- `Raw Store`, with route `debug-inspector` and chips for `recent_records`,
+  `recent_events`, and `sync`
+
+The dashboard HTML does not render nested `Audit Reports`, `Audit Evidence`,
+`Store Signals`, `Recent Value`, `Raw Store Reference`, `Raw Store Inspector`,
+raw record cards, event rows, sync detail fields, agent activity, record
+quality, record types, or trace commands inside Audit Trail. The stable
+`memory-lifecycle-audit`, `capture-policy-audit`, `store-signals`,
+`recent-value`, `debug-inspector`, and `inspector:*` routes remain as index-chip
+targets for navigation and automation. Full lifecycle policy, capture policy
+decisions, recent value summaries, raw records, events, sync metadata, citations,
+and trace commands stay in `/api/dashboard` for agents and audit tooling.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without
@@ -1194,20 +1137,22 @@ Review Queue maintenance approval.
 review pressure without expanding every low-level panel. Recall Eval misses use
 `source: "recall_eval"` and `category: "recall_quality"` with evidence paths
 such as `recall_eval.report.cases_by_id.<case_id>`, safe-to-run inspection
-metadata, and `writes: "none"`. Memory Lifecycle, Capture Policy Audit, Recall
-Eval, and the raw store inspector remain available, but their details are
-collapsed by default.
+metadata, and `writes: "none"`. Memory Lifecycle, Capture Policy, Recent Value,
+raw records, raw events, and sync metadata remain available through
+`/api/dashboard` and Audit Trail index chips instead of full low-level HTML
+panels.
 
 The expanded safe-only Governance Hub heading reads `API-backed governance
 index`, and its visible card reads `Governance Index` instead of exposing
 `governance.summary` as UI copy. The JSON contract still keeps
 `governance.summary` for agents and audit tooling.
 
-Long record text is rendered as compact excerpts in the HTML dashboard,
-including Recent Value cards, Context Pack Review items, Capture Inbox cards,
-and Raw Store Inspector record details. `/api/dashboard` keeps the full JSON fields,
-and each card keeps timeline/recall commands so the full record remains
-auditable without making the page heavy.
+Long record text is rendered as compact excerpts in the HTML dashboard where a
+record is part of an active review flow, such as Context Pack Review and Capture
+Inbox cards. Recent Value and raw store details are represented by Audit Trail
+index chips, while `/api/dashboard` keeps the full JSON fields and
+timeline/recall commands so the full record remains auditable without making
+the page heavy.
 
 Recent values, recent records, recent events, and agent activity entries carry
 `citation` metadata when an event or record can be traced. Record citations
@@ -1240,12 +1185,11 @@ still preserving deterministic ordering for records with the same timestamp.
 `source_label` contains the normalized readable source, while `source_detail`
 preserves the raw client and session details when available.
 
-The HTML dashboard keeps `Recent Value` collapsed by default behind a short
-recent-record count. Newest-first ordering, full details, and trace commands
-stay in the `/api/dashboard` payload. Expanding it shows a lightweight
-`Recent Value Index` row mapped to `/api/dashboard.recent_value[]` instead of
-record cards or overflow lists. The HTML does not inline Recent Value summaries,
-record ids, or per-card trace commands; timeline and recall commands stay in
+The HTML dashboard represents `Recent Value` with the `recent_value` chip inside
+Audit Trail's `Store Snapshot` row. Newest-first ordering, full details, record
+ids, and trace commands stay in the `/api/dashboard.recent_value[]` payload. The
+HTML does not inline Recent Value summaries, record ids, or per-card trace
+commands; timeline and recall commands stay in
 `/api/dashboard.recent_value[].citation`.
 
 Quarantined records normally count as unresolved safety signals. If an active

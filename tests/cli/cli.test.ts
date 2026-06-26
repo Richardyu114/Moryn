@@ -86,10 +86,10 @@ async function stopChild(child: ReturnType<typeof spawn>): Promise<void> {
   });
 }
 
-function recentValuePanelHtml(html: string): string {
-  const start = html.indexOf("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
+function storeSnapshotAuditRowHtml(html: string): string {
+  const start = html.indexOf("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
   expect(start).toBeGreaterThan(-1);
-  const end = html.indexOf("</details>", start);
+  const end = html.indexOf("</article>", start);
   expect(end).toBeGreaterThan(start);
   return html.slice(start, end);
 }
@@ -5928,10 +5928,11 @@ describe("moryn CLI", () => {
       });
       expect(snapshot.url).toMatch(/^file:\/\//);
       const snapshotHtml = await readFile(snapshot.path, "utf8");
-      const snapshotRecentValueHtml = recentValuePanelHtml(snapshotHtml);
-      expect(snapshotRecentValueHtml).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
-      expect(snapshotRecentValueHtml).toContain("<code>recent_value</code>");
-      expect(snapshotRecentValueHtml).not.toContain("Dashboard CLI snapshot memory");
+      const snapshotStoreSnapshotHtml = storeSnapshotAuditRowHtml(snapshotHtml);
+      expect(snapshotStoreSnapshotHtml).toContain("<strong>Store Snapshot</strong>");
+      expect(snapshotStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
+      expect(snapshotStoreSnapshotHtml).not.toContain("Dashboard CLI snapshot memory");
+      expect(snapshotHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
       expect(snapshotHtml).not.toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
       expect(snapshotHtml).not.toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
       expect(snapshotHtml).not.toContain("moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary &#39;&lt;summary&gt;&#39;");
@@ -6020,10 +6021,11 @@ describe("moryn CLI", () => {
         expect(served.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
 
         const page = await (await fetch(served.url)).text();
-        const pageRecentValueHtml = recentValuePanelHtml(page);
-        expect(pageRecentValueHtml).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
-        expect(pageRecentValueHtml).toContain("<code>recent_value</code>");
-        expect(pageRecentValueHtml).not.toContain("Dashboard CLI server memory");
+        const pageStoreSnapshotHtml = storeSnapshotAuditRowHtml(page);
+        expect(pageStoreSnapshotHtml).toContain("<strong>Store Snapshot</strong>");
+        expect(pageStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
+        expect(pageStoreSnapshotHtml).not.toContain("Dashboard CLI server memory");
+        expect(page).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
         expect(page).toContain("data-dashboard-refresh=\"250\"");
         const initialApi = await (await fetch(new URL("/api/dashboard", served.url))).json() as {
           recent_value: Array<{ summary: string }>;
@@ -6039,10 +6041,11 @@ describe("moryn CLI", () => {
         ]);
 
         const fragment = await (await fetch(new URL("/fragment", served.url))).text();
-        const fragmentRecentValueHtml = recentValuePanelHtml(fragment);
-        expect(fragmentRecentValueHtml).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
-        expect(fragmentRecentValueHtml).toContain("<code>recent_value</code>");
-        expect(fragmentRecentValueHtml).not.toContain("Dashboard CLI server refreshed");
+        const fragmentStoreSnapshotHtml = storeSnapshotAuditRowHtml(fragment);
+        expect(fragmentStoreSnapshotHtml).toContain("<strong>Store Snapshot</strong>");
+        expect(fragmentStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
+        expect(fragmentStoreSnapshotHtml).not.toContain("Dashboard CLI server refreshed");
+        expect(fragment).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
         const refreshedApi = await (await fetch(new URL("/api/dashboard", served.url))).json() as {
           recent_value: Array<{ summary: string }>;
         };
