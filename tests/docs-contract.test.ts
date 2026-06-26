@@ -392,10 +392,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the title, short confirmation chips, and explicit controls");
     expect(dashboard).toContain("single `Audit details` fold");
     expect(dashboard).toContain("one expandable `Audit details` fold instead of several");
+    expect(dashboard).toContain("folded summary reads `Decision record and checklist`");
     expect(dashboard).toContain("A compact `Approval checklist` fold");
     expect(dashboard).toContain("Before approving");
     expect(dashboard).toContain("approval surface reads like a decision checklist instead of internal logs");
-    expect(dashboard).toContain("Evidence, rollback, and raw plan details stay inside the same `Audit details`");
+    expect(dashboard).toContain("Evidence, rollback, and raw plan details stay inside a nested `Plan evidence`");
+    expect(dashboard).toContain("first expanded audit view stays readable without hiding audit data");
     expect(dashboard).toContain("The `Copy command` button lives inside");
     expect(dashboard).toContain("keeping the visible action bar focused on `Reject` and the explicit");
     expect(dashboard).toContain("recommended action");

@@ -4314,7 +4314,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"maintenance-audit-details\" data-dashboard-detail=\"maintenance-audit:");
       expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-audit-details-fold\">");
       expect(html).toContain("<span>Audit details</span>");
-      expect(html).toContain("<small>Decision record, checklist, rollback, raw plan</small>");
+      expect(html).toContain("<small>Decision record and checklist</small>");
       expect(html).not.toContain("<summary>Decision evidence</summary>");
       expect(html).not.toContain("<summary>Evidence, rollback, and raw plan</summary>");
       expect(html).not.toContain("<summary>Audit trail</summary>");
@@ -4343,9 +4343,17 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Proposed change:</strong> Move 1 record from <code>repo-e6f0166fd942</code> to <code>moryn</code>.");
       expect(html).toContain("<strong>Safety gate:</strong> Server re-runs the dry run and checks <code>plan_hash</code> before writing.");
       expect(html).toContain("<strong>Audit path:</strong> Raw plan, record ids, rollback path, equivalent CLI command, and <code>plan_hash</code> stay below.");
+      expect(html).toContain("<details class=\"maintenance-plan-evidence\" data-dashboard-detail=\"maintenance-plan-evidence:");
+      expect(html).toContain("<span>Plan evidence</span>");
+      expect(html).toContain("<small>Evidence, rollback, raw plan</small>");
       expect(html).toContain("data-maintenance-detail=\"evidence\"");
       expect(html).toContain("data-maintenance-detail=\"rollback\"");
       expect(html).toContain("data-maintenance-detail=\"raw-plan\"");
+      const auditDetailsStart = html.indexOf("<details class=\"maintenance-audit-details\" data-dashboard-detail=\"maintenance-audit:");
+      const planEvidenceStart = html.indexOf("<details class=\"maintenance-plan-evidence\" data-dashboard-detail=\"maintenance-plan-evidence:", auditDetailsStart);
+      const directGridStart = html.indexOf("<div class=\"maintenance-detail-grid\">", auditDetailsStart);
+      expect(planEvidenceStart).toBeGreaterThan(auditDetailsStart);
+      expect(directGridStart).toBeGreaterThan(planEvidenceStart);
       expect(html).toContain("Evidence");
       expect(html).toContain("Rollback path");
       expect(html).toContain("append-only revise_record events");

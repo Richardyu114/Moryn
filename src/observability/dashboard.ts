@@ -4346,6 +4346,51 @@ function maintenanceCommandDetail(plan: DashboardMaintenancePlan): string {
   `;
 }
 
+function maintenancePlanEvidence(plan: DashboardMaintenancePlan): string {
+  return `
+    <details class="maintenance-plan-evidence" data-dashboard-detail="maintenance-plan-evidence:${escapeHtml(plan.plan_id)}">
+      <summary class="dashboard-fold-summary maintenance-plan-evidence-fold">
+        <span>Plan evidence</span>
+        <small>Evidence, rollback, raw plan</small>
+      </summary>
+      <div class="maintenance-detail-grid">
+        <section data-maintenance-detail="evidence">
+          <h4>Evidence</h4>
+          ${maintenanceEvidenceList(plan)}
+          <ul class="maintenance-checks">
+            ${plan.decision_card.raw_evidence.safety_checks.map((check) => `
+              <li class="${check.ok ? "good" : "warning"}">
+                <span>${check.ok ? "ok" : "review"}</span>
+                ${escapeHtml(check.label)}
+              </li>
+            `).join("")}
+          </ul>
+        </section>
+        <section data-maintenance-detail="rollback">
+          <h4>Rollback path</h4>
+          <p>${escapeHtml(plan.decision_card.rollback_path)}</p>
+        </section>
+        <section data-maintenance-detail="raw-plan">
+          <h4>Raw plan</h4>
+          <dl>
+            <div><dt>Plan</dt><dd><code>${escapeHtml(plan.plan_id)}</code></dd></div>
+            <div><dt>plan_hash</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.plan_hash)}</code></dd></div>
+            ${plan.type === "candidate_noise_archive"
+              ? `<div><dt>Reason</dt><dd><code>Memory doctor: e2e marker/noise candidate</code></dd></div>
+            <div><dt>Project</dt><dd><code>${escapeHtml(plan.to_project_id ?? "")}</code></dd></div>`
+              : `<div><dt>Old project id</dt><dd><code>${escapeHtml(plan.from_project_id ?? "")}</code></dd></div>
+            <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id ?? "")}</code></dd></div>`}
+            <div><dt>Records</dt><dd>${escapeHtml(maintenanceStateSummary(plan.dry_run.states) || "none")}</dd></div>
+            <div><dt>Private records</dt><dd>${escapeHtml(maintenancePrivateSummary(plan))}</dd></div>
+            <div><dt>Record ids</dt><dd>${maintenanceRecordIdsDetail(plan)}</dd></div>
+            <div><dt>Command</dt><dd>${maintenanceCommandDetail(plan)}</dd></div>
+          </dl>
+        </section>
+      </div>
+    </details>
+  `;
+}
+
 function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
   if (plans.length === 0) return "";
   return `
@@ -4376,44 +4421,11 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 <details class="maintenance-audit-details" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
                   <summary class="dashboard-fold-summary maintenance-audit-details-fold">
                     <span>Audit details</span>
-                    <small>Decision record, checklist, rollback, raw plan</small>
+                    <small>Decision record and checklist</small>
                   </summary>
                   ${maintenanceDecisionRecord(plan)}
                   ${maintenanceApprovalChecklist(plan)}
-                  <div class="maintenance-detail-grid">
-                    <section data-maintenance-detail="evidence">
-                      <h4>Evidence</h4>
-                      ${maintenanceEvidenceList(plan)}
-                      <ul class="maintenance-checks">
-                        ${plan.decision_card.raw_evidence.safety_checks.map((check) => `
-                          <li class="${check.ok ? "good" : "warning"}">
-                            <span>${check.ok ? "ok" : "review"}</span>
-                            ${escapeHtml(check.label)}
-                          </li>
-                        `).join("")}
-                      </ul>
-                    </section>
-                    <section data-maintenance-detail="rollback">
-                      <h4>Rollback path</h4>
-                      <p>${escapeHtml(plan.decision_card.rollback_path)}</p>
-                    </section>
-                    <section data-maintenance-detail="raw-plan">
-                      <h4>Raw plan</h4>
-                      <dl>
-                        <div><dt>Plan</dt><dd><code>${escapeHtml(plan.plan_id)}</code></dd></div>
-                        <div><dt>plan_hash</dt><dd><code>${escapeHtml(plan.decision_card.raw_evidence.plan_hash)}</code></dd></div>
-                        ${plan.type === "candidate_noise_archive"
-                          ? `<div><dt>Reason</dt><dd><code>Memory doctor: e2e marker/noise candidate</code></dd></div>
-                        <div><dt>Project</dt><dd><code>${escapeHtml(plan.to_project_id ?? "")}</code></dd></div>`
-                          : `<div><dt>Old project id</dt><dd><code>${escapeHtml(plan.from_project_id ?? "")}</code></dd></div>
-                        <div><dt>Target project</dt><dd><code>${escapeHtml(plan.to_project_id ?? "")}</code></dd></div>`}
-                        <div><dt>Records</dt><dd>${escapeHtml(maintenanceStateSummary(plan.dry_run.states) || "none")}</dd></div>
-                        <div><dt>Private records</dt><dd>${escapeHtml(maintenancePrivateSummary(plan))}</dd></div>
-                        <div><dt>Record ids</dt><dd>${maintenanceRecordIdsDetail(plan)}</dd></div>
-                        <div><dt>Command</dt><dd>${maintenanceCommandDetail(plan)}</dd></div>
-                      </dl>
-                    </section>
-                  </div>
+                  ${maintenancePlanEvidence(plan)}
                 </details>
                 <div class="maintenance-actions">
                   <button type="button" data-maintenance-reject>Reject</button>
@@ -8336,6 +8348,14 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .maintenance-audit-details[open] > summary { margin-bottom: 8px; }
     .maintenance-audit-details summary { color: var(--ink); font-weight: 720; }
+    .maintenance-plan-evidence {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin-top: 8px;
+      background: var(--surface);
+    }
+    .maintenance-plan-evidence[open] > summary { margin-bottom: 8px; }
     .approval-checklist {
       border: 1px solid var(--hairline);
       border-radius: 7px;
