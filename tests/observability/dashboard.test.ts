@@ -5440,6 +5440,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Capture Policy Audit: 1 captured\">");
       expect(html).toContain("<span>Policy Decision History</span>");
       expect(html).toContain("<small>Routing evidence</small>");
+      const capturePolicyPanelStart = html.indexOf("<details class=\"panel capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
+      const capturePolicyHistoryStart = html.indexOf("<details class=\"lifecycle-action-details\" data-dashboard-detail=\"capture-policy:default_autocapture_policy\">", capturePolicyPanelStart);
+      const capturePolicyOuter = html.slice(capturePolicyPanelStart, capturePolicyHistoryStart);
+      expect(capturePolicyOuter).toContain("<div class=\"capture-policy-routing-brief\" aria-label=\"Capture policy routing brief\">");
+      expect(capturePolicyOuter).toContain("<strong>No capture inbox work</strong>");
+      expect(capturePolicyOuter).toContain("1 auto-captured handoff");
+      expect(capturePolicyOuter).not.toContain("<div class=\"lifecycle-findings\">");
+      expect(capturePolicyOuter).not.toContain("Autocapture policy retained low-risk handoffs without review.");
       expect(html).not.toContain("<span>Capture Policy Audit</span>");
       expect(html).not.toContain("Moryn Health Check needs attention | 1 warning");
       expect(html).not.toContain("<small>1 captured</small>");

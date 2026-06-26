@@ -299,7 +299,10 @@ The nested `Capture Policy Audit` row follows the same rule: clean reports read
 `0 captured`. When the report has no review work and only auto-captured or
 policy-archived evidence, the outer folded row reads `Policy Decision History`
 with `Routing evidence` while keeping the stable `capture-policy-audit` route.
-The expanded history still opens with `Policy Decision History` and keeps
+The expanded read-only routing-only reports open with a compact `Routing brief`
+that states whether any Capture Inbox work exists and summarizes auto-captured or
+policy-archived handoffs. The keyed findings, suggested inspect actions, and decision
+cards stay inside `Policy Decision History`; that child fold keeps
 `Read-only routing evidence` in the accessible summary, so historical capture,
 review, and archive decisions read as audit history instead of another action
 queue.

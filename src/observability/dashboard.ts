@@ -4586,6 +4586,23 @@ function capturePolicyFindingList(report: CapturePolicyResult): string {
   `;
 }
 
+function capturePolicyRoutingBrief(report: CapturePolicyResult): string {
+  const parts = [
+    report.stats.auto_captured_records > 0 ? pluralize(report.stats.auto_captured_records, "auto-captured handoff") : undefined,
+    report.stats.policy_archived_records > 0 ? pluralize(report.stats.policy_archived_records, "policy-archived handoff") : undefined
+  ].filter((part): part is string => part !== undefined);
+  return `
+    <div class="capture-policy-routing-brief" aria-label="Capture policy routing brief">
+      <h4>Routing brief</h4>
+      <div>
+        <strong>No capture inbox work</strong>
+        ${parts.map((part) => `<span>${escapeHtml(part)}</span>`).join("")}
+        <code>capture_policy.decisions_by_record_id</code>
+      </div>
+    </div>
+  `;
+}
+
 function capturePolicyActionsList(report: CapturePolicyResult): string {
   if (report.suggested_actions.length === 0) {
     return `<div class="empty-state">No capture policy actions suggested.</div>`;
@@ -4647,12 +4664,13 @@ function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "pane
         <span>${escapeHtml(capturedRuleSummary)}</span>
         <span>${escapeHtml(ruleSummary)}</span>
       </div>
-      ${capturePolicyFindingList(report)}
+      ${readOnlyEvidence ? capturePolicyRoutingBrief(report) : capturePolicyFindingList(report)}
       <details class="lifecycle-action-details" data-dashboard-detail="capture-policy:${escapeHtml(report.policy.id)}">
         <summary class="dashboard-fold-summary" aria-label="Policy Decision History: Read-only routing evidence">
           <span>Policy Decision History</span>
           <small>Routing evidence</small>
         </summary>
+        ${readOnlyEvidence ? capturePolicyFindingList(report) : ""}
         ${capturePolicyActionsList(report)}
         ${capturePolicyDecisionCards(report)}
       </details>
@@ -7553,18 +7571,40 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 720;
       white-space: nowrap;
     }
-    .maintenance-brief, .capture-inbox-brief, .context-pack-brief {
+    .maintenance-brief, .capture-inbox-brief, .context-pack-brief, .capture-policy-routing-brief {
       border: 1px solid var(--border);
       border-radius: 7px;
       padding: 9px 10px;
       margin: 0 0 10px;
       background: var(--surface);
     }
-    .maintenance-brief h4, .capture-inbox-brief h4, .context-pack-brief h4 {
+    .maintenance-brief h4, .capture-inbox-brief h4, .context-pack-brief h4, .capture-policy-routing-brief h4 {
       margin: 0 0 7px;
       color: var(--ink);
       font-size: 12px;
       font-weight: 780;
+    }
+    .capture-policy-routing-brief div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .capture-policy-routing-brief strong {
+      color: var(--ink);
+      font-size: 13px;
+    }
+    .capture-policy-routing-brief span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+    .capture-policy-routing-brief code {
+      overflow-wrap: anywhere;
     }
     .maintenance-brief-chips,
     .capture-inbox-brief-chips {

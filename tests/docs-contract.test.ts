@@ -297,6 +297,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("capture_policy");
     expectText(dashboard, "folded summary uses plain routing labels such as");
     expect(dashboard).toContain("`captured`, `review`, and `archived`");
+    expectText(dashboard, "read-only routing-only reports open with a compact `Routing brief`");
+    expectText(dashboard, "keyed findings, suggested inspect actions, and decision cards stay inside `Policy Decision History`");
     expect(dashboard).toContain("Review in Capture Inbox");
     expect(dashboard).toContain("Auto-captured handoff");
     expect(dashboard).toContain("Approve Memory");
