@@ -652,15 +652,16 @@ brief and its folded summary reads `Sync action ready`. The brief shows the
 suggested read-only command, remote/branch context, and ahead/behind counts
 without adding an Approve or Apply control.
 Store Signals keeps `Sync Action` in the foreground, moves `Sync Position`
-behind a collapsed `Sync details` fold, and folds Agent Activity, Record
-Quality, and Record Types under `Telemetry Context`.
+behind a collapsed `Sync details` fold, and leaves Agent Activity, Record
+Quality, and Record Types in `/api/dashboard.charts` instead of rendering a
+second telemetry fold inside the promoted sync panel.
 When sync is the only active warning and no explicit approval is waiting, the
 promoted `Store Signals` panel is default-open and moves directly after the
 Overview so the current task is not repeated by an extra navigation row or
 buried under routine reference material.
-`Telemetry Context` remains collapsed inside it. The Reference Library still
-keeps the Audit route and raw evidence, but it does not render a second
-`store-signals` panel.
+The promoted panel omits `Telemetry Context` so the open sync state stays focused
+on the action and position rail. The Reference Library still keeps the Audit
+route and raw evidence, but it does not render a second `store-signals` panel.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary

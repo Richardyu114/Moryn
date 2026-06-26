@@ -5650,8 +5650,9 @@ function storeSignalsSummary(data: DashboardData): string {
   return "Operational health signals";
 }
 
-function storeSignalsPanel(data: DashboardData, options: { open?: boolean } = {}): string {
+function storeSignalsPanel(data: DashboardData, options: { open?: boolean; includeTelemetry?: boolean } = {}): string {
   const openAttribute = options.open ? " open" : "";
+  const includeTelemetry = options.includeTelemetry ?? true;
   return `
     <details${openAttribute} id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
       <summary class="dashboard-fold-summary">
@@ -5660,7 +5661,7 @@ function storeSignalsPanel(data: DashboardData, options: { open?: boolean } = {}
       </summary>
       ${syncActionBrief(data)}
       ${syncPositionFocus(data)}
-      ${storeTelemetryContext(data)}
+      ${includeTelemetry ? storeTelemetryContext(data) : ""}
     </details>
   `;
 }
@@ -6125,7 +6126,7 @@ function renderDashboardBody(data: DashboardData): string {
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
   const shouldRenderWorkLanes = !shouldPromoteStoreSignals;
-  const promotedStoreSignalsPanel = shouldPromoteStoreSignals ? storeSignalsPanel(data, { open: true }) : "";
+  const promotedStoreSignalsPanel = shouldPromoteStoreSignals ? storeSignalsPanel(data, { open: true, includeTelemetry: false }) : "";
   return `
     <header>
       <div>
