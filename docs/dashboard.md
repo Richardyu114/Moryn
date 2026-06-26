@@ -710,6 +710,11 @@ Signals for audit without making empty checks or optional inspections look like
 active work.
 `Quiet Shortcuts` opens with `Background section links` to keep that supporting
 role visible before expansion.
+When any active shortcut is visible in `Page Shortcuts`, the HTML skips
+`Quiet Shortcuts` and `action-board-quiet-targets` entirely so zero-state and
+read-only navigation does not compete with the current task. The same quiet
+shortcut items remain in `/api/dashboard.action_board.items` and
+`items_by_id`, and their underlying panels remain addressable by route.
 
 When explicit approvals exist, the dashboard renders a compact `Pending
 Decisions` panel directly below the Action Board. `/api/dashboard.decision_summary`

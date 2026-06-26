@@ -3015,6 +3015,7 @@ function actionBoard(data: DashboardActionBoard): string {
   const shortcutItems = data.items.filter((item) => !isDuplicatedDecisionShortcut(item));
   const activeItems = shortcutItems.filter(isActiveActionBoardItem);
   const quietItems = shortcutItems.filter((item) => !isActiveActionBoardItem(item));
+  const quietTargets = activeItems.length === 0 ? actionBoardQuietTargets(quietItems) : "";
   return `
     <details class="action-board action-board-secondary" aria-label="Page Shortcuts" data-dashboard-detail="action-board" data-action-board-nav>
       <summary class="dashboard-fold-summary action-board-fold">
@@ -3026,7 +3027,7 @@ function actionBoard(data: DashboardActionBoard): string {
           ${activeItems.map((item) => actionBoardItemButton(item)).join("")}
         </div>
       `}
-      ${actionBoardQuietTargets(quietItems)}
+      ${quietTargets}
     </details>
   `;
 }
