@@ -5586,9 +5586,10 @@ function storeTelemetryContext(data: DashboardData): string {
   `;
 }
 
-function storeSignalsPanel(data: DashboardData): string {
+function storeSignalsPanel(data: DashboardData, options: { open?: boolean } = {}): string {
+  const openAttribute = options.open ? " open" : "";
   return `
-    <details id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
+    <details${openAttribute} id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
       <summary class="dashboard-fold-summary">
         <span>Store Signals</span>
         <small>Operational health signals</small>
@@ -6039,7 +6040,7 @@ function renderDashboardBody(data: DashboardData): string {
   const shortcutPanel = hasPendingDecisions ? "" : actionBoard(data.action_board);
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
-  const promotedStoreSignalsPanel = shouldPromoteStoreSignals ? storeSignalsPanel(data) : "";
+  const promotedStoreSignalsPanel = shouldPromoteStoreSignals ? storeSignalsPanel(data, { open: true }) : "";
   return `
     <header>
       <div>

@@ -339,7 +339,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>Agent and record signals</small>");
       const workLanesStart = html.indexOf("data-dashboard-work-lanes");
       const evidenceLibraryStart = html.indexOf("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
-      const storeSignalsStart = html.indexOf("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
+      expect(html).toContain("<details open id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\">");
+      expect(html).not.toContain("<details open class=\"store-telemetry-context\" data-dashboard-detail=\"store-telemetry-context\">");
+      const storeSignalsStart = html.indexOf("<details open id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
       expect(workLanesStart).toBeGreaterThan(-1);
       expect(evidenceLibraryStart).toBeGreaterThan(-1);
       expect(storeSignalsStart).toBeGreaterThan(workLanesStart);

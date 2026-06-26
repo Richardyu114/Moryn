@@ -627,8 +627,9 @@ and ahead/behind counts without adding an Approve or Apply control.
 Store Signals keeps `Sync Position` in the foreground and folds Agent Activity,
 Record Quality, and Record Types under `Telemetry Context`.
 When sync is the only active warning and no explicit approval is waiting, the
-visible Store Signals panel moves directly after Work Lanes so the current task
-is not buried under routine reference material. The Reference Library still
+promoted `Store Signals` panel is default-open and moves directly after Work
+Lanes so the current task is not buried under routine reference material.
+`Telemetry Context` remains collapsed inside it. The Reference Library still
 keeps the Audit route and raw evidence, but it does not render a second
 `store-signals` panel.
 

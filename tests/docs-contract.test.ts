@@ -84,7 +84,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "When sync is the active warning, Store Signals opens with a compact `Sync Action` brief");
     expectText(dashboard, "The brief shows the suggested read-only command, remote/branch context, and ahead/behind counts without adding an Approve or Apply control");
     expectText(dashboard, "Store Signals keeps `Sync Position` in the foreground and folds Agent Activity, Record Quality, and Record Types under `Telemetry Context`");
-    expectText(dashboard, "When sync is the only active warning and no explicit approval is waiting, the visible Store Signals panel moves directly after Work Lanes");
+    expectText(dashboard, "When sync is the only active warning and no explicit approval is waiting, the promoted `Store Signals` panel is default-open and moves directly after Work Lanes");
+    expectText(dashboard, "`Telemetry Context` remains collapsed inside it");
     expectText(dashboard, "The Reference Library still keeps the Audit route and raw evidence, but it does not render a second `store-signals` panel");
     expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
