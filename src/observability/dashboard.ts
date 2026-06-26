@@ -4246,7 +4246,13 @@ function renderCandidateBacklogIndexCard(group: DashboardCandidateTriageGroup): 
       <span>${escapeHtml(group.label)}</span>
       <strong>${escapeHtml(face.label)}</strong>
       <small>${escapeHtml(`${pluralize(group.record_ids.length, "record")} indexed | ${face.hint}`)}</small>
-      <code>${escapeHtml(group.evidence_path)}</code>
+      <details class="candidate-triage-index-evidence" data-dashboard-detail="candidate-triage-index-evidence:${escapeHtml(group.id)}">
+        <summary class="dashboard-fold-summary">
+          <span>Evidence path</span>
+          <small>API group index</small>
+        </summary>
+        <code>${escapeHtml(group.evidence_path)}</code>
+      </details>
     </article>
   `;
 }
@@ -7930,6 +7936,13 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .candidate-triage-index-card small {
       color: var(--muted);
       font-size: 12px;
+    }
+    .candidate-triage-index-evidence {
+      border-top: 1px solid var(--hairline);
+      padding-top: 5px;
+    }
+    .candidate-triage-index-evidence[open] > summary {
+      margin-bottom: 5px;
     }
     .candidate-triage-index-card code { width: 100%; }
     .candidate-triage-group {

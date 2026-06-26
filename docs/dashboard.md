@@ -456,10 +456,12 @@ shows a compact `Backlog brief` with status, scope, next step, and write
 boundary; concrete groups sit behind a nested `Backlog index` fold as
 lightweight API index cards only. Those cards keep the stable
 `candidate-triage:<group_id>` routes, readable group labels, record counts,
-next-step hints, and `candidate_triage.groups_by_id.<group_id>` evidence paths
-without inlining group details, sample rows, hidden-record folds, or trace
-commands into the dashboard HTML. Full candidate bodies, record order, recall
-commands, and timeline commands stay in `/api/dashboard.candidate_triage`.
+and next-step hints on the card face while the
+`candidate_triage.groups_by_id.<group_id>` evidence path stays behind a nested
+`Evidence path` fold. They do not inline group details, sample rows,
+hidden-record folds, or trace commands into the dashboard HTML. Full candidate
+bodies, record order, recall commands, and timeline commands stay in
+`/api/dashboard.candidate_triage`.
 Expanding a promotion-ready `Candidate Triage` panel still shows candidate and
 group counts plus review-first next steps; shown-record counts stay in
 `/api/dashboard` and the nested `Record samples` summaries. Each candidate group

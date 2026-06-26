@@ -232,7 +232,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Expanding a read-only `Candidate Backlog` panel first shows a compact `Backlog brief`");
     expectText(dashboard, "concrete groups sit behind a nested `Backlog index` fold as lightweight API index cards only");
     expectText(dashboard, "Those cards keep the stable `candidate-triage:<group_id>` routes");
-    expectText(dashboard, "without inlining group details, sample rows, hidden-record folds, or trace commands into the dashboard HTML");
+    expectText(dashboard, "readable group labels, record counts, and next-step hints on the card face");
+    expectText(dashboard, "the `candidate_triage.groups_by_id.<group_id>` evidence path stays behind a nested `Evidence path` fold");
+    expectText(dashboard, "They do not inline group details, sample rows, hidden-record folds, or trace commands into the dashboard HTML");
     expectText(dashboard, "Full candidate bodies, record order, recall commands, and timeline commands stay in `/api/dashboard.candidate_triage`");
     expectText(dashboard, "Expanding a promotion-ready `Candidate Triage` panel still shows candidate and group counts plus review-first next steps");
     expectText(dashboard, "shown-record counts stay in `/api/dashboard` and the nested `Record samples` summaries");
