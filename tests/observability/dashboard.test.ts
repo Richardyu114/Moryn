@@ -1278,7 +1278,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>4 shown records</span>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Candidate group: Likely noise, 1 record, Inspect likely noise before archive\">");
       expect(html).toContain("<span>Likely noise</span>");
-      expect(html).toContain("<strong>Archive review</strong>");
+      expect(html).toContain("<strong>Audit only</strong>");
+      expect(html).not.toContain("<strong>Archive review</strong>");
       expect(html).toContain("<small>Records indexed</small>");
       expect(html).not.toContain("<strong>1 record</strong>");
       expect(html).not.toContain("<small>Review path ready</small>");
@@ -1347,6 +1348,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<strong>Always keep dashboard governance readable.</strong>");
       expect(html).toContain("<span>Promotable candidates</span>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Candidate group: Promotable candidates, 1 record, Inspect before promotion\">");
+      expect(html).toContain("<strong>Approval review</strong>");
       expect(html).not.toContain("<small>Inspect before promotion</small>");
       expect(html).toContain("<details class=\"candidate-triage-group-context\" data-dashboard-detail=\"candidate-triage-context:promotable\">");
       expect(html).toContain("<small>Promotable candidates, 1 record</small>");
@@ -1468,11 +1470,14 @@ describe("observability dashboard", () => {
       const groupEnd = html.indexOf("<details class=\"evidence-library-group evidence-library-background\"", groupStart);
       const groupHtml = html.slice(groupStart, groupEnd);
       expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Candidate group: Needs inspection, 7 records, Inspect timeline\">");
-      expect(groupHtml).toContain("<strong>Inspection review</strong>");
+      expect(groupHtml).toContain("<strong>Audit only</strong>");
+      expect(groupHtml).not.toContain("<strong>Inspection review</strong>");
       expect(groupHtml).toContain("<small>Records indexed</small>");
       expect(groupHtml).not.toContain("<strong>7 records</strong>");
       expect(groupHtml).not.toContain("<small>Review path ready</small>");
       expect(groupHtml).not.toContain("<small>Inspect timeline</small>");
+      expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Review path: Inspection review via Timeline, recall, or Capture Inbox\">");
+      expect(groupHtml).toContain("<small>Inspection review</small>");
       expect(groupHtml).toContain("<small>Needs inspection, 7 records</small>");
       expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Record samples: Needs inspection: 3 of 7 samples with trace commands\">");
       expect(groupHtml).toContain("<small>3 samples, trace ready</small>");
@@ -2685,6 +2690,10 @@ describe("observability dashboard", () => {
       expect(candidateTriageHtml).toContain("<span>Candidate Triage</span>");
       expect(candidateTriageHtml).toContain("<small>Background candidate audit</small>");
       expect(candidateTriageHtml).not.toContain("<small>Review candidate backlog</small>");
+      expect(candidateTriageHtml).toContain("<strong>Audit only</strong>");
+      expect(candidateTriageHtml).not.toContain("<strong>Archive review</strong>");
+      expect(candidateTriageHtml).not.toContain("<strong>Handoff review</strong>");
+      expect(candidateTriageHtml).not.toContain("<strong>Inspection review</strong>");
       expect(candidateTriageHtml).toContain("<span>Record samples</span>");
       expect(candidateTriageHtml).not.toContain("data-dashboard-action-id=\"candidate-triage");
       expect(candidateTriageHtml).not.toContain("Approve Triage");

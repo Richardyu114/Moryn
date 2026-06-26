@@ -4142,6 +4142,10 @@ function renderCandidateTriagePromotionDrafts(group: DashboardCandidateTriageGro
   `;
 }
 
+function candidateTriageGroupFaceLabel(group: DashboardCandidateTriageGroup): string {
+  return Object.keys(group.promotion_drafts_by_id).length > 0 ? group.review_handoff.label : "Audit only";
+}
+
 function renderCandidateTriageGroupContext(group: DashboardCandidateTriageGroup): string {
   return `
     <details class="candidate-triage-group-context" data-dashboard-detail="candidate-triage-context:${escapeHtml(group.id)}">
@@ -4174,7 +4178,7 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
     <details class="candidate-triage-group" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}">
       <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`Candidate group: ${groupSummary}`)}">
         <span>${escapeHtml(group.label)}</span>
-        <strong>${escapeHtml(group.review_handoff.label)}</strong>
+        <strong>${escapeHtml(candidateTriageGroupFaceLabel(group))}</strong>
         <small>Records indexed</small>
       </summary>
       <div class="candidate-triage-group-body">

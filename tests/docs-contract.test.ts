@@ -220,6 +220,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
     expectText(dashboard, "If promotion drafts are waiting, `Candidate Triage` is grouped under `Review Notes`");
     expectText(dashboard, "folded row reads `Background candidate audit` instead of repeating a candidate count or sounding like a primary task");
+    expectText(dashboard, "Candidate group folded rows without promotion drafts read `Audit only` instead of `Archive review`, `Handoff review`, or `Inspection review`");
+    expectText(dashboard, "The specific review handoff label remains inside the nested `Review path` fold");
     expectText(dashboard, "If promotion drafts are waiting, `Candidate Triage` is grouped under `Review Notes`, the folded row shows the draft count");
     expectText(dashboard, "those approvals also appear in `Pending Decisions` as a `Candidate Triage` route");
     expectText(dashboard, "Expanding the panel shows candidate and group counts plus review-first next steps");
@@ -231,7 +233,6 @@ describe("documentation contracts", () => {
     expectText(dashboard, "states that review comes first and approval only happens through draft rows");
     expectText(dashboard, "Candidate group description text stays behind a collapsed `Group context` row nested inside `Audit notes`");
     expectText(dashboard, "expanded groups lead with review path, audit notes, promotion drafts when present, and samples instead of prose");
-    expectText(dashboard, "Candidate group folded rows show the review-path label, such as `Archive review` or `Inspection review`, instead of a record count");
     expectText(dashboard, "the full recommended next step and record count stay in the accessible group summary, `Audit notes`, `Group context`, and the nested `Review path` fold");
     expectText(dashboard, "Candidate group internals sit behind a `Triage details` fold");
     expectText(dashboard, "the group face does not expose context, review path, audit boundary, or samples by default");
