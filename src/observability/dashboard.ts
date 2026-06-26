@@ -3235,11 +3235,6 @@ function decisionSummaryChips(summary: DashboardDecisionSummary): string {
   return chips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
 }
 
-function decisionSummaryWriteLabel(writes: DashboardDecisionSummaryItem["writes"]): string {
-  if (writes === "append_only_events") return "Append-only events";
-  return "No memory writes";
-}
-
 function decisionSummaryIntro(data: DashboardDecisionSummary): string {
   return `Review ${pluralize(data.total_decisions, "explicit approval")} before any memory write.`;
 }
@@ -3289,25 +3284,6 @@ function decisionSummaryRoutes(data: DashboardDecisionSummary): DashboardDecisio
   return routes;
 }
 
-function decisionSummaryRouteActionLabel(route: DashboardDecisionRoute): string {
-  const firstItem = route.items[0];
-  if (route.id === "capture-inbox") return "Group approve/reject";
-  return firstItem?.decision_label ?? route.target_label;
-}
-
-function decisionSummaryRouteGuardLabel(route: DashboardDecisionRoute): string {
-  if (route.id === "maintenance-review") return "Plan hash guard";
-  return "Active candidate guard";
-}
-
-function decisionSummaryRouteChips(route: DashboardDecisionRoute): string {
-  return [
-    decisionSummaryRouteActionLabel(route),
-    decisionSummaryWriteLabel("append_only_events"),
-    decisionSummaryRouteGuardLabel(route)
-  ].map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
-}
-
 function decisionSummaryRouteCard(route: DashboardDecisionRoute): string {
   return `
           <article class="decision-summary-item" data-decision-summary-route="${escapeHtml(route.id)}">
@@ -3319,7 +3295,7 @@ function decisionSummaryRouteCard(route: DashboardDecisionRoute): string {
               <button type="button" class="decision-summary-link" data-action-board-target="${escapeHtml(route.target)}" aria-controls="${escapeHtml(route.target)}">${escapeHtml(route.target_label)}</button>
             </div>
             <div class="decision-summary-route" aria-label="Decision route">
-              ${decisionSummaryRouteChips(route)}
+              <small>Append-only, guarded in owning surface</small>
             </div>
           </article>
   `;
@@ -7376,14 +7352,10 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       flex-wrap: wrap;
       gap: 5px;
     }
-    .decision-summary-route span {
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 2px 7px;
-      background: var(--surface);
+    .decision-summary-route small {
       color: var(--muted);
       font-size: 12px;
-      font-weight: 720;
+      font-weight: 680;
       overflow-wrap: anywhere;
     }
     .decision-summary-link {

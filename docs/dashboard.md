@@ -771,18 +771,18 @@ returns the same read-only shape. It counts human decision units, not raw
 approve/reject buttons: one Capture Inbox group is one decision, and one Review
 Queue maintenance plan is one decision. The visible panel is a route summary
 grouped by owning confirmation surface: `Capture Inbox` and `Review Queue` cards
-show how many explicit approvals are waiting there, keep compact route chips for
-the next action, `Append-only events`, and the active guard such as `Plan hash
-guard` or `Active candidate guard`, and provide one navigation button to the
-owning surface. It does not repeat candidate group titles, maintenance plan
-titles, full safety notes, raw evidence folds, machine evidence paths, or
-approval controls that already live in Capture Inbox, Review Queue, or Candidate
-Triage. The JSON contract keeps those per-decision audit fields in `items[]`,
-including `title`, `summary`, `decision_label`, `writes: "append_only_events"`,
-`safety_note`, `evidence_path`, `primary_action_id`, and `secondary_action_id`,
-but the HTML keeps Pending Decisions as a compact routing layer. It does not add
-a new endpoint, background executor, or second approval path. Actual writes remain
-inside Capture Inbox, Review Queue, and Candidate Triage controls.
+show how many explicit approvals are waiting there, provide one navigation button
+to the owning surface, and keep one boundary line: `Append-only, guarded in
+owning surface`. It does not repeat candidate group titles, maintenance plan
+titles, next action labels, write labels, active guard labels, full safety notes,
+raw evidence folds, machine evidence paths, or approval controls that already
+live in Capture Inbox, Review Queue, or Candidate Triage. The JSON contract keeps
+those per-decision audit fields in `items[]`, including `title`, `summary`,
+`decision_label`, `writes: "append_only_events"`, `safety_note`, `evidence_path`,
+`primary_action_id`, and `secondary_action_id`, but the HTML keeps Pending
+Decisions as a compact routing layer. It does not add a new endpoint, background
+executor, or second approval path. Actual writes remain inside Capture Inbox,
+Review Queue, and Candidate Triage controls.
 
 Action Board cards keep full explanations in `items[].detail` for agents and
 audit readers, but the visible card footer uses the shorter `items[].hint`.
