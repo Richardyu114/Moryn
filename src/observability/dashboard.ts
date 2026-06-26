@@ -3386,6 +3386,10 @@ function healthCheckActionRequirement(action: HealthCheckReport["suggested_actio
   return `Requires ${action.required_fields.map((field) => field.replace(/_/g, " ")).join(", ")}`;
 }
 
+function shouldRenderHealthCheckActionCommand(action: HealthCheckReport["suggested_actions"][number]): boolean {
+  return !action.safe_to_run || action.required_fields.length > 0;
+}
+
 function healthCheckActionList(actions: HealthCheckReport["suggested_actions"]): string {
   if (actions.length === 0) {
     return `<div class="empty-state">No readiness actions in this group.</div>`;
@@ -3399,6 +3403,7 @@ function healthCheckActionList(actions: HealthCheckReport["suggested_actions"]):
             <strong>${escapeHtml(titleCase(action.recommended_action))}</strong>
           </div>
           <small>${escapeHtml(action.required_when)}</small>
+          ${shouldRenderHealthCheckActionCommand(action) ? `
           <details class="health-check-action-command" data-dashboard-detail="health-check-action-command:${escapeHtml(action.action_id)}">
             <summary class="dashboard-fold-summary">
               <span>CLI command</span>
@@ -3406,6 +3411,7 @@ function healthCheckActionList(actions: HealthCheckReport["suggested_actions"]):
             </summary>
             <code>${escapeHtml(action.command)}</code>
           </details>
+          ` : ""}
         </article>
       `).join("")}
     </div>

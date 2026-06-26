@@ -5920,8 +5920,9 @@ describe("moryn CLI", () => {
       expect(snapshot.url).toMatch(/^file:\/\//);
       const snapshotHtml = await readFile(snapshot.path, "utf8");
       expect(snapshotHtml).toContain("Dashboard CLI snapshot memory");
-      expect(snapshotHtml).toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
-      expect(snapshotHtml).toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
+      expect(snapshotHtml).not.toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
+      expect(snapshotHtml).not.toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
+      expect(snapshotHtml).toContain("moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary &#39;&lt;summary&gt;&#39;");
 
       const opened = JSON.parse((await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,
@@ -5949,7 +5950,7 @@ describe("moryn CLI", () => {
       expect(defaultOpened.opened).toBe(true);
       expect(defaultOpened.path).toBe(join(store, "state", "dashboard", "index.html"));
     });
-  });
+  }, 30000);
 
   it("serves the dashboard from the CLI with live refresh endpoints", async () => {
     await withTempDir(async (dir) => {

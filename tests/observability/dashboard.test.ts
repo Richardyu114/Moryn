@@ -557,18 +557,27 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-health-check-action=\"review_capture_inbox\"");
       expect(html).toContain("data-health-check-action=\"capture_session\"");
       const reviewActionStart = html.indexOf("data-health-check-action=\"review_capture_inbox\"");
-      const reviewActionCommandIndex = html.indexOf("<details class=\"health-check-action-command\"", reviewActionStart);
       const reviewActionEnd = html.indexOf("</article>", reviewActionStart);
       expect(reviewActionStart).toBeGreaterThan(-1);
-      expect(reviewActionCommandIndex).toBeGreaterThan(reviewActionStart);
-      expect(reviewActionCommandIndex).toBeLessThan(reviewActionEnd);
-      expect(html.slice(reviewActionStart, reviewActionCommandIndex)).not.toContain("moryn dashboard --serve --project-id moryn");
-      expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("<span>CLI command</span>");
-      expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).not.toContain("<span>Command</span>");
-      expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("<small>copy from CLI</small>");
-      expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("moryn dashboard --serve --project-id moryn");
-      expect(html).toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
-      expect(html).toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
+      const reviewActionHtml = html.slice(reviewActionStart, reviewActionEnd);
+      expect(reviewActionHtml).not.toContain("<details class=\"health-check-action-command\"");
+      expect(reviewActionHtml).not.toContain("<span>CLI command</span>");
+      expect(reviewActionHtml).not.toContain("<small>copy from CLI</small>");
+      expect(reviewActionHtml).not.toContain("moryn dashboard --serve --project-id moryn");
+      expect(html).not.toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
+      expect(html).not.toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
+      expect(data.health_check.suggested_actions.map((action) => action.command)).toEqual(expect.arrayContaining([
+        "moryn dashboard --serve --project-id moryn",
+        "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+        "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex"
+      ]));
+      const captureActionStart = html.indexOf("data-health-check-action=\"capture_session\"");
+      const captureActionEnd = html.indexOf("</article>", captureActionStart);
+      const captureActionHtml = html.slice(captureActionStart, captureActionEnd);
+      expect(captureActionHtml).toContain("<details class=\"health-check-action-command\" data-dashboard-detail=\"health-check-action-command:capture_session\">");
+      expect(captureActionHtml).toContain("<span>CLI command</span>");
+      expect(captureActionHtml).toContain("<small>copy from CLI</small>");
+      expect(captureActionHtml).toContain("moryn capture session --project-id moryn");
       expect(html).toContain("<details class=\"health-check-details\" data-dashboard-detail=\"health-check-details\">");
       expect(html).toContain("<span>Check Details</span>");
       expect(html).toContain("<small>4 pass | 4 info | 1 warning</small>");

@@ -659,12 +659,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The visible readiness row is labeled `Setup Commands` while keeping the stable `health-check-readiness-actions` route");
     expectText(dashboard, "Its folded summary uses `safe checks` and `manual input` instead of the shorter internal `safe` and `need input` counters");
     expectText(dashboard, "Its groups read `Safe checks` and `Manual input`");
-    expectText(dashboard, "Each command fold is labeled `CLI command`");
-    expectText(dashboard, "concrete readiness commands stay inside the expanded setup command details");
+    expectText(dashboard, "Safe-check commands stay in `/api/dashboard.health_check.suggested_actions[]`");
+    expectText(dashboard, "manual-input actions keep a `CLI command` fold");
     expectText(dashboard, "Full check rows stay inside the nested `Check Details` fold");
     expectText(dashboard, "`Check Details` summarizes pass, info, warning, and failed counts before listing individual checks");
-    expectText(dashboard, "Each readiness action row keeps the command inside its own nested command fold");
-    expectText(dashboard, "the expanded list reads as an action review surface before it reads as a CLI transcript");
+    expectText(dashboard, "Safe-check rows stay readable before they read as command transcripts");
+    expectText(dashboard, "commands remain available in `/api/dashboard.health_check.suggested_actions[]`");
     expectText(dashboard, "`capture_session` stays explicit because it needs the user-authored session summary");
     expectText(dashboard, "Capture Inbox backlog only counts candidates whose capture policy requires explicit review or user action");
     expectText(dashboard, "Older autocapture review metadata is rechecked against the current autocapture policy before it appears as active Capture Inbox, Health Check, or Dogfood review work");

@@ -1048,18 +1048,20 @@ readiness commands stay inside the expanded setup command details. The visible
 readiness row is labeled `Setup Commands` while keeping the stable
 `health-check-readiness-actions` route. Its groups read `Safe checks` and
 `Manual input`. Its folded summary uses `safe checks` and `manual input`
-instead of the shorter internal `safe` and `need input` counters. Each command
-fold is labeled `CLI command`. Full check rows stay inside the nested
-`Check Details` fold. `Check Details` summarizes pass, info, warning, and failed
-counts before listing individual checks, so expanded Health Check still starts
-with setup readiness instead of a full diagnostic transcript.
+instead of the shorter internal `safe` and `need input` counters. Safe-check
+commands stay in `/api/dashboard.health_check.suggested_actions[]` instead of
+rendering repeated command folds in the HTML; manual-input actions keep a
+`CLI command` fold because the user must supply authored input before running
+them. Full check rows stay inside the nested `Check Details` fold. `Check
+Details` summarizes pass, info, warning, and failed counts before listing
+individual checks, so expanded Health Check still starts with setup readiness
+instead of a full diagnostic transcript.
 When served from the dashboard CLI, pass `--readiness-host <host>` and
 `--sync-remote <remote>` to make this embedded Health Check match the host and
 sync context you would pass to `moryn health check --host <host> --sync-remote
 <remote>`.
-Each readiness action row keeps the command inside its own nested command
-fold so the expanded list reads as an action review surface before it reads as a
-CLI transcript.
+Safe-check rows stay readable before they read as command transcripts; their
+commands remain available in `/api/dashboard.health_check.suggested_actions[]`.
 `capture_session` stays explicit because it needs the user-authored session
 summary, and Health Check does not start services, register MCP, initialize sync,
 or edit host configuration while rendering the panel.
