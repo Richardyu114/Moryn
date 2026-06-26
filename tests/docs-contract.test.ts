@@ -228,6 +228,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Sync-only pending warnings do not open the `Action Signals` / Needs Attention review path");
     expectText(dashboard, "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open info checks`");
     expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut also reads `Open info checks` instead of `Review warnings`");
+    expectText(dashboard, "The visible panel is a route summary grouped by owning confirmation surface");
+    expectText(dashboard, "show how many explicit approvals are waiting there, keep the shared route chips");
+    expectText(dashboard, "It does not repeat candidate group titles, maintenance plan titles, full safety notes");
+    expectText(dashboard, "The JSON contract keeps those per-decision audit fields in `items[]`");
     expectText(dashboard, "The collapsed `Page Shortcuts` summary still stays count-free");
     expectText(dashboard, "the non-zero sync count remains visible on the expanded shortcut card and in `/api/dashboard.action_board`");
     expectText(dashboard, "zero-value `good` targets are grouped under `Quiet Shortcuts` while keeping the stable `action-board-quiet-targets` route");
@@ -247,10 +251,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The expanded Governance Hub heading reads `Read-only inspection index` instead of exposing `governance.summary` as visible UI copy");
     expectText(dashboard, "The JSON contract still keeps `governance.summary` for agents and audit tooling");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
-    expectText(dashboard, "The visible panel is a route summary");
-    expectText(dashboard, "route chips such as `Append-only events`, `approval required`, and `Audit evidence`");
-    expectText(dashboard, "It does not repeat the full safety note, raw evidence fold, machine evidence path, or approval controls");
-    expectText(dashboard, "The JSON contract keeps those audit fields in `items[]`");
+    expectText(dashboard, "The visible panel is a route summary grouped by owning confirmation surface");
+    expectText(dashboard, "keep the shared route chips `Append-only events`, `approval required`, and `Audit evidence`");
+    expectText(dashboard, "It does not repeat candidate group titles, maintenance plan titles, full safety notes");
+    expectText(dashboard, "The JSON contract keeps those per-decision audit fields in `items[]`");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
     expectText(dashboard, "Actual writes remain inside Capture Inbox and Review Queue controls");
     expectText(dashboard, "After a dashboard approval or rejection succeeds, the browser renders a compact `Action receipt`");

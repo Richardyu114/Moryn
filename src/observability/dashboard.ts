@@ -3142,17 +3142,65 @@ function decisionSummaryIntro(data: DashboardDecisionSummary): string {
   return `Review ${pluralize(data.total_decisions, "explicit approval")} before any memory write.`;
 }
 
-function decisionSummaryRouteChips(item: DashboardDecisionSummaryItem): string {
+interface DashboardDecisionRoute {
+  id: "capture-inbox" | "maintenance-review";
+  label: "Capture Inbox" | "Review Queue";
+  count: number;
+  target: "capture-inbox" | "maintenance-review-queue";
+  target_label: "Open Capture Inbox" | "Open Review Queue";
+}
+
+function decisionSummaryRoutes(data: DashboardDecisionSummary): DashboardDecisionRoute[] {
+  const routes: DashboardDecisionRoute[] = [];
+  if (data.summary.capture_inbox_groups > 0) {
+    routes.push({
+      id: "capture-inbox",
+      label: "Capture Inbox",
+      count: data.summary.capture_inbox_groups,
+      target: "capture-inbox",
+      target_label: "Open Capture Inbox"
+    });
+  }
+  if (data.summary.review_queue_plans > 0) {
+    routes.push({
+      id: "maintenance-review",
+      label: "Review Queue",
+      count: data.summary.review_queue_plans,
+      target: "maintenance-review-queue",
+      target_label: "Open Review Queue"
+    });
+  }
+  return routes;
+}
+
+function decisionSummaryRouteChips(): string {
   return [
-    item.decision_label,
-    decisionSummaryWriteLabel(item.writes),
+    decisionSummaryWriteLabel("append_only_events"),
     "approval required",
     "Audit evidence"
   ].map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
 }
 
+function decisionSummaryRouteCard(route: DashboardDecisionRoute): string {
+  return `
+          <article class="decision-summary-item" data-decision-summary-route="${escapeHtml(route.id)}">
+            <div class="decision-summary-item-main">
+              <div>
+                <strong>${escapeHtml(route.label)}</strong>
+                <p>${escapeHtml(`${pluralize(route.count, "explicit approval")} waiting in ${route.label}.`)}</p>
+              </div>
+              <button type="button" class="decision-summary-link" data-action-board-target="${escapeHtml(route.target)}" aria-controls="${escapeHtml(route.target)}">${escapeHtml(route.target_label)}</button>
+            </div>
+            <div class="decision-summary-route" aria-label="Decision route">
+              ${decisionSummaryRouteChips()}
+            </div>
+          </article>
+  `;
+}
+
 function decisionSummary(data: DashboardDecisionSummary): string {
   if (data.total_decisions === 0) return "";
+  const routes = decisionSummaryRoutes(data);
   return `
     <section id="decision-summary" class="panel decision-summary" data-dashboard-detail="decision-summary" aria-label="Decision Summary">
       <div class="decision-summary-heading">
@@ -3165,20 +3213,7 @@ function decisionSummary(data: DashboardDecisionSummary): string {
         </div>
       </div>
       <div class="decision-summary-list">
-        ${data.items.map((item) => `
-          <article class="decision-summary-item" data-decision-summary-item="${escapeHtml(item.id)}">
-            <div class="decision-summary-item-main">
-              <div>
-                <strong>${escapeHtml(item.title)}</strong>
-                <p>${escapeHtml(item.summary)}</p>
-              </div>
-              <button type="button" class="decision-summary-link" data-action-board-target="${escapeHtml(item.target)}" aria-controls="${escapeHtml(item.target)}">${escapeHtml(item.target_label)}</button>
-            </div>
-            <div class="decision-summary-route" aria-label="Decision route">
-              ${decisionSummaryRouteChips(item)}
-            </div>
-          </article>
-        `).join("")}
+        ${routes.map(decisionSummaryRouteCard).join("")}
       </div>
     </section>
   `;
