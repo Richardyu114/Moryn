@@ -5253,7 +5253,7 @@ function debugInspectorPanel(data: DashboardData): string {
 }
 
 function supportingEvidenceSummary(): string {
-  return "Audit logs and raw signals";
+  return "Optional trace data";
 }
 
 function supportingEvidenceOperationalGroup(panels: string[]): string {
@@ -5444,7 +5444,7 @@ ${evidenceLibraryRoute({
     id: "audit",
     target: auditTarget,
     title: "Audit",
-    summary: "Audit logs and raw signals",
+    summary: supportingEvidenceSummary(),
     note: input.backgroundCount > 0 ? "Clean audits, store signals, recent value, and raw store." : "No audit trail rendered in this snapshot."
   })}
         </div>

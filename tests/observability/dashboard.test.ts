@@ -2333,8 +2333,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Diagnostics</strong><span>Healthy checks and handoff readiness</span>");
       expect(html).not.toContain("<small>Routine health, recall, and handoff context checks.</small>");
       expect(html).toContain("class=\"evidence-library-route\" data-evidence-library-route=\"audit\"");
-      expect(html).toContain("data-action-board-target=\"supporting-evidence\" aria-controls=\"supporting-evidence\" aria-label=\"Audit: Audit logs and raw signals. Clean audits, store signals, recent value, and raw store.\"");
-      expect(html).toContain("<strong>Audit</strong><span>Audit logs and raw signals</span>");
+      expect(html).toContain("data-action-board-target=\"supporting-evidence\" aria-controls=\"supporting-evidence\" aria-label=\"Audit: Optional trace data. Clean audits, store signals, recent value, and raw store.\"");
+      expect(html).toContain("<strong>Audit</strong><span>Optional trace data</span>");
+      expect(html).not.toContain("<strong>Audit</strong><span>Audit logs and raw signals</span>");
       expect(html).not.toContain("<small>Clean audits, store signals, recent value, and raw store.</small>");
       expect(html).not.toContain("<strong>Audit</strong><span>Audit logs and raw signals</span><small>Clean audits, store signals, recent value, and raw inspector.</small>");
       const evidenceBriefHtml = html.slice(evidenceBriefIndex, evidenceListIndex);
@@ -2435,7 +2436,8 @@ describe("observability dashboard", () => {
       const supportingEvidenceSummaryHtml = html.slice(supportingEvidenceIndex, operationalEvidenceIndex);
       expect(supportingEvidenceSummaryHtml).toContain("<span>Audit Trail</span>");
       expect(supportingEvidenceSummaryHtml).not.toContain("<span>Supporting Evidence</span>");
-      expect(supportingEvidenceSummaryHtml).toContain("<small>Audit logs and raw signals</small>");
+      expect(supportingEvidenceSummaryHtml).toContain("<small>Optional trace data</small>");
+      expect(supportingEvidenceSummaryHtml).not.toContain("<small>Audit logs and raw signals</small>");
       const rawInspectorIndex = html.indexOf("<details class=\"supporting-evidence-group supporting-evidence-raw\" data-dashboard-detail=\"supporting-raw-inspector\">");
       expect(operationalEvidenceIndex).toBeGreaterThan(supportingEvidenceIndex);
       expect(rawInspectorIndex).toBeGreaterThan(operationalEvidenceIndex);

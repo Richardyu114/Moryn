@@ -787,12 +787,14 @@ the evidence layer. The library also does not add endpoints, Safe Action
 Registry entries, or memory mutation paths.
 
 Clean audit reports, raw records, events, sync details, recent value, and store
-telemetry remain available inside the nested `Audit Trail` panel. That
-collapsed group uses the purpose label `Audit logs and raw signals` instead of
-listing implementation-oriented module names or collapsed-state counters on the
-first screen. Inside Audit Trail, `Clean Audit Reports`, `Store
-Signals`, and `Recent Value` are grouped under `Audit Evidence`, whose row
-reads `Clean audits and store signals` instead of listing child panel counts.
+telemetry remain available inside the nested `Audit Trail` panel. Here, the collapsed
+`Audit Trail` row reads `Optional trace data` instead of listing
+implementation-oriented module names or collapsed-state counters on the first
+screen, and the Evidence index `Audit` route also reads `Optional trace data` while
+still opening the same `Audit Trail` route. Inside Audit Trail, `Clean Audit
+Reports`, `Store Signals`, and `Recent Value` are grouped under `Audit
+Evidence`, whose row reads `Clean audits and store signals` instead of listing
+child panel counts.
 `Audit Evidence` is collapsed by default inside `Audit Trail`,
 and `Store Signals` and `Recent Value` are nested under a collapsed
 `Store Snapshot` row, while the raw inspector is grouped behind

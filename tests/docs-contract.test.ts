@@ -162,6 +162,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "with `Routing evidence` while keeping the stable `capture-policy-audit` route");
     expectText(dashboard, "keeps `Read-only routing evidence` in the accessible summary");
     expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Audit Evidence`");
+    expectText(dashboard, "the collapsed `Audit Trail` row reads `Optional trace data`");
+    expectText(dashboard, "the Evidence index `Audit` route also reads `Optional trace data`");
     expectText(dashboard, "row reads `Clean audits and store signals`");
     expectText(dashboard, "instead of listing child panel counts");
     expectText(dashboard, "`Audit Evidence` is collapsed by default inside `Audit Trail`");
