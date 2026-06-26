@@ -1581,13 +1581,19 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Governance Hub");
-      const dogfoodPanelStart = html.indexOf("<details class=\"panel dogfood-review\" data-dashboard-detail=\"dogfood-review\" aria-label=\"Dogfood Review\">");
+      const dogfoodPanelStart = html.indexOf("<details class=\"panel dogfood-review\" data-dashboard-detail=\"dogfood-review\" aria-label=\"Dogfood Notes\">");
       const dogfoodPanelBody = html.indexOf("<div class=\"dogfood-review-body\">", dogfoodPanelStart);
       const dogfoodPanelSummary = html.slice(dogfoodPanelStart, dogfoodPanelBody);
       expect(dogfoodPanelStart).toBeGreaterThan(-1);
-      expect(dogfoodPanelSummary).toContain("<span>Dogfood Review</span>");
-      expect(dogfoodPanelSummary).toContain("<small>Read-only dogfood findings</small>");
+      expect(dogfoodPanelSummary).toContain("<span>Dogfood Notes</span>");
+      expect(dogfoodPanelSummary).toContain("<small>Read-only notes</small>");
+      expect(dogfoodPanelSummary).not.toContain("<span>Dogfood Review</span>");
+      expect(dogfoodPanelSummary).not.toContain("<small>Read-only dogfood findings</small>");
       expect(dogfoodPanelSummary).not.toContain("<small>2 findings | 2 safe steps | read-only</small>");
+      const dogfoodPanelEnd = html.indexOf("<details id=\"governance-hub\"", dogfoodPanelStart);
+      const dogfoodPanelHtml = html.slice(dogfoodPanelStart, dogfoodPanelEnd);
+      expect(dogfoodPanelHtml).toContain("<strong class=\"warning\">Note</strong>");
+      expect(dogfoodPanelHtml).not.toContain("<strong class=\"warning\">Warning</strong>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Read-only Evidence: Read-only reference material\">");
       expect(html).toContain("<small>Reference material</small>");
       expect(html).not.toContain("<small>Read-only findings and reference evidence</small>");

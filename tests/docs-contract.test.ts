@@ -100,7 +100,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The collapsed `Page Shortcuts` summary does not repeat active counts");
     expectText(dashboard, "Counts remain in the expanded shortcut cards and `/api/dashboard.action_board`");
     expect(dashboard).toContain("Evidence Library");
-    expectText(dashboard, "Health Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and Audit Trail");
+    expectText(dashboard, "Health Check, Recall Eval, Dogfood Notes, Governance Hub, Context Pack Review, and Audit Trail");
     expectText(dashboard, "visible summary is content-aware");
     expectText(dashboard, "when there are findings it reads `Reference material`");
     expectText(dashboard, "while the accessible summary keeps `Read-only reference material`");
@@ -142,9 +142,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "does not render the focus strip or a separate quiet summary");
     expectText(dashboard, "When `Pending Decisions` is rendered and no warning or critical action signal exists, the visible HTML skips the quiet `Info Checks` anchor");
     expectText(dashboard, "`/api/dashboard.attention_items` still keeps the info checks for agents and audit tooling");
-    expect(dashboard).toContain("Dogfood Review");
+    expect(dashboard).toContain("Dogfood Notes");
     expect(dashboard).toContain("Issue brief");
-    expectText(dashboard, "folded row reads `Read-only dogfood finding` or `Read-only dogfood findings`");
+    expectText(dashboard, "folded row reads `Read-only note` or `Read-only notes`");
+    expectText(dashboard, "The status chip reads `Note` even when the underlying finding severity is warning");
     expectText(dashboard, "instead of repeating finding and safe-step counts");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
     expectText(dashboard, "remain available inside the nested `Audit Trail` panel");

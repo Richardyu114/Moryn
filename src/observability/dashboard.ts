@@ -3358,21 +3358,21 @@ function dogfoodActionForFinding(
 }
 
 function dogfoodReviewSummary(report: DogfoodReportResult): string {
-  return report.findings.length === 1 ? "Read-only dogfood finding" : "Read-only dogfood findings";
+  return report.findings.length === 1 ? "Read-only note" : "Read-only notes";
 }
 
 function dogfoodReviewPanel(report: DogfoodReportResult): string {
   if (report.findings.length === 0) return "";
   const highestSeverity = report.findings.some((finding) => finding.severity === "warning") ? "warning" : "info";
   return `
-    <details class="panel dogfood-review" data-dashboard-detail="dogfood-review" aria-label="Dogfood Review">
+    <details class="panel dogfood-review" data-dashboard-detail="dogfood-review" aria-label="Dogfood Notes">
       <summary class="dashboard-fold-summary">
-        <span>Dogfood Review</span>
+        <span>Dogfood Notes</span>
         <small>${escapeHtml(dogfoodReviewSummary(report))}</small>
       </summary>
       <div class="dogfood-review-body">
         <div class="health-check-brief">
-          <strong class="${escapeHtml(highestSeverity)}">${escapeHtml(titleCase(highestSeverity))}</strong>
+          <strong class="${escapeHtml(highestSeverity)}">Note</strong>
           <span>Read-only</span>
           <code>dogfood_report.findings_by_id</code>
         </div>

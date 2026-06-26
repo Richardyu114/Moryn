@@ -473,7 +473,7 @@ summary` for records affected, safe next step, write boundary, and evidence
 source, then keep plain-language `Review notes` for detection, next step, write
 boundary, and evidence source. Raw fields such as source, category, action id,
 evidence path, and record ids stay available under `Raw audit fields`, while
-safe inspection detail remains in source panels such as Dogfood Review, Recall
+safe inspection detail remains in source panels such as Dogfood Notes, Recall
 Eval, and the raw `/api/dashboard` payload. This keeps dogfood friction readable
 without forcing users to parse raw audit data first.
 
@@ -731,7 +731,7 @@ When `Pending Decisions` is rendered, the visible HTML skips the
 data.
 The route bar is navigation copy only: it does not render Approve, Reject, Promote,
 Archive, or Apply controls and does not add `data-dashboard-action-id`. Health
-Check, Recall Eval, Dogfood Review, Governance Hub, Context Pack Review, and
+Check, Recall Eval, Dogfood Notes, Governance Hub, Context Pack Review, and
 Audit Trail stay nested under that evidence layer so the main path stays
 focused on action and review. The library is still fully local and auditable:
 each child panel keeps its `data-dashboard-detail` target, so Action Board
@@ -743,7 +743,7 @@ Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack
 Review are grouped under `Routine Diagnostics`. `Routine Diagnostics` opens
 with `Checks ready` so the folded row stays compact, while the accessible
 summary keeps `Healthy checks and handoff readiness` for screen readers and
-audit tooling. Findings-oriented panels such as Dogfood Review, Governance
+audit tooling. Findings-oriented panels such as Dogfood Notes, Governance
 Hub, or non-routine Health/Recall/Context checks
 are grouped first under `Reference Findings`, whose row reads `Read-only notes`.
 `Reference Findings` is collapsed by default inside `Evidence Library`, so
@@ -757,12 +757,14 @@ The routine and background groups still keep the original child
 `data-dashboard-detail` targets, so local navigation can open the parent group
 before scrolling to the requested diagnostic.
 
-`Dogfood Review` is a read-only issue inbox for `dogfood_report.findings_by_id`.
+`Dogfood Notes` is a read-only issue notebook for `dogfood_report.findings_by_id`.
 It renders only when the local report has findings. Its folded row reads
-`Read-only dogfood finding` or `Read-only dogfood findings` instead of repeating
-finding and safe-step counts. Each card leads with an `Issue brief` for impact,
-affected records, read-only next step, and evidence path, followed by the safe
-dashboard or timeline command already returned by
+`Read-only note` or `Read-only notes` instead of repeating finding and safe-step
+counts. The status chip reads `Note` even when the underlying finding severity is
+warning; the per-finding severity remains in `/api/dashboard.dogfood_report` and
+the row class for audit tooling. Each card leads with an `Issue brief` for
+impact, affected records, read-only next step, and evidence path, followed by the
+safe dashboard or timeline command already returned by
 `dogfood_report.suggested_actions_by_id`. It does not add buttons, background
 execution, or a second mutation path.
 Dogfood capture review backlog uses the same review-required policy boundary as
@@ -771,7 +773,7 @@ read-only audit evidence instead of dogfood review work.
 Failure-signal findings focus on active friction; completed session handoffs
 that also report successful verification stay in audit evidence instead of
 appearing as new dogfood warnings.
-When the dashboard is scoped to a project, Dogfood Review uses project-scoped
+When the dashboard is scoped to a project, Dogfood Notes uses project-scoped
 records for those findings so unrelated global notes do not appear as project
 work.
 
