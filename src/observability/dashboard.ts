@@ -3959,7 +3959,7 @@ function renderCandidateTriageGroupContext(group: DashboardCandidateTriageGroup)
     <details class="candidate-triage-group-context" data-dashboard-detail="candidate-triage-context:${escapeHtml(group.id)}">
       <summary class="dashboard-fold-summary">
         <span>Group context</span>
-        <small>${escapeHtml(`${group.label} context`)}</small>
+        <small>${escapeHtml(`${group.label}, ${pluralize(group.record_ids.length, "record")}`)}</small>
       </summary>
       <p>${escapeHtml(group.description)}</p>
     </details>
@@ -3973,8 +3973,8 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
     <details class="candidate-triage-group" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}">
       <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`Candidate group: ${groupSummary}`)}">
         <span>${escapeHtml(group.label)}</span>
-        <strong>${escapeHtml(pluralize(group.record_ids.length, "record"))}</strong>
-        <small>Review path ready</small>
+        <strong>${escapeHtml(group.review_handoff.label)}</strong>
+        <small>Records indexed</small>
       </summary>
       <div class="candidate-triage-group-body">
         <details class="candidate-triage-group-details" data-dashboard-detail="candidate-triage-details:${escapeHtml(group.id)}">

@@ -446,9 +446,11 @@ Capture Inbox, Memory Doctor, timeline, or recall, explains the next review
 surface, and repeats that Candidate Triage is read-only without filling the
 expanded group by default. Candidate group description text stays behind a
 collapsed `Group context` row, so expanded groups lead with review path, audit
-boundary, and samples instead of prose. Candidate group folded rows keep the visible next-step
-hint to `Review path ready`; the full recommended next step stays in the
-accessible group summary and the nested `Review path` fold. The group write-boundary and evidence fields move behind a collapsed
+boundary, and samples instead of prose. Candidate group folded rows show the
+review-path label, such as `Archive review` or `Inspection review`, instead of
+a record count; the full recommended next step and record count stay in the
+accessible group summary, `Group context`, and the nested `Review path` fold.
+The group write-boundary and evidence fields move behind a collapsed
 `Audit boundary` row whose folded summary names the candidate group, so the
 expanded group stays focused on review path, audit boundary, and samples instead
 of raw audit fields. Record ids,
