@@ -1143,8 +1143,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span class=\"candidate-triage-record-meta\">Memory</span>");
       expect(html).not.toContain("<strong>Session summary sample rec_candidate_triage_2</strong>");
       expect(html).not.toContain("<strong>Memory sample rec_candidate_triage_3</strong>");
-      expect(html).toContain("<div><dt>Text</dt><dd>Smoke marker from dashboard test.</dd></div>");
-      expect(html).toContain("<div><dt>Text</dt><dd>Always keep dashboard governance readable.</dd></div>");
+      expect(html).toContain("<div><dt>Content</dt><dd>Smoke marker from dashboard test.</dd></div>");
+      expect(html).toContain("<div><dt>Content</dt><dd>Always keep dashboard governance readable.</dd></div>");
+      expect(html).not.toContain("<dt>Text</dt>");
       expect(html).not.toContain("<strong>Smoke marker from dashboard test.</strong>");
       expect(html).not.toContain("<strong>Always keep dashboard governance readable.</strong>");
       expect(html).toContain("<span>Promotable candidates</span>");

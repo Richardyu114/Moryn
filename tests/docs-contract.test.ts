@@ -226,7 +226,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "kind/source/time wording and record id stay in the accessible row label");
     expectText(dashboard, "Overflow rows read `More samples` with a short `hidden, indexed` count");
     expectText(dashboard, "the group-specific hidden-record count, API/Raw Store cue, and exact `candidate_triage.groups_by_id.<group_id>.records_by_id` path is kept behind a group-specific `Hidden record index` fold");
-    expectText(dashboard, "Full candidate text remains inside the expanded sample body only for visible samples");
+    expectText(dashboard, "Visible sample bodies label candidate text as `Content`");
+    expectText(dashboard, "full candidate text remains inside the expanded sample body only for visible samples");
     expectText(dashboard, "To avoid flooding");
     expectText(dashboard, "`candidate_triage.groups_by_id.<group_id>.records[]` keeps only the visible sample records");
     expectText(dashboard, "`candidate_triage.groups_by_id.<group_id>.record_ids[]`");

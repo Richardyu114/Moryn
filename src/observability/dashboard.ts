@@ -3871,7 +3871,7 @@ function renderCandidateTriageRecord(record: DashboardCandidateTriageRecord): st
         <span class="candidate-triage-record-meta">${escapeHtml(titleCase(record.kind))}</span>
       </summary>
       <dl>
-        <div><dt>Text</dt><dd>${escapeHtml(record.text)}</dd></div>
+        <div><dt>Content</dt><dd>${escapeHtml(record.text)}</dd></div>
         <div><dt>Reason</dt><dd>${escapeHtml(record.reason)}</dd></div>
         <div><dt>Source</dt><dd>${escapeHtml(record.source_detail)}</dd></div>
         <div><dt>Priority</dt><dd>${escapeHtml(record.priority)}</dd></div>
