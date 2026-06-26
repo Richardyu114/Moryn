@@ -467,8 +467,9 @@ ready`. The record kind stays in the right-side chip, while the full
 kind/source/time wording and record id stay in the accessible row label, so
 repeated source/type rows stay distinguishable without stretching the folded
 row. Overflow rows read `More samples` with a short `hidden, indexed` count,
-while the group-specific hidden-record count, API/Raw Store cue, and exact
-`candidate_triage.groups_by_id.<group_id>.records_by_id` path is kept behind a
+and their visible count says only how many more records are indexed. The
+group-specific hidden-record count, API/Raw Store cue, and exact
+`candidate_triage.groups_by_id.<group_id>.records_by_id` path stay behind a
 group-specific `Hidden record index` fold. Visible sample bodies label candidate
 text as `Content`, and full candidate text remains inside the expanded sample
 body only for visible samples. To avoid flooding

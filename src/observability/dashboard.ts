@@ -3901,7 +3901,7 @@ function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): st
   const overflowSummary = `${group.label}: ${hiddenRecords} hidden in API index and Raw Store`;
   return `
     <div class="candidate-triage-overflow">
-      <span class="candidate-triage-overflow-count">${escapeHtml(`${pluralize(hiddenRecords, "more record")} indexed in API evidence`)}</span>
+      <span class="candidate-triage-overflow-count">${escapeHtml(`${pluralize(hiddenRecords, "more record")} indexed`)}</span>
       <details class="candidate-triage-overflow-path" data-dashboard-detail="candidate-triage-overflow:${escapeHtml(group.id)}">
         <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`More samples: ${overflowSummary}`)}">
           <span>More samples</span>

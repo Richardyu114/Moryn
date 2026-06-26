@@ -1280,7 +1280,8 @@ describe("observability dashboard", () => {
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_4\"");
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_3\"");
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_2\"");
-      expect(groupHtml).toContain("<span class=\"candidate-triage-overflow-count\">4 more records indexed in API evidence</span>");
+      expect(groupHtml).toContain("<span class=\"candidate-triage-overflow-count\">4 more records indexed</span>");
+      expect(groupHtml).not.toContain("indexed in API evidence");
       expect(groupHtml).toContain("<span>More samples</span>");
       expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"More samples: Needs inspection: 4 hidden in API index and Raw Store\">");
       expect(groupHtml).toContain("<small>4 hidden, indexed</small>");
