@@ -458,11 +458,10 @@ shows a compact `Backlog brief` with status, scope, next step, and write
 boundary; concrete groups sit behind a nested `Backlog index` fold as
 lightweight API index cards only. Those cards keep the stable
 `candidate-triage:<group_id>` routes, readable group labels, record counts,
-and next-step hints on the card face while the
-`candidate_triage.groups_by_id.<group_id>` evidence path stays behind a nested
-`Evidence path` fold. They do not inline group details, sample rows,
-hidden-record folds, or trace commands into the dashboard HTML. Full candidate
-bodies, record order, recall commands, and timeline commands stay in
+and next-step hints on the card face. They do not render a per-card `Evidence
+path` fold, and they do not inline group details, sample rows, hidden-record
+folds, or trace commands into the dashboard HTML. Full candidate bodies,
+record order, evidence paths, recall commands, and timeline commands stay in
 `/api/dashboard.candidate_triage`.
 When the existing Review Queue has a `candidate_noise_archive` cleanup plan,
 the read-only `Likely noise` card may show a `Review cleanup plan` navigation

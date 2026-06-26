@@ -233,9 +233,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "concrete groups sit behind a nested `Backlog index` fold as lightweight API index cards only");
     expectText(dashboard, "Those cards keep the stable `candidate-triage:<group_id>` routes");
     expectText(dashboard, "readable group labels, record counts, and next-step hints on the card face");
-    expectText(dashboard, "the `candidate_triage.groups_by_id.<group_id>` evidence path stays behind a nested `Evidence path` fold");
-    expectText(dashboard, "They do not inline group details, sample rows, hidden-record folds, or trace commands into the dashboard HTML");
-    expectText(dashboard, "Full candidate bodies, record order, recall commands, and timeline commands stay in `/api/dashboard.candidate_triage`");
+    expectText(dashboard, "They do not render a per-card `Evidence path` fold");
+    expectText(dashboard, "they do not inline group details, sample rows, hidden-record folds, or trace commands into the dashboard HTML");
+    expectText(dashboard, "Full candidate bodies, record order, evidence paths, recall commands, and timeline commands stay in `/api/dashboard.candidate_triage`");
     expectText(dashboard, "When the existing Review Queue has a `candidate_noise_archive` cleanup plan");
     expectText(dashboard, "the read-only `Likely noise` card may show a `Review cleanup plan` navigation button");
     expectText(dashboard, "That button has no `data-dashboard-action-id` and does not approve, archive, or mutate records");
