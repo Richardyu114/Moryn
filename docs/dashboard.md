@@ -828,7 +828,10 @@ health signals`, `Raw Store Reference` opens with `Optional raw records`, and
 `Record Index`, `Event Timeline`, and `Sync Snapshot` instead of generic
 `Records`, `Events`, and `Sync`. `Record Index` and `Event Timeline` render
 only the first ten rows each and summarize overflow as `/api/dashboard`
-evidence. `Record Index` record rows use short record-id summaries and a
+evidence. Event rows render common store writes such as `upsert_record` as
+`Record update` in their folded summary while `/api/dashboard.recent_events[]`
+keeps the original operation id for agents and audit tooling. `Record Index`
+record rows use short record-id summaries and a
 `Details` hint in their folded row instead of raw record text or machine type
 names, while each row's accessible label starts with `Record details` and keeps
 kind, type, source, and record-id context. This leaves `Record Index` as the

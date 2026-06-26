@@ -2857,6 +2857,9 @@ describe("observability dashboard", () => {
       expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_3\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_2\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_1\"");
+      expect(data.recent_events[0]?.op).toBe("upsert_record");
+      expect(debugHtml).toContain("<span>Record update</span>");
+      expect(debugHtml).not.toContain("<span>Upsert Record</span>");
       expect(debugHtml).toContain("<span class=\"debug-inspector-overflow-count\">3 more records kept in /api/dashboard</span>");
       expect(debugHtml).toContain("<code>recent_records</code>");
       expect(debugHtml).toContain("<span class=\"debug-inspector-overflow-count\">3 more events kept in /api/dashboard</span>");

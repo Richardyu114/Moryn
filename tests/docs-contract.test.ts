@@ -190,6 +190,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Raw Store Inspector` opens with `Optional raw inspection`");
     expectText(dashboard, "child folds are labeled `Record Index`, `Event Timeline`, and `Sync Snapshot`");
     expectText(dashboard, "`Record Index` and `Event Timeline` render only the first ten rows each and summarize overflow as `/api/dashboard` evidence");
+    expectText(dashboard, "Event rows render common store writes such as `upsert_record` as `Record update`");
+    expectText(dashboard, "`/api/dashboard.recent_events[]` keeps the original operation id for agents and audit tooling");
     expectText(dashboard, "`Record Index` record rows use short record-id summaries and a `Details` hint");
     expectText(dashboard, "each row's accessible label starts with `Record details` and keeps kind, type, source, and record-id context");
     expectText(dashboard, "This leaves `Record Index` as the single child-panel title instead of repeating it for every raw record row");

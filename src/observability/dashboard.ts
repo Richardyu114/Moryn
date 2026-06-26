@@ -5270,7 +5270,7 @@ function eventsTimeline(events: DashboardEventSummary[]): string {
       ${visibleEvents.map((event) => `
         <details class="event-row" data-dashboard-detail="event:${escapeHtml(event.event_id)}" data-dashboard-citation="event:${escapeHtml(event.event_id)}">
           <summary>
-            <span>${escapeHtml(titleCase(event.op))}</span>
+            <span>${escapeHtml(eventSummaryLabel(event.op))}</span>
             <time>${escapeHtml(event.created_at)}</time>
           </summary>
           <dl>
@@ -5284,6 +5284,10 @@ function eventsTimeline(events: DashboardEventSummary[]): string {
     </div>
     ${overflow > 0 ? debugInspectorOverflow(overflow, "event", "recent_events") : ""}
   `;
+}
+
+function eventSummaryLabel(op: string): string {
+  return op === "upsert_record" ? "Record update" : titleCase(op);
 }
 
 function debugInspectorOverflow(count: number, kind: "record" | "event", evidencePath: "recent_records" | "recent_events"): string {
