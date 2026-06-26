@@ -300,6 +300,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("<em class=\"action-board-next\">Open info checks</em>");
       expect(html).not.toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Sync changes not pushed\">");
       expect(html).not.toContain("Local event history has changes that are not committed or pushed yet.");
+      expect(html).toContain("<section class=\"sync-action-brief warning\" data-dashboard-sync-action>");
+      expect(html).toContain("<h3>Sync Action</h3>");
+      expect(html).toContain("<strong>Push sync</strong>");
+      expect(html).toContain("<code>moryn sync --push</code>");
+      expect(html).toContain("<span>Remote configured</span>");
+      expect(html).toContain("<span>Branch main</span>");
+      expect(html).toContain("<span>0 behind</span>");
+      expect(html).toContain("<span>0 ahead</span>");
       expect(html).toContain("<div class=\"rail-labels\"><span>Remote</span><strong>Local Changes</strong><span>Local</span></div>");
       expect(html).not.toContain("data-dashboard-detail=\"attention:Local store has uncommitted sync state\"");
       expect(html).not.toContain("<div class=\"rail-labels\"><span>Remote</span><strong>Dirty</strong><span>Local</span></div>");

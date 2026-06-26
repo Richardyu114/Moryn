@@ -5507,6 +5507,30 @@ function debugInspectorOverflow(count: number, kind: "record" | "event", evidenc
   `;
 }
 
+function syncActionBrief(data: DashboardData): string {
+  const syncLane = data.action_board.items_by_id.sync;
+  if (syncLane.value === 0 || (syncLane.severity !== "warning" && syncLane.severity !== "critical")) return "";
+  const syncAction = data.attention_items.find((item) => item.severity !== "info" && isSyncAttentionItem(item));
+  if (!syncAction?.action_command) return "";
+  const sync = data.sync;
+  return `
+    <section class="sync-action-brief ${escapeHtml(syncAction.severity)}" data-dashboard-sync-action>
+      <div class="sync-action-main">
+        <h3>Sync Action</h3>
+        <strong>${escapeHtml(syncAction.action_label)}</strong>
+        <small>${escapeHtml(syncLane.detail)}</small>
+      </div>
+      <code>${escapeHtml(syncAction.action_command)}</code>
+      <div class="sync-action-context" aria-label="Sync action context">
+        <span>${sync.remote ? "Remote configured" : "Remote not configured"}</span>
+        <span>Branch ${escapeHtml(sync.branch ?? "unknown")}</span>
+        <span>${escapeHtml(sync.behind ?? 0)} behind</span>
+        <span>${escapeHtml(sync.ahead ?? 0)} ahead</span>
+      </div>
+    </section>
+  `;
+}
+
 function storeSignalsPanel(data: DashboardData): string {
   return `
     <details id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
@@ -5514,6 +5538,7 @@ function storeSignalsPanel(data: DashboardData): string {
         <span>Store Signals</span>
         <small>Operational health signals</small>
       </summary>
+      ${syncActionBrief(data)}
       <section class="visual-grid">
         <div class="signal-card">
           <h2>Agent Activity</h2>
@@ -8668,6 +8693,63 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .type-label span { color: var(--muted); font-size: 12px; font-weight: 560; text-align: right; }
     .type-track { height: 9px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
     .type-track span { display: block; height: 100%; border-radius: inherit; background: var(--type-accent); }
+    .sync-action-brief {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
+      gap: 8px 12px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 10px 11px;
+      margin: 10px 0 12px;
+      background: var(--surface-2);
+    }
+    .sync-action-brief.warning { border-left-color: var(--warning); }
+    .sync-action-brief.critical { border-left-color: var(--critical); }
+    .sync-action-main {
+      min-width: 0;
+    }
+    .sync-action-main h3 {
+      margin: 0 0 2px;
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 780;
+      text-transform: uppercase;
+    }
+    .sync-action-main strong {
+      display: block;
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.2;
+      font-weight: 820;
+      overflow-wrap: anywhere;
+    }
+    .sync-action-main small {
+      margin-top: 3px;
+    }
+    .sync-action-brief > code {
+      justify-self: end;
+      width: 100%;
+      max-width: 360px;
+      padding: 6px 7px;
+    }
+    .sync-action-context {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .sync-action-context span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+      overflow-wrap: anywhere;
+    }
     .sync-rail { display: grid; gap: 8px; }
     .rail-labels { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; }
     .rail-labels strong { color: var(--ink); font-weight: 780; }
@@ -8761,6 +8843,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .status-strip { grid-template-columns: 1fr; align-items: start; }
       .dashboard-overview-main { display: grid; align-items: stretch; }
       .dashboard-overview-action { width: 100%; white-space: normal; }
+      .sync-action-brief { grid-template-columns: 1fr; }
+      .sync-action-brief > code { justify-self: stretch; max-width: none; }
       .decision-summary-heading { display: grid; }
       .decision-summary-counts { justify-content: flex-start; }
       .capture-inbox-queue-summary { display: grid; }

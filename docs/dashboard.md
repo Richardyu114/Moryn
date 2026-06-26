@@ -612,6 +612,9 @@ uninterrupted; the overview cards remain in
 If sync is also pending, Pending Decisions still owns the Overview headline and
 primary action because it is the explicit confirmation path; sync remains visible
 through the health badge, Store Signals, and `/api/dashboard.dashboard_overview.cards`.
+When sync is the active warning, Store Signals opens with a compact `Sync Action`
+brief. The brief shows the suggested read-only command, remote/branch context,
+and ahead/behind counts without adding an Approve or Apply control.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary
