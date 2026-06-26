@@ -689,6 +689,11 @@ shortcut also reads `Open info checks` instead of `Review warnings`. The
 collapsed `Page Shortcuts` summary still stays count-free; the non-zero sync
 count remains visible on the expanded shortcut card and in
 `/api/dashboard.action_board`.
+When exactly one active shortcut exists, such as sync-only pending work, the
+visible HTML skips `Page Shortcuts` and `data-action-board-nav` because the
+Overview and Work Lane already route to the same current task.
+`/api/dashboard.action_board` still keeps the complete shortcut list for agents
+and audit tooling.
 When `Pending Decisions` is already rendered, the visible HTML skips
 `Page Shortcuts` and the stable `data-dashboard-detail="action-board"` route so
 the decision path does not get another generic navigation fold. The old

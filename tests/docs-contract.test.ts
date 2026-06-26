@@ -285,6 +285,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The JSON contract keeps those per-decision audit fields in `items[]`");
     expectText(dashboard, "The collapsed `Page Shortcuts` summary still stays count-free");
     expectText(dashboard, "the non-zero sync count remains visible on the expanded shortcut card and in `/api/dashboard.action_board`");
+    expectText(dashboard, "When exactly one active shortcut exists, such as sync-only pending work, the visible HTML skips `Page Shortcuts` and `data-action-board-nav`");
+    expectText(dashboard, "`/api/dashboard.action_board` still keeps the complete shortcut list for agents and audit tooling");
     expectText(dashboard, "zero-value `good` targets are grouped under `Quiet Shortcuts` while keeping the stable `action-board-quiet-targets` route");
     expectText(dashboard, "`Quiet Shortcuts` opens with `Background section links`");
     expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
