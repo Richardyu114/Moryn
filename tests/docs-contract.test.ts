@@ -207,6 +207,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "expanded groups lead with review path, audit boundary, and samples instead of prose");
     expectText(dashboard, "Candidate group folded rows keep the visible next-step hint to `Review path ready`");
     expectText(dashboard, "the full recommended next step stays in the accessible group summary and the nested `Review path` fold");
+    expectText(dashboard, "Candidate group internals sit behind a `Triage details` fold");
+    expectText(dashboard, "the group face does not expose context, review path, audit boundary, or samples by default");
     expectText(dashboard, "group write-boundary and evidence fields move behind a collapsed `Audit boundary` row whose folded");
     expectText(dashboard, "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group");
     expectText(dashboard, "`Record samples` renders only the first three full records per group and summarizes the remaining records as API index evidence");

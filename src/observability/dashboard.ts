@@ -3952,18 +3952,24 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
         <small>Review path ready</small>
       </summary>
       <div class="candidate-triage-group-body">
-        ${renderCandidateTriageGroupContext(group)}
-        ${renderCandidateTriageHandoff(group)}
-        ${renderCandidateTriageAuditBoundary(group)}
-        <details class="candidate-triage-record-samples" data-dashboard-detail="candidate-triage-records:${escapeHtml(group.id)}">
-          <summary class="dashboard-fold-summary" aria-label="Record samples: ${escapeHtml(sampleSummary)}">
-            <span>Record samples</span>
-            <small>${escapeHtml(candidateTriageSampleVisibleSummary(group))}</small>
+        <details class="candidate-triage-group-details" data-dashboard-detail="candidate-triage-details:${escapeHtml(group.id)}">
+          <summary class="dashboard-fold-summary">
+            <span>Triage details</span>
+            <small>Context, review path, audit, samples</small>
           </summary>
-          <div class="candidate-triage-records">
-            ${group.records.map(renderCandidateTriageRecord).join("")}
-          </div>
-          ${renderCandidateTriageOverflow(group)}
+          ${renderCandidateTriageGroupContext(group)}
+          ${renderCandidateTriageHandoff(group)}
+          ${renderCandidateTriageAuditBoundary(group)}
+          <details class="candidate-triage-record-samples" data-dashboard-detail="candidate-triage-records:${escapeHtml(group.id)}">
+            <summary class="dashboard-fold-summary" aria-label="Record samples: ${escapeHtml(sampleSummary)}">
+              <span>Record samples</span>
+              <small>${escapeHtml(candidateTriageSampleVisibleSummary(group))}</small>
+            </summary>
+            <div class="candidate-triage-records">
+              ${group.records.map(renderCandidateTriageRecord).join("")}
+            </div>
+            ${renderCandidateTriageOverflow(group)}
+          </details>
         </details>
       </div>
     </details>
@@ -7348,6 +7354,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-top: 1px solid var(--hairline);
       padding-top: 9px;
     }
+    .candidate-triage-group-details {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .candidate-triage-group-details[open] > summary {
+      margin-bottom: 8px;
+    }
     .candidate-triage-group-body p {
       margin-top: 0;
       color: var(--muted);
@@ -7358,7 +7373,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-radius: 7px;
       padding: 7px 9px;
       margin-bottom: 8px;
-      background: var(--surface);
+      background: var(--surface-2);
     }
     .candidate-triage-group-context[open] > summary {
       margin-bottom: 7px;
@@ -7398,7 +7413,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-radius: 7px;
       padding: 7px 9px;
       margin-bottom: 9px;
-      background: var(--surface);
+      background: var(--surface-2);
     }
     .candidate-triage-audit-boundary[open] > summary {
       margin-bottom: 8px;
