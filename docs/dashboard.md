@@ -477,13 +477,15 @@ fields stay behind the nested `Audit boundary` row whose folded summary names th
 candidate group, so the expanded group stays focused on review path, audit
 notes, promotion drafts when present, and samples instead of raw audit fields.
 Promotable groups may include a collapsed `Promotion draft`
-row with the canonical target, confirmation requirement, append-only write
-preview, exact `moryn promote ... --confirm` command, and
+row. Draft rows open with the same `Approval brief` pattern used by Capture
+Inbox and Review Queue: `Change`, `Scope`, `Guard`, and `Writes`. The exact
+`moryn promote ... --confirm` command and
 `candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>`
-source path. The only Candidate Triage write control is the draft-row `Approve
-Memory` action, and pending draft approvals are routed through `Pending
-Decisions` rather than hiding a write action in reference evidence; the server
-re-checks that the record is still an active
+source path stay behind a nested `Draft evidence` fold. The only Candidate
+Triage write control is the draft-row `Approve Memory` action, and pending
+draft approvals are routed through `Pending Decisions` rather than hiding a
+write action in reference evidence; the server re-checks that the record is
+still an active
 promotable candidate before appending the confirmed promotion event, and stale
 draft approvals return `not_actionable`. Record ids,
 recall commands, and timeline commands stay behind a nested `Record samples`

@@ -246,8 +246,11 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Audit notes` groups the collapsed `Group context` and `Audit boundary` rows");
     expectText(dashboard, "group write-boundary and evidence fields stay behind the nested `Audit boundary` row whose folded");
     expectText(dashboard, "Promotable groups may include a collapsed `Promotion draft` row");
+    expectText(dashboard, "Draft rows open with the same `Approval brief` pattern used by Capture Inbox and Review Queue");
+    expectText(dashboard, "`Change`, `Scope`, `Guard`, and `Writes`");
     expectText(dashboard, "exact `moryn promote ... --confirm` command");
     expectText(dashboard, "`candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>` source path");
+    expectText(dashboard, "source path stay behind a nested `Draft evidence` fold");
     expectText(dashboard, "The only Candidate Triage write control is the draft-row `Approve Memory` action, and pending draft approvals are routed through `Pending Decisions`");
     expectText(dashboard, "server re-checks that the record is still an active promotable candidate before appending the confirmed promotion event");
     expectText(dashboard, "stale draft approvals return `not_actionable`");

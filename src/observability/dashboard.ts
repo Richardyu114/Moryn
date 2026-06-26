@@ -4116,15 +4116,27 @@ function renderCandidateTriagePromotionDrafts(group: DashboardCandidateTriageGro
       <div class="candidate-triage-promotion-list">
         ${drafts.map((draft) => `
           <article class="candidate-triage-promotion-draft" data-candidate-triage-promotion-draft="${escapeHtml(draft.record_id)}">
-            <dl>
-              <div><dt>Record</dt><dd><code>${escapeHtml(draft.record_id)}</code></dd></div>
-              <div><dt>Target</dt><dd>${escapeHtml(draft.target_state)}</dd></div>
-              <div><dt>Confirmation</dt><dd>${draft.requires_user_confirmation ? "User approval required" : "No confirmation required"}</dd></div>
-              <div><dt>Write</dt><dd>${draft.writes === "append_only_events" ? "append-only promotion event" : escapeHtml(draft.writes)}</dd></div>
-              <div><dt>Reason</dt><dd>${escapeHtml(draft.reason)}</dd></div>
-              <div><dt>Command</dt><dd><code>${escapeHtml(draft.command)}</code></dd></div>
-              <div><dt>Evidence</dt><dd><code>${escapeHtml(draft.source_path)}</code></dd></div>
-            </dl>
+            <div class="candidate-triage-approval-brief" data-candidate-triage-approval-brief>
+              <h4>Approval brief</h4>
+              <dl class="candidate-triage-brief-list" aria-label="Approval brief">
+                <div><dt>Change</dt><dd>Promote 1 candidate</dd></div>
+                <div><dt>Scope</dt><dd>${escapeHtml(`${recordLabel(draft.record_id)} to ${draft.target_state}`)}</dd></div>
+                <div><dt>Guard</dt><dd>Server rechecks active candidate before writing</dd></div>
+                <div><dt>Writes</dt><dd>Approve Memory appends an append-only promotion event</dd></div>
+              </dl>
+            </div>
+            <details class="candidate-triage-promotion-evidence" data-dashboard-detail="candidate-triage-promotion-evidence:${escapeHtml(draft.record_id)}">
+              <summary class="dashboard-fold-summary">
+                <span>Draft evidence</span>
+                <small>Command and source</small>
+              </summary>
+              <dl>
+                <div><dt>Record</dt><dd><code>${escapeHtml(draft.record_id)}</code></dd></div>
+                <div><dt>Reason</dt><dd>${escapeHtml(draft.reason)}</dd></div>
+                <div><dt>Command</dt><dd><code>${escapeHtml(draft.command)}</code></dd></div>
+                <div><dt>Evidence</dt><dd><code>${escapeHtml(draft.source_path)}</code></dd></div>
+              </dl>
+            </details>
             <div class="candidate-triage-promotion-actions">
               <button
                 type="button"
@@ -7881,11 +7893,33 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding: 8px 9px;
       background: var(--surface);
     }
-    .candidate-triage-promotion-draft dl {
+    .candidate-triage-approval-brief {
+      margin-bottom: 8px;
+    }
+    .candidate-triage-approval-brief h4 {
+      margin: 0 0 6px;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      color: var(--muted);
+    }
+    .candidate-triage-promotion-evidence {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 7px 9px;
+      margin-bottom: 8px;
+      background: var(--surface-2);
+    }
+    .candidate-triage-promotion-evidence[open] > summary {
+      margin-bottom: 8px;
+    }
+    .candidate-triage-promotion-draft dl,
+    .candidate-triage-brief-list {
       margin: 0;
       grid-template-columns: minmax(0, 1fr);
     }
-    .candidate-triage-promotion-draft dl div {
+    .candidate-triage-promotion-draft dl div,
+    .candidate-triage-brief-list div {
       grid-template-columns: 112px minmax(0, 1fr);
     }
     .candidate-triage-record-samples {
