@@ -5969,16 +5969,17 @@ function evidenceLibrary(
   const candidateTriage = candidateTriagePanel(data.candidate_triage);
   const governanceNeedsDecision = governanceNeedsReview(data.governance);
   const governance = governanceHub(data.governance);
+  const dogfood = dogfoodReviewPanel(data.dogfood_report);
   const reviewPanels = [
     isRoutineHealthCheck(data.health_check) ? undefined : healthCheckPanel(data.health_check),
     isRoutineRecallEval(data.recall_eval) ? undefined : recallEvalPanel(data.recall_eval),
-    dogfoodReviewPanel(data.dogfood_report),
     governanceNeedsDecision ? governance : undefined,
     candidateTriageNeedsDecision ? candidateTriage : undefined,
     isRoutineContextPackReview(data.context_pack_review) ? undefined : contextPackReviewPanel(data.context_pack_review)
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
   const backgroundPanels = [
     routineDiagnosticsPanel(routinePanels),
+    dogfood,
     governanceNeedsDecision ? undefined : governance,
     candidateTriageNeedsDecision ? undefined : candidateTriage,
     supportingEvidencePanel(data)

@@ -157,6 +157,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`/api/dashboard.attention_items` still keeps the info checks for agents and audit tooling");
     expect(dashboard).toContain("Dogfood Notes");
     expect(dashboard).toContain("Issue brief");
+    expectText(dashboard, "it lives in the background Audit route instead of `Review Notes` because it has no approval or write action");
     expectText(dashboard, "folded row reads `Read-only note` or `Read-only notes`");
     expectText(dashboard, "The status chip reads `Note` even when the underlying finding severity is warning");
     expectText(dashboard, "instead of repeating finding and safe-step counts");

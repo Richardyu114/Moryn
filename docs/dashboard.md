@@ -794,10 +794,10 @@ with `Checks ready` so the folded row stays compact, while the accessible
 summary keeps `Healthy checks and handoff readiness` for screen readers and
 audit tooling. Expanding it shows lightweight Health Check, Recall Eval, and
 Context Pack Review summary rows first; the full reports stay in the nested
-`Diagnostic Reports` section. Findings-oriented panels such as Dogfood Notes,
-Governance Hub items that require user confirmation, or non-routine
-Health/Recall/Context checks are grouped first under the stable `Review Notes`
-group, whose visible row reads `Review Notes` with `Reference notes`.
+`Diagnostic Reports` section. Findings-oriented panels such as Governance Hub
+items that require user confirmation or non-routine Health/Recall/Context
+checks are grouped first under the stable `Review Notes` group, whose visible
+row reads `Review Notes` with `Reference notes`.
 `Review Notes` is collapsed by default inside `Evidence Library`, so
 read-only findings do not look like pending approval work or expose
 child panel counts. Routine Diagnostics and Audit Trail are
@@ -813,17 +813,18 @@ The routine and background groups still keep the original child
 before scrolling to the requested diagnostic.
 
 `Dogfood Notes` is a read-only issue notebook for `dogfood_report.findings_by_id`.
-It renders only when the local report has findings. Its folded row reads
-`Read-only note` or `Read-only notes` instead of repeating finding and safe-step
-counts. The status chip reads `Note` even when the underlying finding severity is
-warning; the per-finding severity remains in `/api/dashboard.dogfood_report` and
-the row class for audit tooling. Each finding card keeps impact, evidence, and
-the safe command inside a `Note Details` fold, so the visible card face only
-shows category, summary, and read-only status. Expanding `Note Details` shows
-the `Issue brief` for impact, affected records, read-only next step, evidence
-path, and the safe dashboard or timeline command already returned by
-`dogfood_report.suggested_actions_by_id`. It does not add buttons, background
-execution, or a second mutation path.
+It renders only when the local report has findings, but it lives in the
+background Audit route instead of `Review Notes` because it has no approval or
+write action. Its folded row reads `Read-only note` or `Read-only notes` instead
+of repeating finding and safe-step counts. The status chip reads `Note` even
+when the underlying finding severity is warning; the per-finding severity remains
+in `/api/dashboard.dogfood_report` and the row class for audit tooling. Each
+finding card keeps impact, evidence, and the safe command inside a `Note
+Details` fold, so the visible card face only shows category, summary, and
+read-only status. Expanding `Note Details` shows the `Issue brief` for impact,
+affected records, read-only next step, evidence path, and the safe dashboard or
+timeline command already returned by `dogfood_report.suggested_actions_by_id`.
+It does not add buttons, background execution, or a second mutation path.
 Dogfood capture review backlog uses the same review-required policy boundary as
 Capture Inbox and Health Check, so low-risk auto-captured handoffs remain
 read-only audit evidence instead of dogfood review work.
