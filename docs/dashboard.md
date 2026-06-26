@@ -751,12 +751,15 @@ detail opens with `Routine status checks` so the row explains its purpose
 instead of repeating the focus-strip count. When there are no warning or
 critical action signals, the same scroll target renders as a quiet
 `needs-attention-quiet-line` anchor. It contains only the collapsed `Info Checks`
-detail and does not render the focus strip or a separate quiet summary. This
-preserves the `id="needs-attention"` scroll target for audit without making
-routine informational checks look like user work. When `Pending Decisions` is
-rendered and no warning or critical action signal exists, the visible HTML skips
-the quiet `Info Checks` anchor entirely; `/api/dashboard.attention_items` still
-keeps the info checks for agents and audit tooling.
+detail and does not render the focus strip or a separate quiet summary. Quiet
+`Info Checks` opens first to a nested `Info Details` fold; the individual
+informational rows stay inside that nested fold so routine labels do not scatter
+across the first screen. This preserves the `id="needs-attention"` scroll target
+for audit without making routine informational checks look like user work. When
+`Pending Decisions` is rendered and no warning or critical action signal exists,
+the visible HTML skips the quiet `Info Checks` anchor entirely;
+`/api/dashboard.attention_items` still keeps the info checks for agents and
+audit tooling.
 
 Read-only diagnostic detail lives in the collapsed evidence layer. The visible
 Evidence Library title is `Reference Library`, while the stable route remains

@@ -162,6 +162,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Info Checks</span>");
       expect(html).toContain("<small>Routine status checks</small>");
       expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
+      expect(html).toContain("<details class=\"attention-info-details\" data-dashboard-detail=\"attention-info-details\">");
+      expect(html).toContain("<span>Info Details</span>");
+      expect(html).toContain("<small>1 routine check</small>");
+      const quietInfoStart = html.indexOf("data-dashboard-detail=\"attention-info-checks\"");
+      const quietInfoDetailsStart = html.indexOf("data-dashboard-detail=\"attention-info-details\"", quietInfoStart);
+      const quietInfoSummaryHtml = html.slice(quietInfoStart, quietInfoDetailsStart);
+      expect(quietInfoSummaryHtml).not.toContain("data-dashboard-detail=\"attention:Sync is not configured\"");
+      expect(quietInfoSummaryHtml).not.toContain("<strong>Sync is not configured</strong>");
       expect(html).not.toContain("needs-attention-quiet-summary");
       expect(html).not.toContain("<small>No action needed | 1 info check</small>");
       expect(html).not.toContain("<div class=\"attention-focus\" aria-label=\"Action Signals focus\">");

@@ -3722,17 +3722,28 @@ function attentionItems(items: DashboardAttentionItem[]): string {
   `;
 }
 
-function infoChecksGroup(items: DashboardAttentionItem[]): string {
+function infoChecksGroup(items: DashboardAttentionItem[], options: { quiet?: boolean } = {}): string {
   if (items.length === 0) return "";
+  const list = `
+          <div class="attention-info-list">
+            ${items.map(attentionItem).join("")}
+          </div>
+  `;
   return `
         <details class="attention-info-group" data-dashboard-detail="attention-info-checks">
           <summary class="dashboard-fold-summary">
             <span>Info Checks</span>
             <small>Routine status checks</small>
           </summary>
-          <div class="attention-info-list">
-            ${items.map(attentionItem).join("")}
-          </div>
+          ${options.quiet ? `
+            <details class="attention-info-details" data-dashboard-detail="attention-info-details">
+              <summary class="dashboard-fold-summary">
+                <span>Info Details</span>
+                <small>${escapeHtml(pluralize(items.length, "routine check"))}</small>
+              </summary>
+              ${list}
+            </details>
+          ` : list}
         </details>
   `;
 }
@@ -3743,7 +3754,7 @@ function needsAttentionPanel(items: DashboardAttentionItem[]): string {
     const info = items.filter((item) => item.severity === "info");
     return `
       <section id="needs-attention" class="needs-attention-quiet-line" data-dashboard-section="needs-attention" data-dashboard-detail="needs-attention">
-        ${infoChecksGroup(info)}
+        ${infoChecksGroup(info, { quiet: true })}
       </section>
     `;
   }
@@ -7302,6 +7313,13 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface-2);
     }
     .attention-info-group[open] > summary { margin-bottom: 8px; }
+    .attention-info-details {
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .attention-info-details[open] > summary { margin-bottom: 8px; }
     .attention-info-list { display: grid; gap: 8px; }
     .attention {
       border: 1px solid var(--border);
