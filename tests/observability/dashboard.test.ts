@@ -572,6 +572,24 @@ describe("observability dashboard", () => {
           items_by_id: Record<string, unknown>;
           selection_sources: Record<string, string>;
         };
+        actions_by_id: Record<string, {
+          action_id: string;
+          surface: string;
+          kind: string;
+          label: string;
+          intent: string;
+          target: { type: string; id: string };
+          endpoint?: string;
+          method?: string;
+          request_body?: Record<string, unknown>;
+          safety: {
+            safe_to_auto_run: boolean;
+            requires_user_confirmation: boolean;
+            writes: string;
+            stale_guard?: string;
+          };
+          source_path: string;
+        }>;
       };
 
       expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
@@ -1000,6 +1018,8 @@ describe("observability dashboard", () => {
               requires_user_confirmation: boolean;
               writes: string;
               source_path: string;
+              approve_endpoint: string;
+              action_id: string;
             }>;
             review_handoff: {
               label: string;
@@ -1073,8 +1093,28 @@ describe("observability dashboard", () => {
           command: "moryn promote rec_candidate_triage_3 --state canonical --reason 'User approved Candidate Triage promotion draft.' --confirm",
           requires_user_confirmation: true,
           writes: "append_only_events",
-          source_path: "candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3"
+          source_path: "candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3",
+          approve_endpoint: "api/candidate-triage/promotions/rec_candidate_triage_3/approve",
+          action_id: "candidate_triage.promotion.approve.rec_candidate_triage_3"
         }
+      });
+      expect(data.actions_by_id["candidate_triage.promotion.approve.rec_candidate_triage_3"]).toMatchObject({
+        action_id: "candidate_triage.promotion.approve.rec_candidate_triage_3",
+        surface: "candidate_triage",
+        kind: "dashboard_api",
+        label: "Approve Memory",
+        intent: "approve",
+        target: { type: "record", id: "rec_candidate_triage_3" },
+        endpoint: "api/candidate-triage/promotions/rec_candidate_triage_3/approve",
+        method: "POST",
+        request_body: {},
+        safety: {
+          safe_to_auto_run: false,
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          stale_guard: "active_candidate_record"
+        },
+        source_path: "candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3"
       });
       expect(data.candidate_triage.groups_by_id.likely_noise.promotion_drafts_by_id).toEqual({});
       expect(data.candidate_triage.groups.map((group) => group.id)).toEqual([
@@ -1189,6 +1229,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<dt>Write</dt><dd>append-only promotion event</dd>");
       expect(html).toContain("<code>moryn promote rec_candidate_triage_3 --state canonical --reason &#39;User approved Candidate Triage promotion draft.&#39; --confirm</code>");
       expect(html).toContain("<code>candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3</code>");
+      expect(html).toContain("data-candidate-triage-promotion-approve");
+      expect(html).toContain("data-dashboard-action-id=\"candidate_triage.promotion.approve.rec_candidate_triage_3\"");
+      expect(html).toContain("data-endpoint=\"api/candidate-triage/promotions/rec_candidate_triage_3/approve\"");
+      expect(html).toContain(">Approve Memory</button>");
+      expect(html).toContain("data-candidate-triage-promotion-status");
       expect(html).not.toContain("data-dashboard-detail=\"candidate-triage-promotion-drafts:likely_noise\"");
       expect(html).toContain(".candidate-triage-review-path {");
       expect(html).toContain(".candidate-triage-review-path dl {");
@@ -6350,6 +6395,158 @@ describe("observability dashboard", () => {
           ok: false,
           status: "not_actionable",
           message: "Capture Inbox actions require an active review candidate record."
+        });
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("approves Candidate Triage promotion drafts from the dashboard server", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_candidate_promote_${++record}` : `evt_candidate_promote_${++event}`;
+        })()
+      });
+      const candidate = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Keep dashboard approval explicit.", format: "text" },
+        state: "candidate",
+        confidence: 0.95,
+        priority: "high",
+        source: { client: "codex", session_id: "candidate-approve" }
+      });
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10,
+        project_id: "moryn"
+      });
+      try {
+        const dashboard = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+          candidate_triage: {
+            groups_by_id: {
+              promotable?: {
+                promotion_drafts_by_id: Record<string, { approve_endpoint: string; action_id: string }>;
+              };
+            };
+          };
+        };
+        const draft = dashboard.candidate_triage.groups_by_id.promotable?.promotion_drafts_by_id[candidate.record.id];
+        expect(draft).toMatchObject({
+          approve_endpoint: `api/candidate-triage/promotions/${candidate.record.id}/approve`,
+          action_id: `candidate_triage.promotion.approve.${candidate.record.id}`
+        });
+
+        const response = await fetch(new URL(draft!.approve_endpoint, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({})
+        });
+        const approved = await response.json() as { ok: boolean; status: string; record_id: string; event_id: string };
+
+        expect(response.status).toBe(200);
+        expect(approved).toMatchObject({
+          ok: true,
+          status: "approved",
+          record_id: candidate.record.id
+        });
+        expect(approved.event_id).toMatch(/^evt_/);
+        expect((await engine.recall({ record_ids: [candidate.record.id], states: ["canonical"], project_id: "moryn" })).results[0]?.record.state).toBe("canonical");
+
+        const refreshed = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
+          candidate_triage: { groups_by_id: { promotable?: { record_ids: string[] } } };
+        };
+        expect(refreshed.candidate_triage.groups_by_id.promotable?.record_ids ?? []).not.toContain(candidate.record.id);
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it("rejects stale Candidate Triage promotion approvals", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_candidate_stale_${++record}` : `evt_candidate_stale_${++event}`;
+        })()
+      });
+      const candidate = await engine.write({
+        kind: "memory",
+        type: "rule",
+        scope: "project",
+        project_id: "moryn",
+        tags: ["dashboard"],
+        content: { text: "Candidate already handled elsewhere.", format: "text" },
+        state: "candidate",
+        confidence: 0.95,
+        priority: "high",
+        source: { client: "codex", session_id: "candidate-stale" }
+      });
+
+      const server = await startDashboardServer(storePath, {
+        host: "127.0.0.1",
+        port: 0,
+        limit: 10,
+        project_id: "moryn"
+      });
+      try {
+        await engine.promote({
+          record_id: candidate.record.id,
+          target_state: "canonical",
+          reason: "User approved elsewhere.",
+          source: { client: "user" },
+          confirmed: true
+        });
+
+        const response = await fetch(new URL(`/api/candidate-triage/promotions/${candidate.record.id}/approve`, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({})
+        });
+        const body = await response.json() as { ok: boolean; status: string; message: string };
+
+        expect(response.status).toBe(409);
+        expect(body).toEqual({
+          ok: false,
+          status: "not_actionable",
+          message: "Candidate Triage promotion requires a current promotable candidate record."
         });
       } finally {
         await server.close();

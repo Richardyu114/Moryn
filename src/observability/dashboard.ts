@@ -60,7 +60,7 @@ const CAPTURE_INBOX_POLICY: DashboardCaptureInboxPolicy = {
   explanation: "Capture Inbox groups reduce review clicks, but candidates become canonical only after explicit user approval."
 };
 
-export type DashboardActionSurface = "capture_inbox" | "capture_policy" | "maintenance_review";
+export type DashboardActionSurface = "capture_inbox" | "capture_policy" | "maintenance_review" | "candidate_triage";
 export type DashboardActionKind = "dashboard_api" | "cli_command";
 export type DashboardActionIntent = "approve" | "reject" | "inspect";
 export type DashboardActionTargetType = "record" | "record_group" | "maintenance_plan" | "policy_decision";
@@ -450,6 +450,8 @@ export interface DashboardCandidateTriagePromotionDraft {
   requires_user_confirmation: true;
   writes: "append_only_events";
   source_path: string;
+  approve_endpoint: string;
+  action_id: string;
 }
 
 export interface DashboardCandidateTriageGroupSummary {
@@ -1272,12 +1274,20 @@ function captureInboxGroupRejectEndpoint(groupId: string): string {
   return `api/capture-inbox/groups/${encodeURIComponent(groupId)}/reject`;
 }
 
+function candidateTriagePromotionApproveEndpoint(recordId: string): string {
+  return `api/candidate-triage/promotions/${encodeURIComponent(recordId)}/approve`;
+}
+
 function captureInboxRecordActionId(intent: "approve" | "reject", recordId: string): string {
   return `capture_inbox.record.${intent}.${recordId}`;
 }
 
 function captureInboxGroupActionId(intent: "approve" | "reject", groupId: string): string {
   return `capture_inbox.group.${intent}.${groupId}`;
+}
+
+function candidateTriagePromotionApproveActionId(recordId: string): string {
+  return `candidate_triage.promotion.approve.${recordId}`;
 }
 
 function capturePolicyInspectActionId(recordId: string): string {
@@ -1850,15 +1860,40 @@ function maintenanceActions(plans: DashboardMaintenancePlan[]): DashboardAction[
   }));
 }
 
+function candidateTriageActions(triage: DashboardCandidateTriage): DashboardAction[] {
+  return Object.values(triage.groups_by_id)
+    .flatMap((group) => group ? Object.values(group.promotion_drafts_by_id) : [])
+    .map((draft): DashboardAction => ({
+      action_id: draft.action_id,
+      surface: "candidate_triage",
+      kind: "dashboard_api",
+      label: "Approve Memory",
+      intent: "approve",
+      target: { type: "record", id: draft.record_id },
+      method: "POST",
+      endpoint: draft.approve_endpoint,
+      request_body: {},
+      safety: {
+        safe_to_auto_run: false,
+        requires_user_confirmation: true,
+        writes: "append_only_events",
+        stale_guard: "active_candidate_record"
+      },
+      source_path: draft.source_path
+    }));
+}
+
 function dashboardActions(input: {
   captureInbox: DashboardCaptureInbox;
   capturePolicy: CapturePolicyResult;
   maintenance: DashboardMaintenanceData;
+  candidateTriage: DashboardCandidateTriage;
 }): DashboardAction[] {
   return [
     ...captureInboxActions(input.captureInbox),
     ...capturePolicyActions(input.capturePolicy),
-    ...maintenanceActions(input.maintenance.plans)
+    ...maintenanceActions(input.maintenance.plans),
+    ...candidateTriageActions(input.candidateTriage)
   ];
 }
 
@@ -2416,7 +2451,9 @@ function candidateTriagePromotionDraft(groupId: DashboardCandidateTriageGroupId,
     command: `${commandForPromoteContext(args)} --confirm`,
     requires_user_confirmation: true,
     writes: "append_only_events",
-    source_path: `candidate_triage.groups_by_id.${groupId}.promotion_drafts_by_id.${record.id}`
+    source_path: `candidate_triage.groups_by_id.${groupId}.promotion_drafts_by_id.${record.id}`,
+    approve_endpoint: candidateTriagePromotionApproveEndpoint(record.id),
+    action_id: candidateTriagePromotionApproveActionId(record.id)
   };
 }
 
@@ -2784,7 +2821,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   const actions = dashboardActions({
     captureInbox: captureInboxData,
     capturePolicy: capturePolicyData,
-    maintenance: maintenanceData
+    maintenance: maintenanceData,
+    candidateTriage: candidateTriageData
   });
   const decisionSummaryData = buildDecisionSummary({
     captureInbox: captureInboxData,
@@ -4009,6 +4047,16 @@ function renderCandidateTriagePromotionDrafts(group: DashboardCandidateTriageGro
               <div><dt>Command</dt><dd><code>${escapeHtml(draft.command)}</code></dd></div>
               <div><dt>Evidence</dt><dd><code>${escapeHtml(draft.source_path)}</code></dd></div>
             </dl>
+            <div class="candidate-triage-promotion-actions">
+              <button
+                type="button"
+                class="primary"
+                data-candidate-triage-promotion-approve
+                data-dashboard-action-id="${escapeHtml(draft.action_id)}"
+                data-endpoint="${escapeHtml(draft.approve_endpoint)}"
+              >Approve Memory</button>
+            </div>
+            <p class="candidate-triage-promotion-status" data-candidate-triage-promotion-status role="status" aria-live="polite"></p>
           </article>
         `).join("")}
       </div>
@@ -5947,6 +5995,7 @@ function dashboardActionReceiptScript(): string {
       const decisionLabel = (result) => {
         const status = String(result.status || "");
         if (result.plan_id) return "User approved Review Queue plan.";
+        if (result.surface === "candidate_triage" && status === "approved") return "User approved Candidate Triage promotion draft.";
         if (result.group_id) {
           if (status === "rejected") return "User rejected Capture Inbox group.";
           if (status === "approved") return "User approved Capture Inbox group.";
@@ -6162,6 +6211,63 @@ function dashboardCaptureInboxScript(): string {
           await refreshFragment();
         } catch (error) {
           if (status) status.textContent = error instanceof Error ? error.message : "Capture Inbox action failed.";
+          button.disabled = false;
+        }
+      });
+    })();
+  </script>`;
+}
+
+function dashboardCandidateTriageScript(): string {
+  return `
+  <script>
+    (() => {
+      const main = document.querySelector("main");
+      if (!main) return;
+      const refreshFragment = async () => {
+        const response = await fetch("fragment", { cache: "no-store" });
+        if (!response.ok) return;
+        main.innerHTML = await response.text();
+        window.restoreActionReceipt?.();
+      };
+      const responseJson = async (response) => {
+        const text = await response.text();
+        if (!text) return {};
+        try {
+          return JSON.parse(text);
+        } catch {
+          return { ok: false, message: text };
+        }
+      };
+      main.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const button = target.closest("[data-candidate-triage-promotion-approve]");
+        if (!(button instanceof HTMLButtonElement)) return;
+        const draft = button.closest("[data-candidate-triage-promotion-draft]");
+        if (!(draft instanceof HTMLElement)) return;
+        const status = draft.querySelector("[data-candidate-triage-promotion-status]");
+        button.disabled = true;
+        if (status) status.textContent = "Approving memory...";
+        try {
+          const response = await fetch(button.dataset.endpoint || "", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({})
+          });
+          const result = await responseJson(response);
+          if (!response.ok || result.ok === false) {
+            if (status) status.textContent = result.message || "Candidate Triage approval failed.";
+            button.disabled = false;
+            return;
+          }
+          if (status) {
+            status.textContent = "Approved. Receipt rendered below; refreshing dashboard...";
+            window.renderActionReceipt?.(status, result);
+          }
+          await refreshFragment();
+        } catch (error) {
+          if (status) status.textContent = error instanceof Error ? error.message : "Candidate Triage approval failed.";
           button.disabled = false;
         }
       });
@@ -8536,6 +8642,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
   ${dashboardActionReceiptScript()}
   ${dashboardMaintenanceScript()}
   ${dashboardCaptureInboxScript()}
+  ${dashboardCandidateTriageScript()}
 </body>
 </html>
 `;
@@ -8644,10 +8751,25 @@ function captureInboxGroupAction(pathname: string): { groupId: string; action: "
   };
 }
 
+function candidateTriagePromotionAction(pathname: string): { recordId: string } | undefined {
+  const match = /^\/api\/candidate-triage\/promotions\/([^/]+)\/approve$/.exec(pathname);
+  if (!match?.[1]) return undefined;
+  return { recordId: decodeURIComponent(match[1]) };
+}
+
 async function requireCaptureInboxCandidate(storePath: string, recordId: string, includePrivate: boolean | undefined): Promise<MorynRecord | undefined> {
   const records = replayEvents(await readEvents(storePath));
   const record = records.get(recordId);
   if (!record || !isVisibleForDashboard(record, includePrivate) || !isCaptureInboxCandidate(record)) return undefined;
+  return record;
+}
+
+async function requireCandidateTriagePromotableRecord(storePath: string, recordId: string, includePrivate: boolean | undefined): Promise<MorynRecord | undefined> {
+  const records = replayEvents(await readEvents(storePath));
+  const record = records.get(recordId);
+  if (!record || !isVisibleForDashboard(record, includePrivate) || record.state !== "candidate" || record.visibility !== "active" || !isCandidateTriagePromotable(record)) {
+    return undefined;
+  }
   return record;
 }
 
@@ -8802,6 +8924,43 @@ async function applyCaptureInboxGroupAction(
   };
 }
 
+async function applyCandidateTriagePromotionApproval(
+  storePath: string,
+  recordId: string,
+  includePrivate: boolean | undefined
+): Promise<{ statusCode: number; body: Record<string, unknown> }> {
+  const record = await requireCandidateTriagePromotableRecord(storePath, recordId, includePrivate);
+  if (!record) {
+    return {
+      statusCode: 409,
+      body: {
+        ok: false,
+        status: "not_actionable",
+        message: "Candidate Triage promotion requires a current promotable candidate record."
+      }
+    };
+  }
+
+  const engine = createEngine({ storePath });
+  const promoted = await engine.promote({
+    record_id: record.id,
+    target_state: "canonical",
+    reason: CANDIDATE_TRIAGE_PROMOTION_REASON,
+    source: { client: "user" },
+    confirmed: true
+  });
+  return {
+    statusCode: 200,
+    body: {
+      ok: true,
+      status: "approved",
+      surface: "candidate_triage",
+      record_id: record.id,
+      event_id: promoted.event.event_id
+    }
+  };
+}
+
 export async function startDashboardServer(storePath: string, options: DashboardServerOptions = {}): Promise<DashboardServerHandle> {
   const host = dashboardServerHost(options.host);
   const requestedPort = dashboardServerPort(options.port);
@@ -8843,6 +9002,23 @@ export async function startDashboardServer(storePath: string, options: Dashboard
             return;
           }
           const result = await applyCaptureInboxAction(storePath, inboxAction.recordId, inboxAction.action, body, includePrivate);
+          sendResponse(response, result.statusCode, JSON.stringify(result.body), "application/json; charset=utf-8", includeBody);
+          return;
+        }
+        const candidatePromotionAction = candidateTriagePromotionAction(url.pathname);
+        if (candidatePromotionAction) {
+          let body: unknown;
+          try {
+            body = await readRequestJson(request);
+          } catch {
+            sendResponse(response, 400, JSON.stringify({ error: "Invalid request: JSON body is required" }), "application/json; charset=utf-8", includeBody);
+            return;
+          }
+          if (!body || typeof body !== "object") {
+            sendResponse(response, 400, JSON.stringify({ error: "Invalid request: JSON body is required" }), "application/json; charset=utf-8", includeBody);
+            return;
+          }
+          const result = await applyCandidateTriagePromotionApproval(storePath, candidatePromotionAction.recordId, includePrivate);
           sendResponse(response, result.statusCode, JSON.stringify(result.body), "application/json; charset=utf-8", includeBody);
           return;
         }

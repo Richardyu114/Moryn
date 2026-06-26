@@ -220,7 +220,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Promotable groups may include a collapsed `Promotion draft` row");
     expectText(dashboard, "exact `moryn promote ... --confirm` command");
     expectText(dashboard, "`candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>` source path");
-    expectText(dashboard, "Candidate Triage still does not render promote buttons or write events itself");
+    expectText(dashboard, "The only Candidate Triage write control is the draft-row `Approve Memory` action");
+    expectText(dashboard, "server re-checks that the record is still an active promotable candidate before appending the confirmed promotion event");
+    expectText(dashboard, "stale draft approvals return `not_actionable`");
     expectText(dashboard, "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group");
     expectText(dashboard, "`Record samples` renders only the first three full records per group and summarizes the remaining records as API index evidence");
     expectText(dashboard, "`Record samples` folded rows show only the visible sample count as `trace ready`");

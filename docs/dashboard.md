@@ -456,8 +456,10 @@ of raw audit fields. Promotable groups may include a collapsed `Promotion draft`
 row with the canonical target, confirmation requirement, append-only write
 preview, exact `moryn promote ... --confirm` command, and
 `candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>`
-source path; Candidate Triage still does not render promote buttons or write
-events itself. Record ids,
+source path. The only Candidate Triage write control is the draft-row `Approve
+Memory` action; the server re-checks that the record is still an active
+promotable candidate before appending the confirmed promotion event, and stale
+draft approvals return `not_actionable`. Record ids,
 recall commands, and timeline commands stay behind a nested `Record samples`
 fold inside each group.
 Candidate group internals sit behind a `Triage details` fold, so the group face
