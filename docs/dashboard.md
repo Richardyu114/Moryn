@@ -779,9 +779,11 @@ It renders only when the local report has findings. Its folded row reads
 `Read-only note` or `Read-only notes` instead of repeating finding and safe-step
 counts. The status chip reads `Note` even when the underlying finding severity is
 warning; the per-finding severity remains in `/api/dashboard.dogfood_report` and
-the row class for audit tooling. Each card leads with an `Issue brief` for
-impact, affected records, read-only next step, and evidence path, followed by the
-safe dashboard or timeline command already returned by
+the row class for audit tooling. Each finding card keeps impact, evidence, and
+the safe command inside a `Note Details` fold, so the visible card face only
+shows category, summary, and read-only status. Expanding `Note Details` shows
+the `Issue brief` for impact, affected records, read-only next step, evidence
+path, and the safe dashboard or timeline command already returned by
 `dogfood_report.suggested_actions_by_id`. It does not add buttons, background
 execution, or a second mutation path.
 Dogfood capture review backlog uses the same review-required policy boundary as

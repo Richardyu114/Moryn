@@ -154,6 +154,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "folded row reads `Read-only note` or `Read-only notes`");
     expectText(dashboard, "The status chip reads `Note` even when the underlying finding severity is warning");
     expectText(dashboard, "instead of repeating finding and safe-step counts");
+    expectText(dashboard, "Each finding card keeps impact, evidence, and the safe command inside a `Note Details` fold");
+    expectText(dashboard, "the visible card face only shows category, summary, and read-only status");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
     expectText(dashboard, "remain available inside the nested `Audit Trail` panel");
     expectText(dashboard, "folded row reads `Clean lifecycle and capture audits`");

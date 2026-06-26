@@ -3479,17 +3479,24 @@ function dogfoodReviewPanel(report: DogfoodReportResult): string {
                 <div class="dogfood-review-heading">
                   <span>${escapeHtml(titleCase(finding.category))}</span>
                   <strong>${escapeHtml(finding.summary)}</strong>
+                  <small>Read-only inspection</small>
                 </div>
-                <div class="dogfood-brief" data-dogfood-brief>
-                  <h4>Issue brief</h4>
-                  <dl>
-                    <div><dt>Impact</dt><dd>${escapeHtml(finding.reason)}</dd></div>
-                    <div><dt>Affected records</dt><dd>${escapeHtml(pluralize(recordIds.length, "record"))}</dd></div>
-                    <div><dt>Read-only next step</dt><dd>${escapeHtml(actionLabel)}</dd></div>
-                    <div><dt>Evidence</dt><dd><code>${escapeHtml(evidencePath)}</code></dd></div>
-                  </dl>
-                </div>
-                ${action?.command ? `<code>${escapeHtml(action.command)}</code>` : ""}
+                <details class="dogfood-note-details" data-dashboard-detail="dogfood-note:${escapeHtml(finding.id)}">
+                  <summary class="dashboard-fold-summary">
+                    <span>Note Details</span>
+                    <small>${escapeHtml(pluralize(recordIds.length, "record"))} | ${escapeHtml(actionLabel)}</small>
+                  </summary>
+                  <div class="dogfood-brief" data-dogfood-brief>
+                    <h4>Issue brief</h4>
+                    <dl>
+                      <div><dt>Impact</dt><dd>${escapeHtml(finding.reason)}</dd></div>
+                      <div><dt>Affected records</dt><dd>${escapeHtml(pluralize(recordIds.length, "record"))}</dd></div>
+                      <div><dt>Read-only next step</dt><dd>${escapeHtml(actionLabel)}</dd></div>
+                      <div><dt>Evidence</dt><dd><code>${escapeHtml(evidencePath)}</code></dd></div>
+                    </dl>
+                  </div>
+                  ${action?.command ? `<code>${escapeHtml(action.command)}</code>` : ""}
+                </details>
               </article>
             `;
           }).join("")}
@@ -6597,6 +6604,24 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--ink);
       font-weight: 780;
       overflow-wrap: anywhere;
+    }
+    .dogfood-review-heading small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .dogfood-note-details {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface-2);
+    }
+    .dogfood-note-details[open] > summary { margin-bottom: 8px; }
+    .dogfood-note-details .dogfood-brief {
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      background: transparent;
     }
     .dogfood-brief {
       border: 1px solid var(--hairline);
