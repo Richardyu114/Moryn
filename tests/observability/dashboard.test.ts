@@ -906,6 +906,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Memory Doctor</span>");
       expect(html).toContain("<small>Review Candidate Backlog | Read-only</small>");
       expect(html).toContain("<code>memory_doctor.findings_by_id.candidate_backlog</code>");
+      const evidenceReviewGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
+      const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
+      const candidateTriageIndex = html.indexOf("data-dashboard-detail=\"candidate-triage\"");
+      expect(candidateTriageIndex).toBeGreaterThan(evidenceBackgroundGroupIndex);
+      expect(evidenceReviewGroupIndex === -1 || candidateTriageIndex > evidenceReviewGroupIndex).toBe(true);
+      const reviewHtml = evidenceReviewGroupIndex === -1 ? "" : html.slice(evidenceReviewGroupIndex, evidenceBackgroundGroupIndex);
+      expect(reviewHtml).not.toContain("data-dashboard-detail=\"candidate-triage\"");
+      expect(html).toContain("<small>Background candidate audit</small>");
       expect(html).not.toContain("data-dashboard-action-id=\"memory_doctor");
       expect(html).not.toContain("Apply Memory Doctor");
       expect(html).not.toContain("Approve Backlog");
@@ -1884,8 +1892,8 @@ describe("observability dashboard", () => {
       expect(dogfoodReviewIndex).toBeLessThan(evidenceBackgroundGroupIndex);
       expect(governanceHubIndex).toBeGreaterThan(evidenceReviewGroupIndex);
       expect(governanceHubIndex).toBeLessThan(evidenceBackgroundGroupIndex);
-      expect(candidateTriageIndex).toBeGreaterThan(evidenceReviewGroupIndex);
-      expect(candidateTriageIndex).toBeLessThan(evidenceBackgroundGroupIndex);
+      expect(candidateTriageIndex).toBeGreaterThan(evidenceBackgroundGroupIndex);
+      expect(html.slice(evidenceReviewGroupIndex, evidenceBackgroundGroupIndex)).not.toContain("data-dashboard-detail=\"candidate-triage\"");
       expect(html).toContain("<span>Review Notes</span>");
       expect(html).not.toContain("<span>Read-only Notes</span>");
       expect(html).not.toContain("<h3>Evidence map</h3>");
@@ -2571,9 +2579,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Warnings and critical signals remain visible in Needs Attention.</small>");
       expect(html).not.toContain("<small>Read-only inspections are grouped in Governance Hub.</small>");
       expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Read-only reference material\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Reference evidence only\">");
       expect(html).toContain("<span>Reference Library</span>");
-      expect(html).toContain("<small>Reference material</small>");
+      expect(html).toContain("<small>Reference evidence only</small>");
       expect(html).not.toContain("<span>Read-only Evidence</span>");
       expect(html).not.toContain("<small>Read-only findings and reference evidence</small>");
       expect(html).not.toContain("<small>Findings and references</small>");
@@ -2587,9 +2595,13 @@ describe("observability dashboard", () => {
       const evidenceReviewGroupIndex = html.indexOf(evidenceReviewGroupPanel);
       const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
       const candidateTriageIndex = html.indexOf("data-dashboard-detail=\"candidate-triage\"");
-      expect(evidenceReviewGroupIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
-      expect(candidateTriageIndex).toBeGreaterThan(evidenceReviewGroupIndex);
-      expect(candidateTriageIndex).toBeLessThan(evidenceBackgroundGroupIndex);
+      const candidateTriageEndIndex = html.indexOf("data-dashboard-detail=\"supporting-evidence\"", evidenceBackgroundGroupIndex);
+      if (evidenceReviewGroupIndex !== -1) {
+        expect(evidenceReviewGroupIndex).toBeGreaterThan(evidenceLibraryDetailIndex);
+        expect(html.slice(evidenceReviewGroupIndex, evidenceBackgroundGroupIndex)).not.toContain("data-dashboard-detail=\"candidate-triage\"");
+      }
+      expect(candidateTriageIndex).toBeGreaterThan(evidenceBackgroundGroupIndex);
+      expect(candidateTriageIndex).toBeLessThan(candidateTriageEndIndex);
       expect(html).not.toContain("<div class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
       expect(html).not.toContain("<details open class=\"evidence-library-group evidence-library-review\"");
       expect(html.slice(0, evidenceLibraryDetailIndex)).not.toContain("data-dashboard-detail=\"candidate-triage\"");
@@ -2600,9 +2612,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<h3>Evidence map</h3>");
       expect(html).not.toContain("<h3>Evidence routes</h3>");
       expect(html).not.toContain("<div class=\"evidence-library-brief-grid\">");
-      expect(html).toContain("class=\"evidence-library-route\" data-evidence-library-route=\"findings\"");
-      expect(html).toContain("data-action-board-target=\"evidence-review-evidence\" aria-controls=\"evidence-review-evidence\" aria-label=\"Findings: Reference notes. Read-only dogfood, governance, or non-routine checks.\"");
-      expect(html).toContain("<strong>Findings</strong><span>Reference notes</span>");
+      expect(html).not.toContain("class=\"evidence-library-route\" data-evidence-library-route=\"findings\"");
+      expect(html).not.toContain("data-action-board-target=\"evidence-review-evidence\" aria-controls=\"evidence-review-evidence\" aria-label=\"Findings: Reference notes. Read-only dogfood, governance, or non-routine checks.\"");
+      expect(html).not.toContain("<strong>Findings</strong><span>Reference notes</span>");
       expect(html).not.toContain("<strong>Findings</strong><span>Read-only findings available</span>");
       expect(html).not.toContain("No read-only notes");
       expect(html).not.toContain("<small>Start here for dogfood, governance, or non-routine checks.</small>");
@@ -2625,7 +2637,7 @@ describe("observability dashboard", () => {
       expect(evidenceBriefHtml).not.toContain("Promote");
       expect(evidenceBriefHtml).not.toContain("Archive");
       expect(evidenceBriefHtml).not.toContain("Apply");
-      const candidateTriageHtml = html.slice(candidateTriageIndex, evidenceBackgroundGroupIndex);
+      const candidateTriageHtml = html.slice(candidateTriageIndex, candidateTriageEndIndex);
       expect(candidateTriageHtml).toContain("<span>Candidate Triage</span>");
       expect(candidateTriageHtml).toContain("<small>Background candidate audit</small>");
       expect(candidateTriageHtml).not.toContain("<small>Review candidate backlog</small>");
@@ -2634,8 +2646,8 @@ describe("observability dashboard", () => {
       expect(candidateTriageHtml).not.toContain("Approve Triage");
       expect(candidateTriageHtml).not.toContain("Archive Group");
       expect(candidateTriageHtml).not.toContain("Promote Selected");
-      expect(html).toContain("<span>Review Notes</span>");
-      expect(html).toContain("<small>Reference notes</small>");
+      expect(html).not.toContain("<span>Review Notes</span>");
+      expect(html).not.toContain("<small>Reference notes</small>");
       expect(html).not.toContain("<span>Read-only Notes</span>");
       expect(html).not.toContain("<span>Reference Findings</span>");
       expect(html).not.toContain("<span>Read-only Findings</span>");

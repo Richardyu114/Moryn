@@ -82,6 +82,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "When sync is the active warning, Store Signals opens with a compact `Sync Action` brief");
     expectText(dashboard, "The brief shows the suggested read-only command, remote/branch context, and ahead/behind counts without adding an Approve or Apply control");
     expectText(dashboard, "Store Signals keeps `Sync Position` in the foreground and folds Agent Activity, Record Quality, and Record Types under `Telemetry Context`");
+    expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
     expectText(dashboard, "Decide -> Pending Decisions, Capture Inbox, or Review Queue confirmation");
     expectText(dashboard, "Context -> Context Pack Review handoff readiness");
@@ -206,9 +207,11 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor` safe inspection");
     expectText(dashboard, "does not add dashboard approval, archive, promote, apply, or background execution controls");
     expectText(dashboard, "`candidate_triage` groups active candidate records into `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`");
-    expectText(dashboard, "`Candidate Triage` is grouped under `Review Notes` in the Evidence Library");
+    expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
+    expectText(dashboard, "If promotion drafts are waiting, `Candidate Triage` is grouped under `Review Notes`");
     expectText(dashboard, "folded row reads `Background candidate audit` instead of repeating a candidate count or sounding like a primary task");
-    expectText(dashboard, "promotion drafts are waiting, the folded row shows the draft count and those approvals also appear in `Pending Decisions` as a `Candidate Triage` route");
+    expectText(dashboard, "If promotion drafts are waiting, `Candidate Triage` is grouped under `Review Notes`, the folded row shows the draft count");
+    expectText(dashboard, "those approvals also appear in `Pending Decisions` as a `Candidate Triage` route");
     expectText(dashboard, "Expanding the panel shows candidate and group counts plus review-first next steps");
     expectText(dashboard, "shown-record counts stay in `/api/dashboard` and the nested `Record samples` summaries");
     expectText(dashboard, "Each candidate group keeps its next review surface behind a compact `Review path` fold");

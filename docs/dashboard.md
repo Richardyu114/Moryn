@@ -436,13 +436,14 @@ dashboard approval, archive, promote, apply, or background execution controls.
 When backlog exists, `candidate_triage` groups active candidate records into
 `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`. The
 visible `Candidate Triage` panel stays collapsed by default inside Evidence
-Library rather than the main review path. `Candidate Triage` is grouped under
-`Review Notes` in the Evidence Library. If no promotion draft is waiting, its
+Library rather than the main review path. Candidate Triage without promotion
+drafts stays under the background Audit route instead of `Review Notes`; its
 folded row reads `Background candidate audit` instead of repeating a candidate
-count or sounding like a primary task. If promotion drafts are waiting, the
-folded row shows the draft count and those approvals also appear in `Pending
-Decisions` as a `Candidate Triage` route. Expanding the panel shows candidate
-and group counts plus review-first next steps;
+count or sounding like a primary task. If promotion drafts are waiting,
+`Candidate Triage` is grouped under `Review Notes`, the folded row shows the
+draft count, and those approvals also appear in `Pending Decisions` as a
+`Candidate Triage` route. Expanding the panel shows candidate and group counts
+plus review-first next steps;
 shown-record counts stay in `/api/dashboard` and the nested `Record samples`
 summaries. Each candidate group keeps its next review surface behind a compact
 `Review path` fold. Folded `Review path` rows show only the next review label,

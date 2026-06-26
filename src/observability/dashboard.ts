@@ -3965,10 +3965,19 @@ function governanceHub(governance: DashboardGovernance): string {
 
 function candidateTriageSummary(triage: DashboardCandidateTriage): string {
   if (!triage.available) return "No candidate backlog";
-  const promotionDrafts = Object.values(triage.groups_by_id)
-    .flatMap((group) => group ? Object.values(group.promotion_drafts_by_id) : []);
-  if (promotionDrafts.length > 0) return `${pluralize(promotionDrafts.length, "promotion draft")} waiting`;
+  const promotionDrafts = candidateTriagePromotionDraftCount(triage);
+  if (promotionDrafts > 0) return `${pluralize(promotionDrafts, "promotion draft")} waiting`;
   return "Background candidate audit";
+}
+
+function candidateTriagePromotionDraftCount(triage: DashboardCandidateTriage): number {
+  if (!triage.available) return 0;
+  return Object.values(triage.groups_by_id)
+    .reduce((count, group) => count + (group ? Object.keys(group.promotion_drafts_by_id).length : 0), 0);
+}
+
+function candidateTriageHasPromotionDrafts(triage: DashboardCandidateTriage): boolean {
+  return candidateTriagePromotionDraftCount(triage) > 0;
 }
 
 function candidateTriageRecordSampleTitle(record: DashboardCandidateTriageRecord): string {
@@ -5952,16 +5961,19 @@ function evidenceLibrary(
       detail: contextPackReviewPanel(data.context_pack_review)
     });
   }
+  const candidateTriageNeedsDecision = candidateTriageHasPromotionDrafts(data.candidate_triage);
+  const candidateTriage = candidateTriagePanel(data.candidate_triage);
   const reviewPanels = [
     isRoutineHealthCheck(data.health_check) ? undefined : healthCheckPanel(data.health_check),
     isRoutineRecallEval(data.recall_eval) ? undefined : recallEvalPanel(data.recall_eval),
     dogfoodReviewPanel(data.dogfood_report),
     governanceHub(data.governance),
-    candidateTriagePanel(data.candidate_triage),
+    candidateTriageNeedsDecision ? candidateTriage : undefined,
     isRoutineContextPackReview(data.context_pack_review) ? undefined : contextPackReviewPanel(data.context_pack_review)
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
   const backgroundPanels = [
     routineDiagnosticsPanel(routinePanels),
+    candidateTriageNeedsDecision ? undefined : candidateTriage,
     supportingEvidencePanel(data)
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
   const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
