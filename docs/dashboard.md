@@ -340,14 +340,18 @@ The approval card is a human-readable decision card. The queue is collapsed by
 default behind a short confirmation summary that reads `Approval required`
 instead of repeating decision and record counts. Counts remain in Pending
 Decisions, the expanded decision card, and `/api/dashboard.maintenance.plans`.
-Expanding it first shows a compact `Confirm preview` chip row so the user can
-see the proposed change, target, `plan_hash` gate, and private-record scope
-without reading raw event language or an outcome table.
+Review Queue plan cards open with an `Approval brief`. The brief uses
+`Change`, `Scope`, `Guard`, and `Writes` rows. The brief says the server
+rechecks the plan hash before writing and shows the append-only event type in
+user-facing terms, while private-record scope remains a short sentence below
+the rows.
 
 The individual plan card does not repeat the full issue sentence or render a
 second decision-summary fold. The first expanded queue view stays focused on
-the title, short confirmation chips, and explicit controls. The structured
-reasoning lives in the single `Decision details` fold, where it still shows:
+the title, the short approval brief, and explicit controls. The raw `plan_hash`,
+equivalent CLI command, rollback path, and record ids stay inside
+`Decision details`. The structured reasoning lives in that single fold, where
+it still shows:
 
 - why the repair exists
 - what records move between project ids or which candidates would be archived

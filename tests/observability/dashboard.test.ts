@@ -4248,14 +4248,17 @@ describe("observability dashboard", () => {
       ]));
       expect(html).toContain("Candidate noise cleanup");
       const noiseBriefStart = html.indexOf("<div class=\"maintenance-brief\" data-maintenance-brief>");
-      const noiseBriefEnd = html.indexOf("</div>\n    </div>", noiseBriefStart);
+      const noiseBriefEnd = html.indexOf("</p>", noiseBriefStart) + "</p>".length;
       const noiseBriefHtml = html.slice(noiseBriefStart, noiseBriefEnd);
-      expect(noiseBriefHtml).toContain("<h4>Confirm preview</h4>");
+      expect(noiseBriefHtml).toContain("<h4>Approval brief</h4>");
       expect(noiseBriefHtml).not.toContain("<h4>Approval summary</h4>");
-      expect(noiseBriefHtml).toContain("<span>Archive 3 candidates</span>");
-      expect(noiseBriefHtml).toContain("<span>Marker noise</span>");
-      expect(noiseBriefHtml).toContain("<span>Plan hash checked</span>");
-      expect(noiseBriefHtml).toContain("<span>1 private record skipped</span>");
+      expect(noiseBriefHtml).toContain("<dt>Change</dt><dd>Archive 3 candidates</dd>");
+      expect(noiseBriefHtml).toContain("<dt>Scope</dt><dd>Marker noise</dd>");
+      expect(noiseBriefHtml).toContain("<dt>Guard</dt><dd>Server rechecks plan hash before writing</dd>");
+      expect(noiseBriefHtml).toContain("<dt>Writes</dt><dd>append-only archive_record events</dd>");
+      expect(noiseBriefHtml).not.toContain("<span>Plan hash checked</span>");
+      expect(noiseBriefHtml).not.toContain("<span>1 private record skipped</span>");
+      expect(noiseBriefHtml).toContain("<p>1 private record skipped.</p>");
       expect(noiseBriefHtml).not.toContain("This cleanup would archive 3 candidate records that look like smoke/e2e marker noise.");
       expect(noiseBriefHtml).not.toContain("<dl class=\"maintenance-outcome\" data-maintenance-outcome>");
       expect(noiseBriefHtml).not.toContain("Appends <code>archive_record</code> events after the <code>plan_hash</code> check");
@@ -4480,17 +4483,20 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Decision summary</span>");
       expect(html).not.toContain("<small>Why, change, safety, action</small>");
       expect(html).toContain("data-maintenance-brief");
-      expect(html).toContain("<h4>Confirm preview</h4>");
-      expect(html).toContain("<span>Move 1 record</span>");
-      expect(html).toContain("<span>Plan hash checked</span>");
-      expect(html).toContain("<span>No private records included</span>");
+      expect(html).toContain("<h4>Approval brief</h4>");
+      expect(html).toContain("<dt>Change</dt><dd>Move 1 record</dd>");
+      expect(html).toContain("<dt>Scope</dt><dd>repo-e6f0166fd942 to moryn</dd>");
+      expect(html).toContain("<dt>Guard</dt><dd>Server rechecks plan hash before writing</dd>");
+      expect(html).toContain("<dt>Writes</dt><dd>append-only revise_record events</dd>");
+      expect(html).not.toContain("<span>Plan hash checked</span>");
+      expect(html).toContain("<p>No private records included.</p>");
       expect(data.action_board.items_by_id.review).toMatchObject({
         target: "needs-attention",
         next_action_label: "Open info checks"
       });
       expect(data.action_board.items_by_id.review.next_action_label).not.toBe("Review warnings");
       const repairBriefStart = html.indexOf("<div class=\"maintenance-brief\" data-maintenance-brief>");
-      const repairBriefEnd = html.indexOf("</div>\n    </div>", repairBriefStart);
+      const repairBriefEnd = html.indexOf("</p>", repairBriefStart) + "</p>".length;
       const repairBriefHtml = html.slice(repairBriefStart, repairBriefEnd);
       expect(repairBriefHtml).not.toContain("<h4>Decision brief</h4>");
       expect(repairBriefHtml).not.toContain("<h4>Approval summary</h4>");

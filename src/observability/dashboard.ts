@@ -4321,16 +4321,18 @@ function maintenanceAuditPathHtml(plan: DashboardMaintenancePlan): string {
 
 function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
   const change = maintenanceMoveSummary(plan);
-  const target = plan.type === "candidate_noise_archive" ? "Marker noise" : maintenanceChangeDetail(plan);
+  const scope = plan.type === "candidate_noise_archive" ? "Marker noise" : maintenanceChangeDetail(plan);
+  const eventName = maintenanceApprovalEventName(plan);
   return `
     <div class="maintenance-brief" data-maintenance-brief>
-      <h4>Confirm preview</h4>
-      <div class="maintenance-brief-chips" aria-label="Confirm preview">
-        <span>${escapeHtml(change)}</span>
-        <span>${escapeHtml(target)}</span>
-        <span>Plan hash checked</span>
-        <span>${escapeHtml(maintenancePrivateSummary(plan))}</span>
-      </div>
+      <h4>Approval brief</h4>
+      <dl class="maintenance-brief-list" aria-label="Approval brief">
+        <div><dt>Change</dt><dd>${escapeHtml(change)}</dd></div>
+        <div><dt>Scope</dt><dd>${escapeHtml(scope)}</dd></div>
+        <div><dt>Guard</dt><dd>Server rechecks plan hash before writing</dd></div>
+        <div><dt>Writes</dt><dd>${escapeHtml(`append-only ${eventName} events`)}</dd></div>
+      </dl>
+      <p>${escapeHtml(`${maintenancePrivateSummary(plan)}.`)}</p>
     </div>
   `;
 }
@@ -8506,13 +8508,11 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .capture-policy-routing-brief code {
       overflow-wrap: anywhere;
     }
-    .maintenance-brief-chips,
     .capture-inbox-brief-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
     }
-    .maintenance-brief-chips span,
     .capture-inbox-brief-chips span {
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -8522,6 +8522,41 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-size: 12px;
       font-weight: 720;
       overflow-wrap: anywhere;
+    }
+    .maintenance-brief-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+      margin: 0;
+    }
+    .maintenance-brief-list div {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 6px;
+      align-items: baseline;
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      padding: 6px 7px;
+      background: var(--surface-2);
+    }
+    .maintenance-brief-list dt {
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 760;
+      text-transform: uppercase;
+    }
+    .maintenance-brief-list dd {
+      color: var(--ink);
+      font-size: 12.5px;
+      font-weight: 730;
+      overflow-wrap: anywhere;
+    }
+    .maintenance-brief p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
     }
     .capture-inbox-brief ul, .context-pack-brief ul {
       display: grid;
