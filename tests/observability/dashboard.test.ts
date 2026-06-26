@@ -5525,8 +5525,21 @@ describe("observability dashboard", () => {
       expect(html).toContain("Approve Group");
       expect(html).toContain("Reject Group");
       expect(html).toContain("Likely noise");
+      expect(html).toContain("<h3>Review 2 captures</h3>");
+      expect(html).toContain("<p>Approve or reject this group.</p>");
       expect(html).toContain("<details class=\"capture-inbox-context\" data-dashboard-detail=\"capture-inbox-context:");
       expect(html).toContain("<summary>Review context</summary>");
+      const codexGroupStart = html.indexOf(`data-capture-inbox-group="${codexGroup?.id}"`);
+      const codexContextStart = html.indexOf("<details class=\"capture-inbox-context\"", codexGroupStart);
+      const codexItemReviewStart = html.indexOf("<summary>Item review</summary>", codexGroupStart);
+      const codexGroupFaceHtml = html.slice(codexGroupStart, codexContextStart);
+      const codexItemReviewHtml = html.slice(codexItemReviewStart, html.indexOf("</article>", codexItemReviewStart));
+      expect(codexGroupFaceHtml).toContain("<h3>Review 2 captures</h3>");
+      expect(codexGroupFaceHtml).toContain("<p>Approve or reject this group.</p>");
+      expect(codexGroupFaceHtml).not.toContain("Codex prepared bulk review controls.");
+      expect(codexGroupFaceHtml).not.toContain("Codex finished dashboard grouping.");
+      expect(codexItemReviewHtml).toContain("Codex prepared bulk review controls.");
+      expect(codexItemReviewHtml).toContain("Codex finished dashboard grouping.");
       expect(html.indexOf("<summary>Review context</summary>")).toBeLessThan(
         html.indexOf("<dl class=\"capture-inbox-summary\" data-capture-inbox-group-summary>")
       );

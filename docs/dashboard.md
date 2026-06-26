@@ -133,6 +133,10 @@ detail row.
 Capture Inbox group metadata such as Source, Project, Items, and Captured is
 folded behind `Review context`, so the first group card stays focused on the
 source, short summary, noise signal, and explicit group actions.
+Group card faces use `Review N captures` plus `Approve or reject this group.`
+instead of rendering capture text on the first row. Likely-noise groups keep a
+short archive-or-inspect hint while their exact candidate text remains behind
+`Item review`.
 Group id, record ids, rules, and noise evidence stay behind an `Evidence index`
 fold inside `Item review`. `Item review` opens to the evidence index and
 collapsed candidate rows instead of raw group internals.

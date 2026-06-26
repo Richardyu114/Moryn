@@ -5299,6 +5299,14 @@ function captureInboxGroupBrief(group: DashboardCaptureInboxGroup): string {
   `;
 }
 
+function captureInboxGroupFaceTitle(group: DashboardCaptureInboxGroup): string {
+  return `Review ${pluralize(group.total, "capture")}`;
+}
+
+function captureInboxGroupFaceHint(group: DashboardCaptureInboxGroup): string {
+  return group.noise.level === "likely_noise" ? "Archive likely noise or inspect items." : "Approve or reject this group.";
+}
+
 function captureInboxQueueSummary(items: DashboardCaptureInbox): string {
   const likelyNoise = items.items.filter((item) => item.noise.level === "likely_noise").length;
   const normalReview = Math.max(0, items.total - likelyNoise);
@@ -5333,8 +5341,8 @@ function captureInbox(items: DashboardCaptureInbox): string {
           <article class="capture-inbox-group" data-capture-inbox-group="${escapeHtml(group.id)}">
             <div class="capture-inbox-main">
               <div>
-                <h3>${escapeHtml(group.source_label)} capture group</h3>
-                ${textExcerptBlock(group.summary)}
+                <h3>${escapeHtml(captureInboxGroupFaceTitle(group))}</h3>
+                <p>${escapeHtml(captureInboxGroupFaceHint(group))}</p>
               </div>
               <span class="pill ${group.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(group.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
             </div>
