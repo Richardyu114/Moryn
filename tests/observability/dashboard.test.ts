@@ -3098,9 +3098,15 @@ describe("observability dashboard", () => {
       expect(html).toContain("Important compact recent value intro.");
       expect(html).toContain("data-full-summary-hidden=\"true\"");
       expect(html).toContain("Full text available through timeline/recall.");
-      expect(html).toContain("<span>Trace</span>");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Audit trace commands: Memory decision rec_recent_long\">");
-      expect(html).toContain("<small>rec_recent_long</small>");
+      expect(data.recent_value[0]?.citation).toMatchObject({
+        record_id: "rec_recent_long",
+        event_id: "evt_recent_long",
+        timeline_command: "moryn timeline --record-id rec_recent_long --project-id moryn",
+        recall_command: "moryn recall --record-id rec_recent_long --project-id moryn"
+      });
+      expect(html).not.toContain("<details data-dashboard-detail=\"value:rec_recent_long\">");
+      expect(html).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Audit trace commands: Memory decision rec_recent_long\">");
+      expect(html).not.toContain("<small>rec_recent_long</small>");
       expect(html).not.toContain("<span>Trace commands</span>");
       expect(html).not.toContain("<small>Audit commands</small>");
       expect(html).not.toContain("<small>Memory decision rec_recent_long</small>");
@@ -3108,21 +3114,18 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<summary>Audit trace</summary>");
       expect(html).not.toContain("<summary>Details</summary>");
       expect(html).not.toContain("<summary>Trace commands</summary>");
-      const recentValueTraceStart = html.indexOf("<details data-dashboard-detail=\"value:rec_recent_long\">");
-      const recentValueTraceEnd = html.indexOf("</details>", recentValueTraceStart);
       const recentValueCardStart = html.indexOf("<article class=\"value-card\" data-dashboard-citation=\"record:rec_recent_long\">");
       const recentValueCardEnd = html.indexOf("</article>", recentValueCardStart);
       const recentValueCardHtml = html.slice(recentValueCardStart, recentValueCardEnd);
       expect(recentValueCardHtml).toContain("<span>Codex rec_recent_long</span>");
       expect(recentValueCardHtml).not.toContain("<footer>\n        <span>Codex</span>");
-      const recentValueTraceHtml = html.slice(recentValueTraceStart, recentValueTraceEnd);
-      expect(recentValueTraceHtml).toContain("<dt>ID</dt><dd><code>rec_recent_long</code></dd>");
-      expect(recentValueTraceHtml).toContain("<dt>Event</dt><dd><code>evt_recent_long</code></dd>");
-      expect(recentValueTraceHtml).toContain("<dt>Source</dt><dd>codex</dd>");
-      expect(recentValueTraceHtml).toContain("<dt>Kind</dt><dd>memory / decision</dd>");
-      expect(recentValueTraceHtml).toContain("<dt>Trace</dt>");
-      expect(recentValueTraceHtml).toContain("moryn timeline --record-id rec_recent_long");
-      expect(recentValueTraceHtml).toContain("moryn recall --record-id rec_recent_long");
+      expect(recentValueCardHtml).not.toContain("<span>Trace</span>");
+      expect(recentValueCardHtml).not.toContain("<dt>ID</dt><dd><code>rec_recent_long</code></dd>");
+      expect(recentValueCardHtml).not.toContain("<dt>Event</dt><dd><code>evt_recent_long</code></dd>");
+      expect(recentValueCardHtml).not.toContain("<dt>Source</dt><dd>codex</dd>");
+      expect(recentValueCardHtml).not.toContain("<dt>Kind</dt><dd>memory / decision</dd>");
+      expect(recentValueCardHtml).not.toContain("moryn timeline --record-id rec_recent_long");
+      expect(recentValueCardHtml).not.toContain("moryn recall --record-id rec_recent_long");
       expect(html).not.toContain("FULL_CONTENT_SENTINEL");
     });
   });
@@ -3158,6 +3161,12 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(html).toContain("<span>Moryn Local rec_abcdef12</span>");
+      expect(data.recent_value[0]?.citation).toMatchObject({
+        record_id: "rec_abcdef1234567890abcdef1234567890",
+        event_id: "evt_recent_hash",
+        timeline_command: "moryn timeline --record-id rec_abcdef1234567890abcdef1234567890 --project-id moryn",
+        recall_command: "moryn recall --record-id rec_abcdef1234567890abcdef1234567890 --project-id moryn"
+      });
       expect(html).toContain("<strong>Record Index</strong>");
       expect(html).toContain("<code>recent_records</code>");
       expect(html).not.toContain("<summary aria-label=\"Record details: Skill codex_skill_bundle from Moryn Local rec_abcdef12\">");
@@ -3166,16 +3175,17 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Record rec_abcdef12</span>");
       expect(html).not.toContain("<small>Details</small>");
       expect(html).not.toContain("<span>Skill codex_skill_bundle</span>");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Audit trace commands: Skill codex_skill_bundle rec_abcdef12\">");
-      expect(html).toContain("<span>Trace</span>");
-      expect(html).toContain("<small>rec_abcdef12</small>");
+      expect(html).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Audit trace commands: Skill codex_skill_bundle rec_abcdef12\">");
+      expect(html).not.toContain("<span>Trace</span>");
+      expect(html).not.toContain("<small>rec_abcdef12</small>");
+      expect(html).not.toContain("data-dashboard-detail=\"value:rec_abcdef1234567890abcdef1234567890\"");
       expect(html).not.toContain("<span>Trace commands</span>");
       expect(html).not.toContain("<small>Audit commands</small>");
       expect(html).not.toContain("<small>Skill codex_skill_bundle rec_abcdef12</small>");
       expect(html).not.toContain("<span>Moryn Local rec_abcdef1234567890abcdef1234567890</span>");
       expect(html).not.toContain("<small>Skill codex_skill_bundle rec_abcdef1234567890abcdef1234567890</small>");
-      expect(html).toContain("<dt>ID</dt><dd><code>rec_abcdef1234567890abcdef1234567890</code></dd>");
-      expect(html).toContain("moryn recall --record-id rec_abcdef1234567890abcdef1234567890");
+      expect(html).not.toContain("<dt>ID</dt><dd><code>rec_abcdef1234567890abcdef1234567890</code></dd>");
+      expect(html).not.toContain("moryn recall --record-id rec_abcdef1234567890abcdef1234567890");
     });
   });
 
@@ -3706,7 +3716,8 @@ describe("observability dashboard", () => {
       expect(html).toContain(`data-dashboard-citation="record:${written.record.id}"`);
       expect(html).toContain(`data-dashboard-citation="event:evt_cite_1"`);
       expect(html).toContain(`moryn timeline --event-id evt_cite_1 --project-id moryn`);
-      expect(html).toContain(`moryn recall --record-id ${written.record.id} --project-id moryn`);
+      expect(html).not.toContain(`data-dashboard-detail="value:${written.record.id}"`);
+      expect(html).not.toContain(`moryn recall --record-id ${written.record.id} --project-id moryn`);
     });
   });
 
@@ -6417,7 +6428,7 @@ describe("observability dashboard", () => {
         expect(page).toContain("data-dashboard-refresh=\"250\"");
         expect(page).toContain("fetch(\"fragment\"");
         expect(page).toContain("data-dashboard-detail=\"inspector:records\"");
-        expect(page).toContain("data-dashboard-detail=\"value:rec_live_1\"");
+        expect(page).not.toContain("data-dashboard-detail=\"value:rec_live_1\"");
         expect(page).toContain("captureDetailState");
         expect(page).toContain("restoreDetailState");
         expect(page).toContain("detailState");
@@ -6429,7 +6440,15 @@ describe("observability dashboard", () => {
 
         const initialApi = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
           totals: { records: number };
-          recent_value: Array<{ summary: string }>;
+          recent_value: Array<{
+            summary: string;
+            citation: {
+              record_id: string;
+              event_id?: string;
+              timeline_command: string;
+              recall_command: string;
+            };
+          }>;
           health_check: {
             setup_readiness: {
               host: string;
@@ -6441,6 +6460,12 @@ describe("observability dashboard", () => {
         };
         expect(initialApi.totals.records).toBe(1);
         expect(initialApi.recent_value[0]?.summary).toBe("Initial live dashboard memory");
+        expect(initialApi.recent_value[0]?.citation).toMatchObject({
+          record_id: "rec_live_1",
+          timeline_command: "moryn timeline --record-id rec_live_1 --project-id moryn",
+          recall_command: "moryn recall --record-id rec_live_1 --project-id moryn"
+        });
+        expect(initialApi.recent_value[0]?.citation.event_id).toMatch(/^evt_live_\d+$/);
         expect(initialApi.health_check.setup_readiness).toMatchObject({
           host: "codex",
           sync_remote: "git@github.com:user/moryn-store.git",

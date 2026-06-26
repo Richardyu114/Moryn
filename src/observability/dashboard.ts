@@ -5189,7 +5189,6 @@ function citationCommands(citation: DashboardRecordCitation | DashboardEventCita
 }
 
 function recentValueCard(record: DashboardValueRecord, extraClass = ""): string {
-  const traceSummary = `${titleCase(record.kind)} ${record.type} ${recordLabel(record.id)}`;
   return `
     <article class="value-card${extraClass ? ` ${extraClass}` : ""}" data-dashboard-citation="record:${escapeHtml(record.id)}">
       <div class="value-card-head">
@@ -5202,19 +5201,6 @@ function recentValueCard(record: DashboardValueRecord, extraClass = ""): string 
         <span>${escapeHtml(record.state)}</span>
         <span>${escapeHtml(record.project_id ?? record.scope)}</span>
       </footer>
-      <details data-dashboard-detail="value:${escapeHtml(record.id)}">
-        <summary class="dashboard-fold-summary" aria-label="Audit trace commands: ${escapeHtml(traceSummary)}">
-          <span>Trace</span>
-          <small>${escapeHtml(recordLabel(record.id))}</small>
-        </summary>
-        <dl>
-          <div><dt>ID</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>
-          ${record.citation.event_id ? `<div><dt>Event</dt><dd><code>${escapeHtml(record.citation.event_id)}</code></dd></div>` : ""}
-          <div><dt>Source</dt><dd>${escapeHtml(record.source_detail)}</dd></div>
-          <div><dt>Kind</dt><dd>${escapeHtml(record.kind)} / ${escapeHtml(record.type)}</dd></div>
-          <div><dt>Trace</dt><dd>${citationCommands(record.citation)}</dd></div>
-        </dl>
-      </details>
     </article>
   `;
 }

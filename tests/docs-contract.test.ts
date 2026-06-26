@@ -203,11 +203,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Store Signals` and `Recent Value` are nested under a collapsed `Store Snapshot` row");
     expectText(dashboard, "`Store Snapshot` row reads `Store context` instead of listing child module names");
     expectText(dashboard, "collapsed by default behind a short recent-record count");
-    expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
+    expectText(dashboard, "Newest-first ordering, full details, and trace commands stay in the `/api/dashboard` payload");
     expectText(dashboard, "Recent Value card footers include short record-id context beside the readable source label");
-    expectText(dashboard, "timeline and recall trace commands under a compact `Trace` fold whose visible summary uses the short record id");
-    expectText(dashboard, "accessible label still states `Audit trace commands` with kind/type and short record-id context");
-    expectText(dashboard, "so repeated cards do not read like a command log by default");
+    expectText(dashboard, "Recent Value cards do not render per-card `Trace` folds in the HTML");
+    expectText(dashboard, "timeline and recall commands stay in `/api/dashboard.recent_value[].citation`");
     expectText(dashboard, "the raw inspector is grouped behind `Raw Store Reference`");
     expectText(dashboard, "`Raw Store Reference` opens with `Optional raw records`");
     expectText(dashboard, "`Raw Store Inspector` opens with `API-backed raw evidence`");
