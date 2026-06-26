@@ -988,19 +988,30 @@ describe("observability dashboard", () => {
       expect(candidateTriageHtml).toContain("<div class=\"candidate-triage-backlog-brief\" data-candidate-triage-backlog-brief>");
       expect(candidateTriageHtml).toContain("<h3>Backlog brief</h3>");
       expect(candidateTriageHtml).toContain("<dt>Status</dt><dd>Read-only backlog</dd>");
-      expect(candidateTriageHtml).toContain("<dt>Next</dt><dd>Open lanes only when investigating candidates</dd>");
-      expect(candidateTriageHtml).toContain("<dt>Writes</dt><dd>No dashboard writes from backlog lanes</dd>");
-      expect(candidateTriageHtml).toContain("<details class=\"candidate-triage-backlog-lanes\" data-dashboard-detail=\"candidate-triage-backlog-lanes\">");
-      expect(candidateTriageHtml).toContain("<span>Backlog lanes</span>");
-      expect(candidateTriageHtml).toContain("<small>1 group, trace ready</small>");
-      expect(candidateTriageHtml).not.toContain("<details open class=\"candidate-triage-backlog-lanes\"");
+      expect(candidateTriageHtml).toContain("<dt>Next</dt><dd>Open API index when investigating candidates</dd>");
+      expect(candidateTriageHtml).toContain("<dt>Writes</dt><dd>No dashboard writes from read-only backlog</dd>");
+      expect(candidateTriageHtml).toContain("<details class=\"candidate-triage-backlog-index\" data-dashboard-detail=\"candidate-triage-backlog-lanes\">");
+      expect(candidateTriageHtml).toContain("<span>Backlog index</span>");
+      expect(candidateTriageHtml).toContain("<small>1 group, API-backed</small>");
+      expect(candidateTriageHtml).not.toContain("<details open class=\"candidate-triage-backlog-index\"");
       const backlogBriefIndex = candidateTriageHtml.indexOf("data-candidate-triage-backlog-brief");
       const backlogLanesIndex = candidateTriageHtml.indexOf("data-dashboard-detail=\"candidate-triage-backlog-lanes\"");
-      const backlogGroupListIndex = candidateTriageHtml.indexOf("<div class=\"candidate-triage-list\">", backlogLanesIndex);
+      const backlogGroupListIndex = candidateTriageHtml.indexOf("<div class=\"candidate-triage-index-list\" aria-label=\"Candidate backlog API index\">", backlogLanesIndex);
       expect(backlogBriefIndex).toBeGreaterThan(-1);
       expect(backlogLanesIndex).toBeGreaterThan(backlogBriefIndex);
       expect(backlogGroupListIndex).toBeGreaterThan(backlogLanesIndex);
-      expect(candidateTriageHtml.slice(0, backlogLanesIndex)).not.toContain("<div class=\"candidate-triage-list\">");
+      expect(candidateTriageHtml.slice(0, backlogLanesIndex)).not.toContain("<div class=\"candidate-triage-index-list\"");
+      expect(candidateTriageHtml).toContain("<article class=\"candidate-triage-index-card\" data-dashboard-detail=\"candidate-triage:session_summaries\" data-candidate-triage-index=\"session_summaries\">");
+      expect(candidateTriageHtml).toContain("<span>Session summaries</span>");
+      expect(candidateTriageHtml).toContain("<strong>Handoff evidence</strong>");
+      expect(candidateTriageHtml).toContain("<small>4 records indexed | Keep as context</small>");
+      expect(candidateTriageHtml).toContain("<code>candidate_triage.groups_by_id.session_summaries</code>");
+      expect(candidateTriageHtml).not.toContain("<div class=\"candidate-triage-list\">");
+      expect(candidateTriageHtml).not.toContain("<details class=\"candidate-triage-group\"");
+      expect(candidateTriageHtml).not.toContain("data-dashboard-detail=\"candidate-triage-records:");
+      expect(candidateTriageHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:");
+      expect(candidateTriageHtml).not.toContain("<span>Record samples</span>");
+      expect(candidateTriageHtml).not.toContain("<span>Hidden record index</span>");
       expect(candidateTriageHtml).not.toContain("<span>Candidate Triage</span>");
       expect(candidateTriageHtml).not.toContain("<small>Background candidate audit</small>");
       expect(candidateTriageHtml).not.toContain("<h2>Candidate Triage Queue</h2>");
@@ -1465,7 +1476,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("keeps candidate triage samples budgeted while preserving full API evidence", async () => {
+  it("keeps read-only candidate backlog samples out of HTML while preserving full API evidence", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -1533,56 +1544,58 @@ describe("observability dashboard", () => {
       expect(JSON.stringify(data.candidate_triage)).toContain("Temporary scratch candidate 7.");
       expect(JSON.stringify(data.candidate_triage)).not.toContain("Temporary scratch candidate 4.");
 
-      const groupStart = html.indexOf("data-dashboard-detail=\"candidate-triage:needs_inspection\"");
+      const groupStart = html.indexOf("<article class=\"candidate-triage-index-card\" data-dashboard-detail=\"candidate-triage:needs_inspection\" data-candidate-triage-index=\"needs_inspection\">");
       const groupEnd = html.indexOf("<details class=\"evidence-library-group evidence-library-background\"", groupStart);
       const groupHtml = html.slice(groupStart, groupEnd);
-      expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Candidate group: Needs inspection, 7 records, Inspect timeline\">");
+      expect(groupHtml).toContain("<article class=\"candidate-triage-index-card\" data-dashboard-detail=\"candidate-triage:needs_inspection\" data-candidate-triage-index=\"needs_inspection\">");
+      expect(groupHtml).toContain("<span>Needs inspection</span>");
       expect(groupHtml).toContain("<strong>Needs inspection</strong>");
-      expect(groupHtml).toContain("<small>Timeline check</small>");
+      expect(groupHtml).toContain("<small>7 records indexed | Timeline check</small>");
+      expect(groupHtml).toContain("<code>candidate_triage.groups_by_id.needs_inspection</code>");
       expect(groupHtml).not.toContain("<strong>Audit only</strong>");
       expect(groupHtml).not.toContain("<strong>Inspection review</strong>");
       expect(groupHtml).not.toContain("<small>Records indexed</small>");
       expect(groupHtml).not.toContain("<strong>7 records</strong>");
       expect(groupHtml).not.toContain("<small>Review path ready</small>");
       expect(groupHtml).not.toContain("<small>Inspect timeline</small>");
-      expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Review path: Inspection review via Timeline, recall, or Capture Inbox\">");
-      expect(groupHtml).toContain("<small>Inspection review</small>");
-      expect(groupHtml).toContain("<small>Needs inspection, 7 records</small>");
-      expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Record samples: Needs inspection: 3 of 7 samples with trace commands\">");
-      expect(groupHtml).toContain("<small>3 samples, trace ready</small>");
+      expect(groupHtml).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Review path: Inspection review via Timeline, recall, or Capture Inbox\">");
+      expect(groupHtml).not.toContain("<small>Inspection review</small>");
+      expect(groupHtml).not.toContain("<small>Needs inspection, 7 records</small>");
+      expect(groupHtml).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Record samples: Needs inspection: 3 of 7 samples with trace commands\">");
+      expect(groupHtml).not.toContain("<small>3 samples, trace ready</small>");
       expect(groupHtml).not.toContain("<small>Needs inspection: 3 of 7 samples with trace commands</small>");
       expect(groupHtml).not.toContain("<small>5 of 7 samples with trace commands</small>");
-      expect(groupHtml).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_budgeted_triage_8 from Codex, 19d ago\">");
-      expect(groupHtml).toContain("<strong>Sample</strong>");
+      expect(groupHtml).not.toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_budgeted_triage_8 from Codex, 19d ago\">");
+      expect(groupHtml).not.toContain("<strong>Sample</strong>");
       expect(groupHtml).not.toContain("<strong>Sample rec_budgeted_triage_8</strong>");
-      expect(groupHtml).toContain("<small>Trace ready</small>");
+      expect(groupHtml).not.toContain("<small>Trace ready</small>");
       expect(groupHtml).not.toContain("<small>Codex | 19d ago</small>");
-      expect(groupHtml).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_budgeted_triage_7 from Codex, 19d ago\">");
+      expect(groupHtml).not.toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_budgeted_triage_7 from Codex, 19d ago\">");
       expect(groupHtml).not.toContain("<strong>Sample rec_budgeted_triage_7</strong>");
       expect(groupHtml).not.toContain("<strong>Agent note sample rec_budgeted_triage_8</strong>");
       expect(groupHtml).not.toContain("<strong>Agent note sample rec_budgeted_triage_7</strong>");
       expect(groupHtml).not.toContain("<strong>Agent note sample</strong>");
-      expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_8\"");
-      expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_7\"");
-      expect(groupHtml).toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_6\"");
+      expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_8\"");
+      expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_7\"");
+      expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_6\"");
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_5\"");
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_4\"");
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_3\"");
       expect(groupHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:rec_budgeted_triage_2\"");
-      expect(groupHtml).toContain("<span class=\"candidate-triage-overflow-count\">4 more records indexed</span>");
+      expect(groupHtml).not.toContain("<span class=\"candidate-triage-overflow-count\">4 more records indexed</span>");
       expect(groupHtml).not.toContain("indexed in API evidence");
-      expect(groupHtml).toContain("<span>More samples</span>");
-      expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"More samples: Needs inspection: 4 hidden with record index available\">");
-      expect(groupHtml).toContain("<small>4 hidden, indexed</small>");
-      expect(groupHtml).toContain("<p>Open the hidden record index when the displayed samples are not enough.</p>");
+      expect(groupHtml).not.toContain("<span>More samples</span>");
+      expect(groupHtml).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"More samples: Needs inspection: 4 hidden with record index available\">");
+      expect(groupHtml).not.toContain("<small>4 hidden, indexed</small>");
+      expect(groupHtml).not.toContain("<p>Open the hidden record index when the displayed samples are not enough.</p>");
       expect(groupHtml).not.toContain("hidden in API index and Raw Store");
       expect(groupHtml).not.toContain("Use the API index or Raw Store when the displayed samples are not enough.");
       expect(groupHtml).not.toContain("<small>Needs inspection: 4 hidden in API and Raw Store</small>");
       expect(groupHtml).not.toContain("<small>Full group available in API and Raw Store</small>");
-      expect(groupHtml).toContain("<span>Hidden record index</span>");
+      expect(groupHtml).not.toContain("<span>Hidden record index</span>");
       expect(groupHtml).not.toContain("<span>API evidence path</span>");
-      expect(groupHtml).toContain("<small>Needs inspection index</small>");
-      expect(groupHtml).toContain("<code>candidate_triage.groups_by_id.needs_inspection.records_by_id</code>");
+      expect(groupHtml).not.toContain("<small>Needs inspection index</small>");
+      expect(groupHtml).not.toContain("<code>candidate_triage.groups_by_id.needs_inspection.records_by_id</code>");
       expect(groupHtml).not.toContain("Full group stays in <code>candidate_triage.groups_by_id.needs_inspection.records[]</code> and Raw Store.");
       expect(groupHtml).not.toContain("Full group available in API and Raw Inspector");
       expect(groupHtml).not.toContain("data-dashboard-action-id=\"candidate-triage");
@@ -1592,7 +1605,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("shortens generated candidate triage sample ids while preserving full audit ids", async () => {
+  it("keeps generated candidate triage sample ids in API evidence for read-only backlog", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -1633,8 +1646,8 @@ describe("observability dashboard", () => {
         project_id: "moryn",
         content: { text: "Keep generated candidate sample ids compact in folded dashboard rows.", format: "text" },
         state: "candidate",
-        priority: "high",
-        confidence: 0.95,
+        priority: "normal",
+        confidence: 0.5,
         source: { client: "codex", session_id: "candidate-short-labels" }
       });
       await engine.write({
@@ -1655,18 +1668,38 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
       const generatedId = "rec_abcdef1234567890abcdef1234567890";
 
-      expect(html).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Memory sample rec_abcdef12 from Codex, 19d ago\">");
-      expect(html).toContain("<strong>Sample</strong>");
-      expect(html).not.toContain("<strong>Sample rec_abcdef12</strong>");
-      expect(html).not.toContain(`<strong>Sample ${generatedId}</strong>`);
-      expect(html).not.toContain("<strong>Memory sample rec_abcdef12</strong>");
-      expect(html).not.toContain(`<strong>Memory sample ${generatedId}</strong>`);
-      expect(html).toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_candidate_short_context from Codex, 19d ago\">");
-      expect(html).not.toContain("<strong>Sample rec_candidate_short_context</strong>");
-      expect(html).not.toContain("<strong>Agent note sample rec_candidate_short_context</strong>");
-      expect(html).toContain(`<div><dt>Record</dt><dd><code>${generatedId}</code></dd></div>`);
-      expect(html).toContain(`moryn timeline --record-id ${generatedId}`);
-      expect(html).toContain(`moryn recall --record-id ${generatedId}`);
+      expect(data.candidate_triage.groups_by_id.needs_inspection?.records_by_id[generatedId]).toMatchObject({
+        id: generatedId,
+        record_index: 1
+      });
+      expect(data.candidate_triage.groups_by_id.needs_inspection?.records).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: generatedId,
+          citation: expect.objectContaining({
+            timeline_command: `moryn timeline --record-id ${generatedId} --project-id moryn`,
+            recall_command: `moryn recall --record-id ${generatedId} --project-id moryn`
+          })
+        })
+      ]));
+      const groupStart = html.indexOf("<article class=\"candidate-triage-index-card\" data-dashboard-detail=\"candidate-triage:needs_inspection\" data-candidate-triage-index=\"needs_inspection\">");
+      const groupEnd = html.indexOf("</article>", groupStart) + "</article>".length;
+      const groupHtml = html.slice(groupStart, groupEnd);
+      expect(groupStart).toBeGreaterThan(-1);
+      expect(groupEnd).toBeGreaterThan(groupStart);
+      expect(groupHtml).toContain("<article class=\"candidate-triage-index-card\" data-dashboard-detail=\"candidate-triage:needs_inspection\" data-candidate-triage-index=\"needs_inspection\">");
+      expect(groupHtml).toContain("<code>candidate_triage.groups_by_id.needs_inspection</code>");
+      expect(groupHtml).not.toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Memory sample rec_abcdef12 from Codex, 19d ago\">");
+      expect(groupHtml).not.toContain("<strong>Sample</strong>");
+      expect(groupHtml).not.toContain("<strong>Sample rec_abcdef12</strong>");
+      expect(groupHtml).not.toContain(`<strong>Sample ${generatedId}</strong>`);
+      expect(groupHtml).not.toContain("<strong>Memory sample rec_abcdef12</strong>");
+      expect(groupHtml).not.toContain(`<strong>Memory sample ${generatedId}</strong>`);
+      expect(groupHtml).not.toContain("<summary class=\"candidate-triage-record-summary\" aria-label=\"Agent note sample rec_candidate_short_context from Codex, 19d ago\">");
+      expect(groupHtml).not.toContain("<strong>Sample rec_candidate_short_context</strong>");
+      expect(groupHtml).not.toContain("<strong>Agent note sample rec_candidate_short_context</strong>");
+      expect(groupHtml).not.toContain(`<div><dt>Record</dt><dd><code>${generatedId}</code></dd></div>`);
+      expect(groupHtml).not.toContain(`moryn timeline --record-id ${generatedId}`);
+      expect(groupHtml).not.toContain(`moryn recall --record-id ${generatedId}`);
     });
   });
 
@@ -2784,9 +2817,11 @@ describe("observability dashboard", () => {
       expect(candidateTriageHtml).not.toContain("<h2>Candidate Triage Queue</h2>");
       expect(candidateTriageHtml).not.toContain("<p>Review grouping for memory doctor backlog.</p>");
       expect(candidateTriageHtml).not.toContain("<small>Review candidate backlog</small>");
+      expect(candidateTriageHtml).toContain("<article class=\"candidate-triage-index-card\" data-dashboard-detail=\"candidate-triage:needs_inspection\" data-candidate-triage-index=\"needs_inspection\">");
       expect(candidateTriageHtml).toContain("<span>Needs inspection</span>");
       expect(candidateTriageHtml).toContain("<strong>Needs inspection</strong>");
-      expect(candidateTriageHtml).toContain("<small>Timeline check</small>");
+      expect(candidateTriageHtml).toContain("<small>1 record indexed | Timeline check</small>");
+      expect(candidateTriageHtml).toContain("<code>candidate_triage.groups_by_id.needs_inspection</code>");
       expect(candidateTriageHtml).not.toContain("<span>Likely noise</span>");
       expect(candidateTriageHtml).not.toContain("<strong>Likely noise</strong>");
       expect(candidateTriageHtml).not.toContain("<strong>Handoff evidence</strong>");
@@ -2796,7 +2831,11 @@ describe("observability dashboard", () => {
       expect(candidateTriageHtml).not.toContain("<strong>Handoff review</strong>");
       expect(candidateTriageHtml).not.toContain("<strong>Inspection review</strong>");
       expect(candidateTriageHtml).not.toContain("<small>Records indexed</small>");
-      expect(candidateTriageHtml).toContain("<span>Record samples</span>");
+      expect(candidateTriageHtml).not.toContain("<span>Record samples</span>");
+      expect(candidateTriageHtml).not.toContain("<details class=\"candidate-triage-group\"");
+      expect(candidateTriageHtml).not.toContain("data-dashboard-detail=\"candidate-triage-record:");
+      expect(candidateTriageHtml).not.toContain("data-dashboard-detail=\"candidate-triage-records:");
+      expect(candidateTriageHtml).not.toContain("<span>Hidden record index</span>");
       expect(candidateTriageHtml).not.toContain("data-dashboard-action-id=\"candidate-triage");
       expect(candidateTriageHtml).not.toContain("Approve Triage");
       expect(candidateTriageHtml).not.toContain("Archive Group");

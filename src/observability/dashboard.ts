@@ -4232,9 +4232,33 @@ function renderCandidateBacklogBrief(triage: DashboardCandidateTriage): string {
       <dl class="candidate-triage-backlog-brief-list" aria-label="Backlog brief">
         <div><dt>Status</dt><dd>Read-only backlog</dd></div>
         <div><dt>Scope</dt><dd>${escapeHtml(`${pluralize(triage.summary.total_candidates, "candidate")} across ${pluralize(triage.summary.groups, "group")}`)}</dd></div>
-        <div><dt>Next</dt><dd>Open lanes only when investigating candidates</dd></div>
-        <div><dt>Writes</dt><dd>No dashboard writes from backlog lanes</dd></div>
+        <div><dt>Next</dt><dd>Open API index when investigating candidates</dd></div>
+        <div><dt>Writes</dt><dd>No dashboard writes from read-only backlog</dd></div>
       </dl>
+    </div>
+  `;
+}
+
+function renderCandidateBacklogIndexCard(group: DashboardCandidateTriageGroup): string {
+  const face = candidateTriageGroupFace(group);
+  return `
+    <article class="candidate-triage-index-card" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}" data-candidate-triage-index="${escapeHtml(group.id)}">
+      <span>${escapeHtml(group.label)}</span>
+      <strong>${escapeHtml(face.label)}</strong>
+      <small>${escapeHtml(`${pluralize(group.record_ids.length, "record")} indexed | ${face.hint}`)}</small>
+      <code>${escapeHtml(group.evidence_path)}</code>
+    </article>
+  `;
+}
+
+function renderCandidateBacklogIndex(triage: DashboardCandidateTriage): string {
+  return `
+    <div class="candidate-triage-index-list" aria-label="Candidate backlog API index">
+      ${triage.groups
+        .map((group) => triage.groups_by_id[group.id])
+        .filter((group): group is DashboardCandidateTriageGroup => group !== undefined)
+        .map(renderCandidateBacklogIndexCard)
+        .join("")}
     </div>
   `;
 }
@@ -4249,12 +4273,12 @@ function renderCandidateTriageGroupList(triage: DashboardCandidateTriage): strin
 
 function renderCandidateBacklogLanes(triage: DashboardCandidateTriage): string {
   return `
-    <details class="candidate-triage-backlog-lanes" data-dashboard-detail="candidate-triage-backlog-lanes">
+    <details class="candidate-triage-backlog-index" data-dashboard-detail="candidate-triage-backlog-lanes">
       <summary class="dashboard-fold-summary">
-        <span>Backlog lanes</span>
-        <small>${escapeHtml(`${pluralize(triage.summary.groups, "group")}, trace ready`)}</small>
+        <span>Backlog index</span>
+        <small>${escapeHtml(`${pluralize(triage.summary.groups, "group")}, API-backed`)}</small>
       </summary>
-      ${renderCandidateTriageGroupList(triage)}
+      ${renderCandidateBacklogIndex(triage)}
     </details>
   `;
 }
@@ -7826,7 +7850,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       gap: 5px;
     }
     .action-receipt code { background: var(--surface-2); }
-    .maintenance-list, .candidate-triage-list, .candidate-triage-records, .governance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
+    .maintenance-list, .candidate-triage-list, .candidate-triage-index-list, .candidate-triage-records, .governance-list, .lifecycle-findings, .lifecycle-actions, .capture-inbox-list, .capture-inbox-items { display: grid; gap: 10px; }
     .candidate-triage-heading { align-items: flex-start; margin-bottom: 10px; }
     .candidate-triage-heading p {
       margin: 4px 0 0;
@@ -7872,15 +7896,42 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .candidate-triage-backlog-brief-list div {
       grid-template-columns: 92px minmax(0, 1fr);
     }
-    .candidate-triage-backlog-lanes {
+    .candidate-triage-backlog-index {
       border: 1px solid var(--hairline);
       border-radius: 7px;
       padding: 8px 9px;
       background: var(--surface);
     }
-    .candidate-triage-backlog-lanes[open] > summary {
+    .candidate-triage-backlog-index[open] > summary {
       margin-bottom: 8px;
     }
+    .candidate-triage-index-card {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px;
+      background: var(--surface-2);
+    }
+    .candidate-triage-index-card span {
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 760;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .candidate-triage-index-card strong {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
+    .candidate-triage-index-card small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .candidate-triage-index-card code { width: 100%; }
     .candidate-triage-group {
       border: 1px solid var(--border);
       border-radius: 8px;

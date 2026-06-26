@@ -453,11 +453,17 @@ Backlog` instead of repeating queue language. If promotion drafts are waiting,
 draft count, and those approvals also appear in `Pending Decisions` as a
 `Candidate Triage` route. Expanding a read-only `Candidate Backlog` panel first
 shows a compact `Backlog brief` with status, scope, next step, and write
-boundary; concrete group lanes sit behind a nested `Backlog lanes` fold that is
-not opened by default. Expanding a promotion-ready `Candidate Triage` panel
-still shows candidate and group counts plus review-first next steps;
-shown-record counts stay in `/api/dashboard` and the nested `Record samples`
-summaries. Each candidate group keeps its next review surface behind a compact
+boundary; concrete groups sit behind a nested `Backlog index` fold as
+lightweight API index cards only. Those cards keep the stable
+`candidate-triage:<group_id>` routes, readable group labels, record counts,
+next-step hints, and `candidate_triage.groups_by_id.<group_id>` evidence paths
+without inlining group details, sample rows, hidden-record folds, or trace
+commands into the dashboard HTML. Full candidate bodies, record order, recall
+commands, and timeline commands stay in `/api/dashboard.candidate_triage`.
+Expanding a promotion-ready `Candidate Triage` panel still shows candidate and
+group counts plus review-first next steps; shown-record counts stay in
+`/api/dashboard` and the nested `Record samples` summaries. Each candidate group
+keeps its next review surface behind a compact
 `Review path` fold. Folded `Review path` rows show only the next review label,
 while the existing-control route stays in the accessible summary label and
 expanded fields. The expanded fold points to an existing control such as
