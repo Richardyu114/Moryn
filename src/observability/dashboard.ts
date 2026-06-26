@@ -5682,34 +5682,53 @@ function recentValuePanel(records: DashboardValueRecord[]): string {
   `;
 }
 
+type DebugInspectorReference = {
+  id: "inspector:records" | "inspector:events" | "inspector:sync";
+  label: string;
+  summary: string;
+  path: "recent_records" | "recent_events" | "sync";
+};
+
+function debugInspectorReferenceCard(reference: DebugInspectorReference): string {
+  return `
+        <article class="debug-inspector-reference" data-dashboard-detail="${escapeHtml(reference.id)}">
+          <strong>${escapeHtml(reference.label)}</strong>
+          <span>${escapeHtml(reference.summary)}</span>
+          <code>${escapeHtml(reference.path)}</code>
+        </article>
+  `;
+}
+
 function debugInspectorPanel(data: DashboardData): string {
-  const sync = data.sync;
+  const references: DebugInspectorReference[] = [
+    {
+      id: "inspector:records",
+      label: "Record Index",
+      summary: `${pluralize(data.recent_records.length, "recent record")} available`,
+      path: "recent_records"
+    },
+    {
+      id: "inspector:events",
+      label: "Event Timeline",
+      summary: `${pluralize(data.recent_events.length, "recent event")} available`,
+      path: "recent_events"
+    },
+    {
+      id: "inspector:sync",
+      label: "Sync Snapshot",
+      summary: "Sync metadata available",
+      path: "sync"
+    }
+  ];
   return `
     <details class="panel debug-inspector" data-dashboard-detail="debug-inspector">
       <summary class="dashboard-fold-summary">
         <span>Raw Store Inspector</span>
-        <small>Optional raw inspection</small>
+        <small>API-backed raw evidence</small>
       </summary>
-      <div class="inspector-grid">
-        <details data-dashboard-detail="inspector:records">
-          <summary>Record Index</summary>
-          ${recordsTable(data.recent_records)}
-        </details>
-        <details data-dashboard-detail="inspector:events">
-          <summary>Event Timeline</summary>
-          ${eventsTimeline(data.recent_events)}
-        </details>
-        <details data-dashboard-detail="inspector:sync">
-          <summary>Sync Snapshot</summary>
-          <dl>
-            <div><dt>Remote</dt><dd>${escapeHtml(sync.remote ?? "not configured")}</dd></div>
-            <div><dt>Branch</dt><dd>${escapeHtml(sync.branch ?? "unknown")}</dd></div>
-            <div><dt>Ahead</dt><dd>${escapeHtml(sync.ahead ?? 0)}</dd></div>
-            <div><dt>Behind</dt><dd>${escapeHtml(sync.behind ?? 0)}</dd></div>
-            <div><dt>Commit</dt><dd>${escapeHtml(sync.last_commit ?? "none")}</dd></div>
-            ${sync.error ? `<div><dt>Error</dt><dd>${escapeHtml(sync.error)}</dd></div>` : ""}
-          </dl>
-        </details>
+      <div class="debug-inspector-index" aria-label="Raw Store API index">
+        ${references.map(debugInspectorReferenceCard).join("")}
+        <p>Open <code>/api/dashboard</code> for full raw records, events, and sync metadata.</p>
       </div>
     </details>
   `;
@@ -9011,6 +9030,38 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .citation-links code { width: 100%; }
     .inspector-grid { display: grid; gap: 12px; }
     .debug-inspector[open] > summary { margin-bottom: 12px; }
+    .debug-inspector-index {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .debug-inspector-index p {
+      grid-column: 1 / -1;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    .debug-inspector-reference {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px;
+      background: var(--surface-2);
+    }
+    .debug-inspector-reference strong {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
+    .debug-inspector-reference span {
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .debug-inspector-reference code { width: 100%; }
     .table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
     table { width: 100%; min-width: 940px; table-layout: fixed; border-collapse: collapse; }
     th, td { padding: 9px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
@@ -9043,7 +9094,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 740;
     }
     @media (max-width: 920px) {
-      header, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid, .debug-inspector-index { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }

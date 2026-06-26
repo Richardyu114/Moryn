@@ -2116,9 +2116,18 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<article class=\"governance-item");
       expect(html).toContain("data-dashboard-detail=\"debug-inspector\"");
       expect(html).toContain("data-dashboard-detail=\"inspector:records\"");
-      expect(html).toContain("<details data-dashboard-detail=\"inspector:records\">\n          <summary>Record Index</summary>");
-      expect(html).toContain("<details data-dashboard-detail=\"inspector:events\">\n          <summary>Event Timeline</summary>");
-      expect(html).toContain("<details data-dashboard-detail=\"inspector:sync\">\n          <summary>Sync Snapshot</summary>");
+      expect(html).toContain("<article class=\"debug-inspector-reference\" data-dashboard-detail=\"inspector:records\">");
+      expect(html).toContain("<strong>Record Index</strong>");
+      expect(html).toContain("<code>recent_records</code>");
+      expect(html).toContain("<article class=\"debug-inspector-reference\" data-dashboard-detail=\"inspector:events\">");
+      expect(html).toContain("<strong>Event Timeline</strong>");
+      expect(html).toContain("<code>recent_events</code>");
+      expect(html).toContain("<article class=\"debug-inspector-reference\" data-dashboard-detail=\"inspector:sync\">");
+      expect(html).toContain("<strong>Sync Snapshot</strong>");
+      expect(html).toContain("<code>sync</code>");
+      expect(html).not.toContain("<details data-dashboard-detail=\"inspector:records\">");
+      expect(html).not.toContain("<details data-dashboard-detail=\"inspector:events\">");
+      expect(html).not.toContain("<details data-dashboard-detail=\"inspector:sync\">");
       expect(html).not.toContain("<details data-dashboard-detail=\"inspector:records\">\n          <summary>Record table</summary>");
       expect(html).not.toContain("<details data-dashboard-detail=\"inspector:events\">\n          <summary>Event log</summary>");
       expect(html).not.toContain("<details data-dashboard-detail=\"inspector:sync\">\n          <summary>Sync state</summary>");
@@ -2959,15 +2968,18 @@ describe("observability dashboard", () => {
       expect(html).toContain("Recent Value");
       expect(html).toContain("<span>Raw Store Inspector</span>");
       expect(html).not.toContain("<span>Debug Inspector</span>");
-      expect(html).toContain("<small>Optional raw inspection</small>");
+      expect(html).toContain("<small>API-backed raw evidence</small>");
       expect(html).not.toContain("<small>Raw store inspection</small>");
       expect(html).not.toContain("<small>records / events / sync</small>");
+      expect(html).toContain("<article class=\"debug-inspector-reference\" data-dashboard-detail=\"inspector:records\">");
+      expect(html).toContain("<article class=\"debug-inspector-reference\" data-dashboard-detail=\"inspector:events\">");
+      expect(html).toContain("<article class=\"debug-inspector-reference\" data-dashboard-detail=\"inspector:sync\">");
       expect(html).toContain("agent-bars");
       expect(html).toContain("state-stack");
       expect(html).toContain("type-bars");
       expect(html).toContain("sync-rail");
       expect(html).toContain("value-card");
-      expect(html).toContain("table-wrap");
+      expect(html).not.toContain("<div class=\"table-wrap\">");
       expect(html).toContain("class=\"neutral-intelligence\"");
       expect(html).toContain("--canvas:");
       expect(html).toContain("--ink:");
@@ -3085,11 +3097,13 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(html).toContain("<span>Moryn Local rec_abcdef12</span>");
-      expect(html).toContain("<summary aria-label=\"Record details: Skill codex_skill_bundle from Moryn Local rec_abcdef12\">");
+      expect(html).toContain("<strong>Record Index</strong>");
+      expect(html).toContain("<code>recent_records</code>");
+      expect(html).not.toContain("<summary aria-label=\"Record details: Skill codex_skill_bundle from Moryn Local rec_abcdef12\">");
       expect(html).not.toContain("<summary aria-label=\"Record Index: Skill codex_skill_bundle from Moryn Local rec_abcdef12\">");
       expect(html.match(/Record Index/g)).toHaveLength(1);
-      expect(html).toContain("<span>Record rec_abcdef12</span>");
-      expect(html).toContain("<small>Details</small>");
+      expect(html).not.toContain("<span>Record rec_abcdef12</span>");
+      expect(html).not.toContain("<small>Details</small>");
       expect(html).not.toContain("<span>Skill codex_skill_bundle</span>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Audit trace commands: Skill codex_skill_bundle rec_abcdef12\">");
       expect(html).toContain("<span>Trace</span>");
@@ -3104,7 +3118,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("keeps Raw Store Inspector rows budgeted while preserving full API evidence", async () => {
+  it("keeps Raw Store Inspector as API index hints instead of raw HTML tables", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -3166,38 +3180,42 @@ describe("observability dashboard", () => {
       expect(data.recent_records).toHaveLength(13);
       expect(data.recent_events).toHaveLength(13);
       expect(data.recent_records[0]?.text).toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
-      expect(debugHtml).toContain("<th>Content</th>");
+      expect(debugHtml).toContain("<span>Raw Store Inspector</span>");
+      expect(debugHtml).toContain("<small>API-backed raw evidence</small>");
+      expect(debugHtml).toContain("<article class=\"debug-inspector-reference\" data-dashboard-detail=\"inspector:records\">");
+      expect(debugHtml).toContain("<strong>Record Index</strong>");
+      expect(debugHtml).toContain("<span>13 recent records available</span>");
+      expect(debugHtml).toContain("<code>recent_records</code>");
+      expect(debugHtml).toContain("<article class=\"debug-inspector-reference\" data-dashboard-detail=\"inspector:events\">");
+      expect(debugHtml).toContain("<strong>Event Timeline</strong>");
+      expect(debugHtml).toContain("<span>13 recent events available</span>");
+      expect(debugHtml).toContain("<code>recent_events</code>");
+      expect(debugHtml).toContain("<article class=\"debug-inspector-reference\" data-dashboard-detail=\"inspector:sync\">");
+      expect(debugHtml).toContain("<strong>Sync Snapshot</strong>");
+      expect(debugHtml).toContain("<span>Sync metadata available</span>");
+      expect(debugHtml).toContain("<code>sync</code>");
+      expect(debugHtml).toContain("Open <code>/api/dashboard</code> for full raw records, events, and sync metadata.");
+      expect(debugHtml).not.toContain("<div class=\"table-wrap\">");
+      expect(debugHtml).not.toContain("<th>Content</th>");
       expect(debugHtml).not.toContain("<th>Text</th>");
-      expect(debugHtml).toContain(`data-dashboard-detail="record:${noisySummaryRecord.record.id}"`);
-      const noisyRecordStart = debugHtml.indexOf(`data-dashboard-detail="record:${noisySummaryRecord.record.id}"`);
-      const noisyRecordEnd = debugHtml.indexOf("</summary>", noisyRecordStart);
-      const noisyRecordSummary = debugHtml.slice(noisyRecordStart, noisyRecordEnd);
-      expect(noisyRecordSummary).toContain("Memory artifact");
-      expect(noisyRecordSummary).toContain("Codex rec_12345678");
-      expect(noisyRecordSummary).not.toContain(`Codex ${noisySummaryRecord.record.id}`);
-      expect(noisyRecordSummary).not.toContain("<small>Codex</small>");
-      expect(noisyRecordSummary).not.toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
-      expect(debugHtml).toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
-      expect(debugHtml.match(/data-dashboard-detail="record:rec_debug_budget_/g)).toHaveLength(9);
-      expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_1234567890abcdef1234567890abcdef\"");
-      expect(debugHtml.match(/data-dashboard-detail="event:evt_debug_budget_/g)).toHaveLength(10);
-      expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_debug_budget_12\"");
-      expect(debugHtml).toContain("data-dashboard-detail=\"record:rec_debug_budget_4\"");
+      expect(debugHtml).not.toContain(`data-dashboard-detail="record:${noisySummaryRecord.record.id}"`);
+      expect(debugHtml).not.toContain(`Codex ${noisySummaryRecord.record.id}`);
+      expect(debugHtml).not.toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
+      expect(debugHtml.match(/data-dashboard-detail="record:rec_debug_budget_/g) ?? []).toHaveLength(0);
+      expect(debugHtml.match(/data-dashboard-detail="event:evt_debug_budget_/g) ?? []).toHaveLength(0);
       expect(debugHtml).not.toContain("data-dashboard-detail=\"record:rec_debug_budget_3\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"record:rec_debug_budget_2\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"record:rec_debug_budget_1\"");
-      expect(debugHtml).toContain("data-dashboard-detail=\"event:evt_debug_budget_12\"");
-      expect(debugHtml).toContain("data-dashboard-detail=\"event:evt_debug_budget_4\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_3\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_2\"");
       expect(debugHtml).not.toContain("data-dashboard-detail=\"event:evt_debug_budget_1\"");
       expect(data.recent_events[0]?.op).toBe("upsert_record");
-      expect(debugHtml).toContain("<span>Record update</span>");
+      expect(debugHtml).not.toContain("<span>Record update</span>");
       expect(debugHtml).not.toContain("<span>Upsert Record</span>");
-      expect(debugHtml).toContain("<span class=\"debug-inspector-overflow-count\">3 more records kept in /api/dashboard</span>");
-      expect(debugHtml).toContain("<code>recent_records</code>");
-      expect(debugHtml).toContain("<span class=\"debug-inspector-overflow-count\">3 more events kept in /api/dashboard</span>");
-      expect(debugHtml).toContain("<code>recent_events</code>");
+      expect(debugHtml).not.toContain("<span class=\"debug-inspector-overflow-count\">");
+      expect(debugHtml).not.toContain("<details data-dashboard-detail=\"inspector:records\">");
+      expect(debugHtml).not.toContain("<details data-dashboard-detail=\"inspector:events\">");
+      expect(debugHtml).not.toContain("<details data-dashboard-detail=\"inspector:sync\">");
     });
   });
 

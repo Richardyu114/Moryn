@@ -907,22 +907,17 @@ common audit evidence closer to the user while keeping record/event/sync
 internals available without placing them at the same level. Nested evidence
 summaries also use purpose labels: `Store Signals` opens with `Operational
 health signals`, `Raw Store Reference` opens with `Optional raw records`, and
-`Raw Store Inspector` opens with `Optional raw inspection`. Its child folds are labeled
-`Record Index`, `Event Timeline`, and `Sync Snapshot` instead of generic
-`Records`, `Events`, and `Sync`. `Record Index` and `Event Timeline` render
-only the first ten rows each and summarize overflow as `/api/dashboard`
-evidence. Event rows render common store writes such as `upsert_record` as
-`Record update` in their folded summary while `/api/dashboard.recent_events[]`
-keeps the original operation id for agents and audit tooling. `Record Index`
-uses a visible `Content` header for the expandable record body while
-`/api/dashboard.recent_records[]` keeps the original `text` field for agents
-and audit tooling. `Record Index` record rows use short record-id summaries and a
-`Details` hint in their folded row instead of raw record text or machine type
-names, while each row's accessible label starts with `Record details` and keeps
-kind, type, source, and record-id context. This leaves `Record Index` as the
-single child-panel title instead of repeating it for every raw record row.
-Expanded bodies still keep agent activity, record quality,
-records, events, and sync detail inspectable.
+`Raw Store Inspector` opens with `API-backed raw evidence`. It renders only three
+lightweight API index cards labeled `Record Index`, `Event Timeline`, and
+`Sync Snapshot`, mapped to `/api/dashboard.recent_records[]`,
+`/api/dashboard.recent_events[]`, and `/api/dashboard.sync`. The dashboard HTML
+does not inline raw record tables, event rows, or sync detail fields there; full
+raw records, event operations, trace commands, and sync metadata stay in
+`/api/dashboard` for agents and audit tooling. This keeps the stable
+`debug-inspector` and `inspector:*` routes while preventing raw evidence from
+becoming another large visible log.
+Expanded bodies still keep agent activity, record quality, and API-backed raw
+evidence inspectable.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
 screens. This keeps secondary panels readable on mobile-sized windows without
