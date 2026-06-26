@@ -6036,7 +6036,9 @@ function renderDashboardBody(data: DashboardData): string {
   const hasActionSignals = data.attention_items.some(isReviewAttentionItem);
   const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
   const hasPendingDecisions = data.decision_summary.total_decisions > 0;
-  const quietInfoPanel = hasActionSignals || hasPendingDecisions ? "" : needsAttentionPanel(data.attention_items);
+  const shouldHideQuietInfoPanel = data.health.status === "sync_pending" || data.health.status === "conflict";
+  const shouldRenderQuietInfoPanel = !hasActionSignals && !hasPendingDecisions && !shouldHideQuietInfoPanel;
+  const quietInfoPanel = shouldRenderQuietInfoPanel ? needsAttentionPanel(data.attention_items) : "";
   const shortcutPanel = hasPendingDecisions ? "" : actionBoard(data.action_board);
   return `
     <header>

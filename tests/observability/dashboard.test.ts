@@ -313,6 +313,16 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<em class=\"action-board-next\">Open info checks</em>");
       expect(html).not.toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Sync changes not pushed\">");
       expect(html).not.toContain("Local event history has changes that are not committed or pushed yet.");
+      expect(html).not.toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
+      expect(html).not.toContain("data-dashboard-detail=\"attention-info-checks\"");
+      expect(html).not.toContain("<span>Info Checks</span>");
+      expect(html).not.toContain("data-dashboard-detail=\"attention-info-details\"");
+      expect(data.attention_items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          severity: "warning",
+          title: "Sync changes not pushed"
+        })
+      ]));
       expect(html).toContain("<section class=\"sync-action-brief warning\" data-dashboard-sync-action>");
       expect(html).toContain("<h3>Sync Action</h3>");
       expect(html).toContain("<strong>Push sync</strong>");

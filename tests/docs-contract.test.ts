@@ -155,8 +155,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Quiet `Info Checks` opens first to a nested `Info Details` fold");
     expectText(dashboard, "the individual informational rows stay inside that nested fold");
     expectText(dashboard, "does not render the focus strip or a separate quiet summary");
-    expectText(dashboard, "When `Pending Decisions` is rendered and no warning or critical action signal exists, the visible HTML skips the quiet `Info Checks` anchor");
-    expectText(dashboard, "`/api/dashboard.attention_items` still keeps the info checks for agents and audit tooling");
+    expectText(dashboard, "When `Pending Decisions` is rendered, or when active sync work such as");
+    expectText(dashboard, "`sync_pending` or `conflict` already owns the Overview and Health lane");
+    expectText(dashboard, "the visible HTML skips the quiet `Info Checks` anchor entirely");
+    expectText(dashboard, "`/api/dashboard.attention_items` still keeps the info checks and sync signals for agents and audit tooling");
     expect(dashboard).toContain("Dogfood Notes");
     expect(dashboard).toContain("Issue brief");
     expectText(dashboard, "it lives in the background Audit route instead of `Review Notes` because it has no approval or write action");

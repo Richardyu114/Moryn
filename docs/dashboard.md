@@ -766,10 +766,11 @@ detail and does not render the focus strip or a separate quiet summary. Quiet
 informational rows stay inside that nested fold so routine labels do not scatter
 across the first screen. This preserves the `id="needs-attention"` scroll target
 for audit without making routine informational checks look like user work. When
-`Pending Decisions` is rendered and no warning or critical action signal exists,
-the visible HTML skips the quiet `Info Checks` anchor entirely;
-`/api/dashboard.attention_items` still keeps the info checks for agents and
-audit tooling.
+`Pending Decisions` is rendered, or when active sync work such as
+`sync_pending` or `conflict` already owns the Overview and Health lane, the
+visible HTML skips the quiet `Info Checks` anchor entirely;
+`/api/dashboard.attention_items` still keeps the info checks and sync signals
+for agents and audit tooling.
 
 Read-only diagnostic detail lives in the collapsed evidence layer. The visible
 Evidence Library title is `Reference Library`, while the stable route remains
