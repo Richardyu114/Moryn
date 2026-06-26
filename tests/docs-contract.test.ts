@@ -140,8 +140,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
     expectText(dashboard, "`Routine Diagnostics` opens with `Checks ready`");
     expectText(dashboard, "while the accessible summary keeps `Healthy checks and handoff readiness`");
-    expectText(dashboard, "Expanding it shows lightweight Health Check, Recall Eval, and Context Pack Review summary rows first");
-    expectText(dashboard, "the full reports stay in the nested `Diagnostic Reports` section");
+    expectText(dashboard, "Expanding it shows a compact `Routine Diagnostics Index` reference");
+    expectText(dashboard, "API source chips for `health_check`, `recall_eval`, and `context_pack_review`");
+    expectText(dashboard, "It does not render the nested `Diagnostic Reports` section");
+    expectText(dashboard, "full details remain in `/api/dashboard.health_check`, `/api/dashboard.recall_eval`, and `/api/dashboard.context_pack_review`");
     expectText(dashboard, "Governance Hub items that require user confirmation");
     expectText(dashboard, "grouped first under the stable `Review Notes` group");
     expectText(dashboard, "visible row reads `Review Notes` with `Reference notes`");

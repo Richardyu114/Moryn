@@ -5817,26 +5817,26 @@ type RoutineDiagnosticPanel = {
   label: string;
   summary: string;
   status: "good" | "info";
-  detail: string;
 };
 
-function routineDiagnosticRow(panel: RoutineDiagnosticPanel): string {
+function routineDiagnosticRoute(panel: RoutineDiagnosticPanel): string {
+  const source = panel.id === "health-check"
+    ? "health_check"
+    : panel.id === "recall-eval"
+      ? "recall_eval"
+      : "context_pack_review";
   return `
-        <article class="routine-diagnostic-row ${escapeHtml(panel.status)}" data-routine-diagnostic="${escapeHtml(panel.id)}">
-          <div>
-            <strong>${escapeHtml(panel.label)}</strong>
-            <span>${escapeHtml(panel.summary)}</span>
-          </div>
-          <small>${escapeHtml(panel.status === "good" ? "Ready" : "Reference")}</small>
-        </article>
+          <button type="button" class="routine-diagnostics-route ${escapeHtml(panel.status)}" data-dashboard-detail="${escapeHtml(panel.id)}" data-action-board-target="${escapeHtml(panel.id)}" aria-controls="${escapeHtml(panel.id)}" aria-label="${escapeHtml(`${panel.label}: ${panel.summary}. Full report is available in /api/dashboard.${source}.`)}">
+            <span>${escapeHtml(panel.label)}</span>
+            <code>${escapeHtml(source)}</code>
+          </button>
   `;
 }
 
 function routineDiagnosticsPanel(panels: RoutineDiagnosticPanel[]): string {
   if (panels.length === 0) return "";
-  const reportSummary = panels
-    .map((panel) => panel.id === "health-check" ? "Health" : panel.id === "recall-eval" ? "recall" : "handoff")
-    .join(", ");
+  const sources = panels
+    .map((panel) => panel.id === "health-check" ? "health_check" : panel.id === "recall-eval" ? "recall_eval" : "context_pack_review");
   return `
     <details class="panel routine-diagnostics" data-dashboard-detail="routine-diagnostics" aria-label="Routine Diagnostics">
       <summary class="dashboard-fold-summary routine-diagnostics-fold" aria-label="Routine Diagnostics: Healthy checks and handoff readiness">
@@ -5844,18 +5844,16 @@ function routineDiagnosticsPanel(panels: RoutineDiagnosticPanel[]): string {
         <small>Checks ready</small>
       </summary>
       <div class="routine-diagnostics-list">
-        <div class="routine-diagnostics-summary-list" aria-label="Routine diagnostics summary">
-          ${panels.map(routineDiagnosticRow).join("")}
-        </div>
-        <details class="routine-diagnostics-full-panels" data-dashboard-detail="routine-diagnostics-full-panels">
-          <summary class="dashboard-fold-summary">
-            <span>Diagnostic Reports</span>
-            <small>${escapeHtml(reportSummary)}</small>
-          </summary>
-          <div class="routine-diagnostics-full-list">
-            ${panels.map((panel) => panel.detail).join("")}
+        <article class="routine-diagnostics-reference" data-dashboard-detail="routine-diagnostics:index" data-routine-diagnostics-reference>
+          <strong>Routine Diagnostics Index</strong>
+          <span>Health, recall, and handoff readiness indexed</span>
+          <small>API-backed</small>
+          <div class="routine-diagnostics-routebar" role="list" aria-label="Routine diagnostic API routes">
+${panels.map(routineDiagnosticRoute).join("")}
           </div>
-        </details>
+        </article>
+        <p>Open <code>/api/dashboard</code> for full routine diagnostic reports, commands, and evidence paths.</p>
+        <p class="routine-diagnostics-sources" aria-label="Routine diagnostic API sources">${sources.map((source) => `<code>${escapeHtml(source)}</code>`).join("")}</p>
       </div>
     </details>
   `;
@@ -5954,8 +5952,7 @@ function evidenceLibrary(
       id: "health-check" as const,
       label: "Health Check",
       summary: healthCheckSummary(data.health_check),
-      status: "good" as const,
-      detail: healthCheckPanel(data.health_check)
+      status: "good" as const
     });
   }
   if (isRoutineRecallEval(data.recall_eval)) {
@@ -5963,8 +5960,7 @@ function evidenceLibrary(
       id: "recall-eval" as const,
       label: "Recall Eval",
       summary: recallEvalSummary(data.recall_eval),
-      status: data.recall_eval.available ? "good" as const : "info" as const,
-      detail: recallEvalPanel(data.recall_eval)
+      status: data.recall_eval.available ? "good" as const : "info" as const
     });
   }
   if (isRoutineContextPackReview(data.context_pack_review)) {
@@ -5972,8 +5968,7 @@ function evidenceLibrary(
       id: "context-pack-review" as const,
       label: "Context Pack Review",
       summary: contextPackReviewSummary(data.context_pack_review),
-      status: data.context_pack_review.available ? "good" as const : "info" as const,
-      detail: contextPackReviewPanel(data.context_pack_review)
+      status: data.context_pack_review.available ? "good" as const : "info" as const
     });
   }
   const candidateTriageNeedsDecision = candidateTriageHasPromotionDrafts(data.candidate_triage);
@@ -7512,63 +7507,67 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-top: 1px solid var(--hairline);
       padding-top: 10px;
     }
-    .routine-diagnostics-summary-list {
+    .routine-diagnostics-reference {
       display: grid;
       gap: 8px;
-    }
-    .routine-diagnostic-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
       min-width: 0;
       border: 1px solid var(--hairline);
-      border-left-width: 4px;
+      border-left: 4px solid var(--info);
       border-radius: 7px;
-      padding: 8px 9px;
+      padding: 9px;
       background: var(--surface-2);
     }
-    .routine-diagnostic-row.good { border-left-color: var(--good); }
-    .routine-diagnostic-row.info { border-left-color: var(--info); }
-    .routine-diagnostic-row div {
-      display: grid;
-      gap: 2px;
-      min-width: 0;
+    .routine-diagnostics-reference strong {
+      color: var(--ink);
+      font-weight: 780;
     }
-    .routine-diagnostic-row strong,
-    .routine-diagnostic-row span,
-    .routine-diagnostic-row small {
+    .routine-diagnostics-reference span,
+    .routine-diagnostics-reference small,
+    .routine-diagnostics-reference code,
+    .routine-diagnostics-list p {
       overflow-wrap: anywhere;
     }
-    .routine-diagnostic-row strong {
-      color: var(--ink);
-      font-weight: 760;
-    }
-    .routine-diagnostic-row span,
-    .routine-diagnostic-row small {
+    .routine-diagnostics-reference span,
+    .routine-diagnostics-reference small,
+    .routine-diagnostics-list p {
       color: var(--muted);
       font-size: 12px;
       font-weight: 700;
     }
-    .routine-diagnostics-full-panels {
+    .routine-diagnostics-routebar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+    .routine-diagnostics-route {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
       border: 1px solid var(--hairline);
       border-radius: 7px;
-      padding: 8px 9px;
-      background: var(--surface-2);
-    }
-    .routine-diagnostics-full-panels[open] > summary { margin-bottom: 9px; }
-    .routine-diagnostics-full-list {
-      display: grid;
-      gap: 10px;
-      border-top: 1px solid var(--hairline);
-      padding-top: 10px;
-    }
-    .routine-diagnostics-full-list > .panel,
-    .routine-diagnostics-full-list > section.panel,
-    .routine-diagnostics-full-list > details.panel {
-      margin-bottom: 0;
-      box-shadow: none;
+      padding: 6px 8px;
       background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 760;
+      cursor: pointer;
+    }
+    .routine-diagnostics-route.good { border-color: rgba(47, 125, 83, 0.28); }
+    .routine-diagnostics-route.info { border-color: rgba(46, 108, 166, 0.28); }
+    .routine-diagnostics-route code,
+    .routine-diagnostics-sources code {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .routine-diagnostics-sources {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0;
     }
     .routine-diagnostics-list > .panel,
     .routine-diagnostics-list > section.panel,

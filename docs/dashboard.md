@@ -850,12 +850,17 @@ Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack
 Review are grouped under `Routine Diagnostics`. `Routine Diagnostics` opens
 with `Checks ready` so the folded row stays compact, while the accessible
 summary keeps `Healthy checks and handoff readiness` for screen readers and
-audit tooling. Expanding it shows lightweight Health Check, Recall Eval, and
-Context Pack Review summary rows first; the full reports stay in the nested
-`Diagnostic Reports` section. Findings-oriented panels such as Governance Hub
-items that require user confirmation or non-routine Health/Recall/Context
-checks are grouped first under the stable `Review Notes` group, whose visible
-row reads `Review Notes` with `Reference notes`.
+audit tooling. Expanding it shows a compact `Routine Diagnostics Index`
+reference, API source chips for `health_check`, `recall_eval`, and
+`context_pack_review`, and local route buttons that keep the original
+`data-dashboard-detail` targets. It does not render the nested
+`Diagnostic Reports` section, Health Check setup commands, Recall Eval body, or
+Context Pack Review evidence when those diagnostics are routine; full details
+remain in `/api/dashboard.health_check`, `/api/dashboard.recall_eval`, and
+`/api/dashboard.context_pack_review`. Findings-oriented panels such as
+Governance Hub items that require user confirmation or non-routine
+Health/Recall/Context checks are grouped first under the stable `Review Notes`
+group, whose visible row reads `Review Notes` with `Reference notes`.
 `Review Notes` is collapsed by default inside `Evidence Library`, so
 read-only findings do not look like pending approval work or expose
 child panel counts. Routine Diagnostics and Audit Trail are
@@ -867,8 +872,9 @@ the original evidence groups stay inside the nested `Audit Reports`
 section. Empty groups are omitted, so the library does not add a placeholder
 when there is only background evidence.
 The routine and background groups still keep the original child
-`data-dashboard-detail` targets, so local navigation can open the parent group
-before scrolling to the requested diagnostic.
+`data-dashboard-detail` targets through compact route buttons, so local
+navigation can open the parent group before scrolling to the requested
+diagnostic reference without expanding full quiet reports.
 
 `Dogfood Notes` is a read-only issue notebook for `dogfood_report.findings_by_id`.
 It renders only when the local report has findings, but it lives in the

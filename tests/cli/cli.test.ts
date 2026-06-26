@@ -5934,7 +5934,12 @@ describe("moryn CLI", () => {
       expect(snapshotRecentValueHtml).not.toContain("Dashboard CLI snapshot memory");
       expect(snapshotHtml).not.toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
       expect(snapshotHtml).not.toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
-      expect(snapshotHtml).toContain("moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary &#39;&lt;summary&gt;&#39;");
+      expect(snapshotHtml).not.toContain("moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary &#39;&lt;summary&gt;&#39;");
+      expect(snapshotHtml).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics:index\" data-routine-diagnostics-reference>");
+      expect(snapshotHtml).toContain("<strong>Routine Diagnostics Index</strong>");
+      expect(snapshotHtml).toContain("<code>health_check</code>");
+      expect(snapshotHtml).toContain("<code>context_pack_review</code>");
+      expect(snapshotHtml).toContain("Open <code>/api/dashboard</code> for full routine diagnostic reports, commands, and evidence paths.");
 
       const opened = JSON.parse((await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,

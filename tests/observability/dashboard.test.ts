@@ -2889,33 +2889,41 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("reference panels</small>");
       expect(html).not.toContain("<span>Background Evidence</span>");
       const routineDiagnosticsIndex = html.indexOf("<details class=\"panel routine-diagnostics\" data-dashboard-detail=\"routine-diagnostics\" aria-label=\"Routine Diagnostics\">");
+      const routineDiagnosticsEndIndex = html.indexOf("<details class=\"panel supporting-evidence\"", routineDiagnosticsIndex);
+      const routineDiagnosticsHtml = html.slice(routineDiagnosticsIndex, routineDiagnosticsEndIndex);
       expect(html).toContain("<span>Routine Diagnostics</span>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary routine-diagnostics-fold\" aria-label=\"Routine Diagnostics: Healthy checks and handoff readiness\">");
       expect(html).toContain("<small>Checks ready</small>");
       expect(html).not.toContain("<small>Healthy checks and handoff readiness</small>");
       expect(html).not.toContain("<small>3 quiet checks</small>");
-      expect(html).toContain("<small>Healthy local store</small>");
+      expect(routineDiagnosticsHtml).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics:index\" data-routine-diagnostics-reference>");
+      expect(routineDiagnosticsHtml).toContain("<strong>Routine Diagnostics Index</strong>");
+      expect(routineDiagnosticsHtml).toContain("<span>Health, recall, and handoff readiness indexed</span>");
+      expect(routineDiagnosticsHtml).toContain("<small>API-backed</small>");
+      expect(routineDiagnosticsHtml).toContain("<code>health_check</code>");
+      expect(routineDiagnosticsHtml).toContain("<code>recall_eval</code>");
+      expect(routineDiagnosticsHtml).toContain("<code>context_pack_review</code>");
+      expect(routineDiagnosticsHtml).toContain("Open <code>/api/dashboard</code> for full routine diagnostic reports, commands, and evidence paths.");
       expect(html).not.toContain("<small>healthy | 0 warnings | 0 failed</small>");
-      expect(html).toContain("<span>Recall Eval</span>");
-      expect(html).toContain("<small>No recall eval cases yet</small>");
+      expect(routineDiagnosticsHtml).toContain("data-dashboard-detail=\"health-check\"");
+      expect(routineDiagnosticsHtml).toContain("data-dashboard-detail=\"recall-eval\"");
+      expect(routineDiagnosticsHtml).toContain("data-dashboard-detail=\"context-pack-review\"");
       expect(html).not.toContain("<small>Unavailable | no stored cases</small>");
       const routineDiagnosticsListIndex = html.indexOf("<div class=\"routine-diagnostics-list\">", routineDiagnosticsIndex);
-      const routineDiagnosticsSummaryIndex = html.indexOf("<div class=\"routine-diagnostics-summary-list\" aria-label=\"Routine diagnostics summary\">", routineDiagnosticsIndex);
-      expect(routineDiagnosticsSummaryIndex).toBeGreaterThan(routineDiagnosticsListIndex);
-      expect(html).toContain("data-routine-diagnostic=\"health-check\"");
-      expect(html).toContain("data-routine-diagnostic=\"recall-eval\"");
-      expect(html).toContain("data-routine-diagnostic=\"context-pack-review\"");
-      const routineDiagnosticsSummaryHtml = html.slice(routineDiagnosticsSummaryIndex, html.indexOf("<details class=\"routine-diagnostics-full-panels\"", routineDiagnosticsIndex));
-      expect(routineDiagnosticsSummaryHtml).toContain("<strong>Health Check</strong>");
-      expect(routineDiagnosticsSummaryHtml).toContain("<span>Healthy local store</span>");
-      expect(routineDiagnosticsSummaryHtml).toContain("<strong>Recall Eval</strong>");
-      expect(routineDiagnosticsSummaryHtml).toContain("<span>No recall eval cases yet</span>");
-      expect(routineDiagnosticsSummaryHtml).toContain("<strong>Context Pack Review</strong>");
-      expect(routineDiagnosticsSummaryHtml).not.toContain("<details class=\"panel health-check-panel\"");
-      expect(routineDiagnosticsSummaryHtml).not.toContain("<details class=\"panel context-pack-review\"");
-      expect(html).toContain("<details class=\"routine-diagnostics-full-panels\" data-dashboard-detail=\"routine-diagnostics-full-panels\">");
-      expect(html).toContain("<span>Diagnostic Reports</span>");
-      expect(html).toContain("<small>Health, recall, handoff</small>");
+      expect(routineDiagnosticsHtml).not.toContain("<div class=\"routine-diagnostics-summary-list\" aria-label=\"Routine diagnostics summary\">");
+      expect(routineDiagnosticsHtml).not.toContain("data-routine-diagnostic=\"health-check\"");
+      expect(routineDiagnosticsHtml).not.toContain("data-routine-diagnostic=\"recall-eval\"");
+      expect(routineDiagnosticsHtml).not.toContain("data-routine-diagnostic=\"context-pack-review\"");
+      expect(routineDiagnosticsHtml).not.toContain("<strong>Health Check</strong>");
+      expect(routineDiagnosticsHtml).not.toContain("<span>Healthy local store</span>");
+      expect(routineDiagnosticsHtml).not.toContain("<strong>Recall Eval</strong>");
+      expect(routineDiagnosticsHtml).not.toContain("<span>No recall eval cases yet</span>");
+      expect(routineDiagnosticsHtml).not.toContain("<strong>Context Pack Review</strong>");
+      expect(routineDiagnosticsHtml).not.toContain("<details class=\"panel health-check-panel\"");
+      expect(routineDiagnosticsHtml).not.toContain("<details class=\"panel context-pack-review\"");
+      expect(routineDiagnosticsHtml).not.toContain("<details class=\"routine-diagnostics-full-panels\" data-dashboard-detail=\"routine-diagnostics-full-panels\">");
+      expect(routineDiagnosticsHtml).not.toContain("<span>Diagnostic Reports</span>");
+      expect(routineDiagnosticsHtml).not.toContain("<small>Health, recall, handoff</small>");
       expect(html).not.toContain("<span>Full diagnostic details</span>");
       const evidenceHealthCheckIndex = html.indexOf("data-dashboard-detail=\"health-check\"");
       const evidenceGovernanceIndex = html.indexOf("data-dashboard-detail=\"governance-hub\"");
@@ -5006,7 +5014,7 @@ describe("observability dashboard", () => {
     }
   });
 
-  it("adds a read-only Context Pack Review panel for project handoff readiness", async () => {
+  it("indexes routine Context Pack Review handoff readiness in diagnostics", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -5138,19 +5146,15 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Context Pack Review");
-      expect(html).toContain("<details class=\"panel context-pack-review\" data-dashboard-detail=\"context-pack-review\" data-context-pack-state=\"ready\" aria-label=\"Context Pack Review\">");
+      expect(html).toContain("<details class=\"panel routine-diagnostics\" data-dashboard-detail=\"routine-diagnostics\" aria-label=\"Routine Diagnostics\">");
+      expect(html).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics:index\" data-routine-diagnostics-reference>");
+      expect(html).toContain("data-dashboard-detail=\"context-pack-review\"");
+      expect(html).toContain("data-action-board-target=\"context-pack-review\"");
+      expect(html).toContain("<code>context_pack_review</code>");
+      expect(html).toContain("aria-label=\"Context Pack Review: Ready handoff context. Full report is available in /api/dashboard.context_pack_review.\"");
+      expect(html).not.toContain("<details class=\"panel context-pack-review\" data-dashboard-detail=\"context-pack-review\" data-context-pack-state=\"ready\" aria-label=\"Context Pack Review\">");
       expect(html).not.toContain("<details open class=\"panel context-pack-review\"");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary context-pack-review-fold\">");
-      expect(html).toContain("<span>Context Pack Review</span>");
-      expect(html).toContain("<small>Ready handoff context</small>");
-      const contextPackPanelStart = html.indexOf("<details class=\"panel context-pack-review\" data-dashboard-detail=\"context-pack-review\" data-context-pack-state=\"ready\" aria-label=\"Context Pack Review\">");
-      const contextPackBodyStart = html.indexOf("<div class=\"context-pack-review-body\">", contextPackPanelStart);
-      const contextPackSummaryHtml = html.slice(contextPackPanelStart, contextPackBodyStart);
-      const contextPackBodyHtml = html.slice(contextPackBodyStart);
-      expect(contextPackSummaryHtml).not.toContain("context-pack-readiness");
-      expect(contextPackSummaryHtml).not.toContain("6/6 checks");
-      expect(contextPackSummaryHtml).not.toContain("3 evidence items");
-      expect(contextPackSummaryHtml).not.toContain("Capture action visible");
+      expect(html).not.toContain("<summary class=\"dashboard-fold-summary context-pack-review-fold\">");
       expect(html).toContain("<details class=\"dashboard-work-lanes-quiet\" data-dashboard-detail=\"dashboard-work-lanes-background\">");
       expect(html).toContain("<span>Background Lanes</span>");
       expect(html).toContain("<small>Quiet lanes ready</small>");
@@ -5159,45 +5163,37 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Ready handoff context</strong>");
       expect(html).toContain("<em>Open handoff review</em>");
       expect(html).not.toContain("<small>ready | all checks passed | 1 decision | 1 thread | 1 risk</small>");
-      expect(contextPackBodyHtml).toContain("<div class=\"context-pack-readiness\" aria-label=\"Context Pack readiness\">");
-      expect(contextPackBodyHtml).toContain("<span class=\"context-pack-chip good\">Ready</span>");
-      expect(contextPackBodyHtml).toContain("<span class=\"context-pack-chip good\">6/6 checks</span>");
-      expect(contextPackBodyHtml).toContain("<span class=\"context-pack-chip info\">3 evidence items</span>");
-      expect(contextPackBodyHtml).toContain("<span class=\"context-pack-chip good\">Capture action visible</span>");
-      expect(html).toContain("<div class=\"context-pack-review-body\">");
-      expect(html).toContain("data-context-pack-brief");
-      expect(html).toContain("<h4>Handoff readiness</h4>");
-      expect(html).toContain("Ready to hand off: all checks passed.");
-      expect(html).toContain("Quality checks passed.");
+      expect(html).not.toContain("<div class=\"context-pack-readiness\" aria-label=\"Context Pack readiness\">");
+      expect(html).not.toContain("<span class=\"context-pack-chip good\">Ready</span>");
+      expect(html).not.toContain("<span class=\"context-pack-chip good\">6/6 checks</span>");
+      expect(html).not.toContain("<span class=\"context-pack-chip info\">3 evidence items</span>");
+      expect(html).not.toContain("<span class=\"context-pack-chip good\">Capture action visible</span>");
+      expect(html).not.toContain("<div class=\"context-pack-review-body\">");
+      expect(html).not.toContain("data-context-pack-brief");
+      expect(html).not.toContain("<h4>Handoff readiness</h4>");
+      expect(html).not.toContain("Ready to hand off: all checks passed.");
+      expect(html).not.toContain("Quality checks passed.");
       expect(html).not.toContain("Quality checks: 6 passed | 0 review.");
-      expect(html).toContain("Evidence available: 1 decision | 1 thread | 1 risk.");
-      expect(html).toContain("Capture action: <code>moryn capture session --project-id moryn --agent &lt;agent&gt; --summary &lt;summary&gt;</code>.");
-      expect(html).toContain("agent_handoff");
-      expect(html).toContain("Read-only");
-      expect(html).toContain("<details class=\"context-pack-checks-fold\" data-dashboard-detail=\"context-pack-checks\">");
-      expect(html).toContain("<span>Quality Checks</span>");
-      expect(html).toContain("<small>All quality checks passed</small>");
+      expect(html).not.toContain("Evidence available: 1 decision | 1 thread | 1 risk.");
+      expect(html).not.toContain("Capture action: <code>moryn capture session --project-id moryn --agent &lt;agent&gt; --summary &lt;summary&gt;</code>.");
+      expect(html).not.toContain("<details class=\"context-pack-checks-fold\" data-dashboard-detail=\"context-pack-checks\">");
+      expect(html).not.toContain("<span>Quality Checks</span>");
+      expect(html).not.toContain("<small>All quality checks passed</small>");
       expect(html).not.toContain("<small>6 passed | 0 review</small>");
-      expect(html).toContain("<ul class=\"context-pack-checks\">");
-      expect(html).toContain("data-dashboard-detail=\"context-pack-evidence\"");
-      const contextEvidenceStart = html.indexOf("<details class=\"context-pack-evidence\" data-dashboard-detail=\"context-pack-evidence\">");
-      const contextEvidenceBody = html.indexOf("<div class=\"context-pack-grid\">", contextEvidenceStart);
-      const contextEvidenceSummary = html.slice(contextEvidenceStart, contextEvidenceBody);
-      expect(contextEvidenceStart).toBeGreaterThan(-1);
-      expect(contextEvidenceSummary).toContain("<span>Context Evidence</span>");
-      expect(contextEvidenceSummary).toContain("<small>Handoff evidence available</small>");
-      expect(contextEvidenceSummary).not.toContain("<small>1 decision | 1 thread | 1 risk</small>");
-      expect(html).not.toContain("<details open data-dashboard-detail=\"context-pack-evidence\"");
-      expect(html).toContain("Dashboard should review context pack readiness.");
-      expect(html).toContain("Codex finished handoff review implementation.");
-      expect(html).toContain("Do not make dashboard context review mutate memory.");
-      expect(html).toContain("next.actions_by_id.capture_session");
+      expect(html).not.toContain("<ul class=\"context-pack-checks\">");
+      expect(html).not.toContain("data-dashboard-detail=\"context-pack-evidence\"");
+      expect(html).not.toContain("<span>Context Evidence</span>");
+      expect(html).not.toContain("<small>Handoff evidence available</small>");
+      expect(html).not.toContain("<small>1 decision | 1 thread | 1 risk</small>");
+      expect(html).not.toContain("Dashboard should review context pack readiness.");
+      expect(html).not.toContain("Codex finished handoff review implementation.");
+      expect(html).not.toContain("Do not make dashboard context review mutate memory.");
       expect(html).not.toContain("data-context-pack-approve");
       expect(html).not.toContain("data-dashboard-action-id=\"context_pack");
     });
   });
 
-  it("summarizes empty Context Evidence without zero-value counts", async () => {
+  it("indexes empty Context Pack Review without zero-value evidence rows", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -5213,19 +5209,22 @@ describe("observability dashboard", () => {
       expect(data.context_pack_review.handoff_pack?.recent_decisions).toHaveLength(0);
       expect(data.context_pack_review.handoff_pack?.open_threads).toHaveLength(0);
       expect(data.context_pack_review.handoff_pack?.risks).toHaveLength(0);
-      expect(html).toContain("<small>Ready handoff context | no handoff evidence</small>");
+      expect(html).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics:index\" data-routine-diagnostics-reference>");
+      expect(html).toContain("data-dashboard-detail=\"context-pack-review\"");
+      expect(html).toContain("aria-label=\"Context Pack Review: Ready handoff context | no handoff evidence. Full report is available in /api/dashboard.context_pack_review.\"");
+      expect(html).not.toContain("<small>Ready handoff context | no handoff evidence</small>");
       expect(html).not.toContain("<small>ready | all checks passed | no handoff evidence</small>");
-      expect(html).toContain("data-context-pack-brief");
-      expect(html).toContain("Evidence available: No handoff evidence.");
+      expect(html).not.toContain("data-context-pack-brief");
+      expect(html).not.toContain("Evidence available: No handoff evidence.");
       expect(html).not.toContain("<small>ready | all checks passed | 0 decisions | 0 threads | 0 risks</small>");
-      expect(html).toContain("data-dashboard-detail=\"context-pack-evidence\"");
-      expect(html).toContain("<span>Context Evidence</span>");
-      expect(html).toContain("<small>No handoff evidence</small>");
+      expect(html).not.toContain("data-dashboard-detail=\"context-pack-evidence\"");
+      expect(html).not.toContain("<span>Context Evidence</span>");
+      expect(html).not.toContain("<small>No handoff evidence</small>");
       expect(html).not.toContain("<small>0 decisions | 0 threads | 0 risks</small>");
-      expect(html).toContain("<h3>Recent Decisions</h3>");
-      expect(html).toContain("<h3>Open Threads</h3>");
-      expect(html).toContain("<h3>Risks</h3>");
-      expect(html).toContain("<div class=\"empty-state\">None in this snapshot.</div>");
+      expect(html).not.toContain("<h3>Recent Decisions</h3>");
+      expect(html).not.toContain("<h3>Open Threads</h3>");
+      expect(html).not.toContain("<h3>Risks</h3>");
+      expect(html).not.toContain("<div class=\"empty-state\">None in this snapshot.</div>");
     });
   });
 
@@ -5277,10 +5276,12 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Context Pack Review");
-      expect(html).toContain("Unavailable");
-      expect(html).toContain("Open the dashboard with --project-id or --project");
-      expect(html).toContain("<details class=\"panel context-pack-review\" data-dashboard-detail=\"context-pack-review\" data-context-pack-state=\"unavailable\" aria-label=\"Context Pack Review\">");
-      const contextPackSection = html.match(/<details class="panel context-pack-review" data-dashboard-detail="context-pack-review"[\s\S]*?<\/details>/)?.[0] ?? "";
+      expect(html).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics:index\" data-routine-diagnostics-reference>");
+      expect(html).toContain("data-dashboard-detail=\"context-pack-review\"");
+      expect(html).toContain("aria-label=\"Context Pack Review: unavailable. Full report is available in /api/dashboard.context_pack_review.\"");
+      expect(html).not.toContain("<div class=\"empty-state\">Open the dashboard with --project-id or --project to review a project context pack.</div>");
+      expect(html).not.toContain("<details class=\"panel context-pack-review\" data-dashboard-detail=\"context-pack-review\" data-context-pack-state=\"unavailable\" aria-label=\"Context Pack Review\">");
+      const contextPackSection = html.match(/data-dashboard-detail="context-pack-review"[\s\S]*?<\/button>/)?.[0] ?? "";
       expect(contextPackSection).not.toContain(projectText);
     });
   });
