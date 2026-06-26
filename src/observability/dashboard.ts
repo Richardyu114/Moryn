@@ -5259,7 +5259,7 @@ function recordIndexSummary(record: DashboardRecordSummary): string {
 }
 
 function recordIndexAccessibleSummary(record: DashboardRecordSummary): string {
-  return `Record Index: ${titleCase(record.kind)} ${record.type} from ${humanSourceLabel(record.source)} ${recordLabel(record.id)}`;
+  return `Record details: ${titleCase(record.kind)} ${record.type} from ${humanSourceLabel(record.source)} ${recordLabel(record.id)}`;
 }
 
 function eventsTimeline(events: DashboardEventSummary[]): string {

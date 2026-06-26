@@ -830,8 +830,10 @@ health signals`, `Raw Store Reference` opens with `Optional raw records`, and
 only the first ten rows each and summarize overflow as `/api/dashboard`
 evidence. `Record Index` record rows use short record-id summaries and a
 `Details` hint in their folded row instead of raw record text or machine type
-names, while the accessible label and table columns keep kind, type, source, and
-record-id context. Expanded bodies still keep agent activity, record quality,
+names, while each row's accessible label starts with `Record details` and keeps
+kind, type, source, and record-id context. This leaves `Record Index` as the
+single child-panel title instead of repeating it for every raw record row.
+Expanded bodies still keep agent activity, record quality,
 records, events, and sync detail inspectable.
 
 Collapsed dashboard summaries wrap their title and count labels on narrow
