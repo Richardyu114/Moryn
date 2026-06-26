@@ -701,8 +701,14 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Governance Hub</span>");
       expect(html).not.toContain("<small>Read-only governance checks</small>");
       expect(html).not.toContain("<small>1 safe check</small>");
+      const evidenceReviewGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-review\" data-dashboard-detail=\"evidence-review-evidence\">");
+      const evidenceBackgroundGroupIndex = html.indexOf("<details class=\"evidence-library-group evidence-library-background\" data-dashboard-detail=\"evidence-background-evidence\">");
+      const governanceHubIndex = html.indexOf("data-dashboard-detail=\"governance-hub\"");
       expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
-      expect(html.indexOf("data-dashboard-detail=\"evidence-library\"")).toBeLessThan(html.indexOf("data-dashboard-detail=\"governance-hub\""));
+      expect(html.indexOf("data-dashboard-detail=\"evidence-library\"")).toBeLessThan(governanceHubIndex);
+      expect(governanceHubIndex).toBeGreaterThan(evidenceBackgroundGroupIndex);
+      const reviewHtml = evidenceReviewGroupIndex === -1 ? "" : html.slice(evidenceReviewGroupIndex, evidenceBackgroundGroupIndex);
+      expect(reviewHtml).not.toContain("data-dashboard-detail=\"governance-hub\"");
       expect(html).not.toContain("0 need confirmation");
       expect(html).not.toContain("0 private hidden");
       expect(html).not.toContain("<span>0 safe checks</span>");

@@ -416,11 +416,12 @@ cards are not repeated as Governance Hub confirmation rows; the hub remains a
 background governance index instead of a second approval surface.
 
 Governance items render as compact expandable decision rows. When any item
-requires user confirmation, Governance Hub stays directly visible. When it only
-contains safe read-only inspections, the whole hub is collapsed behind a compact
-summary whose row reads `Reference checks` instead of repeating a safe-check
-count. Safe read-only inspections are grouped under a collapsed `Reference
-Checks` row whose summary reads `Read-only, no writes`, while keeping the stable
+requires user confirmation, Governance Hub stays in the Review Notes route.
+When it only contains safe read-only inspections, Governance Hub moves to the
+background Audit route and is collapsed behind a compact summary whose row reads
+`Reference checks` instead of repeating a safe-check count. Safe read-only
+inspections are grouped under a collapsed `Reference Checks` row whose summary
+reads `Read-only, no writes`, while keeping the stable
 `governance-safe-inspections` route for local navigation and tests. Expanding it
 still shows the concrete safe-check count plus compact inspection rows with
 readable source labels, title, and read-only next step.
@@ -793,10 +794,10 @@ with `Checks ready` so the folded row stays compact, while the accessible
 summary keeps `Healthy checks and handoff readiness` for screen readers and
 audit tooling. Expanding it shows lightweight Health Check, Recall Eval, and
 Context Pack Review summary rows first; the full reports stay in the nested
-`Diagnostic Reports` section. Findings-oriented panels such as Dogfood
-Notes, Governance Hub, or non-routine Health/Recall/Context checks are grouped
-first under the stable `Review Notes` group, whose visible row reads
-`Review Notes` with `Reference notes`.
+`Diagnostic Reports` section. Findings-oriented panels such as Dogfood Notes,
+Governance Hub items that require user confirmation, or non-routine
+Health/Recall/Context checks are grouped first under the stable `Review Notes`
+group, whose visible row reads `Review Notes` with `Reference notes`.
 `Review Notes` is collapsed by default inside `Evidence Library`, so
 read-only findings do not look like pending approval work or expose
 child panel counts. Routine Diagnostics and Audit Trail are

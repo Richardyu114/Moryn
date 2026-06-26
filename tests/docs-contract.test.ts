@@ -130,6 +130,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "while the accessible summary keeps `Healthy checks and handoff readiness`");
     expectText(dashboard, "Expanding it shows lightweight Health Check, Recall Eval, and Context Pack Review summary rows first");
     expectText(dashboard, "the full reports stay in the nested `Diagnostic Reports` section");
+    expectText(dashboard, "Governance Hub items that require user confirmation");
     expectText(dashboard, "grouped first under the stable `Review Notes` group");
     expectText(dashboard, "visible row reads `Review Notes` with `Reference notes`");
     expectText(dashboard, "`Review Notes` is collapsed by default inside `Evidence Library`");
@@ -290,6 +291,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of rendering duplicate footer text");
     expectText(dashboard, "The visible Evidence Library title is `Reference Library`, while the stable route remains `data-dashboard-detail=\"evidence-library\"`");
     expectText(dashboard, "row reads `Reference checks`");
+    expectText(dashboard, "When it only contains safe read-only inspections, Governance Hub moves to the background Audit route");
     expectText(dashboard, "instead of repeating a safe-check count");
     expectText(dashboard, "`Reference Checks` row whose summary reads `Read-only, no writes`");
     expectText(dashboard, "while keeping the stable `governance-safe-inspections` route");
