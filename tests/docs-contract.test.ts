@@ -92,9 +92,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "When warning or critical signals exist, the Work Lanes keep only those blocking lanes visible on the first screen");
     expectText(dashboard, "fold non-blocking routes under `Background Lanes`");
     expectText(dashboard, "a Health warning keeps `Health` visible while `Decide`, `Context`, and `Evidence` stay available as quiet background lanes");
-    expectText(dashboard, "In all-clear states, the row keeps the read-only `Evidence` lane visible and folds quiet `Decide`, `Context`, and `Health` lanes under `Background Lanes`");
+    expectText(dashboard, "In all-clear states, the row folds every lane under `Background Lanes`, including the read-only `Evidence` lane");
     expectText(dashboard, "`Background Lanes` opens with `Quiet lanes ready`");
-    expectText(dashboard, "while the accessible summary keeps the lane names, such as `Decide, Context, and Health are quiet`");
+    expectText(dashboard, "while the accessible summary keeps the lane names, such as `Decide, Context, Health, and Evidence are quiet`");
     expectText(dashboard, "When `Pending Decisions` is rendered, Work Lanes keep the active decision lane visible and skip `Background Lanes` and `dashboard-work-lanes-background` in the HTML");
     expectText(dashboard, "the same routes remain available through `/api/dashboard.action_board`, `Page Shortcuts`, and the underlying panels");
     expectText(dashboard, "`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail=\"action-board\"` route");

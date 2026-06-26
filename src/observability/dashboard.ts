@@ -3199,10 +3199,7 @@ function dashboardWorkLanes(
       severity: evidence.hasFindings ? "info" as const : "good" as const
     }
   ];
-  const hasBlockingLanes = lanes.some((lane) => lane.severity === "warning" || lane.severity === "critical");
-  const activeLanes = hasBlockingLanes
-    ? lanes.filter((lane) => lane.severity === "warning" || lane.severity === "critical")
-    : lanes.filter((lane) => lane.id === "evidence");
+  const activeLanes = lanes.filter((lane) => lane.severity === "warning" || lane.severity === "critical");
   const defaultLanes = activeLanes;
   const backgroundLanes = lanes.filter((lane) => !activeLanes.includes(lane));
   const backgroundLaneNames = backgroundLanes.map((lane) => lane.label);

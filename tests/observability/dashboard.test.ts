@@ -2273,22 +2273,22 @@ describe("observability dashboard", () => {
         expect(html).toContain("<span>1 safe check</span>");
         expect(html).toContain("<details class=\"dashboard-work-lanes-quiet\" data-dashboard-detail=\"dashboard-work-lanes-background\">");
         expect(html).toContain("<span>Background Lanes</span>");
-        expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-work-lanes-quiet-fold\" aria-label=\"Background Lanes: Decide, Context, and Health are quiet\">");
+        expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-work-lanes-quiet-fold\" aria-label=\"Background Lanes: Decide, Context, Health, and Evidence are quiet\">");
         expect(html).toContain("<small>Quiet lanes ready</small>");
-        expect(html).not.toContain("<small>Decide, Context, and Health are quiet</small>");
+        expect(html).not.toContain("<small>Decide, Context, Health, and Evidence are quiet</small>");
         const workLanesStart = html.indexOf("data-dashboard-work-lanes");
         const workLanesEnd = html.indexOf("data-action-board-nav", workLanesStart);
         const workLanesHtml = html.slice(workLanesStart, workLanesEnd);
         const activeWorkLanesHtml = workLanesHtml.slice(0, workLanesHtml.indexOf("data-dashboard-detail=\"dashboard-work-lanes-background\""));
         const quietWorkLanesHtml = workLanesHtml.slice(workLanesHtml.indexOf("data-dashboard-detail=\"dashboard-work-lanes-background\""));
-        expect(activeWorkLanesHtml).toContain("data-dashboard-work-lane=\"evidence\"");
+        expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"evidence\"");
         expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"decide\"");
         expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"context\"");
         expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"health\"");
         expect(quietWorkLanesHtml).toContain("data-dashboard-work-lane-quiet=\"decide\"");
         expect(quietWorkLanesHtml).toContain("data-dashboard-work-lane-quiet=\"context\"");
         expect(quietWorkLanesHtml).toContain("data-dashboard-work-lane-quiet=\"health\"");
-        expect(quietWorkLanesHtml).not.toContain("data-dashboard-work-lane-quiet=\"evidence\"");
+        expect(quietWorkLanesHtml).toContain("data-dashboard-work-lane-quiet=\"evidence\"");
         expect(JSON.stringify(data.recall_eval)).not.toContain("Private");
       } finally {
         await rm(remoteRoot, { recursive: true, force: true });
