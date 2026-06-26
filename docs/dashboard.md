@@ -640,8 +640,9 @@ Store Signals keeps `Sync Action` in the foreground, moves `Sync Position`
 behind a collapsed `Sync details` fold, and folds Agent Activity, Record
 Quality, and Record Types under `Telemetry Context`.
 When sync is the only active warning and no explicit approval is waiting, the
-promoted `Store Signals` panel is default-open and moves directly after Work
-Lanes so the current task is not buried under routine reference material.
+promoted `Store Signals` panel is default-open and moves directly after the
+Overview so the current task is not repeated by an extra navigation row or
+buried under routine reference material.
 `Telemetry Context` remains collapsed inside it. The Reference Library still
 keeps the Audit route and raw evidence, but it does not render a second
 `store-signals` panel.
@@ -685,9 +686,10 @@ HTML; the same routes remain available through `/api/dashboard.action_board`,
 Sync-only pending warnings do not open the `Action Signals` / Needs Attention
 review path. The warning remains in `/api/dashboard.attention_items` for agents,
 while the visible HTML routes the user through `Inspect sync`, Store Signals,
-and the Sync shortcut. When sync is the only active warning, Work Lanes skip
-`Background Lanes` so the promoted Store Signals panel stays adjacent to the
-current task.
+and the Sync shortcut. When sync is the only active warning, Work Lanes are
+skipped in the visible HTML so the Overview action lands directly on the
+promoted Store Signals panel. The same sync route remains in
+`/api/dashboard.action_board.items_by_id.sync` for agents and audit tooling.
 
 `Action Board` is rendered as `Page Shortcuts` in the UI while keeping the
 stable `data-dashboard-detail="action-board"` route: a secondary, collapsed

@@ -289,11 +289,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"context\"");
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"sync\"");
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
-      expect(html).toContain("<section class=\"dashboard-work-lanes\" data-dashboard-work-lanes aria-label=\"Dashboard Work Lanes\">");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-work-lane warning\" data-dashboard-work-lane=\"health\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
-      expect(html).toContain("<span>Health</span>");
-      expect(html).toContain("<strong>Sync Pending</strong>");
-      expect(html).toContain("<em>Inspect sync</em>");
+      expect(html).not.toContain("<section class=\"dashboard-work-lanes\" data-dashboard-work-lanes aria-label=\"Dashboard Work Lanes\">");
+      expect(html).not.toContain("data-dashboard-work-lane=\"health\"");
+      expect(html).not.toContain("<span>Health</span>\n          <strong>Sync Pending</strong>");
       expect(html).not.toContain("<small>Review sync changes</small>\n      <em class=\"action-board-next\">Review sync changes</em>");
       expect(html).not.toContain("<em class=\"action-board-next\">Review sync changes</em>");
       expect(html).not.toContain("<span class=\"attention-next-action\" data-attention-next-action>Push sync</span>");
@@ -347,9 +345,11 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Store Signals</span>\n        <small>Operational health signals</small>");
       expect(html).not.toContain("<details open class=\"store-telemetry-context\" data-dashboard-detail=\"store-telemetry-context\">");
       const storeSignalsStart = html.indexOf("<details open id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
-      expect(workLanesStart).toBeGreaterThan(-1);
+      const overviewStart = html.indexOf("data-dashboard-overview");
+      expect(workLanesStart).toBe(-1);
+      expect(overviewStart).toBeGreaterThan(-1);
       expect(evidenceLibraryStart).toBeGreaterThan(-1);
-      expect(storeSignalsStart).toBeGreaterThan(workLanesStart);
+      expect(storeSignalsStart).toBeGreaterThan(overviewStart);
       expect(storeSignalsStart).toBeLessThan(evidenceLibraryStart);
       expect(html.match(/data-dashboard-detail="store-signals"/g)?.length).toBe(1);
       const storeSignalsEnd = evidenceLibraryStart;

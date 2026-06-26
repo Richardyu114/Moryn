@@ -6107,6 +6107,7 @@ function renderDashboardBody(data: DashboardData): string {
   const shortcutPanel = hasPendingDecisions ? "" : actionBoard(data.action_board);
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
+  const shouldRenderWorkLanes = !shouldPromoteStoreSignals;
   const promotedStoreSignalsPanel = shouldPromoteStoreSignals ? storeSignalsPanel(data, { open: true }) : "";
   return `
     <header>
@@ -6124,7 +6125,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus })}
 
-    ${dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions && !shouldPromoteStoreSignals })}
+    ${shouldRenderWorkLanes ? dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions }) : ""}
 
     ${promotedStoreSignalsPanel}
 

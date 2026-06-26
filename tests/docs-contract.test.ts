@@ -86,7 +86,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The brief shows the suggested read-only command, remote/branch context, and ahead/behind counts without adding an Approve or Apply control");
     expectText(dashboard, "Store Signals keeps `Sync Action` in the foreground, moves `Sync Position` behind a collapsed `Sync details` fold");
     expectText(dashboard, "folds Agent Activity, Record Quality, and Record Types under `Telemetry Context`");
-    expectText(dashboard, "When sync is the only active warning and no explicit approval is waiting, the promoted `Store Signals` panel is default-open and moves directly after Work Lanes");
+    expectText(dashboard, "When sync is the only active warning and no explicit approval is waiting, the promoted `Store Signals` panel is default-open and moves directly after the Overview");
     expectText(dashboard, "`Telemetry Context` remains collapsed inside it");
     expectText(dashboard, "The Reference Library still keeps the Audit route and raw evidence, but it does not render a second `store-signals` panel");
     expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
@@ -301,7 +301,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
     expectText(dashboard, "Sync pending states skip the extra status line because the header badge, Overview or Health lane, Store Signals, and Sync shortcut already show the same pending state");
     expectText(dashboard, "Sync-only pending warnings do not open the `Action Signals` / Needs Attention review path");
-    expectText(dashboard, "When sync is the only active warning, Work Lanes skip `Background Lanes` so the promoted Store Signals panel stays adjacent to the current task");
+    expectText(dashboard, "When sync is the only active warning, Work Lanes are skipped in the visible HTML so the Overview action lands directly on the promoted Store Signals panel");
+    expectText(dashboard, "The same sync route remains in `/api/dashboard.action_board.items_by_id.sync`");
     expectText(dashboard, "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open info checks`");
     expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut also reads `Open info checks` instead of `Review warnings`");
     expectText(dashboard, "The visible panel is a route summary grouped by owning confirmation surface");
