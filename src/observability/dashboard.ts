@@ -5606,10 +5606,16 @@ function syncActionBrief(data: DashboardData): string {
 
 function syncPositionFocus(data: DashboardData): string {
   return `
-    <section class="signal-card sync-position-focus" data-dashboard-sync-position-focus>
-      <h2>Sync Position</h2>
-      ${syncRail(data.charts.sync_position)}
-    </section>
+    <details class="store-sync-details" data-dashboard-detail="store-sync-details">
+      <summary class="dashboard-fold-summary">
+        <span>Sync details</span>
+        <small>Position rail</small>
+      </summary>
+      <section class="signal-card sync-position-focus" data-dashboard-sync-position-focus>
+        <h2>Sync Position</h2>
+        ${syncRail(data.charts.sync_position)}
+      </section>
+    </details>
   `;
 }
 
@@ -8457,6 +8463,14 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .memory-lifecycle[open] > summary, .capture-policy-audit[open] > summary, .store-signals[open] > summary { margin-bottom: 12px; }
     .store-signals .visual-grid { margin-top: 0; }
     .sync-position-focus { margin-bottom: 10px; }
+    .store-sync-details {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin-bottom: 10px;
+      background: var(--surface-2);
+    }
+    .store-sync-details[open] > summary { margin-bottom: 8px; }
     .store-telemetry-context {
       border-top: 1px solid var(--hairline);
       padding-top: 8px;
