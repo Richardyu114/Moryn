@@ -1046,6 +1046,8 @@ present, the folded row keeps the useful exception as `Ready handoff context |
 no handoff evidence`. Expanding it shows readiness chips, the current goal,
 read-only boundary, quality checks, evidence paths, and context evidence. If
 checks need review, the panel can open by default so the problem stays visible.
+When the quality gate is ready, the ready handoff brief says `Quality checks
+passed.` instead of repeating `6 passed | 0 review`.
 Inside the expanded panel, the `Quality Checks` child row reads
 `All quality checks passed` when there is no review work instead of repeating
 `passed | 0 review`; the detailed check list still carries each check, source,

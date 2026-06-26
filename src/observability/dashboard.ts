@@ -4636,20 +4636,26 @@ function contextPackReadinessSentence(gate: DashboardContextPackReviewQualityGat
   return `Review before handoff: ${reviewItems.length > 0 ? reviewItems.join(" | ") : "quality gate needs review"}.`;
 }
 
+function contextPackQualityBrief(gate: DashboardContextPackReviewQualityGate): string {
+  const checks = gate.checks;
+  const passedChecks = checks.filter((check) => check.status === "pass").length;
+  const needsReview = checks.length - passedChecks;
+  return needsReview === 0
+    ? "Quality checks passed."
+    : `Quality checks: ${passedChecks} passed | ${needsReview} review.`;
+}
+
 function contextPackReviewBrief(review: DashboardContextPackReview): string {
   const pack = review.handoff_pack;
   if (!pack) return "";
   const gate = pack.quality_gate;
-  const checks = gate.checks;
-  const passedChecks = checks.filter((check) => check.status === "pass").length;
-  const needsReview = checks.length - passedChecks;
   const captureCommand = pack.next_actions.find((action) => action.id === "capture_session")?.command ?? "missing";
   return `
         <div class="context-pack-brief" data-context-pack-brief>
           <h4>Handoff readiness</h4>
           <ul>
             <li>${escapeHtml(contextPackReadinessSentence(gate))}</li>
-            <li>Quality checks: ${escapeHtml(passedChecks)} passed | ${escapeHtml(needsReview)} review.</li>
+            <li>${escapeHtml(contextPackQualityBrief(gate))}</li>
             <li>Evidence available: ${escapeHtml(contextPackEvidenceSummary(pack))}.</li>
             <li>Capture action: <code>${escapeHtml(captureCommand)}</code>.</li>
           </ul>

@@ -319,6 +319,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "folded row reads `Ready handoff context`");
     expectText(dashboard, "instead of repeating the quality and evidence counts");
     expectText(dashboard, "instead of repeating the quality and evidence counts or readiness chips");
+    expectText(dashboard, "ready handoff brief says `Quality checks passed.` instead of repeating `6 passed | 0 review`");
     expectText(dashboard, "Ready handoff context | no handoff evidence");
     expectText(dashboard, "Expanding it shows readiness chips");
     expectText(dashboard, "`Quality Checks` child row reads `All quality checks passed`");

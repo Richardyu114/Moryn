@@ -4758,7 +4758,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-context-pack-brief");
       expect(html).toContain("<h4>Handoff readiness</h4>");
       expect(html).toContain("Ready to hand off: all checks passed.");
-      expect(html).toContain("Quality checks: 6 passed | 0 review.");
+      expect(html).toContain("Quality checks passed.");
+      expect(html).not.toContain("Quality checks: 6 passed | 0 review.");
       expect(html).toContain("Evidence available: 1 decision | 1 thread | 1 risk.");
       expect(html).toContain("Capture action: <code>moryn capture session --project-id moryn --agent &lt;agent&gt; --summary &lt;summary&gt;</code>.");
       expect(html).toContain("agent_handoff");
