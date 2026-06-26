@@ -141,9 +141,11 @@ Group id, record ids, rules, and noise evidence stay behind an `Evidence index`
 fold inside `Item review`. `Item review` opens to the evidence index and
 collapsed candidate rows instead of raw group internals.
 
-Group cards and candidate detail rows start with a compact `Confirm preview`
-chip row so the user can see the candidate count or review reason plus the
-append-only approve/reject boundary before reading trace details.
+Group cards and candidate detail rows start with a compact `Approval brief`
+using the same `Change`, `Scope`, `Guard`, and `Writes` rows as Review Queue.
+The brief shows the candidate count or review reason, says the server rechecks
+active candidate records before writing, and keeps the append-only
+approve/reject boundary visible before trace details.
 
 The same card still shows:
 

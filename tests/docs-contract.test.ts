@@ -287,8 +287,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Group card faces use `Review N captures` plus `Approve or reject this group.` instead of rendering capture text on the first row");
     expectText(dashboard, "Group id, record ids, rules, and noise evidence stay behind an `Evidence index` fold inside `Item review`");
     expectText(dashboard, "`Item review` opens to the evidence index and collapsed candidate rows instead of raw group internals");
-    expectText(dashboard, "Group cards and candidate detail rows start with a compact `Confirm preview` chip row");
-    expectText(dashboard, "candidate count or review reason plus the append-only approve/reject boundary");
+    expectText(dashboard, "Group cards and candidate detail rows start with a compact `Approval brief`");
+    expectText(dashboard, "using the same `Change`, `Scope`, `Guard`, and `Writes` rows as Review Queue");
+    expectText(dashboard, "server rechecks active candidate records before writing");
+    expectText(dashboard, "append-only approve/reject boundary visible before trace details");
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
     expectText(dashboard, "Sync pending states skip the extra status line because the header badge, Overview or Health lane, Store Signals, and Sync shortcut already show the same pending state");
     expectText(dashboard, "Sync-only pending warnings do not open the `Action Signals` / Needs Attention review path");

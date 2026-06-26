@@ -5278,25 +5278,28 @@ function captureInboxDecisionBrief(item: DashboardCaptureInboxItem): string {
   const reason = item.provenance_reason ?? "Candidate memory is waiting for review.";
   return `
     <div class="capture-inbox-brief" data-capture-inbox-brief>
-      <h4>Confirm preview</h4>
-      <div class="capture-inbox-brief-chips" aria-label="Confirm preview">
-        <span>${escapeHtml(reason)}</span>
-        <span>Approve appends memory</span>
-        <span>Reject appends archive</span>
-      </div>
+      <h4>Approval brief</h4>
+      <dl class="capture-inbox-brief-list" aria-label="Approval brief">
+        <div><dt>Change</dt><dd>Review 1 candidate</dd></div>
+        <div><dt>Scope</dt><dd>${escapeHtml(reason)}</dd></div>
+        <div><dt>Guard</dt><dd>Server rechecks active candidate before writing</dd></div>
+        <div><dt>Writes</dt><dd>Approve appends memory; Reject appends archive</dd></div>
+      </dl>
     </div>
   `;
 }
 
 function captureInboxGroupBrief(group: DashboardCaptureInboxGroup): string {
+  const scope = group.noise.level === "likely_noise" ? "Likely noise" : "Normal review";
   return `
     <div class="capture-inbox-brief" data-capture-inbox-group-brief>
-      <h4>Confirm preview</h4>
-      <div class="capture-inbox-brief-chips" aria-label="Confirm preview">
-        <span>${escapeHtml(pluralize(group.total, "candidate"))}</span>
-        <span>Approve Group appends memory</span>
-        <span>Reject Group appends archive</span>
-      </div>
+      <h4>Approval brief</h4>
+      <dl class="capture-inbox-brief-list" aria-label="Approval brief">
+        <div><dt>Change</dt><dd>${escapeHtml(`Review ${pluralize(group.total, "candidate")}`)}</dd></div>
+        <div><dt>Scope</dt><dd>${escapeHtml(scope)}</dd></div>
+        <div><dt>Guard</dt><dd>Server rechecks selected group records before writing</dd></div>
+        <div><dt>Writes</dt><dd>Approve Group appends memory; Reject Group appends archive</dd></div>
+      </dl>
     </div>
   `;
 }
@@ -8508,28 +8511,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .capture-policy-routing-brief code {
       overflow-wrap: anywhere;
     }
-    .capture-inbox-brief-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .capture-inbox-brief-chips span {
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 2px 7px;
-      background: var(--surface-2);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 720;
-      overflow-wrap: anywhere;
-    }
-    .maintenance-brief-list {
+    .maintenance-brief-list,
+    .capture-inbox-brief-list {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 7px;
       margin: 0;
     }
-    .maintenance-brief-list div {
+    .maintenance-brief-list div,
+    .capture-inbox-brief-list div {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr);
       gap: 6px;
@@ -8540,13 +8530,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding: 6px 7px;
       background: var(--surface-2);
     }
-    .maintenance-brief-list dt {
+    .maintenance-brief-list dt,
+    .capture-inbox-brief-list dt {
       color: var(--muted);
       font-size: 11.5px;
       font-weight: 760;
       text-transform: uppercase;
     }
-    .maintenance-brief-list dd {
+    .maintenance-brief-list dd,
+    .capture-inbox-brief-list dd {
       color: var(--ink);
       font-size: 12.5px;
       font-weight: 730;
