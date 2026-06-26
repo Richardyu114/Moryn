@@ -5644,13 +5644,21 @@ function storeTelemetryContext(data: DashboardData): string {
   `;
 }
 
+function storeSignalsSummary(data: DashboardData): string {
+  const syncLane = data.action_board.items_by_id.sync;
+  if (syncLane.value > 0 && (syncLane.severity === "warning" || syncLane.severity === "critical")) {
+    return "Sync action ready";
+  }
+  return "Operational health signals";
+}
+
 function storeSignalsPanel(data: DashboardData, options: { open?: boolean } = {}): string {
   const openAttribute = options.open ? " open" : "";
   return `
     <details${openAttribute} id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
       <summary class="dashboard-fold-summary">
         <span>Store Signals</span>
-        <small>Operational health signals</small>
+        <small>${escapeHtml(storeSignalsSummary(data))}</small>
       </summary>
       ${syncActionBrief(data)}
       ${syncPositionFocus(data)}

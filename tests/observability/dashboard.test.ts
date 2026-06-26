@@ -343,6 +343,8 @@ describe("observability dashboard", () => {
       const workLanesStart = html.indexOf("data-dashboard-work-lanes");
       const evidenceLibraryStart = html.indexOf("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
       expect(html).toContain("<details open id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\">\n        <span>Store Signals</span>\n        <small>Sync action ready</small>\n      </summary>");
+      expect(html).not.toContain("<span>Store Signals</span>\n        <small>Operational health signals</small>");
       expect(html).not.toContain("<details open class=\"store-telemetry-context\" data-dashboard-detail=\"store-telemetry-context\">");
       const storeSignalsStart = html.indexOf("<details open id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
       expect(workLanesStart).toBeGreaterThan(-1);

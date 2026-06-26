@@ -633,8 +633,9 @@ If sync is also pending, Pending Decisions still owns the Overview headline and
 primary action because it is the explicit confirmation path; sync remains visible
 through the health badge, Store Signals, and `/api/dashboard.dashboard_overview.cards`.
 When sync is the active warning, Store Signals opens with a compact `Sync Action`
-brief. The brief shows the suggested read-only command, remote/branch context,
-and ahead/behind counts without adding an Approve or Apply control.
+brief and its folded summary reads `Sync action ready`. The brief shows the
+suggested read-only command, remote/branch context, and ahead/behind counts
+without adding an Approve or Apply control.
 Store Signals keeps `Sync Action` in the foreground, moves `Sync Position`
 behind a collapsed `Sync details` fold, and folds Agent Activity, Record
 Quality, and Record Types under `Telemetry Context`.
