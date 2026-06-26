@@ -615,6 +615,8 @@ through the health badge, Store Signals, and `/api/dashboard.dashboard_overview.
 When sync is the active warning, Store Signals opens with a compact `Sync Action`
 brief. The brief shows the suggested read-only command, remote/branch context,
 and ahead/behind counts without adding an Approve or Apply control.
+Store Signals keeps `Sync Position` in the foreground and folds Agent Activity,
+Record Quality, and Record Types under `Telemetry Context`.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary

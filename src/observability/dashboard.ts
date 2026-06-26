@@ -5531,14 +5531,22 @@ function syncActionBrief(data: DashboardData): string {
   `;
 }
 
-function storeSignalsPanel(data: DashboardData): string {
+function syncPositionFocus(data: DashboardData): string {
   return `
-    <details id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
+    <section class="signal-card sync-position-focus" data-dashboard-sync-position-focus>
+      <h2>Sync Position</h2>
+      ${syncRail(data.charts.sync_position)}
+    </section>
+  `;
+}
+
+function storeTelemetryContext(data: DashboardData): string {
+  return `
+    <details class="store-telemetry-context" data-dashboard-detail="store-telemetry-context">
       <summary class="dashboard-fold-summary">
-        <span>Store Signals</span>
-        <small>Operational health signals</small>
+        <span>Telemetry Context</span>
+        <small>Agent and record signals</small>
       </summary>
-      ${syncActionBrief(data)}
       <section class="visual-grid">
         <div class="signal-card">
           <h2>Agent Activity</h2>
@@ -5552,11 +5560,21 @@ function storeSignalsPanel(data: DashboardData): string {
           <h2>Record Types</h2>
           ${recordTypeBars(data.charts.record_types)}
         </div>
-        <div class="signal-card">
-          <h2>Sync Position</h2>
-          ${syncRail(data.charts.sync_position)}
-        </div>
       </section>
+    </details>
+  `;
+}
+
+function storeSignalsPanel(data: DashboardData): string {
+  return `
+    <details id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
+      <summary class="dashboard-fold-summary">
+        <span>Store Signals</span>
+        <small>Operational health signals</small>
+      </summary>
+      ${syncActionBrief(data)}
+      ${syncPositionFocus(data)}
+      ${storeTelemetryContext(data)}
     </details>
   `;
 }
@@ -8291,6 +8309,12 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .memory-lifecycle[open] > summary, .capture-policy-audit[open] > summary, .store-signals[open] > summary { margin-bottom: 12px; }
     .store-signals .visual-grid { margin-top: 0; }
+    .sync-position-focus { margin-bottom: 10px; }
+    .store-telemetry-context {
+      border-top: 1px solid var(--hairline);
+      padding-top: 8px;
+    }
+    .store-telemetry-context[open] > summary { margin-bottom: 9px; }
     .signal-card {
       border: 1px solid var(--border);
       border-radius: 7px;
