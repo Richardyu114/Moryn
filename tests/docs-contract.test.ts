@@ -203,13 +203,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "does not add dashboard approval, archive, promote, apply, or background execution controls");
     expectText(dashboard, "`candidate_triage` groups active candidate records into `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`");
     expectText(dashboard, "`Candidate Triage` is grouped under `Review Notes` in the Evidence Library");
-    expectText(dashboard, "its folded row reads `Read-only candidate backlog` instead of repeating a candidate count");
-    expectText(dashboard, "Expanding the panel shows candidate and group counts plus read-only next steps");
+    expectText(dashboard, "its folded row reads `Review candidate backlog` instead of repeating a candidate count");
+    expectText(dashboard, "Expanding the panel shows candidate and group counts plus review-first next steps");
     expectText(dashboard, "shown-record counts stay in `/api/dashboard` and the nested `Record samples` summaries");
     expectText(dashboard, "Each candidate group keeps its next review surface behind a compact `Review path` fold");
     expectText(dashboard, "Folded `Review path` rows show only the next review label");
     expectText(dashboard, "the existing-control route stays in the accessible summary label and expanded fields");
     expectText(dashboard, "The expanded fold points to an existing control such as Capture Inbox, Memory Doctor, timeline, or recall");
+    expectText(dashboard, "states that review comes first and approval only happens through draft rows");
     expectText(dashboard, "Candidate group description text stays behind a collapsed `Group context` row");
     expectText(dashboard, "expanded groups lead with review path, audit boundary, and samples instead of prose");
     expectText(dashboard, "Candidate group folded rows show the review-path label, such as `Archive review` or `Inspection review`, instead of a record count");
@@ -242,7 +243,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`candidate_triage.groups_by_id.<group_id>.records_by_id.<record_id>` is a lightweight index");
     expectText(dashboard, "The top-level `candidate_triage.groups[]` list is summary-only");
     expectText(dashboard, "expanded group details, visible records, and record indexes live under `candidate_triage.groups_by_id.<group_id>`");
-    expectText(dashboard, "`Candidate Triage` stays read-only and does not add Approve, Archive, Promote, Apply, or background execution controls");
+    expectText(dashboard, "`Candidate Triage` keeps group review read-only and does not add Archive, Promote Selected, Apply, or background execution controls");
+    expectText(dashboard, "the only write control is the explicit draft-row `Approve Memory` path described above");
     expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");
     expectText(contracts, "`/api/dashboard` also returns `memory_doctor`, the same read-only report shape as `moryn memory doctor`");
     expectText(contracts, "`/api/dashboard` also returns `candidate_triage`, a read-only dashboard-derived grouping for active candidate records");

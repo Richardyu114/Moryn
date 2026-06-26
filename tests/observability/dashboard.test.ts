@@ -1062,7 +1062,7 @@ describe("observability dashboard", () => {
           label: "Archive review",
           existing_control: "Capture Inbox or Memory Doctor",
           guidance: "Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.",
-          write_boundary: "Candidate Triage is read-only"
+          write_boundary: "Review first; approve only through draft rows"
         }
       });
       expect(data.candidate_triage.groups_by_id.likely_noise.records[0]).toMatchObject({
@@ -1082,7 +1082,7 @@ describe("observability dashboard", () => {
           label: "Approval review",
           existing_control: "Capture Inbox",
           guidance: "Approve eligible Capture Inbox candidates only after checking provenance and record text.",
-          write_boundary: "Candidate Triage is read-only"
+          write_boundary: "Review first; approve only through draft rows"
         }
       });
       expect(data.candidate_triage.groups_by_id.promotable.promotion_drafts_by_id).toEqual({
@@ -1143,7 +1143,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<details open class=\"evidence-library-group evidence-library-review\"");
       expect(html).toContain("<details class=\"panel candidate-triage\" data-dashboard-detail=\"candidate-triage\" aria-label=\"Candidate Triage Queue\">");
       expect(html).toContain("<span>Candidate Triage</span>");
-      expect(html).toContain("<small>Read-only candidate backlog</small>");
+      expect(html).toContain("<small>Review candidate backlog</small>");
+      expect(html).not.toContain("<small>Read-only candidate backlog</small>");
       expect(html).not.toContain("<small>4 candidates grouped for review</small>");
       expect(html).toContain("<h2>Candidate Triage Queue</h2>");
       expect(html).toContain("<span>4 candidates</span>");
@@ -1186,7 +1187,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<div class=\"candidate-triage-handoff\" data-candidate-triage-handoff=\"likely_noise\">");
       expect(html).not.toContain("<h4>Review handoff</h4>");
       expect(html).toContain("<dt>Existing control</dt><dd>Capture Inbox or Memory Doctor</dd>");
-      expect(html).toContain("<dt>Write boundary</dt><dd>Candidate Triage is read-only</dd>");
+      expect(html).toContain("<dt>Write boundary</dt><dd>Review first; approve only through draft rows</dd>");
+      expect(html).not.toContain("Candidate Triage is read-only");
       expect(html).toContain("Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.");
       expect(html).toContain("<details class=\"candidate-triage-record-samples\" data-dashboard-detail=\"candidate-triage-records:likely_noise\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Record samples: Likely noise: 1 sample with trace commands\">");
@@ -1241,6 +1243,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Audit boundary</span>");
       expect(html).toContain("<small>Likely noise audit boundary</small>");
       expect(html).toContain("<small>Promotable candidates audit boundary</small>");
+      expect(html).toContain("<dt>Write boundary</dt><dd>Draft approve appends promotion events only</dd>");
+      expect(html).toContain("<dt>Confirmation</dt><dd>User approval required for promotion drafts</dd>");
+      expect(html).not.toContain("<dt>Write boundary</dt><dd>No memory writes</dd>");
+      expect(html).not.toContain("<dt>Confirmation</dt><dd>Inspection only</dd>");
       expect(html).not.toContain("<small>Read-only evidence and confirmation</small>");
       expect(html).toContain("<code>candidate_triage.groups_by_id.likely_noise</code>");
       expect(html).not.toContain("<dl class=\"candidate-triage-brief\">");
@@ -2536,7 +2542,8 @@ describe("observability dashboard", () => {
       expect(evidenceBriefHtml).not.toContain("Apply");
       const candidateTriageHtml = html.slice(candidateTriageIndex, evidenceBackgroundGroupIndex);
       expect(candidateTriageHtml).toContain("<span>Candidate Triage</span>");
-      expect(candidateTriageHtml).toContain("<small>Read-only candidate backlog</small>");
+      expect(candidateTriageHtml).toContain("<small>Review candidate backlog</small>");
+      expect(candidateTriageHtml).not.toContain("<small>Read-only candidate backlog</small>");
       expect(candidateTriageHtml).toContain("<span>Record samples</span>");
       expect(candidateTriageHtml).not.toContain("data-dashboard-action-id=\"candidate-triage");
       expect(candidateTriageHtml).not.toContain("Approve Triage");

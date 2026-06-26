@@ -418,7 +418,7 @@ export interface DashboardCandidateTriageReviewHandoff {
   label: string;
   existing_control: string;
   guidance: string;
-  write_boundary: "Candidate Triage is read-only";
+  write_boundary: "Review first; approve only through draft rows";
 }
 
 export interface DashboardCandidateTriageRecord {
@@ -2549,7 +2549,7 @@ function buildCandidateTriage(
         label: "Archive review",
         existing_control: "Capture Inbox or Memory Doctor",
         guidance: "Reject eligible Capture Inbox candidates; archive confirmed noise only through explicit Memory Doctor guidance.",
-        write_boundary: "Candidate Triage is read-only"
+        write_boundary: "Review first; approve only through draft rows"
       },
       records: likelyNoise
     }),
@@ -2562,7 +2562,7 @@ function buildCandidateTriage(
         label: "Approval review",
         existing_control: "Capture Inbox",
         guidance: "Approve eligible Capture Inbox candidates only after checking provenance and record text.",
-        write_boundary: "Candidate Triage is read-only"
+        write_boundary: "Review first; approve only through draft rows"
       },
       records: promotable
     }),
@@ -2575,7 +2575,7 @@ function buildCandidateTriage(
         label: "Handoff review",
         existing_control: "Capture Inbox or timeline",
         guidance: "Keep useful handoff summaries available for context; promote only when they describe durable memory.",
-        write_boundary: "Candidate Triage is read-only"
+        write_boundary: "Review first; approve only through draft rows"
       },
       records: sessionSummaries
     }),
@@ -2588,7 +2588,7 @@ function buildCandidateTriage(
         label: "Inspection review",
         existing_control: "Timeline, recall, or Capture Inbox",
         guidance: "Use the trace commands first; decide later through an existing explicit review surface.",
-        write_boundary: "Candidate Triage is read-only"
+        write_boundary: "Review first; approve only through draft rows"
       },
       records: needsInspection
     })
@@ -3916,7 +3916,7 @@ function governanceHub(governance: DashboardGovernance): string {
 
 function candidateTriageSummary(triage: DashboardCandidateTriage): string {
   if (!triage.available) return "No candidate backlog";
-  return "Read-only candidate backlog";
+  return "Review candidate backlog";
 }
 
 function candidateTriageRecordSampleTitle(record: DashboardCandidateTriageRecord): string {
@@ -4018,8 +4018,8 @@ function renderCandidateTriageAuditBoundary(group: DashboardCandidateTriageGroup
         <small>${escapeHtml(`${group.label} audit boundary`)}</small>
       </summary>
       <dl>
-        <div><dt>Write boundary</dt><dd>No memory writes</dd></div>
-        <div><dt>Confirmation</dt><dd>Inspection only</dd></div>
+        <div><dt>Write boundary</dt><dd>Draft approve appends promotion events only</dd></div>
+        <div><dt>Confirmation</dt><dd>User approval required for promotion drafts</dd></div>
         <div><dt>Evidence</dt><dd><code>${escapeHtml(group.evidence_path)}</code></dd></div>
       </dl>
     </details>
@@ -4124,7 +4124,7 @@ function candidateTriagePanel(triage: DashboardCandidateTriage): string {
         <div class="candidate-triage-heading">
           <div>
             <h2>Candidate Triage Queue</h2>
-            <p>Read-only grouping for memory doctor backlog.</p>
+            <p>Review grouping for memory doctor backlog.</p>
           </div>
           <div class="candidate-triage-counts">
             <span>${escapeHtml(pluralize(triage.summary.total_candidates, "candidate"))}</span>

@@ -434,18 +434,19 @@ When backlog exists, `candidate_triage` groups active candidate records into
 visible `Candidate Triage` panel stays collapsed by default inside Evidence
 Library rather than the main review path. `Candidate Triage` is grouped under
 `Review Notes` in the Evidence Library, and its folded row reads
-`Read-only candidate backlog` instead of repeating a candidate count. Expanding
-the panel shows candidate and group counts plus read-only next steps;
+`Review candidate backlog` instead of repeating a candidate count. Expanding
+the panel shows candidate and group counts plus review-first next steps;
 shown-record counts stay in `/api/dashboard` and the nested `Record samples`
 summaries. Each candidate group keeps its next review surface behind a compact
 `Review path` fold. Folded `Review path` rows show only the next review label,
 while the existing-control route stays in the accessible summary label and
 expanded fields. The expanded fold points to an existing control such as
 Capture Inbox, Memory Doctor, timeline, or recall, explains the next review
-surface, and repeats that Candidate Triage is read-only without filling the
-expanded group by default. Candidate group description text stays behind a
-collapsed `Group context` row, so expanded groups lead with review path, audit
-boundary, and samples instead of prose. Candidate group folded rows show the
+surface, and states that review comes first and approval only happens through
+draft rows without filling the expanded group by default. Candidate group
+description text stays behind a collapsed `Group context` row, so expanded
+groups lead with review path, audit boundary, and samples instead of prose.
+Candidate group folded rows show the
 review-path label, such as `Archive review` or `Inspection review`, instead of
 a record count; the full recommended next step and record count stay in the
 accessible group summary, `Group context`, and the nested `Review path` fold.
@@ -491,9 +492,11 @@ lightweight index, not a second copy of the candidate body.
 The top-level `candidate_triage.groups[]` list is summary-only; expanded group
 details, visible records, and record indexes live under
 `candidate_triage.groups_by_id.<group_id>`.
-`Candidate Triage` stays read-only and does not
-add Approve, Archive, Promote, Apply, or background execution controls; it is a
-decision-prep surface for existing review policies, not a new mutation path.
+`Candidate Triage` keeps group review read-only and does not add Archive,
+Promote Selected, Apply, or background execution controls; the only write
+control is the explicit draft-row `Approve Memory` path described above. It is a
+decision-prep surface for existing review policies, not a background mutation
+path.
 Items that need confirmation still lead with a compact `Finding
 summary` for records affected, safe next step, write boundary, and evidence
 source, then keep plain-language `Review notes` for detection, next step, write
