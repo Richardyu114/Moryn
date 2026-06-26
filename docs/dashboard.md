@@ -450,26 +450,22 @@ When backlog exists, `candidate_triage` groups active candidate records into
 visible `Candidate Triage` panel stays collapsed by default inside Evidence
 Library rather than the main review path. Candidate Triage without promotion
 drafts stays under the background Audit route instead of `Review Notes`; its
-folded row reads `Read-only backlog` and the expanded heading reads `Candidate
-Backlog` instead of repeating queue language. If promotion drafts are waiting,
+folded row reads `Read-only backlog`. If promotion drafts are waiting,
 `Candidate Triage` is grouped under `Review Notes`, the folded row shows the
 draft count, and those approvals also appear in `Pending Decisions` as a
-`Candidate Triage` route. Expanding a read-only `Candidate Backlog` panel first
-shows a compact `Backlog brief` with status, scope, next step, and write
-boundary; concrete groups sit behind a nested `Backlog index` fold as
-lightweight API index cards only. Those cards keep the stable
-`candidate-triage:<group_id>` routes, readable group labels, record counts,
-and next-step hints on the card face. They do not render a per-card `Evidence
-path` fold, and they do not inline group details, sample rows, hidden-record
-folds, or trace commands into the dashboard HTML. Full candidate bodies,
-record order, evidence paths, recall commands, and timeline commands stay in
+`Candidate Triage` route. Expanding a read-only `Candidate Backlog` panel shows
+a compact `Candidate Backlog Index` reference mapped to
+`/api/dashboard.candidate_triage`. The dashboard HTML does not render read-only
+candidate group cards, per-group `candidate-triage:<group_id>` routes, group
+labels, record counts per group, review hints, sample rows, hidden-record folds,
+evidence paths, or trace commands. Full candidate bodies, record order,
+evidence paths, recall commands, and timeline commands stay in
 `/api/dashboard.candidate_triage`.
 When the existing Review Queue has a `candidate_noise_archive` cleanup plan,
-the read-only `Likely noise` card may show a `Review cleanup plan` navigation
-button that opens `maintenance-review-queue`. That button has no
-`data-dashboard-action-id` and does not approve, archive, or mutate records;
-archive still happens only through the explicit Review Queue `Archive Noise`
-approval with the normal `plan_hash` guard.
+the read-only `Candidate Backlog` panel still stays an index reference instead
+of showing a cleanup navigation button. Archive still happens only through the
+explicit Review Queue `Archive Noise` approval with the normal `plan_hash`
+guard.
 Expanding a promotion-ready `Candidate Triage` panel still shows candidate and
 group counts plus review-first next steps; shown-record counts stay in
 `/api/dashboard` and the nested `Record samples` summaries. Each candidate group
