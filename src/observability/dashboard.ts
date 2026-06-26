@@ -233,7 +233,7 @@ export interface DashboardActionBoard {
   items_by_id: Record<DashboardActionBoardItemId, DashboardActionBoardItem>;
 }
 
-export type DashboardDecisionSummarySurface = "capture_inbox" | "maintenance_review";
+export type DashboardDecisionSummarySurface = "capture_inbox" | "maintenance_review" | "candidate_triage";
 
 export interface DashboardDecisionSummaryItem {
   id: string;
@@ -241,14 +241,14 @@ export interface DashboardDecisionSummaryItem {
   title: string;
   summary: string;
   decision_label: string;
-  target: "capture-inbox" | "maintenance-review-queue";
-  target_label: "Open Capture Inbox" | "Open Review Queue";
+  target: "capture-inbox" | "maintenance-review-queue" | "candidate-triage";
+  target_label: "Open Capture Inbox" | "Open Review Queue" | "Open Candidate Triage";
   primary_action_id?: string;
   secondary_action_id?: string;
   requires_user_confirmation: true;
   writes: "append_only_events";
   safety_note: string;
-  evidence_path: "capture_inbox.groups[]" | "maintenance.plans[]";
+  evidence_path: "capture_inbox.groups[]" | "maintenance.plans[]" | `candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.${string}`;
 }
 
 export interface DashboardDecisionSummary {
@@ -257,6 +257,7 @@ export interface DashboardDecisionSummary {
   summary: {
     capture_inbox_groups: number;
     review_queue_plans: number;
+    candidate_triage_promotions: number;
   };
   items: DashboardDecisionSummaryItem[];
   items_by_id: Record<string, DashboardDecisionSummaryItem>;
@@ -287,7 +288,7 @@ export interface DashboardOverview {
   };
   safety: {
     read_only: true;
-    mutation_surfaces: ["Capture Inbox", "Review Queue"];
+    mutation_surfaces: ["Capture Inbox", "Review Queue", "Candidate Triage"];
   };
   cards: DashboardOverviewCard[];
   cards_by_id: Record<DashboardOverviewCardId, DashboardOverviewCard>;
@@ -449,7 +450,7 @@ export interface DashboardCandidateTriagePromotionDraft {
   command: string;
   requires_user_confirmation: true;
   writes: "append_only_events";
-  source_path: string;
+  source_path: `candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.${string}`;
   approve_endpoint: string;
   action_id: string;
 }
@@ -1904,6 +1905,7 @@ function actionsById(actions: DashboardAction[]): Record<string, DashboardAction
 function buildDecisionSummary(input: {
   captureInbox: DashboardCaptureInbox;
   maintenance: DashboardMaintenanceData;
+  candidateTriage: DashboardCandidateTriage;
 }): DashboardDecisionSummary {
   const captureInboxItems = input.captureInbox.groups.map((group): DashboardDecisionSummaryItem => ({
     id: `capture_inbox:${group.id}`,
@@ -1934,13 +1936,30 @@ function buildDecisionSummary(input: {
     safety_note: maintenanceActionSafetyNote(plan),
     evidence_path: "maintenance.plans[]"
   }));
-  const items = [...captureInboxItems, ...maintenanceItems];
+  const candidateTriagePromotionItems = Object.values(input.candidateTriage.groups_by_id)
+    .flatMap((group) => group ? Object.values(group.promotion_drafts_by_id) : [])
+    .map((draft): DashboardDecisionSummaryItem => ({
+      id: `candidate_triage:promotion:${draft.record_id}`,
+      surface: "candidate_triage",
+      title: "Approve Candidate Triage promotion",
+      summary: `Promote ${recordLabel(draft.record_id)} to ${draft.target_state}.`,
+      decision_label: "Approve Memory",
+      target: "candidate-triage",
+      target_label: "Open Candidate Triage",
+      primary_action_id: draft.action_id,
+      requires_user_confirmation: true,
+      writes: "append_only_events",
+      safety_note: "Approve Memory appends a promotion event only after the active candidate guard passes.",
+      evidence_path: draft.source_path
+    }));
+  const items = [...captureInboxItems, ...maintenanceItems, ...candidateTriagePromotionItems];
   return {
     read_only: true,
     total_decisions: items.length,
     summary: {
       capture_inbox_groups: captureInboxItems.length,
-      review_queue_plans: maintenanceItems.length
+      review_queue_plans: maintenanceItems.length,
+      candidate_triage_promotions: candidateTriagePromotionItems.length
     },
     items,
     items_by_id: Object.fromEntries(items.map((item) => [item.id, item]))
@@ -2014,7 +2033,7 @@ function buildActionBoard(input: {
       severity: actionBoardSeverity(confirmCount),
       summary: confirmCount === 0 ? "No approvals waiting" : pluralize(confirmCount, "decision waiting"),
       hint: confirmCount === 0 ? "No confirmation needed" : "Open decision summary",
-      detail: "Explicit approvals stay in Capture Inbox and Review Queue.",
+      detail: "Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.",
       next_action_label: confirmCount === 0 ? "Check attention" : "Review decisions",
       target: confirmCount === 0 ? "needs-attention" : "decision-summary"
     },
@@ -2146,7 +2165,7 @@ function buildDashboardOverview(input: {
     },
     safety: {
       read_only: true,
-      mutation_surfaces: ["Capture Inbox", "Review Queue"]
+      mutation_surfaces: ["Capture Inbox", "Review Queue", "Candidate Triage"]
     },
     cards,
     cards_by_id: Object.fromEntries(cards.map((card) => [card.id, card])) as Record<DashboardOverviewCardId, DashboardOverviewCard>,
@@ -2438,7 +2457,7 @@ function toCandidateTriageRecord(
   };
 }
 
-function candidateTriagePromotionDraft(groupId: DashboardCandidateTriageGroupId, record: DashboardCandidateTriageRecord): DashboardCandidateTriagePromotionDraft {
+function candidateTriagePromotionDraft(groupId: "promotable", record: DashboardCandidateTriageRecord): DashboardCandidateTriagePromotionDraft {
   const args = {
     record_id: record.id,
     target_state: "canonical",
@@ -2467,7 +2486,7 @@ function toCandidateTriageGroup(input: {
 }): DashboardCandidateTriageGroup {
   const sampleRecords = input.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
   const promotionDrafts = input.id === "promotable"
-    ? Object.fromEntries(input.records.map((record) => [record.id, candidateTriagePromotionDraft(input.id, record)]))
+    ? Object.fromEntries(input.records.map((record) => [record.id, candidateTriagePromotionDraft("promotable", record)]))
     : {};
   return {
     ...input,
@@ -2826,7 +2845,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
   });
   const decisionSummaryData = buildDecisionSummary({
     captureInbox: captureInboxData,
-    maintenance: maintenanceData
+    maintenance: maintenanceData,
+    candidateTriage: candidateTriageData
   });
   const health = buildHealth(sync, records, generatedAt);
   const attentionItems = buildAttentionItems(sync, records);
@@ -3059,6 +3079,12 @@ function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
   `;
 }
 
+function joinHumanList(items: readonly string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
 function dashboardOverview(
   data: DashboardOverview,
   options: { showBackgroundStatus?: boolean } = {}
@@ -3078,7 +3104,7 @@ function dashboardOverview(
       ${showBackgroundStatus ? dashboardOverviewQuietCards(visibleCards) : ""}
       <div class="dashboard-overview-safety" aria-label="Dashboard safety">
         <span>Read-only overview</span>
-        <span>Writes stay in ${escapeHtml(data.safety.mutation_surfaces.join(" and "))}</span>
+        <span>Writes stay in ${escapeHtml(joinHumanList(data.safety.mutation_surfaces))}</span>
       </div>
     </section>
   `;
@@ -3204,7 +3230,8 @@ function dashboardWorkLanes(
 function decisionSummaryChips(summary: DashboardDecisionSummary): string {
   const chips = [
     summary.summary.capture_inbox_groups > 0 ? `${summary.summary.capture_inbox_groups} Capture Inbox` : undefined,
-    summary.summary.review_queue_plans > 0 ? `${summary.summary.review_queue_plans} Review Queue` : undefined
+    summary.summary.review_queue_plans > 0 ? `${summary.summary.review_queue_plans} Review Queue` : undefined,
+    summary.summary.candidate_triage_promotions > 0 ? `${summary.summary.candidate_triage_promotions} Candidate Triage` : undefined
   ].filter((chip): chip is string => chip !== undefined);
   return chips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
 }
@@ -3219,11 +3246,11 @@ function decisionSummaryIntro(data: DashboardDecisionSummary): string {
 }
 
 interface DashboardDecisionRoute {
-  id: "capture-inbox" | "maintenance-review";
-  label: "Capture Inbox" | "Review Queue";
+  id: "capture-inbox" | "maintenance-review" | "candidate-triage";
+  label: "Capture Inbox" | "Review Queue" | "Candidate Triage";
   count: number;
-  target: "capture-inbox" | "maintenance-review-queue";
-  target_label: "Open Capture Inbox" | "Open Review Queue";
+  target: "capture-inbox" | "maintenance-review-queue" | "candidate-triage";
+  target_label: "Open Capture Inbox" | "Open Review Queue" | "Open Candidate Triage";
 }
 
 function decisionSummaryRoutes(data: DashboardDecisionSummary): DashboardDecisionRoute[] {
@@ -3244,6 +3271,15 @@ function decisionSummaryRoutes(data: DashboardDecisionSummary): DashboardDecisio
       count: data.summary.review_queue_plans,
       target: "maintenance-review-queue",
       target_label: "Open Review Queue"
+    });
+  }
+  if (data.summary.candidate_triage_promotions > 0) {
+    routes.push({
+      id: "candidate-triage",
+      label: "Candidate Triage",
+      count: data.summary.candidate_triage_promotions,
+      target: "candidate-triage",
+      target_label: "Open Candidate Triage"
     });
   }
   return routes;
@@ -3916,7 +3952,10 @@ function governanceHub(governance: DashboardGovernance): string {
 
 function candidateTriageSummary(triage: DashboardCandidateTriage): string {
   if (!triage.available) return "No candidate backlog";
-  return "Review candidate backlog";
+  const promotionDrafts = Object.values(triage.groups_by_id)
+    .flatMap((group) => group ? Object.values(group.promotion_drafts_by_id) : []);
+  if (promotionDrafts.length > 0) return `${pluralize(promotionDrafts.length, "promotion draft")} waiting`;
+  return "Background candidate audit";
 }
 
 function candidateTriageRecordSampleTitle(record: DashboardCandidateTriageRecord): string {

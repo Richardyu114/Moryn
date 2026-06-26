@@ -120,7 +120,8 @@ describe("observability dashboard", () => {
         total_decisions: 0,
         summary: {
           capture_inbox_groups: 0,
-          review_queue_plans: 0
+          review_queue_plans: 0,
+          candidate_triage_promotions: 0
         },
         items: []
       });
@@ -1122,6 +1123,32 @@ describe("observability dashboard", () => {
         source_path: "candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3"
       });
       expect(data.candidate_triage.groups_by_id.likely_noise.promotion_drafts_by_id).toEqual({});
+      expect(data.decision_summary).toMatchObject({
+        total_decisions: 2,
+        summary: {
+          capture_inbox_groups: 0,
+          review_queue_plans: 1,
+          candidate_triage_promotions: 1
+        }
+      });
+      expect(data.decision_summary.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: "candidate_triage:promotion:rec_candidate_triage_3",
+          surface: "candidate_triage",
+          title: "Approve Candidate Triage promotion",
+          decision_label: "Approve Memory",
+          target: "candidate-triage",
+          target_label: "Open Candidate Triage",
+          primary_action_id: "candidate_triage.promotion.approve.rec_candidate_triage_3",
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          safety_note: "Approve Memory appends a promotion event only after the active candidate guard passes.",
+          evidence_path: "candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3"
+        })
+      ]));
+      expect(data.decision_summary.items_by_id["candidate_triage:promotion:rec_candidate_triage_3"]).toMatchObject({
+        target: "candidate-triage"
+      });
       expect(data.candidate_triage.groups.map((group) => group.id)).toEqual([
         "likely_noise",
         "promotable",
@@ -1148,8 +1175,19 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<details open class=\"evidence-library-group evidence-library-review\"");
       expect(html).toContain("<details class=\"panel candidate-triage\" data-dashboard-detail=\"candidate-triage\" aria-label=\"Candidate Triage Queue\">");
       expect(html).toContain("<span>Candidate Triage</span>");
-      expect(html).toContain("<small>Review candidate backlog</small>");
-      expect(html).not.toContain("<small>Read-only candidate backlog</small>");
+      expect(html).toContain("<small>1 promotion draft waiting</small>");
+      expect(html).not.toContain("<small>Review candidate backlog</small>");
+      expect(html).not.toContain("<small>Background candidate audit</small>");
+      expect(html).toContain("<section id=\"decision-summary\" class=\"panel decision-summary\" data-dashboard-detail=\"decision-summary\" aria-label=\"Decision Summary\">");
+      expect(html).toContain("<span>1 Candidate Triage</span>");
+      const decisionSummaryStart = html.indexOf("data-dashboard-detail=\"decision-summary\"");
+      const decisionSummaryEnd = html.indexOf("data-dashboard-detail=\"evidence-library\"", decisionSummaryStart);
+      const decisionSummaryHtml = html.slice(decisionSummaryStart, decisionSummaryEnd);
+      expect(decisionSummaryHtml).toContain("<strong>Candidate Triage</strong>");
+      expect(decisionSummaryHtml).toContain("1 explicit approval waiting in Candidate Triage.");
+      expect(decisionSummaryHtml).toContain("data-decision-summary-route=\"candidate-triage\"");
+      expect(decisionSummaryHtml).toContain("data-action-board-target=\"candidate-triage\"");
+      expect(decisionSummaryHtml).not.toContain("candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3");
       expect(html).not.toContain("<small>4 candidates grouped for review</small>");
       expect(html).toContain("<h2>Candidate Triage Queue</h2>");
       expect(html).toContain("<span>4 candidates</span>");
@@ -2341,7 +2379,7 @@ describe("observability dashboard", () => {
         },
         safety: {
           read_only: true,
-          mutation_surfaces: ["Capture Inbox", "Review Queue"]
+          mutation_surfaces: ["Capture Inbox", "Review Queue", "Candidate Triage"]
         },
         cards: [
           expect.objectContaining({
@@ -2416,7 +2454,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>context_pack_review</small>");
       expect(html).not.toContain("<article class=\"dashboard-overview-card");
       expect(html).toContain("<span>Read-only overview</span>");
-      expect(html).toContain("<span>Writes stay in Capture Inbox and Review Queue</span>");
+      expect(html).toContain("<span>Writes stay in Capture Inbox, Review Queue, and Candidate Triage</span>");
       expect(html).not.toContain("data-dashboard-focus-brief");
       expect(html.indexOf("data-dashboard-overview")).toBeLessThan(html.indexOf("data-dashboard-detail=\"health-check\""));
       expect(html.indexOf("data-dashboard-overview")).toBeLessThan(html.indexOf("data-action-board-nav"));
@@ -2499,7 +2537,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>Review visible warnings</small>");
       expect(html).toContain("<small>No inspection needed</small>");
       expect(html).toContain("<small>Local only</small>");
-      expect(html).not.toContain("<small>Explicit approvals stay in Capture Inbox and Review Queue.</small>");
+      expect(html).not.toContain("<small>Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.</small>");
       expect(html).not.toContain("<small>Warnings and critical signals remain visible in Needs Attention.</small>");
       expect(html).not.toContain("<small>Read-only inspections are grouped in Governance Hub.</small>");
       expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
@@ -2559,8 +2597,8 @@ describe("observability dashboard", () => {
       expect(evidenceBriefHtml).not.toContain("Apply");
       const candidateTriageHtml = html.slice(candidateTriageIndex, evidenceBackgroundGroupIndex);
       expect(candidateTriageHtml).toContain("<span>Candidate Triage</span>");
-      expect(candidateTriageHtml).toContain("<small>Review candidate backlog</small>");
-      expect(candidateTriageHtml).not.toContain("<small>Read-only candidate backlog</small>");
+      expect(candidateTriageHtml).toContain("<small>Background candidate audit</small>");
+      expect(candidateTriageHtml).not.toContain("<small>Review candidate backlog</small>");
       expect(candidateTriageHtml).toContain("<span>Record samples</span>");
       expect(candidateTriageHtml).not.toContain("data-dashboard-action-id=\"candidate-triage");
       expect(candidateTriageHtml).not.toContain("Approve Triage");
@@ -4574,7 +4612,7 @@ describe("observability dashboard", () => {
       });
       expect(data.dashboard_overview).toMatchObject({
         headline: "Review decisions",
-        detail: "Explicit approvals stay in Capture Inbox and Review Queue.",
+        detail: "Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.",
         primary_action: {
           label: "Review decisions",
           target: "decision-summary",
@@ -4973,6 +5011,7 @@ describe("observability dashboard", () => {
           summary: {
             capture_inbox_groups: number;
             review_queue_plans: number;
+            candidate_triage_promotions: number;
           };
           items: Array<{
             id: string;

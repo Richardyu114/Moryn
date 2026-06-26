@@ -388,7 +388,8 @@ inspectable through
 `/api/dashboard` also returns a Safe Action Registry under `actions[]` and
 `actions_by_id.<action_id>`. It indexes the same controls rendered in HTML:
 Capture Inbox record actions, Capture Inbox group actions, Capture Policy
-inspect commands, and Review Queue maintenance approvals. Each entry carries
+inspect commands, Review Queue maintenance approvals, and Candidate Triage
+promotion draft approvals. Each entry carries
 surface, kind, label, intent, target, endpoint or command, request body, safety,
 and source path metadata. Rendered buttons include `data-dashboard-action-id`
 with the same id. This registry is an audit and selection surface; it does not
@@ -450,8 +451,11 @@ and `needs_inspection`. Each group carries `record_ids`, `records[]`,
 and an `evidence_path` such as
 `candidate_triage.groups_by_id.<group_id>`. `review_handoff` names the existing
 control to use next, guidance for the group, and the read-only write boundary.
-The surface does not add Approve, Archive, Promote, Apply, background
-execution, or Safe Action Registry entries.
+The group review surface does not add Archive, Promote Selected, Apply, or
+background execution controls. The only write-capable entry is a promotable
+candidate's explicit `Approve Memory` draft approval, which is also surfaced in
+`decision_summary.summary.candidate_triage_promotions` and routes through the
+dashboard `Pending Decisions` panel.
 
 `/api/dashboard` also returns `context_pack_review`, a read-only project handoff
 readiness summary rendered as the dashboard `Context Pack Review` panel. When

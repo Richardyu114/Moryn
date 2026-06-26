@@ -204,7 +204,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "does not add dashboard approval, archive, promote, apply, or background execution controls");
     expectText(dashboard, "`candidate_triage` groups active candidate records into `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`");
     expectText(dashboard, "`Candidate Triage` is grouped under `Review Notes` in the Evidence Library");
-    expectText(dashboard, "its folded row reads `Review candidate backlog` instead of repeating a candidate count");
+    expectText(dashboard, "folded row reads `Background candidate audit` instead of repeating a candidate count or sounding like a primary task");
+    expectText(dashboard, "promotion drafts are waiting, the folded row shows the draft count and those approvals also appear in `Pending Decisions` as a `Candidate Triage` route");
     expectText(dashboard, "Expanding the panel shows candidate and group counts plus review-first next steps");
     expectText(dashboard, "shown-record counts stay in `/api/dashboard` and the nested `Record samples` summaries");
     expectText(dashboard, "Each candidate group keeps its next review surface behind a compact `Review path` fold");
@@ -223,7 +224,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Promotable groups may include a collapsed `Promotion draft` row");
     expectText(dashboard, "exact `moryn promote ... --confirm` command");
     expectText(dashboard, "`candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>` source path");
-    expectText(dashboard, "The only Candidate Triage write control is the draft-row `Approve Memory` action");
+    expectText(dashboard, "The only Candidate Triage write control is the draft-row `Approve Memory` action, and pending draft approvals are routed through `Pending Decisions`");
     expectText(dashboard, "server re-checks that the record is still an active promotable candidate before appending the confirmed promotion event");
     expectText(dashboard, "stale draft approvals return `not_actionable`");
     expectText(dashboard, "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group");
@@ -251,6 +252,9 @@ describe("documentation contracts", () => {
     expectText(contracts, "`/api/dashboard` also returns `memory_doctor`, the same read-only report shape as `moryn memory doctor`");
     expectText(contracts, "`/api/dashboard` also returns `candidate_triage`, a read-only dashboard-derived grouping for active candidate records");
     expect(contracts).toContain("candidate_triage.groups_by_id.<group_id>");
+    expectText(contracts, "Candidate Triage promotion draft approvals");
+    expectText(contracts, "decision_summary.summary.candidate_triage_promotions");
+    expectText(contracts, "routes through the dashboard `Pending Decisions` panel");
     expect(contracts).toContain("memory_doctor.findings_by_id.candidate_backlog");
     expectText(contracts, "`memory_doctor` findings remain read-only dashboard governance inspections");
     expect(dashboard).toContain("Safe Action Registry");

@@ -437,9 +437,12 @@ When backlog exists, `candidate_triage` groups active candidate records into
 `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`. The
 visible `Candidate Triage` panel stays collapsed by default inside Evidence
 Library rather than the main review path. `Candidate Triage` is grouped under
-`Review Notes` in the Evidence Library, and its folded row reads
-`Review candidate backlog` instead of repeating a candidate count. Expanding
-the panel shows candidate and group counts plus review-first next steps;
+`Review Notes` in the Evidence Library. If no promotion draft is waiting, its
+folded row reads `Background candidate audit` instead of repeating a candidate
+count or sounding like a primary task. If promotion drafts are waiting, the
+folded row shows the draft count and those approvals also appear in `Pending
+Decisions` as a `Candidate Triage` route. Expanding the panel shows candidate
+and group counts plus review-first next steps;
 shown-record counts stay in `/api/dashboard` and the nested `Record samples`
 summaries. Each candidate group keeps its next review surface behind a compact
 `Review path` fold. Folded `Review path` rows show only the next review label,
@@ -465,7 +468,9 @@ row with the canonical target, confirmation requirement, append-only write
 preview, exact `moryn promote ... --confirm` command, and
 `candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>`
 source path. The only Candidate Triage write control is the draft-row `Approve
-Memory` action; the server re-checks that the record is still an active
+Memory` action, and pending draft approvals are routed through `Pending
+Decisions` rather than hiding a write action in reference evidence; the server
+re-checks that the record is still an active
 promotable candidate before appending the confirmed promotion event, and stale
 draft approvals return `not_actionable`. Record ids,
 recall commands, and timeline commands stay behind a nested `Record samples`
