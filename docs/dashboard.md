@@ -451,8 +451,11 @@ folded row reads `Read-only backlog` and the expanded heading reads `Candidate
 Backlog` instead of repeating queue language. If promotion drafts are waiting,
 `Candidate Triage` is grouped under `Review Notes`, the folded row shows the
 draft count, and those approvals also appear in `Pending Decisions` as a
-`Candidate Triage` route. Expanding the panel shows candidate and group counts
-plus review-first next steps;
+`Candidate Triage` route. Expanding a read-only `Candidate Backlog` panel first
+shows a compact `Backlog brief` with status, scope, next step, and write
+boundary; concrete group lanes sit behind a nested `Backlog lanes` fold that is
+not opened by default. Expanding a promotion-ready `Candidate Triage` panel
+still shows candidate and group counts plus review-first next steps;
 shown-record counts stay in `/api/dashboard` and the nested `Record samples`
 summaries. Each candidate group keeps its next review surface behind a compact
 `Review path` fold. Folded `Review path` rows show only the next review label,

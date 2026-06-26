@@ -4225,6 +4225,40 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
   `;
 }
 
+function renderCandidateBacklogBrief(triage: DashboardCandidateTriage): string {
+  return `
+    <div class="candidate-triage-backlog-brief" data-candidate-triage-backlog-brief>
+      <h3>Backlog brief</h3>
+      <dl class="candidate-triage-backlog-brief-list" aria-label="Backlog brief">
+        <div><dt>Status</dt><dd>Read-only backlog</dd></div>
+        <div><dt>Scope</dt><dd>${escapeHtml(`${pluralize(triage.summary.total_candidates, "candidate")} across ${pluralize(triage.summary.groups, "group")}`)}</dd></div>
+        <div><dt>Next</dt><dd>Open lanes only when investigating candidates</dd></div>
+        <div><dt>Writes</dt><dd>No dashboard writes from backlog lanes</dd></div>
+      </dl>
+    </div>
+  `;
+}
+
+function renderCandidateTriageGroupList(triage: DashboardCandidateTriage): string {
+  return `
+    <div class="candidate-triage-list">
+      ${triage.groups.map((group) => triage.groups_by_id[group.id]).filter((group): group is DashboardCandidateTriageGroup => group !== undefined).map(renderCandidateTriageGroup).join("")}
+    </div>
+  `;
+}
+
+function renderCandidateBacklogLanes(triage: DashboardCandidateTriage): string {
+  return `
+    <details class="candidate-triage-backlog-lanes" data-dashboard-detail="candidate-triage-backlog-lanes">
+      <summary class="dashboard-fold-summary">
+        <span>Backlog lanes</span>
+        <small>${escapeHtml(`${pluralize(triage.summary.groups, "group")}, trace ready`)}</small>
+      </summary>
+      ${renderCandidateTriageGroupList(triage)}
+    </details>
+  `;
+}
+
 function candidateTriagePanel(triage: DashboardCandidateTriage): string {
   if (!triage.available) return "";
   const hasPromotionDrafts = candidateTriageHasPromotionDrafts(triage);
@@ -4251,9 +4285,10 @@ function candidateTriagePanel(triage: DashboardCandidateTriage): string {
             <span>${escapeHtml(pluralize(triage.summary.groups, "group"))}</span>
           </div>
         </div>
-        <div class="candidate-triage-list">
-          ${triage.groups.map((group) => triage.groups_by_id[group.id]).filter((group): group is DashboardCandidateTriageGroup => group !== undefined).map(renderCandidateTriageGroup).join("")}
-        </div>
+        ${hasPromotionDrafts ? renderCandidateTriageGroupList(triage) : `
+          ${renderCandidateBacklogBrief(triage)}
+          ${renderCandidateBacklogLanes(triage)}
+        `}
       </div>
     </details>
   `;
@@ -7781,6 +7816,36 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       color: var(--muted);
       font-size: 12px;
       font-weight: 700;
+    }
+    .candidate-triage-backlog-brief {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin-bottom: 9px;
+      background: var(--surface-2);
+    }
+    .candidate-triage-backlog-brief h3 {
+      margin: 0 0 6px;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      color: var(--muted);
+    }
+    .candidate-triage-backlog-brief-list {
+      margin: 0;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .candidate-triage-backlog-brief-list div {
+      grid-template-columns: 92px minmax(0, 1fr);
+    }
+    .candidate-triage-backlog-lanes {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .candidate-triage-backlog-lanes[open] > summary {
+      margin-bottom: 8px;
     }
     .candidate-triage-group {
       border: 1px solid var(--border);

@@ -231,7 +231,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The specific review handoff label remains inside the nested `Review path` fold");
     expectText(dashboard, "If promotion drafts are waiting, `Candidate Triage` is grouped under `Review Notes`, the folded row shows the draft count");
     expectText(dashboard, "those approvals also appear in `Pending Decisions` as a `Candidate Triage` route");
-    expectText(dashboard, "Expanding the panel shows candidate and group counts plus review-first next steps");
+    expectText(dashboard, "Expanding a read-only `Candidate Backlog` panel first shows a compact `Backlog brief`");
+    expectText(dashboard, "concrete group lanes sit behind a nested `Backlog lanes` fold that is not opened by default");
+    expectText(dashboard, "Expanding a promotion-ready `Candidate Triage` panel still shows candidate and group counts plus review-first next steps");
     expectText(dashboard, "shown-record counts stay in `/api/dashboard` and the nested `Record samples` summaries");
     expectText(dashboard, "Each candidate group keeps its next review surface behind a compact `Review path` fold");
     expectText(dashboard, "Folded `Review path` rows show only the next review label");
