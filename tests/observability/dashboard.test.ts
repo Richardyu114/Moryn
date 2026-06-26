@@ -4402,6 +4402,9 @@ describe("observability dashboard", () => {
       expect(noiseBriefHtml).not.toContain("<dl class=\"maintenance-outcome\" data-maintenance-outcome>");
       expect(noiseBriefHtml).not.toContain("Appends <code>archive_record</code> events after the <code>plan_hash</code> check");
       expect(noiseBriefHtml).not.toContain("Hides this card for this browser session only; store history is unchanged.");
+      expect(html).not.toContain("class=\"maintenance-plan-flags\"");
+      expect(html).not.toContain("<span>Review before write</span>");
+      expect(html).not.toContain("<span>Plan hash guard</span>");
       expect(html).not.toContain("3 candidate records look like smoke/e2e marker noise.");
       expect(html).not.toContain("data-maintenance-decision-summary");
       expect(html).not.toContain("<span>Decision summary</span>");
@@ -4647,8 +4650,9 @@ describe("observability dashboard", () => {
       expect(repairBriefHtml).not.toContain("Appends <code>revise_record</code> events after the <code>plan_hash</code> check");
       expect(repairBriefHtml).not.toContain("<dt>Reject</dt>");
       expect(repairBriefHtml).not.toContain("Hides this card for this browser session only; store history is unchanged.");
-      expect(html).toContain("Review before write");
-      expect(html).toContain("Plan hash guard");
+      expect(html).not.toContain("class=\"maintenance-plan-flags\"");
+      expect(html).not.toContain("<span>Review before write</span>");
+      expect(html).not.toContain("<span>Plan hash guard</span>");
       expect(html).not.toContain("<details class=\"maintenance-decision-summary-fold\" data-dashboard-detail=\"maintenance-decision-summary:");
       expect(html).not.toContain("<summary class=\"dashboard-fold-summary maintenance-decision-summary-summary\">");
       expect(html).not.toContain("<summary>Decision summary</summary>");

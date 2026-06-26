@@ -449,6 +449,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("does not repeat the full issue sentence or render a");
     expect(dashboard).toContain("second decision-summary fold");
     expectText(dashboard, "the title, the short approval brief, and explicit controls");
+    expectText(dashboard, "It does not add separate safety badges beside the card title");
+    expectText(dashboard, "`Guard` and `Writes` in the approval brief are the visible write-boundary explanation");
     expectText(dashboard, "The raw `plan_hash`, equivalent CLI command, rollback path, and record ids stay inside `Decision details`");
     expectText(dashboard, "The structured reasoning lives in that single fold");
     expect(dashboard).toContain("one expandable `Decision details` fold instead of several");

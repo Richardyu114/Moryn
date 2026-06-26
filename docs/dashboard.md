@@ -350,7 +350,9 @@ the rows.
 
 The individual plan card does not repeat the full issue sentence or render a
 second decision-summary fold. The first expanded queue view stays focused on
-the title, the short approval brief, and explicit controls. The raw `plan_hash`,
+the title, the short approval brief, and explicit controls. It does not add
+separate safety badges beside the card title; `Guard` and `Writes` in the
+approval brief are the visible write-boundary explanation. The raw `plan_hash`,
 equivalent CLI command, rollback path, and record ids stay inside
 `Decision details`. The structured reasoning lives in that single fold, where
 it still shows:

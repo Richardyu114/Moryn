@@ -4574,10 +4574,6 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                   <div>
                     <h3>${escapeHtml(plan.decision_card.title)}</h3>
                   </div>
-                  <div class="maintenance-plan-flags" aria-label="Maintenance safety">
-                    <span>Review before write</span>
-                    <span>Plan hash guard</span>
-                  </div>
                 </div>
                 ${maintenanceReviewBrief(plan)}
                 <details class="maintenance-audit-details" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
@@ -8682,23 +8678,6 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       justify-self: start;
     }
     .maintenance-plan-main, .capture-inbox-main { align-items: flex-start; margin-bottom: 10px; }
-    .maintenance-plan-flags {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: 6px;
-      min-width: 0;
-    }
-    .maintenance-plan-flags span {
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 2px 7px;
-      background: var(--surface);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 720;
-      white-space: nowrap;
-    }
     .maintenance-brief, .capture-inbox-brief, .context-pack-brief, .capture-policy-routing-brief {
       border: 1px solid var(--border);
       border-radius: 7px;
