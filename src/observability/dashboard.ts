@@ -4585,6 +4585,21 @@ function memoryLifecycleFoldSummary(report: MemoryLifecycleResult): string {
   ].filter((part): part is string => Boolean(part)).join(" | ");
 }
 
+function isCleanMemoryLifecycle(report: MemoryLifecycleResult): boolean {
+  return report.findings.length === 0 && report.suggested_actions.length === 0;
+}
+
+function memoryLifecycleReference(): string {
+  return `
+      <article class="memory-lifecycle-reference" data-dashboard-detail="memory-lifecycle:index" data-memory-lifecycle-reference>
+        <strong>Memory Lifecycle Index</strong>
+        <span>No lifecycle work indexed</span>
+        <code>memory_lifecycle</code>
+      </article>
+      <p>Open <code>/api/dashboard</code> for lifecycle policy, record assessments, findings, and suggested actions.</p>
+  `;
+}
+
 function memoryLifecyclePanel(report: MemoryLifecycleResult, panelClass = "panel"): string {
   const totalFindings = report.findings.length;
   const totalActions = report.suggested_actions.length;
@@ -4595,6 +4610,7 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult, panelClass = "panel
         <span>Memory Lifecycle</span>
         <small>${escapeHtml(memoryLifecycleFoldSummary(report))}</small>
       </summary>
+      ${isCleanMemoryLifecycle(report) ? memoryLifecycleReference() : `
       <div class="lifecycle-policy">
         <div>
           <strong>Lifecycle Policy</strong>
@@ -4611,6 +4627,7 @@ function memoryLifecyclePanel(report: MemoryLifecycleResult, panelClass = "panel
         <summary>Lifecycle suggestions</summary>
         ${lifecycleActions(report)}
       </details>
+      `}
     </details>
   `;
 }
@@ -5000,10 +5017,6 @@ function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "pane
       </details>
     </details>
   `;
-}
-
-function isCleanMemoryLifecycle(report: MemoryLifecycleResult): boolean {
-  return report.findings.length === 0 && report.suggested_actions.length === 0;
 }
 
 function isCleanCapturePolicy(report: CapturePolicyResult): boolean {
@@ -7327,6 +7340,37 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding-top: 10px;
     }
     .memory-lifecycle { border-left: 4px solid var(--signal-violet); }
+    .memory-lifecycle-reference {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-left: 4px solid var(--info);
+      border-radius: 7px;
+      padding: 9px;
+      background: var(--surface);
+    }
+    .memory-lifecycle-reference strong {
+      color: var(--ink);
+      font-weight: 780;
+      overflow-wrap: anywhere;
+    }
+    .memory-lifecycle-reference span,
+    .memory-lifecycle-reference code,
+    .memory-lifecycle > p {
+      overflow-wrap: anywhere;
+    }
+    .memory-lifecycle-reference span,
+    .memory-lifecycle > p {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .memory-lifecycle-reference code {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
     .clean-audit-reports { border-left: 4px solid var(--signal-violet); }
     .clean-audit-reports[open] > summary { margin-bottom: 10px; }
     .clean-audit-list {

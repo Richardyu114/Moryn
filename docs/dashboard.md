@@ -309,8 +309,12 @@ and capture audits` instead of listing the two clean child modules. The reports
 and their evidence remain in the expanded HTML and `/api/dashboard`; the
 grouping only reduces first-screen noise for clean checks. The nested `Memory
 Lifecycle` folded row reads `No lifecycle work` when there are no findings or
-actions instead of repeating `0 findings | 0 actions`; its child suggestions
-fold reads `Lifecycle suggestions` instead of a generic `Suggested actions` row.
+actions instead of repeating `0 findings | 0 actions`; expanding that clean row
+renders a single `Memory Lifecycle Index` card mapped to
+`/api/dashboard.memory_lifecycle`. The clean lifecycle HTML does not repeat the
+policy id, stale/archive thresholds, empty finding states, or an empty
+`Lifecycle suggestions` fold. Full lifecycle policy, record assessments,
+findings, and suggested actions remain in `/api/dashboard.memory_lifecycle`.
 The nested `Capture Policy Audit` row follows the same rule: clean reports read
 `No capture policy work`, and non-zero summaries omit empty buckets such as
 `0 captured`. When the report has no review work and only auto-captured or

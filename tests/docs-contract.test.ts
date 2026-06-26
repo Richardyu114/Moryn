@@ -189,7 +189,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of listing the two clean child modules");
     expectText(dashboard, "`Memory Lifecycle` folded row reads `No lifecycle work`");
     expectText(dashboard, "instead of repeating `0 findings | 0 actions`");
-    expectText(dashboard, "child suggestions fold reads `Lifecycle suggestions` instead of a generic `Suggested actions` row");
+    expectText(dashboard, "renders a single `Memory Lifecycle Index` card");
+    expectText(dashboard, "The clean lifecycle HTML does not repeat the policy id, stale/archive thresholds, empty finding states, or an empty");
+    expectText(dashboard, "Full lifecycle policy, record assessments, findings, and suggested actions remain in `/api/dashboard.memory_lifecycle`");
     expectText(dashboard, "`Capture Policy Audit` row follows the same rule");
     expectText(dashboard, "clean reports read `No capture policy work`");
     expectText(dashboard, "non-zero summaries omit empty buckets such as `0 captured`");
