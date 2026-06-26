@@ -174,13 +174,15 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the visible HTML skips the quiet `Info Checks` anchor entirely");
     expectText(dashboard, "`/api/dashboard.attention_items` still keeps the info checks and sync signals for agents and audit tooling");
     expect(dashboard).toContain("Dogfood Notes");
-    expect(dashboard).toContain("Issue brief");
     expectText(dashboard, "it lives in the background Audit route instead of `Review Notes` because it has no approval or write action");
     expectText(dashboard, "folded row reads `Read-only note` or `Read-only notes`");
     expectText(dashboard, "The status chip reads `Note` even when the underlying finding severity is warning");
     expectText(dashboard, "instead of repeating finding and safe-step counts");
-    expectText(dashboard, "Each finding card keeps impact, evidence, and the safe command inside a `Note Details` fold");
-    expectText(dashboard, "the visible card face only shows category, summary, and read-only status");
+    expectText(dashboard, "Expanding Dogfood Notes renders a single `Dogfood Notes Index` card");
+    expectText(dashboard, "The dashboard HTML does not render per-finding cards, `data-dogfood-review-item` rows, `Note Details`, impact briefs, evidence paths, affected record ids, or safe timeline commands there");
+    expectText(dashboard, "Full impact notes, affected records, evidence, and safe dashboard or timeline commands remain in");
+    expectText(dashboard, "`/api/dashboard.dogfood_report.findings_by_id` and");
+    expectText(dashboard, "`/api/dashboard.dogfood_report.suggested_actions_by_id`");
     expectText(dashboard, "It does not contain Capture Inbox approvals or Review Queue maintenance approvals");
     expectText(dashboard, "remain available inside the nested `Audit Trail` panel");
     expectText(dashboard, "folded row reads `Clean lifecycle and capture audits`");

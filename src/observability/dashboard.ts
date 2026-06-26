@@ -3569,17 +3569,19 @@ function recallEvalPanel(review: DashboardRecallEval): string {
   `;
 }
 
-function dogfoodActionForFinding(
-  report: DogfoodReportResult,
-  finding: DogfoodReportResult["findings"][number]
-): DogfoodReportResult["suggested_actions"][number] | undefined {
-  if (finding.id === "capture_review_backlog") return report.suggested_actions_by_id.review_capture_inbox;
-  const recordIds = finding.record_ids ?? (finding.record_id ? [finding.record_id] : []);
-  return firstActionForRecords(report.suggested_actions, recordIds);
-}
-
 function dogfoodReviewSummary(report: DogfoodReportResult): string {
   return report.findings.length === 1 ? "Read-only note" : "Read-only notes";
+}
+
+function dogfoodReviewReference(report: DogfoodReportResult): string {
+  return `
+        <article class="dogfood-review-reference" data-dashboard-detail="dogfood-review:index" data-dogfood-review-reference>
+          <strong>Dogfood Notes Index</strong>
+          <span>${escapeHtml(`${pluralize(report.findings.length, "finding")} indexed`)}</span>
+          <code>dogfood_report</code>
+        </article>
+        <p>Open <code>/api/dashboard</code> for dogfood findings, impact notes, evidence paths, affected records, and safe inspection commands.</p>
+  `;
 }
 
 function dogfoodReviewPanel(report: DogfoodReportResult): string {
@@ -3597,39 +3599,7 @@ function dogfoodReviewPanel(report: DogfoodReportResult): string {
           <span>Read-only</span>
           <code>dogfood_report.findings_by_id</code>
         </div>
-        <div class="dogfood-review-list">
-          ${report.findings.map((finding) => {
-            const action = dogfoodActionForFinding(report, finding);
-            const actionLabel = action?.recommended_action ?? "Inspect dogfood finding";
-            const evidencePath = `dogfood_report.findings_by_id.${finding.id}`;
-            const recordIds = finding.record_ids ?? (finding.record_id ? [finding.record_id] : []);
-            return `
-              <article class="dogfood-review-item ${escapeHtml(finding.severity)}" data-dashboard-detail="dogfood:${escapeHtml(finding.id)}" data-dogfood-review-item="${escapeHtml(finding.id)}">
-                <div class="dogfood-review-heading">
-                  <span>${escapeHtml(titleCase(finding.category))}</span>
-                  <strong>${escapeHtml(finding.summary)}</strong>
-                  <small>Read-only inspection</small>
-                </div>
-                <details class="dogfood-note-details" data-dashboard-detail="dogfood-note:${escapeHtml(finding.id)}">
-                  <summary class="dashboard-fold-summary">
-                    <span>Note Details</span>
-                    <small>${escapeHtml(pluralize(recordIds.length, "record"))} | ${escapeHtml(actionLabel)}</small>
-                  </summary>
-                  <div class="dogfood-brief" data-dogfood-brief>
-                    <h4>Issue brief</h4>
-                    <dl>
-                      <div><dt>Impact</dt><dd>${escapeHtml(finding.reason)}</dd></div>
-                      <div><dt>Affected records</dt><dd>${escapeHtml(pluralize(recordIds.length, "record"))}</dd></div>
-                      <div><dt>Read-only next step</dt><dd>${escapeHtml(actionLabel)}</dd></div>
-                      <div><dt>Evidence</dt><dd><code>${escapeHtml(evidencePath)}</code></dd></div>
-                    </dl>
-                  </div>
-                  ${action?.command ? `<code>${escapeHtml(action.command)}</code>` : ""}
-                </details>
-              </article>
-            `;
-          }).join("")}
-        </div>
+        ${dogfoodReviewReference(report)}
       </div>
     </details>
   `;
@@ -7023,66 +6993,36 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .dogfood-review[open] > summary { margin-bottom: 10px; }
     .dogfood-review-body { display: grid; gap: 10px; }
-    .dogfood-review-list { display: grid; gap: 9px; }
-    .dogfood-review-item {
+    .dogfood-review-reference {
       display: grid;
-      gap: 8px;
-      border: 1px solid var(--border);
-      border-left-width: 4px;
+      gap: 5px;
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-left: 4px solid var(--warning);
       border-radius: 7px;
       padding: 9px;
-      background: var(--surface);
+      background: var(--surface-2);
     }
-    .dogfood-review-item.info { border-left-color: var(--info); }
-    .dogfood-review-item.warning { border-left-color: var(--warning); }
-    .dogfood-review-heading {
-      display: grid;
-      gap: 3px;
-    }
-    .dogfood-review-heading span {
-      color: var(--muted);
-      font-size: 11.5px;
-      font-weight: 760;
-      text-transform: uppercase;
-    }
-    .dogfood-review-heading strong {
+    .dogfood-review-reference strong {
       color: var(--ink);
       font-weight: 780;
       overflow-wrap: anywhere;
     }
-    .dogfood-review-heading small {
+    .dogfood-review-reference span,
+    .dogfood-review-reference code,
+    .dogfood-review-body > p {
+      overflow-wrap: anywhere;
+    }
+    .dogfood-review-reference span,
+    .dogfood-review-body > p {
       color: var(--muted);
       font-size: 12px;
       font-weight: 700;
     }
-    .dogfood-note-details {
-      border: 1px solid var(--hairline);
-      border-radius: 7px;
-      padding: 8px 9px;
-      background: var(--surface-2);
-    }
-    .dogfood-note-details[open] > summary { margin-bottom: 8px; }
-    .dogfood-note-details .dogfood-brief {
-      border: 0;
-      border-radius: 0;
-      padding: 0;
-      background: transparent;
-    }
-    .dogfood-brief {
-      border: 1px solid var(--hairline);
-      border-radius: 7px;
-      padding: 8px 9px;
-      background: var(--surface-2);
-    }
-    .dogfood-brief h4 {
-      margin: 0 0 7px;
-      color: var(--ink);
-      font-size: 12.5px;
-      font-weight: 780;
-    }
-    .dogfood-brief dl { margin: 0; }
-    .dogfood-brief dl div {
-      grid-template-columns: 130px minmax(0, 1fr);
+    .dogfood-review-reference code {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
     }
     .visual-grid { display: grid; gap: 11px; }
     .visual-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

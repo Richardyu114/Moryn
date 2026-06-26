@@ -883,13 +883,15 @@ background Audit route instead of `Review Notes` because it has no approval or
 write action. Its folded row reads `Read-only note` or `Read-only notes` instead
 of repeating finding and safe-step counts. The status chip reads `Note` even
 when the underlying finding severity is warning; the per-finding severity remains
-in `/api/dashboard.dogfood_report` and the row class for audit tooling. Each
-finding card keeps impact, evidence, and the safe command inside a `Note
-Details` fold, so the visible card face only shows category, summary, and
-read-only status. Expanding `Note Details` shows the `Issue brief` for impact,
-affected records, read-only next step, evidence path, and the safe dashboard or
-timeline command already returned by `dogfood_report.suggested_actions_by_id`.
-It does not add buttons, background execution, or a second mutation path.
+in `/api/dashboard.dogfood_report`. Expanding Dogfood Notes renders a single
+`Dogfood Notes Index` card mapped to `/api/dashboard.dogfood_report`. The
+dashboard HTML does not render per-finding cards, `data-dogfood-review-item`
+rows, `Note Details`, impact briefs, evidence paths, affected record ids, or
+safe timeline commands there. Full impact notes, affected records, evidence,
+and safe dashboard or timeline commands remain in
+`/api/dashboard.dogfood_report.findings_by_id` and
+`/api/dashboard.dogfood_report.suggested_actions_by_id`. It does not add
+buttons, background execution, or a second mutation path.
 Dogfood capture review backlog uses the same review-required policy boundary as
 Capture Inbox and Health Check, so low-risk auto-captured handoffs remain
 read-only audit evidence instead of dogfood review work.

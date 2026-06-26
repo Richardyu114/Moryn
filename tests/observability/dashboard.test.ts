@@ -1909,7 +1909,8 @@ describe("observability dashboard", () => {
           }>;
         };
         dogfood_report: {
-          findings_by_id: Record<string, { summary: string; record_ids?: string[] }>;
+          findings_by_id: Record<string, { summary: string; reason?: string; record_ids?: string[] }>;
+          suggested_actions_by_id: Record<string, { recommended_action: string; command: string }>;
         };
       };
 
@@ -2019,7 +2020,12 @@ describe("observability dashboard", () => {
         writes: "none"
       });
       expect(data.dogfood_report.findings_by_id.failure_signals).toMatchObject({
+        reason: "1 active record mention failure, timeout, blocked, or similar friction.",
         record_ids: ["rec_governance_item_6"]
+      });
+      expect(data.dogfood_report.suggested_actions_by_id.inspect_failure_signals).toMatchObject({
+        recommended_action: "inspect_failure_signals",
+        command: "moryn timeline --record-id rec_governance_item_6 --project-id moryn --before 3 --after 3"
       });
       expect(JSON.stringify(data.governance)).not.toContain("Private Governance Hub item must stay hidden");
 
@@ -2038,6 +2044,11 @@ describe("observability dashboard", () => {
       const dogfoodPanelHtml = html.slice(dogfoodPanelStart, dogfoodPanelEnd);
       expect(dogfoodPanelHtml).toContain("<strong class=\"warning\">Note</strong>");
       expect(dogfoodPanelHtml).not.toContain("<strong class=\"warning\">Warning</strong>");
+      expect(dogfoodPanelHtml).toContain("<article class=\"dogfood-review-reference\" data-dashboard-detail=\"dogfood-review:index\" data-dogfood-review-reference>");
+      expect(dogfoodPanelHtml).toContain("<strong>Dogfood Notes Index</strong>");
+      expect(dogfoodPanelHtml).toContain("<span>2 findings indexed</span>");
+      expect(dogfoodPanelHtml).toContain("<code>dogfood_report</code>");
+      expect(dogfoodPanelHtml).toContain("<p>Open <code>/api/dashboard</code> for dogfood findings, impact notes, evidence paths, affected records, and safe inspection commands.</p>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Read-only reference material\">");
       expect(html).toContain("<span>Reference Library</span>");
       expect(html).toContain("<small>Reference material</small>");
@@ -2089,26 +2100,22 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Routine checks and audit trail</small>");
       expect(html).not.toContain("reference panels</small>");
       expect(html).not.toContain("<span>Background Evidence</span>");
-      expect(html).toContain("data-dogfood-review-item=\"capture_review_backlog\"");
-      expect(html).toContain("data-dogfood-review-item=\"failure_signals\"");
-      expect(html).toContain("<details class=\"dogfood-note-details\" data-dashboard-detail=\"dogfood-note:failure_signals\">");
-      expect(html).toContain("<span>Note Details</span>");
-      expect(html).toContain("<small>1 record | inspect_failure_signals</small>");
+      expect(dogfoodPanelHtml).not.toContain("data-dogfood-review-item=\"capture_review_backlog\"");
+      expect(dogfoodPanelHtml).not.toContain("data-dogfood-review-item=\"failure_signals\"");
+      expect(dogfoodPanelHtml).not.toContain("<details class=\"dogfood-note-details\" data-dashboard-detail=\"dogfood-note:failure_signals\">");
+      expect(dogfoodPanelHtml).not.toContain("<span>Note Details</span>");
+      expect(dogfoodPanelHtml).not.toContain("<small>1 record | inspect_failure_signals</small>");
       const dogfoodFindingStart = html.indexOf("data-dogfood-review-item=\"failure_signals\"");
-      const dogfoodDetailsIndex = html.indexOf("data-dashboard-detail=\"dogfood-note:failure_signals\"", dogfoodFindingStart);
-      const dogfoodFindingEnd = html.indexOf("</article>", dogfoodFindingStart);
-      expect(dogfoodFindingStart).toBeGreaterThan(-1);
-      expect(dogfoodDetailsIndex).toBeGreaterThan(dogfoodFindingStart);
-      expect(dogfoodDetailsIndex).toBeLessThan(dogfoodFindingEnd);
-      expect(html.slice(dogfoodFindingStart, dogfoodDetailsIndex)).not.toContain("dogfood_report.findings_by_id.failure_signals");
-      expect(html.slice(dogfoodFindingStart, dogfoodDetailsIndex)).not.toContain("moryn timeline --record-id rec_governance_item_6");
-      const dogfoodDetailsHtml = html.slice(dogfoodDetailsIndex, dogfoodFindingEnd);
-      expect(dogfoodDetailsHtml).toContain("<h4>Issue brief</h4>");
-      expect(dogfoodDetailsHtml).toContain("<dt>Impact</dt><dd>1 active record mention failure, timeout, blocked, or similar friction.</dd>");
+      const dogfoodDetailsHtml = dogfoodPanelHtml;
+      expect(dogfoodFindingStart).toBe(-1);
+      expect(dogfoodDetailsHtml).not.toContain("<h4>Issue brief</h4>");
+      expect(dogfoodDetailsHtml).not.toContain("<dt>Impact</dt><dd>1 active record mention failure, timeout, blocked, or similar friction.</dd>");
       expect(dogfoodDetailsHtml).not.toContain("<dt>Impact</dt><dd>2 autocapture/review candidate records are active.</dd>");
-      expect(dogfoodDetailsHtml).toContain("<dt>Read-only next step</dt><dd>inspect_failure_signals</dd>");
-      expect(dogfoodDetailsHtml).toContain("<dt>Evidence</dt><dd><code>dogfood_report.findings_by_id.failure_signals</code></dd>");
-      expect(dogfoodDetailsHtml).toContain("<code>moryn timeline --record-id rec_governance_item_6 --project-id moryn --before 3 --after 3</code>");
+      expect(dogfoodDetailsHtml).not.toContain("<dt>Read-only next step</dt><dd>inspect_failure_signals</dd>");
+      expect(dogfoodDetailsHtml).not.toContain("<dt>Evidence</dt><dd><code>dogfood_report.findings_by_id.failure_signals</code></dd>");
+      expect(dogfoodDetailsHtml).not.toContain("<code>moryn timeline --record-id rec_governance_item_6 --project-id moryn --before 3 --after 3</code>");
+      expect(JSON.stringify(data.governance)).toContain("dogfood_report.findings_by_id.failure_signals");
+      expect(JSON.stringify(data.dogfood_report)).toContain("moryn timeline --record-id rec_governance_item_6 --project-id moryn --before 3 --after 3");
       expect(html).toContain("<code>moryn dashboard --serve --project-id moryn</code>");
       expect(html).toContain("<details class=\"governance-item");
       expect(html).toContain("data-dashboard-detail=\"governance:capture_policy:review_required\"");
