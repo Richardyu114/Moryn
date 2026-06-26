@@ -3249,6 +3249,25 @@ function healthCheckActionSummary(report: HealthCheckReport): { safe: number; ne
   };
 }
 
+function healthCheckInstallTrust(report: HealthCheckReport): string {
+  const summary = healthCheckActionSummary(report);
+  const status = report.summary.failing_checks > 0 ? "Needs setup review" : "Safe to inspect";
+  return `
+        <section class="health-check-install-trust" aria-label="Install Trust">
+          <div>
+            <h4>Install Trust</h4>
+            <p>Review readiness commands before setup</p>
+          </div>
+          <strong>${escapeHtml(status)}</strong>
+          <div class="health-check-install-trust-chips">
+            <span>${escapeHtml(pluralize(summary.safe, "safe check"))}</span>
+            <span>${escapeHtml(pluralize(summary.needsInput, "manual input"))}</span>
+            <span>No host config writes from dashboard</span>
+          </div>
+        </section>
+  `;
+}
+
 function healthCheckCheckSummary(report: HealthCheckReport): string {
   return [
     report.summary.passing_checks > 0 ? pluralize(report.summary.passing_checks, "pass", "pass") : undefined,
@@ -3358,6 +3377,7 @@ function healthCheckPanel(report: HealthCheckReport): string {
           <div><dt>Events</dt><dd>${escapeHtml(report.stats.total_events)}</dd></div>
           <div><dt>Capture review</dt><dd>${escapeHtml(report.stats.capture_review_candidates)}</dd></div>
         </dl>
+        ${healthCheckInstallTrust(report)}
         ${healthCheckReadinessActions(report)}
         ${healthCheckDetails(report)}
       </div>
@@ -6470,6 +6490,50 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .health-check-stats dt { color: var(--muted); font-size: 11.5px; font-weight: 720; }
     .health-check-stats dd { margin: 3px 0 0; color: var(--ink); font-size: 17px; font-weight: 800; }
+    .health-check-install-trust {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 12px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--good);
+      border-radius: 8px;
+      padding: 10px 11px;
+      background: var(--surface-2);
+    }
+    .health-check-install-trust h4 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 780;
+    }
+    .health-check-install-trust p {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    .health-check-install-trust strong {
+      justify-self: end;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .health-check-install-trust-chips {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .health-check-install-trust-chips span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+      overflow-wrap: anywhere;
+    }
     .health-check-readiness-actions,
     .health-check-details {
       border: 1px solid var(--hairline);

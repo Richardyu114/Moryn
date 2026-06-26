@@ -566,6 +566,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`health_check.setup_readiness` summarizes the selected host adapter, dashboard command, install plan command, context pack command, capture command, and optional sync remote");
     expectText(dashboard, "Readiness suggestions such as `open_dashboard`, `review_install_plan`, and `run_context_pack` are safe-to-run inspection or startup commands");
     expectText(dashboard, "The folded Health Check brief shows only status plus safe and needs-input counts");
+    expectText(dashboard, "The expanded Health Check starts with an `Install Trust` summary before `Readiness Actions`");
+    expectText(dashboard, "`Install Trust` reports whether the setup path is safe to inspect, how many safe checks are available, how many manual inputs remain, and that the dashboard does not write host configuration");
+    expectText(dashboard, "Readiness commands remain outside the `Install Trust` summary");
     expectText(dashboard, "concrete readiness commands stay inside the expanded `Readiness Actions` details, grouped under `Safe to run` and `Needs input`");
     expectText(dashboard, "Full check rows stay inside the nested `Check Details` fold");
     expectText(dashboard, "`Check Details` summarizes pass, info, warning, and failed counts before listing individual checks");

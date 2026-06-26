@@ -937,12 +937,16 @@ command, install plan command, context pack command, capture command, and
 optional sync remote. Readiness suggestions such as `open_dashboard`,
 `review_install_plan`, and `run_context_pack` are safe-to-run inspection or
 startup commands. The folded Health Check brief shows only status plus safe and
-needs-input counts; concrete readiness commands stay inside the expanded
-`Readiness Actions` details, grouped under `Safe to run` and `Needs input`.
-Full check rows stay inside the nested `Check Details` fold. `Check Details`
-summarizes pass, info, warning, and failed counts before listing individual
-checks, so expanded Health Check still starts with setup readiness instead of a
-full diagnostic transcript.
+needs-input counts. The expanded Health Check starts with an `Install Trust`
+summary before `Readiness Actions`. `Install Trust` reports whether the setup
+path is safe to inspect, how many safe checks are available, how many manual
+inputs remain, and that the dashboard does not write host configuration.
+Readiness commands remain outside the `Install Trust` summary; concrete
+readiness commands stay inside the expanded `Readiness Actions` details,
+grouped under `Safe to run` and `Needs input`. Full check rows stay inside the
+nested `Check Details` fold. `Check Details` summarizes pass, info, warning,
+and failed counts before listing individual checks, so expanded Health Check
+still starts with setup readiness instead of a full diagnostic transcript.
 When served from the dashboard CLI, pass `--readiness-host <host>` and
 `--sync-remote <remote>` to make this embedded Health Check match the host and
 sync context you would pass to `moryn health check --host <host> --sync-remote
