@@ -368,8 +368,10 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("compact `Confirm preview` chip row");
     expect(dashboard).toContain("proposed change, target, `plan_hash` gate, and private-record scope");
     expect(dashboard).toContain("without reading raw event language or an outcome table");
-    expect(dashboard).toContain("The structured decision summary is folded behind `Decision summary`");
-    expectText(dashboard, "The folded row uses the same dashboard fold styling as other panels and summarizes `Why, change, safety, action`");
+    expect(dashboard).toContain("does not repeat the full issue sentence or render a");
+    expect(dashboard).toContain("second decision-summary fold");
+    expectText(dashboard, "the title, short confirmation chips, and explicit controls");
+    expect(dashboard).toContain("single `Audit details` fold");
     expect(dashboard).toContain("one expandable `Audit details` fold instead of several");
     expect(dashboard).toContain("A compact `Approval checklist` fold");
     expect(dashboard).toContain("Before approving");

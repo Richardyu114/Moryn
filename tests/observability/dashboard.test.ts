@@ -3958,6 +3958,10 @@ describe("observability dashboard", () => {
       expect(noiseBriefHtml).not.toContain("<dl class=\"maintenance-outcome\" data-maintenance-outcome>");
       expect(noiseBriefHtml).not.toContain("Appends <code>archive_record</code> events after the <code>plan_hash</code> check");
       expect(noiseBriefHtml).not.toContain("Hides this card for this browser session only; store history is unchanged.");
+      expect(html).not.toContain("3 candidate records look like smoke/e2e marker noise.");
+      expect(html).not.toContain("data-maintenance-decision-summary");
+      expect(html).not.toContain("<span>Decision summary</span>");
+      expect(html).not.toContain("<small>Why, change, safety, action</small>");
       expect(html).toContain("Approving appends archive_record events only; Reject hides this card for the browser session.");
       expect(html).toContain("<strong>Issue:</strong> Candidate cleanup found smoke/e2e marker noise.");
       expect(html).toContain("Archive Noise");
@@ -4158,7 +4162,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>1 decision to review | 1 record to move | approval required</small>");
       expect(html).toContain("<div class=\"maintenance-review-body\">");
       expect(html).toContain("Project identity repair");
-      expect(html).toContain("data-maintenance-decision-summary");
+      expect(html).not.toContain("1 record under repo-e6f0166fd942 likely belongs to moryn.");
+      expect(html).not.toContain("data-maintenance-decision-summary");
+      expect(html).not.toContain("<span>Decision summary</span>");
+      expect(html).not.toContain("<small>Why, change, safety, action</small>");
       expect(html).toContain("data-maintenance-brief");
       expect(html).toContain("<h4>Confirm preview</h4>");
       expect(html).toContain("<span>Move 1 record</span>");
@@ -4183,21 +4190,17 @@ describe("observability dashboard", () => {
       expect(repairBriefHtml).not.toContain("Hides this card for this browser session only; store history is unchanged.");
       expect(html).toContain("Review before write");
       expect(html).toContain("Plan hash guard");
-      expect(html).toContain("<details class=\"maintenance-decision-summary-fold\" data-dashboard-detail=\"maintenance-decision-summary:");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-decision-summary-summary\">");
-      expect(html).toContain("<span>Decision summary</span>");
-      expect(html).toContain("<small>Why, change, safety, action</small>");
+      expect(html).not.toContain("<details class=\"maintenance-decision-summary-fold\" data-dashboard-detail=\"maintenance-decision-summary:");
+      expect(html).not.toContain("<summary class=\"dashboard-fold-summary maintenance-decision-summary-summary\">");
       expect(html).not.toContain("<summary>Decision summary</summary>");
-      expect(html.indexOf("<summary class=\"dashboard-fold-summary maintenance-decision-summary-summary\">")).toBeLessThan(
-        html.indexOf("<dl class=\"maintenance-summary maintenance-decision-summary\" data-maintenance-decision-summary>")
-      );
-      expect(html).toContain("Why");
-      expect(html).toContain("Change");
-      expect(html).toContain("Safety");
-      expect(html).toContain("Action");
+      expect(html).toContain("Why this repair is proposed");
+      expect(html).toContain("Why this matters");
+      expect(html).toContain("Proposed change");
+      expect(html).toContain("Safety gate");
+      expect(html).toContain("Approval writes");
       expect(html).toContain("Move 1 record");
       expect(html).toContain("repo-e6f0166fd942 to moryn");
-      expect(html).toContain("Server re-runs the dry run and checks plan_hash before applying.");
+      expect(html).toContain("The server re-runs the dry run and checks <code>plan_hash</code> before writing.");
       expect(html).toContain("data-maintenance-review-log");
       expect(html).toContain("<details class=\"maintenance-audit-details\" data-dashboard-detail=\"maintenance-audit:");
       expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-audit-details-fold\">");
@@ -4236,8 +4239,6 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-maintenance-detail=\"raw-plan\"");
       expect(html).toContain("Evidence");
       expect(html).toContain("Rollback path");
-      expect(html).toContain("Boot and recall can miss these memories");
-      expect(html).toContain("Apply the repair only after confirming");
       expect(html).toContain("append-only revise_record events");
       expect(html).toContain("moryn project migrate --from moryn --to repo-e6f0166fd942 --apply --confirm");
       expect(html).toContain("repo-e6f0166fd942");

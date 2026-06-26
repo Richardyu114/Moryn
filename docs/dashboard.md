@@ -337,11 +337,10 @@ Expanding it first shows a compact `Confirm preview` chip row so the user can
 see the proposed change, target, `plan_hash` gate, and private-record scope
 without reading raw event language or an outcome table.
 
-The structured decision summary is folded behind `Decision summary`, so the
-first expanded queue view stays focused on the short summary and explicit
-controls. The folded row uses the same dashboard fold styling as other panels
-and summarizes `Why, change, safety, action`.
-Opening it still shows:
+The individual plan card does not repeat the full issue sentence or render a
+second decision-summary fold. The first expanded queue view stays focused on
+the title, short confirmation chips, and explicit controls. The structured
+reasoning lives in the single `Audit details` fold, where it still shows:
 
 - why the repair exists
 - what records move between project ids or which candidates would be archived

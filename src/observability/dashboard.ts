@@ -4255,7 +4255,6 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 <div class="maintenance-plan-main">
                   <div>
                     <h3>${escapeHtml(plan.decision_card.title)}</h3>
-                    <p>${escapeHtml(plan.decision_card.issue)}</p>
                   </div>
                   <div class="maintenance-plan-flags" aria-label="Maintenance safety">
                     <span>Review before write</span>
@@ -4263,18 +4262,6 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                   </div>
                 </div>
                 ${maintenanceReviewBrief(plan)}
-                <details class="maintenance-decision-summary-fold" data-dashboard-detail="maintenance-decision-summary:${escapeHtml(plan.plan_id)}">
-                  <summary class="dashboard-fold-summary maintenance-decision-summary-summary">
-                    <span>Decision summary</span>
-                    <small>Why, change, safety, action</small>
-                  </summary>
-                  <dl class="maintenance-summary maintenance-decision-summary" data-maintenance-decision-summary>
-                    <div><dt>Why</dt><dd>${escapeHtml(plan.decision_card.impact)}</dd></div>
-                    <div><dt>Change</dt><dd>${escapeHtml(maintenanceMoveSummary(plan))}<small>${escapeHtml(maintenanceChangeDetail(plan))}</small></dd></div>
-                    <div><dt>Safety</dt><dd>${escapeHtml("Server re-runs the dry run and checks plan_hash before applying.")}<small>${escapeHtml(maintenancePrivateSummary(plan))}</small></dd></div>
-                    <div><dt>Action</dt><dd>${escapeHtml(plan.decision_card.recommended_action)}</dd></div>
-                  </dl>
-                </details>
                 <details class="maintenance-audit-details" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
                   <summary class="dashboard-fold-summary maintenance-audit-details-fold">
                     <span>Audit details</span>
