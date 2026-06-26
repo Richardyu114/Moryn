@@ -5316,6 +5316,24 @@ function supportingEvidenceSummary(): string {
   return "Optional trace data";
 }
 
+type SupportingEvidenceSummaryRow = {
+  id: "audit-evidence" | "store-snapshot" | "raw-store-reference";
+  label: string;
+  summary: string;
+};
+
+function supportingEvidenceSummaryRow(row: SupportingEvidenceSummaryRow): string {
+  return `
+        <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="${escapeHtml(row.id)}">
+          <div>
+            <strong>${escapeHtml(row.label)}</strong>
+            <span>${escapeHtml(row.summary)}</span>
+          </div>
+          <small>Reference</small>
+        </article>
+  `;
+}
+
 function supportingEvidenceOperationalGroup(panels: string[]): string {
   if (panels.length === 0) return "";
   return `
@@ -5377,6 +5395,27 @@ function supportingEvidencePanel(data: DashboardData): string {
   const rawPanels = [
     debugInspectorPanel(data)
   ].filter((panel) => panel.length > 0);
+  const summaryRows: SupportingEvidenceSummaryRow[] = [
+    ...(operationalPanels.length > 0 ? [{
+      id: "audit-evidence" as const,
+      label: "Audit Evidence",
+      summary: "Clean audits and store signals"
+    }] : []),
+    ...(snapshotPanels.length > 0 ? [{
+      id: "store-snapshot" as const,
+      label: "Store Snapshot",
+      summary: "Store context"
+    }] : []),
+    ...(rawPanels.length > 0 ? [{
+      id: "raw-store-reference" as const,
+      label: "Raw Store Reference",
+      summary: "Optional raw records"
+    }] : [])
+  ];
+  const detailGroups = [
+    supportingEvidenceOperationalGroup(operationalPanels),
+    supportingEvidenceRawGroup(rawPanels)
+  ].filter((panel) => panel.length > 0);
   return `
     <details class="panel supporting-evidence" data-dashboard-detail="supporting-evidence" aria-label="Supporting Evidence">
       <summary class="dashboard-fold-summary supporting-evidence-fold">
@@ -5384,8 +5423,18 @@ function supportingEvidencePanel(data: DashboardData): string {
         <small>${escapeHtml(supportingEvidenceSummary())}</small>
       </summary>
       <div class="supporting-evidence-list">
-        ${supportingEvidenceOperationalGroup(operationalPanels)}
-        ${supportingEvidenceRawGroup(rawPanels)}
+        <div class="supporting-evidence-summary-list" aria-label="Audit Trail summary">
+          ${summaryRows.map(supportingEvidenceSummaryRow).join("")}
+        </div>
+        <details class="supporting-evidence-full-details" data-dashboard-detail="supporting-evidence-full-details">
+          <summary class="dashboard-fold-summary">
+            <span>Full audit details</span>
+            <small>${escapeHtml(pluralize(detailGroups.length, "group"))}</small>
+          </summary>
+          <div class="supporting-evidence-full-list">
+            ${detailGroups.join("")}
+          </div>
+        </details>
       </div>
     </details>
   `;
@@ -7026,6 +7075,55 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-top: 1px solid var(--hairline);
       padding-top: 10px;
     }
+    .supporting-evidence-summary-list {
+      display: grid;
+      gap: 8px;
+    }
+    .supporting-evidence-summary-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-left: 4px solid var(--signal-slate);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface-2);
+    }
+    .supporting-evidence-summary-row div {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .supporting-evidence-summary-row strong,
+    .supporting-evidence-summary-row span,
+    .supporting-evidence-summary-row small {
+      overflow-wrap: anywhere;
+    }
+    .supporting-evidence-summary-row strong {
+      color: var(--ink);
+      font-weight: 760;
+    }
+    .supporting-evidence-summary-row span,
+    .supporting-evidence-summary-row small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .supporting-evidence-full-details {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface-2);
+    }
+    .supporting-evidence-full-details[open] > summary { margin-bottom: 9px; }
+    .supporting-evidence-full-list {
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
     .supporting-evidence-group {
       display: grid;
       gap: 8px;
@@ -7061,6 +7159,9 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       gap: 10px;
     }
     .supporting-evidence-list > .panel,
+    .supporting-evidence-full-list > .panel,
+    .supporting-evidence-full-list > section.panel,
+    .supporting-evidence-full-list > details.panel,
     .supporting-evidence-group-list > .panel,
     .supporting-evidence-group-list > section.panel,
     .supporting-evidence-group-list > details.panel {

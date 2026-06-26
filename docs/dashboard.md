@@ -757,8 +757,11 @@ read-only findings do not look like pending approval work or expose
 child panel counts. Routine Diagnostics and Audit Trail are
 grouped behind `Reference Evidence`, whose folded summary reads `Routine
 evidence`, while the accessible summary keeps `Routine checks and audit trail`
-instead of listing reference-panel counts. Empty groups are omitted, so the
-library does not add a placeholder when there is only background evidence.
+instead of listing reference-panel counts. Expanding `Audit Trail` shows
+lightweight Audit Evidence, Store Snapshot, and Raw Store Reference rows first;
+the original evidence groups stay inside the nested `Full audit details`
+section. Empty groups are omitted, so the library does not add a placeholder
+when there is only background evidence.
 The routine and background groups still keep the original child
 `data-dashboard-detail` targets, so local navigation can open the parent group
 before scrolling to the requested diagnostic.

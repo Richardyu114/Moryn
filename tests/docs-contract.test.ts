@@ -130,6 +130,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Routine Diagnostics and Audit Trail are grouped behind `Reference Evidence`");
     expectText(dashboard, "folded summary reads `Routine evidence`");
     expectText(dashboard, "while the accessible summary keeps `Routine checks and audit trail`");
+    expectText(dashboard, "Expanding `Audit Trail` shows lightweight Audit Evidence, Store Snapshot, and Raw Store Reference rows first");
+    expectText(dashboard, "the original evidence groups stay inside the nested `Full audit details` section");
     expectText(dashboard, "instead of listing reference-panel counts");
     expectText(dashboard, "Empty groups are omitted");
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");
