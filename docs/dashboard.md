@@ -469,7 +469,7 @@ repeated source/type rows stay distinguishable without stretching the folded
 row. Overflow rows read `More samples` with a short `hidden, indexed` count,
 while the group-specific hidden-record count, API/Raw Store cue, and exact
 `candidate_triage.groups_by_id.<group_id>.records_by_id` path is kept behind a
-group-specific `API evidence path` fold. Full candidate text remains inside the
+group-specific `Hidden record index` fold. Full candidate text remains inside the
 expanded sample body only for visible samples. To avoid flooding
 `/api/dashboard`, `candidate_triage.groups_by_id.<group_id>.records[]` keeps
 only the visible sample records while

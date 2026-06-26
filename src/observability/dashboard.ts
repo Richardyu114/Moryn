@@ -3910,7 +3910,7 @@ function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): st
         <p>Use the API index or Raw Store when the displayed samples are not enough.</p>
         <details class="candidate-triage-overflow-evidence" data-dashboard-detail="candidate-triage-overflow-evidence:${escapeHtml(group.id)}">
           <summary class="dashboard-fold-summary">
-            <span>API evidence path</span>
+            <span>Hidden record index</span>
             <small>${escapeHtml(`${group.label} index`)}</small>
           </summary>
           <code>${escapeHtml(`${group.evidence_path}.records_by_id`)}</code>

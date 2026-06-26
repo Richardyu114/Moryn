@@ -1285,7 +1285,8 @@ describe("observability dashboard", () => {
       expect(groupHtml).toContain("<small>4 hidden, indexed</small>");
       expect(groupHtml).not.toContain("<small>Needs inspection: 4 hidden in API and Raw Store</small>");
       expect(groupHtml).not.toContain("<small>Full group available in API and Raw Store</small>");
-      expect(groupHtml).toContain("<span>API evidence path</span>");
+      expect(groupHtml).toContain("<span>Hidden record index</span>");
+      expect(groupHtml).not.toContain("<span>API evidence path</span>");
       expect(groupHtml).toContain("<small>Needs inspection index</small>");
       expect(groupHtml).toContain("<code>candidate_triage.groups_by_id.needs_inspection.records_by_id</code>");
       expect(groupHtml).not.toContain("Full group stays in <code>candidate_triage.groups_by_id.needs_inspection.records[]</code> and Raw Store.");
