@@ -468,11 +468,12 @@ kind/source/time wording and record id stay in the accessible row label, so
 repeated source/type rows stay distinguishable without stretching the folded
 row. Overflow rows read `More samples` with a short `hidden, indexed` count,
 and their visible count says only how many more records are indexed. The
-group-specific hidden-record count, API/Raw Store cue, and exact
+group-specific hidden-record count, record-index cue, and exact
 `candidate_triage.groups_by_id.<group_id>.records_by_id` path stay behind a
-group-specific `Hidden record index` fold. Visible sample bodies label candidate
-text as `Content`, and full candidate text remains inside the expanded sample
-body only for visible samples. To avoid flooding
+group-specific `Hidden record index` fold; expanded guidance tells reviewers to
+open that index instead of naming API/Raw Store on the row face. Visible sample
+bodies label candidate text as `Content`, and full candidate text remains inside
+the expanded sample body only for visible samples. To avoid flooding
 `/api/dashboard`, `candidate_triage.groups_by_id.<group_id>.records[]` keeps
 only the visible sample records while
 `candidate_triage.groups_by_id.<group_id>.record_ids[]` and

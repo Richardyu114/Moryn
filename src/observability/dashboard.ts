@@ -3898,7 +3898,7 @@ function candidateTriageSampleVisibleSummary(group: DashboardCandidateTriageGrou
 function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): string {
   const hiddenRecords = Math.max(0, group.record_ids.length - group.records.length);
   if (hiddenRecords === 0) return "";
-  const overflowSummary = `${group.label}: ${hiddenRecords} hidden in API index and Raw Store`;
+  const overflowSummary = `${group.label}: ${hiddenRecords} hidden with record index available`;
   return `
     <div class="candidate-triage-overflow">
       <span class="candidate-triage-overflow-count">${escapeHtml(`${pluralize(hiddenRecords, "more record")} indexed`)}</span>
@@ -3907,7 +3907,7 @@ function renderCandidateTriageOverflow(group: DashboardCandidateTriageGroup): st
           <span>More samples</span>
           <small>${escapeHtml(`${hiddenRecords} hidden, indexed`)}</small>
         </summary>
-        <p>Use the API index or Raw Store when the displayed samples are not enough.</p>
+        <p>Open the hidden record index when the displayed samples are not enough.</p>
         <details class="candidate-triage-overflow-evidence" data-dashboard-detail="candidate-triage-overflow-evidence:${escapeHtml(group.id)}">
           <summary class="dashboard-fold-summary">
             <span>Hidden record index</span>

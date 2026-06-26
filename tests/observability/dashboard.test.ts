@@ -1283,8 +1283,11 @@ describe("observability dashboard", () => {
       expect(groupHtml).toContain("<span class=\"candidate-triage-overflow-count\">4 more records indexed</span>");
       expect(groupHtml).not.toContain("indexed in API evidence");
       expect(groupHtml).toContain("<span>More samples</span>");
-      expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"More samples: Needs inspection: 4 hidden in API index and Raw Store\">");
+      expect(groupHtml).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"More samples: Needs inspection: 4 hidden with record index available\">");
       expect(groupHtml).toContain("<small>4 hidden, indexed</small>");
+      expect(groupHtml).toContain("<p>Open the hidden record index when the displayed samples are not enough.</p>");
+      expect(groupHtml).not.toContain("hidden in API index and Raw Store");
+      expect(groupHtml).not.toContain("Use the API index or Raw Store when the displayed samples are not enough.");
       expect(groupHtml).not.toContain("<small>Needs inspection: 4 hidden in API and Raw Store</small>");
       expect(groupHtml).not.toContain("<small>Full group available in API and Raw Store</small>");
       expect(groupHtml).toContain("<span>Hidden record index</span>");
