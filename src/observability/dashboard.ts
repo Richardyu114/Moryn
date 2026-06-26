@@ -4979,6 +4979,24 @@ function isReadOnlyCapturePolicyEvidence(report: CapturePolicyResult): boolean {
     && (report.findings.length > 0 || report.suggested_actions.length > 0);
 }
 
+function capturePolicyReference(report: CapturePolicyResult): string {
+  const routeParts = [
+    report.stats.auto_captured_records > 0 ? `${report.stats.auto_captured_records} captured` : undefined,
+    report.stats.policy_archived_records > 0 ? `${report.stats.policy_archived_records} archived` : undefined
+  ].filter((part): part is string => part !== undefined);
+  const indexSummary = routeParts.length > 0
+    ? `${routeParts.join(" | ")} ${routeParts.length === 1 ? "route" : "routes"} indexed`
+    : "No capture policy work indexed";
+  return `
+      <article class="capture-policy-reference" data-dashboard-detail="capture-policy:index" data-capture-policy-reference>
+        <strong>Capture Policy Index</strong>
+        <span>${escapeHtml(indexSummary)}</span>
+        <code>capture_policy</code>
+      </article>
+      <p>Open <code>/api/dashboard</code> for capture policy findings, safe inspection actions, decisions, rule ids, evidence paths, and trace commands.</p>
+  `;
+}
+
 function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "panel"): string {
   if (report.stats.total_autocapture_records === 0) return "";
   const readOnlyEvidence = isReadOnlyCapturePolicyEvidence(report);
@@ -4995,6 +5013,7 @@ function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "pane
         <span>${escapeHtml(readOnlyEvidence ? "Policy Decision History" : "Capture Policy Audit")}</span>
         <small>${escapeHtml(readOnlyEvidence ? "Routing evidence" : summaryText)}</small>
       </summary>
+      ${readOnlyEvidence || isCleanCapturePolicy(report) ? capturePolicyReference(report) : `
       <div class="lifecycle-policy">
         <div>
           <strong>capture_policy</strong>
@@ -5015,6 +5034,7 @@ function capturePolicyAuditPanel(report: CapturePolicyResult, panelClass = "pane
         ${capturePolicyActionsList(report)}
         ${capturePolicyDecisionCards(report)}
       </details>
+      `}
     </details>
   `;
 }
@@ -7367,6 +7387,37 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 700;
     }
     .memory-lifecycle-reference code {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .capture-policy-reference {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-left: 4px solid var(--info);
+      border-radius: 7px;
+      padding: 9px;
+      background: var(--surface);
+    }
+    .capture-policy-reference strong {
+      color: var(--ink);
+      font-weight: 780;
+      overflow-wrap: anywhere;
+    }
+    .capture-policy-reference span,
+    .capture-policy-reference code,
+    .capture-policy-audit > p {
+      overflow-wrap: anywhere;
+    }
+    .capture-policy-reference span,
+    .capture-policy-audit > p {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .capture-policy-reference code {
       color: var(--muted);
       font-size: 11px;
       font-weight: 700;

@@ -6194,7 +6194,6 @@ describe("observability dashboard", () => {
       });
 
       const html = renderDashboardHtml(data);
-      expect(html).toContain("Auto-captured handoff");
       expect(html).not.toContain("<section id=\"capture-inbox\" class=\"panel capture-inbox\" aria-label=\"Capture Inbox\">");
       expect(html).not.toContain("<h2>Capture Inbox</h2>");
       expect(html).not.toContain("<details class=\"capture-inbox-audit\" data-dashboard-detail=\"capture-inbox-audit\">");
@@ -6204,13 +6203,18 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>Routing evidence</small>");
       expect(html.match(/<span>Policy Decision History<\/span>/g)).toHaveLength(1);
       const capturePolicyPanelStart = html.indexOf("<details class=\"panel capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
-      const capturePolicyHistoryStart = html.indexOf("<details class=\"lifecycle-action-details\" data-dashboard-detail=\"capture-policy:default_autocapture_policy\">", capturePolicyPanelStart);
-      const capturePolicyOuter = html.slice(capturePolicyPanelStart, capturePolicyHistoryStart);
-      expect(capturePolicyOuter).toContain("<div class=\"capture-policy-routing-brief\" aria-label=\"Capture policy routing brief\">");
-      expect(capturePolicyOuter).toContain("<strong>No capture inbox work</strong>");
-      expect(capturePolicyOuter).toContain("1 auto-captured handoff");
-      expect(capturePolicyOuter).not.toContain("<div class=\"lifecycle-findings\">");
-      expect(capturePolicyOuter).not.toContain("Autocapture policy retained low-risk handoffs without review.");
+      const capturePolicyPanelEnd = html.indexOf("<details class=\"supporting-evidence-group", capturePolicyPanelStart);
+      const capturePolicyHtml = html.slice(capturePolicyPanelStart, capturePolicyPanelEnd);
+      expect(capturePolicyHtml).toContain("<article class=\"capture-policy-reference\" data-dashboard-detail=\"capture-policy:index\" data-capture-policy-reference>");
+      expect(capturePolicyHtml).toContain("<strong>Capture Policy Index</strong>");
+      expect(capturePolicyHtml).toContain("<span>1 captured route indexed</span>");
+      expect(capturePolicyHtml).toContain("<code>capture_policy</code>");
+      expect(capturePolicyHtml).toContain("<p>Open <code>/api/dashboard</code> for capture policy findings, safe inspection actions, decisions, rule ids, evidence paths, and trace commands.</p>");
+      expect(capturePolicyHtml).not.toContain("<div class=\"capture-policy-routing-brief\" aria-label=\"Capture policy routing brief\">");
+      expect(capturePolicyHtml).not.toContain("<strong>No capture inbox work</strong>");
+      expect(capturePolicyHtml).not.toContain("1 auto-captured handoff");
+      expect(capturePolicyHtml).not.toContain("<div class=\"lifecycle-findings\">");
+      expect(capturePolicyHtml).not.toContain("Autocapture policy retained low-risk handoffs without review.");
       expect(html).not.toContain("<span>Capture Policy Audit</span>");
       expect(html).not.toContain("Moryn Health Check needs attention | 1 warning");
       expect(html).not.toContain("<small>1 captured</small>");
@@ -6219,13 +6223,17 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>manual review | no auto-canonical | 0 candidates | auto-captured 1 | policy archived 0</small>");
       expect(html).not.toContain("<small>manual review | no auto-canonical | 0 candidates</small>");
       expect(html).not.toContain("auto-captureds");
-      expect(html).toContain("low_risk_handoff_auto_capture");
-      expect(html).toContain("Codex finished setup wizard polish.");
-      expect(html).toContain("inspect_auto_captured_handoff");
-      expect(html).toContain("moryn timeline --record-id rec_auto_capture_1 --project-id moryn --before 3 --after 3");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Routing details: Read-only evidence\">");
-      expect(html).toContain("<span>Routing details</span>");
-      expect(html).toContain("<small>Read-only evidence</small>");
+      expect(capturePolicyHtml).not.toContain("low_risk_handoff_auto_capture");
+      expect(capturePolicyHtml).not.toContain("Codex finished setup wizard polish.");
+      expect(capturePolicyHtml).not.toContain("inspect_auto_captured_handoff");
+      expect(capturePolicyHtml).not.toContain("moryn timeline --record-id rec_auto_capture_1 --project-id moryn --before 3 --after 3");
+      expect(capturePolicyHtml).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Routing details: Read-only evidence\">");
+      expect(capturePolicyHtml).not.toContain("<span>Routing details</span>");
+      expect(capturePolicyHtml).not.toContain("<small>Read-only evidence</small>");
+      expect(JSON.stringify(data.capture_policy)).toContain("low_risk_handoff_auto_capture");
+      expect(JSON.stringify(data.capture_policy)).toContain("Codex finished setup wizard polish.");
+      expect(JSON.stringify(data.capture_policy)).toContain("inspect_auto_captured_handoff");
+      expect(JSON.stringify(data.capture_policy)).toContain("moryn timeline --record-id rec_auto_capture_1 --project-id moryn --before 3 --after 3");
       expect(html).not.toContain("api/capture-inbox/rec_auto_capture_1/approve");
       expect(html).not.toContain("api/capture-inbox/rec_auto_capture_1/reject");
     });
@@ -6321,8 +6329,15 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("api/capture-inbox/rec_stale_review_handoff/approve");
       expect(html).not.toContain("api/capture-inbox/rec_stale_review_handoff/reject");
       expect(html).not.toContain("data-governance-item=\"capture_policy:review_required\"");
-      expect(html).toContain("data-capture-policy-decision=\"rec_stale_review_handoff\"");
-      expect(html).toContain("low_risk_handoff_auto_capture");
+      const capturePolicyPanelStart = html.indexOf("<details class=\"panel capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
+      const capturePolicyPanelEnd = html.indexOf("<details class=\"supporting-evidence-group", capturePolicyPanelStart);
+      const capturePolicyHtml = html.slice(capturePolicyPanelStart, capturePolicyPanelEnd);
+      expect(capturePolicyHtml).toContain("<strong>Capture Policy Index</strong>");
+      expect(capturePolicyHtml).toContain("<span>1 captured route indexed</span>");
+      expect(capturePolicyHtml).toContain("<code>capture_policy</code>");
+      expect(capturePolicyHtml).not.toContain("data-capture-policy-decision=\"rec_stale_review_handoff\"");
+      expect(capturePolicyHtml).not.toContain("low_risk_handoff_auto_capture");
+      expect(JSON.stringify(data.capture_policy)).toContain("low_risk_handoff_auto_capture");
     });
   });
 
@@ -6394,8 +6409,13 @@ describe("observability dashboard", () => {
       const storeSignalsIndex = html.indexOf("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
       expect(cleanAuditIndex).toBeGreaterThan(supportingEvidenceIndex);
       expect(storeSignalsIndex).toBeGreaterThan(cleanAuditIndex);
-      expect(html).toContain("data-capture-policy-decision=\"rec_policy_handled\"");
-      expect(html).toContain("Review already handled");
+      expect(data.capture_policy.decisions_by_record_id.rec_policy_handled).toMatchObject({
+        decision: "review",
+        state: "canonical",
+        review_required: false
+      });
+      expect(html).not.toContain("data-capture-policy-decision=\"rec_policy_handled\"");
+      expect(html).not.toContain("Review already handled");
       expect(html).toContain("<details class=\"clean-audit-report memory-lifecycle\" data-dashboard-detail=\"memory-lifecycle-audit\"");
       expect(html).toContain("<span>Memory Lifecycle</span>");
       expect(html).toContain("<small>No lifecycle work</small>");
@@ -6419,10 +6439,20 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"clean-audit-report capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
       expect(html).toContain("<span>Capture Policy Audit</span>");
       expect(html).toContain("<small>No capture policy work</small>");
-      expect(html).toContain("<details class=\"lifecycle-action-details\" data-dashboard-detail=\"capture-policy:default_autocapture_policy\">");
-      expect(html).toContain("<span>Routing details</span>");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Routing details: Read-only evidence\">");
-      expect(html).toContain("<small>Read-only evidence</small>");
+      const capturePolicyStart = lifecycleEnd;
+      const capturePolicyEnd = html.indexOf("</details>", capturePolicyStart);
+      const cleanCapturePolicyHtml = html.slice(capturePolicyStart, capturePolicyEnd);
+      expect(cleanCapturePolicyHtml).toContain("<article class=\"capture-policy-reference\" data-dashboard-detail=\"capture-policy:index\" data-capture-policy-reference>");
+      expect(cleanCapturePolicyHtml).toContain("<strong>Capture Policy Index</strong>");
+      expect(cleanCapturePolicyHtml).toContain("<span>No capture policy work indexed</span>");
+      expect(cleanCapturePolicyHtml).toContain("<code>capture_policy</code>");
+      expect(cleanCapturePolicyHtml).toContain("<p>Open <code>/api/dashboard</code> for capture policy findings, safe inspection actions, decisions, rule ids, evidence paths, and trace commands.</p>");
+      expect(cleanCapturePolicyHtml).not.toContain("<details class=\"lifecycle-action-details\" data-dashboard-detail=\"capture-policy:default_autocapture_policy\">");
+      expect(cleanCapturePolicyHtml).not.toContain("<span>Routing details</span>");
+      expect(cleanCapturePolicyHtml).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Routing details: Read-only evidence\">");
+      expect(cleanCapturePolicyHtml).not.toContain("<small>Read-only evidence</small>");
+      expect(cleanCapturePolicyHtml).not.toContain("data-capture-policy-decision=\"rec_policy_handled\"");
+      expect(cleanCapturePolicyHtml).not.toContain("Review already handled");
       expect(html).not.toContain("<small>Read-only routing evidence</small>");
       expect(html).not.toContain("<summary>Policy decisions and read-only actions</summary>");
       expect(html).not.toContain("<small>0 captured | 0 review | 0 archived</small>");

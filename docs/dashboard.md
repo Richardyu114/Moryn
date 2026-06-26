@@ -320,13 +320,14 @@ The nested `Capture Policy Audit` row follows the same rule: clean reports read
 `0 captured`. When the report has no review work and only auto-captured or
 policy-archived evidence, the outer folded row reads `Policy Decision History`
 with `Routing evidence` while keeping the stable `capture-policy-audit` route.
-The expanded read-only routing-only reports open with a compact `Routing brief`
-that states whether any Capture Inbox work exists and summarizes auto-captured or
-policy-archived handoffs. The keyed findings, suggested inspect actions, and decision
-cards stay inside a nested `Routing details` fold with `Read-only evidence` in
-the accessible summary, so historical capture, review, and archive decisions
-read as audit history instead of another action queue without repeating the
-outer `Policy Decision History` title.
+Expanding read-only routing-only or clean reports renders a single
+`Capture Policy Index` card mapped to `/api/dashboard.capture_policy`. The
+dashboard HTML does not render routing briefs, `Routing details`, per-decision
+cards, rule ids, evidence paths, or timeline commands there. Keyed findings,
+suggested inspect actions, decisions, rule ids, evidence paths, and trace
+commands remain in `/api/dashboard.capture_policy`. If active review work is
+present, Capture Policy Audit still renders the detailed review rows and
+Capture Inbox controls through the normal explicit approval path.
 
 When `--project-id <id>` or `--project <path>` is provided, the lifecycle report
 uses the same project scope as the CLI report: matching project records plus

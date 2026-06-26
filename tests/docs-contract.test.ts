@@ -198,8 +198,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the outer folded row reads `Policy Decision History`");
     expectText(dashboard, "while keeping the stable `capture-policy-audit` route");
     expectText(dashboard, "with `Routing evidence` while keeping the stable `capture-policy-audit` route");
-    expectText(dashboard, "a nested `Routing details` fold with `Read-only evidence` in the accessible summary");
-    expectText(dashboard, "without repeating the outer `Policy Decision History` title");
+    expectText(dashboard, "renders a single `Capture Policy Index` card");
+    expectText(dashboard, "The dashboard HTML does not render routing briefs, `Routing details`, per-decision cards, rule ids, evidence paths, or timeline commands there");
+    expectText(dashboard, "Keyed findings, suggested inspect actions, decisions, rule ids, evidence paths, and trace commands remain in `/api/dashboard.capture_policy`");
+    expectText(dashboard, "If active review work is present, Capture Policy Audit still renders the detailed review rows");
     expectText(dashboard, "`Clean Audit Reports`, `Store Signals`, and `Recent Value` are grouped under `Audit Evidence`");
     expectText(dashboard, "the collapsed `Audit Trail` row reads `Optional trace data`");
     expectText(dashboard, "the Evidence index `Audit` route also reads `Optional trace data`");
@@ -401,10 +403,11 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("capture_policy");
     expectText(dashboard, "folded summary uses plain routing labels such as");
     expect(dashboard).toContain("`captured`, `review`, and `archived`");
-    expectText(dashboard, "read-only routing-only reports open with a compact `Routing brief`");
-    expectText(dashboard, "keyed findings, suggested inspect actions, and decision cards stay inside a nested `Routing details` fold");
+    expectText(dashboard, "Expanding read-only routing-only or clean reports renders a single");
+    expectText(dashboard, "`Capture Policy Index` card mapped to `/api/dashboard.capture_policy`");
+    expectText(dashboard, "dashboard HTML does not render routing briefs, `Routing details`, per-decision cards");
+    expectText(dashboard, "If active review work is present, Capture Policy Audit still renders the detailed review rows");
     expect(dashboard).toContain("Review in Capture Inbox");
-    expect(dashboard).toContain("Auto-captured handoff");
     expect(dashboard).toContain("Approve Memory");
     expect(dashboard).toContain("Policy archived");
     expect(dashboard).toContain("inspect_auto_captured_handoff");
