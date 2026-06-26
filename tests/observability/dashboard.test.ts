@@ -5342,6 +5342,16 @@ describe("observability dashboard", () => {
       expect(html.indexOf("<summary>Review context</summary>")).toBeLessThan(
         html.indexOf("<dl class=\"capture-inbox-summary\" data-capture-inbox-group-summary>")
       );
+      expect(html).toContain("<summary>Item review</summary>");
+      expect(html).not.toContain("<summary>Group details</summary>");
+      expect(html).toContain("<details class=\"capture-inbox-evidence-index\" data-dashboard-detail=\"capture-inbox-evidence-index:");
+      expect(html).toContain("<summary>Evidence index</summary>");
+      const itemReviewStart = html.indexOf("<summary>Item review</summary>");
+      const evidenceIndexStart = html.indexOf("<summary>Evidence index</summary>", itemReviewStart);
+      const itemsStart = html.indexOf("<div class=\"capture-inbox-items\">", itemReviewStart);
+      expect(itemReviewStart).toBeGreaterThan(-1);
+      expect(evidenceIndexStart).toBeGreaterThan(itemReviewStart);
+      expect(itemsStart).toBeGreaterThan(evidenceIndexStart);
       expect(html).toContain("Smoke test marker only.");
       expect(html).toContain(`<details class="capture-inbox-item" data-capture-inbox-record="${secondCodex.record.id}">`);
       expect(html).toContain("<summary class=\"capture-inbox-item-summary\">");

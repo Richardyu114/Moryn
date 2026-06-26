@@ -5265,14 +5265,17 @@ function captureInbox(items: DashboardCaptureInbox): string {
                 <div><dt>Captured</dt><dd><time title="${escapeHtml(group.latest_at)}">${escapeHtml(group.relative_time)}</time></dd></div>
               </dl>
             </details>
-            <details data-dashboard-detail="capture-group:${escapeHtml(group.id)}">
-              <summary>Group details</summary>
-              <dl>
-                <div><dt>Group</dt><dd><code>${escapeHtml(group.id)}</code></dd></div>
-                <div><dt>Records</dt><dd>${group.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
-                <div><dt>Rules</dt><dd>${group.noise.rule_ids.length ? group.noise.rule_ids.map((ruleId) => `<code>${escapeHtml(ruleId)}</code>`).join(" ") : "none"}</dd></div>
-                <div><dt>Noise</dt><dd>${escapeHtml(group.noise.reasons.length ? group.noise.reasons.join(" ") : "No noise signals detected.")}</dd></div>
-              </dl>
+            <details class="capture-inbox-item-review" data-dashboard-detail="capture-group:${escapeHtml(group.id)}">
+              <summary>Item review</summary>
+              <details class="capture-inbox-evidence-index" data-dashboard-detail="capture-inbox-evidence-index:${escapeHtml(group.id)}">
+                <summary>Evidence index</summary>
+                <dl>
+                  <div><dt>Group</dt><dd><code>${escapeHtml(group.id)}</code></dd></div>
+                  <div><dt>Records</dt><dd>${group.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
+                  <div><dt>Rules</dt><dd>${group.noise.rule_ids.length ? group.noise.rule_ids.map((ruleId) => `<code>${escapeHtml(ruleId)}</code>`).join(" ") : "none"}</dd></div>
+                  <div><dt>Noise</dt><dd>${escapeHtml(group.noise.reasons.length ? group.noise.reasons.join(" ") : "No noise signals detected.")}</dd></div>
+                </dl>
+              </details>
               <div class="capture-inbox-items">
                 ${groupItems.map((item) => `
                   <details class="capture-inbox-item" data-capture-inbox-record="${escapeHtml(item.id)}">
@@ -8223,6 +8226,30 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 720;
     }
     .capture-inbox-context .capture-inbox-summary { margin-bottom: 0; }
+    .capture-inbox-item-review {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin-bottom: 10px;
+      background: var(--surface-2);
+    }
+    .capture-inbox-item-review[open] > summary { margin-bottom: 8px; }
+    .capture-inbox-item-review > summary {
+      color: var(--ink);
+      font-weight: 720;
+    }
+    .capture-inbox-evidence-index {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 7px 9px;
+      margin-bottom: 10px;
+      background: var(--surface);
+    }
+    .capture-inbox-evidence-index[open] > summary { margin-bottom: 8px; }
+    .capture-inbox-evidence-index > summary {
+      color: var(--ink);
+      font-weight: 720;
+    }
     .capture-inbox-item { background: var(--surface); }
     .capture-inbox-item[open] > summary { margin-bottom: 10px; }
     .capture-inbox-item-summary {

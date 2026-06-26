@@ -133,6 +133,9 @@ detail row.
 Capture Inbox group metadata such as Source, Project, Items, and Captured is
 folded behind `Review context`, so the first group card stays focused on the
 source, short summary, noise signal, and explicit group actions.
+Group id, record ids, rules, and noise evidence stay behind an `Evidence index`
+fold inside `Item review`. `Item review` opens to the evidence index and
+collapsed candidate rows instead of raw group internals.
 
 Group cards and candidate detail rows start with a compact `Confirm preview`
 chip row so the user can see the candidate count or review reason plus the
