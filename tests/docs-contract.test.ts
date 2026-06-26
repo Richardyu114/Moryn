@@ -117,7 +117,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "when there are findings it reads `Reference material`");
     expectText(dashboard, "while the accessible summary keeps `Read-only reference material`");
     expectText(dashboard, "reads `Reference evidence only`");
-    expectText(dashboard, "starts with a compact `Evidence index` bar only for routes that have content");
+    expectText(dashboard, "When there is only routine/background material, expanding `Reference Library` skips the `Evidence index` route bar");
+    expectText(dashboard, "When read-only findings exist, the expanded library starts with a compact `Evidence index` bar");
     expectText(dashboard, "empty routes are omitted instead of rendering \"nothing here\" buttons");
     expectText(dashboard, "single wrapping rail");
     expectText(dashboard, "does not become another card grid or prose panel");

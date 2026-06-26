@@ -5995,6 +5995,7 @@ function evidenceLibrary(
     candidateTriageNeedsDecision ? undefined : candidateTriage,
     supportingEvidencePanel(data, { includeStoreSignals })
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
+  const showRouteIndex = showEvidenceIndex && reviewPanels.length > 0;
   const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   const visibleEvidenceSummary = evidenceLibraryVisibleSummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   return `
@@ -6003,7 +6004,7 @@ function evidenceLibrary(
         <span>Reference Library</span>
         <small>${escapeHtml(visibleEvidenceSummary)}</small>
       </summary>
-      ${showEvidenceIndex ? evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length }) : ""}
+      ${showRouteIndex ? evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length }) : ""}
       <div class="evidence-library-list">
         ${evidenceLibraryReviewGroup(reviewPanels)}
         ${evidenceLibraryBackgroundGroup(backgroundPanels)}
