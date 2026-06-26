@@ -4263,6 +4263,18 @@ function maintenanceApprovalChecklist(plan: DashboardMaintenancePlan): string {
   `;
 }
 
+function maintenanceConfirmNotes(plan: DashboardMaintenancePlan): string {
+  return `
+    <details class="maintenance-confirm-notes" data-dashboard-detail="maintenance-confirm-notes:${escapeHtml(plan.plan_id)}">
+      <summary class="dashboard-fold-summary maintenance-confirm-notes-fold">
+        <span>Confirm notes</span>
+        <small>Checklist before approval</small>
+      </summary>
+      ${maintenanceApprovalChecklist(plan)}
+    </details>
+  `;
+}
+
 function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
   const heading = plan.type === "candidate_noise_archive" ? "Why this cleanup is proposed" : "Why this repair is proposed";
   const detected = plan.type === "candidate_noise_archive"
@@ -4433,10 +4445,10 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 <details class="maintenance-audit-details" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
                   <summary class="dashboard-fold-summary maintenance-audit-details-fold">
                     <span>Audit details</span>
-                    <small>Decision record and checklist</small>
+                    <small>Decision record and confirmation</small>
                   </summary>
                   ${maintenanceDecisionRecord(plan)}
-                  ${maintenanceApprovalChecklist(plan)}
+                  ${maintenanceConfirmNotes(plan)}
                   ${maintenancePlanEvidence(plan)}
                 </details>
                 <div class="maintenance-actions">
@@ -8405,12 +8417,19 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
     }
     .maintenance-plan-evidence[open] > summary { margin-bottom: 8px; }
-    .approval-checklist {
+    .maintenance-confirm-notes {
       border: 1px solid var(--hairline);
       border-radius: 7px;
       padding: 8px 9px;
       margin-top: 8px;
       background: var(--surface);
+    }
+    .maintenance-confirm-notes[open] > summary { margin-bottom: 8px; }
+    .approval-checklist {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface-2);
     }
     .approval-checklist[open] > summary { margin-bottom: 8px; }
     .maintenance-decision-record {

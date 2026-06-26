@@ -351,14 +351,15 @@ reasoning lives in the single `Audit details` fold, where it still shows:
 - the recommended action
 
 Each plan also keeps one expandable `Audit details` fold instead of several
-separate evidence folds. Its folded summary reads `Decision record and checklist`,
+separate evidence folds. Its folded summary reads `Decision record and confirmation`,
 and the first thing inside it is a structured `Why this repair is proposed` or
 `Why this cleanup is proposed` record, not a raw event stream:
 detected condition, why it matters, proposed change, safety gate, approval
-writes, and where to audit or roll back. A compact `Approval checklist` fold
-keeps the `Before approving` checklist available below that record with
-plain-language Issue, Proposed change, Safety gate, and Audit path rows, so the
-approval surface reads like a decision checklist instead of internal logs.
+writes, and where to audit or roll back. `Confirm notes` groups the compact `Approval checklist`,
+keeping the `Before approving` checklist available below
+that record with plain-language Issue, Proposed change, Safety gate, and Audit
+path rows, so the approval surface reads like a decision checklist instead of
+internal logs.
 
 Evidence, rollback, and raw plan details stay inside a nested `Plan evidence`
 fold under `Audit details`, so the first expanded audit view stays readable without hiding audit data.
