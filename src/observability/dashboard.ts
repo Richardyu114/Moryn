@@ -4924,9 +4924,9 @@ function recentValueCard(record: DashboardValueRecord, extraClass = ""): string 
         <span>${escapeHtml(record.project_id ?? record.scope)}</span>
       </footer>
       <details data-dashboard-detail="value:${escapeHtml(record.id)}">
-        <summary class="dashboard-fold-summary" aria-label="Trace commands: ${escapeHtml(traceSummary)}">
-          <span>Trace commands</span>
-          <small>Audit commands</small>
+        <summary class="dashboard-fold-summary" aria-label="Audit trace commands: ${escapeHtml(traceSummary)}">
+          <span>Trace</span>
+          <small>${escapeHtml(recordLabel(record.id))}</small>
         </summary>
         <dl>
           <div><dt>ID</dt><dd><code>${escapeHtml(record.id)}</code></dd></div>

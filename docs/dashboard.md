@@ -1127,9 +1127,11 @@ stay inside the expanded panel and `/api/dashboard` payload. Expanding it shows
 the first four records and keeps additional records under `More Recent Value`.
 Recent Value card footers include short record-id context beside the readable
 source label, so repeated source/state/scope rows stay distinguishable.
-Every card keeps its timeline and recall trace commands under a `Trace commands`
-fold whose visible summary reads `Audit commands`, while its accessible label
-keeps kind/type and short record-id context instead of a generic `Details` row.
+Every card keeps its timeline and recall trace commands under a compact `Trace`
+fold whose visible summary uses the short record id. Its accessible label still
+states `Audit trace commands` with kind/type and short record-id context instead
+of a generic `Details` row, so repeated cards do not read like a command log by
+default.
 
 Quarantined records normally count as unresolved safety signals. If an active
 safe replacement index explicitly declares `content.supersedes_quarantined_record`

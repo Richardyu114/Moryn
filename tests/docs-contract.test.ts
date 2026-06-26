@@ -182,8 +182,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "collapsed by default behind a short recent-record count");
     expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
     expectText(dashboard, "Recent Value card footers include short record-id context beside the readable source label");
-    expectText(dashboard, "timeline and recall trace commands under a `Trace commands` fold whose visible summary reads `Audit commands`");
-    expectText(dashboard, "while its accessible label keeps kind/type and short record-id context instead of a generic `Details` row");
+    expectText(dashboard, "timeline and recall trace commands under a compact `Trace` fold whose visible summary uses the short record id");
+    expectText(dashboard, "accessible label still states `Audit trace commands` with kind/type and short record-id context");
+    expectText(dashboard, "so repeated cards do not read like a command log by default");
     expectText(dashboard, "the raw inspector is grouped behind `Raw Store Reference`");
     expectText(dashboard, "`Raw Store Reference` opens with `Optional raw records`");
     expectText(dashboard, "`Raw Store Inspector` opens with `Optional raw inspection`");

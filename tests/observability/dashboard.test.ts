@@ -2694,9 +2694,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("Important compact recent value intro.");
       expect(html).toContain("data-full-summary-hidden=\"true\"");
       expect(html).toContain("Full text available through timeline/recall.");
-      expect(html).toContain("<span>Trace commands</span>");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Trace commands: Memory decision rec_recent_long\">");
-      expect(html).toContain("<small>Audit commands</small>");
+      expect(html).toContain("<span>Trace</span>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Audit trace commands: Memory decision rec_recent_long\">");
+      expect(html).toContain("<small>rec_recent_long</small>");
+      expect(html).not.toContain("<span>Trace commands</span>");
+      expect(html).not.toContain("<small>Audit commands</small>");
       expect(html).not.toContain("<small>Memory decision rec_recent_long</small>");
       expect(html).not.toContain("<small>Memory decision</small>");
       expect(html).not.toContain("<summary>Audit trace</summary>");
@@ -2756,8 +2758,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Record rec_abcdef12</span>");
       expect(html).toContain("<small>Details</small>");
       expect(html).not.toContain("<span>Skill codex_skill_bundle</span>");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Trace commands: Skill codex_skill_bundle rec_abcdef12\">");
-      expect(html).toContain("<small>Audit commands</small>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Audit trace commands: Skill codex_skill_bundle rec_abcdef12\">");
+      expect(html).toContain("<span>Trace</span>");
+      expect(html).toContain("<small>rec_abcdef12</small>");
+      expect(html).not.toContain("<span>Trace commands</span>");
+      expect(html).not.toContain("<small>Audit commands</small>");
       expect(html).not.toContain("<small>Skill codex_skill_bundle rec_abcdef12</small>");
       expect(html).not.toContain("<span>Moryn Local rec_abcdef1234567890abcdef1234567890</span>");
       expect(html).not.toContain("<small>Skill codex_skill_bundle rec_abcdef1234567890abcdef1234567890</small>");
