@@ -220,7 +220,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
     expectText(dashboard, "If promotion drafts are waiting, `Candidate Triage` is grouped under `Review Notes`");
     expectText(dashboard, "folded row reads `Read-only backlog` and the expanded heading reads `Candidate Backlog` instead of repeating queue language");
-    expectText(dashboard, "Candidate group folded rows without promotion drafts read `Audit only` instead of `Archive review`, `Handoff review`, or `Inspection review`");
+    expectText(dashboard, "Candidate group folded rows without promotion drafts use purpose labels instead of `Archive review`, `Handoff review`, or `Inspection review`");
+    expectText(dashboard, "Read-only backlog group faces use purpose labels such as `Likely noise`, `Handoff evidence`, and `Needs inspection` with short next-step hints");
     expectText(dashboard, "The specific review handoff label remains inside the nested `Review path` fold");
     expectText(dashboard, "If promotion drafts are waiting, `Candidate Triage` is grouped under `Review Notes`, the folded row shows the draft count");
     expectText(dashboard, "those approvals also appear in `Pending Decisions` as a `Candidate Triage` route");

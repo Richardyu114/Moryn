@@ -4142,8 +4142,14 @@ function renderCandidateTriagePromotionDrafts(group: DashboardCandidateTriageGro
   `;
 }
 
-function candidateTriageGroupFaceLabel(group: DashboardCandidateTriageGroup): string {
-  return Object.keys(group.promotion_drafts_by_id).length > 0 ? group.review_handoff.label : "Audit only";
+function candidateTriageGroupFace(group: DashboardCandidateTriageGroup): { label: string; hint: string } {
+  if (Object.keys(group.promotion_drafts_by_id).length > 0) {
+    return { label: group.review_handoff.label, hint: "Promotion draft ready" };
+  }
+  if (group.id === "likely_noise") return { label: "Likely noise", hint: "Review before archive" };
+  if (group.id === "session_summaries") return { label: "Handoff evidence", hint: "Keep as context" };
+  if (group.id === "needs_inspection") return { label: "Needs inspection", hint: "Timeline check" };
+  return { label: "Read-only evidence", hint: "Trace indexed" };
 }
 
 function renderCandidateTriageGroupContext(group: DashboardCandidateTriageGroup): string {
@@ -4174,12 +4180,13 @@ function renderCandidateTriageAuditNotes(group: DashboardCandidateTriageGroup): 
 function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
   const sampleSummary = candidateTriageSampleSummary(group);
   const groupSummary = `${group.label}, ${pluralize(group.record_ids.length, "record")}, ${group.recommended_next_step}`;
+  const face = candidateTriageGroupFace(group);
   return `
     <details class="candidate-triage-group" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}">
       <summary class="dashboard-fold-summary" aria-label="${escapeHtml(`Candidate group: ${groupSummary}`)}">
         <span>${escapeHtml(group.label)}</span>
-        <strong>${escapeHtml(candidateTriageGroupFaceLabel(group))}</strong>
-        <small>Records indexed</small>
+        <strong>${escapeHtml(face.label)}</strong>
+        <small>${escapeHtml(face.hint)}</small>
       </summary>
       <div class="candidate-triage-group-body">
         <details class="candidate-triage-group-details" data-dashboard-detail="candidate-triage-details:${escapeHtml(group.id)}">

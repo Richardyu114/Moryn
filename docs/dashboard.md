@@ -456,17 +456,19 @@ draft rows without filling the expanded group by default. Candidate group
 description text stays behind a collapsed `Group context` row nested inside
 `Audit notes`, so expanded groups lead with review path, audit notes, promotion
 drafts when present, and samples instead of prose.
-Candidate group folded rows without promotion drafts read `Audit only` instead
+Candidate group folded rows without promotion drafts use purpose labels instead
 of `Archive review`, `Handoff review`, or `Inspection review`, so read-only
-candidate indexes do not look like approval queues. The specific review handoff
-label remains inside the nested `Review path` fold, while the full recommended
-next step and record count stay in the accessible group summary, `Audit notes`,
-`Group context`, and the nested `Review path` fold. `Audit notes` groups the
-collapsed `Group context` and `Audit boundary` rows. The group write-boundary
-and evidence fields stay behind the nested `Audit boundary` row whose folded
-summary names the candidate group, so the expanded group stays focused on review
-path, audit notes, promotion drafts when present, and samples instead of raw
-audit fields. Promotable groups may include a collapsed `Promotion draft`
+candidate indexes do not look like approval queues. Read-only backlog group
+faces use purpose labels such as `Likely noise`, `Handoff evidence`, and `Needs
+inspection` with short next-step hints. The specific review handoff label remains
+inside the nested `Review path` fold, while the full recommended next step and
+record count stay in the accessible group summary, `Audit notes`, `Group
+context`, and the nested `Review path` fold. `Audit notes` groups the collapsed
+`Group context` and `Audit boundary` rows. The group write-boundary and evidence
+fields stay behind the nested `Audit boundary` row whose folded summary names the
+candidate group, so the expanded group stays focused on review path, audit
+notes, promotion drafts when present, and samples instead of raw audit fields.
+Promotable groups may include a collapsed `Promotion draft`
 row with the canonical target, confirmation requirement, append-only write
 preview, exact `moryn promote ... --confirm` command, and
 `candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>`
