@@ -458,8 +458,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The raw `plan_hash`, equivalent CLI command, rollback path, and record ids stay inside `Decision details`");
     expectText(dashboard, "The structured reasoning lives in that single fold");
     expect(dashboard).toContain("one expandable `Decision details` fold instead of several");
-    expect(dashboard).toContain("folded summary reads `Why, write preview, evidence trace`");
-    expect(dashboard).toContain("uses `Why this matters` and `Write preview` sections");
+    expect(dashboard).toContain("folded summary reads `Review notes, evidence");
+    expect(dashboard).toContain("uses a compact `Review notes` block");
+    expectText(dashboard, "The notes say why the plan exists, the user-facing change, the safety boundary, and where the audit details live");
     expectText(dashboard, "does not render a second `Confirm notes` or `Approval checklist` layer");
     expectText(dashboard, "approval surface reads like a decision card instead of internal logs");
     expect(dashboard).toContain("Evidence, rollback, and raw plan details stay inside a nested `Evidence trace`");

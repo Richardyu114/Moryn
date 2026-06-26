@@ -363,11 +363,10 @@ it still shows:
 - the recommended action
 
 Each plan also keeps one expandable `Decision details` fold instead of several
-separate evidence folds. Its folded summary reads `Why, write preview, evidence trace`,
-and it uses `Why this matters` and `Write preview` sections rather than a raw
-event stream. `Why this matters` explains detection and impact; `Write preview`
-states the proposed change, safety gate, approval writes, and where to audit or
-roll back.
+separate evidence folds. Its folded summary reads `Review notes, evidence
+trace`, and it uses a compact `Review notes` block rather than a raw event
+stream. The notes say why the plan exists, the user-facing change, the safety
+boundary, and where the audit details live.
 It does not render a second `Confirm notes` or `Approval checklist` layer, so
 the approval surface reads like a decision card instead of internal logs.
 
