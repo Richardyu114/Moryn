@@ -5378,7 +5378,7 @@ function evidenceLibraryReviewGroup(panels: string[]): string {
   return `
     <details class="evidence-library-group evidence-library-review" data-dashboard-detail="evidence-review-evidence">
       <summary class="dashboard-fold-summary evidence-library-group-heading">
-        <span>Reference Findings</span>
+        <span>Read-only Notes</span>
         <small>Read-only notes</small>
       </summary>
       <div class="evidence-library-group-list">

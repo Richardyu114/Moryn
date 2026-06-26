@@ -1624,11 +1624,12 @@ describe("observability dashboard", () => {
       expect(governanceHubIndex).toBeLessThan(evidenceBackgroundGroupIndex);
       expect(candidateTriageIndex).toBeGreaterThan(evidenceReviewGroupIndex);
       expect(candidateTriageIndex).toBeLessThan(evidenceBackgroundGroupIndex);
-      expect(html).toContain("<span>Reference Findings</span>");
+      expect(html).toContain("<span>Read-only Notes</span>");
       expect(html).not.toContain("<h3>Evidence map</h3>");
       expect(html).not.toContain("<h3>Evidence routes</h3>");
       expect(html).not.toContain("<div class=\"evidence-library-brief-grid\">");
       expect(html).toContain("<small>Read-only notes</small>");
+      expect(html).not.toContain("<span>Reference Findings</span>");
       expect(html).not.toContain("<span>Read-only Findings</span>");
       expect(html).not.toContain("<small>Findings to inspect</small>");
       expect(html).not.toContain("inspection panels</small>");
@@ -2351,8 +2352,9 @@ describe("observability dashboard", () => {
       expect(candidateTriageHtml).not.toContain("Approve Triage");
       expect(candidateTriageHtml).not.toContain("Archive Group");
       expect(candidateTriageHtml).not.toContain("Promote Selected");
-      expect(html).toContain("<span>Reference Findings</span>");
+      expect(html).toContain("<span>Read-only Notes</span>");
       expect(html).toContain("<small>Read-only notes</small>");
+      expect(html).not.toContain("<span>Reference Findings</span>");
       expect(html).not.toContain("<span>Read-only Findings</span>");
       expect(html).not.toContain("<small>Findings to inspect</small>");
       expect(html).toContain("<span>Reference Evidence</span>");

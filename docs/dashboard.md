@@ -747,9 +747,10 @@ Review are grouped under `Routine Diagnostics`. `Routine Diagnostics` opens
 with `Checks ready` so the folded row stays compact, while the accessible
 summary keeps `Healthy checks and handoff readiness` for screen readers and
 audit tooling. Findings-oriented panels such as Dogfood Notes, Governance
-Hub, or non-routine Health/Recall/Context checks
-are grouped first under `Reference Findings`, whose row reads `Read-only notes`.
-`Reference Findings` is collapsed by default inside `Evidence Library`, so
+Hub, or non-routine Health/Recall/Context checks are grouped first under the
+stable `Reference Findings` route, whose visible row reads `Read-only Notes`
+with `Read-only notes`.
+`Read-only Notes` is collapsed by default inside `Evidence Library`, so
 read-only findings do not look like pending approval work or expose
 child panel counts. Routine Diagnostics and Audit Trail are
 grouped behind `Reference Evidence`, whose folded summary reads `Routine
