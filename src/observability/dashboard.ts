@@ -3913,6 +3913,17 @@ function governanceCountChips(governance: DashboardGovernance): string {
   return chips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
 }
 
+function governanceReferenceIndex(safeInspections: DashboardGovernanceItem[]): string {
+  return `
+        <article class="governance-reference" data-dashboard-detail="governance:index" data-governance-reference>
+          <strong>Governance Index</strong>
+          <span>${escapeHtml(`${pluralize(safeInspections.length, "read-only check")} indexed`)}</span>
+          <code>governance</code>
+        </article>
+        <p>Open <code>/api/dashboard</code> for governance items, evidence paths, review logs, and safe inspection commands.</p>
+  `;
+}
+
 function governanceHubBody(governance: DashboardGovernance): string {
   const safeInspections = governance.items.filter(isSafeGovernanceInspection);
   const primaryItems = governance.items.filter((item) => !isSafeGovernanceInspection(item));
@@ -3922,16 +3933,17 @@ function governanceHubBody(governance: DashboardGovernance): string {
       <div class="governance-heading">
         <div>
           <h2>${escapeHtml(safeOnly ? "Read-only Governance" : "Governance Hub")}</h2>
-          <p>${escapeHtml(safeOnly ? "Reference checks only" : "Read-only inspection index")}</p>
+          <p>${escapeHtml(safeOnly ? "API-backed governance index" : "Read-only inspection index")}</p>
         </div>
         <div class="governance-counts">
-          ${governanceCountChips(governance)}
+          ${safeOnly ? "" : governanceCountChips(governance)}
         </div>
       </div>
       <div class="governance-list">
         ${primaryItems.map(governanceItem).join("")}
+        ${safeOnly ? governanceReferenceIndex(safeInspections) : ""}
         ${safeInspections.length === 0 ? "" : `
-          <details class="governance-safe-group" data-dashboard-detail="governance-safe-inspections">
+          ${safeOnly ? "" : `<details class="governance-safe-group" data-dashboard-detail="governance-safe-inspections">
             <summary class="dashboard-fold-summary">
               <span>${escapeHtml(safeOnly ? "Reference Checks" : "Safe Inspections")}</span>
               <small>${escapeHtml(safeOnly ? "Read-only, no writes" : "Background checks, read-only")}</small>
@@ -3940,7 +3952,7 @@ function governanceHubBody(governance: DashboardGovernance): string {
               ${safeInspections.map(governanceSafeRow).join("")}
             </div>
             ${governanceReferenceAudit(safeInspections)}
-          </details>
+          </details>`}
         `}
       </div>
     </div>
@@ -8043,6 +8055,37 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface-2);
       color: var(--muted);
       font-size: 12px;
+      font-weight: 700;
+    }
+    .governance-reference {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-left: 4px solid var(--info);
+      border-radius: 7px;
+      padding: 9px;
+      background: var(--surface-2);
+    }
+    .governance-reference strong {
+      color: var(--ink);
+      font-weight: 780;
+      overflow-wrap: anywhere;
+    }
+    .governance-reference span,
+    .governance-reference code,
+    .governance-list > p {
+      overflow-wrap: anywhere;
+    }
+    .governance-reference span,
+    .governance-list > p {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .governance-reference code {
+      color: var(--muted);
+      font-size: 11px;
       font-weight: 700;
     }
     .governance-item {

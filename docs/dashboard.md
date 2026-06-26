@@ -428,18 +428,19 @@ Governance items render as compact expandable decision rows. When any item
 requires user confirmation, Governance Hub stays in the Review Notes route.
 When it only contains safe read-only inspections, Governance Hub moves to the
 background Audit route and is collapsed behind a compact summary whose row reads
-`Reference checks` instead of repeating a safe-check count. Safe read-only
-inspections are grouped under a collapsed `Reference Checks` row whose summary
-reads `Read-only, no writes`, while keeping the stable
-`governance-safe-inspections` route for local navigation and tests. Expanding it
-still shows the concrete safe-check count plus compact inspection rows with
-readable source labels, title, and read-only next step.
-Safe inspection rows stay short; detection, next step, write boundary, and
-evidence source are grouped once behind a `Reference audit` fold, so the
-expanded content reads as read-only audit evidence rather than repeated user
-approval work.
-Safe inspection rows use short display titles while full report titles remain
-in `/api/dashboard` and source panels.
+`Reference checks` instead of repeating a safe-check count. Expanding that
+safe-only hub renders a single `Governance Index` card with the count, such as
+`1 read-only check indexed`, and a pointer to `/api/dashboard`. It does not
+render `Reference Checks`, `governance-safe-inspections`, per-inspection rows,
+or `Reference audit` in the visible safe-only HTML. Full governance items,
+evidence paths, review logs, safe inspection commands, and report titles remain
+in `/api/dashboard.governance.items_by_id`.
+When non-safe governance items are present, safe read-only checks can still
+appear as supporting `Safe Inspections` rows alongside the decision rows. In that
+mixed case, safe inspection rows stay short; detection, next step, write
+boundary, and evidence source are grouped once behind a `Reference audit` fold,
+so the expanded content reads as read-only audit evidence rather than repeated
+user approval work.
 `memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor`
 safe inspection when candidate records are accumulating faster than canonical
 records. It points back to the raw memory doctor evidence and does not add
@@ -1190,9 +1191,10 @@ metadata, and `writes: "none"`. Memory Lifecycle, Capture Policy Audit, Recall
 Eval, and the raw store inspector remain available, but their details are
 collapsed by default.
 
-The expanded Governance Hub heading reads `Read-only inspection index` instead
-of exposing `governance.summary` as visible UI copy. The JSON contract still
-keeps `governance.summary` for agents and audit tooling.
+The expanded safe-only Governance Hub heading reads `API-backed governance
+index`, and its visible card reads `Governance Index` instead of exposing
+`governance.summary` as UI copy. The JSON contract still keeps
+`governance.summary` for agents and audit tooling.
 
 Long record text is rendered as compact excerpts in the HTML dashboard,
 including Recent Value cards, Context Pack Review items, Capture Inbox cards,
