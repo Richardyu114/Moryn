@@ -540,14 +540,20 @@ describe("documentation contracts", () => {
       expectText(document, "installation");
     }
     expect(contracts).toContain("moryn contracts operations --operation health_check");
+    expect(readme).toContain("moryn health check --project . --host codex --sync-remote <remote> --limit 20");
     expect(contracts).toContain('"tool": "health_check"');
     expect(contracts).toContain("health_check.checks_by_id.<check_id>");
     expect(contracts).toContain("health_check.suggested_actions_by_id.<action_id>");
+    expectText(contracts, "`moryn health check --host codex --sync-remote <remote>` keeps setup review read-only");
+    expectText(contracts, "`health_check.setup_readiness` records the selected host adapter, dashboard command, install command, context pack command, capture command, and optional sync remote");
     expect(dashboard).toContain("Moryn Health Check");
     expect(dashboard).toContain("health_check");
     expectText(dashboard, "plain-language summary such as `Healthy local store` or `needs attention | 1 warning`");
     expectText(dashboard, "Zero-count buckets are omitted from the folded row");
     expectText(dashboard, "/api/dashboard.health_check.summary` still includes the complete warning and failing counts");
+    expectText(dashboard, "`health_check.setup_readiness` summarizes the selected host adapter, dashboard command, install plan command, context pack command, capture command, and optional sync remote");
+    expectText(dashboard, "Readiness suggestions such as `open_dashboard`, `review_install_plan`, and `run_context_pack` are safe-to-run inspection or startup commands");
+    expectText(dashboard, "`capture_session` stays explicit because it needs the user-authored session summary");
     expectText(dashboard, "Capture Inbox backlog only counts candidates whose capture policy requires explicit review or user action");
     expectText(dashboard, "Older autocapture review metadata is rechecked against the current autocapture policy before it appears as active Capture Inbox, Health Check, or Dogfood review work");
     expectText(dashboard, "explicit durable decisions and preferences still require review");

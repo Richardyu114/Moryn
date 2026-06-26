@@ -2130,6 +2130,8 @@ function validateDogfoodReportInput(input: DogfoodReportInput): void {
 function validateHealthCheckInput(input: HealthCheckInput): void {
   assertPlainObject(input, "health check input");
   validateOptionalString("health_check", input.project_id, "project_id");
+  validateOptionalString("health_check", input.host, "host");
+  validateOptionalString("health_check", input.sync_remote, "sync_remote");
   validateOptionalBoolean("health_check", input.include_private, "include_private");
 }
 
@@ -3415,6 +3417,8 @@ export function createEngine(deps: EngineDeps) {
         records: visibleRecords,
         events,
         project_id: resolvedInput.project_id,
+        host: resolvedInput.host,
+        sync_remote: resolvedInput.sync_remote,
         limit,
         include_private: resolvedInput.include_private,
         excluded_private_records: allRecords.length - visibleRecords.length

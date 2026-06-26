@@ -46,7 +46,8 @@ const HEALTH_CHECK_SELECTION_SOURCES = {
   check_id: "checks_by_id.<check_id>.id",
   action: "suggested_actions_by_id.<action_id>",
   action_id: "suggested_actions_by_id.<action_id>.action_id",
-  stat: "stats.<field>"
+  stat: "stats.<field>",
+  setup_readiness: "setup_readiness"
 };
 const CAPTURE_POLICY_SELECTION_SOURCES = {
   decision: "decisions_by_record_id.<record_id>",
@@ -469,6 +470,72 @@ describe("core engine", () => {
         safe_to_run: true
       });
       expect(JSON.stringify(report)).not.toContain("Private health check detail");
+    });
+  });
+
+  it("adds read-only setup readiness checks for host adapters, dashboard, and sync", async () => {
+    await withInitializedTempStore(async (storePath) => {
+      const engine = createEngine({ storePath });
+      const beforeEvents = await readEvents(storePath);
+
+      const report = await engine.healthCheck({
+        project_id: "moryn",
+        host: "codex",
+        sync_remote: "git@github.com:user/moryn-store.git",
+        limit: 20
+      });
+
+      expect(await readEvents(storePath)).toHaveLength(beforeEvents.length);
+      expect(report.read_only).toBe(true);
+      expect(report.setup_readiness).toMatchObject({
+        host: "codex",
+        host_adapter: "Codex",
+        sync_remote: "git@github.com:user/moryn-store.git",
+        dashboard_command: "moryn dashboard --serve --project-id moryn",
+        install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+        context_pack_command: "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
+        capture_command: "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'"
+      });
+      expect(report.checks_by_id.dashboard_access).toMatchObject({
+        status: "info",
+        category: "runtime",
+        label: "Dashboard access",
+        summary: "Dashboard can be opened locally for review."
+      });
+      expect(report.checks_by_id.sync_remote).toMatchObject({
+        status: "info",
+        category: "sync",
+        label: "Sync remote supplied",
+        summary: "Sync remote is available for generated lifecycle commands."
+      });
+      expect(report.checks_by_id.host_adapter).toMatchObject({
+        status: "pass",
+        category: "host",
+        label: "Host adapter",
+        summary: "Codex adapter commands are available."
+      });
+      expect(report.suggested_actions_by_id.open_dashboard).toMatchObject({
+        tool: "dashboard",
+        command: "moryn dashboard --serve --project-id moryn",
+        safe_to_run: true
+      });
+      expect(report.suggested_actions_by_id.review_install_plan).toMatchObject({
+        tool: "install",
+        command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+        safe_to_run: true
+      });
+      expect(report.suggested_actions_by_id.run_context_pack).toMatchObject({
+        tool: "context_pack",
+        command: "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
+        safe_to_run: true
+      });
+      expect(report.suggested_actions_by_id.capture_session).toMatchObject({
+        tool: "capture_session",
+        command: "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'",
+        safe_to_run: false,
+        required_fields: ["summary"]
+      });
+      expect(report.suggested_actions_by_id.configure_sync_remote).toBeUndefined();
     });
   });
 

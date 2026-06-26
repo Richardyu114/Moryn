@@ -3926,6 +3926,69 @@ describe("moryn CLI", () => {
     });
   });
 
+  it("prints setup readiness checks from health check CLI options", async () => {
+    await withTempDir(async (dir) => {
+      await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);
+
+      const result = await exec("node", [
+        "--import", tsxLoader, cliPath, "--store", dir,
+        "health", "check",
+        "--project-id", "moryn",
+        "--host", "codex",
+        "--sync-remote", "git@github.com:user/moryn-store.git",
+        "--limit", "20"
+      ]);
+      const parsed = JSON.parse(result.stdout) as {
+        read_only: boolean;
+        setup_readiness?: {
+          host: string;
+          host_adapter: string;
+          sync_remote?: string;
+          dashboard_command: string;
+          install_command: string;
+          context_pack_command: string;
+          capture_command: string;
+        };
+        checks_by_id: Record<string, { status: string; category: string; label?: string; summary?: string }>;
+        suggested_actions_by_id: Record<string, { tool: string; command: string; safe_to_run: boolean; required_fields?: string[] }>;
+      };
+
+      expect(parsed.read_only).toBe(true);
+      expect(parsed.setup_readiness).toMatchObject({
+        host: "codex",
+        host_adapter: "Codex",
+        sync_remote: "git@github.com:user/moryn-store.git",
+        dashboard_command: "moryn dashboard --serve --project-id moryn",
+        install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+        context_pack_command: "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
+        capture_command: "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'"
+      });
+      expect(parsed.checks_by_id.host_adapter).toMatchObject({
+        status: "pass",
+        category: "host",
+        summary: "Codex adapter commands are available."
+      });
+      expect(parsed.checks_by_id.dashboard_access).toMatchObject({
+        status: "info",
+        category: "runtime"
+      });
+      expect(parsed.checks_by_id.sync_remote).toMatchObject({
+        status: "info",
+        category: "sync"
+      });
+      expect(parsed.suggested_actions_by_id.review_install_plan).toMatchObject({
+        tool: "install",
+        command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+        safe_to_run: true
+      });
+      expect(parsed.suggested_actions_by_id.capture_session).toMatchObject({
+        tool: "capture_session",
+        safe_to_run: false,
+        required_fields: ["summary"]
+      });
+    });
+  });
+
   it("runs a read-only recall eval from the CLI", async () => {
     await withTempDir(async (dir) => {
       await exec("node", ["--import", tsxLoader, cliPath, "--store", dir, "init"]);

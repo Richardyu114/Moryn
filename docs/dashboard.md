@@ -913,6 +913,13 @@ dashboard after an upgrade, rebuild, or local link change. Suggested actions are
 safe inspection commands only, such as opening the dashboard or listing known
 projects. The panel does not add Apply, Approve, repair, retry, or background
 execution controls.
+`health_check.setup_readiness` summarizes the selected host adapter, dashboard
+command, install plan command, context pack command, capture command, and
+optional sync remote. Readiness suggestions such as `open_dashboard`,
+`review_install_plan`, and `run_context_pack` are safe-to-run inspection or
+startup commands. `capture_session` stays explicit because it needs the
+user-authored session summary, and Health Check does not start services, register
+MCP, initialize sync, or edit host configuration while rendering the panel.
 Capture Inbox backlog only counts candidates whose capture policy requires
 explicit review or user action; low-risk auto-captured handoffs stay visible in
 Capture Policy and handoff evidence without making Health Check report a review

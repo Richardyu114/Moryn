@@ -3,17 +3,20 @@ import { actionExecution, actionSafety } from "./action-safety.js";
 import { actionInterfaces, type ActionInterfaces } from "./action-interfaces.js";
 import { isCaptureReviewCandidate } from "./capture-review.js";
 import { displayRecordText } from "./content-text.js";
+import { getHostAdapter, type HostAdapterId } from "./host-adapter-registry.js";
 import type { MorynEvent, MorynRecord } from "./types.js";
 import { withPhasesByName, withRequiredFieldsByName, type RequiredFieldMetadata } from "./workflow.js";
 
 export type HealthCheckStatus = "healthy" | "needs_attention" | "unhealthy";
 export type HealthCheckComponentStatus = "pass" | "info" | "warning" | "fail";
-export type HealthCheckCategory = "store" | "project" | "capture" | "privacy" | "runtime";
+export type HealthCheckCategory = "store" | "project" | "capture" | "privacy" | "runtime" | "sync" | "host";
 
 export interface HealthCheckInput {
   project_id?: string;
   limit?: number;
   include_private?: boolean;
+  host?: string;
+  sync_remote?: string;
 }
 
 export interface HealthCheckDiagnoseInput extends HealthCheckInput {
@@ -37,7 +40,7 @@ export interface HealthCheckItem {
 export interface HealthCheckSuggestedAction {
   action_id: string;
   recommended_action: string;
-  tool: "dashboard" | "project_list";
+  tool: "dashboard" | "project_list" | "install" | "context_pack" | "capture_session" | "sync_init";
   command: string;
   arguments: Record<string, unknown>;
   safe_to_run: boolean;
@@ -56,7 +59,7 @@ export interface HealthCheckSuggestedAction {
       phase: string;
       order: number;
       action_source: string;
-      tool: "dashboard" | "project_list";
+      tool: "dashboard" | "project_list" | "install" | "context_pack" | "capture_session" | "sync_init";
       required_when: string;
       required_fields: string[];
     }>;
@@ -81,12 +84,23 @@ export interface HealthCheckSummary {
   next_step: string;
 }
 
+export interface HealthCheckSetupReadiness {
+  host: HostAdapterId;
+  host_adapter: string;
+  sync_remote?: string;
+  dashboard_command: string;
+  install_command: string;
+  context_pack_command: string;
+  capture_command: string;
+}
+
 export interface HealthCheckReport {
   read_only: true;
   version: 1;
   scope: "local_store";
   status: HealthCheckStatus;
   project_id?: string;
+  setup_readiness: HealthCheckSetupReadiness;
   summary: HealthCheckSummary;
   stats: HealthCheckStats;
   checks: HealthCheckItem[];
@@ -101,7 +115,8 @@ export const HEALTH_CHECK_SELECTION_SOURCES = {
   check_id: "checks_by_id.<check_id>.id",
   action: "suggested_actions_by_id.<action_id>",
   action_id: "suggested_actions_by_id.<action_id>.action_id",
-  stat: "stats.<field>"
+  stat: "stats.<field>",
+  setup_readiness: "setup_readiness"
 } as const;
 
 function isPrivateRecord(record: MorynRecord): boolean {
@@ -150,7 +165,7 @@ function dashboardCommand(projectId: string | undefined): string {
 function withSuggestedActionMetadata(input: {
   action_id: string;
   recommended_action: string;
-  tool: "dashboard" | "project_list";
+  tool: HealthCheckSuggestedAction["tool"];
   command: string;
   arguments: Record<string, unknown>;
   safe_to_run: boolean;
@@ -218,6 +233,154 @@ function projectListAction(): HealthCheckSuggestedAction {
     arguments: {},
     safe_to_run: true,
     required_when: "When Health Check runs without an explicit project id and project-specific readiness is needed."
+  });
+}
+
+function quoteCli(value: string): string {
+  return /^[A-Za-z0-9_./:@-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function projectArg(projectId: string | undefined): string {
+  return projectId ? ` --project-id ${quoteCli(projectId)}` : "";
+}
+
+function syncArg(syncRemote: string | undefined): string {
+  return syncRemote ? ` --sync-remote ${quoteCli(syncRemote)}` : "";
+}
+
+function setupReadiness(input: HealthCheckDiagnoseInput): HealthCheckSetupReadiness {
+  const adapter = getHostAdapter(input.host) ?? getHostAdapter("shell")!;
+  const project = projectArg(input.project_id);
+  const sync = syncArg(input.sync_remote);
+  return {
+    host: adapter.id,
+    host_adapter: adapter.display_name,
+    ...(input.sync_remote ? { sync_remote: input.sync_remote } : {}),
+    dashboard_command: dashboardCommand(input.project_id),
+    install_command: `moryn install --host ${adapter.id}${sync}`,
+    context_pack_command: `moryn context pack${project}${sync} --current-task ${quoteCli("<current task>")} --agent ${adapter.normalized_client}`,
+    capture_command: `moryn capture session${project}${sync} --agent ${adapter.normalized_client} --summary ${quoteCli("<summary>")}`
+  };
+}
+
+function dashboardAccessCheck(): HealthCheckItem {
+  return {
+    id: "dashboard_access",
+    category: "runtime",
+    status: "info",
+    label: "Dashboard access",
+    summary: "Dashboard can be opened locally for review.",
+    reason: "Use the dashboard command when a browser review surface is useful; the health check does not start a server."
+  };
+}
+
+function syncRemoteCheck(syncRemote: string | undefined): HealthCheckItem {
+  if (syncRemote) {
+    return {
+      id: "sync_remote",
+      category: "sync",
+      status: "info",
+      label: "Sync remote supplied",
+      summary: "Sync remote is available for generated lifecycle commands.",
+      reason: "Health Check records the remote in suggested commands but does not initialize or contact Git sync."
+    };
+  }
+  return {
+    id: "sync_remote",
+    category: "sync",
+    status: "info",
+    label: "Sync remote not supplied",
+    summary: "No sync remote was supplied.",
+    reason: "Pass --sync-remote when checking cross-device handoff readiness; Health Check will still not configure sync automatically."
+  };
+}
+
+function hostAdapterCheck(readiness: HealthCheckSetupReadiness): HealthCheckItem {
+  return {
+    id: "host_adapter",
+    category: "host",
+    status: "pass",
+    label: "Host adapter",
+    summary: `${readiness.host_adapter} adapter commands are available.`,
+    reason: "Moryn can generate host-specific MCP registration, context pack, and capture commands without mutating host configuration."
+  };
+}
+
+function openDashboardAction(readiness: HealthCheckSetupReadiness, projectId: string | undefined): HealthCheckSuggestedAction {
+  return withSuggestedActionMetadata({
+    action_id: "open_dashboard",
+    recommended_action: "open_dashboard",
+    tool: "dashboard",
+    command: readiness.dashboard_command,
+    arguments: {
+      serve: true,
+      ...(projectId ? { project_id: projectId } : {})
+    },
+    safe_to_run: true,
+    required_when: "When setup readiness needs browser-mediated review."
+  });
+}
+
+function reviewInstallPlanAction(readiness: HealthCheckSetupReadiness): HealthCheckSuggestedAction {
+  return withSuggestedActionMetadata({
+    action_id: "review_install_plan",
+    recommended_action: "review_install_plan",
+    tool: "install",
+    command: readiness.install_command,
+    arguments: {
+      host: readiness.host,
+      ...(readiness.sync_remote ? { sync_remote: readiness.sync_remote } : {})
+    },
+    safe_to_run: true,
+    required_when: "After install or host changes, review the host adapter plan before editing host configuration."
+  });
+}
+
+function runContextPackAction(readiness: HealthCheckSetupReadiness, projectId: string | undefined): HealthCheckSuggestedAction {
+  return withSuggestedActionMetadata({
+    action_id: "run_context_pack",
+    recommended_action: "run_context_pack",
+    tool: "context_pack",
+    command: readiness.context_pack_command,
+    arguments: {
+      ...(projectId ? { project_id: projectId } : {}),
+      ...(readiness.sync_remote ? { sync_remote: readiness.sync_remote } : {}),
+      current_task: "<current task>",
+      agent: { client: readiness.host }
+    },
+    safe_to_run: true,
+    required_when: "At the start of an agent session, after setup readiness checks are reviewed."
+  });
+}
+
+function captureSessionAction(readiness: HealthCheckSetupReadiness, projectId: string | undefined): HealthCheckSuggestedAction {
+  return withSuggestedActionMetadata({
+    action_id: "capture_session",
+    recommended_action: "capture_session",
+    tool: "capture_session",
+    command: readiness.capture_command,
+    arguments: {
+      ...(projectId ? { project_id: projectId } : {}),
+      ...(readiness.sync_remote ? { sync_remote: readiness.sync_remote } : {}),
+      agent: { client: readiness.host },
+      summary: "<summary>"
+    },
+    safe_to_run: false,
+    required_when: "At the end of a meaningful agent session, with a user-authored or agent-authored summary.",
+    required_fields: ["summary"]
+  });
+}
+
+function configureSyncRemoteAction(): HealthCheckSuggestedAction {
+  return withSuggestedActionMetadata({
+    action_id: "configure_sync_remote",
+    recommended_action: "configure_sync_remote",
+    tool: "sync_init",
+    command: "moryn sync init <remote>",
+    arguments: { remote: "<remote>" },
+    safe_to_run: false,
+    required_when: "When cross-device handoff matters and no sync remote was supplied.",
+    required_fields: ["remote"]
   });
 }
 
@@ -338,17 +501,26 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
   const projectRecords = scopedRecords(input.records, input.project_id);
   const reviewCandidates = projectRecords.filter(isCaptureReviewCandidate).slice(0, limit);
   const excludedPrivateRecords = input.excluded_private_records ?? 0;
+  const readiness = setupReadiness(input);
   const checks = [
     storeReadableCheck(input.records),
     eventLogReplayableCheck(input.events),
     projectContextCheck(input.project_id, projectRecords),
     captureReviewBacklogCheck(reviewCandidates, input.events),
     mcpRuntimeFreshnessCheck(),
-    privateBoundaryCheck(excludedPrivateRecords)
+    privateBoundaryCheck(excludedPrivateRecords),
+    dashboardAccessCheck(),
+    syncRemoteCheck(input.sync_remote),
+    hostAdapterCheck(readiness)
   ];
   const actions = [
     ...(reviewCandidates.length > 0 ? [reviewCaptureAction(input.project_id)] : []),
-    ...(!input.project_id ? [projectListAction()] : [])
+    ...(!input.project_id ? [projectListAction()] : []),
+    openDashboardAction(readiness, input.project_id),
+    reviewInstallPlanAction(readiness),
+    runContextPackAction(readiness, input.project_id),
+    captureSessionAction(readiness, input.project_id),
+    ...(!input.sync_remote ? [configureSyncRemoteAction()] : [])
   ].slice(0, limit);
   const status = healthStatus(checks);
   return nonPrivateTextLeakGuard({
@@ -357,6 +529,7 @@ export function diagnoseHealthCheck(input: HealthCheckDiagnoseInput): HealthChec
     scope: "local_store",
     status,
     ...(input.project_id ? { project_id: input.project_id } : {}),
+    setup_readiness: readiness,
     summary: healthSummary(status, checks, actions),
     stats: stats(input, projectRecords, reviewCandidates),
     checks,

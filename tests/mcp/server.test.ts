@@ -3168,16 +3168,35 @@ describe("MCP stdio server", () => {
           name: "health_check",
           arguments: {
             project_path: projectPath,
+            host: "codex",
+            sync_remote: "git@github.com:user/moryn-store.git",
             limit: 20
           }
         })) as {
           read_only: boolean;
           status: string;
+          setup_readiness?: {
+            host: string;
+            host_adapter: string;
+            sync_remote?: string;
+            dashboard_command: string;
+            install_command: string;
+            context_pack_command: string;
+            capture_command: string;
+          };
           checks_by_id: Record<string, { status: string; category: string; summary?: string; reason?: string }>;
-          suggested_actions_by_id: Record<string, { tool: string; safe_to_run: boolean }>;
+          suggested_actions_by_id: Record<string, { tool: string; command?: string; safe_to_run: boolean; required_fields?: string[] }>;
         };
         expect(health.read_only).toBe(true);
         expect(health.status).toBe("needs_attention");
+        expect(health.setup_readiness).toMatchObject({
+          host: "codex",
+          host_adapter: "Codex",
+          sync_remote: "git@github.com:user/moryn-store.git",
+          install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+          context_pack_command: expect.stringContaining("--agent codex"),
+          capture_command: expect.stringContaining("--summary '<summary>'")
+        });
         expect(health.checks_by_id.store_readable).toMatchObject({ status: "pass", category: "store" });
         expect(health.checks_by_id.capture_review_backlog).toMatchObject({ status: "warning", category: "capture" });
         expect(health.checks_by_id.mcp_runtime).toMatchObject({
@@ -3189,6 +3208,16 @@ describe("MCP stdio server", () => {
         expect(health.suggested_actions_by_id.review_capture_inbox).toMatchObject({
           tool: "dashboard",
           safe_to_run: true
+        });
+        expect(health.suggested_actions_by_id.review_install_plan).toMatchObject({
+          tool: "install",
+          command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+          safe_to_run: true
+        });
+        expect(health.suggested_actions_by_id.capture_session).toMatchObject({
+          tool: "capture_session",
+          safe_to_run: false,
+          required_fields: ["summary"]
         });
 
         const capturePolicy = parseTextContent(await client.callTool({

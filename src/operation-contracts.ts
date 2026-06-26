@@ -2058,6 +2058,8 @@ export const OPERATION_CONTRACTS = [
     required_fields: [],
     arguments_by_name: {
       ...projectContextArguments,
+      host: installArguments.host,
+      sync_remote: installArguments.sync_remote,
       limit: {
         type: "number",
         required: false,

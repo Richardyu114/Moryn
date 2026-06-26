@@ -220,6 +220,7 @@ For installation trust and store readiness, use the read-only health check:
 
 ```bash
 moryn health check --project . --limit 20
+moryn health check --project . --host codex --sync-remote <remote> --limit 20
 ```
 
 It reports whether the local store can be read, the event log can be replayed,
@@ -228,7 +229,11 @@ Capture Inbox candidates need review. It also includes an informational MCP
 runtime freshness check: long-running MCP hosts load Moryn when the host process
 starts, so restart the MCP host when MCP tool output disagrees with the CLI or
 dashboard after upgrading, rebuilding, or linking a local checkout. Suggested
-actions stay read-only, such as opening the dashboard or listing known projects.
+actions stay read-only, such as opening the dashboard, reviewing the install
+plan, running a context pack, or listing known projects. When `--host` and
+`--sync-remote` are supplied, `health_check.setup_readiness` records the selected
+host adapter, dashboard command, install command, context pack command, capture
+command, and sync remote without starting services or editing host config.
 The MCP tool name is `health_check`.
 
 To measure recall quality with golden queries, use the read-only Recall Eval:

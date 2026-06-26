@@ -1879,6 +1879,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       inputSchema: mcpInputSchema({
         project_id: coreValidatedStringSchema.optional(),
         project_path: coreValidatedStringSchema.optional(),
+        host: coreValidatedStringSchema.optional(),
+        sync_remote: coreValidatedStringSchema.optional(),
         limit: coreValidatedNumberSchema.optional(),
         include_private: coreValidatedBooleanSchema.optional(),
         ...camelCaseAliasInputSchema("health_check")
@@ -1888,6 +1890,8 @@ export async function runMcpServer(engine: Engine, options: { storePath: string 
       const project = await resolveProjectInput("health_check", { project_id: normalizedInput.project_id, project_path: normalizedInput.project_path });
       return engine.healthCheck({
         project_id: project.project_id,
+        host: normalizedInput.host as string | undefined,
+        sync_remote: normalizedInput.sync_remote as string | undefined,
         limit: normalizedInput.limit as number | undefined,
         include_private: normalizedInput.include_private as boolean | undefined
       });

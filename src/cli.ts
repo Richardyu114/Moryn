@@ -2606,6 +2606,8 @@ const health = program.command("health");
 health.command("check")
   .option("--project-id <id>")
   .option("--project <path>")
+  .option("--host <host>", "Host adapter to include in setup readiness commands")
+  .option("--sync-remote <remote>", "Shared Git remote to include in readiness commands")
   .option("--limit <n>", "Check/action limit", "20")
   .option("--include-private", "Include private-tagged records")
   .action(async (options) => {
@@ -2613,6 +2615,8 @@ health.command("check")
     const projectId = await resolveOptionalProject(options, "health_check");
     printJson(await engine.healthCheck({
       project_id: projectId,
+      host: parseNonEmptyString(options.host, "--host"),
+      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote"),
       limit: parseLimit(options.limit, "health_check"),
       include_private: options.includePrivate
     }));

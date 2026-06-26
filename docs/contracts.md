@@ -247,6 +247,7 @@ The read-only health check is available through the same registry:
 ```bash
 moryn contracts operations --operation health_check
 moryn health check --project . --limit 20
+moryn health check --host codex --sync-remote <remote> --limit 20
 ```
 
 The MCP equivalent is:
@@ -272,6 +273,15 @@ so restart the MCP host when MCP tool output disagrees with the CLI or dashboard
 after upgrading, rebuilding, or linking a local checkout. It does not mutate
 records or events; suggested actions are safe inspection commands such as
 `moryn dashboard --serve --project-id <id>` or `moryn project list`.
+`moryn health check --host codex --sync-remote <remote>` keeps setup review
+read-only: it records host and sync choices in generated commands but does not
+start the dashboard, register MCP, initialize sync, or write host configuration.
+`health_check.setup_readiness` records the selected host adapter, dashboard
+command, install command, context pack command, capture command, and optional
+sync remote. Readiness suggestions such as `open_dashboard`,
+`review_install_plan`, and `run_context_pack` are safe-to-run inspection or
+startup commands; `capture_session` and `configure_sync_remote` remain explicit
+because they need user-authored input or user authority.
 The capture review backlog is scoped to candidates whose capture policy requires
 explicit review or user action; low-risk auto-captured handoffs remain audit
 evidence without becoming Health Check warnings. Older autocapture review
