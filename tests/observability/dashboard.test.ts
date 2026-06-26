@@ -2834,6 +2834,9 @@ describe("observability dashboard", () => {
 
       expect(data.recent_records).toHaveLength(13);
       expect(data.recent_events).toHaveLength(13);
+      expect(data.recent_records[0]?.text).toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
+      expect(debugHtml).toContain("<th>Content</th>");
+      expect(debugHtml).not.toContain("<th>Text</th>");
       expect(debugHtml).toContain(`data-dashboard-detail="record:${noisySummaryRecord.record.id}"`);
       const noisyRecordStart = debugHtml.indexOf(`data-dashboard-detail="record:${noisySummaryRecord.record.id}"`);
       const noisyRecordEnd = debugHtml.indexOf("</summary>", noisyRecordStart);

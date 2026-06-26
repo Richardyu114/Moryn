@@ -831,7 +831,9 @@ only the first ten rows each and summarize overflow as `/api/dashboard`
 evidence. Event rows render common store writes such as `upsert_record` as
 `Record update` in their folded summary while `/api/dashboard.recent_events[]`
 keeps the original operation id for agents and audit tooling. `Record Index`
-record rows use short record-id summaries and a
+uses a visible `Content` header for the expandable record body while
+`/api/dashboard.recent_records[]` keeps the original `text` field for agents
+and audit tooling. `Record Index` record rows use short record-id summaries and a
 `Details` hint in their folded row instead of raw record text or machine type
 names, while each row's accessible label starts with `Record details` and keeps
 kind, type, source, and record-id context. This leaves `Record Index` as the

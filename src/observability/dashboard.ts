@@ -5241,7 +5241,7 @@ function recordsTable(records: DashboardRecordSummary[]): string {
             <th>State</th>
             <th>Source</th>
             <th>Updated</th>
-            <th>Text</th>
+            <th>Content</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
