@@ -597,16 +597,18 @@ Pure read-only inspections do not turn the overview headline into an urgent
 next action. If there are no confirmations, warnings, or sync actions, the
 overview reads `All clear` while still offering an `Inspect checks` navigation
 button to the Governance Hub. If pending sync is the only action signal, the
-overview relies on its headline and primary button, then keeps background cards under
-`Background Status` while keeping the stable `dashboard-overview-quiet-cards`
-route. The `Health`, `Next`, `Context`, and `Sync` cards remain preserved in
-`/api/dashboard.dashboard_overview.cards` without repeating status cards on
-the first screen. When a card has the same source as the headline primary
-action, the HTML skips it in both the visible grid and `Background Status`; the
-card still stays in `/api/dashboard.dashboard_overview.cards` and
-`cards_by_id` for audit tooling. `Background Status` opens with `Signals ready`,
-while the accessible summary keeps `Healthy signals kept for context` so the
-folded row reads as supporting context instead of another count to process.
+overview relies on its headline and primary button, then skips
+`Background Status` and the stable `dashboard-overview-quiet-cards` route so the
+first screen does not repeat the same sync task. The `Health`, `Next`,
+`Context`, and `Sync` cards remain preserved in
+`/api/dashboard.dashboard_overview.cards` without repeating status cards on the
+first screen. When `Background Status` is rendered in non-sync states, a card
+with the same source as the headline primary action is skipped in both the
+visible grid and `Background Status`; the card still stays in
+`/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling.
+`Background Status` opens with `Signals ready`, while the accessible summary
+keeps `Healthy signals kept for context` so the folded row reads as supporting
+context instead of another count to process.
 When `Pending Decisions` is rendered, the visible HTML skips `Background Status`
 and the stable `dashboard-overview-quiet-cards` route so the approval path stays
 uninterrupted; the overview cards remain in

@@ -6040,6 +6040,7 @@ function renderDashboardBody(data: DashboardData): string {
   const shouldRenderQuietInfoPanel = !hasActionSignals && !hasPendingDecisions && !shouldHideQuietInfoPanel;
   const quietInfoPanel = shouldRenderQuietInfoPanel ? needsAttentionPanel(data.attention_items) : "";
   const shortcutPanel = hasPendingDecisions ? "" : actionBoard(data.action_board);
+  const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel;
   return `
     <header>
       <div>
@@ -6054,7 +6055,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
 
-    ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus: !hasPendingDecisions })}
+    ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus })}
 
     ${dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions })}
 
