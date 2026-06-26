@@ -309,6 +309,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-action-board-nav");
       expect(html).not.toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");
       expect(html).not.toContain("<span>Quiet Shortcuts</span>");
+      expect(html).not.toContain("data-dashboard-detail=\"dashboard-work-lanes-background\"");
+      expect(html).not.toContain("<span>Background Lanes</span>");
+      expect(html).not.toContain("<small>Quiet lanes ready</small>");
       expect(html).not.toContain("data-action-board-quiet-item=\"confirm\"");
       expect(html).not.toContain("data-action-board-quiet-item=\"review\"");
       expect(html).not.toContain("data-action-board-quiet-item=\"inspect\"");

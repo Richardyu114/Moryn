@@ -672,7 +672,9 @@ HTML; the same routes remain available through `/api/dashboard.action_board`,
 Sync-only pending warnings do not open the `Action Signals` / Needs Attention
 review path. The warning remains in `/api/dashboard.attention_items` for agents,
 while the visible HTML routes the user through `Inspect sync`, Store Signals,
-and the Sync shortcut.
+and the Sync shortcut. When sync is the only active warning, Work Lanes skip
+`Background Lanes` so the promoted Store Signals panel stays adjacent to the
+current task.
 
 `Action Board` is rendered as `Page Shortcuts` in the UI while keeping the
 stable `data-dashboard-detail="action-board"` route: a secondary, collapsed

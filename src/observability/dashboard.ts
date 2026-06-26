@@ -6057,7 +6057,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus })}
 
-    ${dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions })}
+    ${dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions && !shouldPromoteStoreSignals })}
 
     ${promotedStoreSignalsPanel}
 

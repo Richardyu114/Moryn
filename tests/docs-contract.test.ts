@@ -287,6 +287,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
     expectText(dashboard, "Sync pending states skip the extra status line because the header badge, Overview or Health lane, Store Signals, and Sync shortcut already show the same pending state");
     expectText(dashboard, "Sync-only pending warnings do not open the `Action Signals` / Needs Attention review path");
+    expectText(dashboard, "When sync is the only active warning, Work Lanes skip `Background Lanes` so the promoted Store Signals panel stays adjacent to the current task");
     expectText(dashboard, "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open info checks`");
     expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut also reads `Open info checks` instead of `Review warnings`");
     expectText(dashboard, "The visible panel is a route summary grouped by owning confirmation surface");
