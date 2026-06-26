@@ -212,13 +212,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the existing-control route stays in the accessible summary label and expanded fields");
     expectText(dashboard, "The expanded fold points to an existing control such as Capture Inbox, Memory Doctor, timeline, or recall");
     expectText(dashboard, "states that review comes first and approval only happens through draft rows");
-    expectText(dashboard, "Candidate group description text stays behind a collapsed `Group context` row");
-    expectText(dashboard, "expanded groups lead with review path, audit boundary, and samples instead of prose");
+    expectText(dashboard, "Candidate group description text stays behind a collapsed `Group context` row nested inside `Audit notes`");
+    expectText(dashboard, "expanded groups lead with review path, audit notes, promotion drafts when present, and samples instead of prose");
     expectText(dashboard, "Candidate group folded rows show the review-path label, such as `Archive review` or `Inspection review`, instead of a record count");
-    expectText(dashboard, "the full recommended next step and record count stay in the accessible group summary, `Group context`, and the nested `Review path` fold");
+    expectText(dashboard, "the full recommended next step and record count stay in the accessible group summary, `Audit notes`, `Group context`, and the nested `Review path` fold");
     expectText(dashboard, "Candidate group internals sit behind a `Triage details` fold");
     expectText(dashboard, "the group face does not expose context, review path, audit boundary, or samples by default");
-    expectText(dashboard, "group write-boundary and evidence fields move behind a collapsed `Audit boundary` row whose folded");
+    expectText(dashboard, "`Audit notes` groups the collapsed `Group context` and `Audit boundary` rows");
+    expectText(dashboard, "group write-boundary and evidence fields stay behind the nested `Audit boundary` row whose folded");
     expectText(dashboard, "Promotable groups may include a collapsed `Promotion draft` row");
     expectText(dashboard, "exact `moryn promote ... --confirm` command");
     expectText(dashboard, "`candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>` source path");

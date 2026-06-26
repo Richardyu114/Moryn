@@ -4076,6 +4076,19 @@ function renderCandidateTriageGroupContext(group: DashboardCandidateTriageGroup)
   `;
 }
 
+function renderCandidateTriageAuditNotes(group: DashboardCandidateTriageGroup): string {
+  return `
+    <details class="candidate-triage-audit-notes" data-dashboard-detail="candidate-triage-audit-notes:${escapeHtml(group.id)}">
+      <summary class="dashboard-fold-summary">
+        <span>Audit notes</span>
+        <small>Context and boundary</small>
+      </summary>
+      ${renderCandidateTriageGroupContext(group)}
+      ${renderCandidateTriageAuditBoundary(group)}
+    </details>
+  `;
+}
+
 function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): string {
   const sampleSummary = candidateTriageSampleSummary(group);
   const groupSummary = `${group.label}, ${pluralize(group.record_ids.length, "record")}, ${group.recommended_next_step}`;
@@ -4090,11 +4103,10 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
         <details class="candidate-triage-group-details" data-dashboard-detail="candidate-triage-details:${escapeHtml(group.id)}">
           <summary class="dashboard-fold-summary">
             <span>Triage details</span>
-            <small>Context, review path, audit, samples</small>
+            <small>Review path, audit notes, samples</small>
           </summary>
-          ${renderCandidateTriageGroupContext(group)}
           ${renderCandidateTriageHandoff(group)}
-          ${renderCandidateTriageAuditBoundary(group)}
+          ${renderCandidateTriageAuditNotes(group)}
           ${renderCandidateTriagePromotionDrafts(group)}
           <details class="candidate-triage-record-samples" data-dashboard-detail="candidate-triage-records:${escapeHtml(group.id)}">
             <summary class="dashboard-fold-summary" aria-label="Record samples: ${escapeHtml(sampleSummary)}">
@@ -7635,6 +7647,16 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       margin: 0;
       color: var(--muted);
       font-size: 12.5px;
+    }
+    .candidate-triage-audit-notes {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 7px 9px;
+      margin-bottom: 9px;
+      background: var(--surface-2);
+    }
+    .candidate-triage-audit-notes[open] > summary {
+      margin-bottom: 8px;
     }
     .candidate-triage-review-path {
       display: grid;

@@ -444,16 +444,19 @@ expanded fields. The expanded fold points to an existing control such as
 Capture Inbox, Memory Doctor, timeline, or recall, explains the next review
 surface, and states that review comes first and approval only happens through
 draft rows without filling the expanded group by default. Candidate group
-description text stays behind a collapsed `Group context` row, so expanded
-groups lead with review path, audit boundary, and samples instead of prose.
+description text stays behind a collapsed `Group context` row nested inside
+`Audit notes`, so expanded groups lead with review path, audit notes, promotion
+drafts when present, and samples instead of prose.
 Candidate group folded rows show the
 review-path label, such as `Archive review` or `Inspection review`, instead of
 a record count; the full recommended next step and record count stay in the
-accessible group summary, `Group context`, and the nested `Review path` fold.
-The group write-boundary and evidence fields move behind a collapsed
-`Audit boundary` row whose folded summary names the candidate group, so the
-expanded group stays focused on review path, audit boundary, and samples instead
-of raw audit fields. Promotable groups may include a collapsed `Promotion draft`
+accessible group summary, `Audit notes`, `Group context`, and the nested
+`Review path` fold. `Audit notes` groups the collapsed `Group context` and
+`Audit boundary` rows. The group write-boundary and evidence fields stay behind
+the nested `Audit boundary` row whose folded summary names the candidate group,
+so the expanded group stays focused on review path, audit notes, promotion
+drafts when present, and samples instead of raw audit fields. Promotable groups
+may include a collapsed `Promotion draft`
 row with the canonical target, confirmation requirement, append-only write
 preview, exact `moryn promote ... --confirm` command, and
 `candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>`
