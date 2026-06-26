@@ -6321,11 +6321,10 @@ function dashboardActionReceiptScript(): string {
           sessionStorage.removeItem(receiptKey);
         }
       };
-      window.renderActionReceipt = (status, result) => {
+      window.renderActionReceipt = (result) => {
         if (!result || typeof result !== "object") return;
         const receipt = receiptFromResult(result);
         sessionStorage.setItem(receiptKey, JSON.stringify(receipt));
-        renderReceiptInto(status, receipt);
         renderReceiptInto(receiptTarget(), receipt);
       };
       window.restoreActionReceipt();
@@ -6399,8 +6398,8 @@ function dashboardMaintenanceScript(): string {
             return;
           }
           if (status) {
-            status.textContent = "Applied. Receipt rendered below; refreshing dashboard...";
-            window.renderActionReceipt?.(status, result);
+            status.textContent = "Applied. Receipt saved; refreshing dashboard...";
+            window.renderActionReceipt?.(result);
           }
           await refreshFragment();
         } catch (error) {
@@ -6466,8 +6465,8 @@ function dashboardCaptureInboxScript(): string {
             return;
           }
           if (status) {
-            status.textContent = isReject ? "Rejected. Receipt rendered below; refreshing dashboard..." : "Approved. Receipt rendered below; refreshing dashboard...";
-            window.renderActionReceipt?.(status, result);
+            status.textContent = isReject ? "Rejected. Receipt saved; refreshing dashboard..." : "Approved. Receipt saved; refreshing dashboard...";
+            window.renderActionReceipt?.(result);
           }
           await refreshFragment();
         } catch (error) {
@@ -6523,8 +6522,8 @@ function dashboardCandidateTriageScript(): string {
             return;
           }
           if (status) {
-            status.textContent = "Approved. Receipt rendered below; refreshing dashboard...";
-            window.renderActionReceipt?.(status, result);
+            status.textContent = "Approved. Receipt saved; refreshing dashboard...";
+            window.renderActionReceipt?.(result);
           }
           await refreshFragment();
         } catch (error) {

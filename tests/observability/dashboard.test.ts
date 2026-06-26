@@ -4812,9 +4812,12 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<dt>Audit commands</dt>");
       expect(html).toContain("moryn timeline --event-id");
       expect(html).toContain("moryn recall --record-id");
-      expect(html).toContain("Applied. Receipt rendered below; refreshing dashboard...");
-      expect(html).toContain("Approved. Receipt rendered below; refreshing dashboard...");
-      expect(html).toContain("Rejected. Receipt rendered below; refreshing dashboard...");
+      expect(html).toContain("Applied. Receipt saved; refreshing dashboard...");
+      expect(html).toContain("Approved. Receipt saved; refreshing dashboard...");
+      expect(html).toContain("Rejected. Receipt saved; refreshing dashboard...");
+      expect(html).not.toContain("Receipt rendered below");
+      expect(html).not.toContain("renderActionReceipt?.(status, result)");
+      expect(html).toContain("renderActionReceipt?.(result)");
       expect(html).not.toContain("window.confirm");
       expect(html).not.toContain("Technical details");
     });

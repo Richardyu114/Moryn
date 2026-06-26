@@ -349,7 +349,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The JSON contract keeps those per-decision audit fields in `items[]`");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
     expectText(dashboard, "Actual writes remain inside Capture Inbox, Review Queue, and Candidate Triage controls");
-    expectText(dashboard, "After a dashboard approval or rejection succeeds, the browser renders a compact `Action receipt`");
+    expectText(dashboard, "After a dashboard approval or rejection succeeds, the browser renders one compact `Action receipt` in the global receipt anchor");
+    expectText(dashboard, "The clicked card keeps only a short saved-and-refreshing status");
+    expectText(dashboard, "does not briefly duplicate the full receipt inside the queue item");
     expectText(dashboard, "The receipt is restored after dashboard fragment refreshes");
     expectText(dashboard, "The visible receipt headline reads `Store updated`");
     expectText(dashboard, "three compact summary chips: `Write boundary`, `Targets`, and `Audit`");

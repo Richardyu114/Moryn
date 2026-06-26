@@ -1096,18 +1096,20 @@ append-only events, and carry stale guards such as `active_candidate_record`,
 `active_candidate_group`, or `plan_hash`. Read-only actions record
 `writes: "none"`.
 
-After a dashboard approval or rejection succeeds, the browser renders a compact
-`Action receipt` before refreshing the body. The receipt is restored after
-dashboard fragment refreshes, so the last explicit action remains visible
-instead of disappearing when the queue updates. The visible receipt headline
-reads `Store updated`, followed by the human decision sentence and three compact
-summary chips: `Write boundary`, `Targets`, and `Audit`. `Write boundary` reads
-`Append-only events`, and `Audit` reads `Traceable by timeline` when event ids
-are returned. Record ids, event ids, decision context, and read-only trace
-commands such as `moryn timeline --event-id <event_id>` and
+After a dashboard approval or rejection succeeds, the browser renders one
+compact `Action receipt` in the global receipt anchor before refreshing the body.
+The clicked card keeps only a short saved-and-refreshing status, so the page does
+not briefly duplicate the full receipt inside the queue item. The receipt is
+restored after dashboard fragment refreshes, so the last explicit action remains
+visible instead of disappearing when the queue updates. The visible receipt
+headline reads `Store updated`, followed by the human decision sentence and
+three compact summary chips: `Write boundary`, `Targets`, and `Audit`. `Write
+boundary` reads `Append-only events`, and `Audit` reads `Traceable by timeline`
+when event ids are returned. Record ids, event ids, decision context, and
+read-only trace commands such as `moryn timeline --event-id <event_id>` and
 `moryn recall --record-id <record_id>` stay inside the collapsed `Audit trail`
-fold. It is a visibility layer only: it does not add background execution,
-retry writes, or a second mutation path.
+fold. It is a visibility layer only: it does not add background execution, retry
+writes, or a second mutation path.
 
 ### Context Pack Review
 
