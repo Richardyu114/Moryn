@@ -917,9 +917,12 @@ execution controls.
 command, install plan command, context pack command, capture command, and
 optional sync remote. Readiness suggestions such as `open_dashboard`,
 `review_install_plan`, and `run_context_pack` are safe-to-run inspection or
-startup commands. `capture_session` stays explicit because it needs the
-user-authored session summary, and Health Check does not start services, register
-MCP, initialize sync, or edit host configuration while rendering the panel.
+startup commands. The folded Health Check brief shows only status plus safe and
+needs-input counts; concrete readiness commands stay inside the expanded
+`Readiness Actions` details, grouped under `Safe to run` and `Needs input`.
+`capture_session` stays explicit because it needs the user-authored session
+summary, and Health Check does not start services, register MCP, initialize sync,
+or edit host configuration while rendering the panel.
 Capture Inbox backlog only counts candidates whose capture policy requires
 explicit review or user action; low-risk auto-captured handoffs stay visible in
 Capture Policy and handoff evidence without making Health Check report a review

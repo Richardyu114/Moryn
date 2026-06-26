@@ -421,6 +421,15 @@ describe("observability dashboard", () => {
         category: "capture",
         record_ids: ["rec_health_1"]
       });
+      expect(data.health_check.suggested_actions_by_id.review_capture_inbox).toMatchObject({
+        tool: "dashboard",
+        safe_to_run: true
+      });
+      expect(data.health_check.suggested_actions_by_id.capture_session).toMatchObject({
+        tool: "capture_session",
+        safe_to_run: false,
+        required_fields: ["summary"]
+      });
       expect(html).toContain("<details class=\"panel health-check-panel\" data-dashboard-detail=\"health-check\" data-dashboard-section=\"health-check\">");
       expect(html).toContain("<span>Moryn Health Check</span>");
       expect(html).toContain("<small>needs attention | 1 warning</small>");
@@ -428,7 +437,20 @@ describe("observability dashboard", () => {
       expect(html).toContain("MCP runtime freshness");
       expect(html).toContain("MCP hosts load Moryn when the host process starts.");
       expect(html).toContain("restart the MCP host");
+      const healthBriefHtml = html.slice(html.indexOf("<div class=\"health-check-brief\">"), html.indexOf("<dl class=\"health-check-stats\">"));
+      expect(healthBriefHtml).toContain("<span>Read-only</span>");
+      expect(healthBriefHtml).toContain("<span>4 safe suggestions</span>");
+      expect(healthBriefHtml).toContain("<span>2 need input</span>");
+      expect(healthBriefHtml).not.toContain("moryn dashboard --serve --project-id moryn");
+      expect(html).toContain("<details class=\"health-check-readiness-actions\" data-dashboard-detail=\"health-check-readiness-actions\">");
+      expect(html).toContain("<span>Readiness Actions</span>");
+      expect(html).toContain("<small>4 safe | 2 need input</small>");
+      expect(html).toContain("<h4>Safe to run</h4>");
+      expect(html).toContain("<h4>Needs input</h4>");
+      expect(html).toContain("data-health-check-action=\"review_capture_inbox\"");
+      expect(html).toContain("data-health-check-action=\"capture_session\"");
       expect(html).toContain("moryn dashboard --serve --project-id moryn");
+      expect(html).toContain("Requires summary");
       expect(html).toContain("Read-only");
       expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html.indexOf("data-dashboard-detail=\"evidence-library\"")).toBeLessThan(html.indexOf("data-dashboard-section=\"health-check\""));

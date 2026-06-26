@@ -3238,8 +3238,66 @@ function healthCheckSummary(report: HealthCheckReport): string {
   ].filter((part): part is string => Boolean(part)).join(" | ");
 }
 
+function healthCheckActionSummary(report: HealthCheckReport): { safe: number; needsInput: number } {
+  return {
+    safe: report.suggested_actions.filter((action) => action.safe_to_run).length,
+    needsInput: report.suggested_actions.filter((action) => !action.safe_to_run || action.required_fields.length > 0).length
+  };
+}
+
+function healthCheckActionRequirement(action: HealthCheckReport["suggested_actions"][number]): string {
+  if (action.required_fields.length === 0) return action.safe_to_run ? "Read-only" : "Needs review";
+  return `Requires ${action.required_fields.map((field) => field.replace(/_/g, " ")).join(", ")}`;
+}
+
+function healthCheckActionList(actions: HealthCheckReport["suggested_actions"]): string {
+  if (actions.length === 0) {
+    return `<div class="empty-state">No readiness actions in this group.</div>`;
+  }
+  return `
+    <div class="health-check-action-list">
+      ${actions.map((action) => `
+        <article class="health-check-action ${action.safe_to_run ? "safe" : "input"}" data-health-check-action="${escapeHtml(action.action_id)}">
+          <div>
+            <span class="pill ${action.safe_to_run ? "state-canonical" : "warning"}">${escapeHtml(healthCheckActionRequirement(action))}</span>
+            <strong>${escapeHtml(titleCase(action.recommended_action))}</strong>
+          </div>
+          <code>${escapeHtml(action.command)}</code>
+          <small>${escapeHtml(action.required_when)}</small>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function healthCheckReadinessActions(report: HealthCheckReport): string {
+  if (report.suggested_actions.length === 0) return "";
+  const summary = healthCheckActionSummary(report);
+  const safeActions = report.suggested_actions.filter((action) => action.safe_to_run);
+  const inputActions = report.suggested_actions.filter((action) => !action.safe_to_run || action.required_fields.length > 0);
+  return `
+    <details class="health-check-readiness-actions" data-dashboard-detail="health-check-readiness-actions">
+      <summary class="dashboard-fold-summary">
+        <span>Readiness Actions</span>
+        <small>${escapeHtml(`${summary.safe} safe | ${summary.needsInput} need input`)}</small>
+      </summary>
+      <div class="health-check-action-groups">
+        <section class="health-check-action-group">
+          <h4>Safe to run</h4>
+          ${healthCheckActionList(safeActions)}
+        </section>
+        <section class="health-check-action-group">
+          <h4>Needs input</h4>
+          ${healthCheckActionList(inputActions)}
+        </section>
+      </div>
+    </details>
+  `;
+}
+
 function healthCheckPanel(report: HealthCheckReport): string {
   const summary = healthCheckSummary(report);
+  const actionSummary = healthCheckActionSummary(report);
   return `
     <details class="panel health-check-panel" data-dashboard-detail="health-check" data-dashboard-section="health-check">
       <summary class="dashboard-fold-summary">
@@ -3250,7 +3308,8 @@ function healthCheckPanel(report: HealthCheckReport): string {
         <div class="health-check-brief">
           <strong class="${healthCheckClass(report.status)}">${escapeHtml(titleCase(report.status))}</strong>
           <span>Read-only</span>
-          <code>${escapeHtml(report.summary.next_step)}</code>
+          <span>${escapeHtml(pluralize(actionSummary.safe, "safe suggestion"))}</span>
+          <span>${escapeHtml(`${actionSummary.needsInput} need input`)}</span>
         </div>
         <dl class="health-check-stats">
           <div><dt>Visible records</dt><dd>${escapeHtml(report.stats.visible_records)}</dd></div>
@@ -3258,6 +3317,7 @@ function healthCheckPanel(report: HealthCheckReport): string {
           <div><dt>Events</dt><dd>${escapeHtml(report.stats.total_events)}</dd></div>
           <div><dt>Capture review</dt><dd>${escapeHtml(report.stats.capture_review_candidates)}</dd></div>
         </dl>
+        ${healthCheckReadinessActions(report)}
         <div class="health-check-list">
           ${report.checks.map((check) => `
             <article class="health-check-item ${escapeHtml(check.status)}">
@@ -6245,11 +6305,6 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
       font-weight: 730;
     }
-    .health-check-brief code {
-      flex: 1 1 260px;
-      min-width: 0;
-      overflow-wrap: anywhere;
-    }
     .health-check-stats {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -6264,6 +6319,59 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .health-check-stats dt { color: var(--muted); font-size: 11.5px; font-weight: 720; }
     .health-check-stats dd { margin: 3px 0 0; color: var(--ink); font-size: 17px; font-weight: 800; }
+    .health-check-readiness-actions {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface-2);
+    }
+    .health-check-readiness-actions[open] > summary { margin-bottom: 9px; }
+    .health-check-action-groups {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .health-check-action-group {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .health-check-action-group h4 {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 780;
+      text-transform: uppercase;
+    }
+    .health-check-action-list {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .health-check-action {
+      display: grid;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .health-check-action.safe { border-left-color: var(--good); }
+    .health-check-action.input { border-left-color: var(--warning); }
+    .health-check-action div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      min-width: 0;
+    }
+    .health-check-action strong { color: var(--ink); font-weight: 760; overflow-wrap: anywhere; }
+    .health-check-action code,
+    .health-check-action small {
+      overflow-wrap: anywhere;
+    }
+    .health-check-action small { color: var(--muted); }
     .health-check-list { display: grid; gap: 8px; }
     .health-check-item {
       display: grid;
@@ -7950,7 +8058,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       .capture-inbox-heading, .capture-inbox-main, .capture-inbox-actions { display: grid; justify-content: stretch; }
       .capture-inbox-item-summary { grid-template-columns: 1fr; }
       .capture-inbox-item-meta { justify-content: flex-start; }
-      .maintenance-summary, .context-pack-summary, .context-pack-grid, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
+      .maintenance-summary, .context-pack-summary, .context-pack-grid, .health-check-action-groups, .lifecycle-summary, .capture-inbox-summary { grid-template-columns: 1fr; }
       .governance-finding-summary dl { grid-template-columns: 1fr; }
       .governance-counts { justify-content: flex-start; }
       .governance-item-summary { align-items: flex-start; display: grid; }
