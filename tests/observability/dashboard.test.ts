@@ -449,7 +449,16 @@ describe("observability dashboard", () => {
       expect(html).toContain("<h4>Needs input</h4>");
       expect(html).toContain("data-health-check-action=\"review_capture_inbox\"");
       expect(html).toContain("data-health-check-action=\"capture_session\"");
-      expect(html).toContain("moryn dashboard --serve --project-id moryn");
+      const reviewActionStart = html.indexOf("data-health-check-action=\"review_capture_inbox\"");
+      const reviewActionCommandIndex = html.indexOf("<details class=\"health-check-action-command\"", reviewActionStart);
+      const reviewActionEnd = html.indexOf("</article>", reviewActionStart);
+      expect(reviewActionStart).toBeGreaterThan(-1);
+      expect(reviewActionCommandIndex).toBeGreaterThan(reviewActionStart);
+      expect(reviewActionCommandIndex).toBeLessThan(reviewActionEnd);
+      expect(html.slice(reviewActionStart, reviewActionCommandIndex)).not.toContain("moryn dashboard --serve --project-id moryn");
+      expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("<span>Command</span>");
+      expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("<small>copy from CLI</small>");
+      expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("moryn dashboard --serve --project-id moryn");
       expect(html).toContain("Requires summary");
       expect(html).toContain("Read-only");
       expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));

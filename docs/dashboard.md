@@ -925,6 +925,9 @@ optional sync remote. Readiness suggestions such as `open_dashboard`,
 startup commands. The folded Health Check brief shows only status plus safe and
 needs-input counts; concrete readiness commands stay inside the expanded
 `Readiness Actions` details, grouped under `Safe to run` and `Needs input`.
+Each readiness action row keeps the command inside its own nested `Command`
+fold so the expanded list reads as an action review surface before it reads as a
+CLI transcript.
 `capture_session` stays explicit because it needs the user-authored session
 summary, and Health Check does not start services, register MCP, initialize sync,
 or edit host configuration while rendering the panel.

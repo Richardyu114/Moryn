@@ -559,6 +559,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Readiness suggestions such as `open_dashboard`, `review_install_plan`, and `run_context_pack` are safe-to-run inspection or startup commands");
     expectText(dashboard, "The folded Health Check brief shows only status plus safe and needs-input counts");
     expectText(dashboard, "concrete readiness commands stay inside the expanded `Readiness Actions` details, grouped under `Safe to run` and `Needs input`");
+    expectText(dashboard, "Each readiness action row keeps the command inside its own nested `Command` fold");
+    expectText(dashboard, "the expanded list reads as an action review surface before it reads as a CLI transcript");
     expectText(dashboard, "`capture_session` stays explicit because it needs the user-authored session summary");
     expectText(dashboard, "Capture Inbox backlog only counts candidates whose capture policy requires explicit review or user action");
     expectText(dashboard, "Older autocapture review metadata is rechecked against the current autocapture policy before it appears as active Capture Inbox, Health Check, or Dogfood review work");

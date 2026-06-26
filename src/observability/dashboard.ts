@@ -3262,8 +3262,14 @@ function healthCheckActionList(actions: HealthCheckReport["suggested_actions"]):
             <span class="pill ${action.safe_to_run ? "state-canonical" : "warning"}">${escapeHtml(healthCheckActionRequirement(action))}</span>
             <strong>${escapeHtml(titleCase(action.recommended_action))}</strong>
           </div>
-          <code>${escapeHtml(action.command)}</code>
           <small>${escapeHtml(action.required_when)}</small>
+          <details class="health-check-action-command" data-dashboard-detail="health-check-action-command:${escapeHtml(action.action_id)}">
+            <summary class="dashboard-fold-summary">
+              <span>Command</span>
+              <small>copy from CLI</small>
+            </summary>
+            <code>${escapeHtml(action.command)}</code>
+          </details>
         </article>
       `).join("")}
     </div>
@@ -6475,6 +6481,16 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       overflow-wrap: anywhere;
     }
     .health-check-action small { color: var(--muted); }
+    .health-check-action-command {
+      border-top: 1px solid var(--hairline);
+      padding-top: 6px;
+    }
+    .health-check-action-command[open] > summary { margin-bottom: 6px; }
+    .health-check-action-command code {
+      display: block;
+      width: 100%;
+      padding: 6px 0 0;
+    }
     .health-check-list { display: grid; gap: 8px; }
     .health-check-item {
       display: grid;
