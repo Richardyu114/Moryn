@@ -12,6 +12,7 @@ import { currentAutocaptureDecisionForRecord, currentPolicyTreatsAsLowRiskCaptur
 import { displayRecordText } from "../core/content-text.js";
 import { diagnoseDogfood, type DogfoodReportResult } from "../core/dogfood-report.js";
 import { createEngine } from "../core/engine.js";
+import { commandForPromoteContext } from "../core/errors.js";
 import { diagnoseHealthCheck, type HealthCheckReport } from "../core/health-check.js";
 import { diagnoseMemoryLifecycle, type MemoryLifecycleResult } from "../core/memory-lifecycle.js";
 import { diagnoseMemory, type MemoryDoctorResult } from "../core/memory-doctor.js";
@@ -363,6 +364,7 @@ export const DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES = {
 } as const;
 
 const CANDIDATE_TRIAGE_SAMPLE_LIMIT = 3;
+const CANDIDATE_TRIAGE_PROMOTION_REASON = "User approved Candidate Triage promotion draft.";
 const DEBUG_INSPECTOR_ROW_LIMIT = 10;
 
 export type DashboardGovernanceSource = "capture_policy" | "memory_doctor" | "memory_lifecycle" | "maintenance" | "recall_eval" | "dogfood_report";
@@ -440,6 +442,16 @@ export interface DashboardCandidateTriageRecordIndex {
   evidence_path: string;
 }
 
+export interface DashboardCandidateTriagePromotionDraft {
+  record_id: string;
+  target_state: "canonical";
+  reason: string;
+  command: string;
+  requires_user_confirmation: true;
+  writes: "append_only_events";
+  source_path: string;
+}
+
 export interface DashboardCandidateTriageGroupSummary {
   id: DashboardCandidateTriageGroupId;
   label: string;
@@ -461,6 +473,7 @@ export interface DashboardCandidateTriageGroup {
   record_ids: string[];
   records: DashboardCandidateTriageRecord[];
   records_by_id: Record<string, DashboardCandidateTriageRecordIndex>;
+  promotion_drafts_by_id: Record<string, DashboardCandidateTriagePromotionDraft>;
   evidence_path: string;
 }
 
@@ -2390,6 +2403,23 @@ function toCandidateTriageRecord(
   };
 }
 
+function candidateTriagePromotionDraft(groupId: DashboardCandidateTriageGroupId, record: DashboardCandidateTriageRecord): DashboardCandidateTriagePromotionDraft {
+  const args = {
+    record_id: record.id,
+    target_state: "canonical",
+    reason: CANDIDATE_TRIAGE_PROMOTION_REASON
+  } as const;
+  return {
+    record_id: record.id,
+    target_state: "canonical",
+    reason: CANDIDATE_TRIAGE_PROMOTION_REASON,
+    command: `${commandForPromoteContext(args)} --confirm`,
+    requires_user_confirmation: true,
+    writes: "append_only_events",
+    source_path: `candidate_triage.groups_by_id.${groupId}.promotion_drafts_by_id.${record.id}`
+  };
+}
+
 function toCandidateTriageGroup(input: {
   id: DashboardCandidateTriageGroupId;
   label: string;
@@ -2399,6 +2429,9 @@ function toCandidateTriageGroup(input: {
   records: DashboardCandidateTriageRecord[];
 }): DashboardCandidateTriageGroup {
   const sampleRecords = input.records.slice(0, CANDIDATE_TRIAGE_SAMPLE_LIMIT);
+  const promotionDrafts = input.id === "promotable"
+    ? Object.fromEntries(input.records.map((record) => [record.id, candidateTriagePromotionDraft(input.id, record)]))
+    : {};
   return {
     ...input,
     records: sampleRecords,
@@ -2412,6 +2445,7 @@ function toCandidateTriageGroup(input: {
         ? `candidate_triage.groups_by_id.${input.id}.records[${index}]`
         : `candidate_triage.groups_by_id.${input.id}.record_ids[${index}]`
     }])),
+    promotion_drafts_by_id: promotionDrafts,
     evidence_path: `candidate_triage.groups_by_id.${input.id}`
   };
 }
@@ -3954,6 +3988,34 @@ function renderCandidateTriageAuditBoundary(group: DashboardCandidateTriageGroup
   `;
 }
 
+function renderCandidateTriagePromotionDrafts(group: DashboardCandidateTriageGroup): string {
+  const drafts = Object.values(group.promotion_drafts_by_id);
+  if (drafts.length === 0) return "";
+  return `
+    <details class="candidate-triage-promotion-drafts" data-dashboard-detail="candidate-triage-promotion-drafts:${escapeHtml(group.id)}">
+      <summary class="dashboard-fold-summary">
+        <span>Promotion draft</span>
+        <small>${escapeHtml(`${pluralize(drafts.length, "candidate")} ready`)}</small>
+      </summary>
+      <div class="candidate-triage-promotion-list">
+        ${drafts.map((draft) => `
+          <article class="candidate-triage-promotion-draft" data-candidate-triage-promotion-draft="${escapeHtml(draft.record_id)}">
+            <dl>
+              <div><dt>Record</dt><dd><code>${escapeHtml(draft.record_id)}</code></dd></div>
+              <div><dt>Target</dt><dd>${escapeHtml(draft.target_state)}</dd></div>
+              <div><dt>Confirmation</dt><dd>${draft.requires_user_confirmation ? "User approval required" : "No confirmation required"}</dd></div>
+              <div><dt>Write</dt><dd>${draft.writes === "append_only_events" ? "append-only promotion event" : escapeHtml(draft.writes)}</dd></div>
+              <div><dt>Reason</dt><dd>${escapeHtml(draft.reason)}</dd></div>
+              <div><dt>Command</dt><dd><code>${escapeHtml(draft.command)}</code></dd></div>
+              <div><dt>Evidence</dt><dd><code>${escapeHtml(draft.source_path)}</code></dd></div>
+            </dl>
+          </article>
+        `).join("")}
+      </div>
+    </details>
+  `;
+}
+
 function renderCandidateTriageGroupContext(group: DashboardCandidateTriageGroup): string {
   return `
     <details class="candidate-triage-group-context" data-dashboard-detail="candidate-triage-context:${escapeHtml(group.id)}">
@@ -3985,6 +4047,7 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
           ${renderCandidateTriageGroupContext(group)}
           ${renderCandidateTriageHandoff(group)}
           ${renderCandidateTriageAuditBoundary(group)}
+          ${renderCandidateTriagePromotionDrafts(group)}
           <details class="candidate-triage-record-samples" data-dashboard-detail="candidate-triage-records:${escapeHtml(group.id)}">
             <summary class="dashboard-fold-summary" aria-label="Record samples: ${escapeHtml(sampleSummary)}">
               <span>Record samples</span>
@@ -7487,6 +7550,34 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .candidate-triage-audit-boundary[open] > summary {
       margin-bottom: 8px;
+    }
+    .candidate-triage-promotion-drafts {
+      border: 1px solid #cfd8c7;
+      border-left: 3px solid var(--signal-green);
+      border-radius: 7px;
+      padding: 7px 9px;
+      margin-bottom: 9px;
+      background: var(--signal-green-soft);
+    }
+    .candidate-triage-promotion-drafts[open] > summary {
+      margin-bottom: 8px;
+    }
+    .candidate-triage-promotion-list {
+      display: grid;
+      gap: 8px;
+    }
+    .candidate-triage-promotion-draft {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+    }
+    .candidate-triage-promotion-draft dl {
+      margin: 0;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .candidate-triage-promotion-draft dl div {
+      grid-template-columns: 112px minmax(0, 1fr);
     }
     .candidate-triage-record-samples {
       border: 1px solid var(--hairline);

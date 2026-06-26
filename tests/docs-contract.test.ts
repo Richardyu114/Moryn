@@ -217,6 +217,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Candidate group internals sit behind a `Triage details` fold");
     expectText(dashboard, "the group face does not expose context, review path, audit boundary, or samples by default");
     expectText(dashboard, "group write-boundary and evidence fields move behind a collapsed `Audit boundary` row whose folded");
+    expectText(dashboard, "Promotable groups may include a collapsed `Promotion draft` row");
+    expectText(dashboard, "exact `moryn promote ... --confirm` command");
+    expectText(dashboard, "`candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>` source path");
+    expectText(dashboard, "Candidate Triage still does not render promote buttons or write events itself");
     expectText(dashboard, "Record ids, recall commands, and timeline commands stay behind a nested `Record samples` fold inside each group");
     expectText(dashboard, "`Record samples` renders only the first three full records per group and summarizes the remaining records as API index evidence");
     expectText(dashboard, "`Record samples` folded rows show only the visible sample count as `trace ready`");

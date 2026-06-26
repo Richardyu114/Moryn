@@ -452,7 +452,12 @@ accessible group summary, `Group context`, and the nested `Review path` fold.
 The group write-boundary and evidence fields move behind a collapsed
 `Audit boundary` row whose folded summary names the candidate group, so the
 expanded group stays focused on review path, audit boundary, and samples instead
-of raw audit fields. Record ids,
+of raw audit fields. Promotable groups may include a collapsed `Promotion draft`
+row with the canonical target, confirmation requirement, append-only write
+preview, exact `moryn promote ... --confirm` command, and
+`candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.<record_id>`
+source path; Candidate Triage still does not render promote buttons or write
+events itself. Record ids,
 recall commands, and timeline commands stay behind a nested `Record samples`
 fold inside each group.
 Candidate group internals sit behind a `Triage details` fold, so the group face

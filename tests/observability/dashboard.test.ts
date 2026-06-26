@@ -992,6 +992,15 @@ describe("observability dashboard", () => {
               text?: string;
               citation?: unknown;
             }>;
+            promotion_drafts_by_id?: Record<string, {
+              record_id: string;
+              target_state: string;
+              reason: string;
+              command: string;
+              requires_user_confirmation: boolean;
+              writes: string;
+              source_path: string;
+            }>;
             review_handoff: {
               label: string;
               existing_control: string;
@@ -1056,6 +1065,18 @@ describe("observability dashboard", () => {
           write_boundary: "Candidate Triage is read-only"
         }
       });
+      expect(data.candidate_triage.groups_by_id.promotable.promotion_drafts_by_id).toEqual({
+        rec_candidate_triage_3: {
+          record_id: "rec_candidate_triage_3",
+          target_state: "canonical",
+          reason: "User approved Candidate Triage promotion draft.",
+          command: "moryn promote rec_candidate_triage_3 --state canonical --reason 'User approved Candidate Triage promotion draft.' --confirm",
+          requires_user_confirmation: true,
+          writes: "append_only_events",
+          source_path: "candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3"
+        }
+      });
+      expect(data.candidate_triage.groups_by_id.likely_noise.promotion_drafts_by_id).toEqual({});
       expect(data.candidate_triage.groups.map((group) => group.id)).toEqual([
         "likely_noise",
         "promotable",
@@ -1160,6 +1181,15 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Approval review via Capture Inbox</small>");
       expect(html).toContain("<dt>Existing control</dt><dd>Capture Inbox</dd>");
       expect(html).toContain("Approve eligible Capture Inbox candidates only after checking provenance and record text.");
+      expect(html).toContain("<details class=\"candidate-triage-promotion-drafts\" data-dashboard-detail=\"candidate-triage-promotion-drafts:promotable\">");
+      expect(html).toContain("<span>Promotion draft</span>");
+      expect(html).toContain("<small>1 candidate ready</small>");
+      expect(html).toContain("<dt>Target</dt><dd>canonical</dd>");
+      expect(html).toContain("<dt>Confirmation</dt><dd>User approval required</dd>");
+      expect(html).toContain("<dt>Write</dt><dd>append-only promotion event</dd>");
+      expect(html).toContain("<code>moryn promote rec_candidate_triage_3 --state canonical --reason &#39;User approved Candidate Triage promotion draft.&#39; --confirm</code>");
+      expect(html).toContain("<code>candidate_triage.groups_by_id.promotable.promotion_drafts_by_id.rec_candidate_triage_3</code>");
+      expect(html).not.toContain("data-dashboard-detail=\"candidate-triage-promotion-drafts:likely_noise\"");
       expect(html).toContain(".candidate-triage-review-path {");
       expect(html).toContain(".candidate-triage-review-path dl {");
       expect(html).toContain("<details class=\"candidate-triage-audit-boundary\" data-dashboard-detail=\"candidate-triage-audit:likely_noise\">");
