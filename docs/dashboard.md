@@ -529,11 +529,12 @@ The first screen favors human-readable summaries over raw ids:
 - Review Queue maintenance plans when a project identity repair is available
 
 The top health message stays below the header, but healthy snapshots render as a
-lightweight `dashboard-status-line` instead of a full status panel. Sync-only
-pending states also use the lightweight status line because the Overview already
-names the action as `Review sync changes`. Non-healthy states that need a
-separate explanation, such as local-only, review, or conflict, still render the
-full status strip because they need first-screen attention.
+lightweight `dashboard-status-line` instead of a full status panel. Sync pending
+states skip the extra status line because the header badge, Overview or Health
+lane, Store Signals, and Sync shortcut already show the same pending state.
+Non-healthy states that need a separate explanation, such as local-only, review,
+or conflict, still render the full status strip because they need first-screen
+attention.
 
 Directly below the health message, `Dashboard Overview` is the first-screen
 summary. It picks the most urgent derived Action Board item and keeps the
@@ -607,6 +608,10 @@ When `Pending Decisions` is rendered, Work Lanes keep the active decision lane
 visible and skip `Background Lanes` and `dashboard-work-lanes-background` in the
 HTML; the same routes remain available through `/api/dashboard.action_board`,
 `Page Shortcuts`, and the underlying panels.
+Sync-only pending warnings do not open the `Action Signals` / Needs Attention
+review path. The warning remains in `/api/dashboard.attention_items` for agents,
+while the visible HTML routes the user through `Inspect sync`, Store Signals,
+and the Sync shortcut.
 
 `Action Board` is rendered as `Page Shortcuts` in the UI while keeping the
 stable `data-dashboard-detail="action-board"` route: a secondary, collapsed
@@ -629,12 +634,13 @@ matching local dashboard section and opens that section when it is a collapsed
 detail panel. Each card also shows a short verb-first next-action label such as
 `Review decisions`, `Review warnings`, `Open governance`, or `Inspect sync`, so
 the first screen reads as a review cockpit instead of only a count summary. If
-sync is the only warning signal, the review action uses `Review sync changes`
-instead of the generic `Review warnings` label. When there are no warning or
-critical signals, the quiet review shortcut reads `Open info checks` instead of
-`Review warnings`. The collapsed `Page Shortcuts` summary still stays
-count-free; the non-zero sync count remains visible on the expanded shortcut
-card and in `/api/dashboard.action_board`.
+sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the
+Review shortcut stays quiet with `Open info checks` instead of adding a second
+review task. When there are no warning or critical signals, the quiet review
+shortcut also reads `Open info checks` instead of `Review warnings`. The
+collapsed `Page Shortcuts` summary still stays count-free; the non-zero sync
+count remains visible on the expanded shortcut card and in
+`/api/dashboard.action_board`.
 When `Pending Decisions` is already rendered, the visible HTML skips
 `Page Shortcuts` and the stable `data-dashboard-detail="action-board"` route so
 the decision path does not get another generic navigation fold. The old

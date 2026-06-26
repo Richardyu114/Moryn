@@ -1908,24 +1908,32 @@ function actionBoardSeverity(count: number, fallback: DashboardActionBoardSeveri
   return count > 0 ? "warning" : fallback;
 }
 
+function isSyncAttentionItem(item: DashboardAttentionItem): boolean {
+  return item.action_command?.startsWith("moryn sync ") === true;
+}
+
+function isReviewAttentionItem(item: DashboardAttentionItem): boolean {
+  return item.severity !== "info" && !isSyncAttentionItem(item);
+}
+
 function reviewActionCopy(attentionItems: DashboardAttentionItem[]): {
   hint: string;
   detail: string;
   next_action_label: string;
 } {
-  const actionItems = attentionItems.filter((item) => item.severity !== "info");
-  const syncOnly = actionItems.length === 1 && actionItems[0]?.action_command?.startsWith("moryn sync ") === true;
-  if (syncOnly) {
+  const reviewItems = attentionItems.filter(isReviewAttentionItem);
+  const syncActionItems = attentionItems.filter((item) => item.severity !== "info" && isSyncAttentionItem(item));
+  if (reviewItems.length === 0 && syncActionItems.length > 0) {
     return {
-      hint: "Review sync changes",
-      detail: "Sync changes are the only warning signal in Needs Attention.",
-      next_action_label: "Review sync changes"
+      hint: "Sync handled separately",
+      detail: "Sync pending is shown in the Sync lane and Store Signals.",
+      next_action_label: "Open info checks"
     };
   }
   return {
-    hint: actionItems.length === 0 ? "No warning action" : "Review visible warnings",
+    hint: reviewItems.length === 0 ? "No warning action" : "Review visible warnings",
     detail: "Warnings and critical signals remain visible in Needs Attention.",
-    next_action_label: actionItems.length === 0 ? "Open info checks" : "Review warnings"
+    next_action_label: reviewItems.length === 0 ? "Open info checks" : "Review warnings"
   };
 }
 
@@ -1937,7 +1945,7 @@ function buildActionBoard(input: {
   health: DashboardHealth;
 }): DashboardActionBoard {
   const confirmCount = input.decisionSummary.total_decisions;
-  const reviewCount = input.attentionItems.filter((item) => item.severity !== "info").length;
+  const reviewCount = input.attentionItems.filter(isReviewAttentionItem).length;
   const reviewCopy = reviewActionCopy(input.attentionItems);
   const inspectCount = input.governance.summary.safe_inspections;
   const syncNeedsAction = input.health.status === "sync_pending" || input.health.status === "conflict" || input.health.status === "local_only";
@@ -2945,12 +2953,6 @@ function focusBriefPrimaryItem(actionBoardData: DashboardActionBoard): Dashboard
     };
 }
 
-function isSyncOnlyDashboardOverview(data: DashboardOverview): boolean {
-  return data.headline === "Review sync changes"
-    && data.primary_action.source === "action_board.items_by_id.review"
-    && data.cards_by_id.sync.value === "Sync Pending";
-}
-
 function isPrimaryDashboardOverviewCard(card: DashboardOverviewCard, data: DashboardOverview): boolean {
   return card.source === data.primary_action.source;
 }
@@ -3393,8 +3395,9 @@ function attentionItem(item: DashboardAttentionItem): string {
 }
 
 function attentionFocusNextAction(items: DashboardAttentionItem[]): string {
-  const critical = items.filter((item) => item.severity === "critical").length;
-  const warning = items.filter((item) => item.severity === "warning").length;
+  const reviewItems = items.filter(isReviewAttentionItem);
+  const critical = reviewItems.filter((item) => item.severity === "critical").length;
+  const warning = reviewItems.filter((item) => item.severity === "warning").length;
   const reviewCopy = reviewActionCopy(items);
   if (critical > 0) return "Review criticals";
   if (warning > 0) return reviewCopy.next_action_label;
@@ -3402,8 +3405,9 @@ function attentionFocusNextAction(items: DashboardAttentionItem[]): string {
 }
 
 function attentionFocus(items: DashboardAttentionItem[]): string {
-  const critical = items.filter((item) => item.severity === "critical").length;
-  const warning = items.filter((item) => item.severity === "warning").length;
+  const reviewItems = items.filter(isReviewAttentionItem);
+  const critical = reviewItems.filter((item) => item.severity === "critical").length;
+  const warning = reviewItems.filter((item) => item.severity === "warning").length;
   const info = items.filter((item) => item.severity === "info").length;
   const actionSignals = critical + warning;
   const next = attentionFocusNextAction(items);
@@ -3427,7 +3431,7 @@ function attentionItems(items: DashboardAttentionItem[]): string {
   if (items.length === 0) {
     return `<div class="empty-state">No issues detected in the current snapshot.</div>`;
   }
-  const primary = items.filter((item) => item.severity !== "info");
+  const primary = items.filter(isReviewAttentionItem);
   const info = items.filter((item) => item.severity === "info");
   return `
     <div class="attention-list">
@@ -3454,7 +3458,7 @@ function infoChecksGroup(items: DashboardAttentionItem[]): string {
 }
 
 function needsAttentionPanel(items: DashboardAttentionItem[]): string {
-  const actionSignals = items.filter((item) => item.severity !== "info").length;
+  const actionSignals = items.filter(isReviewAttentionItem).length;
   if (actionSignals === 0) {
     const info = items.filter((item) => item.severity === "info");
     return `
@@ -5437,11 +5441,12 @@ function evidenceLibrary(
 function dashboardStatusSummary(data: DashboardData): string {
   const health = data.health;
   const statusClass = healthClass(health.status);
-  if (health.status === "healthy" || isSyncOnlyDashboardOverview(data.dashboard_overview)) {
+  if (health.status === "healthy") {
     return `
     <p class="dashboard-status-line ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}"><strong>${escapeHtml(health.label)}</strong><span>${escapeHtml(health.explanation)}</span></p>
   `;
   }
+  if (health.status === "sync_pending") return "";
   return `
     <section class="status-strip ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}">
       <strong>Dashboard Status</strong>
@@ -5452,7 +5457,7 @@ function dashboardStatusSummary(data: DashboardData): string {
 }
 
 function renderDashboardBody(data: DashboardData): string {
-  const hasActionSignals = data.attention_items.some((item) => item.severity !== "info");
+  const hasActionSignals = data.attention_items.some(isReviewAttentionItem);
   const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
   const hasPendingDecisions = data.decision_summary.total_decisions > 0;
   const quietInfoPanel = hasActionSignals || hasPendingDecisions ? "" : needsAttentionPanel(data.attention_items);

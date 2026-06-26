@@ -238,28 +238,29 @@ describe("observability dashboard", () => {
       });
       expect(data.action_board.items_by_id.review).toMatchObject({
         label: "Review",
-        value: 1,
-        summary: "1 attention item",
-        hint: "Review sync changes",
-        detail: "Sync changes are the only warning signal in Needs Attention.",
-        next_action_label: "Review sync changes",
+        value: 0,
+        summary: "No urgent review",
+        hint: "Sync handled separately",
+        detail: "Sync pending is shown in the Sync lane and Store Signals.",
+        next_action_label: "Open info checks",
         target: "needs-attention"
       });
       expect(data.dashboard_overview).toMatchObject({
-        headline: "Review sync changes",
-        detail: "Sync changes are the only warning signal in Needs Attention.",
+        headline: "Inspect sync",
+        detail: "Local changes",
         primary_action: {
-          label: "Review sync changes",
-          target: "needs-attention",
-          source: "action_board.items_by_id.review"
+          label: "Inspect sync",
+          target: "store-signals",
+          source: "action_board.items_by_id.sync"
         }
       });
       expect(html).toContain("<span class=\"health-badge warning\">Sync Pending</span>");
-      expect(html).toContain("<p class=\"dashboard-status-line warning\" data-dashboard-status=\"sync_pending\"><strong>Sync Pending</strong><span>Local sync changes are waiting to be pushed or pulled; memory data remains usable on this device.</span></p>");
+      expect(html).not.toContain("<p class=\"dashboard-status-line warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).not.toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).toContain("Local sync changes are waiting to be pushed or pulled");
-      expect(html).toContain("<strong>Review sync changes</strong>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Review sync changes</button>");
+      expect(html).not.toContain("<strong>Review sync changes</strong>");
+      expect(html).toContain("<strong>Inspect sync</strong>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">Inspect sync</button>");
       expect(html).not.toContain("<div class=\"dashboard-overview-grid\">");
       expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"health\"");
@@ -276,15 +277,15 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-dashboard-overview-quiet-card=\"health\"");
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"action\"");
       expect(html).toContain("data-dashboard-overview-quiet-card=\"context\"");
-      expect(html).toContain("data-dashboard-overview-quiet-card=\"sync\"");
+      expect(html).not.toContain("data-dashboard-overview-quiet-card=\"sync\"");
       expect(html).toContain("<section class=\"dashboard-work-lanes\" data-dashboard-work-lanes aria-label=\"Dashboard Work Lanes\">");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-work-lane warning\" data-dashboard-work-lane=\"health\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
       expect(html).toContain("<span>Health</span>");
       expect(html).toContain("<strong>Sync Pending</strong>");
       expect(html).toContain("<em>Inspect sync</em>");
       expect(html).not.toContain("<small>Review sync changes</small>\n      <em class=\"action-board-next\">Review sync changes</em>");
-      expect(html).toContain("<em class=\"action-board-next\">Review sync changes</em>");
-      expect(html).toContain("<span class=\"attention-next-action\" data-attention-next-action>Review sync changes</span>");
+      expect(html).not.toContain("<em class=\"action-board-next\">Review sync changes</em>");
+      expect(html).not.toContain("<span class=\"attention-next-action\" data-attention-next-action>Push sync</span>");
       expect(html).toContain("<details class=\"action-board action-board-secondary\" aria-label=\"Page Shortcuts\" data-dashboard-detail=\"action-board\" data-action-board-nav>");
       expect(html).toContain("<span>Page Shortcuts</span>");
       expect(html).toContain("<small>Optional section links</small>");
@@ -292,10 +293,12 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("action-board-activity");
       expect(html).not.toContain("<span>Navigation Details</span>");
       expect(html).not.toContain("<small>1 review / 1 sync</small>");
-      expect(html).toContain("data-action-board-item=\"review\"");
+      expect(html).not.toContain("data-action-board-item=\"review\"");
       expect(html).toContain("data-action-board-item=\"sync\"");
-      expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Sync changes not pushed\">");
-      expect(html).toContain("Local event history has changes that are not committed or pushed yet.");
+      expect(html).toContain("data-action-board-quiet-item=\"review\"");
+      expect(html).toContain("<em class=\"action-board-next\">Open info checks</em>");
+      expect(html).not.toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Sync changes not pushed\">");
+      expect(html).not.toContain("Local event history has changes that are not committed or pushed yet.");
       expect(html).toContain("<div class=\"rail-labels\"><span>Remote</span><strong>Local Changes</strong><span>Local</span></div>");
       expect(html).not.toContain("data-dashboard-detail=\"attention:Local store has uncommitted sync state\"");
       expect(html).not.toContain("<div class=\"rail-labels\"><span>Remote</span><strong>Dirty</strong><span>Local</span></div>");
@@ -4257,9 +4260,14 @@ describe("observability dashboard", () => {
       expect(data.health.status).toBe("sync_pending");
       expect(data.decision_summary.total_decisions).toBe(1);
       expect(data.action_board.items_by_id.review).toMatchObject({
-        value: 1,
-        next_action_label: "Review sync changes",
+        value: 0,
+        next_action_label: "Open info checks",
         target: "needs-attention"
+      });
+      expect(data.action_board.items_by_id.sync).toMatchObject({
+        value: 1,
+        next_action_label: "Inspect sync",
+        target: "store-signals"
       });
       expect(data.dashboard_overview).toMatchObject({
         headline: "Review decisions",
@@ -4277,6 +4285,8 @@ describe("observability dashboard", () => {
       });
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\">Review decisions</button>");
       expect(html).toContain("<span class=\"health-badge warning\">Sync Pending</span>");
+      expect(html).not.toContain("<p class=\"dashboard-status-line warning\" data-dashboard-status=\"sync_pending\">");
+      expect(html).not.toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).toContain("<details id=\"maintenance-review-queue\"");
     } finally {
       await rm(root, { recursive: true, force: true });

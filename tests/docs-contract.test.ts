@@ -63,7 +63,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "expanded panel still shows the read-only unavailable reason and zero-case stats");
     expect(dashboard).toContain("data-dashboard-action-id");
     expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");
-    expectText(dashboard, "Sync-only pending states also use the lightweight status line");
+    expectText(dashboard, "Sync pending states skip the extra status line");
     expectText(dashboard, "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip");
     expectText(dashboard, "first-screen Overview to the headline, primary action, read-only boundary, and a collapsed `Background Status` fold");
     expectText(dashboard, "Each background overview card is also a local navigation button");
@@ -224,7 +224,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Group cards and candidate detail rows start with a compact `Confirm preview` chip row");
     expectText(dashboard, "candidate count or review reason plus the append-only approve/reject boundary");
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
-    expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut reads `Open info checks` instead of `Review warnings`");
+    expectText(dashboard, "Sync pending states skip the extra status line because the header badge, Overview or Health lane, Store Signals, and Sync shortcut already show the same pending state");
+    expectText(dashboard, "Sync-only pending warnings do not open the `Action Signals` / Needs Attention review path");
+    expectText(dashboard, "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open info checks`");
+    expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut also reads `Open info checks` instead of `Review warnings`");
     expectText(dashboard, "The collapsed `Page Shortcuts` summary still stays count-free");
     expectText(dashboard, "the non-zero sync count remains visible on the expanded shortcut card and in `/api/dashboard.action_board`");
     expectText(dashboard, "zero-value `good` targets are grouped under `Quiet Shortcuts` while keeping the stable `action-board-quiet-targets` route");
