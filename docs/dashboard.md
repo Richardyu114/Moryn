@@ -343,26 +343,24 @@ without reading raw event language or an outcome table.
 The individual plan card does not repeat the full issue sentence or render a
 second decision-summary fold. The first expanded queue view stays focused on
 the title, short confirmation chips, and explicit controls. The structured
-reasoning lives in the single `Audit details` fold, where it still shows:
+reasoning lives in the single `Decision details` fold, where it still shows:
 
 - why the repair exists
 - what records move between project ids or which candidates would be archived
 - the safety boundary, including server-side dry-run and `plan_hash` checking
 - the recommended action
 
-Each plan also keeps one expandable `Audit details` fold instead of several
-separate evidence folds. Its folded summary reads `Decision record and confirmation`,
-and the first thing inside it is a structured `Why this repair is proposed` or
-`Why this cleanup is proposed` record, not a raw event stream:
-detected condition, why it matters, proposed change, safety gate, approval
-writes, and where to audit or roll back. `Confirm notes` groups the compact `Approval checklist`,
-keeping the `Before approving` checklist available below
-that record with plain-language Issue, Proposed change, Safety gate, and Audit
-path rows, so the approval surface reads like a decision checklist instead of
-internal logs.
+Each plan also keeps one expandable `Decision details` fold instead of several
+separate evidence folds. Its folded summary reads `Why, write preview, evidence trace`,
+and it uses `Why this matters` and `Write preview` sections rather than a raw
+event stream. `Why this matters` explains detection and impact; `Write preview`
+states the proposed change, safety gate, approval writes, and where to audit or
+roll back.
+It does not render a second `Confirm notes` or `Approval checklist` layer, so
+the approval surface reads like a decision card instead of internal logs.
 
-Evidence, rollback, and raw plan details stay inside a nested `Plan evidence`
-fold under `Audit details`, so the first expanded audit view stays readable without hiding audit data.
+Evidence, rollback, and raw plan details stay inside a nested `Evidence trace`
+fold under `Decision details`, so the first expanded decision view stays readable without hiding audit data.
 That evidence section includes source and target project ids for migrations,
 archive reasons for candidate cleanup, matched
 record count, state distribution, private record counts, safety checks,

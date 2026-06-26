@@ -4335,44 +4335,7 @@ function maintenanceReviewBrief(plan: DashboardMaintenancePlan): string {
   `;
 }
 
-function maintenanceApprovalChecklist(plan: DashboardMaintenancePlan): string {
-  const issue = plan.type === "candidate_noise_archive"
-    ? "Candidate cleanup found smoke/e2e marker noise."
-    : "Project identity repair found records under an old project id.";
-  const proposedChange = plan.type === "candidate_noise_archive"
-    ? `${maintenanceMoveSummary(plan)} after confirming the records are test noise or obsolete markers.`
-    : `${maintenanceMoveSummary(plan)} from ${plan.from_project_id ?? ""} to ${plan.to_project_id ?? ""}.`;
-  return `
-    <details class="approval-checklist" data-dashboard-detail="maintenance-approval-checklist:${escapeHtml(plan.plan_id)}" data-maintenance-review-log>
-      <summary class="dashboard-fold-summary maintenance-approval-checklist-fold">
-        <span>Approval checklist</span>
-        <small>Issue, safety gate, and audit path</small>
-      </summary>
-      <h4>Before approving</h4>
-      <ol>
-        <li><strong>Issue:</strong> ${escapeHtml(issue)}</li>
-        <li><strong>Proposed change:</strong> ${plan.type === "candidate_noise_archive" ? escapeHtml(proposedChange) : `${escapeHtml(maintenanceMoveSummary(plan))} from <code>${escapeHtml(plan.from_project_id ?? "")}</code> to <code>${escapeHtml(plan.to_project_id ?? "")}</code>.`}</li>
-        <li><strong>Safety gate:</strong> Server re-runs the dry run and checks <code>plan_hash</code> before writing.</li>
-        <li><strong>Audit path:</strong> ${maintenanceAuditPathHtml(plan)}</li>
-      </ol>
-    </details>
-  `;
-}
-
-function maintenanceConfirmNotes(plan: DashboardMaintenancePlan): string {
-  return `
-    <details class="maintenance-confirm-notes" data-dashboard-detail="maintenance-confirm-notes:${escapeHtml(plan.plan_id)}">
-      <summary class="dashboard-fold-summary maintenance-confirm-notes-fold">
-        <span>Confirm notes</span>
-        <small>Checklist before approval</small>
-      </summary>
-      ${maintenanceApprovalChecklist(plan)}
-    </details>
-  `;
-}
-
 function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
-  const heading = plan.type === "candidate_noise_archive" ? "Why this cleanup is proposed" : "Why this repair is proposed";
   const detected = plan.type === "candidate_noise_archive"
     ? "Candidate cleanup found smoke/e2e marker noise."
     : "Project identity repair found records under an old project id.";
@@ -4386,33 +4349,40 @@ function maintenanceDecisionRecord(plan: DashboardMaintenancePlan): string {
   const approvalWrites = `Approving appends ${eventName} events only; Reject hides this card for the browser session.`;
   return `
     <div class="maintenance-decision-record" data-maintenance-decision-record>
-      <h4>${escapeHtml(heading)}</h4>
-      <dl>
-        <div>
-          <dt><strong>Detected</strong></dt>
-          <dd>${escapeHtml(detected)}</dd>
-        </div>
-        <div>
-          <dt><strong>Why this matters</strong></dt>
-          <dd>${escapeHtml(why)}</dd>
-        </div>
-        <div>
-          <dt><strong>Proposed change</strong></dt>
-          <dd>${plan.type === "candidate_noise_archive" ? escapeHtml(proposed) : `${escapeHtml(maintenanceMoveSummary(plan))} from <code>${escapeHtml(plan.from_project_id ?? "")}</code> to <code>${escapeHtml(plan.to_project_id ?? "")}</code>.`}</dd>
-        </div>
-        <div>
-          <dt><strong>Safety gate</strong></dt>
-          <dd>The server re-runs the dry run and checks <code>plan_hash</code> before writing.</dd>
-        </div>
-        <div>
-          <dt><strong>Approval writes</strong></dt>
-          <dd>${escapeHtml(approvalWrites)}</dd>
-        </div>
-        <div>
-          <dt><strong>Audit path</strong></dt>
-          <dd>${maintenanceAuditPathHtml(plan)}</dd>
-        </div>
-      </dl>
+      <section class="maintenance-decision-section maintenance-why">
+        <h4>Why this matters</h4>
+        <dl>
+          <div>
+            <dt><strong>Detected</strong></dt>
+            <dd>${escapeHtml(detected)}</dd>
+          </div>
+          <div>
+            <dt><strong>Impact</strong></dt>
+            <dd>${escapeHtml(why)}</dd>
+          </div>
+        </dl>
+      </section>
+      <section class="maintenance-decision-section maintenance-write-preview">
+        <h4>Write preview</h4>
+        <dl>
+          <div>
+            <dt><strong>Proposed change</strong></dt>
+            <dd>${plan.type === "candidate_noise_archive" ? escapeHtml(proposed) : `${escapeHtml(maintenanceMoveSummary(plan))} from <code>${escapeHtml(plan.from_project_id ?? "")}</code> to <code>${escapeHtml(plan.to_project_id ?? "")}</code>.`}</dd>
+          </div>
+          <div>
+            <dt><strong>Safety gate</strong></dt>
+            <dd>The server re-runs the dry run and checks <code>plan_hash</code> before writing.</dd>
+          </div>
+          <div>
+            <dt><strong>Approval writes</strong></dt>
+            <dd>${escapeHtml(approvalWrites)}</dd>
+          </div>
+          <div>
+            <dt><strong>Evidence trace</strong></dt>
+            <dd>${maintenanceAuditPathHtml(plan)}</dd>
+          </div>
+        </dl>
+      </section>
     </div>
   `;
 }
@@ -4470,8 +4440,8 @@ function maintenancePlanEvidence(plan: DashboardMaintenancePlan): string {
   return `
     <details class="maintenance-plan-evidence" data-dashboard-detail="maintenance-plan-evidence:${escapeHtml(plan.plan_id)}">
       <summary class="dashboard-fold-summary maintenance-plan-evidence-fold">
-        <span>Plan evidence</span>
-        <small>Evidence, rollback, raw plan</small>
+        <span>Evidence trace</span>
+        <small>Rollback, raw plan, command</small>
       </summary>
       <div class="maintenance-detail-grid">
         <section data-maintenance-detail="evidence">
@@ -4540,11 +4510,10 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 ${maintenanceReviewBrief(plan)}
                 <details class="maintenance-audit-details" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
                   <summary class="dashboard-fold-summary maintenance-audit-details-fold">
-                    <span>Audit details</span>
-                    <small>Decision record and confirmation</small>
+                    <span>Decision details</span>
+                    <small>Why, write preview, evidence trace</small>
                   </summary>
                   ${maintenanceDecisionRecord(plan)}
-                  ${maintenanceConfirmNotes(plan)}
                   ${maintenancePlanEvidence(plan)}
                 </details>
                 <div class="maintenance-actions">
@@ -8096,22 +8065,19 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       margin: 8px 0;
       background: var(--surface-2);
     }
-    .review-log h4,
-    .approval-checklist h4 {
+    .review-log h4 {
       margin: 0 0 6px;
       color: var(--ink);
       font-size: 12px;
       font-weight: 780;
     }
-    .review-log ol,
-    .approval-checklist ol {
+    .review-log ol {
       display: grid;
       gap: 5px;
       margin: 0;
       padding-left: 19px;
     }
-    .review-log li,
-    .approval-checklist li {
+    .review-log li {
       color: var(--ink-2);
       overflow-wrap: anywhere;
     }
@@ -8591,27 +8557,17 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       background: var(--surface);
     }
     .maintenance-plan-evidence[open] > summary { margin-bottom: 8px; }
-    .maintenance-confirm-notes {
-      border: 1px solid var(--hairline);
-      border-radius: 7px;
-      padding: 8px 9px;
-      margin-top: 8px;
-      background: var(--surface);
-    }
-    .maintenance-confirm-notes[open] > summary { margin-bottom: 8px; }
-    .approval-checklist {
-      border: 1px solid var(--hairline);
-      border-radius: 7px;
-      padding: 8px 9px;
-      background: var(--surface-2);
-    }
-    .approval-checklist[open] > summary { margin-bottom: 8px; }
     .maintenance-decision-record {
       border: 1px solid var(--hairline);
       border-radius: 7px;
       padding: 9px;
       margin: 0 0 8px;
       background: var(--surface-2);
+    }
+    .maintenance-decision-section + .maintenance-decision-section {
+      border-top: 1px solid var(--hairline);
+      margin-top: 9px;
+      padding-top: 9px;
     }
     .maintenance-decision-record h4 {
       margin: 0 0 7px;
