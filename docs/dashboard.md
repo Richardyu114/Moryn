@@ -945,10 +945,12 @@ Readiness commands remain outside the `Install Trust` summary; concrete
 readiness commands stay inside the expanded setup command details. The visible
 readiness row is labeled `Setup Commands` while keeping the stable
 `health-check-readiness-actions` route. Its groups read `Safe checks` and
-`Manual input`. Each command fold is labeled `CLI command`. Full check rows stay
-inside the nested `Check Details` fold. `Check Details` summarizes pass, info,
-warning, and failed counts before listing individual checks, so expanded Health
-Check still starts with setup readiness instead of a full diagnostic transcript.
+`Manual input`. Its folded summary uses `safe checks` and `manual input`
+instead of the shorter internal `safe` and `need input` counters. Each command
+fold is labeled `CLI command`. Full check rows stay inside the nested
+`Check Details` fold. `Check Details` summarizes pass, info, warning, and failed
+counts before listing individual checks, so expanded Health Check still starts
+with setup readiness instead of a full diagnostic transcript.
 When served from the dashboard CLI, pass `--readiness-host <host>` and
 `--sync-remote <remote>` to make this embedded Health Check match the host and
 sync context you would pass to `moryn health check --host <host> --sync-remote

@@ -3249,6 +3249,11 @@ function healthCheckActionSummary(report: HealthCheckReport): { safe: number; ne
   };
 }
 
+function healthCheckSetupCommandSummary(report: HealthCheckReport): string {
+  const summary = healthCheckActionSummary(report);
+  return `${pluralize(summary.safe, "safe check")} | ${pluralize(summary.needsInput, "manual input")}`;
+}
+
 function healthCheckInstallTrust(report: HealthCheckReport): string {
   const summary = healthCheckActionSummary(report);
   const status = report.summary.failing_checks > 0 ? "Needs setup review" : "Safe to inspect";
@@ -3317,7 +3322,7 @@ function healthCheckReadinessActions(report: HealthCheckReport): string {
     <details class="health-check-readiness-actions" data-dashboard-detail="health-check-readiness-actions">
       <summary class="dashboard-fold-summary">
         <span>Setup Commands</span>
-        <small>${escapeHtml(`${summary.safe} safe | ${summary.needsInput} need input`)}</small>
+        <small>${escapeHtml(healthCheckSetupCommandSummary(report))}</small>
       </summary>
       <div class="health-check-action-groups">
         <section class="health-check-action-group">

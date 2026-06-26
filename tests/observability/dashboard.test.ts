@@ -469,7 +469,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"health-check-readiness-actions\" data-dashboard-detail=\"health-check-readiness-actions\">");
       expect(html).toContain("<span>Setup Commands</span>");
       expect(html).not.toContain("<span>Readiness Actions</span>");
-      expect(html).toContain("<small>4 safe | 1 need input</small>");
+      expect(html).toContain("<small>4 safe checks | 1 manual input</small>");
+      expect(html).not.toContain("<small>4 safe | 1 need input</small>");
       expect(html).toContain("<h4>Safe checks</h4>");
       expect(html).toContain("<h4>Manual input</h4>");
       expect(html).not.toContain("<h4>Safe to run</h4>");

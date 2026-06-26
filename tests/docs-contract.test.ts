@@ -570,6 +570,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Install Trust` reports whether the setup path is safe to inspect, how many safe checks are available, how many manual inputs remain, and that the dashboard does not write host configuration");
     expectText(dashboard, "Readiness commands remain outside the `Install Trust` summary");
     expectText(dashboard, "The visible readiness row is labeled `Setup Commands` while keeping the stable `health-check-readiness-actions` route");
+    expectText(dashboard, "Its folded summary uses `safe checks` and `manual input` instead of the shorter internal `safe` and `need input` counters");
     expectText(dashboard, "Its groups read `Safe checks` and `Manual input`");
     expectText(dashboard, "Each command fold is labeled `CLI command`");
     expectText(dashboard, "concrete readiness commands stay inside the expanded setup command details");
