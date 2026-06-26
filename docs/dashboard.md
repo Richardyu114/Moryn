@@ -745,12 +745,12 @@ content-aware: when there are findings it reads `Reference material`
 while the accessible summary keeps `Read-only reference material`;
 when there is only routine/background material it reads `Reference evidence only`.
 It does not list every child module on the first screen. When expanded, it starts
-with a compact `Evidence index` bar for `Findings`, `Diagnostics`, and `Audit`
-so users can choose a route before reading nested panels. The route bar renders
-local buttons that reuse the
-existing `data-action-board-target` behavior: `Findings` opens `Review
-Notes` when read-only notes exist and otherwise stays on `Evidence Library`,
-`Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`.
+with a compact `Evidence index` bar only for routes that have content, such as
+`Findings`, `Diagnostics`, and `Audit`; empty routes are omitted instead of
+rendering "nothing here" buttons. The route bar renders local buttons that reuse
+the existing `data-action-board-target` behavior: `Findings` opens `Review
+Notes` when read-only notes exist, `Diagnostics` opens `Routine Diagnostics`,
+and `Audit` opens `Audit Trail`.
 Those route buttons keep only the route label and current status visible in a
 single wrapping rail; the longer route hints stay in accessible labels so the
 expanded evidence entry does not become another card grid or prose panel.

@@ -5744,34 +5744,36 @@ function evidenceLibraryRoute(input: {
 }
 
 function evidenceLibraryBrief(input: { reviewCount: number; routineCount: number; backgroundCount: number }): string {
-  const findingsTarget = input.reviewCount > 0 ? "evidence-review-evidence" : "evidence-library";
-  const diagnosticsTarget = input.routineCount > 0 ? "routine-diagnostics" : "evidence-library";
-  const auditTarget = input.backgroundCount > 0 ? "supporting-evidence" : "evidence-library";
+  const routes = [
+    input.reviewCount > 0 ? evidenceLibraryRoute({
+      id: "findings",
+      target: "evidence-review-evidence",
+      title: "Findings",
+      summary: "Reference notes",
+      note: "Read-only dogfood, governance, or non-routine checks."
+    }) : "",
+    input.routineCount > 0 ? evidenceLibraryRoute({
+      id: "diagnostics",
+      target: "routine-diagnostics",
+      title: "Diagnostics",
+      summary: "Healthy checks and handoff readiness",
+      note: "Routine health, recall, and handoff context checks."
+    }) : "",
+    input.backgroundCount > 0 ? evidenceLibraryRoute({
+      id: "audit",
+      target: "supporting-evidence",
+      title: "Audit",
+      summary: supportingEvidenceSummary(),
+      note: "Clean audits, store signals, recent value, and raw store."
+    }) : ""
+  ].filter((route) => route.length > 0);
+
+  if (routes.length === 0) return "";
   return `
       <div class="evidence-library-brief" data-evidence-library-brief>
         <h3>Evidence index</h3>
         <div class="evidence-library-routebar" role="list" aria-label="Evidence index">
-${evidenceLibraryRoute({
-    id: "findings",
-    target: findingsTarget,
-    title: "Findings",
-    summary: input.reviewCount > 0 ? "Reference notes" : "No read-only notes",
-    note: input.reviewCount > 0 ? "Read-only dogfood, governance, or non-routine checks." : "Skip unless the Evidence lane reports notes."
-  })}
-${evidenceLibraryRoute({
-    id: "diagnostics",
-    target: diagnosticsTarget,
-    title: "Diagnostics",
-    summary: "Healthy checks and handoff readiness",
-    note: input.routineCount > 0 ? "Routine health, recall, and handoff context checks." : "No routine diagnostics in this snapshot."
-  })}
-${evidenceLibraryRoute({
-    id: "audit",
-    target: auditTarget,
-    title: "Audit",
-    summary: supportingEvidenceSummary(),
-    note: input.backgroundCount > 0 ? "Clean audits, store signals, recent value, and raw store." : "No audit trail rendered in this snapshot."
-  })}
+${routes.join("")}
         </div>
       </div>
   `;

@@ -108,13 +108,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "when there are findings it reads `Reference material`");
     expectText(dashboard, "while the accessible summary keeps `Read-only reference material`");
     expectText(dashboard, "reads `Reference evidence only`");
-    expectText(dashboard, "starts with a compact `Evidence index` bar for `Findings`, `Diagnostics`, and `Audit`");
+    expectText(dashboard, "starts with a compact `Evidence index` bar only for routes that have content");
+    expectText(dashboard, "empty routes are omitted instead of rendering \"nothing here\" buttons");
     expectText(dashboard, "single wrapping rail");
     expectText(dashboard, "does not become another card grid or prose panel");
     expectText(dashboard, "When `Pending Decisions` is rendered, the visible HTML skips the `Evidence index` route bar");
     expectText(dashboard, "the Evidence Library still keeps `Review Notes`, `Routine Reference`, and the underlying `/api/dashboard` data");
     expectText(dashboard, "The route bar renders local buttons that reuse the existing `data-action-board-target` behavior");
-    expectText(dashboard, "`Findings` opens `Review Notes` when read-only notes exist and otherwise stays on `Evidence Library`");
+    expectText(dashboard, "`Findings` opens `Review Notes` when read-only notes exist");
     expectText(dashboard, "`Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`");
     expectText(dashboard, "route buttons keep only the route label and current status visible");
     expectText(dashboard, "longer route hints stay in accessible labels");

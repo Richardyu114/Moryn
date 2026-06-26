@@ -354,6 +354,11 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-action-board-item=\"review\"");
       expect(html).not.toContain("data-action-board-item=\"inspect\"");
       expect(html).not.toContain("data-action-board-item=\"sync\"");
+      expect(html).toContain("<h3>Evidence index</h3>");
+      expect(html).not.toContain("data-evidence-library-route=\"findings\"");
+      expect(html).not.toContain("No read-only notes");
+      expect(html).toContain("data-evidence-library-route=\"diagnostics\"");
+      expect(html).toContain("data-evidence-library-route=\"audit\"");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -2522,14 +2527,17 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-action-board-target=\"evidence-review-evidence\" aria-controls=\"evidence-review-evidence\" aria-label=\"Findings: Reference notes. Read-only dogfood, governance, or non-routine checks.\"");
       expect(html).toContain("<strong>Findings</strong><span>Reference notes</span>");
       expect(html).not.toContain("<strong>Findings</strong><span>Read-only findings available</span>");
+      expect(html).not.toContain("No read-only notes");
       expect(html).not.toContain("<small>Start here for dogfood, governance, or non-routine checks.</small>");
       expect(html).toContain("class=\"evidence-library-route\" data-evidence-library-route=\"diagnostics\"");
       expect(html).toContain("data-action-board-target=\"routine-diagnostics\" aria-controls=\"routine-diagnostics\" aria-label=\"Diagnostics: Healthy checks and handoff readiness. Routine health, recall, and handoff context checks.\"");
       expect(html).toContain("<strong>Diagnostics</strong><span>Healthy checks and handoff readiness</span>");
+      expect(html).not.toContain("No routine diagnostics in this snapshot.");
       expect(html).not.toContain("<small>Routine health, recall, and handoff context checks.</small>");
       expect(html).toContain("class=\"evidence-library-route\" data-evidence-library-route=\"audit\"");
       expect(html).toContain("data-action-board-target=\"supporting-evidence\" aria-controls=\"supporting-evidence\" aria-label=\"Audit: Optional trace data. Clean audits, store signals, recent value, and raw store.\"");
       expect(html).toContain("<strong>Audit</strong><span>Optional trace data</span>");
+      expect(html).not.toContain("No audit trail rendered in this snapshot.");
       expect(html).not.toContain("<strong>Audit</strong><span>Audit logs and raw signals</span>");
       expect(html).not.toContain("<small>Clean audits, store signals, recent value, and raw store.</small>");
       expect(html).not.toContain("<strong>Audit</strong><span>Audit logs and raw signals</span><small>Clean audits, store signals, recent value, and raw inspector.</small>");
