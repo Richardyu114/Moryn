@@ -3868,11 +3868,11 @@ function governanceSafeReviewNote(note: string): string {
   return escapeHtml(note);
 }
 
-function governanceSafeReviewNotes(item: DashboardGovernanceItem): string {
+function governanceSafeAuditNotes(item: DashboardGovernanceItem): string {
   return `
       <details class="governance-safe-notes" data-dashboard-detail="governance-notes:${escapeHtml(item.id)}">
         <summary class="dashboard-fold-summary">
-          <span>Review notes</span>
+          <span>Audit notes</span>
           <small>Detection, boundary, and evidence</small>
         </summary>
         <ol>
@@ -3888,7 +3888,7 @@ function governanceSafeRow(item: DashboardGovernanceItem): string {
       <span>${escapeHtml(governanceSourceDisplayLabel(item.source))}</span>
       <strong>${escapeHtml(governanceSafeRowTitle(item))}</strong>
       <small>${escapeHtml(`${governanceActionDisplayLabel(item.action_label)} | Read-only`)}</small>
-      ${governanceSafeReviewNotes(item)}
+      ${governanceSafeAuditNotes(item)}
     </div>
   `;
 }

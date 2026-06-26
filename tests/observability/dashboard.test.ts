@@ -774,7 +774,8 @@ describe("observability dashboard", () => {
       expect(safeRow).toContain("<strong>Failure signals</strong>");
       expect(safeRow).not.toContain("<strong>Recent dogfood notes contain failure or timeout language.</strong>");
       expect(safeRow).toContain("<details class=\"governance-safe-notes\" data-dashboard-detail=\"governance-notes:dogfood_report:failure_signals\">");
-      expect(safeRow).toContain("<span>Review notes</span>");
+      expect(safeRow).toContain("<span>Audit notes</span>");
+      expect(safeRow).not.toContain("<span>Review notes</span>");
       expect(safeRow).toContain("<small>Detection, boundary, and evidence</small>");
       expect(safeRow).toContain("Detected: Dogfood notes surfaced product friction worth inspecting.");
       expect(safeRow).toContain("Recommended next step: inspect_failure_signals.");
@@ -2002,7 +2003,8 @@ describe("observability dashboard", () => {
       expect(memoryDoctorSafeRow).toContain("<strong>Candidate backlog</strong>");
       expect(memoryDoctorSafeRow).not.toContain("<strong>Candidate records are accumulating faster than canonical records.</strong>");
       expect(memoryDoctorSafeRow).toContain("<details class=\"governance-safe-notes\" data-dashboard-detail=\"governance-notes:memory_doctor:candidate_backlog\">");
-      expect(memoryDoctorSafeRow).toContain("<span>Review notes</span>");
+      expect(memoryDoctorSafeRow).toContain("<span>Audit notes</span>");
+      expect(memoryDoctorSafeRow).not.toContain("<span>Review notes</span>");
       expect(memoryDoctorSafeRow).toContain("<small>Detection, boundary, and evidence</small>");
       expect(memoryDoctorSafeRow).toContain("Detected: Candidate records are accumulating faster than canonical records.");
       expect(memoryDoctorSafeRow).toContain("Recommended next step: Review candidate backlog.");

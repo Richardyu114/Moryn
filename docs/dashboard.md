@@ -426,8 +426,8 @@ reads `Read-only, no writes`, while keeping the stable
 still shows the concrete safe-check count plus compact inspection rows with
 readable source labels, title, and read-only next step.
 Safe inspection rows keep detection, next step, write boundary, and evidence
-source behind a `Review notes` fold, so the first visible row reads as guidance
-while the exact selection source remains available for audit.
+source behind an `Audit notes` fold, so the expanded content reads as
+read-only audit evidence rather than user approval work.
 Safe inspection rows use short display titles while full report titles remain
 in `/api/dashboard` and source panels.
 `memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor`
