@@ -996,6 +996,16 @@ const dashboardArguments = {
     default: "127.0.0.1",
     cli: { flag: "--host", default: "127.0.0.1" }
   },
+  readiness_host: {
+    type: "string",
+    required: false,
+    cli: { flag: "--readiness-host" }
+  },
+  sync_remote: {
+    type: "string",
+    required: false,
+    cli: { flag: "--sync-remote" }
+  },
   port: {
     type: "number",
     required: false,

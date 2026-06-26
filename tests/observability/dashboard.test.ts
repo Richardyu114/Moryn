@@ -403,6 +403,8 @@ describe("observability dashboard", () => {
       const data = await buildDashboardData(storePath, {
         limit: 10,
         project_id: "moryn",
+        readiness_host: "codex",
+        sync_remote: "git@github.com:user/moryn-store.git",
         now: "2026-06-21T00:10:00.000Z"
       });
       const html = renderDashboardHtml(data);
@@ -430,6 +432,14 @@ describe("observability dashboard", () => {
         safe_to_run: false,
         required_fields: ["summary"]
       });
+      expect(data.health_check.setup_readiness).toMatchObject({
+        host: "codex",
+        host_adapter: "Codex",
+        sync_remote: "git@github.com:user/moryn-store.git",
+        install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+        context_pack_command: "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex",
+        capture_command: "moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary '<summary>'"
+      });
       expect(html).toContain("<details class=\"panel health-check-panel\" data-dashboard-detail=\"health-check\" data-dashboard-section=\"health-check\">");
       expect(html).toContain("<span>Moryn Health Check</span>");
       expect(html).toContain("<small>needs attention | 1 warning</small>");
@@ -440,11 +450,11 @@ describe("observability dashboard", () => {
       const healthBriefHtml = html.slice(html.indexOf("<div class=\"health-check-brief\">"), html.indexOf("<dl class=\"health-check-stats\">"));
       expect(healthBriefHtml).toContain("<span>Read-only</span>");
       expect(healthBriefHtml).toContain("<span>4 safe suggestions</span>");
-      expect(healthBriefHtml).toContain("<span>2 need input</span>");
+      expect(healthBriefHtml).toContain("<span>1 need input</span>");
       expect(healthBriefHtml).not.toContain("moryn dashboard --serve --project-id moryn");
       expect(html).toContain("<details class=\"health-check-readiness-actions\" data-dashboard-detail=\"health-check-readiness-actions\">");
       expect(html).toContain("<span>Readiness Actions</span>");
-      expect(html).toContain("<small>4 safe | 2 need input</small>");
+      expect(html).toContain("<small>4 safe | 1 need input</small>");
       expect(html).toContain("<h4>Safe to run</h4>");
       expect(html).toContain("<h4>Needs input</h4>");
       expect(html).toContain("data-health-check-action=\"review_capture_inbox\"");
@@ -459,6 +469,8 @@ describe("observability dashboard", () => {
       expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("<span>Command</span>");
       expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("<small>copy from CLI</small>");
       expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("moryn dashboard --serve --project-id moryn");
+      expect(html).toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
+      expect(html).toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
       expect(html).toContain("Requires summary");
       expect(html).toContain("Read-only");
       expect(html.indexOf("data-action-board-nav")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
@@ -5794,7 +5806,10 @@ describe("observability dashboard", () => {
         host: "127.0.0.1",
         port: 0,
         limit: 5,
-        refreshIntervalMs: 250
+        refreshIntervalMs: 250,
+        project_id: "moryn",
+        readiness_host: "codex",
+        sync_remote: "git@github.com:user/moryn-store.git"
       });
       try {
         expect(server.serving).toBe(true);
@@ -5818,9 +5833,23 @@ describe("observability dashboard", () => {
         const initialApi = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
           totals: { records: number };
           recent_value: Array<{ summary: string }>;
+          health_check: {
+            setup_readiness: {
+              host: string;
+              sync_remote?: string;
+              install_command: string;
+              context_pack_command: string;
+            };
+          };
         };
         expect(initialApi.totals.records).toBe(1);
         expect(initialApi.recent_value[0]?.summary).toBe("Initial live dashboard memory");
+        expect(initialApi.health_check.setup_readiness).toMatchObject({
+          host: "codex",
+          sync_remote: "git@github.com:user/moryn-store.git",
+          install_command: "moryn install --host codex --sync-remote git@github.com:user/moryn-store.git",
+          context_pack_command: "moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task '<current task>' --agent codex"
+        });
 
         await engine.write({
           kind: "session_summary",

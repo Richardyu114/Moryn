@@ -50,7 +50,7 @@ firewalls and network policy still need to allow the selected port.
 ### Live Server
 
 ```bash
-moryn dashboard --serve --host <host> --port <port> --interval <ms> --limit <n>
+moryn dashboard --serve --host <host> --port <port> --interval <ms> --limit <n> --readiness-host <host> --sync-remote <remote>
 ```
 
 Defaults:
@@ -60,6 +60,14 @@ Defaults:
 - `--interval 2000`
 - `--limit 20`
 - private-tagged records hidden
+
+`--host` is the server bind address. It controls where the local HTTP server
+listens, so `--host 0.0.0.0` exposes the dashboard on external network
+interfaces. `--readiness-host` is separate: it selects the agent adapter used
+inside `health_check.setup_readiness` commands, such as `codex`, `claude`,
+`gemini`, `cursor`, or `shell`. `--sync-remote` is copied into generated
+readiness commands but the dashboard remains read-only; it does not initialize
+sync, contact the remote, register MCP, or edit host config while rendering.
 
 Server endpoints:
 
@@ -925,6 +933,10 @@ optional sync remote. Readiness suggestions such as `open_dashboard`,
 startup commands. The folded Health Check brief shows only status plus safe and
 needs-input counts; concrete readiness commands stay inside the expanded
 `Readiness Actions` details, grouped under `Safe to run` and `Needs input`.
+When served from the dashboard CLI, pass `--readiness-host <host>` and
+`--sync-remote <remote>` to make this embedded Health Check match the host and
+sync context you would pass to `moryn health check --host <host> --sync-remote
+<remote>`.
 Each readiness action row keeps the command inside its own nested `Command`
 fold so the expanded list reads as an action review surface before it reads as a
 CLI transcript.

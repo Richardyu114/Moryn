@@ -1967,6 +1967,8 @@ type DashboardCliOptions = {
   limit?: string;
   serve?: boolean;
   host?: string;
+  readinessHost?: string;
+  syncRemote?: string;
   port?: string;
   interval?: string;
   includePrivate?: boolean;
@@ -2019,7 +2021,9 @@ async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<Das
         refreshIntervalMs: parseDashboardInterval(options.interval),
         limit,
         include_private: options.includePrivate,
-        project_id: projectId
+        project_id: projectId,
+        readiness_host: parseNonEmptyString(options.readinessHost, "--readiness-host"),
+        sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote")
       });
       const shouldOpen = dashboardOpenRequested(options);
       if (shouldOpen) await openDashboard(server.url);
@@ -2035,7 +2039,9 @@ async function dashboardMetadata(options: DashboardCliOptions = {}): Promise<Das
     const snapshot = await writeDashboardSnapshot(storePath(), {
       limit,
       include_private: options.includePrivate,
-      project_id: projectId
+      project_id: projectId,
+      readiness_host: parseNonEmptyString(options.readinessHost, "--readiness-host"),
+      sync_remote: parseNonEmptyString(options.syncRemote, "--sync-remote")
     });
     const shouldOpen = dashboardOpenRequested(options);
     if (!shouldOpen) return snapshot;
@@ -2689,6 +2695,8 @@ program.command("dashboard")
   .option("--no-open", "Do not open the generated dashboard")
   .option("--serve", "Serve the dashboard over local HTTP with live refresh")
   .option("--host <host>", "Dashboard server bind host", "127.0.0.1")
+  .option("--readiness-host <host>", "Host adapter to include in Health Check setup readiness commands")
+  .option("--sync-remote <remote>", "Shared Git remote to include in Health Check readiness commands")
   .option("--port <port>", "Dashboard server port; use 0 to choose a free port", "8765")
   .option("--interval <ms>", "Dashboard browser refresh interval in milliseconds", "2000")
   .option("--limit <n>", "Recent record and event limit", "20")
@@ -2700,6 +2708,8 @@ program.command("dashboard")
       limit: String(limit),
       serve: options.serve,
       host: options.host,
+      readinessHost: options.readinessHost,
+      syncRemote: options.syncRemote,
       port: options.port,
       interval: options.interval,
       includePrivate: options.includePrivate,

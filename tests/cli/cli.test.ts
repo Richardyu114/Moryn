@@ -2097,6 +2097,14 @@ describe("moryn CLI", () => {
       default: "127.0.0.1",
       cli: { flag: "--host" }
     });
+    expect(parsed.operation.arguments_by_name.readiness_host).toMatchObject({
+      type: "string",
+      cli: { flag: "--readiness-host" }
+    });
+    expect(parsed.operation.arguments_by_name.sync_remote).toMatchObject({
+      type: "string",
+      cli: { flag: "--sync-remote" }
+    });
     expect(parsed.operation.arguments_by_name.port).toMatchObject({
       type: "number",
       default: 8765,
@@ -5899,6 +5907,9 @@ describe("moryn CLI", () => {
         "--import", "tsx", "src/cli.ts", "--store", store,
         "dashboard",
         "--no-open",
+        "--project-id", "moryn",
+        "--readiness-host", "codex",
+        "--sync-remote", "git@github.com:user/moryn-store.git",
         "--limit", "5"
       ])).stdout) as { generated: boolean; opened: boolean; path: string; url: string };
       expect(snapshot).toMatchObject({
@@ -5907,7 +5918,10 @@ describe("moryn CLI", () => {
         path: join(store, "state", "dashboard", "index.html")
       });
       expect(snapshot.url).toMatch(/^file:\/\//);
-      await expect(readFile(snapshot.path, "utf8")).resolves.toContain("Dashboard CLI snapshot memory");
+      const snapshotHtml = await readFile(snapshot.path, "utf8");
+      expect(snapshotHtml).toContain("Dashboard CLI snapshot memory");
+      expect(snapshotHtml).toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
+      expect(snapshotHtml).toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
 
       const opened = JSON.parse((await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,

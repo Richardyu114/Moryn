@@ -136,6 +136,8 @@ export interface DashboardOptions {
   limit?: number;
   include_private?: boolean;
   project_id?: string;
+  readiness_host?: string;
+  sync_remote?: string;
   now?: string;
 }
 
@@ -2738,6 +2740,8 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     records: healthCheckRecords,
     events: healthCheckEvents,
     project_id: options.project_id,
+    host: options.readiness_host,
+    sync_remote: options.sync_remote,
     limit,
     include_private: options.include_private === true,
     excluded_private_records: healthCheckAllRecords.length - healthCheckRecords.length
@@ -8579,7 +8583,9 @@ export async function startDashboardServer(storePath: string, options: Dashboard
   const dashboardDataLoader = createDashboardDataLoader(() => buildDashboardData(storePath, {
     limit,
     include_private: includePrivate,
-    project_id: options.project_id
+    project_id: options.project_id,
+    readiness_host: options.readiness_host,
+    sync_remote: options.sync_remote
   }));
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${requestedPort}`}`);

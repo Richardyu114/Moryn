@@ -19,6 +19,7 @@ describe("documentation contracts", () => {
 
     expect(readme).toContain("moryn dashboard");
     expect(readme).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(readme).toContain("--readiness-host");
     expect(readme).toContain("http://127.0.0.1:8765/");
     expect(readme).toContain("docs/dashboard.md");
     expect(readme).toContain("[Dashboard](docs/dashboard.md)");
@@ -49,6 +50,8 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Local dashboard server and static snapshots");
     expect(dashboard).toContain("# Moryn Dashboard");
     expect(dashboard).toContain("moryn dashboard --serve --host 127.0.0.1 --port 8765");
+    expect(dashboard).toContain("--readiness-host <host>");
+    expect(dashboard).toContain("server bind address");
     expect(dashboard).toContain("http://127.0.0.1:8765/");
     expect(dashboard).toContain("moryn dashboard --serve --host 0.0.0.0 --port 8765");
     expect(dashboard).toContain("GET /fragment");
