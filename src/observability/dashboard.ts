@@ -5489,6 +5489,13 @@ function supportingEvidencePanel(data: DashboardData): string {
     supportingEvidenceOperationalGroup(operationalPanels),
     supportingEvidenceRawGroup(rawPanels)
   ].filter((panel) => panel.length > 0);
+  const reportSummary = operationalPanels.length > 0 && rawPanels.length > 0
+    ? "Store signals and raw reference"
+    : operationalPanels.length > 0
+      ? "Store signals"
+      : rawPanels.length > 0
+        ? "Raw reference"
+        : "No reports";
   return `
     <details class="panel supporting-evidence" data-dashboard-detail="supporting-evidence" aria-label="Supporting Evidence">
       <summary class="dashboard-fold-summary supporting-evidence-fold">
@@ -5501,8 +5508,8 @@ function supportingEvidencePanel(data: DashboardData): string {
         </div>
         <details class="supporting-evidence-full-details" data-dashboard-detail="supporting-evidence-full-details">
           <summary class="dashboard-fold-summary">
-            <span>Full audit details</span>
-            <small>${escapeHtml(pluralize(detailGroups.length, "group"))}</small>
+            <span>Audit Reports</span>
+            <small>${escapeHtml(reportSummary)}</small>
           </summary>
           <div class="supporting-evidence-full-list">
             ${detailGroups.join("")}
@@ -5562,6 +5569,9 @@ function routineDiagnosticRow(panel: RoutineDiagnosticPanel): string {
 
 function routineDiagnosticsPanel(panels: RoutineDiagnosticPanel[]): string {
   if (panels.length === 0) return "";
+  const reportSummary = panels
+    .map((panel) => panel.id === "health-check" ? "Health" : panel.id === "recall-eval" ? "recall" : "handoff")
+    .join(", ");
   return `
     <details class="panel routine-diagnostics" data-dashboard-detail="routine-diagnostics" aria-label="Routine Diagnostics">
       <summary class="dashboard-fold-summary routine-diagnostics-fold" aria-label="Routine Diagnostics: Healthy checks and handoff readiness">
@@ -5574,8 +5584,8 @@ function routineDiagnosticsPanel(panels: RoutineDiagnosticPanel[]): string {
         </div>
         <details class="routine-diagnostics-full-panels" data-dashboard-detail="routine-diagnostics-full-panels">
           <summary class="dashboard-fold-summary">
-            <span>Full diagnostic details</span>
-            <small>${escapeHtml(pluralize(panels.length, "report"))}</small>
+            <span>Diagnostic Reports</span>
+            <small>${escapeHtml(reportSummary)}</small>
           </summary>
           <div class="routine-diagnostics-full-list">
             ${panels.map((panel) => panel.detail).join("")}
@@ -5591,8 +5601,8 @@ function evidenceLibraryReviewGroup(panels: string[]): string {
   return `
     <details class="evidence-library-group evidence-library-review" data-dashboard-detail="evidence-review-evidence">
       <summary class="dashboard-fold-summary evidence-library-group-heading">
-        <span>Read-only Notes</span>
-        <small>Read-only notes</small>
+        <span>Review Notes</span>
+        <small>Reference notes</small>
       </summary>
       <div class="evidence-library-group-list">
         ${panels.join("")}
@@ -5605,9 +5615,9 @@ function evidenceLibraryBackgroundGroup(panels: string[]): string {
   if (panels.length === 0) return "";
   return `
     <details class="evidence-library-group evidence-library-background" data-dashboard-detail="evidence-background-evidence">
-      <summary class="dashboard-fold-summary evidence-library-group-heading" aria-label="Reference Evidence: Routine checks and audit trail">
-        <span>Reference Evidence</span>
-        <small>Routine evidence</small>
+      <summary class="dashboard-fold-summary evidence-library-group-heading" aria-label="Routine Reference: Routine checks and audit trail">
+        <span>Routine Reference</span>
+        <small>Checks and audit</small>
       </summary>
       <div class="evidence-library-group-list">
         ${panels.join("")}
@@ -5713,9 +5723,9 @@ function evidenceLibrary(
   const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   const visibleEvidenceSummary = evidenceLibraryVisibleSummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   return `
-    <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Read-only Evidence">
-      <summary class="dashboard-fold-summary evidence-library-fold" aria-label="${escapeHtml(`Read-only Evidence: ${evidenceSummary}`)}">
-        <span>Read-only Evidence</span>
+    <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Reference Library">
+      <summary class="dashboard-fold-summary evidence-library-fold" aria-label="${escapeHtml(`Reference Library: ${evidenceSummary}`)}">
+        <span>Reference Library</span>
         <small>${escapeHtml(visibleEvidenceSummary)}</small>
       </summary>
       ${showEvidenceIndex ? evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length }) : ""}

@@ -434,7 +434,7 @@ When backlog exists, `candidate_triage` groups active candidate records into
 `likely_noise`, `promotable`, `session_summaries`, and `needs_inspection`. The
 visible `Candidate Triage` panel stays collapsed by default inside Evidence
 Library rather than the main review path. `Candidate Triage` is grouped under
-`Reference Findings` in the Evidence Library, and its folded row reads
+`Review Notes` in the Evidence Library, and its folded row reads
 `Read-only candidate backlog` instead of repeating a candidate count. Expanding
 the panel shows candidate and group counts plus read-only next steps;
 shown-record counts stay in `/api/dashboard` and the nested `Record samples`
@@ -725,7 +725,7 @@ the quiet `Info Checks` anchor entirely; `/api/dashboard.attention_items` still
 keeps the info checks for agents and audit tooling.
 
 Read-only diagnostic detail lives in the collapsed evidence layer. The visible
-Evidence Library title is `Read-only Evidence`, while the stable route remains
+Evidence Library title is `Reference Library`, while the stable route remains
 `data-dashboard-detail="evidence-library"`. Its visible summary is
 content-aware: when there are findings it reads `Reference material`
 while the accessible summary keeps `Read-only reference material`;
@@ -734,15 +734,15 @@ It does not list every child module on the first screen. When expanded, it start
 with a compact `Evidence index` bar for `Findings`, `Diagnostics`, and `Audit`
 so users can choose a route before reading nested panels. The route bar renders
 local buttons that reuse the
-existing `data-action-board-target` behavior: `Findings` opens `Reference
-Findings` when read-only notes exist and otherwise stays on `Evidence Library`,
+existing `data-action-board-target` behavior: `Findings` opens `Review
+Notes` when read-only notes exist and otherwise stays on `Evidence Library`,
 `Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`.
 Those route buttons keep only the route label and current status visible in a
 single wrapping rail; the longer route hints stay in accessible labels so the
 expanded evidence entry does not become another card grid or prose panel.
 When `Pending Decisions` is rendered, the visible HTML skips the
 `Evidence index` route bar; the Evidence Library still keeps
-`Reference Findings`, `Reference Evidence`, and the underlying `/api/dashboard`
+`Review Notes`, `Routine Reference`, and the underlying `/api/dashboard`
 data.
 The route bar is navigation copy only: it does not render Approve, Reject, Promote,
 Archive, or Apply controls and does not add `data-dashboard-action-id`. Health
@@ -760,18 +760,18 @@ with `Checks ready` so the folded row stays compact, while the accessible
 summary keeps `Healthy checks and handoff readiness` for screen readers and
 audit tooling. Expanding it shows lightweight Health Check, Recall Eval, and
 Context Pack Review summary rows first; the full reports stay in the nested
-`Full diagnostic details` section. Findings-oriented panels such as Dogfood
+`Diagnostic Reports` section. Findings-oriented panels such as Dogfood
 Notes, Governance Hub, or non-routine Health/Recall/Context checks are grouped
-first under the stable `Reference Findings` route, whose visible row reads
-`Read-only Notes` with `Read-only notes`.
-`Read-only Notes` is collapsed by default inside `Evidence Library`, so
+first under the stable `Review Notes` group, whose visible row reads
+`Review Notes` with `Reference notes`.
+`Review Notes` is collapsed by default inside `Evidence Library`, so
 read-only findings do not look like pending approval work or expose
 child panel counts. Routine Diagnostics and Audit Trail are
-grouped behind `Reference Evidence`, whose folded summary reads `Routine
-evidence`, while the accessible summary keeps `Routine checks and audit trail`
+grouped behind `Routine Reference`, whose folded summary reads `Checks and
+audit`, while the accessible summary keeps `Routine checks and audit trail`
 instead of listing reference-panel counts. Expanding `Audit Trail` shows
 lightweight Audit Evidence, Store Snapshot, and Raw Store Reference rows first;
-the original evidence groups stay inside the nested `Full audit details`
+the original evidence groups stay inside the nested `Audit Reports`
 section. Empty groups are omitted, so the library does not add a placeholder
 when there is only background evidence.
 The routine and background groups still keep the original child

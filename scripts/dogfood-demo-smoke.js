@@ -185,7 +185,7 @@ async function main() {
     if (!dashboardHtml.includes("Capture Inbox") || !dashboardHtml.includes("Review Queue") || !dashboardHtml.includes("Decision: require approval")) {
       throw new Error("dashboard snapshot did not expose the review path");
     }
-    if (!dashboardHtml.includes("Read-only Evidence")) {
+    if (!dashboardHtml.includes("Reference Library")) {
       throw new Error("dashboard snapshot did not keep evidence in the read-only layer");
     }
     log("dashboard snapshot generated");
