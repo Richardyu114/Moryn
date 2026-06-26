@@ -3251,17 +3251,20 @@ interface DashboardDecisionRoute {
   count: number;
   target: "capture-inbox" | "maintenance-review-queue" | "candidate-triage";
   target_label: "Open Capture Inbox" | "Open Review Queue" | "Open Candidate Triage";
+  items: DashboardDecisionSummaryItem[];
 }
 
 function decisionSummaryRoutes(data: DashboardDecisionSummary): DashboardDecisionRoute[] {
   const routes: DashboardDecisionRoute[] = [];
+  const itemsBySurface = (surface: DashboardDecisionSummarySurface) => data.items.filter((item) => item.surface === surface);
   if (data.summary.capture_inbox_groups > 0) {
     routes.push({
       id: "capture-inbox",
       label: "Capture Inbox",
       count: data.summary.capture_inbox_groups,
       target: "capture-inbox",
-      target_label: "Open Capture Inbox"
+      target_label: "Open Capture Inbox",
+      items: itemsBySurface("capture_inbox")
     });
   }
   if (data.summary.review_queue_plans > 0) {
@@ -3270,7 +3273,8 @@ function decisionSummaryRoutes(data: DashboardDecisionSummary): DashboardDecisio
       label: "Review Queue",
       count: data.summary.review_queue_plans,
       target: "maintenance-review-queue",
-      target_label: "Open Review Queue"
+      target_label: "Open Review Queue",
+      items: itemsBySurface("maintenance_review")
     });
   }
   if (data.summary.candidate_triage_promotions > 0) {
@@ -3279,17 +3283,29 @@ function decisionSummaryRoutes(data: DashboardDecisionSummary): DashboardDecisio
       label: "Candidate Triage",
       count: data.summary.candidate_triage_promotions,
       target: "candidate-triage",
-      target_label: "Open Candidate Triage"
+      target_label: "Open Candidate Triage",
+      items: itemsBySurface("candidate_triage")
     });
   }
   return routes;
 }
 
-function decisionSummaryRouteChips(): string {
+function decisionSummaryRouteActionLabel(route: DashboardDecisionRoute): string {
+  const firstItem = route.items[0];
+  if (route.id === "capture-inbox") return "Group approve/reject";
+  return firstItem?.decision_label ?? route.target_label;
+}
+
+function decisionSummaryRouteGuardLabel(route: DashboardDecisionRoute): string {
+  if (route.id === "maintenance-review") return "Plan hash guard";
+  return "Active candidate guard";
+}
+
+function decisionSummaryRouteChips(route: DashboardDecisionRoute): string {
   return [
+    decisionSummaryRouteActionLabel(route),
     decisionSummaryWriteLabel("append_only_events"),
-    "approval required",
-    "Audit evidence"
+    decisionSummaryRouteGuardLabel(route)
   ].map((chip) => `<span>${escapeHtml(chip)}</span>`).join("");
 }
 
@@ -3304,7 +3320,7 @@ function decisionSummaryRouteCard(route: DashboardDecisionRoute): string {
               <button type="button" class="decision-summary-link" data-action-board-target="${escapeHtml(route.target)}" aria-controls="${escapeHtml(route.target)}">${escapeHtml(route.target_label)}</button>
             </div>
             <div class="decision-summary-route" aria-label="Decision route">
-              ${decisionSummaryRouteChips()}
+              ${decisionSummaryRouteChips(route)}
             </div>
           </article>
   `;

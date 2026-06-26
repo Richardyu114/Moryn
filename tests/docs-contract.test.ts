@@ -270,7 +270,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open info checks`");
     expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut also reads `Open info checks` instead of `Review warnings`");
     expectText(dashboard, "The visible panel is a route summary grouped by owning confirmation surface");
-    expectText(dashboard, "show how many explicit approvals are waiting there, keep the shared route chips");
+    expectText(dashboard, "show how many explicit approvals are waiting there, keep compact route chips for");
     expectText(dashboard, "It does not repeat candidate group titles, maintenance plan titles, full safety notes");
     expectText(dashboard, "The JSON contract keeps those per-decision audit fields in `items[]`");
     expectText(dashboard, "The collapsed `Page Shortcuts` summary still stays count-free");
@@ -293,11 +293,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The JSON contract still keeps `governance.summary` for agents and audit tooling");
     expectText(dashboard, "renders a compact `Pending Decisions` panel");
     expectText(dashboard, "The visible panel is a route summary grouped by owning confirmation surface");
-    expectText(dashboard, "keep the shared route chips `Append-only events`, `approval required`, and `Audit evidence`");
+    expectText(dashboard, "keep compact route chips for the next action, `Append-only events`, and the active guard");
+    expectText(dashboard, "`Plan hash guard` or `Active candidate guard`");
     expectText(dashboard, "It does not repeat candidate group titles, maintenance plan titles, full safety notes");
     expectText(dashboard, "The JSON contract keeps those per-decision audit fields in `items[]`");
     expectText(dashboard, "It counts human decision units, not raw approve/reject buttons");
-    expectText(dashboard, "Actual writes remain inside Capture Inbox and Review Queue controls");
+    expectText(dashboard, "Actual writes remain inside Capture Inbox, Review Queue, and Candidate Triage controls");
     expectText(dashboard, "After a dashboard approval or rejection succeeds, the browser renders a compact `Action receipt`");
     expectText(dashboard, "The receipt is restored after dashboard fragment refreshes");
     expectText(dashboard, "Outcome, Decision, Write boundary, Write targets, Decision context, Records, Events, Audit status, and Audit next");
