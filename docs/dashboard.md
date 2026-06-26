@@ -439,8 +439,8 @@ When backlog exists, `candidate_triage` groups active candidate records into
 visible `Candidate Triage` panel stays collapsed by default inside Evidence
 Library rather than the main review path. Candidate Triage without promotion
 drafts stays under the background Audit route instead of `Review Notes`; its
-folded row reads `Background candidate audit` instead of repeating a candidate
-count or sounding like a primary task. If promotion drafts are waiting,
+folded row reads `Read-only backlog` and the expanded heading reads `Candidate
+Backlog` instead of repeating queue language. If promotion drafts are waiting,
 `Candidate Triage` is grouped under `Review Notes`, the folded row shows the
 draft count, and those approvals also appear in `Pending Decisions` as a
 `Candidate Triage` route. Expanding the panel shows candidate and group counts

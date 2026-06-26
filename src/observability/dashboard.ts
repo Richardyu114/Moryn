@@ -3984,7 +3984,7 @@ function candidateTriageSummary(triage: DashboardCandidateTriage): string {
   if (!triage.available) return "No candidate backlog";
   const promotionDrafts = candidateTriagePromotionDraftCount(triage);
   if (promotionDrafts > 0) return `${pluralize(promotionDrafts, "promotion draft")} waiting`;
-  return "Background candidate audit";
+  return "Read-only backlog";
 }
 
 function candidateTriagePromotionDraftCount(triage: DashboardCandidateTriage): number {
@@ -4208,17 +4208,24 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
 
 function candidateTriagePanel(triage: DashboardCandidateTriage): string {
   if (!triage.available) return "";
+  const hasPromotionDrafts = candidateTriageHasPromotionDrafts(triage);
+  const panelLabel = hasPromotionDrafts ? "Candidate Triage" : "Candidate Backlog";
+  const panelHeading = hasPromotionDrafts ? "Candidate Triage Queue" : "Candidate Backlog";
+  const panelDescription = hasPromotionDrafts
+    ? "Review grouping for memory doctor backlog."
+    : "Read-only candidate groups; promotion drafts appear as explicit decisions.";
+  const ariaLabel = hasPromotionDrafts ? "Candidate Triage Queue" : "Candidate Backlog";
   return `
-    <details class="panel candidate-triage" data-dashboard-detail="candidate-triage" aria-label="Candidate Triage Queue">
+    <details class="panel candidate-triage" data-dashboard-detail="candidate-triage" aria-label="${escapeHtml(ariaLabel)}">
       <summary class="dashboard-fold-summary candidate-triage-fold">
-        <span>Candidate Triage</span>
+        <span>${escapeHtml(panelLabel)}</span>
         <small>${escapeHtml(candidateTriageSummary(triage))}</small>
       </summary>
       <div class="candidate-triage-body">
         <div class="candidate-triage-heading">
           <div>
-            <h2>Candidate Triage Queue</h2>
-            <p>Review grouping for memory doctor backlog.</p>
+            <h2>${escapeHtml(panelHeading)}</h2>
+            <p>${escapeHtml(panelDescription)}</p>
           </div>
           <div class="candidate-triage-counts">
             <span>${escapeHtml(pluralize(triage.summary.total_candidates, "candidate"))}</span>
