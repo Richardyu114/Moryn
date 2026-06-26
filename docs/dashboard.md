@@ -1095,14 +1095,15 @@ append-only events, and carry stale guards such as `active_candidate_record`,
 After a dashboard approval or rejection succeeds, the browser renders a compact
 `Action receipt` before refreshing the body. The receipt is restored after
 dashboard fragment refreshes, so the last explicit action remains visible
-instead of disappearing when the queue updates. It uses readable rows for
-Outcome, Decision, Write boundary, Write targets, Decision context, Records,
-Events, Audit status, and Audit next. `Write boundary` reads `Append-only
-events`, and `Audit status` reads `Traceable by timeline` when event ids are
-returned. Audit next includes read-only trace commands such as
-`moryn timeline --event-id <event_id>` and
-`moryn recall --record-id <record_id>`. It is a visibility layer only: it does
-not add background execution, retry writes, or a second mutation path.
+instead of disappearing when the queue updates. The visible receipt headline
+reads `Store updated`, followed by the human decision sentence and three compact
+summary chips: `Write boundary`, `Targets`, and `Audit`. `Write boundary` reads
+`Append-only events`, and `Audit` reads `Traceable by timeline` when event ids
+are returned. Record ids, event ids, decision context, and read-only trace
+commands such as `moryn timeline --event-id <event_id>` and
+`moryn recall --record-id <record_id>` stay inside the collapsed `Audit trail`
+fold. It is a visibility layer only: it does not add background execution,
+retry writes, or a second mutation path.
 
 ### Context Pack Review
 

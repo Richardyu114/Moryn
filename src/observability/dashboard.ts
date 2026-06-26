@@ -6295,19 +6295,28 @@ function dashboardActionReceiptScript(): string {
         <div class="action-receipt-layout">
           <div class="action-receipt-head">
             <span class="action-receipt-title">Action receipt</span>
-            <strong>\${htmlEscape(receipt.status)}</strong>
+            <strong>Store updated</strong>
+            <p>\${htmlEscape(receipt.decision)}</p>
           </div>
-          <dl class="action-receipt-grid">
-            <div><dt>Outcome</dt><dd>\${htmlEscape(receipt.status)}</dd></div>
-            <div><dt>Decision</dt><dd>\${htmlEscape(receipt.decision)}</dd></div>
-            <div><dt>Write boundary</dt><dd>\${htmlEscape(receipt.write_boundary)}</dd></div>
-            <div><dt>Write targets</dt><dd>\${htmlEscape(receipt.changed)}</dd></div>
-            \${receipt.context.length > 0 ? \`<div><dt>Decision context</dt><dd>\${receipt.context.map((value) => \`<code>\${htmlEscape(value)}</code>\`).join(" ")}</dd></div>\` : ""}
-            \${receipt.record_ids.length > 0 ? \`<div><dt>Records</dt><dd>\${receipt.record_ids.map((recordId) => \`<code>\${htmlEscape(recordId)}</code>\`).join(" ")}</dd></div>\` : ""}
-            \${receipt.event_ids.length > 0 ? \`<div><dt>Events</dt><dd>\${receipt.event_ids.map((eventId) => \`<code>\${htmlEscape(eventId)}</code>\`).join(" ")}</dd></div>\` : ""}
-            <div><dt>Audit status</dt><dd>\${htmlEscape(receipt.audit_status)}</dd></div>
-            <div class="action-receipt-commands"><dt>Audit next</dt><dd>\${receipt.commands.length > 0 ? receipt.commands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("") : "No read-only trace command returned."}</dd></div>
-          </dl>
+          <div class="action-receipt-summary" aria-label="Action receipt summary">
+            <span><strong>Write boundary</strong><small>\${htmlEscape(receipt.write_boundary)}</small></span>
+            <span><strong>Targets</strong><small>\${htmlEscape(receipt.changed)}</small></span>
+            <span><strong>Audit</strong><small>\${htmlEscape(receipt.audit_status)}</small></span>
+          </div>
+          <details class="action-receipt-audit" data-dashboard-detail="action-receipt-audit">
+            <summary class="dashboard-fold-summary">
+              <span>Audit trail</span>
+              <small>Record and event ids</small>
+            </summary>
+            <dl class="action-receipt-grid">
+              <div><dt>Decision</dt><dd>\${htmlEscape(receipt.decision)}</dd></div>
+              <div><dt>Audit status</dt><dd>\${htmlEscape(receipt.audit_status)}</dd></div>
+              \${receipt.context.length > 0 ? \`<div><dt>Context</dt><dd>\${receipt.context.map((value) => \`<code>\${htmlEscape(value)}</code>\`).join(" ")}</dd></div>\` : ""}
+              \${receipt.record_ids.length > 0 ? \`<div><dt>Records</dt><dd>\${receipt.record_ids.map((recordId) => \`<code>\${htmlEscape(recordId)}</code>\`).join(" ")}</dd></div>\` : ""}
+              \${receipt.event_ids.length > 0 ? \`<div><dt>Events</dt><dd>\${receipt.event_ids.map((eventId) => \`<code>\${htmlEscape(eventId)}</code>\`).join(" ")}</dd></div>\` : ""}
+              <div class="action-receipt-commands"><dt>Trace commands</dt><dd>\${receipt.commands.length > 0 ? receipt.commands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("") : "No read-only trace command returned."}</dd></div>
+            </dl>
+          </details>
         </div>
       \`;
       const renderReceiptInto = (target, receipt) => {
@@ -7789,11 +7798,10 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .last-action-receipt.action-receipt { margin-bottom: 12px; }
     .action-receipt-layout { display: grid; gap: 8px; width: 100%; }
     .action-receipt-head {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 6px;
-      align-items: center;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px 8px;
+      align-items: start;
     }
     .action-receipt-title {
       color: var(--ink);
@@ -7808,6 +7816,42 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-size: 12px;
       font-weight: 800;
     }
+    .action-receipt-head p {
+      grid-column: 1 / -1;
+      margin: 0;
+      color: var(--ink-2);
+      font-size: 12.5px;
+      overflow-wrap: anywhere;
+    }
+    .action-receipt-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .action-receipt-summary span {
+      display: grid;
+      gap: 2px;
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      padding: 7px 8px;
+      background: var(--surface-2);
+      min-width: 0;
+    }
+    .action-receipt-summary strong {
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 760;
+    }
+    .action-receipt-summary small {
+      color: var(--ink);
+      font-size: 12.5px;
+      font-weight: 740;
+    }
+    .action-receipt-audit {
+      border-top: 1px solid var(--hairline);
+      padding-top: 7px;
+    }
+    .action-receipt-audit[open] > summary { margin-bottom: 7px; }
     .action-receipt-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       margin: 0;
