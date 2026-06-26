@@ -310,10 +310,10 @@ with `Routing evidence` while keeping the stable `capture-policy-audit` route.
 The expanded read-only routing-only reports open with a compact `Routing brief`
 that states whether any Capture Inbox work exists and summarizes auto-captured or
 policy-archived handoffs. The keyed findings, suggested inspect actions, and decision
-cards stay inside `Policy Decision History`; that child fold keeps
-`Read-only routing evidence` in the accessible summary, so historical capture,
-review, and archive decisions read as audit history instead of another action
-queue.
+cards stay inside a nested `Routing details` fold with `Read-only evidence` in
+the accessible summary, so historical capture, review, and archive decisions
+read as audit history instead of another action queue without repeating the
+outer `Policy Decision History` title.
 
 When `--project-id <id>` or `--project <path>` is provided, the lifecycle report
 uses the same project scope as the CLI report: matching project records plus

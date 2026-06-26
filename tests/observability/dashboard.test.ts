@@ -5595,6 +5595,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Capture Policy Audit: 1 captured\">");
       expect(html).toContain("<span>Policy Decision History</span>");
       expect(html).toContain("<small>Routing evidence</small>");
+      expect(html.match(/<span>Policy Decision History<\/span>/g)).toHaveLength(1);
       const capturePolicyPanelStart = html.indexOf("<details class=\"panel capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
       const capturePolicyHistoryStart = html.indexOf("<details class=\"lifecycle-action-details\" data-dashboard-detail=\"capture-policy:default_autocapture_policy\">", capturePolicyPanelStart);
       const capturePolicyOuter = html.slice(capturePolicyPanelStart, capturePolicyHistoryStart);
@@ -5615,6 +5616,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("Codex finished setup wizard polish.");
       expect(html).toContain("inspect_auto_captured_handoff");
       expect(html).toContain("moryn timeline --record-id rec_auto_capture_1 --project-id moryn --before 3 --after 3");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Routing details: Read-only evidence\">");
+      expect(html).toContain("<span>Routing details</span>");
+      expect(html).toContain("<small>Read-only evidence</small>");
       expect(html).not.toContain("api/capture-inbox/rec_auto_capture_1/approve");
       expect(html).not.toContain("api/capture-inbox/rec_auto_capture_1/reject");
     });
@@ -5796,9 +5800,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span>Capture Policy Audit</span>");
       expect(html).toContain("<small>No capture policy work</small>");
       expect(html).toContain("<details class=\"lifecycle-action-details\" data-dashboard-detail=\"capture-policy:default_autocapture_policy\">");
-      expect(html).toContain("<span>Policy Decision History</span>");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Policy Decision History: Read-only routing evidence\">");
-      expect(html).toContain("<small>Routing evidence</small>");
+      expect(html).toContain("<span>Routing details</span>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Routing details: Read-only evidence\">");
+      expect(html).toContain("<small>Read-only evidence</small>");
       expect(html).not.toContain("<small>Read-only routing evidence</small>");
       expect(html).not.toContain("<summary>Policy decisions and read-only actions</summary>");
       expect(html).not.toContain("<small>0 captured | 0 review | 0 archived</small>");
