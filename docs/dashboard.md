@@ -942,16 +942,18 @@ summary before `Readiness Actions`. `Install Trust` reports whether the setup
 path is safe to inspect, how many safe checks are available, how many manual
 inputs remain, and that the dashboard does not write host configuration.
 Readiness commands remain outside the `Install Trust` summary; concrete
-readiness commands stay inside the expanded `Readiness Actions` details,
-grouped under `Safe to run` and `Needs input`. Full check rows stay inside the
-nested `Check Details` fold. `Check Details` summarizes pass, info, warning,
-and failed counts before listing individual checks, so expanded Health Check
-still starts with setup readiness instead of a full diagnostic transcript.
+readiness commands stay inside the expanded setup command details. The visible
+readiness row is labeled `Setup Commands` while keeping the stable
+`health-check-readiness-actions` route. Its groups read `Safe checks` and
+`Manual input`. Each command fold is labeled `CLI command`. Full check rows stay
+inside the nested `Check Details` fold. `Check Details` summarizes pass, info,
+warning, and failed counts before listing individual checks, so expanded Health
+Check still starts with setup readiness instead of a full diagnostic transcript.
 When served from the dashboard CLI, pass `--readiness-host <host>` and
 `--sync-remote <remote>` to make this embedded Health Check match the host and
 sync context you would pass to `moryn health check --host <host> --sync-remote
 <remote>`.
-Each readiness action row keeps the command inside its own nested `Command`
+Each readiness action row keeps the command inside its own nested command
 fold so the expanded list reads as an action review surface before it reads as a
 CLI transcript.
 `capture_session` stays explicit because it needs the user-authored session

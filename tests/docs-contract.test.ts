@@ -569,10 +569,13 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The expanded Health Check starts with an `Install Trust` summary before `Readiness Actions`");
     expectText(dashboard, "`Install Trust` reports whether the setup path is safe to inspect, how many safe checks are available, how many manual inputs remain, and that the dashboard does not write host configuration");
     expectText(dashboard, "Readiness commands remain outside the `Install Trust` summary");
-    expectText(dashboard, "concrete readiness commands stay inside the expanded `Readiness Actions` details, grouped under `Safe to run` and `Needs input`");
+    expectText(dashboard, "The visible readiness row is labeled `Setup Commands` while keeping the stable `health-check-readiness-actions` route");
+    expectText(dashboard, "Its groups read `Safe checks` and `Manual input`");
+    expectText(dashboard, "Each command fold is labeled `CLI command`");
+    expectText(dashboard, "concrete readiness commands stay inside the expanded setup command details");
     expectText(dashboard, "Full check rows stay inside the nested `Check Details` fold");
     expectText(dashboard, "`Check Details` summarizes pass, info, warning, and failed counts before listing individual checks");
-    expectText(dashboard, "Each readiness action row keeps the command inside its own nested `Command` fold");
+    expectText(dashboard, "Each readiness action row keeps the command inside its own nested command fold");
     expectText(dashboard, "the expanded list reads as an action review surface before it reads as a CLI transcript");
     expectText(dashboard, "`capture_session` stays explicit because it needs the user-authored session summary");
     expectText(dashboard, "Capture Inbox backlog only counts candidates whose capture policy requires explicit review or user action");

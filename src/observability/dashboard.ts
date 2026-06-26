@@ -3297,7 +3297,7 @@ function healthCheckActionList(actions: HealthCheckReport["suggested_actions"]):
           <small>${escapeHtml(action.required_when)}</small>
           <details class="health-check-action-command" data-dashboard-detail="health-check-action-command:${escapeHtml(action.action_id)}">
             <summary class="dashboard-fold-summary">
-              <span>Command</span>
+              <span>CLI command</span>
               <small>copy from CLI</small>
             </summary>
             <code>${escapeHtml(action.command)}</code>
@@ -3316,16 +3316,16 @@ function healthCheckReadinessActions(report: HealthCheckReport): string {
   return `
     <details class="health-check-readiness-actions" data-dashboard-detail="health-check-readiness-actions">
       <summary class="dashboard-fold-summary">
-        <span>Readiness Actions</span>
+        <span>Setup Commands</span>
         <small>${escapeHtml(`${summary.safe} safe | ${summary.needsInput} need input`)}</small>
       </summary>
       <div class="health-check-action-groups">
         <section class="health-check-action-group">
-          <h4>Safe to run</h4>
+          <h4>Safe checks</h4>
           ${healthCheckActionList(safeActions)}
         </section>
         <section class="health-check-action-group">
-          <h4>Needs input</h4>
+          <h4>Manual input</h4>
           ${healthCheckActionList(inputActions)}
         </section>
       </div>

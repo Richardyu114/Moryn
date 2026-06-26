@@ -467,10 +467,13 @@ describe("observability dashboard", () => {
       expect(installTrustHtml).not.toContain("moryn install --host codex");
       expect(installTrustHtml).not.toContain("moryn context pack --project-id moryn");
       expect(html).toContain("<details class=\"health-check-readiness-actions\" data-dashboard-detail=\"health-check-readiness-actions\">");
-      expect(html).toContain("<span>Readiness Actions</span>");
+      expect(html).toContain("<span>Setup Commands</span>");
+      expect(html).not.toContain("<span>Readiness Actions</span>");
       expect(html).toContain("<small>4 safe | 1 need input</small>");
-      expect(html).toContain("<h4>Safe to run</h4>");
-      expect(html).toContain("<h4>Needs input</h4>");
+      expect(html).toContain("<h4>Safe checks</h4>");
+      expect(html).toContain("<h4>Manual input</h4>");
+      expect(html).not.toContain("<h4>Safe to run</h4>");
+      expect(html).not.toContain("<h4>Needs input</h4>");
       expect(html).toContain("data-health-check-action=\"review_capture_inbox\"");
       expect(html).toContain("data-health-check-action=\"capture_session\"");
       const reviewActionStart = html.indexOf("data-health-check-action=\"review_capture_inbox\"");
@@ -480,7 +483,8 @@ describe("observability dashboard", () => {
       expect(reviewActionCommandIndex).toBeGreaterThan(reviewActionStart);
       expect(reviewActionCommandIndex).toBeLessThan(reviewActionEnd);
       expect(html.slice(reviewActionStart, reviewActionCommandIndex)).not.toContain("moryn dashboard --serve --project-id moryn");
-      expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("<span>Command</span>");
+      expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("<span>CLI command</span>");
+      expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).not.toContain("<span>Command</span>");
       expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("<small>copy from CLI</small>");
       expect(html.slice(reviewActionCommandIndex, reviewActionEnd)).toContain("moryn dashboard --serve --project-id moryn");
       expect(html).toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
