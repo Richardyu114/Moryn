@@ -5720,13 +5720,14 @@ function supportingEvidenceRawGroup(panels: string[]): string {
   `;
 }
 
-function supportingEvidencePanel(data: DashboardData): string {
+function supportingEvidencePanel(data: DashboardData, options: { includeStoreSignals?: boolean } = {}): string {
+  const includeStoreSignals = options.includeStoreSignals ?? true;
   const reports = auditReports({
     memoryLifecycle: data.memory_lifecycle,
     capturePolicy: data.capture_policy
   });
   const snapshotPanels = [
-    storeSignalsPanel(data),
+    includeStoreSignals ? storeSignalsPanel(data) : "",
     recentValuePanel(data.recent_value)
   ].filter((panel) => panel.length > 0);
   const operationalPanels = [
@@ -5947,8 +5948,9 @@ ${routes.join("")}
 
 function evidenceLibrary(
   data: DashboardData,
-  options: { showEvidenceIndex?: boolean } = {}
+  options: { includeStoreSignals?: boolean; showEvidenceIndex?: boolean } = {}
 ): string {
+  const includeStoreSignals = options.includeStoreSignals ?? true;
   const showEvidenceIndex = options.showEvidenceIndex ?? true;
   const routinePanels: RoutineDiagnosticPanel[] = [];
   if (isRoutineHealthCheck(data.health_check)) {
@@ -5995,7 +5997,7 @@ function evidenceLibrary(
     dogfood,
     governanceNeedsDecision ? undefined : governance,
     candidateTriageNeedsDecision ? undefined : candidateTriage,
-    supportingEvidencePanel(data)
+    supportingEvidencePanel(data, { includeStoreSignals })
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
   const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   const visibleEvidenceSummary = evidenceLibraryVisibleSummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
@@ -6041,6 +6043,8 @@ function renderDashboardBody(data: DashboardData): string {
   const quietInfoPanel = shouldRenderQuietInfoPanel ? needsAttentionPanel(data.attention_items) : "";
   const shortcutPanel = hasPendingDecisions ? "" : actionBoard(data.action_board);
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel;
+  const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
+  const promotedStoreSignalsPanel = shouldPromoteStoreSignals ? storeSignalsPanel(data) : "";
   return `
     <header>
       <div>
@@ -6059,6 +6063,8 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions })}
 
+    ${promotedStoreSignalsPanel}
+
     ${decisionSummary(data.decision_summary)}
 
     ${actionSignalsPanel}
@@ -6071,7 +6077,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${shortcutPanel}
 
-    ${evidenceLibrary(data, { showEvidenceIndex: !hasPendingDecisions })}
+    ${evidenceLibrary(data, { includeStoreSignals: !shouldPromoteStoreSignals, showEvidenceIndex: !hasPendingDecisions })}
   `;
 }
 

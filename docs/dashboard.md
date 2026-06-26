@@ -621,6 +621,11 @@ brief. The brief shows the suggested read-only command, remote/branch context,
 and ahead/behind counts without adding an Approve or Apply control.
 Store Signals keeps `Sync Position` in the foreground and folds Agent Activity,
 Record Quality, and Record Types under `Telemetry Context`.
+When sync is the only active warning and no explicit approval is waiting, the
+visible Store Signals panel moves directly after Work Lanes so the current task
+is not buried under routine reference material. The Reference Library still
+keeps the Audit route and raw evidence, but it does not render a second
+`store-signals` panel.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary
@@ -857,7 +862,10 @@ the evidence layer. The library also does not add endpoints, Safe Action
 Registry entries, or memory mutation paths.
 
 Clean audit reports, raw records, events, sync details, recent value, and store
-telemetry remain available inside the nested `Audit Trail` panel. Here, the collapsed
+telemetry remain available inside the nested `Audit Trail` panel. When sync is
+promoted onto the active path, Audit Trail keeps Recent Value and raw sync
+snapshot evidence while the single visible `store-signals` panel stays on the
+main path. Here, the collapsed
 `Audit Trail` row reads `Optional trace data` instead of listing
 implementation-oriented module names or collapsed-state counters on the first
 screen, and the Evidence index `Audit` route also reads `Optional trace data` while

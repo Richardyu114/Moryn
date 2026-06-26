@@ -337,8 +337,15 @@ describe("observability dashboard", () => {
       expect(html).toContain("<details class=\"store-telemetry-context\" data-dashboard-detail=\"store-telemetry-context\">");
       expect(html).toContain("<span>Telemetry Context</span>");
       expect(html).toContain("<small>Agent and record signals</small>");
-      const storeSignalsStart = html.indexOf("data-dashboard-detail=\"store-signals\"");
-      const storeSignalsEnd = html.indexOf("<details class=\"panel recent-value-panel\"", storeSignalsStart);
+      const workLanesStart = html.indexOf("data-dashboard-work-lanes");
+      const evidenceLibraryStart = html.indexOf("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
+      const storeSignalsStart = html.indexOf("<details id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\"");
+      expect(workLanesStart).toBeGreaterThan(-1);
+      expect(evidenceLibraryStart).toBeGreaterThan(-1);
+      expect(storeSignalsStart).toBeGreaterThan(workLanesStart);
+      expect(storeSignalsStart).toBeLessThan(evidenceLibraryStart);
+      expect(html.match(/data-dashboard-detail="store-signals"/g)?.length).toBe(1);
+      const storeSignalsEnd = html.indexOf("</details>", storeSignalsStart);
       const storeSignalsHtml = html.slice(storeSignalsStart, storeSignalsEnd);
       const focusHtml = storeSignalsHtml.slice(0, storeSignalsHtml.indexOf("data-dashboard-detail=\"store-telemetry-context\""));
       const telemetryHtml = storeSignalsHtml.slice(storeSignalsHtml.indexOf("data-dashboard-detail=\"store-telemetry-context\""));
