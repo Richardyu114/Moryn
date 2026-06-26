@@ -27,7 +27,6 @@ const exec = promisify(execFile);
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const RECENT_VALUE_LIMIT = 8;
-const RECENT_VALUE_VISIBLE_LIMIT = 4;
 const DASHBOARD_TEXT_EXCERPT_LIMIT = 240;
 const MAINTENANCE_RAW_SAMPLE_LIMIT = 3;
 const CAPTURE_NOISE_RULES: DashboardCaptureNoiseRule[] = [
@@ -5202,42 +5201,15 @@ function citationCommands(citation: DashboardRecordCitation | DashboardEventCita
   `;
 }
 
-function recentValueCard(record: DashboardValueRecord, extraClass = ""): string {
+function recentValueReference(records: DashboardValueRecord[]): string {
+  const recordSummary = `${pluralize(records.length, "recent record")} available`;
   return `
-    <article class="value-card${extraClass ? ` ${extraClass}` : ""}" data-dashboard-citation="record:${escapeHtml(record.id)}">
-      <div class="value-card-head">
-        <span class="pill state-${escapeHtml(record.state)}">${escapeHtml(record.title)}</span>
-        <time title="${escapeHtml(record.exact_time)}">${escapeHtml(record.relative_time)}</time>
-      </div>
-      ${textExcerptBlock(record.summary, "data-full-summary-hidden")}
-      <footer>
-        <span>${escapeHtml(`${record.source_label} ${recordLabel(record.id)}`)}</span>
-        <span>${escapeHtml(record.state)}</span>
-        <span>${escapeHtml(record.project_id ?? record.scope)}</span>
-      </footer>
+    <article class="recent-value-reference" data-dashboard-detail="recent-value:index">
+      <strong>Recent Value Index</strong>
+      <span>${escapeHtml(recordSummary)}</span>
+      <code>recent_value</code>
     </article>
-  `;
-}
-
-function recentValueCards(records: DashboardValueRecord[]): string {
-  if (records.length === 0) return `<div class="empty-state">No recent records to summarize.</div>`;
-  const visible = records.slice(0, RECENT_VALUE_VISIBLE_LIMIT);
-  const overflow = records.slice(RECENT_VALUE_VISIBLE_LIMIT);
-  return `
-    <div class="value-grid">
-      ${visible.map((record) => recentValueCard(record)).join("")}
-    </div>
-    ${overflow.length === 0 ? "" : `
-      <details class="recent-value-overflow" data-dashboard-detail="recent-value-overflow">
-        <summary class="dashboard-fold-summary">
-          <span>More Recent Value</span>
-          <small>${escapeHtml(pluralize(overflow.length, "additional record"))}</small>
-        </summary>
-        <div class="value-grid value-grid-overflow">
-          ${overflow.map((record) => recentValueCard(record, "value-card-overflow")).join("")}
-        </div>
-      </details>
-    `}
+    <p>Open <code>/api/dashboard</code> for newest-first recent value records, full summaries, and trace commands.</p>
   `;
 }
 
@@ -5689,7 +5661,7 @@ function recentValuePanel(records: DashboardValueRecord[]): string {
         <small>${escapeHtml(recentValueSummary)}</small>
       </summary>
       <div class="recent-value-body">
-        ${recentValueCards(records)}
+        ${recentValueReference(records)}
       </div>
     </details>
   `;
@@ -9099,43 +9071,21 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-top: 1px solid var(--hairline);
       padding-top: 10px;
     }
-    .value-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .value-grid-overflow { margin-top: 10px; }
-    .value-card {
-      --value-accent: var(--signal-green);
+    .recent-value-reference {
+      display: grid;
+      gap: 5px;
       min-width: 0;
-      border: 1px solid var(--border);
-      border-top: 3px solid var(--value-accent);
-      border-radius: 8px;
-      padding: 12px;
-      background: var(--surface);
-      box-shadow: 0 9px 22px rgba(21,25,30,0.04);
-    }
-    .value-card:nth-child(1) { --value-accent: var(--signal-green); }
-    .value-card:nth-child(2) { --value-accent: var(--signal-blue); }
-    .value-card:nth-child(3) { --value-accent: var(--signal-amber); }
-    .value-card:nth-child(4) { --value-accent: var(--signal-red); }
-    .value-card:nth-child(5) { --value-accent: var(--signal-violet); }
-    .value-card-overflow { background: var(--surface-2); box-shadow: none; }
-    .value-card-head, .value-card footer { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-width: 0; }
-    .value-card p {
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      color: var(--ink);
-      font-size: 14.5px;
-      font-weight: 560;
-      overflow-wrap: anywhere;
-    }
-    .value-card footer { margin-top: 10px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
-    .recent-value-overflow {
-      border: 1px solid var(--border);
+      border: 1px solid var(--hairline);
       border-radius: 7px;
       padding: 9px;
-      margin-top: 10px;
       background: var(--surface);
     }
+    .recent-value-reference strong {
+      color: var(--ink);
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
+    .recent-value-reference span { color: var(--muted); overflow-wrap: anywhere; }
     .citation-links { display: grid; gap: 5px; min-width: 0; }
     .citation-links code { width: 100%; }
     .inspector-grid { display: grid; gap: 12px; }
@@ -9204,7 +9154,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 740;
     }
     @media (max-width: 920px) {
-      header, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .value-grid, .debug-inspector-index { grid-template-columns: 1fr; }
+      header, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid, .debug-inspector-index { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }

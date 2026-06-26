@@ -2657,6 +2657,7 @@ describe("observability dashboard", () => {
         }
       });
       expect(data.recent_value.find((record) => record.state === "quarantined")?.summary).toBe("[quarantined]");
+      expect(data.recent_value.map((record) => record.summary)).toContain("<script>alert('x')</script> visible text");
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("class=\"health-badge");
@@ -3053,7 +3054,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("state-stack");
       expect(html).toContain("type-bars");
       expect(html).toContain("sync-rail");
-      expect(html).toContain("value-card");
+      expect(html).toContain("recent-value-reference");
       expect(html).not.toContain("<div class=\"table-wrap\">");
       expect(html).toContain("class=\"neutral-intelligence\"");
       expect(html).toContain("--canvas:");
@@ -3063,7 +3064,7 @@ describe("observability dashboard", () => {
       expect(html).toContain(".action-board-grid");
       expect(html).toContain(".action-board-item.warning");
       expect(html).toContain(".bar-row:nth-child(3)");
-      expect(html).toContain(".value-card:nth-child(4)");
+      expect(html).toContain(".recent-value-reference");
       expect(html).toContain(".dashboard-fold-summary");
       expect(html).toContain("flex-wrap: wrap");
       expect(html).toContain("min-width: 0");
@@ -3071,13 +3072,15 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("Memory Quality");
       expect(html).toContain("overflow-wrap: anywhere");
       expect(html).toContain("table-layout: fixed");
-      expect(html).toContain("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt; visible text");
+      expect(html).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+      expect(html).toContain("<code>recent_value</code>");
+      expect(html).not.toContain("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt; visible text");
       expect(html).not.toContain("<script>alert('x')</script>");
       expect(html).not.toContain("sk-test_1234567890abcdefghijklmnopqrstuvwxyz");
     });
   });
 
-  it("renders Recent Value as compact excerpts while keeping full JSON data", async () => {
+  it("renders Recent Value as an API-backed index while keeping full JSON data", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -3107,40 +3110,47 @@ describe("observability dashboard", () => {
         now: "2026-06-21T00:00:00.000Z"
       });
       const html = renderDashboardHtml(data);
+      const recentValuePanelStart = html.indexOf("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
+      const recentValuePanelEnd = html.indexOf("</details>", recentValuePanelStart);
+      const recentValuePanelHtml = html.slice(recentValuePanelStart, recentValuePanelEnd);
 
       expect(data.recent_value[0]?.summary).toBe(longText);
-      expect(html).toContain("Important compact recent value intro.");
-      expect(html).toContain("data-full-summary-hidden=\"true\"");
-      expect(html).toContain("Full text available through timeline/recall.");
+      expect(recentValuePanelStart).toBeGreaterThan(-1);
+      expect(recentValuePanelHtml).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+      expect(recentValuePanelHtml).toContain("<strong>Recent Value Index</strong>");
+      expect(recentValuePanelHtml).toContain("<span>1 recent record available</span>");
+      expect(recentValuePanelHtml).toContain("<code>recent_value</code>");
+      expect(recentValuePanelHtml).toContain("Open <code>/api/dashboard</code> for newest-first recent value records, full summaries, and trace commands.");
+      expect(recentValuePanelHtml).not.toContain("Important compact recent value intro.");
+      expect(recentValuePanelHtml).not.toContain("data-full-summary-hidden=\"true\"");
+      expect(recentValuePanelHtml).not.toContain("Full text available through timeline/recall.");
       expect(data.recent_value[0]?.citation).toMatchObject({
         record_id: "rec_recent_long",
         event_id: "evt_recent_long",
         timeline_command: "moryn timeline --record-id rec_recent_long --project-id moryn",
         recall_command: "moryn recall --record-id rec_recent_long --project-id moryn"
       });
-      expect(html).not.toContain("<details data-dashboard-detail=\"value:rec_recent_long\">");
-      expect(html).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Audit trace commands: Memory decision rec_recent_long\">");
-      expect(html).not.toContain("<small>rec_recent_long</small>");
-      expect(html).not.toContain("<span>Trace commands</span>");
-      expect(html).not.toContain("<small>Audit commands</small>");
-      expect(html).not.toContain("<small>Memory decision rec_recent_long</small>");
-      expect(html).not.toContain("<small>Memory decision</small>");
-      expect(html).not.toContain("<summary>Audit trace</summary>");
-      expect(html).not.toContain("<summary>Details</summary>");
-      expect(html).not.toContain("<summary>Trace commands</summary>");
-      const recentValueCardStart = html.indexOf("<article class=\"value-card\" data-dashboard-citation=\"record:rec_recent_long\">");
-      const recentValueCardEnd = html.indexOf("</article>", recentValueCardStart);
-      const recentValueCardHtml = html.slice(recentValueCardStart, recentValueCardEnd);
-      expect(recentValueCardHtml).toContain("<span>Codex rec_recent_long</span>");
-      expect(recentValueCardHtml).not.toContain("<footer>\n        <span>Codex</span>");
-      expect(recentValueCardHtml).not.toContain("<span>Trace</span>");
-      expect(recentValueCardHtml).not.toContain("<dt>ID</dt><dd><code>rec_recent_long</code></dd>");
-      expect(recentValueCardHtml).not.toContain("<dt>Event</dt><dd><code>evt_recent_long</code></dd>");
-      expect(recentValueCardHtml).not.toContain("<dt>Source</dt><dd>codex</dd>");
-      expect(recentValueCardHtml).not.toContain("<dt>Kind</dt><dd>memory / decision</dd>");
-      expect(recentValueCardHtml).not.toContain("moryn timeline --record-id rec_recent_long");
-      expect(recentValueCardHtml).not.toContain("moryn recall --record-id rec_recent_long");
-      expect(html).not.toContain("FULL_CONTENT_SENTINEL");
+      expect(recentValuePanelHtml).not.toContain("<details data-dashboard-detail=\"value:rec_recent_long\">");
+      expect(recentValuePanelHtml).not.toContain("<summary class=\"dashboard-fold-summary\" aria-label=\"Audit trace commands: Memory decision rec_recent_long\">");
+      expect(recentValuePanelHtml).not.toContain("<small>rec_recent_long</small>");
+      expect(recentValuePanelHtml).not.toContain("<span>Trace commands</span>");
+      expect(recentValuePanelHtml).not.toContain("<small>Audit commands</small>");
+      expect(recentValuePanelHtml).not.toContain("<small>Memory decision rec_recent_long</small>");
+      expect(recentValuePanelHtml).not.toContain("<small>Memory decision</small>");
+      expect(recentValuePanelHtml).not.toContain("<summary>Audit trace</summary>");
+      expect(recentValuePanelHtml).not.toContain("<summary>Details</summary>");
+      expect(recentValuePanelHtml).not.toContain("<summary>Trace commands</summary>");
+      expect(recentValuePanelHtml).not.toContain("<article class=\"value-card\" data-dashboard-citation=\"record:rec_recent_long\">");
+      expect(recentValuePanelHtml).not.toContain("<span>Codex rec_recent_long</span>");
+      expect(recentValuePanelHtml).not.toContain("<footer>\n        <span>Codex</span>");
+      expect(recentValuePanelHtml).not.toContain("<span>Trace</span>");
+      expect(recentValuePanelHtml).not.toContain("<dt>ID</dt><dd><code>rec_recent_long</code></dd>");
+      expect(recentValuePanelHtml).not.toContain("<dt>Event</dt><dd><code>evt_recent_long</code></dd>");
+      expect(recentValuePanelHtml).not.toContain("<dt>Source</dt><dd>codex</dd>");
+      expect(recentValuePanelHtml).not.toContain("<dt>Kind</dt><dd>memory / decision</dd>");
+      expect(recentValuePanelHtml).not.toContain("moryn timeline --record-id rec_recent_long");
+      expect(recentValuePanelHtml).not.toContain("moryn recall --record-id rec_recent_long");
+      expect(recentValuePanelHtml).not.toContain("FULL_CONTENT_SENTINEL");
     });
   });
 
@@ -3174,13 +3184,15 @@ describe("observability dashboard", () => {
       });
       const html = renderDashboardHtml(data);
 
-      expect(html).toContain("<span>Moryn Local rec_abcdef12</span>");
+      expect(html).not.toContain("<span>Moryn Local rec_abcdef12</span>");
       expect(data.recent_value[0]?.citation).toMatchObject({
         record_id: "rec_abcdef1234567890abcdef1234567890",
         event_id: "evt_recent_hash",
         timeline_command: "moryn timeline --record-id rec_abcdef1234567890abcdef1234567890 --project-id moryn",
         recall_command: "moryn recall --record-id rec_abcdef1234567890abcdef1234567890 --project-id moryn"
       });
+      expect(html).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+      expect(html).toContain("<code>recent_value</code>");
       expect(html).toContain("<strong>Record Index</strong>");
       expect(html).toContain("<code>recent_records</code>");
       expect(html).not.toContain("<summary aria-label=\"Record details: Skill codex_skill_bundle from Moryn Local rec_abcdef12\">");
@@ -3590,7 +3602,7 @@ describe("observability dashboard", () => {
     });
   });
 
-  it("keeps extra Recent Value records in a collapsed overflow section", async () => {
+  it("keeps extra Recent Value records in the API-backed index instead of HTML overflow cards", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -3632,12 +3644,15 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>6 recent records</small>");
       expect(html).not.toContain("<small>6 records | newest first | full details kept</small>");
       expect(html).toContain("<div class=\"recent-value-body\">");
-      expect(html).toContain("data-dashboard-detail=\"recent-value-overflow\"");
-      expect(html).toContain("<span>More Recent Value</span>");
-      expect(html).toContain("<small>2 additional records</small>");
+      expect(html).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+      expect(html).toContain("<span>6 recent records available</span>");
+      expect(html).toContain("<code>recent_value</code>");
+      expect(html).not.toContain("data-dashboard-detail=\"recent-value-overflow\"");
+      expect(html).not.toContain("<span>More Recent Value</span>");
+      expect(html).not.toContain("<small>2 additional records</small>");
       expect(html).not.toContain("<details open data-dashboard-detail=\"recent-value-overflow\"");
-      expect(html.match(/class="value-card(?: |")/g)).toHaveLength(6);
-      expect(html.match(/class="value-card value-card-overflow"/g)).toHaveLength(2);
+      expect(html.match(/class="value-card(?: |")/g) ?? []).toHaveLength(0);
+      expect(html.match(/class="value-card value-card-overflow"/g) ?? []).toHaveLength(0);
     });
   });
 
@@ -3727,7 +3742,9 @@ describe("observability dashboard", () => {
       });
 
       const html = renderDashboardHtml(data);
-      expect(html).toContain(`data-dashboard-citation="record:${written.record.id}"`);
+      expect(html).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+      expect(html).toContain("<code>recent_value</code>");
+      expect(html).not.toContain(`data-dashboard-citation="record:${written.record.id}"`);
       expect(html).toContain(`data-dashboard-citation="event:evt_cite_1"`);
       expect(html).toContain(`moryn timeline --event-id evt_cite_1 --project-id moryn`);
       expect(html).not.toContain(`data-dashboard-detail="value:${written.record.id}"`);
@@ -3800,9 +3817,15 @@ describe("observability dashboard", () => {
       try {
         const serverData = await (await fetch(new URL("/api/dashboard", server.url))).json() as {
           recent_records: Array<{ id: string }>;
+          recent_value: Array<{ id: string; summary: string }>;
         };
         expect(serverData.recent_records.map((record) => record.id)).toContain(privateRecord.record.id);
-        await expect((await fetch(new URL("/fragment", server.url))).text()).resolves.toContain("Private dashboard memory.");
+        expect(serverData.recent_value.map((record) => record.id)).toContain(privateRecord.record.id);
+        expect(serverData.recent_value.map((record) => record.summary)).toContain("Private dashboard memory.");
+        const fragment = await (await fetch(new URL("/fragment", server.url))).text();
+        expect(fragment).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+        expect(fragment).toContain("<code>recent_value</code>");
+        expect(fragment).not.toContain("Private dashboard memory.");
       } finally {
         await server.close();
       }
@@ -6395,7 +6418,12 @@ describe("observability dashboard", () => {
       expect(snapshot.opened).toBe(false);
       expect(snapshot.path).toBe(join(storePath, "state", "dashboard", "index.html"));
       expect(snapshot.url).toMatch(/^file:\/\//);
-      await expect(readFile(snapshot.path, "utf8")).resolves.toContain("Snapshot contains this memory");
+      const snapshotHtml = await readFile(snapshot.path, "utf8");
+      expect(snapshotHtml).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+      expect(snapshotHtml).toContain("<code>recent_value</code>");
+      expect(snapshotHtml).not.toContain("Snapshot contains this memory");
+      const snapshotData = await buildDashboardData(storePath, { limit: 5 });
+      expect(snapshotData.recent_value.map((record) => record.summary)).toContain("Snapshot contains this memory");
     });
   });
 
@@ -6454,7 +6482,8 @@ describe("observability dashboard", () => {
         expect(page).toContain("restoreDetailState");
         expect(page).toContain("detailState");
         expect(page).toContain("main.addEventListener(\"toggle\"");
-        expect(page).toContain("Initial live dashboard memory");
+        expect(page).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+        expect(page).toContain("<code>recent_value</code>");
 
         const head = await fetch(server.url, { method: "HEAD" });
         expect(head.status).toBe(200);
@@ -6511,7 +6540,14 @@ describe("observability dashboard", () => {
         expect(refreshedApi.recent_value.map((record) => record.summary)).toContain("Live dashboard refresh memory");
 
         const refreshedFragment = await (await fetch(new URL("/fragment", server.url))).text();
-        expect(refreshedFragment).toContain("Live dashboard refresh memory");
+        const refreshedRecentPanelStart = refreshedFragment.indexOf("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
+        const refreshedRecentPanelEnd = refreshedFragment.indexOf("</details>", refreshedRecentPanelStart);
+        const refreshedRecentPanelHtml = refreshedFragment.slice(refreshedRecentPanelStart, refreshedRecentPanelEnd);
+        expect(refreshedRecentPanelStart).toBeGreaterThan(-1);
+        expect(refreshedRecentPanelHtml).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+        expect(refreshedRecentPanelHtml).toContain("<span>2 recent records available</span>");
+        expect(refreshedRecentPanelHtml).toContain("<code>recent_value</code>");
+        expect(refreshedRecentPanelHtml).not.toContain("Live dashboard refresh memory");
 
         const missing = await fetch(new URL("/missing", server.url));
         expect(missing.status).toBe(404);

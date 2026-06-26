@@ -974,6 +974,14 @@ function parseTextContent(result: Awaited<ReturnType<Client["callTool"]>>): unkn
   return JSON.parse(first.text);
 }
 
+function recentValuePanelHtml(html: string): string {
+  const start = html.indexOf("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
+  expect(start).toBeGreaterThan(-1);
+  const end = html.indexOf("</details>", start);
+  expect(end).toBeGreaterThan(start);
+  return html.slice(start, end);
+}
+
 async function expectInvalidMcpArguments(action: () => Promise<Awaited<ReturnType<Client["callTool"]>>>, expectedMessage: RegExp): Promise<void> {
   const result = await action();
   expect("isError" in result ? result.isError : false).toBe(true);
@@ -3610,7 +3618,10 @@ describe("MCP stdio server", () => {
         });
         expect(dashboard.url).toMatch(/^file:\/\//);
         const dashboardHtml = await readFile(dashboard.path, "utf8");
-        expect(dashboardHtml).toContain("Prefer concise MCP updates.");
+        const dashboardRecentValueHtml = recentValuePanelHtml(dashboardHtml);
+        expect(dashboardRecentValueHtml).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+        expect(dashboardRecentValueHtml).toContain("<code>recent_value</code>");
+        expect(dashboardRecentValueHtml).not.toContain("Prefer concise MCP updates.");
         expect(dashboardHtml).not.toContain("Use official MCP tools.");
       });
     } finally {
@@ -3669,7 +3680,11 @@ describe("MCP stdio server", () => {
             opened: false,
             path: join(storeA, "state", "dashboard", "index.html")
           });
-          await expect(readFile(push.dashboard.path, "utf8")).resolves.toContain("MCP sync shares events.");
+          const pushDashboardHtml = await readFile(push.dashboard.path, "utf8");
+          const pushRecentValueHtml = recentValuePanelHtml(pushDashboardHtml);
+          expect(pushRecentValueHtml).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+          expect(pushRecentValueHtml).toContain("<code>recent_value</code>");
+          expect(pushRecentValueHtml).not.toContain("MCP sync shares events.");
 
           const pull = parseTextContent(await agentB.callTool({
             name: "sync_pull",
@@ -3683,7 +3698,11 @@ describe("MCP stdio server", () => {
             opened: false,
             path: join(storeB, "state", "dashboard", "index.html")
           });
-          await expect(readFile(pull.dashboard.path, "utf8")).resolves.toContain("MCP sync shares events.");
+          const pullDashboardHtml = await readFile(pull.dashboard.path, "utf8");
+          const pullRecentValueHtml = recentValuePanelHtml(pullDashboardHtml);
+          expect(pullRecentValueHtml).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+          expect(pullRecentValueHtml).toContain("<code>recent_value</code>");
+          expect(pullRecentValueHtml).not.toContain("MCP sync shares events.");
 
           const rebuild = parseTextContent(await agentB.callTool({
             name: "rebuild",
@@ -4026,7 +4045,11 @@ describe("MCP stdio server", () => {
             opened: false,
             path: join(storeB, "state", "dashboard", "index.html")
           });
-          await expect(readFile(start.dashboard.path, "utf8")).resolves.toContain("MCP Codex left a lifecycle handoff.");
+          const startDashboardHtml = await readFile(start.dashboard.path, "utf8");
+          const startRecentValueHtml = recentValuePanelHtml(startDashboardHtml);
+          expect(startRecentValueHtml).toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
+          expect(startRecentValueHtml).toContain("<code>recent_value</code>");
+          expect(startRecentValueHtml).not.toContain("MCP Codex left a lifecycle handoff.");
           expect(start.refresh.changes).toContainEqual(expect.objectContaining({
             summary: "MCP Codex left a lifecycle handoff.",
             importance: "notice"

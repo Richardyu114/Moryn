@@ -1230,13 +1230,11 @@ preserves the raw client and session details when available.
 
 The HTML dashboard keeps `Recent Value` collapsed by default behind a short
 recent-record count. Newest-first ordering, full details, and trace commands
-stay in the `/api/dashboard` payload. Expanding it shows the first four records
-and keeps additional records under `More Recent Value`.
-Recent Value card footers include short record-id context beside the readable
-source label, so repeated source/state/scope rows stay distinguishable.
-Recent Value cards do not render per-card `Trace` folds in the HTML; each card
-keeps `data-dashboard-citation="record:<record_id>"`, while timeline and recall
-commands stay in `/api/dashboard.recent_value[].citation`.
+stay in the `/api/dashboard` payload. Expanding it shows a lightweight
+`Recent Value Index` row mapped to `/api/dashboard.recent_value[]` instead of
+record cards or overflow lists. The HTML does not inline Recent Value summaries,
+record ids, or per-card trace commands; timeline and recall commands stay in
+`/api/dashboard.recent_value[].citation`.
 
 Quarantined records normally count as unresolved safety signals. If an active
 safe replacement index explicitly declares `content.supersedes_quarantined_record`
