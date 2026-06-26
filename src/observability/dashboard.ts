@@ -3850,17 +3850,25 @@ function governanceSafeReviewNote(note: string): string {
   return escapeHtml(note);
 }
 
-function governanceSafeAuditNotes(item: DashboardGovernanceItem): string {
+function governanceReferenceAudit(items: DashboardGovernanceItem[]): string {
+  if (items.length === 0) return "";
   return `
-      <details class="governance-safe-notes" data-dashboard-detail="governance-notes:${escapeHtml(item.id)}">
-        <summary class="dashboard-fold-summary">
-          <span>Audit notes</span>
-          <small>Detection, boundary, and evidence</small>
-        </summary>
-        <ol>
-          ${item.review_log.map((note) => `<li>${governanceSafeReviewNote(note)}</li>`).join("")}
-        </ol>
-      </details>
+    <details class="governance-reference-audit" data-dashboard-detail="governance-reference-audit">
+      <summary class="dashboard-fold-summary">
+        <span>Reference audit</span>
+        <small>Detection, boundary, and evidence</small>
+      </summary>
+      <div class="governance-reference-audit-list">
+        ${items.map((item) => `
+          <article class="governance-reference-audit-item" data-dashboard-detail="governance-audit:${escapeHtml(item.id)}">
+            <h4>${escapeHtml(governanceSafeRowTitle(item))}</h4>
+            <ol>
+              ${item.review_log.map((note) => `<li>${governanceSafeReviewNote(note)}</li>`).join("")}
+            </ol>
+          </article>
+        `).join("")}
+      </div>
+    </details>
   `;
 }
 
@@ -3870,7 +3878,6 @@ function governanceSafeRow(item: DashboardGovernanceItem): string {
       <span>${escapeHtml(governanceSourceDisplayLabel(item.source))}</span>
       <strong>${escapeHtml(governanceSafeRowTitle(item))}</strong>
       <small>${escapeHtml(`${governanceActionDisplayLabel(item.action_label)} | Read-only`)}</small>
-      ${governanceSafeAuditNotes(item)}
     </div>
   `;
 }
@@ -3933,6 +3940,7 @@ function governanceHubBody(governance: DashboardGovernance): string {
             <div class="governance-safe-list" data-governance-safe-list>
               ${safeInspections.map(governanceSafeRow).join("")}
             </div>
+            ${governanceReferenceAudit(safeInspections)}
           </details>
         `}
       </div>
@@ -8241,23 +8249,42 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .governance-safe-row code {
       grid-column: 2;
     }
-    .governance-safe-notes {
-      grid-column: 2;
+    .governance-reference-audit {
+      border-top: 1px solid var(--hairline);
+      padding-top: 8px;
+      margin-top: 8px;
       min-width: 0;
       color: var(--muted);
       font-size: 12px;
     }
-    .governance-safe-notes summary {
+    .governance-reference-audit summary {
       cursor: pointer;
       font-weight: 720;
     }
-    .governance-safe-notes ol {
+    .governance-reference-audit-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .governance-reference-audit-item {
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      padding: 8px;
+      background: var(--surface);
+    }
+    .governance-reference-audit-item h4 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 760;
+    }
+    .governance-reference-audit-item ol {
       margin: 7px 0 0 18px;
       padding: 0;
       display: grid;
       gap: 4px;
     }
-    .governance-safe-notes li {
+    .governance-reference-audit-item li {
       overflow-wrap: anywhere;
     }
     .governance-item[open] > summary { margin-bottom: 8px; }

@@ -334,7 +334,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of repeating a safe-check count");
     expectText(dashboard, "`Reference Checks` row whose summary reads `Read-only, no writes`");
     expectText(dashboard, "while keeping the stable `governance-safe-inspections` route");
-    expectText(dashboard, "Safe inspection rows keep detection, next step, write boundary, and evidence source behind an `Audit notes` fold");
+    expectText(dashboard, "Safe inspection rows stay short");
+    expectText(dashboard, "evidence source are grouped once behind a `Reference audit` fold");
+    expectText(dashboard, "rather than repeated user approval work");
     expectText(dashboard, "Safe inspection rows use short display titles while full report titles remain in `/api/dashboard` and source panels");
     expectText(dashboard, "The expanded Governance Hub heading reads `Read-only inspection index` instead of exposing `governance.summary` as visible UI copy");
     expectText(dashboard, "The JSON contract still keeps `governance.summary` for agents and audit tooling");
