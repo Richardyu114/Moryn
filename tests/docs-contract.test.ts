@@ -120,6 +120,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review are grouped under `Routine Diagnostics`");
     expectText(dashboard, "`Routine Diagnostics` opens with `Checks ready`");
     expectText(dashboard, "while the accessible summary keeps `Healthy checks and handoff readiness`");
+    expectText(dashboard, "Expanding it shows lightweight Health Check, Recall Eval, and Context Pack Review summary rows first");
+    expectText(dashboard, "the full reports stay in the nested `Full diagnostic details` section");
     expectText(dashboard, "grouped first under the stable `Reference Findings` route");
     expectText(dashboard, "visible row reads `Read-only Notes` with `Read-only notes`");
     expectText(dashboard, "`Read-only Notes` is collapsed by default inside `Evidence Library`");

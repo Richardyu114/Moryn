@@ -5418,7 +5418,27 @@ function isRoutineContextPackReview(review: DashboardContextPackReview): boolean
   return gate.status === "ready" && gate.failed_check_ids.length === 0 && gate.warnings.length === 0;
 }
 
-function routineDiagnosticsPanel(panels: string[]): string {
+type RoutineDiagnosticPanel = {
+  id: "health-check" | "recall-eval" | "context-pack-review";
+  label: string;
+  summary: string;
+  status: "good" | "info";
+  detail: string;
+};
+
+function routineDiagnosticRow(panel: RoutineDiagnosticPanel): string {
+  return `
+        <article class="routine-diagnostic-row ${escapeHtml(panel.status)}" data-routine-diagnostic="${escapeHtml(panel.id)}">
+          <div>
+            <strong>${escapeHtml(panel.label)}</strong>
+            <span>${escapeHtml(panel.summary)}</span>
+          </div>
+          <small>${escapeHtml(panel.status === "good" ? "Ready" : "Reference")}</small>
+        </article>
+  `;
+}
+
+function routineDiagnosticsPanel(panels: RoutineDiagnosticPanel[]): string {
   if (panels.length === 0) return "";
   return `
     <details class="panel routine-diagnostics" data-dashboard-detail="routine-diagnostics" aria-label="Routine Diagnostics">
@@ -5427,7 +5447,18 @@ function routineDiagnosticsPanel(panels: string[]): string {
         <small>Checks ready</small>
       </summary>
       <div class="routine-diagnostics-list">
-        ${panels.join("")}
+        <div class="routine-diagnostics-summary-list" aria-label="Routine diagnostics summary">
+          ${panels.map(routineDiagnosticRow).join("")}
+        </div>
+        <details class="routine-diagnostics-full-panels" data-dashboard-detail="routine-diagnostics-full-panels">
+          <summary class="dashboard-fold-summary">
+            <span>Full diagnostic details</span>
+            <small>${escapeHtml(pluralize(panels.length, "report"))}</small>
+          </summary>
+          <div class="routine-diagnostics-full-list">
+            ${panels.map((panel) => panel.detail).join("")}
+          </div>
+        </details>
       </div>
     </details>
   `;
@@ -5517,11 +5548,34 @@ function evidenceLibrary(
   options: { showEvidenceIndex?: boolean } = {}
 ): string {
   const showEvidenceIndex = options.showEvidenceIndex ?? true;
-  const routinePanels = [
-    isRoutineHealthCheck(data.health_check) ? healthCheckPanel(data.health_check) : undefined,
-    isRoutineRecallEval(data.recall_eval) ? recallEvalPanel(data.recall_eval) : undefined,
-    isRoutineContextPackReview(data.context_pack_review) ? contextPackReviewPanel(data.context_pack_review) : undefined
-  ].filter((panel): panel is string => panel !== undefined);
+  const routinePanels: RoutineDiagnosticPanel[] = [];
+  if (isRoutineHealthCheck(data.health_check)) {
+    routinePanels.push({
+      id: "health-check" as const,
+      label: "Health Check",
+      summary: healthCheckSummary(data.health_check),
+      status: "good" as const,
+      detail: healthCheckPanel(data.health_check)
+    });
+  }
+  if (isRoutineRecallEval(data.recall_eval)) {
+    routinePanels.push({
+      id: "recall-eval" as const,
+      label: "Recall Eval",
+      summary: recallEvalSummary(data.recall_eval),
+      status: data.recall_eval.available ? "good" as const : "info" as const,
+      detail: recallEvalPanel(data.recall_eval)
+    });
+  }
+  if (isRoutineContextPackReview(data.context_pack_review)) {
+    routinePanels.push({
+      id: "context-pack-review" as const,
+      label: "Context Pack Review",
+      summary: contextPackReviewSummary(data.context_pack_review),
+      status: data.context_pack_review.available ? "good" as const : "info" as const,
+      detail: contextPackReviewPanel(data.context_pack_review)
+    });
+  }
   const reviewPanels = [
     isRoutineHealthCheck(data.health_check) ? undefined : healthCheckPanel(data.health_check),
     isRoutineRecallEval(data.recall_eval) ? undefined : recallEvalPanel(data.recall_eval),
@@ -6898,6 +6952,64 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       gap: 10px;
       border-top: 1px solid var(--hairline);
       padding-top: 10px;
+    }
+    .routine-diagnostics-summary-list {
+      display: grid;
+      gap: 8px;
+    }
+    .routine-diagnostic-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-left-width: 4px;
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface-2);
+    }
+    .routine-diagnostic-row.good { border-left-color: var(--good); }
+    .routine-diagnostic-row.info { border-left-color: var(--info); }
+    .routine-diagnostic-row div {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .routine-diagnostic-row strong,
+    .routine-diagnostic-row span,
+    .routine-diagnostic-row small {
+      overflow-wrap: anywhere;
+    }
+    .routine-diagnostic-row strong {
+      color: var(--ink);
+      font-weight: 760;
+    }
+    .routine-diagnostic-row span,
+    .routine-diagnostic-row small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .routine-diagnostics-full-panels {
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface-2);
+    }
+    .routine-diagnostics-full-panels[open] > summary { margin-bottom: 9px; }
+    .routine-diagnostics-full-list {
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
+    .routine-diagnostics-full-list > .panel,
+    .routine-diagnostics-full-list > section.panel,
+    .routine-diagnostics-full-list > details.panel {
+      margin-bottom: 0;
+      box-shadow: none;
+      background: var(--surface);
     }
     .routine-diagnostics-list > .panel,
     .routine-diagnostics-list > section.panel,
