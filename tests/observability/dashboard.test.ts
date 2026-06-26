@@ -2463,7 +2463,8 @@ describe("observability dashboard", () => {
       expect(storeSnapshotIndex).toBeLessThan(rawInspectorIndex);
       expect(html).toContain("<span>Store Snapshot</span>");
       expect(html).not.toContain("<span>Operational Snapshots</span>");
-      expect(html).toContain("<small>Store signals and recent value</small>");
+      expect(html).toContain("<small>Store context</small>");
+      expect(html).not.toContain("<small>Store signals and recent value</small>");
       expect(html).not.toContain("<details open class=\"supporting-evidence-group supporting-evidence-snapshots\"");
       expect(storeSignalsIndex).toBeGreaterThan(operationalEvidenceIndex);
       expect(storeSignalsIndex).toBeGreaterThan(storeSnapshotIndex);

@@ -5277,7 +5277,7 @@ function supportingOperationalSnapshotsGroup(panels: string[]): string {
     <details class="supporting-evidence-group supporting-evidence-snapshots" data-dashboard-detail="supporting-operational-snapshots">
       <summary class="dashboard-fold-summary supporting-evidence-group-heading">
         <span>Store Snapshot</span>
-        <small>Store signals and recent value</small>
+        <small>Store context</small>
       </summary>
       <div class="supporting-evidence-group-list">
         ${panels.join("")}

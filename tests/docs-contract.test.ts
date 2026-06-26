@@ -168,6 +168,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of listing child panel counts");
     expectText(dashboard, "`Audit Evidence` is collapsed by default inside `Audit Trail`");
     expectText(dashboard, "`Store Signals` and `Recent Value` are nested under a collapsed `Store Snapshot` row");
+    expectText(dashboard, "`Store Snapshot` row reads `Store context` instead of listing child module names");
     expectText(dashboard, "collapsed by default behind a short recent-record count");
     expectText(dashboard, "Newest-first ordering, full details, and trace commands stay inside the expanded panel");
     expectText(dashboard, "Recent Value card footers include short record-id context beside the readable source label");

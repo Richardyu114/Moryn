@@ -797,7 +797,8 @@ Evidence`, whose row reads `Clean audits and store signals` instead of listing
 child panel counts.
 `Audit Evidence` is collapsed by default inside `Audit Trail`,
 and `Store Signals` and `Recent Value` are nested under a collapsed
-`Store Snapshot` row, while the raw inspector is grouped behind
+`Store Snapshot` row. `Store Snapshot` row reads `Store context` instead of
+listing child module names, while the raw inspector is grouped behind
 `Raw Store Reference`. This keeps
 common audit evidence closer to the user while keeping record/event/sync
 internals available without placing them at the same level. Nested evidence
