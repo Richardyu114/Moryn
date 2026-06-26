@@ -236,6 +236,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the `candidate_triage.groups_by_id.<group_id>` evidence path stays behind a nested `Evidence path` fold");
     expectText(dashboard, "They do not inline group details, sample rows, hidden-record folds, or trace commands into the dashboard HTML");
     expectText(dashboard, "Full candidate bodies, record order, recall commands, and timeline commands stay in `/api/dashboard.candidate_triage`");
+    expectText(dashboard, "When the existing Review Queue has a `candidate_noise_archive` cleanup plan");
+    expectText(dashboard, "the read-only `Likely noise` card may show a `Review cleanup plan` navigation button");
+    expectText(dashboard, "That button has no `data-dashboard-action-id` and does not approve, archive, or mutate records");
+    expectText(dashboard, "archive still happens only through the explicit Review Queue `Archive Noise` approval with the normal `plan_hash` guard");
     expectText(dashboard, "Expanding a promotion-ready `Candidate Triage` panel still shows candidate and group counts plus review-first next steps");
     expectText(dashboard, "shown-record counts stay in `/api/dashboard` and the nested `Record samples` summaries");
     expectText(dashboard, "Each candidate group keeps its next review surface behind a compact `Review path` fold");

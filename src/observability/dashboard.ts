@@ -4239,13 +4239,30 @@ function renderCandidateBacklogBrief(triage: DashboardCandidateTriage): string {
   `;
 }
 
-function renderCandidateBacklogIndexCard(group: DashboardCandidateTriageGroup): string {
+function candidateNoiseArchivePlan(maintenance: DashboardMaintenanceData): DashboardMaintenancePlan | undefined {
+  return maintenance.plans.find((plan) => plan.type === "candidate_noise_archive");
+}
+
+function renderCandidateBacklogIndexRoute(group: DashboardCandidateTriageGroup, maintenance: DashboardMaintenanceData): string {
+  if (group.id !== "likely_noise" || !candidateNoiseArchivePlan(maintenance)) return "";
+  return `
+      <div class="candidate-triage-index-route-row">
+        <button type="button" class="candidate-triage-index-route" data-action-board-target="maintenance-review-queue" aria-controls="maintenance-review-queue">Review cleanup plan</button>
+        <span>Archive happens only through Review Queue approval.</span>
+      </div>
+  `;
+}
+
+function renderCandidateBacklogIndexCard(group: DashboardCandidateTriageGroup, maintenance: DashboardMaintenanceData): string {
+  const hasNoiseArchivePlan = group.id === "likely_noise" && candidateNoiseArchivePlan(maintenance) !== undefined;
   const face = candidateTriageGroupFace(group);
+  const hint = hasNoiseArchivePlan ? "Review Queue cleanup ready" : face.hint;
   return `
     <article class="candidate-triage-index-card" data-dashboard-detail="candidate-triage:${escapeHtml(group.id)}" data-candidate-triage-index="${escapeHtml(group.id)}">
       <span>${escapeHtml(group.label)}</span>
       <strong>${escapeHtml(face.label)}</strong>
-      <small>${escapeHtml(`${pluralize(group.record_ids.length, "record")} indexed | ${face.hint}`)}</small>
+      <small>${escapeHtml(`${pluralize(group.record_ids.length, "record")} indexed | ${hint}`)}</small>
+      ${renderCandidateBacklogIndexRoute(group, maintenance)}
       <details class="candidate-triage-index-evidence" data-dashboard-detail="candidate-triage-index-evidence:${escapeHtml(group.id)}">
         <summary class="dashboard-fold-summary">
           <span>Evidence path</span>
@@ -4257,13 +4274,13 @@ function renderCandidateBacklogIndexCard(group: DashboardCandidateTriageGroup): 
   `;
 }
 
-function renderCandidateBacklogIndex(triage: DashboardCandidateTriage): string {
+function renderCandidateBacklogIndex(triage: DashboardCandidateTriage, maintenance: DashboardMaintenanceData): string {
   return `
     <div class="candidate-triage-index-list" aria-label="Candidate backlog API index">
       ${triage.groups
         .map((group) => triage.groups_by_id[group.id])
         .filter((group): group is DashboardCandidateTriageGroup => group !== undefined)
-        .map(renderCandidateBacklogIndexCard)
+        .map((group) => renderCandidateBacklogIndexCard(group, maintenance))
         .join("")}
     </div>
   `;
@@ -4277,19 +4294,19 @@ function renderCandidateTriageGroupList(triage: DashboardCandidateTriage): strin
   `;
 }
 
-function renderCandidateBacklogLanes(triage: DashboardCandidateTriage): string {
+function renderCandidateBacklogLanes(triage: DashboardCandidateTriage, maintenance: DashboardMaintenanceData): string {
   return `
     <details class="candidate-triage-backlog-index" data-dashboard-detail="candidate-triage-backlog-lanes">
       <summary class="dashboard-fold-summary">
         <span>Backlog index</span>
         <small>${escapeHtml(`${pluralize(triage.summary.groups, "group")}, API-backed`)}</small>
       </summary>
-      ${renderCandidateBacklogIndex(triage)}
+      ${renderCandidateBacklogIndex(triage, maintenance)}
     </details>
   `;
 }
 
-function candidateTriagePanel(triage: DashboardCandidateTriage): string {
+function candidateTriagePanel(triage: DashboardCandidateTriage, maintenance: DashboardMaintenanceData): string {
   if (!triage.available) return "";
   const hasPromotionDrafts = candidateTriageHasPromotionDrafts(triage);
   const panelLabel = hasPromotionDrafts ? "Candidate Triage" : "Candidate Backlog";
@@ -4317,7 +4334,7 @@ function candidateTriagePanel(triage: DashboardCandidateTriage): string {
         </div>
         ${hasPromotionDrafts ? renderCandidateTriageGroupList(triage) : `
           ${renderCandidateBacklogBrief(triage)}
-          ${renderCandidateBacklogLanes(triage)}
+          ${renderCandidateBacklogLanes(triage, maintenance)}
         `}
       </div>
     </details>
@@ -6092,7 +6109,7 @@ function evidenceLibrary(
     });
   }
   const candidateTriageNeedsDecision = candidateTriageHasPromotionDrafts(data.candidate_triage);
-  const candidateTriage = candidateTriagePanel(data.candidate_triage);
+  const candidateTriage = candidateTriagePanel(data.candidate_triage, data.maintenance);
   const governanceNeedsDecision = governanceNeedsReview(data.governance);
   const governance = governanceHub(data.governance);
   const dogfood = dogfoodReviewPanel(data.dogfood_report);
@@ -7936,6 +7953,35 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .candidate-triage-index-card small {
       color: var(--muted);
       font-size: 12px;
+    }
+    .candidate-triage-index-route-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 8px;
+      align-items: center;
+      border-top: 1px solid var(--hairline);
+      padding-top: 6px;
+    }
+    .candidate-triage-index-route {
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 8px;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 760;
+      cursor: pointer;
+    }
+    .candidate-triage-index-route:focus-visible {
+      outline: 2px solid var(--signal-blue);
+      outline-offset: 2px;
+    }
+    .candidate-triage-index-route-row span {
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
     }
     .candidate-triage-index-evidence {
       border-top: 1px solid var(--hairline);

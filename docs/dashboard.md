@@ -462,6 +462,12 @@ and next-step hints on the card face while the
 hidden-record folds, or trace commands into the dashboard HTML. Full candidate
 bodies, record order, recall commands, and timeline commands stay in
 `/api/dashboard.candidate_triage`.
+When the existing Review Queue has a `candidate_noise_archive` cleanup plan,
+the read-only `Likely noise` card may show a `Review cleanup plan` navigation
+button that opens `maintenance-review-queue`. That button has no
+`data-dashboard-action-id` and does not approve, archive, or mutate records;
+archive still happens only through the explicit Review Queue `Archive Noise`
+approval with the normal `plan_hash` guard.
 Expanding a promotion-ready `Candidate Triage` panel still shows candidate and
 group counts plus review-first next steps; shown-record counts stay in
 `/api/dashboard` and the nested `Record samples` summaries. Each candidate group

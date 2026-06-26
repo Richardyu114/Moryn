@@ -4370,6 +4370,21 @@ describe("observability dashboard", () => {
         })
       ]));
       expect(html).toContain("Candidate noise cleanup");
+      const candidateTriageStart = html.indexOf("data-dashboard-detail=\"candidate-triage\"");
+      const candidateTriageEnd = html.indexOf("data-dashboard-detail=\"supporting-evidence\"", candidateTriageStart);
+      const candidateTriageHtml = html.slice(candidateTriageStart, candidateTriageEnd);
+      expect(candidateTriageHtml).toContain("<article class=\"candidate-triage-index-card\" data-dashboard-detail=\"candidate-triage:likely_noise\" data-candidate-triage-index=\"likely_noise\">");
+      const likelyNoiseCardStart = candidateTriageHtml.indexOf("<article class=\"candidate-triage-index-card\" data-dashboard-detail=\"candidate-triage:likely_noise\" data-candidate-triage-index=\"likely_noise\">");
+      const likelyNoiseCardEnd = candidateTriageHtml.indexOf("</article>", likelyNoiseCardStart) + "</article>".length;
+      const likelyNoiseCardHtml = candidateTriageHtml.slice(likelyNoiseCardStart, likelyNoiseCardEnd);
+      expect(likelyNoiseCardHtml).toContain("<strong>Likely noise</strong>");
+      expect(likelyNoiseCardHtml).toContain("<small>3 records indexed | Review Queue cleanup ready</small>");
+      expect(likelyNoiseCardHtml).toContain("<button type=\"button\" class=\"candidate-triage-index-route\" data-action-board-target=\"maintenance-review-queue\" aria-controls=\"maintenance-review-queue\">Review cleanup plan</button>");
+      expect(likelyNoiseCardHtml).toContain("<span>Archive happens only through Review Queue approval.</span>");
+      expect(likelyNoiseCardHtml).not.toContain("data-dashboard-action-id");
+      expect(likelyNoiseCardHtml).not.toContain("data-maintenance-approve");
+      expect(likelyNoiseCardHtml).not.toContain("Archive Noise");
+      expect(likelyNoiseCardHtml).not.toContain("Approve Memory");
       const noiseBriefStart = html.indexOf("<div class=\"maintenance-brief\" data-maintenance-brief>");
       const noiseBriefEnd = html.indexOf("</p>", noiseBriefStart) + "</p>".length;
       const noiseBriefHtml = html.slice(noiseBriefStart, noiseBriefEnd);
