@@ -446,7 +446,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Changed` uses record-oriented language such as `1 record updated`");
     expectText(dashboard, "`Trace` reads `Timeline ready` when event ids are returned");
     expectText(dashboard, "read-only trace commands such as `moryn timeline --event-id <event_id>`");
-    expectText(dashboard, "stay inside the collapsed `Audit trail` fold");
+    expectText(dashboard, "stay inside the collapsed `Trace details` fold");
     expect(dashboard).toContain("All clear");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/reject");

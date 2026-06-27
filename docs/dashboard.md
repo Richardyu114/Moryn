@@ -1166,7 +1166,7 @@ boundary` reads `Append-only events`, `Changed` uses record-oriented language
 such as `1 record updated`, and `Trace` reads `Timeline ready` when event ids
 are returned. Record ids, event ids, decision context, and
 read-only trace commands such as `moryn timeline --event-id <event_id>` and
-`moryn recall --record-id <record_id>` stay inside the collapsed `Audit trail`
+`moryn recall --record-id <record_id>` stay inside the collapsed `Trace details`
 fold. It is a visibility layer only: it does not add background execution, retry
 writes, or a second mutation path.
 

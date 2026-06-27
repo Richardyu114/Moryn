@@ -5973,8 +5973,8 @@ function dashboardActionReceiptScript(): string {
           </div>
           <details class="action-receipt-audit" data-dashboard-detail="action-receipt-audit">
             <summary class="dashboard-fold-summary">
-              <span>Audit trail</span>
-              <small>Record and event ids</small>
+              <span>Trace details</span>
+              <small>Records and events</small>
             </summary>
             <dl class="action-receipt-grid">
               <div><dt>Decision</dt><dd>\${htmlEscape(receipt.decision)}</dd></div>

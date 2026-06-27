@@ -5223,8 +5223,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("Write boundary");
       expect(html).toContain("Changed");
       expect(html).toContain("Trace");
-      expect(html).toContain("Audit trail");
-      expect(html).toContain("Record and event ids");
+      expect(html).toContain("Trace details");
+      expect(html).toContain("Records and events");
+      expect(html).not.toContain("<span>Audit trail</span>");
+      expect(html).not.toContain("<small>Record and event ids</small>");
       expect(html).toContain("Trace commands");
       expect(html).toContain("Decision");
       expect(html).toContain("<dt>Context</dt>");
