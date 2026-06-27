@@ -592,7 +592,11 @@ first screen. All-clear Overview states skip `Background Status` and the stable
 `dashboard-overview-quiet-cards` route for the same reason: `Background Lanes`,
 `Background Shortcuts`, and `/api/dashboard.dashboard_overview.cards` already
 preserve the audit routes, so the user sees one quiet zero-state instead of
-three status summaries. When `Background Status` is rendered in non-sync states, a card
+three status summaries. All-clear pages also skip the quiet `Info Checks` anchor
+when only informational attention items remain. `/api/dashboard.attention_items`
+remains the audit source for those routine checks, while visible navigation stays
+focused on `Inspect checks`, background routes, and the Reference Library. When
+`Background Status` is rendered in non-sync states, a card
 with the same source as the headline primary action is skipped in both the
 visible grid and `Background Status`; the card still stays in
 `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling.
@@ -769,16 +773,18 @@ collapsed `Info Checks` summary so routine status signals remain inspectable
 without competing with action-oriented warnings. The collapsed `Info Checks`
 detail opens with `Routine status checks` so the row explains its purpose
 instead of repeating the focus-strip count. When there are no warning or
-critical action signals, the same scroll target renders as a quiet
-`needs-attention-quiet-line` anchor. It contains only the collapsed `Info Checks`
-detail and does not render the focus strip or a separate quiet summary. Quiet
-`Info Checks` opens first to a nested `Info Details` fold; the individual
-informational rows stay inside that nested fold so routine labels do not scatter
-across the first screen. This preserves the `id="needs-attention"` scroll target
-for audit without making routine informational checks look like user work. When
-`Pending Decisions` is rendered, or when active sync work such as
-`sync_pending` or `conflict` already owns the Overview and Health lane, the
-visible HTML skips the quiet `Info Checks` anchor entirely;
+critical action signals but the Overview is not all-clear, the same scroll
+target renders as a quiet `needs-attention-quiet-line` anchor. It contains only
+the collapsed `Info Checks` detail and does not render the focus strip or a
+separate quiet summary. Quiet `Info Checks` opens first to a nested `Info
+Details` fold; the individual informational rows stay inside that nested fold so
+routine labels do not scatter across the first screen. This preserves the
+`id="needs-attention"` scroll target for local-only and review-context audit
+without making routine informational checks look like user work. When
+`Pending Decisions` is rendered, when all-clear Overview already owns the quiet
+zero-state, or when active sync work such as `sync_pending` or `conflict`
+already owns the Overview and Health lane, the visible HTML skips the quiet
+`Info Checks` anchor entirely;
 `/api/dashboard.attention_items` still keeps the info checks and sync signals
 for agents and audit tooling.
 

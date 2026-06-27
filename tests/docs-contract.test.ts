@@ -71,6 +71,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "first-screen Overview to the headline, primary action, and read-only boundary");
     expectText(dashboard, "All-clear Overview states skip `Background Status` and the stable `dashboard-overview-quiet-cards` route");
     expectText(dashboard, "The `Health`, `Next`, `Context`, and `Sync` cards remain preserved in `/api/dashboard.dashboard_overview.cards`");
+    expectText(dashboard, "All-clear pages also skip the quiet `Info Checks` anchor when only informational attention items remain");
+    expectText(dashboard, "`/api/dashboard.attention_items` remains the audit source for those routine checks");
     expectText(dashboard, "Each background overview card is also a local navigation button");
     expectText(dashboard, "Pure read-only inspections do not turn the overview headline into an urgent next action");
     expectText(dashboard, "the overview reads `All clear` while still offering an `Inspect checks` navigation button");
@@ -179,14 +181,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "When warning or critical action signals exist, the `needs-attention` scroll target renders as `Action Signals`");
     expectText(dashboard, "`Action Signals` opens with `Warnings and critical checks`");
     expectText(dashboard, "the section preserves `id=\"needs-attention\"` and `data-dashboard-detail=\"needs-attention\"`");
-    expectText(dashboard, "When there are no warning or critical action signals");
+    expectText(dashboard, "When there are no warning or critical action signals but the Overview is not all-clear");
     expectText(dashboard, "the same scroll target renders as a quiet `needs-attention-quiet-line` anchor");
     expectText(dashboard, "It contains only the collapsed `Info Checks` detail");
     expectText(dashboard, "Quiet `Info Checks` opens first to a nested `Info Details` fold");
     expectText(dashboard, "the individual informational rows stay inside that nested fold");
     expectText(dashboard, "does not render the focus strip or a separate quiet summary");
-    expectText(dashboard, "When `Pending Decisions` is rendered, or when active sync work such as");
-    expectText(dashboard, "`sync_pending` or `conflict` already owns the Overview and Health lane");
+    expectText(dashboard, "When `Pending Decisions` is rendered, when all-clear Overview already owns the quiet zero-state");
+    expectText(dashboard, "or when active sync work such as `sync_pending` or `conflict` already owns the Overview and Health lane");
     expectText(dashboard, "the visible HTML skips the quiet `Info Checks` anchor entirely");
     expectText(dashboard, "`/api/dashboard.attention_items` still keeps the info checks and sync signals for agents and audit tooling");
     expect(dashboard).toContain("Dogfood Notes");

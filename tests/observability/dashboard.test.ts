@@ -436,6 +436,27 @@ describe("observability dashboard", () => {
         now: () => "2026-06-01T00:00:00.000Z",
         id: () => "device_test"
       });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = ["2026-06-01T00:01:00.000Z"];
+          return () => timestamps.shift() ?? "2026-06-01T00:02:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_action_board_${++record}` : `evt_action_board_${++event}`;
+        })()
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "raw_note",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Routine raw note remains API evidence only.", format: "text" },
+        state: "raw",
+        source: { client: "codex", session_id: "dashboard-all-clear-info" }
+      });
       await initializeGitSync(storePath, remote);
 
       const data = await buildDashboardData(storePath, {
@@ -447,6 +468,11 @@ describe("observability dashboard", () => {
 
       expect(data.action_board.items.map((item) => item.value)).toEqual([0, 0, 0, 0]);
       expect(data.health.status).toBe("healthy");
+      expect(data.dashboard_overview.headline).toBe("All clear");
+      expect(data.attention_items).toContainEqual(expect.objectContaining({
+        severity: "info",
+        title: "Raw records waiting for review"
+      }));
       expect(html).not.toContain("<section class=\"status-strip good\" data-dashboard-status=\"healthy\">");
       expect(html).toContain("<p class=\"dashboard-status-line good\" data-dashboard-status=\"healthy\"><strong>Healthy</strong><span>Sync is clean and no urgent safety items were detected in this snapshot.</span></p>");
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
@@ -455,6 +481,11 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"health\"");
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"context\"");
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"sync\"");
+      expect(html).not.toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
+      expect(html).not.toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
+      expect(html).not.toContain("<span>Info Checks</span>");
+      expect(html).not.toContain("data-dashboard-detail=\"attention:Raw records waiting for review\"");
+      expect(html).not.toContain("<strong>Raw records waiting for review</strong>");
       expect(html).toContain("<details class=\"action-board-background\" aria-label=\"Background Shortcuts\" data-dashboard-detail=\"action-board\" data-dashboard-background-shortcuts>");
       expect(html).toContain("<span>Background Shortcuts</span>");
       expect(html).toContain("<small>Optional section links</small>");
