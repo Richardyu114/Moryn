@@ -834,11 +834,11 @@ background-only mode.
 When sync-only current-task mode or all-clear mode is active, the same
 background-only reference content uses the lighter `Background Reference` shell
 instead of the normal `panel evidence-library` shell. Expanding it still
-reveals the same `Reference Library Index`; only the first-screen weight
-changes. In that compact shell, the index face reads `Optional audit index`
-instead of listing route chips such as `dogfood_report` or `audit_trail`.
-Those machine route chips move into the collapsed `Reference routes` fold, where
-they remain available with the detailed background rows and stable
+reveals an `Audit Index` face with `Read-only reports available` and
+`Optional details`, so the compact path does not lead with internal reference
+library naming. Machine route chips such as `dogfood_report` or `audit_trail`
+move into the collapsed `Audit details` fold, where they remain available with
+the detailed background rows and stable
 `data-reference-library-route` attributes. The long `/api/dashboard` pointer
 also lives inside that fold in compact mode, so expanding `Background Reference`
 does not immediately render prose about API internals.

@@ -5487,7 +5487,11 @@ function referenceLibraryIndex(input: {
     ? `${input.routinePanels.map((panel) => panel.label).join(", ")} indexed`
     : "Routine checks indexed";
   const routeChips = routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("");
-  const routeFaceSummary = input.compact ? "Optional audit index" : routeChips;
+  const indexTitle = input.compact ? "Audit Index" : "Reference Library Index";
+  const indexSummary = input.compact ? "Read-only reports available" : "Background reports indexed";
+  const routeFaceSummary = input.compact ? "Optional details" : routeChips;
+  const routeFoldTitle = input.compact ? "Audit details" : "Reference routes";
+  const routeFoldSummary = input.compact ? "Routes and raw evidence" : "Indexed background sources";
   const apiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
   const routeChipsRow = input.compact ? `
                 <div class="reference-library-route-chips" data-reference-library-route-chips>
@@ -5557,13 +5561,13 @@ function referenceLibraryIndex(input: {
   return `
         <div class="reference-library-index-wrap">
           <article class="reference-library-index" data-dashboard-detail="reference-library:index" data-reference-library-index>
-            <strong>Reference Library Index</strong>
-            <span>Background reports indexed</span>
+            <strong>${escapeHtml(indexTitle)}</strong>
+            <span>${escapeHtml(indexSummary)}</span>
             <small>${routeFaceSummary}</small>
             <details class="reference-library-routes" data-dashboard-detail="reference-library:routes">
               <summary class="dashboard-fold-summary reference-library-routes-fold">
-                <span>Reference routes</span>
-                <small>Indexed background sources</small>
+                <span>${escapeHtml(routeFoldTitle)}</span>
+                <small>${escapeHtml(routeFoldSummary)}</small>
               </summary>
 ${routeChipsRow}
               <div class="reference-library-index-rows">
