@@ -5936,11 +5936,13 @@ describe("moryn CLI", () => {
       expect(snapshotHtml).not.toContain("moryn install --host codex --sync-remote git@github.com:user/moryn-store.git");
       expect(snapshotHtml).not.toContain("moryn context pack --project-id moryn --sync-remote git@github.com:user/moryn-store.git --current-task &#39;&lt;current task&gt;&#39; --agent codex");
       expect(snapshotHtml).not.toContain("moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary &#39;&lt;summary&gt;&#39;");
-      expect(snapshotHtml).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics:index\" data-routine-diagnostics-reference>");
-      expect(snapshotHtml).toContain("<strong>Routine Diagnostics Index</strong>");
-      expect(snapshotHtml).toContain("<code>health_check</code>");
-      expect(snapshotHtml).toContain("<code>context_pack_review</code>");
-      expect(snapshotHtml).toContain("Open <code>/api/dashboard</code> for full routine diagnostic reports, commands, and evidence paths.");
+      expect(snapshotHtml).toContain("<article class=\"reference-library-index\" data-dashboard-detail=\"reference-library:index\" data-reference-library-index>");
+      expect(snapshotHtml).toContain("<strong>Reference Library Index</strong>");
+      expect(snapshotHtml).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
+      expect(snapshotHtml).toContain("<strong>Diagnostics Index</strong>");
+      expect(snapshotHtml).toContain("<code data-dashboard-detail=\"health-check\" aria-label=\"Health Check: Healthy local store. Full report is available in /api/dashboard.health_check.\">health_check</code>");
+      expect(snapshotHtml).toContain("<code data-dashboard-detail=\"context-pack-review\" aria-label=\"Context Pack Review: Ready handoff context. Full report is available in /api/dashboard.context_pack_review.\">context_pack_review</code>");
+      expect(snapshotHtml).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
 
       const opened = JSON.parse((await exec("node", [
         "--import", "tsx", "src/cli.ts", "--store", store,

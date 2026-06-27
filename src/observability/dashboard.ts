@@ -5381,6 +5381,117 @@ ${routes.join("")}
   `;
 }
 
+function referenceLibraryIndex(input: {
+  routinePanels: RoutineDiagnosticPanel[];
+  hasDogfood: boolean;
+  hasGovernance: boolean;
+  hasCandidateTriage: boolean;
+  hasAuditTrail: boolean;
+  includeStoreSignals: boolean;
+  hasRecentValue: boolean;
+  hasAuditReports: boolean;
+  dogfoodSummary: string;
+  governanceSummary: string;
+  candidateTriageSummary: string;
+}): string {
+  const routes = [
+    input.routinePanels.length > 0 ? {
+      label: "diagnostics",
+      route: "routine-diagnostics"
+    } : undefined,
+    input.hasDogfood ? {
+      label: "dogfood_report",
+      route: "dogfood-review"
+    } : undefined,
+    input.hasGovernance ? {
+      label: "governance",
+      route: "governance-hub"
+    } : undefined,
+    input.hasCandidateTriage ? {
+      label: "candidate_triage",
+      route: "candidate-triage"
+    } : undefined,
+    input.hasAuditTrail ? {
+      label: "audit_trail",
+      route: "supporting-evidence"
+    } : undefined
+  ].filter((route): route is { label: string; route: string } => route !== undefined);
+  if (routes.length === 0) return "";
+  const diagnosticRoutes = input.routinePanels.map((panel) => {
+    const source = panel.id === "health-check"
+      ? "health_check"
+      : panel.id === "recall-eval"
+        ? "recall_eval"
+        : "context_pack_review";
+    return {
+      label: source,
+      route: panel.id,
+      description: `${panel.label}: ${panel.summary}. Full report is available in /api/dashboard.${source}.`
+    };
+  });
+  const diagnosticSummary = input.routinePanels.length > 0
+    ? `${input.routinePanels.map((panel) => panel.label).join(", ")} indexed`
+    : "Routine checks indexed";
+  return `
+      <div class="reference-library-index-wrap">
+        <article class="reference-library-index" data-dashboard-detail="reference-library:index" data-reference-library-index>
+          <strong>Reference Library Index</strong>
+          <span>Background reports indexed</span>
+          <small>${routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("")}</small>
+        </article>
+        ${diagnosticRoutes.length > 0 ? `
+        <article class="routine-diagnostics-reference" data-dashboard-detail="routine-diagnostics" data-routine-diagnostics-reference data-reference-library-index="diagnostics">
+          <strong>Diagnostics Index</strong>
+          <span>${escapeHtml(diagnosticSummary)}</span>
+          <small>${diagnosticRoutes.map((route) => `<code data-dashboard-detail="${escapeHtml(route.route)}" aria-label="${escapeHtml(route.description)}">${escapeHtml(route.label)}</code>`).join("")}</small>
+        </article>` : ""}
+        ${input.hasCandidateTriage ? `
+        <article class="candidate-triage-reference" data-dashboard-detail="candidate-triage" data-candidate-triage-reference data-reference-library-index="candidate-triage">
+          <strong>Candidate Backlog Index</strong>
+          <span>${escapeHtml(input.candidateTriageSummary)}</span>
+          <small><code data-dashboard-detail="candidate-triage:index">candidate_triage</code></small>
+        </article>` : ""}
+        ${input.hasGovernance ? `
+        <article class="governance-reference" data-dashboard-detail="governance-hub" data-governance-reference data-reference-library-index="governance">
+          <strong>Governance Index</strong>
+          <span>${escapeHtml(input.governanceSummary)}</span>
+          <small><code>governance</code></small>
+        </article>` : ""}
+        ${input.hasDogfood ? `
+        <article class="dogfood-review-reference" data-dashboard-detail="dogfood-review" data-dogfood-review-reference data-reference-library-index="dogfood">
+          <strong>Dogfood Notes Index</strong>
+          <span>${escapeHtml(input.dogfoodSummary)}</span>
+          <small><code>dogfood_report</code></small>
+        </article>` : ""}
+        ${input.hasAuditTrail ? `
+        ${input.hasAuditReports ? `
+        <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="audit-reports" data-dashboard-detail="supporting-operational-evidence">
+          <div>
+            <strong>Audit Reports</strong>
+            <span>Lifecycle and capture policy evidence</span>
+          </div>
+          <small><code data-dashboard-detail="memory-lifecycle-audit">memory_lifecycle</code><code data-dashboard-detail="capture-policy-audit">capture_policy</code></small>
+        </article>` : ""}
+        ${input.includeStoreSignals || input.hasRecentValue ? `
+        <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="store-snapshot" data-dashboard-detail="supporting-operational-snapshots">
+          <div>
+            <strong>Store Snapshot</strong>
+            <span>Store signals and recent value</span>
+          </div>
+          <small><code data-dashboard-detail="store-signals">sync</code><code data-dashboard-detail="recent-value">recent_value</code></small>
+        </article>` : ""}
+        <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="raw-store" data-dashboard-detail="debug-inspector">
+          <div>
+            <strong>Raw Store</strong>
+            <span>Records, events, and sync metadata</span>
+          </div>
+          <small><code data-dashboard-detail="supporting-evidence">audit_trail</code><code data-dashboard-detail="inspector:records">recent_records</code><code data-dashboard-detail="inspector:events">recent_events</code><code data-dashboard-detail="inspector:sync">sync</code></small>
+        </article>` : ""}
+        <p>Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.</p>
+      </div>
+  `;
+}
+
 function evidenceLibrary(
   data: DashboardData,
   options: { includeStoreSignals?: boolean; showEvidenceIndex?: boolean } = {}
@@ -5417,6 +5528,9 @@ function evidenceLibrary(
   const governanceNeedsDecision = governanceNeedsReview(data.governance);
   const governance = governanceHub(data.governance);
   const dogfood = dogfoodReviewPanel(data.dogfood_report);
+  const hasDogfood = data.dogfood_report.findings.length > 0;
+  const hasGovernance = data.governance.summary.total_items > 0;
+  const hasCandidateTriage = data.candidate_triage.available;
   const reviewPanels = [
     isRoutineHealthCheck(data.health_check) ? undefined : healthCheckPanel(data.health_check),
     isRoutineRecallEval(data.recall_eval) ? undefined : recallEvalPanel(data.recall_eval),
@@ -5434,6 +5548,7 @@ function evidenceLibrary(
   const showRouteIndex = showEvidenceIndex && reviewPanels.length > 0;
   const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   const visibleEvidenceSummary = evidenceLibraryVisibleSummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
+  const indexOnly = reviewPanels.length === 0;
   return `
     <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Reference Library">
       <summary class="dashboard-fold-summary evidence-library-fold" aria-label="${escapeHtml(`Reference Library: ${evidenceSummary}`)}">
@@ -5441,10 +5556,22 @@ function evidenceLibrary(
         <small>${escapeHtml(visibleEvidenceSummary)}</small>
       </summary>
       ${showRouteIndex ? evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length }) : ""}
-      <div class="evidence-library-list">
+      ${indexOnly ? referenceLibraryIndex({
+        routinePanels,
+        hasDogfood,
+        hasGovernance,
+        hasCandidateTriage,
+        hasAuditTrail: backgroundPanels.length > 0,
+        includeStoreSignals,
+        hasRecentValue: data.recent_value.length > 0,
+        hasAuditReports: hasAuditReportData(data.memory_lifecycle, data.capture_policy),
+        dogfoodSummary: `${pluralize(data.dogfood_report.findings.length, "finding")} indexed`,
+        governanceSummary: `${pluralize(data.governance.summary.total_items, "governance note")} indexed`,
+        candidateTriageSummary: `${pluralize(data.candidate_triage.summary.total_candidates, "candidate")} across ${pluralize(data.candidate_triage.summary.groups, "group")} indexed`
+      }) : `<div class="evidence-library-list">
         ${evidenceLibraryReviewGroup(reviewPanels)}
         ${evidenceLibraryBackgroundGroup(backgroundPanels)}
-      </div>
+      </div>`}
     </details>
   `;
 }
@@ -6791,6 +6918,52 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border-left: 4px solid var(--signal-slate);
     }
     .evidence-library[open] > summary { margin-bottom: 10px; }
+    .reference-library-index-wrap {
+      display: grid;
+      gap: 8px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+    }
+    .reference-library-index {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-left: 4px solid var(--signal-slate);
+      border-radius: 7px;
+      padding: 9px;
+      background: var(--surface-2);
+    }
+    .reference-library-index strong {
+      color: var(--ink);
+      font-weight: 780;
+      overflow-wrap: anywhere;
+    }
+    .reference-library-index span,
+    .reference-library-index small,
+    .reference-library-index code {
+      overflow-wrap: anywhere;
+    }
+    .reference-library-index span,
+    .reference-library-index small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .reference-library-index small {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .reference-library-index-wrap > p {
+      margin: 0;
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12.5px;
+    }
     .evidence-library-brief {
       border: 1px solid var(--hairline);
       border-radius: 7px;
