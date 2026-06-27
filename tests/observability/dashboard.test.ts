@@ -639,6 +639,106 @@ describe("observability dashboard", () => {
     }
   });
 
+  it("keeps compact Background Reference summaries quiet when all-clear has background inspect signals", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moryn-dashboard-quiet-background-"));
+    const storePath = join(root, "store");
+    const remote = join(root, "remote.git");
+    try {
+      await exec("git", ["init", "--bare", remote]);
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let timestamp = 0;
+          return () => `2026-06-01T00:${String(++timestamp).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_quiet_background_${++record}` : `evt_quiet_background_${++event}`;
+        })()
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "raw_note",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Routine raw note remains API evidence only.", format: "text" },
+        state: "raw",
+        source: { client: "codex", session_id: "quiet-background" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Dogfood timeout blocked a dashboard review.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        confidence: 0.8,
+        source: { client: "codex", session_id: "quiet-background" }
+      });
+      for (let index = 1; index <= 3; index++) {
+        await engine.write({
+          kind: "agent_note",
+          type: "raw_note",
+          scope: "project",
+          project_id: "moryn",
+          tags: ["scratch"],
+          content: { text: `Temporary scratch candidate ${index}.`, format: "text" },
+          state: "candidate",
+          source: { client: "codex", session_id: "quiet-background" }
+        });
+      }
+      await initializeGitSync(storePath, remote);
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+      const referenceIndexHtml = referenceLibraryIndexHtml(html);
+      const referenceRoutesStart = referenceIndexHtml.indexOf("<details class=\"reference-library-routes\" data-dashboard-detail=\"reference-library:routes\">");
+      expect(referenceRoutesStart).toBeGreaterThan(-1);
+      const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
+
+      expect(data.health.status).toBe("healthy");
+      expect(data.dashboard_overview.headline).toBe("All clear");
+      expect(data.candidate_triage.summary).toMatchObject({
+        total_candidates: 3,
+        groups: 1,
+        needs_inspection: 3
+      });
+      expect(data.governance.summary).toMatchObject({
+        total_items: 2,
+        needs_user_action: 0,
+        safe_inspections: 2
+      });
+      expect(data.dogfood_report.findings).toHaveLength(1);
+      expect(referenceRoutesHtml).toContain("data-reference-library-route=\"candidate-triage\"");
+      expect(referenceRoutesHtml).toContain("data-reference-library-route=\"governance-hub\"");
+      expect(referenceRoutesHtml).toContain("data-reference-library-route=\"dogfood-review\"");
+      expect(referenceRoutesHtml).toContain("<strong>Candidate Backlog</strong>");
+      expect(referenceRoutesHtml).toContain("<span>Backlog signals indexed</span>");
+      expect(referenceRoutesHtml).not.toContain("<span>3 candidates across 1 group indexed</span>");
+      expect(referenceRoutesHtml).not.toContain("data-candidate-triage-focus");
+      expect(referenceRoutesHtml).not.toContain("Audit focus:");
+      expect(referenceRoutesHtml).toContain("<strong>Governance</strong>");
+      expect(referenceRoutesHtml).toContain("<span>Governance signals indexed</span>");
+      expect(referenceRoutesHtml).not.toContain("<span>2 governance notes indexed</span>");
+      expect(referenceRoutesHtml).toContain("<strong>Dogfood Notes</strong>");
+      expect(referenceRoutesHtml).toContain("<span>Dogfood signals indexed</span>");
+      expect(referenceRoutesHtml).not.toContain("<span>1 finding indexed</span>");
+      expect(referenceRoutesHtml).toContain("Full evidence stays in <code>/api/dashboard</code>.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("renders a compact read-only Health Check summary", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

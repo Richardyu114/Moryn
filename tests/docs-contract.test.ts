@@ -184,6 +184,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Compact background row titles also use shorter");
     expectText(dashboard, "`Diagnostics`, `Candidate Backlog`, `Governance`, and");
     expectText(dashboard, "dedicated reference panels keep their `... Index` titles");
+    expectText(dashboard, "compact rows also use quiet summaries such as `Backlog signals");
+    expectText(dashboard, "`Governance signals indexed`, and `Dogfood signals indexed`");
+    expectText(dashboard, "candidate review-focus text");
+    expectText(dashboard, "Those counts and focus hints remain in `/api/dashboard`");
     expectText(dashboard, "When review-oriented findings exist, the expanded library can still start with a compact `Evidence index` bar");
     expectText(dashboard, "empty routes are omitted instead of rendering \"nothing here\" buttons");
     expectText(dashboard, "single wrapping rail");

@@ -5508,6 +5508,10 @@ function referenceLibraryIndex(input: {
   const candidateTriageTitle = input.compact ? "Candidate Backlog" : "Candidate Backlog Index";
   const governanceTitle = input.compact ? "Governance" : "Governance Index";
   const dogfoodTitle = input.compact ? "Dogfood Notes" : "Dogfood Notes Index";
+  const candidateTriageSummary = input.compact ? "Backlog signals indexed" : input.candidateTriageSummary;
+  const governanceSummary = input.compact ? "Governance signals indexed" : input.governanceSummary;
+  const dogfoodSummary = input.compact ? "Dogfood signals indexed" : input.dogfoodSummary;
+  const candidateTriageFocus = input.compact ? "" : input.candidateTriageFocus;
   const routeChipsRow = input.compact ? `
                 <div class="reference-library-route-chips" data-reference-library-route-chips>
                   ${routeChips}
@@ -5527,8 +5531,8 @@ function referenceLibraryIndex(input: {
             <div class="reference-library-index-row" data-reference-library-index-row="candidate-triage" data-dashboard-detail="candidate-triage" data-candidate-triage-reference data-reference-library-index="candidate-triage">
               <div>
                 <strong>${escapeHtml(candidateTriageTitle)}</strong>
-                <span>${escapeHtml(input.candidateTriageSummary)}</span>
-                ${input.candidateTriageFocus ? `<span data-candidate-triage-focus>${escapeHtml(input.candidateTriageFocus)}</span>` : ""}
+                <span>${escapeHtml(candidateTriageSummary)}</span>
+                ${candidateTriageFocus ? `<span data-candidate-triage-focus>${escapeHtml(candidateTriageFocus)}</span>` : ""}
               </div>
               <small><code data-dashboard-detail="candidate-triage:index">candidate_triage</code></small>
             </div>` : "",
@@ -5536,7 +5540,7 @@ function referenceLibraryIndex(input: {
             <div class="reference-library-index-row" data-reference-library-index-row="governance" data-dashboard-detail="governance-hub" data-governance-reference data-reference-library-index="governance">
               <div>
                 <strong>${escapeHtml(governanceTitle)}</strong>
-                <span>${escapeHtml(input.governanceSummary)}</span>
+                <span>${escapeHtml(governanceSummary)}</span>
               </div>
               <small><code>governance</code></small>
             </div>` : "",
@@ -5544,7 +5548,7 @@ function referenceLibraryIndex(input: {
             <div class="reference-library-index-row" data-reference-library-index-row="dogfood" data-dashboard-detail="dogfood-review" data-dogfood-review-reference data-reference-library-index="dogfood">
               <div>
                 <strong>${escapeHtml(dogfoodTitle)}</strong>
-                <span>${escapeHtml(input.dogfoodSummary)}</span>
+                <span>${escapeHtml(dogfoodSummary)}</span>
               </div>
               <small><code>dogfood_report</code></small>
             </div>` : "",
