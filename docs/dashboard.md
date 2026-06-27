@@ -602,21 +602,23 @@ uninterrupted; the overview cards remain in
 If sync is also pending, Pending Decisions still owns the Overview headline and
 primary action because it is the explicit confirmation path; sync remains visible
 through the health badge, Store Signals, and `/api/dashboard.dashboard_overview.cards`.
-When sync is the active warning, Store Signals opens with a compact `Sync Action`
-brief and its folded summary reads `Sync action ready`. The brief shows the
+When sync is the active warning, Store Signals promotes into a compact
+current-task section with `data-dashboard-promoted-store-signals`, a `Sync
+Action` brief, and a quiet `Sync action ready` label. The brief shows the
 suggested read-only command, remote/branch context, and ahead/behind counts
 without adding an Approve or Apply control.
 Store Signals keeps `Sync Action` in the foreground, moves `Sync Position`
 behind a collapsed `Sync details` fold, and leaves Agent Activity, Record
 Quality, and Record Types in `/api/dashboard.charts` instead of rendering a
-second telemetry fold inside the promoted sync panel.
+second telemetry fold inside the promoted sync section.
 When sync is the only active warning and no explicit approval is waiting, the
-promoted `Store Signals` panel is default-open and moves directly after the
-Overview so the current task is not repeated by an extra navigation row or
-buried under routine reference material.
-The promoted panel omits `Telemetry Context` so the open sync state stays focused
-on the action and position rail. The Reference Library still keeps the Audit
-route and raw evidence, but it does not render a second `store-signals` panel.
+promoted `Store Signals` section moves directly after the Overview and skips the
+extra open `details` wrapper so the current task is not repeated by another
+visible heading, navigation row, or routine reference panel.
+The promoted section omits `Telemetry Context` so the open sync state stays
+focused on the action and position rail. The Reference Library still keeps the
+Audit route and raw evidence, but it does not render a second `store-signals`
+panel.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary
@@ -659,7 +661,7 @@ review path. The warning remains in `/api/dashboard.attention_items` for agents,
 while the visible HTML routes the user through `Inspect sync`, Store Signals,
 and the Sync shortcut. When sync is the only active warning, Work Lanes are
 skipped in the visible HTML so the Overview action lands directly on the
-promoted Store Signals panel. The same sync route remains in
+promoted Store Signals current-task section. The same sync route remains in
 `/api/dashboard.action_board.items_by_id.sync` for agents and audit tooling.
 
 `Action Board` is rendered as `Page Shortcuts` in the UI while keeping the

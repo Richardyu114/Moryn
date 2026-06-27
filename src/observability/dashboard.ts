@@ -5184,6 +5184,19 @@ function storeSignalsPanel(data: DashboardData, options: { open?: boolean; inclu
   `;
 }
 
+function promotedStoreSignalsPanel(data: DashboardData): string {
+  return `
+    <section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Store Signals">
+      <div class="store-signals-promoted-head">
+        <span>Store Signals</span>
+        <small>${escapeHtml(storeSignalsSummary(data))}</small>
+      </div>
+      ${syncActionBrief(data)}
+      ${syncPositionFocus(data)}
+    </section>
+  `;
+}
+
 function supportingEvidenceSummary(): string {
   return "Optional trace data";
 }
@@ -5655,7 +5668,7 @@ function renderDashboardBody(data: DashboardData): string {
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
   const shouldRenderWorkLanes = !shouldPromoteStoreSignals;
-  const promotedStoreSignalsPanel = shouldPromoteStoreSignals ? storeSignalsPanel(data, { open: true, includeTelemetry: false }) : "";
+  const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
   return `
     <header>
       <div>
@@ -5674,7 +5687,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${shouldRenderWorkLanes ? dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions }) : ""}
 
-    ${promotedStoreSignalsPanel}
+    ${promotedStoreSignals}
 
     ${decisionSummary(data.decision_summary)}
 
@@ -8092,6 +8105,23 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .store-signals[open] > summary { margin-bottom: 12px; }
     .store-signals .visual-grid { margin-top: 0; }
+    .store-signals-promoted-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 760;
+      text-transform: uppercase;
+    }
+    .store-signals-promoted-head small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      text-transform: none;
+    }
     .sync-position-focus { margin-bottom: 10px; }
     .store-sync-details {
       border: 1px solid var(--hairline);
