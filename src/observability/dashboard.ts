@@ -5495,9 +5495,7 @@ function referenceLibraryIndex(input: {
       description: `${panel.label}: ${panel.summary}. Full report is available in /api/dashboard.${source}.`
     };
   });
-  const diagnosticSummary = input.routinePanels.length > 0
-    ? `${input.routinePanels.map((panel) => panel.label).join(", ")} indexed`
-    : "Routine checks indexed";
+  const diagnosticSummary = "Routine checks indexed";
   const routeChips = routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("");
   const indexTitle = input.compact ? "Audit Index" : "Reference Library Index";
   const indexSummary = input.compact ? "Read-only reports available" : "Background reports indexed";

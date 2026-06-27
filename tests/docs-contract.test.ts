@@ -198,6 +198,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "does not render Approve, Reject, Promote, Archive, or Apply controls");
     expectText(dashboard, "the collapsed `Reference routes` fold contains routine read-only diagnostics");
     expectText(dashboard, "as a `Diagnostics Index` row inside the single index card");
+    expectText(dashboard, "uses the stable visible summary `Routine checks indexed` instead of listing each diagnostic module name");
     expectText(dashboard, "stable `data-dashboard-detail` chips for `health-check`,");
     expectText(dashboard, "those chips carry accessible summaries");
     expectText(dashboard, "It does not render the nested `Diagnostic Reports` section");

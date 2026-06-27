@@ -888,12 +888,13 @@ Inside the background-only `Reference Library Index`, the collapsed
 `Reference routes` fold contains routine read-only diagnostics such as a healthy
 Health Check, clean or unavailable Recall Eval, and ready or unavailable Context
 Pack Review as a `Diagnostics Index` row inside the single index card. The row
-keeps stable `data-dashboard-detail` chips for `health-check`,
-`recall-eval`, and `context-pack-review`, and those chips carry accessible
-summaries such as `Ready handoff context` or `unavailable`. It does not render
-the nested `Diagnostic Reports` section, Health Check setup commands, Recall
-Eval body, or Context Pack Review evidence when those diagnostics are routine;
-full details remain in `/api/dashboard.health_check`,
+uses the stable visible summary `Routine checks indexed` instead of listing each
+diagnostic module name. It keeps stable `data-dashboard-detail` chips for
+`health-check`, `recall-eval`, and `context-pack-review`, and those chips carry
+accessible summaries such as `Ready handoff context` or `unavailable`. It does
+not render the nested `Diagnostic Reports` section, Health Check setup commands,
+Recall Eval body, or Context Pack Review evidence when those diagnostics are
+routine; full details remain in `/api/dashboard.health_check`,
 `/api/dashboard.recall_eval`, and `/api/dashboard.context_pack_review`.
 
 Findings-oriented panels such as Governance Hub items that require user

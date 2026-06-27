@@ -433,6 +433,8 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
+      expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
+      expect(referenceRoutesHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(html.match(/<section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Store Signals"/g)?.length).toBe(1);
       const storeSignalsEnd = evidenceLibraryStart;
       const storeSignalsHtml = html.slice(storeSignalsStart, storeSignalsEnd);
@@ -604,6 +606,8 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
+      expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
+      expect(referenceRoutesHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
       expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"raw-store\" data-supporting-evidence-summary=\"raw-store\" data-dashboard-detail=\"debug-inspector\">");
       expect(html).toContain("<code data-dashboard-detail=\"supporting-evidence\">audit_trail</code>");
@@ -3080,6 +3084,8 @@ describe("observability dashboard", () => {
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"candidate-triage\"");
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
+      expect(referenceIndexHtml).toContain("<span>Routine checks indexed</span>");
+      expect(referenceIndexHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(referenceIndexHtml.match(/<article class=\"/g)?.length).toBe(1);
       expect(referenceIndexHtml).toContain("<details class=\"reference-library-routes\" data-dashboard-detail=\"reference-library:routes\">");
       expect(referenceIndexHtml).not.toContain("<details open class=\"reference-library-routes\"");
@@ -3162,7 +3168,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>3 quiet checks</small>");
       expect(routineDiagnosticsHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
       expect(routineDiagnosticsHtml).toContain("<strong>Diagnostics Index</strong>");
-      expect(routineDiagnosticsHtml).toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
+      expect(routineDiagnosticsHtml).toContain("<span>Routine checks indexed</span>");
+      expect(routineDiagnosticsHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(routineDiagnosticsHtml).toContain("<code data-dashboard-detail=\"health-check\"");
       expect(routineDiagnosticsHtml).toContain(">health_check</code>");
       expect(routineDiagnosticsHtml).toContain("<code data-dashboard-detail=\"recall-eval\"");
