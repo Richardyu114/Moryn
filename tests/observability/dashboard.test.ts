@@ -23,14 +23,20 @@ function dashboardDetailBlock(html: string, detail: string): string {
   const marker = `data-dashboard-detail="${detail}"`;
   const start = html.indexOf(marker);
   expect(start).toBeGreaterThan(-1);
+  const rowStart = html.lastIndexOf("<div class=\"reference-library-index-row\"", start);
+  if (rowStart >= 0) {
+    const rowEnd = html.indexOf("</div>", html.indexOf("</small>", start));
+    expect(rowEnd).toBeGreaterThan(start);
+    return html.slice(rowStart, rowEnd + "</div>".length);
+  }
   const articleStart = html.lastIndexOf("<article", start);
   const detailsStart = html.lastIndexOf("<details", start);
   const blockStart = articleStart > detailsStart ? articleStart : (detailsStart >= 0 ? detailsStart : start);
   const articleEnd = html.indexOf("</article>", start);
-  if (articleStart > detailsStart && articleEnd >= 0) return html.slice(blockStart, articleEnd);
+  if (articleStart > detailsStart && articleEnd >= 0) return html.slice(blockStart, articleEnd + "</article>".length);
   const detailsEnd = html.indexOf("</details>", start);
   expect(detailsEnd).toBeGreaterThan(start);
-  return html.slice(start, detailsEnd);
+  return html.slice(start, detailsEnd + "</details>".length);
 }
 
 function referenceLibraryIndexHtml(html: string): string {
@@ -2995,6 +3001,13 @@ describe("observability dashboard", () => {
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"candidate-triage\"");
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
       expect(referenceIndexHtml.match(/<article class=\"/g)?.length).toBe(1);
+      expect(referenceIndexHtml).toContain("<details class=\"reference-library-routes\" data-dashboard-detail=\"reference-library:routes\">");
+      expect(referenceIndexHtml).not.toContain("<details open class=\"reference-library-routes\"");
+      expect(referenceIndexHtml).toContain("<span>Reference routes</span>");
+      expect(referenceIndexHtml).toContain("<small>Indexed background sources</small>");
+      const referenceRoutesIndex = referenceIndexHtml.indexOf("data-dashboard-detail=\"reference-library:routes\"");
+      const firstRouteRowIndex = referenceIndexHtml.indexOf("data-reference-library-index-row=\"diagnostics\"");
+      expect(firstRouteRowIndex).toBeGreaterThan(referenceRoutesIndex);
       expect(referenceIndexHtml).toContain("data-reference-library-index-row=\"diagnostics\"");
       expect(referenceIndexHtml).toContain("data-reference-library-index-row=\"candidate-triage\"");
       expect(referenceIndexHtml).toContain("data-reference-library-index-row=\"raw-store\"");

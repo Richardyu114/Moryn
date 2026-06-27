@@ -811,12 +811,14 @@ routine/background material, expanding `Reference Library` skips the
 `Evidence index` route bar and renders a single `Reference Library Index`
 instead of opening child reference panels. That single card lists background
 report families such as `diagnostics`, `candidate_triage`, `governance`,
-`dogfood_report`, and `audit_trail` as compact API-backed rows. It does not
-render separate `Diagnostics Index`, `Candidate Backlog Index`, `Governance
-Index`, `Dogfood Notes Index`, `Audit Reports`, `Store Snapshot`, or `Raw Store`
-cards beside it. Full routine diagnostics, candidate groups, governance notes,
-dogfood notes, lifecycle and capture policy reports, recent values, records,
-events, and sync metadata remain in `/api/dashboard`. The visible HTML does not
+`dogfood_report`, and `audit_trail` as compact API route chips; detailed
+background rows stay behind a collapsed `Reference routes` fold inside the same
+card. It does not render separate `Diagnostics Index`, `Candidate Backlog
+Index`, `Governance Index`, `Dogfood Notes Index`, `Audit Reports`, `Store
+Snapshot`, or `Raw Store` cards beside it. Full routine diagnostics, candidate
+groups, governance notes, dogfood notes, lifecycle and capture policy reports,
+recent values, records, events, and sync metadata remain in `/api/dashboard`.
+The visible HTML does not
 render `Routine Reference`, `Routine Diagnostics`, `Audit Trail`, `Candidate
 Backlog`, `Governance Hub`, or `Dogfood Notes` child panels in this
 background-only mode.
@@ -847,11 +849,11 @@ each child panel keeps its `data-dashboard-detail` target, so Action Board
 buttons can open the parent library before scrolling to `governance-hub`,
 `context-pack-review`, or `store-signals`.
 
-Inside the background-only `Reference Library Index`, routine read-only
-diagnostics such as a healthy Health Check, clean or unavailable Recall Eval,
-and ready or unavailable Context Pack Review collapse into a `Diagnostics Index`
-row inside the single index card. The row keeps stable `data-dashboard-detail`
-chips for `health-check`,
+Inside the background-only `Reference Library Index`, the collapsed
+`Reference routes` fold contains routine read-only diagnostics such as a healthy
+Health Check, clean or unavailable Recall Eval, and ready or unavailable Context
+Pack Review as a `Diagnostics Index` row inside the single index card. The row
+keeps stable `data-dashboard-detail` chips for `health-check`,
 `recall-eval`, and `context-pack-review`, and those chips carry accessible
 summaries such as `Ready handoff context` or `unavailable`. It does not render
 the nested `Diagnostic Reports` section, Health Check setup commands, Recall

@@ -5549,9 +5549,15 @@ function referenceLibraryIndex(input: {
             <strong>Reference Library Index</strong>
             <span>Background reports indexed</span>
             <small>${routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("")}</small>
-            <div class="reference-library-index-rows">
+            <details class="reference-library-routes" data-dashboard-detail="reference-library:routes">
+              <summary class="dashboard-fold-summary reference-library-routes-fold">
+                <span>Reference routes</span>
+                <small>Indexed background sources</small>
+              </summary>
+              <div class="reference-library-index-rows">
 ${rows}
-            </div>
+              </div>
+            </details>
           </article>
           <p>Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.</p>
         </div>
@@ -7080,12 +7086,19 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       flex-wrap: wrap;
       gap: 4px;
     }
-    .reference-library-index-rows {
-      display: grid;
-      gap: 6px;
+    .reference-library-routes {
       margin-top: 4px;
       border-top: 1px solid var(--hairline);
       padding-top: 6px;
+    }
+    .reference-library-routes[open] > summary { margin-bottom: 6px; }
+    .reference-library-routes-fold {
+      min-height: 30px;
+      padding: 2px 0;
+    }
+    .reference-library-index-rows {
+      display: grid;
+      gap: 6px;
     }
     .reference-library-index-row {
       display: grid;
