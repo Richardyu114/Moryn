@@ -560,8 +560,8 @@ The first screen favors human-readable summaries over raw ids:
 The top health message stays below the header, but healthy snapshots render as a
 lightweight `dashboard-status-line` instead of a full status panel unless the
 Overview already owns the zero-state. All-clear Overview states skip that
-healthy status line because the header badge, Overview, Background Lanes, and
-Reference Library already carry the quiet state. Sync pending states skip the
+healthy status line because the header badge, Overview, and compact Background
+Reference already carry the quiet state. Sync pending states skip the
 extra status line because the header badge, Overview or Health lane, Store
 Signals, and Sync shortcut already show the same pending state. Non-healthy
 states that need a separate explanation, such as local-only, review, or
@@ -587,7 +587,7 @@ next action. If there are no confirmations, warnings, or sync actions, the
 overview reads `All clear` while still offering an `Inspect checks` navigation
 button to the Governance Hub. All-clear Overview states also skip the visible
 `Dashboard safety` chips because the headline, primary action, Background
-Lanes, and underlying mutation surfaces already carry the quiet boundary;
+Reference route, and underlying mutation surfaces already carry the quiet boundary;
 `/api/dashboard.dashboard_overview.safety` still keeps the mutation-surface list
 for agents and audit tooling. If pending sync is the only action signal, the
 overview relies on its headline and primary button, then skips
@@ -599,10 +599,13 @@ first screen. All-clear Overview states skip `Background Status` and the stable
 `dashboard-overview-quiet-cards` route for the same reason: `Background Lanes`,
 Reference Library, `/api/dashboard.action_board`, and
 `/api/dashboard.dashboard_overview.cards` already preserve the audit routes, so
-the user sees one quiet zero-state instead of three status summaries. All-clear
+the user sees one quiet zero-state instead of three status summaries. The
+Reference Library route also renders through the lighter `Background Reference`
+shell in this state, with `data-dashboard-background-reference`, so routine
+evidence is visible as an audit fold rather than a second task panel. All-clear
 pages also skip the quiet `Info Checks` anchor when only informational attention
 items remain and skip the visible `Background Shortcuts` strip because
-`Background Lanes` and Reference Library already expose the same local
+the Overview action, compact Background Reference, and `/api/dashboard` already expose the same local
 navigation. `/api/dashboard.attention_items` remains the audit source for those
 routine checks, and `/api/dashboard.action_board` remains the audit source for
 the complete shortcut list. When
@@ -672,9 +675,10 @@ lanes visible on the first screen and fold non-blocking routes under
 `Decide`, `Context`, and `Evidence` stay available as quiet background lanes.
 In all-clear states, the visible HTML skips `Dashboard Work Lanes` and
 `Background Lanes` entirely so the first screen moves from Overview directly to
-Reference Library. The same Decide, Context, Health, Evidence, and safe
+the compact `Background Reference` fold. The same Decide, Context, Health, Evidence, and safe
 inspection routes remain available through the Overview primary action,
-Reference Library, and `/api/dashboard.action_board` for agents and audit
+the stable `data-dashboard-detail="evidence-library"` route, and
+`/api/dashboard.action_board` for agents and audit
 tooling.
 When `Pending Decisions` is rendered, Work Lanes keep the active decision lane
 visible and skip `Background Lanes` and `dashboard-work-lanes-background` in the
@@ -722,8 +726,8 @@ Overview and Work Lane already route to the same current task.
 and audit tooling.
 All-clear Overview states skip the visible `Background Shortcuts` strip and
 `data-dashboard-background-shortcuts` route entirely, so the first screen moves
-from `Background Lanes` to Reference Library without another generic navigation
-fold. `/api/dashboard.action_board` still keeps the complete shortcut list,
+from `Background Lanes` to compact Background Reference without another generic
+navigation fold. `/api/dashboard.action_board` still keeps the complete shortcut list,
 including zero-state Review, Inspect, Confirm, and Sync entries, for agents and
 audit tooling.
 When no active shortcut exists outside all-clear mode, read-only shortcut
@@ -827,10 +831,11 @@ The visible HTML does not
 render `Routine Reference`, `Routine Diagnostics`, `Audit Trail`, `Candidate
 Backlog`, `Governance Hub`, or `Dogfood Notes` child panels in this
 background-only mode.
-When sync-only current-task mode is active, the same background-only reference
-content uses the lighter `Background Reference` shell instead of the normal
-`panel evidence-library` shell. Expanding it still reveals the same
-`Reference Library Index`; only the first-screen weight changes.
+When sync-only current-task mode or all-clear mode is active, the same
+background-only reference content uses the lighter `Background Reference` shell
+instead of the normal `panel evidence-library` shell. Expanding it still
+reveals the same `Reference Library Index`; only the first-screen weight
+changes.
 
 When review-oriented findings exist, the expanded library can still start with
 a compact `Evidence index` bar; empty routes are omitted instead of rendering

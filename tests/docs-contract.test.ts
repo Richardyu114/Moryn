@@ -68,14 +68,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");
     expectText(dashboard, "unless the Overview already owns the zero-state");
     expectText(dashboard, "All-clear Overview states skip that healthy status line");
-    expectText(dashboard, "the header badge, Overview, Background Lanes, and Reference Library already carry the quiet state");
+    expectText(dashboard, "the header badge, Overview, and compact Background Reference already carry the quiet state");
     expectText(dashboard, "Sync pending states skip the extra status line");
     expectText(dashboard, "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip");
     expectText(dashboard, "first-screen Overview to the headline, primary action, and read-only boundary");
     expectText(dashboard, "All-clear Overview states skip `Background Status` and the stable `dashboard-overview-quiet-cards` route");
     expectText(dashboard, "The `Health`, `Next`, `Context`, and `Sync` cards remain preserved in `/api/dashboard.dashboard_overview.cards`");
     expectText(dashboard, "All-clear pages also skip the quiet `Info Checks` anchor when only informational attention items remain");
-    expectText(dashboard, "skip the visible `Background Shortcuts` strip because `Background Lanes` and Reference Library already expose the same local navigation");
+    expectText(dashboard, "skip the visible `Background Shortcuts` strip because the Overview action, compact Background Reference, and `/api/dashboard` already expose the same local navigation");
     expectText(dashboard, "`/api/dashboard.attention_items` remains the audit source for those routine checks");
     expectText(dashboard, "`/api/dashboard.action_board` remains the audit source for the complete shortcut list");
     expectText(dashboard, "Each background overview card is also a local navigation button");
@@ -125,9 +125,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "a Health warning keeps `Health` visible while `Decide`, `Context`, and `Evidence` stay available as quiet background lanes");
     expectText(dashboard, "In all-clear states, the visible HTML skips `Dashboard Work Lanes` and");
     expectText(dashboard, "`Background Lanes` entirely");
-    expectText(dashboard, "the first screen moves from Overview directly to Reference Library");
+    expectText(dashboard, "the first screen moves from Overview directly to the compact `Background Reference` fold");
     expectText(dashboard, "The same Decide, Context, Health, Evidence, and safe inspection routes remain available");
-    expectText(dashboard, "Reference Library, and `/api/dashboard.action_board`");
+    expectText(dashboard, "the stable `data-dashboard-detail=\"evidence-library\"` route, and");
+    expectText(dashboard, "`/api/dashboard.action_board` for agents and audit");
     expectText(dashboard, "When `Pending Decisions` is rendered, Work Lanes keep the active decision lane visible and skip `Background Lanes` and `dashboard-work-lanes-background` in the HTML");
     expectText(dashboard, "the same routes remain available through `/api/dashboard.action_board`, `Page Shortcuts`, and the underlying panels");
     expectText(dashboard, "`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail=\"action-board\"` route when two or more active shortcut cards need navigation");
@@ -156,7 +157,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Full routine diagnostics, candidate groups, governance notes, dogfood notes, lifecycle and capture policy reports, recent values, records, events, and sync metadata remain in `/api/dashboard`");
     expectText(dashboard, "does not render `Routine Reference`,");
     expectText(dashboard, "`Dogfood Notes` child panels in this background-only mode");
-    expectText(dashboard, "When sync-only current-task mode is active, the same background-only reference content uses the lighter `Background Reference` shell");
+    expectText(dashboard, "When sync-only current-task mode or all-clear mode is active, the same background-only reference content uses the lighter `Background Reference` shell");
     expectText(dashboard, "instead of the normal `panel evidence-library` shell");
     expectText(dashboard, "Expanding it still reveals the same `Reference Library Index`; only the first-screen weight changes");
     expectText(dashboard, "When review-oriented findings exist, the expanded library can still start with a compact `Evidence index` bar");
@@ -351,7 +352,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "When exactly one active shortcut exists, such as sync-only pending work, the visible HTML skips `Page Shortcuts` and `data-action-board-nav`");
     expectText(dashboard, "`/api/dashboard.action_board` still keeps the complete shortcut list for agents and audit tooling");
     expectText(dashboard, "All-clear Overview states skip the visible `Background Shortcuts` strip and `data-dashboard-background-shortcuts` route entirely");
-    expectText(dashboard, "the first screen moves from `Background Lanes` to Reference Library without another generic navigation fold");
+    expectText(dashboard, "the first screen moves from `Background Lanes` to compact Background Reference without another generic navigation fold");
     expectText(dashboard, "`/api/dashboard.action_board` still keeps the complete shortcut list, including zero-state Review, Inspect, Confirm, and Sync entries");
     expectText(dashboard, "When no active shortcut exists outside all-clear mode, read-only shortcut targets render under a single compact `Background Shortcuts` strip");
     expectText(dashboard, "`data-dashboard-background-shortcuts`");

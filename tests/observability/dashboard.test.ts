@@ -539,6 +539,13 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<div class=\"dashboard-overview-safety\" aria-label=\"Dashboard safety\">");
       expect(html).not.toContain("<span>Read-only overview</span>");
       expect(html).not.toContain("<span>Writes stay in Capture Inbox, Review Queue, and Candidate Triage</span>");
+      expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Background Reference\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Background Reference: Reference evidence only\">");
+      expect(html).toContain("<span>Background Reference</span>");
+      expect(html).toContain("<small>Audit route available</small>");
+      expect(html).not.toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
+      expect(html).not.toContain("<span>Reference Library</span>");
+      expect(html).not.toContain("<small>Reference evidence only</small>");
       expect(html).toContain("<article class=\"reference-library-index\" data-dashboard-detail=\"reference-library:index\" data-reference-library-index>");
       expect(html).toContain("<strong>Reference Library Index</strong>");
       expect(html).toContain("<span>Background reports indexed</span>");
@@ -2958,6 +2965,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Reference evidence only\">");
       expect(html).toContain("<span>Reference Library</span>");
       expect(html).toContain("<small>Reference evidence only</small>");
+      expect(html).not.toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Background Reference\">");
       expect(html).not.toContain("<span>Read-only Evidence</span>");
       expect(html).not.toContain("<small>Read-only findings and reference evidence</small>");
       expect(html).not.toContain("<small>Findings and references</small>");

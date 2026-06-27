@@ -5729,7 +5729,7 @@ function renderDashboardBody(data: DashboardData): string {
     ${evidenceLibrary(data, {
       includeStoreSignals: !shouldPromoteStoreSignals,
       showEvidenceIndex: !hasPendingDecisions,
-      compactBackground: shouldPromoteStoreSignals,
+      compactBackground: shouldPromoteStoreSignals || isAllClearOverview,
       auditOnly: hasPendingDecisions
     })}
   `;
