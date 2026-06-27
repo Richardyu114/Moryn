@@ -3121,7 +3121,14 @@ function dashboardOverview(
   const visibleCards = data.cards.filter((card) => !isPrimaryDashboardOverviewCard(card, data));
   const showBackgroundStatus = options.showBackgroundStatus ?? true;
   const showSafety = options.showSafety ?? true;
-  const visibleDetail = data.headline === "All clear" ? "No work needs attention." : data.detail;
+  const isAllClear = data.headline === "All clear";
+  const visibleDetail = isAllClear ? "No work needs attention." : data.detail;
+  const actionClass = isAllClear
+    ? "dashboard-overview-action dashboard-overview-action-quiet"
+    : "dashboard-overview-action";
+  const actionLabel = isAllClear
+    ? data.primary_action.label === "Inspect checks" ? "View checks" : "View details"
+    : data.primary_action.label;
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
@@ -3130,7 +3137,7 @@ function dashboardOverview(
           <strong>${escapeHtml(data.headline)}</strong>
           <p>${escapeHtml(visibleDetail)}</p>
         </div>
-        <button type="button" class="dashboard-overview-action" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}">${escapeHtml(data.primary_action.label)}</button>
+        <button type="button" class="${escapeHtml(actionClass)}" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}">${escapeHtml(actionLabel)}</button>
       </div>
       ${showBackgroundStatus ? dashboardOverviewQuietCards(visibleCards) : ""}
       ${showSafety ? `<div class="dashboard-overview-safety" aria-label="Dashboard safety">
@@ -6345,6 +6352,11 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 780;
       cursor: pointer;
       white-space: nowrap;
+    }
+    .dashboard-overview-action-quiet {
+      background: var(--surface);
+      color: var(--ink-2);
+      box-shadow: none;
     }
     .dashboard-overview-action:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .dashboard-overview-quiet {

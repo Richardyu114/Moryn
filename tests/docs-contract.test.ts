@@ -87,11 +87,13 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`/api/dashboard.action_board` remains the audit source for the complete shortcut list");
     expectText(dashboard, "Each background overview card is also a local navigation button");
     expectText(dashboard, "Pure read-only inspections do not turn the overview headline into an urgent next action");
-    expectText(dashboard, "the overview reads `All clear` while still offering an `Inspect checks` navigation button");
+    expectText(dashboard, "the overview reads `All clear` while rendering a quiet visible navigation button");
+    expectText(dashboard, "`View checks` or `View details`");
+    expectText(dashboard, "`/api/dashboard.dashboard_overview.primary_action.label` still keeps the underlying `Inspect checks` or `Check attention` action label");
     expectText(dashboard, "The visible all-clear detail uses the shorter");
     expectText(dashboard, "`No work needs attention.` sentence");
     expectText(dashboard, "the full explanation remains in");
-    expectText(dashboard, "`/api/dashboard.dashboard_overview.detail` for agents and audit tooling");
+    expectText(dashboard, "`/api/dashboard.dashboard_overview.detail`");
     expectText(dashboard, "All-clear Overview states also skip the visible");
     expectText(dashboard, "`Dashboard safety` chips");
     expectText(dashboard, "`/api/dashboard.dashboard_overview.safety` still keeps the mutation-surface list");

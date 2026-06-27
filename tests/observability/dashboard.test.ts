@@ -512,6 +512,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>All clear</strong>");
       expect(html).toContain("<p>No work needs attention.</p>");
       expect(html).not.toContain("<p>No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.</p>");
+      expect(data.dashboard_overview.primary_action.label).toBe("Check attention");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action dashboard-overview-action-quiet\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">View details</button>");
+      expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Check attention</button>");
+      expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">Inspect checks</button>");
       expect(html).toContain("<span class=\"health-badge good\">Healthy</span>");
       expect(html).toContain(`<p class="store-path" title="${storePath}">Local store</p>`);
       expect(html).toContain("<p class=\"dashboard-generated-at\"><time datetime=\"2026-06-21T00:00:00.000Z\" title=\"2026-06-21T00:00:00.000Z\">Updated 00:00 UTC</time></p>");
@@ -2656,7 +2660,8 @@ describe("observability dashboard", () => {
         expect(html).toContain("<strong>All clear</strong>");
         expect(html).toContain("<p>No work needs attention.</p>");
         expect(html).not.toContain("<p>No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.</p>");
-        expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">Inspect checks</button>");
+        expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action dashboard-overview-action-quiet\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">View checks</button>");
+        expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">Inspect checks</button>");
         expect(html).not.toContain("<div class=\"dashboard-overview-safety\" aria-label=\"Dashboard safety\">");
         expect(html).not.toContain("<span>Read-only overview</span>");
         expect(html).not.toContain("<span>Writes stay in Capture Inbox, Review Queue, and Candidate Triage</span>");
