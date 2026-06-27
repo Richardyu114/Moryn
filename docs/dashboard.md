@@ -839,7 +839,9 @@ changes. In that compact shell, the index face reads `Optional audit index`
 instead of listing route chips such as `dogfood_report` or `audit_trail`.
 Those machine route chips move into the collapsed `Reference routes` fold, where
 they remain available with the detailed background rows and stable
-`data-reference-library-route` attributes.
+`data-reference-library-route` attributes. The long `/api/dashboard` pointer
+also lives inside that fold in compact mode, so expanding `Background Reference`
+does not immediately render prose about API internals.
 
 When review-oriented findings exist, the expanded library can still start with
 a compact `Evidence index` bar; empty routes are omitted instead of rendering

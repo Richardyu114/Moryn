@@ -5488,10 +5488,13 @@ function referenceLibraryIndex(input: {
     : "Routine checks indexed";
   const routeChips = routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("");
   const routeFaceSummary = input.compact ? "Optional audit index" : routeChips;
+  const apiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
   const routeChipsRow = input.compact ? `
                 <div class="reference-library-route-chips" data-reference-library-route-chips>
                   ${routeChips}
-                </div>` : "";
+                </div>
+                <p class="reference-library-api-hint">${apiReferenceHint}</p>` : "";
+  const indexFooter = input.compact ? "" : `<p>${apiReferenceHint}</p>`;
   const rows = [
     diagnosticRoutes.length > 0 ? `
             <div class="reference-library-index-row" data-reference-library-index-row="diagnostics" data-dashboard-detail="routine-diagnostics" data-routine-diagnostics-reference data-reference-library-index="diagnostics">
@@ -5568,7 +5571,7 @@ ${rows}
               </div>
             </details>
           </article>
-          <p>Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.</p>
+          ${indexFooter}
         </div>
   `;
 }
@@ -7111,6 +7114,11 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       flex-wrap: wrap;
       gap: 4px;
       padding: 2px 0 6px;
+    }
+    .reference-library-api-hint {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 12px;
     }
     .reference-library-index-rows {
       display: grid;

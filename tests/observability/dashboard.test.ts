@@ -43,6 +43,15 @@ function referenceLibraryIndexHtml(html: string): string {
   return dashboardDetailBlock(html, "reference-library:index");
 }
 
+function referenceLibraryIndexWrapHtml(html: string): string {
+  const marker = "<div class=\"reference-library-index-wrap\">";
+  const start = html.indexOf(marker);
+  expect(start).toBeGreaterThan(-1);
+  const end = html.indexOf("</div>", html.indexOf("</article>", start));
+  expect(end).toBeGreaterThan(start);
+  return html.slice(start, end + "</div>".length);
+}
+
 function dashboardArticleBlockByMarker(html: string, marker: string): string {
   const start = html.indexOf(marker);
   expect(start).toBeGreaterThan(-1);
@@ -406,6 +415,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small>Audit route available</small>");
       expect(html).not.toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
       expect(html).not.toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Reference evidence only\">");
+      const referenceIndexWrapHtml = referenceLibraryIndexWrapHtml(html);
       const referenceIndexHtml = referenceLibraryIndexHtml(html);
       const referenceRoutesStart = referenceIndexHtml.indexOf("<details class=\"reference-library-routes\" data-dashboard-detail=\"reference-library:routes\">");
       expect(referenceRoutesStart).toBeGreaterThan(-1);
@@ -413,6 +423,8 @@ describe("observability dashboard", () => {
       const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
       expect(referenceIndexFaceHtml).toContain("<small>Optional audit index</small>");
       expect(referenceIndexFaceHtml).not.toContain("data-reference-library-route=");
+      expect(referenceIndexWrapHtml.slice(0, referenceRoutesStart)).not.toContain("Open <code>/api/dashboard</code>");
+      expect(referenceRoutesHtml).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
       expect(html.match(/<section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Store Signals"/g)?.length).toBe(1);
@@ -558,6 +570,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<article class=\"reference-library-index\" data-dashboard-detail=\"reference-library:index\" data-reference-library-index>");
       expect(html).toContain("<strong>Reference Library Index</strong>");
       expect(html).toContain("<span>Background reports indexed</span>");
+      const referenceIndexWrapHtml = referenceLibraryIndexWrapHtml(html);
       const referenceIndexHtml = referenceLibraryIndexHtml(html);
       const referenceRoutesStart = referenceIndexHtml.indexOf("<details class=\"reference-library-routes\" data-dashboard-detail=\"reference-library:routes\">");
       expect(referenceRoutesStart).toBeGreaterThan(-1);
@@ -565,6 +578,8 @@ describe("observability dashboard", () => {
       const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
       expect(referenceIndexFaceHtml).toContain("<small>Optional audit index</small>");
       expect(referenceIndexFaceHtml).not.toContain("data-reference-library-route=");
+      expect(referenceIndexWrapHtml.slice(0, referenceRoutesStart)).not.toContain("Open <code>/api/dashboard</code>");
+      expect(referenceRoutesHtml).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
       expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");

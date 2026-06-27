@@ -164,6 +164,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of listing route chips such as `dogfood_report` or `audit_trail`");
     expectText(dashboard, "Those machine route chips move into the collapsed `Reference routes` fold");
     expectText(dashboard, "`data-reference-library-route` attributes");
+    expectText(dashboard, "The long `/api/dashboard` pointer also lives inside that fold in compact mode");
+    expectText(dashboard, "does not immediately render prose about API internals");
     expectText(dashboard, "When review-oriented findings exist, the expanded library can still start with a compact `Evidence index` bar");
     expectText(dashboard, "empty routes are omitted instead of rendering \"nothing here\" buttons");
     expectText(dashboard, "single wrapping rail");
