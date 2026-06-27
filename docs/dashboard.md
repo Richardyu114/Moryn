@@ -592,7 +592,10 @@ the detailed panels folded underneath.
 Pure read-only inspections do not turn the overview headline into an urgent
 next action. If there are no confirmations, warnings, or sync actions, the
 overview reads `All clear` while still offering an `Inspect checks` navigation
-button to the Governance Hub. All-clear Overview states also skip the visible
+button to the Governance Hub. The visible all-clear detail uses the shorter
+`No work needs attention.` sentence; the full explanation remains in
+`/api/dashboard.dashboard_overview.detail` for agents and audit tooling.
+All-clear Overview states also skip the visible
 `Dashboard safety` chips because the headline, primary action, Background
 Reference route, and underlying mutation surfaces already carry the quiet boundary;
 `/api/dashboard.dashboard_overview.safety` still keeps the mutation-surface list

@@ -3121,13 +3121,14 @@ function dashboardOverview(
   const visibleCards = data.cards.filter((card) => !isPrimaryDashboardOverviewCard(card, data));
   const showBackgroundStatus = options.showBackgroundStatus ?? true;
   const showSafety = options.showSafety ?? true;
+  const visibleDetail = data.headline === "All clear" ? "No work needs attention." : data.detail;
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
         <div>
           <h2>Dashboard Overview</h2>
           <strong>${escapeHtml(data.headline)}</strong>
-          <p>${escapeHtml(data.detail)}</p>
+          <p>${escapeHtml(visibleDetail)}</p>
         </div>
         <button type="button" class="dashboard-overview-action" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}">${escapeHtml(data.primary_action.label)}</button>
       </div>
