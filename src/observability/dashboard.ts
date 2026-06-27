@@ -5521,6 +5521,24 @@ function referenceLibraryIndex(input: {
   const governanceSummary = input.compact ? "Governance signals indexed" : input.governanceSummary;
   const dogfoodSummary = input.compact ? "Dogfood signals indexed" : input.dogfoodSummary;
   const candidateTriageFocus = input.compact ? "" : input.candidateTriageFocus;
+  const evidenceLabel = (label: string): string => {
+    if (!input.compact) return label;
+    if (label === "health_check") return "Health check";
+    if (label === "recall_eval") return "Recall eval";
+    if (label === "context_pack_review") return "Context pack";
+    if (label === "candidate_triage") return "Candidate backlog";
+    if (label === "governance") return "Governance";
+    if (label === "dogfood_report") return "Dogfood report";
+    if (label === "memory_lifecycle") return "Memory lifecycle";
+    if (label === "capture_policy") return "Capture policy";
+    if (label === "recent_value") return "Recent value";
+    if (label === "recent_records") return "Recent records";
+    if (label === "recent_events") return "Recent events";
+    if (label === "audit_trail") return "Audit trail";
+    if (label === "sync") return "Sync";
+    return label;
+  };
+  const evidenceCode = (label: string, attributes = ""): string => `<code${attributes}>${escapeHtml(evidenceLabel(label))}</code>`;
   const routeChipsRow = input.compact ? `
                 <div class="reference-library-route-chips" data-reference-library-route-chips>
                   ${routeChips}
@@ -5534,7 +5552,7 @@ function referenceLibraryIndex(input: {
                 <strong>${escapeHtml(diagnosticsTitle)}</strong>
                 <span>${escapeHtml(diagnosticSummary)}</span>
               </div>
-              <small>${diagnosticRoutes.map((route) => `<code data-dashboard-detail="${escapeHtml(route.route)}" aria-label="${escapeHtml(route.description)}">${escapeHtml(route.label)}</code>`).join("")}</small>
+              <small>${diagnosticRoutes.map((route) => evidenceCode(route.label, ` data-dashboard-detail="${escapeHtml(route.route)}" aria-label="${escapeHtml(route.description)}"`)).join("")}</small>
             </div>` : "",
     input.hasCandidateTriage ? `
             <div class="reference-library-index-row" data-reference-library-index-row="candidate-triage" data-dashboard-detail="candidate-triage" data-candidate-triage-reference data-reference-library-index="candidate-triage">
@@ -5543,7 +5561,7 @@ function referenceLibraryIndex(input: {
                 <span>${escapeHtml(candidateTriageSummary)}</span>
                 ${candidateTriageFocus ? `<span data-candidate-triage-focus>${escapeHtml(candidateTriageFocus)}</span>` : ""}
               </div>
-              <small><code data-dashboard-detail="candidate-triage:index">candidate_triage</code></small>
+              <small>${evidenceCode("candidate_triage", ` data-dashboard-detail="candidate-triage:index"`)}</small>
             </div>` : "",
     input.hasGovernance ? `
             <div class="reference-library-index-row" data-reference-library-index-row="governance" data-dashboard-detail="governance-hub" data-governance-reference data-reference-library-index="governance">
@@ -5551,7 +5569,7 @@ function referenceLibraryIndex(input: {
                 <strong>${escapeHtml(governanceTitle)}</strong>
                 <span>${escapeHtml(governanceSummary)}</span>
               </div>
-              <small><code>governance</code></small>
+              <small>${evidenceCode("governance")}</small>
             </div>` : "",
     input.hasDogfood ? `
             <div class="reference-library-index-row" data-reference-library-index-row="dogfood" data-dashboard-detail="dogfood-review" data-dogfood-review-reference data-reference-library-index="dogfood">
@@ -5559,7 +5577,7 @@ function referenceLibraryIndex(input: {
                 <strong>${escapeHtml(dogfoodTitle)}</strong>
                 <span>${escapeHtml(dogfoodSummary)}</span>
               </div>
-              <small><code>dogfood_report</code></small>
+              <small>${evidenceCode("dogfood_report")}</small>
             </div>` : "",
     input.hasAuditTrail && input.hasAuditReports ? `
             <div class="reference-library-index-row" data-reference-library-index-row="audit-reports" data-supporting-evidence-summary="audit-reports" data-dashboard-detail="supporting-operational-evidence">
@@ -5567,7 +5585,7 @@ function referenceLibraryIndex(input: {
                 <strong>Audit Reports</strong>
                 <span>Lifecycle checks indexed</span>
               </div>
-              <small><code data-dashboard-detail="memory-lifecycle-audit">memory_lifecycle</code><code data-dashboard-detail="capture-policy-audit">capture_policy</code></small>
+              <small>${evidenceCode("memory_lifecycle", ` data-dashboard-detail="memory-lifecycle-audit"`)}${evidenceCode("capture_policy", ` data-dashboard-detail="capture-policy-audit"`)}</small>
             </div>` : "",
     input.hasAuditTrail && (input.includeStoreSignals || input.hasRecentValue) ? `
             <div class="reference-library-index-row" data-reference-library-index-row="store-snapshot" data-supporting-evidence-summary="store-snapshot" data-dashboard-detail="supporting-operational-snapshots">
@@ -5575,7 +5593,7 @@ function referenceLibraryIndex(input: {
                 <strong>Store Snapshot</strong>
                 <span>Store signals indexed</span>
               </div>
-              <small><code data-dashboard-detail="store-signals">sync</code><code data-dashboard-detail="recent-value">recent_value</code></small>
+              <small>${evidenceCode("sync", ` data-dashboard-detail="store-signals"`)}${evidenceCode("recent_value", ` data-dashboard-detail="recent-value"`)}</small>
             </div>` : "",
     input.hasAuditTrail ? `
             <div class="reference-library-index-row" data-reference-library-index-row="raw-store" data-supporting-evidence-summary="raw-store" data-dashboard-detail="debug-inspector">
@@ -5583,7 +5601,7 @@ function referenceLibraryIndex(input: {
                 <strong>Raw Store</strong>
                 <span>Raw evidence indexed</span>
               </div>
-              <small><code data-dashboard-detail="supporting-evidence">audit_trail</code><code data-dashboard-detail="inspector:records">recent_records</code><code data-dashboard-detail="inspector:events">recent_events</code><code data-dashboard-detail="inspector:sync">sync</code></small>
+              <small>${evidenceCode("audit_trail", ` data-dashboard-detail="supporting-evidence"`)}${evidenceCode("recent_records", ` data-dashboard-detail="inspector:records"`)}${evidenceCode("recent_events", ` data-dashboard-detail="inspector:events"`)}${evidenceCode("sync", ` data-dashboard-detail="inspector:sync"`)}</small>
             </div>` : ""
   ].filter((row) => row.length > 0).join("");
   return `

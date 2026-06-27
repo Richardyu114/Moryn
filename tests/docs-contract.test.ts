@@ -188,6 +188,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Governance signals indexed`, and `Dogfood signals indexed`");
     expectText(dashboard, "candidate review-focus text");
     expectText(dashboard, "Those counts and focus hints remain in `/api/dashboard`");
+    expectText(dashboard, "Compact row evidence chips use");
+    expectText(dashboard, "`Health check`, `Candidate backlog`, and");
+    expectText(dashboard, "`data-dashboard-detail` attributes keep the");
     expectText(dashboard, "When review-oriented findings exist, the expanded library can still start with a compact `Evidence index` bar");
     expectText(dashboard, "empty routes are omitted instead of rendering \"nothing here\" buttons");
     expectText(dashboard, "single wrapping rail");

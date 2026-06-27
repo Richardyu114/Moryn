@@ -441,6 +441,10 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"supporting-evidence\">audit_trail</code>");
       expect(referenceRoutesHtml).toContain("<strong>Diagnostics</strong>");
       expect(referenceRoutesHtml).not.toContain("<strong>Diagnostics Index</strong>");
+      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"health-check\" aria-label=\"Health Check: Healthy local store. Full report is available in /api/dashboard.health_check.\">Health check</code>");
+      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"recall-eval\" aria-label=\"Recall Eval: No recall eval cases yet. Full report is available in /api/dashboard.recall_eval.\">Recall eval</code>");
+      expect(referenceRoutesHtml).not.toContain(">health_check</code>");
+      expect(referenceRoutesHtml).not.toContain(">recall_eval</code>");
       expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(html.match(/<section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Store Signals"/g)?.length).toBe(1);
@@ -622,11 +626,13 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"supporting-evidence\">audit_trail</code>");
       expect(referenceRoutesHtml).toContain("<strong>Diagnostics</strong>");
       expect(referenceRoutesHtml).not.toContain("<strong>Diagnostics Index</strong>");
+      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"supporting-evidence\">Audit trail</code>");
+      expect(referenceRoutesHtml).not.toContain("<code data-dashboard-detail=\"supporting-evidence\">audit_trail</code>");
       expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
       expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"raw-store\" data-supporting-evidence-summary=\"raw-store\" data-dashboard-detail=\"debug-inspector\">");
-      expect(html).toContain("<code data-dashboard-detail=\"supporting-evidence\">audit_trail</code>");
+      expect(html).toContain("<code data-dashboard-detail=\"supporting-evidence\">Audit trail</code>");
       expect(html).not.toContain("<article class=\"routine-diagnostics-reference\"");
       expect(html).not.toContain("<article class=\"supporting-evidence-summary-row\"");
       expect(html).toContain("Full evidence stays in <code>/api/dashboard</code>.");
@@ -736,6 +742,8 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"candidate-triage\">candidate_triage</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"dogfood-review\">dogfood_report</code>");
       expect(referenceRoutesHtml).toContain("<strong>Candidate Backlog</strong>");
+      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"candidate-triage:index\">Candidate backlog</code>");
+      expect(referenceRoutesHtml).not.toContain("<code data-dashboard-detail=\"candidate-triage:index\">candidate_triage</code>");
       expect(referenceRoutesHtml).toContain("<span>Backlog signals indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>3 candidates across 1 group indexed</span>");
       expect(referenceRoutesHtml).not.toContain("data-candidate-triage-focus");
@@ -744,6 +752,8 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).toContain("<span>Governance signals indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>2 governance notes indexed</span>");
       expect(referenceRoutesHtml).toContain("<strong>Dogfood Notes</strong>");
+      expect(referenceRoutesHtml).toContain("<code>Dogfood report</code>");
+      expect(referenceRoutesHtml).not.toContain("<code>dogfood_report</code>");
       expect(referenceRoutesHtml).toContain("<span>Dogfood signals indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>1 finding indexed</span>");
       expect(referenceRoutesHtml).toContain("Full evidence stays in <code>/api/dashboard</code>.");
@@ -3209,6 +3219,8 @@ describe("observability dashboard", () => {
       expect(referenceIndexHtml).toContain("<code data-reference-library-route=\"routine-diagnostics\">diagnostics</code>");
       expect(referenceIndexHtml).toContain("<code data-reference-library-route=\"candidate-triage\">candidate_triage</code>");
       expect(referenceIndexHtml).toContain("<code data-reference-library-route=\"supporting-evidence\">audit_trail</code>");
+      expect(referenceIndexHtml).toContain("<code data-dashboard-detail=\"candidate-triage:index\">candidate_triage</code>");
+      expect(referenceIndexHtml).toContain("<code data-dashboard-detail=\"supporting-evidence\">audit_trail</code>");
       expect(referenceIndexHtml).toContain("<strong>Diagnostics Index</strong>");
       expect(referenceIndexHtml).toContain("<strong>Candidate Backlog Index</strong>");
       expect(referenceIndexHtml).toContain("<span>Routine checks indexed</span>");

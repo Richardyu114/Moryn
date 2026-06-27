@@ -3690,7 +3690,8 @@ describe("MCP stdio server", () => {
           const pushDashboardHtml = await readFile(push.dashboard.path, "utf8");
           const pushStoreSnapshotHtml = storeSnapshotAuditRowHtml(pushDashboardHtml);
           expect(pushStoreSnapshotHtml).toContain("<strong>Store Snapshot</strong>");
-          expect(pushStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
+          expect(pushStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">Recent value</code>");
+          expect(pushStoreSnapshotHtml).not.toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
           expect(pushStoreSnapshotHtml).not.toContain("MCP sync shares events.");
           expect(pushDashboardHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
 
@@ -3709,7 +3710,8 @@ describe("MCP stdio server", () => {
           const pullDashboardHtml = await readFile(pull.dashboard.path, "utf8");
           const pullStoreSnapshotHtml = storeSnapshotAuditRowHtml(pullDashboardHtml);
           expect(pullStoreSnapshotHtml).toContain("<strong>Store Snapshot</strong>");
-          expect(pullStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
+          expect(pullStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">Recent value</code>");
+          expect(pullStoreSnapshotHtml).not.toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
           expect(pullStoreSnapshotHtml).not.toContain("MCP sync shares events.");
           expect(pullDashboardHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
 
@@ -4057,7 +4059,8 @@ describe("MCP stdio server", () => {
           const startDashboardHtml = await readFile(start.dashboard.path, "utf8");
           const startStoreSnapshotHtml = storeSnapshotAuditRowHtml(startDashboardHtml);
           expect(startStoreSnapshotHtml).toContain("<strong>Store Snapshot</strong>");
-          expect(startStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
+          expect(startStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">Recent value</code>");
+          expect(startStoreSnapshotHtml).not.toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
           expect(startStoreSnapshotHtml).not.toContain("MCP Codex left a lifecycle handoff.");
           expect(startDashboardHtml).not.toContain("<details class=\"panel recent-value-panel\" data-dashboard-detail=\"recent-value\">");
           expect(start.refresh.changes).toContainEqual(expect.objectContaining({

@@ -869,7 +869,10 @@ audit card. The compact rows also use quiet summaries such as `Backlog signals
 indexed`, `Governance signals indexed`, and `Dogfood signals indexed` instead of
 foregrounding candidate counts, governance counts, dogfood finding counts, or
 candidate review-focus text. Those counts and focus hints remain in
-`/api/dashboard` and the normal reference panels.
+`/api/dashboard` and the normal reference panels. Compact row evidence chips use
+the same human-label rule, such as `Health check`, `Candidate backlog`, and
+`Dogfood report`, while their `data-dashboard-detail` attributes keep the
+stable API routes.
 
 When review-oriented findings exist, the expanded library can still start with
 a compact `Evidence index` bar; empty routes are omitted instead of rendering
