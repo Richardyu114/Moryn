@@ -5047,7 +5047,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
             <details class="capture-inbox-item-review" data-dashboard-detail="capture-group:${escapeHtml(group.id)}">
               <summary>Item review</summary>
               <details class="capture-inbox-evidence-index" data-dashboard-detail="capture-inbox-evidence-index:${escapeHtml(group.id)}">
-                <summary>Evidence index</summary>
+                <summary>Trace details</summary>
                 <dl>
                   <div><dt>Group</dt><dd><code>${escapeHtml(group.id)}</code></dd></div>
                   <div><dt>Records</dt><dd>${group.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>

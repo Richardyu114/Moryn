@@ -374,8 +374,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Group card faces use `Review N captures` plus `Approve or reject this group.` instead of rendering capture text on the first row");
     expectText(dashboard, "a compact `Review signal` strip with human labels such as `Smoke/test marker` and `Duplicate capture text`");
     expectText(dashboard, "does not add an automatic merge, archive, approve, or background execution path");
-    expectText(dashboard, "Group id, record ids, rules, and noise evidence stay behind an `Evidence index` fold inside `Item review`");
-    expectText(dashboard, "`Item review` opens to the evidence index and collapsed candidate rows instead of raw group internals");
+    expectText(dashboard, "Group id, record ids, rules, and noise evidence stay behind a `Trace details` fold inside `Item review`");
+    expectText(dashboard, "`Item review` opens to the trace details and collapsed candidate rows instead of raw group internals");
     expectText(dashboard, "Group cards and candidate detail rows start with a compact `Approval brief`");
     expectText(dashboard, "using the same `Change`, `Scope`, `Guard`, and `Writes` rows as Review Queue");
     expectText(dashboard, "server rechecks active candidate records before writing");

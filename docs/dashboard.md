@@ -142,8 +142,8 @@ short archive-or-inspect hint and a compact `Review signal` strip with human
 labels such as `Smoke/test marker` and `Duplicate capture text`; this strip is
 read-only and does not add an automatic merge, archive, approve, or background
 execution path. Exact candidate text remains behind `Item review`.
-Group id, record ids, rules, and noise evidence stay behind an `Evidence index`
-fold inside `Item review`. `Item review` opens to the evidence index and
+Group id, record ids, rules, and noise evidence stay behind a `Trace details`
+fold inside `Item review`. `Item review` opens to the trace details and
 collapsed candidate rows instead of raw group internals.
 
 Group cards and candidate detail rows start with a compact `Approval brief`
