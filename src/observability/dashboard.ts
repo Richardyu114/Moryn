@@ -5692,7 +5692,7 @@ function renderDashboardBody(data: DashboardData): string {
   const quietInfoPanel = shouldRenderQuietInfoPanel ? needsAttentionPanel(data.attention_items) : "";
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel && !isAllClearOverview;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
-  const shouldRenderWorkLanes = !shouldPromoteStoreSignals;
+  const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview;
   const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
   return `
     <header>

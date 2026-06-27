@@ -670,11 +670,12 @@ When warning or critical signals exist, the Work Lanes keep only those blocking
 lanes visible on the first screen and fold non-blocking routes under
 `Background Lanes`. For example, a Health warning keeps `Health` visible while
 `Decide`, `Context`, and `Evidence` stay available as quiet background lanes.
-In all-clear states, the row folds every lane under `Background Lanes`,
-including the read-only `Evidence` lane, so reference material does not become
-the main task while preserving the same `data-action-board-target` routes.
-`Background Lanes` opens with `Quiet lanes ready`, while the accessible summary
-keeps the lane names, such as `Decide, Context, Health, and Evidence are quiet`.
+In all-clear states, the visible HTML skips `Dashboard Work Lanes` and
+`Background Lanes` entirely so the first screen moves from Overview directly to
+Reference Library. The same Decide, Context, Health, Evidence, and safe
+inspection routes remain available through the Overview primary action,
+Reference Library, and `/api/dashboard.action_board` for agents and audit
+tooling.
 When `Pending Decisions` is rendered, Work Lanes keep the active decision lane
 visible and skip `Background Lanes` and `dashboard-work-lanes-background` in the
 HTML; the same routes remain available through `/api/dashboard.action_board`,
