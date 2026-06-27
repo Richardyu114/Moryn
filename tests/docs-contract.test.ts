@@ -72,7 +72,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "All-clear Overview states skip `Background Status` and the stable `dashboard-overview-quiet-cards` route");
     expectText(dashboard, "The `Health`, `Next`, `Context`, and `Sync` cards remain preserved in `/api/dashboard.dashboard_overview.cards`");
     expectText(dashboard, "All-clear pages also skip the quiet `Info Checks` anchor when only informational attention items remain");
+    expectText(dashboard, "skip the visible `Background Shortcuts` strip because `Background Lanes` and Reference Library already expose the same local navigation");
     expectText(dashboard, "`/api/dashboard.attention_items` remains the audit source for those routine checks");
+    expectText(dashboard, "`/api/dashboard.action_board` remains the audit source for the complete shortcut list");
     expectText(dashboard, "Each background overview card is also a local navigation button");
     expectText(dashboard, "Pure read-only inspections do not turn the overview headline into an urgent next action");
     expectText(dashboard, "the overview reads `All clear` while still offering an `Inspect checks` navigation button");
@@ -334,7 +336,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the non-zero sync count remains visible on the expanded shortcut card and in `/api/dashboard.action_board`");
     expectText(dashboard, "When exactly one active shortcut exists, such as sync-only pending work, the visible HTML skips `Page Shortcuts` and `data-action-board-nav`");
     expectText(dashboard, "`/api/dashboard.action_board` still keeps the complete shortcut list for agents and audit tooling");
-    expectText(dashboard, "When no active shortcut exists, all-clear and read-only shortcut targets render under a single compact `Background Shortcuts` strip");
+    expectText(dashboard, "All-clear Overview states skip the visible `Background Shortcuts` strip and `data-dashboard-background-shortcuts` route entirely");
+    expectText(dashboard, "the first screen moves from `Background Lanes` to Reference Library without another generic navigation fold");
+    expectText(dashboard, "`/api/dashboard.action_board` still keeps the complete shortcut list, including zero-state Review, Inspect, Confirm, and Sync entries");
+    expectText(dashboard, "When no active shortcut exists outside all-clear mode, read-only shortcut targets render under a single compact `Background Shortcuts` strip");
     expectText(dashboard, "`data-dashboard-background-shortcuts`");
     expectText(dashboard, "while keeping the stable `data-dashboard-detail=\"action-board\"` route");
     expectText(dashboard, "Its list carries the `action-board-quiet-targets` route directly");

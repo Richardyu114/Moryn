@@ -486,9 +486,21 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Info Checks</span>");
       expect(html).not.toContain("data-dashboard-detail=\"attention:Raw records waiting for review\"");
       expect(html).not.toContain("<strong>Raw records waiting for review</strong>");
-      expect(html).toContain("<details class=\"action-board-background\" aria-label=\"Background Shortcuts\" data-dashboard-detail=\"action-board\" data-dashboard-background-shortcuts>");
-      expect(html).toContain("<span>Background Shortcuts</span>");
-      expect(html).toContain("<small>Optional section links</small>");
+      expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
+      expect(data.action_board.items_by_id.review).toMatchObject({
+        label: "Review",
+        value: 0,
+        next_action_label: "Open info checks",
+        target: "needs-attention"
+      });
+      expect(html).not.toContain("<details class=\"action-board-background\" aria-label=\"Background Shortcuts\" data-dashboard-detail=\"action-board\" data-dashboard-background-shortcuts>");
+      expect(html).not.toContain("<span>Background Shortcuts</span>");
+      expect(html).not.toContain("data-dashboard-background-shortcuts");
+      expect(html).not.toContain("data-dashboard-detail=\"action-board-quiet-targets\"");
+      expect(html).not.toContain("data-action-board-quiet-item=\"confirm\"");
+      expect(html).not.toContain("data-action-board-quiet-item=\"review\"");
+      expect(html).not.toContain("data-action-board-quiet-item=\"inspect\"");
+      expect(html).not.toContain("data-action-board-quiet-item=\"sync\"");
       expect(html).not.toContain("<details class=\"action-board action-board-secondary\" aria-label=\"Page Shortcuts\" data-dashboard-detail=\"action-board\" data-action-board-nav>");
       expect(html).not.toContain("<span>Page Shortcuts</span>");
       expect(html).not.toContain("<span class=\"action-board-activity\">all clear</span>");
@@ -503,11 +515,6 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Quiet Targets</span>");
       expect(html).not.toContain("<small>4 quiet targets</small>");
       expect(html).not.toContain("<div class=\"action-board-grid\">");
-      expect(html).toContain("<div class=\"action-board-background-list\" data-dashboard-detail=\"action-board-quiet-targets\">");
-      expect(html).toContain("data-action-board-quiet-item=\"confirm\"");
-      expect(html).toContain("data-action-board-quiet-item=\"review\"");
-      expect(html).toContain("data-action-board-quiet-item=\"inspect\"");
-      expect(html).toContain("data-action-board-quiet-item=\"sync\"");
       expect(html).not.toContain("data-action-board-item=\"confirm\"");
       expect(html).not.toContain("data-action-board-item=\"review\"");
       expect(html).not.toContain("data-action-board-item=\"inspect\"");
@@ -2601,9 +2608,17 @@ describe("observability dashboard", () => {
           source: "action_board.items_by_id.sync"
         });
         expect(html).toContain("<strong>All clear</strong>");
-        expect(html).toContain("<details class=\"action-board-background\" aria-label=\"Background Shortcuts\" data-dashboard-detail=\"action-board\" data-dashboard-background-shortcuts>");
-        expect(html).toContain("<span>Background Shortcuts</span>");
-        expect(html).toContain("<small>Optional section links</small>");
+        expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
+        expect(data.action_board.items_by_id.inspect).toMatchObject({
+          label: "Inspect",
+          value: 1,
+          next_action_label: "Open governance",
+          target: "governance-hub"
+        });
+        expect(html).not.toContain("<details class=\"action-board-background\" aria-label=\"Background Shortcuts\" data-dashboard-detail=\"action-board\" data-dashboard-background-shortcuts>");
+        expect(html).not.toContain("<span>Background Shortcuts</span>");
+        expect(html).not.toContain("data-dashboard-background-shortcuts");
+        expect(html).not.toContain("data-dashboard-detail=\"action-board-quiet-targets\"");
         expect(html).not.toContain("<details class=\"action-board action-board-secondary\" aria-label=\"Page Shortcuts\" data-dashboard-detail=\"action-board\" data-action-board-nav>");
         expect(html).not.toContain("<span>Page Shortcuts</span>");
         expect(html).not.toContain("<span class=\"action-board-activity\">all clear</span>");
@@ -2613,10 +2628,8 @@ describe("observability dashboard", () => {
         expect(html).not.toContain("<details class=\"action-board-quiet\" data-dashboard-detail=\"action-board-quiet-targets\">");
         expect(html).not.toContain("<span>Quiet Shortcuts</span>");
         expect(html).not.toContain("<small>Background section links</small>");
-        expect(html).toContain("<div class=\"action-board-background-list\" data-dashboard-detail=\"action-board-quiet-targets\">");
-        const actionBoardStart = html.indexOf("data-dashboard-background-shortcuts");
-        const evidenceLibraryStart = html.indexOf("data-dashboard-detail=\"evidence-library\"", actionBoardStart);
-        const actionBoardHtml = html.slice(actionBoardStart, evidenceLibraryStart);
+        const evidenceLibraryStart = html.indexOf("data-dashboard-detail=\"evidence-library\"");
+        expect(evidenceLibraryStart).toBeGreaterThan(-1);
         const evidenceBriefIndex = html.indexOf("<div class=\"evidence-library-brief\" data-evidence-library-brief>", evidenceLibraryStart);
         const evidenceListIndex = html.indexOf("<div class=\"evidence-library-list\">", evidenceLibraryStart);
         expect(evidenceBriefIndex).toBeGreaterThan(evidenceLibraryStart);
@@ -2624,11 +2637,11 @@ describe("observability dashboard", () => {
         expect(html).toContain("<h3>Evidence index</h3>");
         expect(html).toContain("data-evidence-library-route=\"findings\"");
         expect(html).toContain("data-action-board-target=\"evidence-review-evidence\"");
-        expect(actionBoardHtml).not.toContain("<small>4 reference checks</small>");
-        expect(actionBoardHtml).not.toContain("<span>Reference Checks</span>");
+        expect(html).not.toContain("<small>4 reference checks</small>");
+        expect(html).not.toContain("<span>Reference Checks</span>");
         expect(html).not.toContain("<span>Quiet Targets</span>");
         expect(html).not.toContain("<small>4 quiet targets</small>");
-        expect(html).toContain("data-action-board-quiet-item=\"inspect\"");
+        expect(html).not.toContain("data-action-board-quiet-item=\"inspect\"");
         expect(html).not.toContain("data-action-board-item=\"inspect\"");
         expect(html).not.toContain("data-governance-item=\"recall_eval:missing-dashboard-memory\"");
         expect(html).not.toContain("data-governance-safe-item=\"recall_eval:missing-dashboard-memory\"");
@@ -2653,7 +2666,7 @@ describe("observability dashboard", () => {
         expect(html).toContain("<small>Quiet lanes ready</small>");
         expect(html).not.toContain("<small>Decide, Context, Health, and Evidence are quiet</small>");
         const workLanesStart = html.indexOf("data-dashboard-work-lanes");
-        const workLanesEnd = html.indexOf("data-dashboard-background-shortcuts", workLanesStart);
+        const workLanesEnd = html.indexOf("data-dashboard-detail=\"evidence-library\"", workLanesStart);
         const workLanesHtml = html.slice(workLanesStart, workLanesEnd);
         const activeWorkLanesHtml = workLanesHtml.slice(0, workLanesHtml.indexOf("data-dashboard-detail=\"dashboard-work-lanes-background\""));
         const quietWorkLanesHtml = workLanesHtml.slice(workLanesHtml.indexOf("data-dashboard-detail=\"dashboard-work-lanes-background\""));

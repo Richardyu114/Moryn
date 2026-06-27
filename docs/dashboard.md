@@ -590,12 +590,15 @@ first screen does not repeat the same sync task. The `Health`, `Next`,
 `/api/dashboard.dashboard_overview.cards` without repeating status cards on the
 first screen. All-clear Overview states skip `Background Status` and the stable
 `dashboard-overview-quiet-cards` route for the same reason: `Background Lanes`,
-`Background Shortcuts`, and `/api/dashboard.dashboard_overview.cards` already
-preserve the audit routes, so the user sees one quiet zero-state instead of
-three status summaries. All-clear pages also skip the quiet `Info Checks` anchor
-when only informational attention items remain. `/api/dashboard.attention_items`
-remains the audit source for those routine checks, while visible navigation stays
-focused on `Inspect checks`, background routes, and the Reference Library. When
+Reference Library, `/api/dashboard.action_board`, and
+`/api/dashboard.dashboard_overview.cards` already preserve the audit routes, so
+the user sees one quiet zero-state instead of three status summaries. All-clear
+pages also skip the quiet `Info Checks` anchor when only informational attention
+items remain and skip the visible `Background Shortcuts` strip because
+`Background Lanes` and Reference Library already expose the same local
+navigation. `/api/dashboard.attention_items` remains the audit source for those
+routine checks, and `/api/dashboard.action_board` remains the audit source for
+the complete shortcut list. When
 `Background Status` is rendered in non-sync states, a card
 with the same source as the headline primary action is skipped in both the
 visible grid and `Background Status`; the card still stays in
@@ -709,8 +712,14 @@ visible HTML skips `Page Shortcuts` and `data-action-board-nav` because the
 Overview and Work Lane already route to the same current task.
 `/api/dashboard.action_board` still keeps the complete shortcut list for agents
 and audit tooling.
-When no active shortcut exists, all-clear and read-only shortcut targets render
-under a single compact `Background Shortcuts` strip with
+All-clear Overview states skip the visible `Background Shortcuts` strip and
+`data-dashboard-background-shortcuts` route entirely, so the first screen moves
+from `Background Lanes` to Reference Library without another generic navigation
+fold. `/api/dashboard.action_board` still keeps the complete shortcut list,
+including zero-state Review, Inspect, Confirm, and Sync entries, for agents and
+audit tooling.
+When no active shortcut exists outside all-clear mode, read-only shortcut
+targets render under a single compact `Background Shortcuts` strip with
 `data-dashboard-background-shortcuts`, while keeping the stable
 `data-dashboard-detail="action-board"` route. Its list carries the
 `action-board-quiet-targets` route directly, so users and agents can still open
