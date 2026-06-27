@@ -5497,7 +5497,7 @@ function referenceLibraryIndex(input: {
   });
   const diagnosticSummary = "Routine checks indexed";
   const routeChips = routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("");
-  const indexTitle = input.compact ? "Audit Index" : "Reference Library Index";
+  const indexTitle = input.compact ? "Audit Summary" : "Reference Library Index";
   const indexSummary = input.compact ? "Read-only reports available" : "Background reports indexed";
   const routeFaceSummary = input.compact ? "Optional details" : routeChips;
   const routeFoldTitle = input.compact ? "Audit details" : "Reference routes";

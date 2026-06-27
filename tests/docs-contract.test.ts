@@ -173,7 +173,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Dogfood Notes` child panels in this background-only mode");
     expectText(dashboard, "When sync-only current-task mode or all-clear mode is active, the same background-only reference content uses the lighter `Background Reference` shell");
     expectText(dashboard, "instead of the normal `panel evidence-library` shell");
-    expectText(dashboard, "reveals an `Audit Index` face with `Read-only reports available` and");
+    expectText(dashboard, "reveals an `Audit Summary` face with `Read-only reports available` and");
     expectText(dashboard, "`Optional details`, so the compact path does not lead with internal reference library naming");
     expectText(dashboard, "Machine route chips such as `dogfood_report` or `audit_trail`");
     expectText(dashboard, "move into the collapsed `Audit details` fold");

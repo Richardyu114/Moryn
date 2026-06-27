@@ -422,7 +422,8 @@ describe("observability dashboard", () => {
       expect(referenceRoutesStart).toBeGreaterThan(-1);
       const referenceIndexFaceHtml = referenceIndexHtml.slice(0, referenceRoutesStart);
       const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
-      expect(referenceIndexFaceHtml).toContain("<strong>Audit Index</strong>");
+      expect(referenceIndexFaceHtml).toContain("<strong>Audit Summary</strong>");
+      expect(referenceIndexFaceHtml).not.toContain("<strong>Audit Index</strong>");
       expect(referenceIndexFaceHtml).toContain("<span>Read-only reports available</span>");
       expect(referenceIndexFaceHtml).toContain("<small>Optional details</small>");
       expect(referenceIndexFaceHtml).not.toContain("<strong>Reference Library Index</strong>");
@@ -595,7 +596,8 @@ describe("observability dashboard", () => {
       expect(referenceRoutesStart).toBeGreaterThan(-1);
       const referenceIndexFaceHtml = referenceIndexHtml.slice(0, referenceRoutesStart);
       const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
-      expect(referenceIndexFaceHtml).toContain("<strong>Audit Index</strong>");
+      expect(referenceIndexFaceHtml).toContain("<strong>Audit Summary</strong>");
+      expect(referenceIndexFaceHtml).not.toContain("<strong>Audit Index</strong>");
       expect(referenceIndexFaceHtml).toContain("<span>Read-only reports available</span>");
       expect(referenceIndexFaceHtml).toContain("<small>Optional details</small>");
       expect(referenceIndexFaceHtml).not.toContain("<strong>Reference Library Index</strong>");
