@@ -160,6 +160,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "When sync-only current-task mode or all-clear mode is active, the same background-only reference content uses the lighter `Background Reference` shell");
     expectText(dashboard, "instead of the normal `panel evidence-library` shell");
     expectText(dashboard, "Expanding it still reveals the same `Reference Library Index`; only the first-screen weight changes");
+    expectText(dashboard, "the index face reads `Optional audit index`");
+    expectText(dashboard, "instead of listing route chips such as `dogfood_report` or `audit_trail`");
+    expectText(dashboard, "Those machine route chips move into the collapsed `Reference routes` fold");
+    expectText(dashboard, "`data-reference-library-route` attributes");
     expectText(dashboard, "When review-oriented findings exist, the expanded library can still start with a compact `Evidence index` bar");
     expectText(dashboard, "empty routes are omitted instead of rendering \"nothing here\" buttons");
     expectText(dashboard, "single wrapping rail");

@@ -5442,6 +5442,7 @@ function referenceLibraryIndex(input: {
   includeStoreSignals: boolean;
   hasRecentValue: boolean;
   hasAuditReports: boolean;
+  compact?: boolean;
   dogfoodSummary: string;
   governanceSummary: string;
   candidateTriageSummary: string;
@@ -5485,6 +5486,12 @@ function referenceLibraryIndex(input: {
   const diagnosticSummary = input.routinePanels.length > 0
     ? `${input.routinePanels.map((panel) => panel.label).join(", ")} indexed`
     : "Routine checks indexed";
+  const routeChips = routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("");
+  const routeFaceSummary = input.compact ? "Optional audit index" : routeChips;
+  const routeChipsRow = input.compact ? `
+                <div class="reference-library-route-chips" data-reference-library-route-chips>
+                  ${routeChips}
+                </div>` : "";
   const rows = [
     diagnosticRoutes.length > 0 ? `
             <div class="reference-library-index-row" data-reference-library-index-row="diagnostics" data-dashboard-detail="routine-diagnostics" data-routine-diagnostics-reference data-reference-library-index="diagnostics">
@@ -5549,12 +5556,13 @@ function referenceLibraryIndex(input: {
           <article class="reference-library-index" data-dashboard-detail="reference-library:index" data-reference-library-index>
             <strong>Reference Library Index</strong>
             <span>Background reports indexed</span>
-            <small>${routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("")}</small>
+            <small>${routeFaceSummary}</small>
             <details class="reference-library-routes" data-dashboard-detail="reference-library:routes">
               <summary class="dashboard-fold-summary reference-library-routes-fold">
                 <span>Reference routes</span>
                 <small>Indexed background sources</small>
               </summary>
+${routeChipsRow}
               <div class="reference-library-index-rows">
 ${rows}
               </div>
@@ -5650,6 +5658,7 @@ function evidenceLibrary(
         includeStoreSignals,
         hasRecentValue: data.recent_value.length > 0,
         hasAuditReports: hasAuditReportData(data.memory_lifecycle, data.capture_policy),
+        compact: compactBackground,
         dogfoodSummary: `${pluralize(data.dogfood_report.findings.length, "finding")} indexed`,
         governanceSummary: `${pluralize(data.governance.summary.total_items, "governance note")} indexed`,
         candidateTriageSummary: `${pluralize(data.candidate_triage.summary.total_candidates, "candidate")} across ${pluralize(data.candidate_triage.summary.groups, "group")} indexed`,
@@ -7096,6 +7105,12 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .reference-library-routes-fold {
       min-height: 30px;
       padding: 2px 0;
+    }
+    .reference-library-route-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 2px 0 6px;
     }
     .reference-library-index-rows {
       display: grid;

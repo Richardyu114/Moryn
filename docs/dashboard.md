@@ -835,7 +835,11 @@ When sync-only current-task mode or all-clear mode is active, the same
 background-only reference content uses the lighter `Background Reference` shell
 instead of the normal `panel evidence-library` shell. Expanding it still
 reveals the same `Reference Library Index`; only the first-screen weight
-changes.
+changes. In that compact shell, the index face reads `Optional audit index`
+instead of listing route chips such as `dogfood_report` or `audit_trail`.
+Those machine route chips move into the collapsed `Reference routes` fold, where
+they remain available with the detailed background rows and stable
+`data-reference-library-route` attributes.
 
 When review-oriented findings exist, the expanded library can still start with
 a compact `Evidence index` bar; empty routes are omitted instead of rendering
