@@ -308,7 +308,7 @@ the title, the short approval brief, and explicit controls. It does not add
 separate safety badges beside the card title; `Guard` and `Writes` in the
 approval brief are the visible write-boundary explanation. The raw `plan_hash`,
 equivalent CLI command, rollback path, and record ids stay inside
-`Decision details`. The structured reasoning lives in that single fold, where
+`Audit details`. The structured reasoning lives in that single fold, where
 it still shows:
 
 - why the repair exists
@@ -316,16 +316,17 @@ it still shows:
 - the safety boundary, including server-side dry-run and `plan_hash` checking
 - the recommended action
 
-Each plan also keeps one expandable `Decision details` fold instead of several
-separate evidence folds. Its folded summary reads `Review notes, evidence
-trace`, and it uses a compact `Review notes` block rather than a raw event
-stream. The notes say why the plan exists, the user-facing change, the safety
-boundary, and where the audit details live.
+Each plan also keeps one expandable `Audit details` fold instead of several
+separate evidence folds. Its folded summary reads `Approval context, raw
+evidence`, and it uses a compact `Approval context` block rather than a raw
+event stream. The context uses `Why`, `Change`, `Guard`, and `Trace` rows to
+explain why the plan exists, the user-facing change, the server-side guard, and
+where the audit details live.
 It does not render a second `Confirm notes` or `Approval checklist` layer, so
 the approval surface reads like a decision card instead of internal logs.
 
 Evidence, rollback, and raw plan details stay inside a nested `Evidence trace`
-fold under `Decision details`, so the first expanded decision view stays readable without hiding audit data.
+fold under `Audit details`, so the first expanded decision view stays readable without hiding audit data.
 That evidence section includes source and target project ids for migrations,
 archive reasons for candidate cleanup, matched
 record count, state distribution, private record counts, safety checks,

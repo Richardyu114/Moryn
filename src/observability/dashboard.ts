@@ -4391,7 +4391,7 @@ function maintenanceReviewChange(plan: DashboardMaintenancePlan): string {
 }
 
 function maintenanceReviewSafety(plan: DashboardMaintenancePlan): string {
-  return `No write happens until ${maintenancePrimaryActionLabel(plan)}; the server re-runs the dry run and checks <code>plan_hash</code>. Reject hides only this browser card.`;
+  return `No write happens until ${maintenancePrimaryActionLabel(plan)}; the server re-runs the dry run and checks <code>plan_hash</code> before writing.`;
 }
 
 function maintenanceReviewAudit(plan: DashboardMaintenancePlan): string {
@@ -4401,18 +4401,14 @@ function maintenanceReviewAudit(plan: DashboardMaintenancePlan): string {
 }
 
 function maintenanceReviewNotes(plan: DashboardMaintenancePlan): string {
-  const why = plan.type === "candidate_noise_archive"
-    ? "Review stays noisy when verification markers remain active candidates."
-    : "Boot and recall can miss these records until the project id is repaired.";
   return `
-    <div class="maintenance-review-notes" data-maintenance-review-notes>
-      <h4>Review notes</h4>
+    <div class="maintenance-review-notes" data-maintenance-approval-context>
+      <h4>Approval context</h4>
       <dl>
         <div><dt>Why</dt><dd>${escapeHtml(maintenanceReviewWhy(plan))}</dd></div>
-        <div><dt>Impact</dt><dd>${escapeHtml(why)}</dd></div>
         <div><dt>Change</dt><dd>${maintenanceReviewChange(plan)}</dd></div>
-        <div><dt>Safety</dt><dd>${maintenanceReviewSafety(plan)}</dd></div>
-        <div><dt>Audit</dt><dd>${maintenanceReviewAudit(plan)}</dd></div>
+        <div><dt>Guard</dt><dd>${maintenanceReviewSafety(plan)}</dd></div>
+        <div><dt>Trace</dt><dd>${maintenanceReviewAudit(plan)}</dd></div>
       </dl>
     </div>
   `;
@@ -4537,8 +4533,8 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 ${maintenanceReviewBrief(plan)}
                 <details class="maintenance-audit-details" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
                   <summary class="dashboard-fold-summary maintenance-audit-details-fold">
-                    <span>Decision details</span>
-                    <small>Review notes, evidence trace</small>
+                    <span>Audit details</span>
+                    <small>Approval context, raw evidence</small>
                   </summary>
                   ${maintenanceReviewNotes(plan)}
                   ${maintenancePlanEvidence(plan)}
