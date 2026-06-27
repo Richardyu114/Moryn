@@ -11,6 +11,7 @@ import {
   buildDashboardData,
   createDashboardDataLoader,
   renderDashboardHtml,
+  renderDashboardServerHtml,
   startDashboardServer,
   writeDashboardSnapshot
 } from "../../src/observability/dashboard.js";
@@ -775,6 +776,7 @@ describe("observability dashboard", () => {
         now: "2026-06-21T00:00:00.000Z"
       });
       const html = renderDashboardHtml(data, { showStoredContent: true });
+      const serverHtml = renderDashboardServerHtml(data, 2000, { showStoredContent: true });
 
       expect(data.recent_value).toHaveLength(6);
       expect(html).toContain("[hidden] { display: none !important; }");
@@ -788,7 +790,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<p>Stored content item 1</p>");
       expect(html).not.toContain("href=\"#\" data-action-board-target=\"recent-value\"");
       expect(html).toContain("data-stored-content-more");
-      expect(html).toContain("overflow.hidden = !willOpen;");
+      expect(serverHtml).toContain("const storedContentKey = \"moryn.dashboard.storedContentState\";");
+      expect(serverHtml).toContain("writeStoredContentState({ overflowOpen: willOpen });");
+      expect(serverHtml).toContain("window.restoreStoredContentState = applyStoredContentState;");
+      expect(serverHtml).toContain("const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches(\"[data-memory-search-input]\");");
+      expect(serverHtml).toContain("window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });");
     });
   });
 
@@ -837,7 +843,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("Searchable dashboard keyword alpha");
       expect(html).toContain("<article class=\"memory-search-result event\" data-memory-search-entry=\"event:evt_memory_search_1\"");
       expect(html).toContain("data-memory-search-text=");
-      expect(html).toContain("entry.hidden = !matches;");
+      expect(html).toContain("writeStoredContentState({ searchQuery: query, searchOpen: true });");
+      expect(html).toContain("filterMemorySearch(panel, query);");
+      expect(html).toContain("filterMemorySearch(panel, state.searchQuery || \"\");");
       expect(html).toContain("data-memory-search-status");
     });
   });

@@ -6539,11 +6539,13 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
       };
       const refresh = async () => {
         try {
+          const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
           const response = await fetch("fragment", { cache: "no-store" });
           if (!response.ok) return;
           main.innerHTML = await response.text();
           restoreDetailState(detailState);
           window.applyDashboardLanguage?.();
+          window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
           window.restoreActionReceipt?.();
         } catch {
           // Keep the last successful render visible if a refresh fails.
@@ -6629,6 +6631,38 @@ function dashboardStoredContentScript(): string {
   return `
   <script>
     (() => {
+      const storedContentKey = "moryn.dashboard.storedContentState";
+      const defaultStoredContentState = () => ({
+        overflowOpen: false,
+        searchOpen: false,
+        searchQuery: ""
+      });
+      let fallbackStoredContentState = defaultStoredContentState();
+      const normalizeStoredContentState = (value) => ({
+        overflowOpen: value?.overflowOpen === true,
+        searchOpen: value?.searchOpen === true,
+        searchQuery: typeof value?.searchQuery === "string" ? value.searchQuery : ""
+      });
+      const readStoredContentState = () => {
+        try {
+          const stored = sessionStorage.getItem(storedContentKey);
+          fallbackStoredContentState = stored ? normalizeStoredContentState(JSON.parse(stored)) : fallbackStoredContentState;
+          return fallbackStoredContentState;
+        } catch {
+          sessionStorage.removeItem(storedContentKey);
+          return fallbackStoredContentState;
+        }
+      };
+      const writeStoredContentState = (patch) => {
+        const next = normalizeStoredContentState({ ...readStoredContentState(), ...patch });
+        fallbackStoredContentState = next;
+        try {
+          sessionStorage.setItem(storedContentKey, JSON.stringify(next));
+        } catch {
+          // Keep the in-memory fallback for storage-restricted browser modes.
+        }
+        return next;
+      };
       const cssEscape = (value) => window.CSS?.escape ? window.CSS.escape(value) : value.replaceAll("\\\\", "\\\\\\\\").replaceAll('"', '\\"');
       const selectedLanguage = () => document.documentElement.lang === "zh" ? "zh" : "en";
       const labelFor = (button, expanded) => {
@@ -6636,33 +6670,73 @@ function dashboardStoredContentScript(): string {
         if (expanded) return language === "zh" ? button.dataset.storedContentExpandedZh || "收起" : button.dataset.storedContentExpandedEn || "Show fewer";
         return language === "zh" ? button.dataset.storedContentCollapsedZh || button.dataset.i18nZh || "查看更多" : button.dataset.storedContentCollapsedEn || button.dataset.i18nEn || "View more";
       };
+      const controlledElementFor = (button) => {
+        const section = button.closest("[data-stored-content]");
+        const controlId = button.getAttribute("aria-controls");
+        return controlId && section instanceof HTMLElement ? section.querySelector("#" + cssEscape(controlId)) : null;
+      };
+      const setOverflowState = (state) => {
+        document.querySelectorAll("[data-stored-content-more]").forEach((node) => {
+          if (!(node instanceof HTMLButtonElement)) return;
+          const overflow = controlledElementFor(node);
+          if (!(overflow instanceof HTMLElement)) return;
+          node.setAttribute("aria-expanded", state.overflowOpen ? "true" : "false");
+          overflow.hidden = !state.overflowOpen;
+          node.textContent = labelFor(node, state.overflowOpen);
+        });
+      };
+      const filterMemorySearch = (panel, query) => {
+        const normalizedQuery = String(query || "").trim().toLowerCase();
+        const entries = Array.from(panel.querySelectorAll("[data-memory-search-entry]"));
+        let visible = 0;
+        for (const entry of entries) {
+          if (!(entry instanceof HTMLElement)) continue;
+          const text = entry.dataset.memorySearchText || entry.textContent || "";
+          const matches = normalizedQuery.length === 0 || text.toLowerCase().includes(normalizedQuery);
+          entry.hidden = !matches;
+          if (matches) visible += 1;
+        }
+        const status = panel.querySelector("[data-memory-search-status]");
+        if (status instanceof HTMLElement) status.textContent = normalizedQuery.length === 0 ? entries.length + " searchable items" : visible + " matches";
+      };
+      const setSearchState = (state, options = {}) => {
+        document.querySelectorAll("[data-memory-search-toggle]").forEach((node) => {
+          if (!(node instanceof HTMLButtonElement)) return;
+          const panel = controlledElementFor(node);
+          if (!(panel instanceof HTMLElement)) return;
+          node.setAttribute("aria-expanded", state.searchOpen ? "true" : "false");
+          panel.hidden = !state.searchOpen;
+          const input = panel.querySelector("[data-memory-search-input]");
+          if (input instanceof HTMLInputElement) {
+            if (input.value !== state.searchQuery) input.value = state.searchQuery;
+            if (options.focusSearch === true && state.searchOpen) input.focus();
+          }
+          filterMemorySearch(panel, state.searchQuery || "");
+        });
+      };
+      const applyStoredContentState = (options = {}) => {
+        const state = readStoredContentState();
+        setOverflowState(state);
+        setSearchState(state, options);
+      };
+      window.restoreStoredContentState = applyStoredContentState;
       document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
         const searchToggle = target.closest("[data-memory-search-toggle]");
         if (searchToggle instanceof HTMLButtonElement) {
-          const panelId = searchToggle.getAttribute("aria-controls");
-          const panel = panelId ? document.getElementById(panelId) : null;
-          if (!(panel instanceof HTMLElement)) return;
-          const willOpen = searchToggle.getAttribute("aria-expanded") !== "true";
-          searchToggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
-          panel.hidden = !willOpen;
-          if (willOpen) {
-            const input = panel.querySelector("[data-memory-search-input]");
-            if (input instanceof HTMLInputElement) input.focus();
-          }
+          const willOpen = !readStoredContentState().searchOpen;
+          writeStoredContentState({ searchOpen: willOpen });
+          applyStoredContentState({ focusSearch: willOpen });
           return;
         }
         const button = target.closest("[data-stored-content-more]");
         if (!(button instanceof HTMLButtonElement)) return;
-        const section = button.closest("[data-stored-content]");
-        const overflowId = button.getAttribute("aria-controls");
-        const overflow = overflowId && section instanceof HTMLElement ? section.querySelector("#" + cssEscape(overflowId)) : null;
+        const overflow = controlledElementFor(button);
         if (!(overflow instanceof HTMLElement)) return;
-        const willOpen = button.getAttribute("aria-expanded") !== "true";
-        button.setAttribute("aria-expanded", willOpen ? "true" : "false");
-        overflow.hidden = !willOpen;
-        button.textContent = labelFor(button, willOpen);
+        const willOpen = !readStoredContentState().overflowOpen;
+        writeStoredContentState({ overflowOpen: willOpen });
+        applyStoredContentState();
         if (willOpen) overflow.scrollIntoView({ block: "nearest", behavior: "smooth" });
       });
       document.addEventListener("input", (event) => {
@@ -6671,18 +6745,10 @@ function dashboardStoredContentScript(): string {
         const panel = target.closest("[data-memory-search-panel]");
         if (!(panel instanceof HTMLElement)) return;
         const query = target.value.trim().toLowerCase();
-        const entries = Array.from(panel.querySelectorAll("[data-memory-search-entry]"));
-        let visible = 0;
-        for (const entry of entries) {
-          if (!(entry instanceof HTMLElement)) continue;
-          const text = entry.dataset.memorySearchText || entry.textContent || "";
-          const matches = query.length === 0 || text.toLowerCase().includes(query);
-          entry.hidden = !matches;
-          if (matches) visible += 1;
-        }
-        const status = panel.querySelector("[data-memory-search-status]");
-        if (status instanceof HTMLElement) status.textContent = query.length === 0 ? entries.length + " searchable items" : visible + " matches";
+        writeStoredContentState({ searchQuery: query, searchOpen: true });
+        filterMemorySearch(panel, query);
       });
+      applyStoredContentState();
     })();
   </script>`;
 }
@@ -6806,11 +6872,13 @@ function dashboardMaintenanceScript(): string {
         });
       };
       const refreshFragment = async () => {
+        const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
         hideRejectedPlans();
         window.applyDashboardLanguage?.();
+        window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
         window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
@@ -6878,10 +6946,12 @@ function dashboardCaptureInboxScript(): string {
       const main = document.querySelector("main");
       if (!main) return;
       const refreshFragment = async () => {
+        const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
         window.applyDashboardLanguage?.();
+        window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
         window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
@@ -6946,10 +7016,12 @@ function dashboardCandidateTriageScript(): string {
       const main = document.querySelector("main");
       if (!main) return;
       const refreshFragment = async () => {
+        const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
         window.applyDashboardLanguage?.();
+        window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });
         window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
