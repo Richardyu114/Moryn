@@ -857,7 +857,7 @@ background-only reference content uses the lighter `Background Reference` shell
 instead of the normal `panel evidence-library` shell. Expanding it still
 reveals an `Audit Summary` face with `Read-only reports available` and
 `Optional details`, so the compact path does not lead with internal reference
-library naming. Compact route chips move into the collapsed `Audit details`
+library naming. Compact route chips move into the collapsed `Reference details`
 fold with human labels such as `Dogfood notes`, `Candidate backlog`, and
 `Audit trail`; their stable `data-reference-library-route` attributes still keep
 the machine routes for audit tooling. The long `/api/dashboard` pointer

@@ -5526,8 +5526,8 @@ function referenceLibraryIndex(input: {
   const indexTitle = input.compact ? "Audit Summary" : "Reference Library Index";
   const indexSummary = input.compact ? "Read-only reports available" : "Background reports indexed";
   const routeFaceSummary = input.compact ? "Optional details" : routeChips;
-  const routeFoldTitle = input.compact ? "Audit details" : "Reference routes";
-  const routeFoldSummary = input.compact ? "Routes and raw evidence" : "Indexed background sources";
+  const routeFoldTitle = input.compact ? "Reference details" : "Reference routes";
+  const routeFoldSummary = input.compact ? "Routes and checks" : "Indexed background sources";
   const detailedApiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
   const compactApiReferenceHint = "Full evidence stays in <code>/api/dashboard</code>.";
   const diagnosticsTitle = input.compact ? "Diagnostics" : "Diagnostics Index";

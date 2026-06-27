@@ -427,8 +427,10 @@ describe("observability dashboard", () => {
       expect(referenceIndexFaceHtml).toContain("<span>Read-only reports available</span>");
       expect(referenceIndexFaceHtml).toContain("<small>Optional details</small>");
       expect(referenceIndexFaceHtml).not.toContain("<strong>Reference Library Index</strong>");
-      expect(referenceRoutesHtml).toContain("<span>Audit details</span>");
-      expect(referenceRoutesHtml).toContain("<small>Routes and raw evidence</small>");
+      expect(referenceRoutesHtml).toContain("<span>Reference details</span>");
+      expect(referenceRoutesHtml).toContain("<small>Routes and checks</small>");
+      expect(referenceRoutesHtml).not.toContain("<span>Audit details</span>");
+      expect(referenceRoutesHtml).not.toContain("<small>Routes and raw evidence</small>");
       expect(referenceIndexFaceHtml).not.toContain("data-reference-library-route=");
       expect(referenceIndexWrapHtml.slice(0, referenceRoutesStart)).not.toContain("Open <code>/api/dashboard</code>");
       expect(referenceRoutesHtml).toContain("Full evidence stays in <code>/api/dashboard</code>.");
@@ -612,8 +614,10 @@ describe("observability dashboard", () => {
       expect(referenceIndexFaceHtml).toContain("<span>Read-only reports available</span>");
       expect(referenceIndexFaceHtml).toContain("<small>Optional details</small>");
       expect(referenceIndexFaceHtml).not.toContain("<strong>Reference Library Index</strong>");
-      expect(referenceRoutesHtml).toContain("<span>Audit details</span>");
-      expect(referenceRoutesHtml).toContain("<small>Routes and raw evidence</small>");
+      expect(referenceRoutesHtml).toContain("<span>Reference details</span>");
+      expect(referenceRoutesHtml).toContain("<small>Routes and checks</small>");
+      expect(referenceRoutesHtml).not.toContain("<span>Audit details</span>");
+      expect(referenceRoutesHtml).not.toContain("<small>Routes and raw evidence</small>");
       expect(referenceIndexFaceHtml).not.toContain("data-reference-library-route=");
       expect(referenceIndexWrapHtml.slice(0, referenceRoutesStart)).not.toContain("Open <code>/api/dashboard</code>");
       expect(referenceRoutesHtml).toContain("Full evidence stays in <code>/api/dashboard</code>.");
