@@ -508,6 +508,10 @@ describe("observability dashboard", () => {
       }));
       expect(data.health.explanation).toBe("Sync is clean and no urgent safety items were detected in this snapshot.");
       expect(html).toContain("<span class=\"health-badge good\">Healthy</span>");
+      expect(html).toContain(`<p class="store-path" title="${storePath}">Local store</p>`);
+      expect(html).toContain("<p class=\"dashboard-generated-at\"><time datetime=\"2026-06-21T00:00:00.000Z\" title=\"2026-06-21T00:00:00.000Z\">Updated 00:00 UTC</time></p>");
+      expect(html).not.toContain(`<p class="store-path" title="${storePath}">${storePath}</p>`);
+      expect(html).not.toContain("<p>Generated <time title=\"2026-06-21T00:00:00.000Z\">2026-06-21T00:00:00.000Z</time></p>");
       expect(html).not.toContain("<section class=\"status-strip good\" data-dashboard-status=\"healthy\">");
       expect(html).not.toContain("<p class=\"dashboard-status-line good\" data-dashboard-status=\"healthy\">");
       expect(html).not.toContain("Sync is clean and no urgent safety items were detected in this snapshot.</span></p>");

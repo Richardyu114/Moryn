@@ -557,6 +557,13 @@ The first screen favors human-readable summaries over raw ids:
 - recent valuable records, newest first
 - Review Queue maintenance plans when a project identity repair is available
 
+The header keeps first-screen metadata quiet: it shows `Local store` and a short
+`Updated HH:MM UTC` timestamp instead of the full filesystem path and raw ISO
+timestamp. The full store path stays in the `store-path` title attribute, the
+full timestamp stays in the `time` element's `datetime` and title attributes,
+and `/api/dashboard.store.path` plus `/api/dashboard.generated_at` remain the
+machine-readable audit source.
+
 The top health message stays below the header, but healthy snapshots render as a
 lightweight `dashboard-status-line` instead of a full status panel unless the
 Overview already owns the zero-state. All-clear Overview states skip that

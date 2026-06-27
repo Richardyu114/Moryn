@@ -5697,6 +5697,14 @@ function dashboardStatusSummary(data: DashboardData, options: { hideHealthyLine?
   `;
 }
 
+function dashboardGeneratedAtLabel(generatedAt: string): string {
+  const date = new Date(generatedAt);
+  if (Number.isNaN(date.getTime())) return "Updated";
+  const hours = date.getUTCHours().toString().padStart(2, "0");
+  const minutes = date.getUTCMinutes().toString().padStart(2, "0");
+  return `Updated ${hours}:${minutes} UTC`;
+}
+
 function renderDashboardBody(data: DashboardData): string {
   const hasActionSignals = data.attention_items.some(isReviewAttentionItem);
   const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
@@ -5714,8 +5722,8 @@ function renderDashboardBody(data: DashboardData): string {
     <header>
       <div>
         <h1>Moryn Dashboard</h1>
-        <p class="store-path" title="${escapeHtml(data.store.path)}">${escapeHtml(data.store.path)}</p>
-        <p>Generated <time title="${escapeHtml(data.generated_at)}">${escapeHtml(data.generated_at)}</time></p>
+        <p class="store-path" title="${escapeHtml(data.store.path)}">Local store</p>
+        <p class="dashboard-generated-at"><time datetime="${escapeHtml(data.generated_at)}" title="${escapeHtml(data.generated_at)}">${escapeHtml(dashboardGeneratedAtLabel(data.generated_at))}</time></p>
       </div>
       <span class="health-badge ${healthClass(data.health.status)}">${escapeHtml(data.health.label)}</span>
     </header>

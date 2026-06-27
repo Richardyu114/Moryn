@@ -65,6 +65,13 @@ describe("documentation contracts", () => {
     expectText(dashboard, "folded `Recall Eval` row reads `No recall eval cases yet`");
     expectText(dashboard, "expanded panel still shows the read-only unavailable reason and zero-case stats");
     expect(dashboard).toContain("data-dashboard-action-id");
+    expectText(dashboard, "The header keeps first-screen metadata quiet");
+    expectText(dashboard, "it shows `Local store` and a short");
+    expectText(dashboard, "`Updated HH:MM UTC` timestamp");
+    expectText(dashboard, "The full store path stays in the `store-path` title attribute");
+    expectText(dashboard, "the full timestamp stays in the `time` element's `datetime` and title attributes");
+    expectText(dashboard, "`/api/dashboard.store.path` plus `/api/dashboard.generated_at` remain the");
+    expectText(dashboard, "machine-readable audit source");
     expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");
     expectText(dashboard, "unless the Overview already owns the zero-state");
     expectText(dashboard, "All-clear Overview states skip that healthy status line");
