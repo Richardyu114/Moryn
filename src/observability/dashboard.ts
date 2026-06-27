@@ -5648,11 +5648,12 @@ function evidenceLibrary(
   const ariaLabel = compactBackground ? "Background Reference" : "Reference Library";
   const summaryClass = compactBackground ? "dashboard-fold-summary evidence-library-fold evidence-library-compact-fold" : "dashboard-fold-summary evidence-library-fold";
   const summaryLabel = compactBackground ? "Background Reference" : "Reference Library";
-  const visibleSummary = compactBackground ? "Audit route available" : visibleEvidenceSummary;
+  const visibleSummary = compactBackground ? "Optional checks" : visibleEvidenceSummary;
+  const accessibleSummary = compactBackground ? "Optional read-only checks" : evidenceSummary;
   const backgroundReferenceAttribute = compactBackground ? " data-dashboard-background-reference" : "";
   return `
     <details class="${detailClass}" data-dashboard-detail="evidence-library"${backgroundReferenceAttribute} aria-label="${escapeHtml(ariaLabel)}">
-      <summary class="${summaryClass}" aria-label="${escapeHtml(`${summaryLabel}: ${evidenceSummary}`)}">
+      <summary class="${summaryClass}" aria-label="${escapeHtml(`${summaryLabel}: ${accessibleSummary}`)}">
         <span>${escapeHtml(summaryLabel)}</span>
         <small>${escapeHtml(visibleSummary)}</small>
       </summary>

@@ -119,7 +119,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Reference Library renders as a compact `Background Reference` strip");
     expectText(dashboard, "`data-dashboard-background-reference`");
     expectText(dashboard, "keeping the stable `data-dashboard-detail=\"evidence-library\"` route");
-    expectText(dashboard, "uses the quiet `Audit route available` label");
+    expectText(dashboard, "uses the quiet `Optional checks` label");
+    expectText(dashboard, "`Optional read-only checks`");
     expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
     expectText(dashboard, "Decide -> Pending Decisions, Capture Inbox, or Review Queue confirmation");

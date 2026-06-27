@@ -410,9 +410,10 @@ describe("observability dashboard", () => {
       expect(storeSignalsStart).toBeGreaterThan(overviewStart);
       expect(storeSignalsStart).toBeLessThan(evidenceLibraryStart);
       expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Background Reference\">");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Background Reference: Reference evidence only\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Background Reference: Optional read-only checks\">");
       expect(html).toContain("<span>Background Reference</span>");
-      expect(html).toContain("<small>Audit route available</small>");
+      expect(html).toContain("<small>Optional checks</small>");
+      expect(html).not.toContain("<small>Audit route available</small>");
       expect(html).not.toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
       expect(html).not.toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Reference evidence only\">");
       const referenceIndexWrapHtml = referenceLibraryIndexWrapHtml(html);
@@ -574,9 +575,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Read-only overview</span>");
       expect(html).not.toContain("<span>Writes stay in Capture Inbox, Review Queue, and Candidate Triage</span>");
       expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Background Reference\">");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Background Reference: Reference evidence only\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Background Reference: Optional read-only checks\">");
       expect(html).toContain("<span>Background Reference</span>");
-      expect(html).toContain("<small>Audit route available</small>");
+      expect(html).toContain("<small>Optional checks</small>");
+      expect(html).not.toContain("<small>Audit route available</small>");
       expect(html).not.toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
       expect(html).not.toContain("<span>Reference Library</span>");
       expect(html).not.toContain("<small>Reference evidence only</small>");

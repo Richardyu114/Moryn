@@ -653,8 +653,9 @@ panel.
 In the same sync-only mode, Reference Library renders as a compact
 `Background Reference` strip with `data-dashboard-background-reference` while
 keeping the stable `data-dashboard-detail="evidence-library"` route. The strip
-uses the quiet `Audit route available` label so background evidence stays
-reachable without becoming a peer task beside the active sync action.
+uses the quiet `Optional checks` label and `Optional read-only checks`
+accessible summary so background evidence stays reachable without sounding like
+a peer task beside the active sync action.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
 read-only and includes `evidence_sources` so agents can use the compact summary
