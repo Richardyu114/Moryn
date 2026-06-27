@@ -863,16 +863,19 @@ is shortened inside that fold in compact mode to `Full evidence stays in
 /api/dashboard.`, so expanding `Background Reference` does not render prose
 about every API evidence family. Compact background row titles also use shorter
 user-facing labels such as `Diagnostics`, `Candidate Backlog`, `Governance`, and
-`Dogfood Notes`; the normal `Reference Library` index and dedicated reference
-panels keep their `... Index` titles where those titles clarify the API-backed
-audit card. The compact rows also use quiet summaries such as `Backlog signals
-indexed`, `Governance signals indexed`, and `Dogfood signals indexed` instead of
-foregrounding candidate counts, governance counts, dogfood finding counts, or
-candidate review-focus text. Those counts and focus hints remain in
+`Dogfood Notes`; supporting background rows use `Lifecycle`, `Store Signals`,
+and `Store History` instead of `Audit Reports`, `Store Snapshot`, and `Raw
+Store`. The normal `Reference Library` index and dedicated reference panels keep
+their `... Index` titles where those titles clarify the API-backed audit card.
+The compact rows also use quiet summaries such as `Backlog signals indexed`,
+`Governance signals indexed`, `Dogfood signals indexed`, `Lifecycle signals
+indexed`, `Store position indexed`, and `History routes indexed` instead of
+foregrounding candidate counts, governance counts, dogfood finding counts,
+review-focus text, or raw-store language. Those counts and focus hints remain in
 `/api/dashboard` and the normal reference panels. Compact row evidence chips use
-the same human-label rule, such as `Health check`, `Candidate backlog`, and
-`Dogfood report`, while their `data-dashboard-detail` attributes keep the
-stable API routes.
+the same human-label rule, such as `Health check`, `Candidate backlog`,
+`Dogfood report`, and `Recent records`, while their `data-dashboard-detail`
+attributes keep the stable API routes.
 
 When review-oriented findings exist, the expanded library can still start with
 a compact `Evidence index` bar; empty routes are omitted instead of rendering
@@ -919,9 +922,10 @@ read-only findings do not look like pending approval work or expose
 child panel counts. When review-oriented panels force the grouped evidence
 layout, Routine Diagnostics and Audit Trail can still appear behind `Routine
 Reference`. In background-only mode, however, the same audit material appears as
-`Audit Reports`, `Store Snapshot`, and `Raw Store` rows inside the single
-top-level `Reference Library Index` card. Empty audit report rows are omitted
-when there is no
+`Audit Reports`, `Store Snapshot`, and `Raw Store` rows in the normal
+`Reference Library Index`; inside compact `Background Reference`, the same
+stable rows are labeled `Lifecycle`, `Store Signals`, and `Store History`.
+Empty audit report rows are omitted when there is no
 lifecycle or capture policy data, so the library does not add a placeholder when
 there is only background evidence. The index rows still keep stable
 `data-dashboard-detail` targets such as `supporting-evidence`,

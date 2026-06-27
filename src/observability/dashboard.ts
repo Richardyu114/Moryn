@@ -5521,6 +5521,12 @@ function referenceLibraryIndex(input: {
   const governanceSummary = input.compact ? "Governance signals indexed" : input.governanceSummary;
   const dogfoodSummary = input.compact ? "Dogfood signals indexed" : input.dogfoodSummary;
   const candidateTriageFocus = input.compact ? "" : input.candidateTriageFocus;
+  const auditReportsTitle = input.compact ? "Lifecycle" : "Audit Reports";
+  const auditReportsSummary = input.compact ? "Lifecycle signals indexed" : "Lifecycle checks indexed";
+  const storeSnapshotTitle = input.compact ? "Store Signals" : "Store Snapshot";
+  const storeSnapshotSummary = input.compact ? "Store position indexed" : "Store signals indexed";
+  const rawStoreTitle = input.compact ? "Store History" : "Raw Store";
+  const rawStoreSummary = input.compact ? "History routes indexed" : "Raw evidence indexed";
   const evidenceLabel = (label: string): string => {
     if (!input.compact) return label;
     if (label === "health_check") return "Health check";
@@ -5582,24 +5588,24 @@ function referenceLibraryIndex(input: {
     input.hasAuditTrail && input.hasAuditReports ? `
             <div class="reference-library-index-row" data-reference-library-index-row="audit-reports" data-supporting-evidence-summary="audit-reports" data-dashboard-detail="supporting-operational-evidence">
               <div>
-                <strong>Audit Reports</strong>
-                <span>Lifecycle checks indexed</span>
+                <strong>${escapeHtml(auditReportsTitle)}</strong>
+                <span>${escapeHtml(auditReportsSummary)}</span>
               </div>
               <small>${evidenceCode("memory_lifecycle", ` data-dashboard-detail="memory-lifecycle-audit"`)}${evidenceCode("capture_policy", ` data-dashboard-detail="capture-policy-audit"`)}</small>
             </div>` : "",
     input.hasAuditTrail && (input.includeStoreSignals || input.hasRecentValue) ? `
             <div class="reference-library-index-row" data-reference-library-index-row="store-snapshot" data-supporting-evidence-summary="store-snapshot" data-dashboard-detail="supporting-operational-snapshots">
               <div>
-                <strong>Store Snapshot</strong>
-                <span>Store signals indexed</span>
+                <strong>${escapeHtml(storeSnapshotTitle)}</strong>
+                <span>${escapeHtml(storeSnapshotSummary)}</span>
               </div>
               <small>${evidenceCode("sync", ` data-dashboard-detail="store-signals"`)}${evidenceCode("recent_value", ` data-dashboard-detail="recent-value"`)}</small>
             </div>` : "",
     input.hasAuditTrail ? `
             <div class="reference-library-index-row" data-reference-library-index-row="raw-store" data-supporting-evidence-summary="raw-store" data-dashboard-detail="debug-inspector">
               <div>
-                <strong>Raw Store</strong>
-                <span>Raw evidence indexed</span>
+                <strong>${escapeHtml(rawStoreTitle)}</strong>
+                <span>${escapeHtml(rawStoreSummary)}</span>
               </div>
               <small>${evidenceCode("audit_trail", ` data-dashboard-detail="supporting-evidence"`)}${evidenceCode("recent_records", ` data-dashboard-detail="inspector:records"`)}${evidenceCode("recent_events", ` data-dashboard-detail="inspector:events"`)}${evidenceCode("sync", ` data-dashboard-detail="inspector:sync"`)}</small>
             </div>` : ""

@@ -756,6 +756,21 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).not.toContain("<code>dogfood_report</code>");
       expect(referenceRoutesHtml).toContain("<span>Dogfood signals indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>1 finding indexed</span>");
+      expect(referenceRoutesHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"audit-reports\" data-supporting-evidence-summary=\"audit-reports\" data-dashboard-detail=\"supporting-operational-evidence\">");
+      expect(referenceRoutesHtml).toContain("<strong>Lifecycle</strong>");
+      expect(referenceRoutesHtml).toContain("<span>Lifecycle signals indexed</span>");
+      expect(referenceRoutesHtml).not.toContain("<strong>Audit Reports</strong>");
+      expect(referenceRoutesHtml).not.toContain("<span>Lifecycle checks indexed</span>");
+      expect(referenceRoutesHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"store-snapshot\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
+      expect(referenceRoutesHtml).toContain("<strong>Store Signals</strong>");
+      expect(referenceRoutesHtml).toContain("<span>Store position indexed</span>");
+      expect(referenceRoutesHtml).not.toContain("<strong>Store Snapshot</strong>");
+      expect(referenceRoutesHtml).not.toContain("<span>Store signals indexed</span>");
+      expect(referenceRoutesHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"raw-store\" data-supporting-evidence-summary=\"raw-store\" data-dashboard-detail=\"debug-inspector\">");
+      expect(referenceRoutesHtml).toContain("<strong>Store History</strong>");
+      expect(referenceRoutesHtml).toContain("<span>History routes indexed</span>");
+      expect(referenceRoutesHtml).not.toContain("<strong>Raw Store</strong>");
+      expect(referenceRoutesHtml).not.toContain("<span>Raw evidence indexed</span>");
       expect(referenceRoutesHtml).toContain("Full evidence stays in <code>/api/dashboard</code>.");
     } finally {
       await rm(root, { recursive: true, force: true });
