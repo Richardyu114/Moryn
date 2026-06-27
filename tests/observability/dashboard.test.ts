@@ -777,6 +777,7 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data, { showStoredContent: true });
 
       expect(data.recent_value).toHaveLength(6);
+      expect(html).toContain("[hidden] { display: none !important; }");
       expect(html).toContain("<button type=\"button\" class=\"stored-content-more\" data-stored-content-more aria-expanded=\"false\" aria-controls=\"stored-content-overflow\"");
       expect(html).toContain("data-i18n-en=\"View 2 more\" data-i18n-zh=\"查看更多 2 条\"");
       expect(html).toContain("data-stored-content-expanded-en=\"Show fewer\" data-stored-content-expanded-zh=\"收起\"");
@@ -788,6 +789,56 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("href=\"#\" data-action-board-target=\"recent-value\"");
       expect(html).toContain("data-stored-content-more");
       expect(html).toContain("overflow.hidden = !willOpen;");
+    });
+  });
+
+  it("renders a local memory search for stored records and events", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let timestamp = 0;
+          return () => `2026-06-01T00:${String(++timestamp).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_memory_search_${++record}` : `evt_memory_search_${++event}`;
+        })()
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Searchable dashboard keyword alpha", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data, { showStoredContent: true });
+
+      expect(data.recent_records.map((record) => record.id)).toContain("rec_memory_search_1");
+      expect(data.recent_events.map((event) => event.event_id)).toContain("evt_memory_search_1");
+      expect(html).toContain("<button type=\"button\" class=\"memory-search-toggle\" data-memory-search-toggle aria-expanded=\"false\" aria-controls=\"memory-search-panel\" data-i18n-en=\"Memory search\" data-i18n-zh=\"搜索记忆\">Memory search</button>");
+      expect(html).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel\" data-memory-search-panel hidden>");
+      expect(html).toContain("<input id=\"memory-search-input\" class=\"memory-search-input\" type=\"search\" data-memory-search-input placeholder=\"Search memory or events\" aria-label=\"Search memory or events\">");
+      expect(html).toContain("<article class=\"memory-search-result record\" data-memory-search-entry=\"record:rec_memory_search_1\"");
+      expect(html).toContain("Searchable dashboard keyword alpha");
+      expect(html).toContain("<article class=\"memory-search-result event\" data-memory-search-entry=\"event:evt_memory_search_1\"");
+      expect(html).toContain("data-memory-search-text=");
+      expect(html).toContain("entry.hidden = !matches;");
+      expect(html).toContain("data-memory-search-status");
     });
   });
 
