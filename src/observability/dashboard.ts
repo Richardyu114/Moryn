@@ -4541,8 +4541,8 @@ function maintenanceReviewQueue(plans: DashboardMaintenancePlan[]): string {
                 ${maintenanceReviewBrief(plan)}
                 <details class="maintenance-audit-details" data-dashboard-detail="maintenance-audit:${escapeHtml(plan.plan_id)}">
                   <summary class="dashboard-fold-summary maintenance-audit-details-fold">
-                    <span>Audit details</span>
-                    <small>Approval context, raw evidence</small>
+                    <span>Decision details</span>
+                    <small>Context and evidence</small>
                   </summary>
                   ${maintenanceReviewNotes(plan)}
                   ${maintenancePlanEvidence(plan)}

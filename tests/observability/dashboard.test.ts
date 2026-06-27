@@ -4855,10 +4855,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-maintenance-decision-summary");
       expect(html).not.toContain("<span>Decision summary</span>");
       expect(html).not.toContain("<small>Why, change, safety, action</small>");
-      expect(html).toContain("<span>Audit details</span>");
-      expect(html).toContain("<small>Approval context, raw evidence</small>");
-      expect(html).not.toContain("<span>Decision details</span>");
-      expect(html).not.toContain("<small>Review notes, evidence trace</small>");
+      expect(html).toContain("<span>Decision details</span>");
+      expect(html).toContain("<small>Context and evidence</small>");
+      expect(html).not.toContain("<span>Audit details</span>");
+      expect(html).not.toContain("<small>Approval context, raw evidence</small>");
       expect(html).toContain("<div class=\"maintenance-review-notes\" data-maintenance-approval-context>");
       expect(html).toContain("<h4>Approval context</h4>");
       expect(html).toContain("<dt>Why</dt><dd>Memory Doctor found smoke/e2e marker candidates.</dd>");
@@ -4938,7 +4938,8 @@ describe("observability dashboard", () => {
       expect(plan?.record_ids).toHaveLength(6);
       const html = renderDashboardHtml(data);
 
-      expect(html).toContain("<span>Audit details</span>");
+      expect(html).toContain("<span>Decision details</span>");
+      expect(html).not.toContain("<span>Audit details</span>");
       expect(html).toContain("<dt>Record ids</dt>");
       expect(html).toContain("<div class=\"maintenance-record-id-summary\">");
       expect(html).toContain("<span class=\"maintenance-overflow-count\">3 more record ids kept below</span>");
@@ -5133,9 +5134,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-maintenance-review-log");
       expect(html).toContain("<details class=\"maintenance-audit-details\" data-dashboard-detail=\"maintenance-audit:");
       expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-audit-details-fold\">");
-      expect(html).toContain("<span>Audit details</span>");
-      expect(html).toContain("<small>Approval context, raw evidence</small>");
-      expect(html).not.toContain("<span>Decision details</span>");
+      expect(html).toContain("<span>Decision details</span>");
+      expect(html).toContain("<small>Context and evidence</small>");
+      expect(html).not.toContain("<span>Audit details</span>");
+      expect(html).not.toContain("<small>Approval context, raw evidence</small>");
       expect(html).not.toContain("<small>Review notes, evidence trace</small>");
       expect(html).not.toContain("<summary>Decision evidence</summary>");
       expect(html).not.toContain("<summary>Evidence, rollback, and raw plan</summary>");
