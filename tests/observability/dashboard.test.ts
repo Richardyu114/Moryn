@@ -2176,7 +2176,8 @@ describe("observability dashboard", () => {
       expect(dogfoodPanelHtml).toContain("<p>Open <code>/api/dashboard</code> for dogfood findings, impact notes, evidence paths, affected records, and safe inspection commands.</p>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Read-only reference material\">");
       expect(html).toContain("<span>Reference Library</span>");
-      expect(html).toContain("<small>Reference material</small>");
+      expect(html).toContain("<small>Audit evidence only</small>");
+      expect(html).not.toContain("<small>Reference material</small>");
       expect(html).not.toContain("<span>Read-only Evidence</span>");
       expect(html).not.toContain("<small>Read-only findings and reference evidence</small>");
       expect(html).not.toContain("<small>Findings and references</small>");
@@ -4797,6 +4798,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-action-board-nav");
       expect(html).not.toContain("<span>Page Shortcuts</span>");
       expect(html).toContain("data-dashboard-detail=\"evidence-library\"");
+      expect(html).toContain("<small>Audit evidence only</small>");
+      expect(html).not.toContain("<small>Reference material</small>");
       expect(html).not.toContain("data-evidence-library-brief");
       expect(html).not.toContain("<h3>Evidence index</h3>");
       expect(html).toContain("<summary class=\"dashboard-fold-summary maintenance-review-fold\">");
@@ -5670,6 +5673,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<span>Info Checks</span>");
       expect(html.indexOf("data-dashboard-detail=\"decision-summary\"")).toBeLessThan(html.indexOf("id=\"capture-inbox\""));
       expect(html.indexOf("id=\"capture-inbox\"")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
+      expect(html).toContain("<small>Audit evidence only</small>");
+      expect(html).not.toContain("<small>Reference material</small>");
       expect(html).not.toContain("data-evidence-library-brief");
       expect(html).not.toContain("<h3>Evidence index</h3>");
       expect(html).toContain("1 candidate");

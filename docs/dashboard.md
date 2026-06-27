@@ -830,10 +830,11 @@ existing `data-action-board-target` behavior: `Findings` opens `Review Notes`,
 Those route buttons keep only the route label and current status visible in a
 single wrapping rail; the longer route hints stay in accessible labels so the
 expanded evidence entry does not become another card grid or prose panel.
-When `Pending Decisions` is rendered, the visible HTML skips the
-`Evidence index` route bar; the Evidence Library still keeps any necessary
-`Review Notes`, background reference groups, and the underlying `/api/dashboard`
-data.
+When `Pending Decisions` is rendered, the visible summary reads
+`Audit evidence only` and the visible HTML skips the `Evidence index` route bar;
+the accessible summary still names `Read-only reference material`, and the
+Evidence Library still keeps any necessary `Review Notes`, background reference
+groups, and the underlying `/api/dashboard` data.
 The route bar is navigation copy only: it does not render Approve, Reject, Promote,
 Archive, or Apply controls and does not add `data-dashboard-action-id`. Health
 Check, Recall Eval, Dogfood Notes, Governance Hub, Context Pack Review, and

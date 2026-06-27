@@ -5278,7 +5278,12 @@ function evidenceLibrarySummary(reviewGroupCount: number, backgroundGroupCount: 
   return "No evidence groups";
 }
 
-function evidenceLibraryVisibleSummary(reviewGroupCount: number, backgroundGroupCount: number): string {
+function evidenceLibraryVisibleSummary(
+  reviewGroupCount: number,
+  backgroundGroupCount: number,
+  options: { auditOnly?: boolean } = {}
+): string {
+  if (options.auditOnly && (reviewGroupCount > 0 || backgroundGroupCount > 0)) return "Audit evidence only";
   if (reviewGroupCount > 0) return "Reference material";
   return evidenceLibrarySummary(reviewGroupCount, backgroundGroupCount);
 }
@@ -5555,11 +5560,12 @@ ${rows}
 
 function evidenceLibrary(
   data: DashboardData,
-  options: { includeStoreSignals?: boolean; showEvidenceIndex?: boolean; compactBackground?: boolean } = {}
+  options: { includeStoreSignals?: boolean; showEvidenceIndex?: boolean; compactBackground?: boolean; auditOnly?: boolean } = {}
 ): string {
   const includeStoreSignals = options.includeStoreSignals ?? true;
   const showEvidenceIndex = options.showEvidenceIndex ?? true;
   const compactBackground = options.compactBackground ?? false;
+  const auditOnly = options.auditOnly ?? false;
   const routinePanels: RoutineDiagnosticPanel[] = [];
   if (isRoutineHealthCheck(data.health_check)) {
     routinePanels.push({
@@ -5609,7 +5615,11 @@ function evidenceLibrary(
   ].filter((panel): panel is string => panel !== undefined && panel.length > 0);
   const showRouteIndex = showEvidenceIndex && reviewPanels.length > 0;
   const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
-  const visibleEvidenceSummary = evidenceLibraryVisibleSummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
+  const visibleEvidenceSummary = evidenceLibraryVisibleSummary(
+    reviewPanels.length > 0 ? 1 : 0,
+    backgroundPanels.length > 0 ? 1 : 0,
+    { auditOnly }
+  );
   const indexOnly = reviewPanels.length === 0;
   const detailClass = compactBackground ? "evidence-library evidence-library-compact" : "panel evidence-library";
   const ariaLabel = compactBackground ? "Background Reference" : "Reference Library";
@@ -5711,7 +5721,8 @@ function renderDashboardBody(data: DashboardData): string {
     ${evidenceLibrary(data, {
       includeStoreSignals: !shouldPromoteStoreSignals,
       showEvidenceIndex: !hasPendingDecisions,
-      compactBackground: shouldPromoteStoreSignals
+      compactBackground: shouldPromoteStoreSignals,
+      auditOnly: hasPendingDecisions
     })}
   `;
 }
