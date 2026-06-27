@@ -1229,6 +1229,15 @@ describe("observability dashboard", () => {
       expect(data.candidate_triage).toMatchObject({
         read_only: true,
         available: true,
+        review_focus: {
+          group_id: "promotable",
+          label: "Promotable candidates",
+          summary: "Start with Promotable candidates: Inspect before promotion",
+          recommended_next_step: "Inspect before promotion",
+          evidence_path: "candidate_triage.groups_by_id.promotable",
+          writes: "none",
+          requires_user_confirmation: false
+        },
         summary: {
           total_candidates: 4,
           groups: 4,
@@ -1240,6 +1249,7 @@ describe("observability dashboard", () => {
         },
         selection_sources: {
           candidate_triage: "candidate_triage",
+          review_focus: "candidate_triage.review_focus",
           group: "candidate_triage.groups_by_id.<group_id>",
           group_id: "candidate_triage.groups_by_id.<group_id>.id",
           record: "candidate_triage.groups_by_id.<group_id>.records[]",
@@ -1593,6 +1603,15 @@ describe("observability dashboard", () => {
         record_index: 3,
         evidence_path: "candidate_triage.groups_by_id.needs_inspection.record_ids[3]"
       });
+      expect(data.candidate_triage.review_focus).toEqual({
+        group_id: "needs_inspection",
+        label: "Needs inspection",
+        summary: "Start with Needs inspection: Inspect timeline",
+        recommended_next_step: "Inspect timeline",
+        evidence_path: "candidate_triage.groups_by_id.needs_inspection",
+        writes: "none",
+        requires_user_confirmation: false
+      });
       expect(JSON.stringify(data.candidate_triage)).toContain("Temporary scratch candidate 7.");
       expect(JSON.stringify(data.candidate_triage)).not.toContain("Temporary scratch candidate 4.");
 
@@ -1600,6 +1619,7 @@ describe("observability dashboard", () => {
       expect(groupHtml).toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(groupHtml).toContain("<strong>Candidate Backlog Index</strong>");
       expect(groupHtml).toContain("<span>7 candidates across 1 group indexed</span>");
+      expect(groupHtml).toContain("<span data-candidate-triage-focus>Start with Needs inspection: Inspect timeline</span>");
       expect(groupHtml).toContain("<code data-dashboard-detail=\"candidate-triage:index\">candidate_triage</code>");
       expect(groupHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage:index\" data-candidate-triage-reference>");
       expect(groupHtml).not.toContain("candidate-triage-index-card");
@@ -1743,6 +1763,7 @@ describe("observability dashboard", () => {
       const groupHtml = dashboardDetailBlock(html, "candidate-triage");
       expect(groupHtml).toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(groupHtml).toContain("<span>2 candidates across 1 group indexed</span>");
+      expect(groupHtml).toContain("<span data-candidate-triage-focus>Start with Needs inspection: Inspect timeline</span>");
       expect(groupHtml).not.toContain("candidate-triage-index-card");
       expect(data.candidate_triage.groups_by_id.needs_inspection?.evidence_path).toBe("candidate_triage.groups_by_id.needs_inspection");
       expect(groupHtml).not.toContain("<details class=\"candidate-triage-index-evidence\" data-dashboard-detail=\"candidate-triage-index-evidence:needs_inspection\">");
@@ -4431,6 +4452,12 @@ describe("observability dashboard", () => {
       const candidateTriageHtml = dashboardDetailBlock(html, "candidate-triage");
       expect(candidateTriageHtml).toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(candidateTriageHtml).toContain("<span>3 candidates across 1 group indexed</span>");
+      expect(data.candidate_triage.review_focus).toMatchObject({
+        group_id: "likely_noise",
+        summary: "Start with Likely noise: Inspect likely noise before archive",
+        evidence_path: "candidate_triage.groups_by_id.likely_noise"
+      });
+      expect(candidateTriageHtml).toContain("<span data-candidate-triage-focus>Start with Likely noise: Inspect likely noise before archive</span>");
       expect(candidateTriageHtml).not.toContain("candidate-triage-index-card");
       expect(candidateTriageHtml).not.toContain("<strong>Likely noise</strong>");
       expect(candidateTriageHtml).not.toContain("<small>3 records indexed | Review Queue cleanup ready</small>");

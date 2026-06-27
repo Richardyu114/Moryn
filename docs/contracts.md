@@ -441,12 +441,19 @@ the `memory_doctor` CLI or MCP report shape. Its contract includes:
 - `candidate_triage.generated_from.writes: "none"`
 - `candidate_triage.summary.total_candidates`
 - `candidate_triage.summary.shown_records`
+- `candidate_triage.review_focus`
 - `candidate_triage.groups[]`
 - `candidate_triage.groups_by_id.<group_id>`
 - `candidate_triage.selection_sources`
 
 Group ids are limited to `likely_noise`, `promotable`, `session_summaries`,
-and `needs_inspection`. Each group carries `record_ids`, `records[]`,
+and `needs_inspection`. `candidate_triage.review_focus` points to the first
+group the dashboard recommends inspecting. It includes `group_id`, `label`,
+`summary`, `recommended_next_step`, `writes: "none"`,
+`requires_user_confirmation: false`, and an `evidence_path` such as
+`candidate_triage.groups_by_id.<group_id>`. The field is read-only guidance for
+humans and agents; it does not add a dashboard write endpoint or silently
+promote/archive memory. Each group carries `record_ids`, `records[]`,
 `records_by_id`, `recommended_next_step`, `review_handoff`, `writes: "none"`,
 and an `evidence_path` such as
 `candidate_triage.groups_by_id.<group_id>`. `review_handoff` names the existing

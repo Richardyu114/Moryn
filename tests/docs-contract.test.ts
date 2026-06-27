@@ -225,9 +225,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "those approvals also appear in `Pending Decisions` as a `Candidate Triage` route");
     expectText(dashboard, "Expanding a read-only `Candidate Backlog` panel shows a compact `Candidate Backlog Index` reference");
     expectText(dashboard, "mapped to `/api/dashboard.candidate_triage`");
+    expectText(dashboard, "plus one `review_focus` line");
+    expectText(dashboard, "That focus is read-only routing guidance, not a write action");
+    expectText(dashboard, "`/api/dashboard.candidate_triage.review_focus`");
     expectText(dashboard, "The dashboard HTML does not render read-only candidate group cards");
     expectText(dashboard, "per-group `candidate-triage:<group_id>` routes");
-    expectText(dashboard, "group labels, record counts per group, review hints, sample rows, hidden-record folds, evidence paths, or trace commands");
+    expectText(dashboard, "record counts per group, sample rows, hidden-record folds, evidence paths, or trace commands");
     expectText(dashboard, "Full candidate bodies, record order, evidence paths, recall commands, and timeline commands stay in `/api/dashboard.candidate_triage`");
     expectText(dashboard, "When the existing Review Queue has a `candidate_noise_archive` cleanup plan");
     expectText(dashboard, "the read-only `Candidate Backlog` panel still stays an index reference instead of showing a cleanup navigation button");
@@ -279,6 +282,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "keep plain-language `Review notes` for detection, next step, write boundary, and evidence source");
     expectText(contracts, "`/api/dashboard` also returns `memory_doctor`, the same read-only report shape as `moryn memory doctor`");
     expectText(contracts, "`/api/dashboard` also returns `candidate_triage`, a read-only dashboard-derived grouping for active candidate records");
+    expectText(contracts, "`candidate_triage.review_focus` points to the first group the dashboard recommends inspecting");
+    expectText(contracts, "The field is read-only guidance for humans and agents");
     expect(contracts).toContain("candidate_triage.groups_by_id.<group_id>");
     expectText(contracts, "Candidate Triage promotion draft approvals");
     expectText(contracts, "decision_summary.summary.candidate_triage_promotions");

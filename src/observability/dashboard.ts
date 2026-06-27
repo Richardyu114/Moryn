@@ -357,6 +357,7 @@ export const DASHBOARD_RECALL_EVAL_SELECTION_SOURCES = {
 
 export const DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES = {
   candidate_triage: "candidate_triage",
+  review_focus: "candidate_triage.review_focus",
   group: "candidate_triage.groups_by_id.<group_id>",
   group_id: "candidate_triage.groups_by_id.<group_id>.id",
   record: "candidate_triage.groups_by_id.<group_id>.records[]",
@@ -478,6 +479,16 @@ export interface DashboardCandidateTriageGroup {
   evidence_path: string;
 }
 
+export interface DashboardCandidateTriageReviewFocus {
+  group_id: DashboardCandidateTriageGroupId;
+  label: string;
+  summary: string;
+  recommended_next_step: string;
+  evidence_path: string;
+  writes: "none";
+  requires_user_confirmation: false;
+}
+
 export interface DashboardCandidateTriage {
   read_only: true;
   version: 1;
@@ -498,6 +509,7 @@ export interface DashboardCandidateTriage {
   };
   groups: DashboardCandidateTriageGroupSummary[];
   groups_by_id: Partial<Record<DashboardCandidateTriageGroupId, DashboardCandidateTriageGroup>>;
+  review_focus?: DashboardCandidateTriageReviewFocus;
   selection_sources: typeof DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES;
 }
 
@@ -2516,6 +2528,23 @@ function toCandidateTriageGroupSummary(group: DashboardCandidateTriageGroup): Da
   };
 }
 
+function candidateTriageReviewFocus(groups: DashboardCandidateTriageGroup[]): DashboardCandidateTriageReviewFocus | undefined {
+  const focusOrder: DashboardCandidateTriageGroupId[] = ["promotable", "likely_noise", "needs_inspection", "session_summaries"];
+  const group = focusOrder
+    .map((id) => groups.find((candidateGroup) => candidateGroup.id === id))
+    .find((candidateGroup): candidateGroup is DashboardCandidateTriageGroup => candidateGroup !== undefined);
+  if (!group) return undefined;
+  return {
+    group_id: group.id,
+    label: group.label,
+    summary: `Start with ${group.label}: ${group.recommended_next_step}`,
+    recommended_next_step: group.recommended_next_step,
+    evidence_path: group.evidence_path,
+    writes: "none",
+    requires_user_confirmation: false
+  };
+}
+
 function buildCandidateTriage(
   records: MorynRecord[],
   eventsByRecord: Map<string, MorynEvent>,
@@ -2631,6 +2660,7 @@ function buildCandidateTriage(
     },
     groups: groups.map(toCandidateTriageGroupSummary),
     groups_by_id: Object.fromEntries(groups.map((group) => [group.id, group])),
+    review_focus: candidateTriageReviewFocus(groups),
     selection_sources: DASHBOARD_CANDIDATE_TRIAGE_SELECTION_SOURCES
   };
 }
@@ -4197,10 +4227,14 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
 
 function renderCandidateBacklogReference(triage: DashboardCandidateTriage): string {
   const summary = `${pluralize(triage.summary.total_candidates, "candidate")} across ${pluralize(triage.summary.groups, "group")} indexed`;
+  const focus = triage.review_focus
+    ? `<span data-candidate-triage-focus>${escapeHtml(triage.review_focus.summary)}</span>`
+    : "";
   return `
     <article class="candidate-triage-reference" data-dashboard-detail="candidate-triage:index" data-candidate-triage-reference>
       <strong>Candidate Backlog Index</strong>
       <span>${escapeHtml(summary)}</span>
+      ${focus}
       <code>candidate_triage</code>
     </article>
     <p>Open <code>/api/dashboard</code> for candidate groups, record order, evidence paths, and trace commands.</p>
@@ -5393,6 +5427,7 @@ function referenceLibraryIndex(input: {
   dogfoodSummary: string;
   governanceSummary: string;
   candidateTriageSummary: string;
+  candidateTriageFocus?: string;
 }): string {
   const routes = [
     input.routinePanels.length > 0 ? {
@@ -5449,6 +5484,7 @@ function referenceLibraryIndex(input: {
         <article class="candidate-triage-reference" data-dashboard-detail="candidate-triage" data-candidate-triage-reference data-reference-library-index="candidate-triage">
           <strong>Candidate Backlog Index</strong>
           <span>${escapeHtml(input.candidateTriageSummary)}</span>
+          ${input.candidateTriageFocus ? `<span data-candidate-triage-focus>${escapeHtml(input.candidateTriageFocus)}</span>` : ""}
           <small><code data-dashboard-detail="candidate-triage:index">candidate_triage</code></small>
         </article>` : ""}
         ${input.hasGovernance ? `
@@ -5567,7 +5603,8 @@ function evidenceLibrary(
         hasAuditReports: hasAuditReportData(data.memory_lifecycle, data.capture_policy),
         dogfoodSummary: `${pluralize(data.dogfood_report.findings.length, "finding")} indexed`,
         governanceSummary: `${pluralize(data.governance.summary.total_items, "governance note")} indexed`,
-        candidateTriageSummary: `${pluralize(data.candidate_triage.summary.total_candidates, "candidate")} across ${pluralize(data.candidate_triage.summary.groups, "group")} indexed`
+        candidateTriageSummary: `${pluralize(data.candidate_triage.summary.total_candidates, "candidate")} across ${pluralize(data.candidate_triage.summary.groups, "group")} indexed`,
+        candidateTriageFocus: data.candidate_triage.review_focus?.summary
       }) : `<div class="evidence-library-list">
         ${evidenceLibraryReviewGroup(reviewPanels)}
         ${evidenceLibraryBackgroundGroup(backgroundPanels)}
