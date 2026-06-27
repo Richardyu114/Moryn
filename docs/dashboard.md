@@ -782,14 +782,17 @@ when there is only routine/background material it reads `Reference evidence only
 It does not list every child module on the first screen. When there is only
 routine/background material, expanding `Reference Library` skips the
 `Evidence index` route bar and renders a single `Reference Library Index`
-instead of opening child reference panels. That index lists background report
-families such as `diagnostics`, `candidate_triage`, `governance`,
-`dogfood_report`, and `audit_trail` as compact API-backed rows. Full routine
-diagnostics, candidate groups, governance notes, dogfood notes, lifecycle and
-capture policy reports, recent values, records, events, and sync metadata remain
-in `/api/dashboard`. The visible HTML does not render `Routine Reference`,
-`Routine Diagnostics`, `Audit Trail`, `Candidate Backlog`, `Governance Hub`, or
-`Dogfood Notes` child panels in this background-only mode.
+instead of opening child reference panels. That single card lists background
+report families such as `diagnostics`, `candidate_triage`, `governance`,
+`dogfood_report`, and `audit_trail` as compact API-backed rows. It does not
+render separate `Diagnostics Index`, `Candidate Backlog Index`, `Governance
+Index`, `Dogfood Notes Index`, `Audit Reports`, `Store Snapshot`, or `Raw Store`
+cards beside it. Full routine diagnostics, candidate groups, governance notes,
+dogfood notes, lifecycle and capture policy reports, recent values, records,
+events, and sync metadata remain in `/api/dashboard`. The visible HTML does not
+render `Routine Reference`, `Routine Diagnostics`, `Audit Trail`, `Candidate
+Backlog`, `Governance Hub`, or `Dogfood Notes` child panels in this
+background-only mode.
 
 When review-oriented findings exist, the expanded library can still start with
 a compact `Evidence index` bar; empty routes are omitted instead of rendering
@@ -815,7 +818,8 @@ buttons can open the parent library before scrolling to `governance-hub`,
 Inside the background-only `Reference Library Index`, routine read-only
 diagnostics such as a healthy Health Check, clean or unavailable Recall Eval,
 and ready or unavailable Context Pack Review collapse into a `Diagnostics Index`
-row. The row keeps stable `data-dashboard-detail` chips for `health-check`,
+row inside the single index card. The row keeps stable `data-dashboard-detail`
+chips for `health-check`,
 `recall-eval`, and `context-pack-review`, and those chips carry accessible
 summaries such as `Ready handoff context` or `unavailable`. It does not render
 the nested `Diagnostic Reports` section, Health Check setup commands, Recall
@@ -832,8 +836,9 @@ read-only findings do not look like pending approval work or expose
 child panel counts. When review-oriented panels force the grouped evidence
 layout, Routine Diagnostics and Audit Trail can still appear behind `Routine
 Reference`. In background-only mode, however, the same audit material appears as
-`Audit Reports`, `Store Snapshot`, and `Raw Store` rows inside the top-level
-`Reference Library Index`. Empty audit report rows are omitted when there is no
+`Audit Reports`, `Store Snapshot`, and `Raw Store` rows inside the single
+top-level `Reference Library Index` card. Empty audit report rows are omitted
+when there is no
 lifecycle or capture policy data, so the library does not add a placeholder when
 there is only background evidence. The index rows still keep stable
 `data-dashboard-detail` targets such as `supporting-evidence`,

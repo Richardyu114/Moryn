@@ -126,6 +126,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "When there is only routine/background material, expanding `Reference Library` skips the `Evidence index` route bar");
     expectText(dashboard, "renders a single `Reference Library Index`");
     expectText(dashboard, "instead of opening child reference panels");
+    expectText(dashboard, "That single card lists background report families");
+    expectText(dashboard, "It does not render separate `Diagnostics Index`, `Candidate Backlog Index`, `Governance");
     expectText(dashboard, "`diagnostics`, `candidate_triage`, `governance`,");
     expectText(dashboard, "Full routine diagnostics, candidate groups, governance notes, dogfood notes, lifecycle and capture policy reports, recent values, records, events, and sync metadata remain in `/api/dashboard`");
     expectText(dashboard, "does not render `Routine Reference`,");
@@ -143,7 +145,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "longer route hints stay in accessible labels");
     expectText(dashboard, "The route bar is navigation copy only");
     expectText(dashboard, "does not render Approve, Reject, Promote, Archive, or Apply controls");
-    expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review collapse into a `Diagnostics Index` row");
+    expectText(dashboard, "routine read-only diagnostics such as a healthy Health Check, clean or unavailable Recall Eval, and ready or unavailable Context Pack Review collapse into a `Diagnostics Index` row inside the single index card");
     expectText(dashboard, "stable `data-dashboard-detail` chips for `health-check`,");
     expectText(dashboard, "those chips carry accessible summaries");
     expectText(dashboard, "It does not render the nested `Diagnostic Reports` section");
@@ -155,7 +157,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "or expose child panel counts");
     expectText(dashboard, "read-only findings do not look like pending approval work");
     expectText(dashboard, "When review-oriented panels force the grouped evidence layout, Routine Diagnostics and Audit Trail can still appear behind `Routine Reference`");
-    expectText(dashboard, "the same audit material appears as `Audit Reports`, `Store Snapshot`, and `Raw Store` rows inside the top-level");
+    expectText(dashboard, "the same audit material appears as `Audit Reports`, `Store Snapshot`, and `Raw Store` rows inside the single top-level");
     expectText(dashboard, "stable `data-dashboard-detail` targets such as `supporting-evidence`,");
     expectText(dashboard, "Empty audit report rows are omitted");
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");

@@ -975,9 +975,15 @@ function parseTextContent(result: Awaited<ReturnType<Client["callTool"]>>): unkn
 }
 
 function storeSnapshotAuditRowHtml(html: string): string {
-  const start = html.indexOf("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
+  const rowStart = html.indexOf("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"store-snapshot\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
+  const articleStart = html.indexOf("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
+  const start = rowStart >= 0 ? rowStart : articleStart;
   expect(start).toBeGreaterThan(-1);
-  const end = html.indexOf("</article>", start);
+  const rowEnd = rowStart >= 0
+    ? html.indexOf("<div class=\"reference-library-index-row\"", start + 1)
+    : -1;
+  const articleEnd = html.indexOf("</article>", start);
+  const end = rowEnd > start && rowEnd < articleEnd ? rowEnd : articleEnd;
   expect(end).toBeGreaterThan(start);
   return html.slice(start, end);
 }

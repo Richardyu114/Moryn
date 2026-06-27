@@ -48,7 +48,16 @@ function dashboardArticleBlockByMarker(html: string, marker: string): string {
 }
 
 function supportingEvidenceSummaryRowHtml(html: string, row: "audit-reports" | "store-snapshot" | "raw-store"): string {
-  return dashboardArticleBlockByMarker(html, `data-supporting-evidence-summary="${row}"`);
+  const marker = `data-supporting-evidence-summary="${row}"`;
+  const start = html.indexOf(marker);
+  expect(start).toBeGreaterThan(-1);
+  const rowStart = html.lastIndexOf("<div class=\"reference-library-index-row\"", start);
+  expect(rowStart).toBeGreaterThan(-1);
+  const nextRow = html.indexOf("<div class=\"reference-library-index-row\"", start + 1);
+  const articleEnd = html.indexOf("</article>", start);
+  const rowEnd = nextRow > start && nextRow < articleEnd ? nextRow : articleEnd;
+  expect(rowEnd).toBeGreaterThan(rowStart);
+  return html.slice(rowStart, rowEnd);
 }
 
 describe("observability dashboard", () => {
@@ -459,8 +468,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<article class=\"reference-library-index\" data-dashboard-detail=\"reference-library:index\" data-reference-library-index>");
       expect(html).toContain("<strong>Reference Library Index</strong>");
       expect(html).toContain("<span>Background reports indexed</span>");
-      expect(html).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
+      expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
+      expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"raw-store\" data-supporting-evidence-summary=\"raw-store\" data-dashboard-detail=\"debug-inspector\">");
       expect(html).toContain("<code data-dashboard-detail=\"supporting-evidence\">audit_trail</code>");
+      expect(html).not.toContain("<article class=\"routine-diagnostics-reference\"");
+      expect(html).not.toContain("<article class=\"supporting-evidence-summary-row\"");
       expect(html).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(html).not.toContain("data-evidence-library-brief");
       expect(html).not.toContain("<h3>Evidence index</h3>");
@@ -792,10 +804,11 @@ describe("observability dashboard", () => {
         writes: "none"
       });
       const governanceIndexHtml = dashboardDetailBlock(html, "governance-hub");
-      expect(governanceIndexHtml).toContain("<article class=\"governance-reference\" data-dashboard-detail=\"governance-hub\" data-governance-reference data-reference-library-index=\"governance\">");
+      expect(governanceIndexHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"governance\" data-dashboard-detail=\"governance-hub\" data-governance-reference data-reference-library-index=\"governance\">");
       expect(governanceIndexHtml).toContain("<strong>Governance Index</strong>");
       expect(governanceIndexHtml).toContain("<span>1 governance note indexed</span>");
       expect(governanceIndexHtml).toContain("<code>governance</code>");
+      expect(governanceIndexHtml).not.toContain("<article class=\"governance-reference\"");
       expect(html).not.toContain("<details id=\"governance-hub\" class=\"panel governance-hub\" data-dashboard-detail=\"governance-hub\" aria-label=\"Governance Hub\">");
       expect(html).not.toContain("<span>Read-only Governance</span>");
       expect(html).not.toContain("<small>Reference checks</small>");
@@ -1616,11 +1629,12 @@ describe("observability dashboard", () => {
       expect(JSON.stringify(data.candidate_triage)).not.toContain("Temporary scratch candidate 4.");
 
       const groupHtml = dashboardDetailBlock(html, "candidate-triage");
-      expect(groupHtml).toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
+      expect(groupHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"candidate-triage\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(groupHtml).toContain("<strong>Candidate Backlog Index</strong>");
       expect(groupHtml).toContain("<span>7 candidates across 1 group indexed</span>");
       expect(groupHtml).toContain("<span data-candidate-triage-focus>Start with Needs inspection: Inspect timeline</span>");
       expect(groupHtml).toContain("<code data-dashboard-detail=\"candidate-triage:index\">candidate_triage</code>");
+      expect(groupHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(groupHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage:index\" data-candidate-triage-reference>");
       expect(groupHtml).not.toContain("candidate-triage-index-card");
       expect(groupHtml).not.toContain("<span>Needs inspection</span>");
@@ -1761,10 +1775,11 @@ describe("observability dashboard", () => {
         })
       ]));
       const groupHtml = dashboardDetailBlock(html, "candidate-triage");
-      expect(groupHtml).toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
+      expect(groupHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"candidate-triage\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(groupHtml).toContain("<span>2 candidates across 1 group indexed</span>");
       expect(groupHtml).toContain("<span data-candidate-triage-focus>Start with Needs inspection: Inspect timeline</span>");
       expect(groupHtml).not.toContain("candidate-triage-index-card");
+      expect(groupHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(data.candidate_triage.groups_by_id.needs_inspection?.evidence_path).toBe("candidate_triage.groups_by_id.needs_inspection");
       expect(groupHtml).not.toContain("<details class=\"candidate-triage-index-evidence\" data-dashboard-detail=\"candidate-triage-index-evidence:needs_inspection\">");
       expect(groupHtml).not.toContain("<span>Evidence path</span>");
@@ -2901,6 +2916,13 @@ describe("observability dashboard", () => {
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"candidate-triage\"");
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
+      expect(referenceIndexHtml.match(/<article class=\"/g)?.length).toBe(1);
+      expect(referenceIndexHtml).toContain("data-reference-library-index-row=\"diagnostics\"");
+      expect(referenceIndexHtml).toContain("data-reference-library-index-row=\"candidate-triage\"");
+      expect(referenceIndexHtml).toContain("data-reference-library-index-row=\"raw-store\"");
+      expect(referenceIndexHtml).not.toContain("<article class=\"routine-diagnostics-reference\"");
+      expect(referenceIndexHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\"");
+      expect(referenceIndexHtml).not.toContain("<article class=\"supporting-evidence-summary-row\"");
       expect(referenceIndexHtml).not.toContain("data-dashboard-action-id");
       expect(referenceIndexHtml).not.toContain("Approve");
       expect(referenceIndexHtml).not.toContain("Reject");
@@ -2908,10 +2930,11 @@ describe("observability dashboard", () => {
       expect(referenceIndexHtml).not.toContain("Archive");
       expect(referenceIndexHtml).not.toContain("Apply");
       const candidateTriageHtml = dashboardDetailBlock(html, "candidate-triage");
-      expect(candidateTriageHtml).toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
+      expect(candidateTriageHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"candidate-triage\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(candidateTriageHtml).toContain("<strong>Candidate Backlog Index</strong>");
       expect(candidateTriageHtml).toContain("<span>1 candidate across 1 group indexed</span>");
       expect(candidateTriageHtml).toContain("<code data-dashboard-detail=\"candidate-triage:index\">candidate_triage</code>");
+      expect(candidateTriageHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(candidateTriageHtml).not.toContain("<h2>Candidate Backlog</h2>");
       expect(candidateTriageHtml).not.toContain("<p>Read-only candidate groups; promotion drafts appear as explicit decisions.</p>");
       expect(candidateTriageHtml).not.toContain("<span>Candidate Triage</span>");
@@ -2966,7 +2989,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Checks ready</small>");
       expect(html).not.toContain("<small>Healthy checks and handoff readiness</small>");
       expect(html).not.toContain("<small>3 quiet checks</small>");
-      expect(routineDiagnosticsHtml).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
+      expect(routineDiagnosticsHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
       expect(routineDiagnosticsHtml).toContain("<strong>Diagnostics Index</strong>");
       expect(routineDiagnosticsHtml).toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(routineDiagnosticsHtml).toContain("<code data-dashboard-detail=\"health-check\"");
@@ -2980,6 +3003,7 @@ describe("observability dashboard", () => {
       expect(routineDiagnosticsHtml).toContain("data-dashboard-detail=\"health-check\"");
       expect(routineDiagnosticsHtml).toContain("data-dashboard-detail=\"recall-eval\"");
       expect(routineDiagnosticsHtml).toContain("data-dashboard-detail=\"context-pack-review\"");
+      expect(routineDiagnosticsHtml).not.toContain("<article class=\"routine-diagnostics-reference\"");
       expect(html).not.toContain("<small>Unavailable | no stored cases</small>");
       expect(routineDiagnosticsHtml).not.toContain("<div class=\"routine-diagnostics-summary-list\" aria-label=\"Routine diagnostics summary\">");
       expect(routineDiagnosticsHtml).not.toContain("data-routine-diagnostic=\"health-check\"");
@@ -3142,7 +3166,7 @@ describe("observability dashboard", () => {
       const auditTrailHtml = supportingEvidenceSummaryRowHtml(html, "store-snapshot");
 
       expect(data.recent_value[0]?.summary).toBe(longText);
-      expect(auditTrailHtml).toContain("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
+      expect(auditTrailHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"store-snapshot\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
       expect(auditTrailHtml).toContain("<span>Store signals and recent value</span>");
       expect(auditTrailHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
       expect(html).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
@@ -3295,14 +3319,11 @@ describe("observability dashboard", () => {
         now: "2026-06-21T00:00:00.000Z"
       });
       const html = renderDashboardHtml(data);
-      const debugStart = html.indexOf("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"raw-store\" data-dashboard-detail=\"debug-inspector\">");
-      const debugEnd = html.indexOf("</article>", debugStart);
-      const debugHtml = html.slice(debugStart, debugEnd);
+      const debugHtml = supportingEvidenceSummaryRowHtml(html, "raw-store");
 
       expect(data.recent_records).toHaveLength(13);
       expect(data.recent_events).toHaveLength(13);
       expect(data.recent_records[0]?.text).toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
-      expect(debugStart).toBeGreaterThan(-1);
       expect(debugHtml).toContain("<strong>Raw Store</strong>");
       expect(debugHtml).toContain("<span>Records, events, and sync metadata</span>");
       expect(debugHtml).toContain("<code data-dashboard-detail=\"inspector:records\">recent_records</code>");
@@ -4450,7 +4471,7 @@ describe("observability dashboard", () => {
       ]));
       expect(html).toContain("Candidate noise cleanup");
       const candidateTriageHtml = dashboardDetailBlock(html, "candidate-triage");
-      expect(candidateTriageHtml).toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
+      expect(candidateTriageHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"candidate-triage\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(candidateTriageHtml).toContain("<span>3 candidates across 1 group indexed</span>");
       expect(data.candidate_triage.review_focus).toMatchObject({
         group_id: "likely_noise",
@@ -4458,6 +4479,7 @@ describe("observability dashboard", () => {
         evidence_path: "candidate_triage.groups_by_id.likely_noise"
       });
       expect(candidateTriageHtml).toContain("<span data-candidate-triage-focus>Start with Likely noise: Inspect likely noise before archive</span>");
+      expect(candidateTriageHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(candidateTriageHtml).not.toContain("candidate-triage-index-card");
       expect(candidateTriageHtml).not.toContain("<strong>Likely noise</strong>");
       expect(candidateTriageHtml).not.toContain("<small>3 records indexed | Review Queue cleanup ready</small>");
@@ -5177,7 +5199,7 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Context Pack Review");
-      expect(html).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
+      expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
       expect(html).toContain("<strong>Diagnostics Index</strong>");
       expect(html).toContain("data-dashboard-detail=\"context-pack-review\"");
       const diagnosticsIndexHtml = dashboardDetailBlock(html, "routine-diagnostics");
@@ -5241,7 +5263,7 @@ describe("observability dashboard", () => {
       expect(data.context_pack_review.handoff_pack?.recent_decisions).toHaveLength(0);
       expect(data.context_pack_review.handoff_pack?.open_threads).toHaveLength(0);
       expect(data.context_pack_review.handoff_pack?.risks).toHaveLength(0);
-      expect(html).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
+      expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
       expect(html).toContain("data-dashboard-detail=\"context-pack-review\"");
       expect(html).toContain("aria-label=\"Context Pack Review: Ready handoff context | no handoff evidence. Full report is available in /api/dashboard.context_pack_review.\"");
       expect(html).not.toContain("<small>Ready handoff context | no handoff evidence</small>");
@@ -5308,7 +5330,7 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Context Pack Review");
-      expect(html).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
+      expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
       expect(html).toContain("data-dashboard-detail=\"context-pack-review\"");
       expect(html).toContain("aria-label=\"Context Pack Review: unavailable. Full report is available in /api/dashboard.context_pack_review.\"");
       expect(html).not.toContain("<div class=\"empty-state\">Open the dashboard with --project-id or --project to review a project context pack.</div>");
@@ -6217,7 +6239,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<section id=\"capture-inbox\" class=\"panel capture-inbox\" aria-label=\"Capture Inbox\">");
       expect(html).not.toContain("<h2>Capture Inbox</h2>");
       expect(html).not.toContain("<details class=\"capture-inbox-audit\" data-dashboard-detail=\"capture-inbox-audit\">");
-      expect(html).toContain("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"audit-reports\" data-dashboard-detail=\"supporting-operational-evidence\">");
+      expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"audit-reports\" data-supporting-evidence-summary=\"audit-reports\" data-dashboard-detail=\"supporting-operational-evidence\">");
       expect(html).toContain("<code data-dashboard-detail=\"capture-policy-audit\">capture_policy</code>");
       expect(html).not.toContain("<details class=\"panel capture-policy-audit\" data-dashboard-detail=\"capture-policy-audit\"");
       expect(html).not.toContain("<article class=\"capture-policy-reference\" data-dashboard-detail=\"capture-policy:index\" data-capture-policy-reference>");
@@ -6411,9 +6433,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>Clean lifecycle and capture audits</small>");
       expect(html).not.toContain("<small>Memory Lifecycle clean | Capture Policy clean</small>");
       expect(html).not.toContain("<div class=\"clean-audit-list\">");
-      const supportingEvidenceIndex = html.indexOf("<details class=\"panel supporting-evidence\" data-dashboard-detail=\"supporting-evidence\" aria-label=\"Supporting Evidence\">");
-      const auditReportsIndex = html.indexOf("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"audit-reports\" data-dashboard-detail=\"supporting-operational-evidence\">");
-      expect(auditReportsIndex).toBeGreaterThan(supportingEvidenceIndex);
+      const referenceLibraryIndex = html.indexOf("<article class=\"reference-library-index\" data-dashboard-detail=\"reference-library:index\" data-reference-library-index>");
+      const auditReportsIndex = html.indexOf("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"audit-reports\" data-supporting-evidence-summary=\"audit-reports\" data-dashboard-detail=\"supporting-operational-evidence\">");
+      expect(auditReportsIndex).toBeGreaterThan(referenceLibraryIndex);
       expect(data.capture_policy.decisions_by_record_id.rec_policy_handled).toMatchObject({
         decision: "review",
         state: "canonical",
@@ -6421,7 +6443,7 @@ describe("observability dashboard", () => {
       });
       expect(html).not.toContain("data-capture-policy-decision=\"rec_policy_handled\"");
       expect(html).not.toContain("Review already handled");
-      const auditReportsEnd = html.indexOf("</article>", auditReportsIndex);
+      const auditReportsEnd = html.indexOf("<div class=\"reference-library-index-row\"", auditReportsIndex + 1);
       const auditReportsHtml = html.slice(auditReportsIndex, auditReportsEnd);
       expect(auditReportsHtml).toContain("<strong>Audit Reports</strong>");
       expect(auditReportsHtml).toContain("<span>Lifecycle and capture policy evidence</span>");

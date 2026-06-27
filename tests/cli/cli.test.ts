@@ -87,9 +87,15 @@ async function stopChild(child: ReturnType<typeof spawn>): Promise<void> {
 }
 
 function storeSnapshotAuditRowHtml(html: string): string {
-  const start = html.indexOf("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
+  const rowStart = html.indexOf("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"store-snapshot\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
+  const articleStart = html.indexOf("<article class=\"supporting-evidence-summary-row\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
+  const start = rowStart >= 0 ? rowStart : articleStart;
   expect(start).toBeGreaterThan(-1);
-  const end = html.indexOf("</article>", start);
+  const rowEnd = rowStart >= 0
+    ? html.indexOf("<div class=\"reference-library-index-row\"", start + 1)
+    : -1;
+  const articleEnd = html.indexOf("</article>", start);
+  const end = rowEnd > start && rowEnd < articleEnd ? rowEnd : articleEnd;
   expect(end).toBeGreaterThan(start);
   return html.slice(start, end);
 }
@@ -5938,7 +5944,7 @@ describe("moryn CLI", () => {
       expect(snapshotHtml).not.toContain("moryn capture session --project-id moryn --sync-remote git@github.com:user/moryn-store.git --agent codex --summary &#39;&lt;summary&gt;&#39;");
       expect(snapshotHtml).toContain("<article class=\"reference-library-index\" data-dashboard-detail=\"reference-library:index\" data-reference-library-index>");
       expect(snapshotHtml).toContain("<strong>Reference Library Index</strong>");
-      expect(snapshotHtml).toContain("<article class=\"routine-diagnostics-reference\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
+      expect(snapshotHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
       expect(snapshotHtml).toContain("<strong>Diagnostics Index</strong>");
       expect(snapshotHtml).toContain("<code data-dashboard-detail=\"health-check\" aria-label=\"Health Check: Healthy local store. Full report is available in /api/dashboard.health_check.\">health_check</code>");
       expect(snapshotHtml).toContain("<code data-dashboard-detail=\"context-pack-review\" aria-label=\"Context Pack Review: Ready handoff context. Full report is available in /api/dashboard.context_pack_review.\">context_pack_review</code>");

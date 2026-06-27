@@ -5467,64 +5467,77 @@ function referenceLibraryIndex(input: {
   const diagnosticSummary = input.routinePanels.length > 0
     ? `${input.routinePanels.map((panel) => panel.label).join(", ")} indexed`
     : "Routine checks indexed";
+  const rows = [
+    diagnosticRoutes.length > 0 ? `
+            <div class="reference-library-index-row" data-reference-library-index-row="diagnostics" data-dashboard-detail="routine-diagnostics" data-routine-diagnostics-reference data-reference-library-index="diagnostics">
+              <div>
+                <strong>Diagnostics Index</strong>
+                <span>${escapeHtml(diagnosticSummary)}</span>
+              </div>
+              <small>${diagnosticRoutes.map((route) => `<code data-dashboard-detail="${escapeHtml(route.route)}" aria-label="${escapeHtml(route.description)}">${escapeHtml(route.label)}</code>`).join("")}</small>
+            </div>` : "",
+    input.hasCandidateTriage ? `
+            <div class="reference-library-index-row" data-reference-library-index-row="candidate-triage" data-dashboard-detail="candidate-triage" data-candidate-triage-reference data-reference-library-index="candidate-triage">
+              <div>
+                <strong>Candidate Backlog Index</strong>
+                <span>${escapeHtml(input.candidateTriageSummary)}</span>
+                ${input.candidateTriageFocus ? `<span data-candidate-triage-focus>${escapeHtml(input.candidateTriageFocus)}</span>` : ""}
+              </div>
+              <small><code data-dashboard-detail="candidate-triage:index">candidate_triage</code></small>
+            </div>` : "",
+    input.hasGovernance ? `
+            <div class="reference-library-index-row" data-reference-library-index-row="governance" data-dashboard-detail="governance-hub" data-governance-reference data-reference-library-index="governance">
+              <div>
+                <strong>Governance Index</strong>
+                <span>${escapeHtml(input.governanceSummary)}</span>
+              </div>
+              <small><code>governance</code></small>
+            </div>` : "",
+    input.hasDogfood ? `
+            <div class="reference-library-index-row" data-reference-library-index-row="dogfood" data-dashboard-detail="dogfood-review" data-dogfood-review-reference data-reference-library-index="dogfood">
+              <div>
+                <strong>Dogfood Notes Index</strong>
+                <span>${escapeHtml(input.dogfoodSummary)}</span>
+              </div>
+              <small><code>dogfood_report</code></small>
+            </div>` : "",
+    input.hasAuditTrail && input.hasAuditReports ? `
+            <div class="reference-library-index-row" data-reference-library-index-row="audit-reports" data-supporting-evidence-summary="audit-reports" data-dashboard-detail="supporting-operational-evidence">
+              <div>
+                <strong>Audit Reports</strong>
+                <span>Lifecycle and capture policy evidence</span>
+              </div>
+              <small><code data-dashboard-detail="memory-lifecycle-audit">memory_lifecycle</code><code data-dashboard-detail="capture-policy-audit">capture_policy</code></small>
+            </div>` : "",
+    input.hasAuditTrail && (input.includeStoreSignals || input.hasRecentValue) ? `
+            <div class="reference-library-index-row" data-reference-library-index-row="store-snapshot" data-supporting-evidence-summary="store-snapshot" data-dashboard-detail="supporting-operational-snapshots">
+              <div>
+                <strong>Store Snapshot</strong>
+                <span>Store signals and recent value</span>
+              </div>
+              <small><code data-dashboard-detail="store-signals">sync</code><code data-dashboard-detail="recent-value">recent_value</code></small>
+            </div>` : "",
+    input.hasAuditTrail ? `
+            <div class="reference-library-index-row" data-reference-library-index-row="raw-store" data-supporting-evidence-summary="raw-store" data-dashboard-detail="debug-inspector">
+              <div>
+                <strong>Raw Store</strong>
+                <span>Records, events, and sync metadata</span>
+              </div>
+              <small><code data-dashboard-detail="supporting-evidence">audit_trail</code><code data-dashboard-detail="inspector:records">recent_records</code><code data-dashboard-detail="inspector:events">recent_events</code><code data-dashboard-detail="inspector:sync">sync</code></small>
+            </div>` : ""
+  ].filter((row) => row.length > 0).join("");
   return `
-      <div class="reference-library-index-wrap">
-        <article class="reference-library-index" data-dashboard-detail="reference-library:index" data-reference-library-index>
-          <strong>Reference Library Index</strong>
-          <span>Background reports indexed</span>
-          <small>${routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("")}</small>
-        </article>
-        ${diagnosticRoutes.length > 0 ? `
-        <article class="routine-diagnostics-reference" data-dashboard-detail="routine-diagnostics" data-routine-diagnostics-reference data-reference-library-index="diagnostics">
-          <strong>Diagnostics Index</strong>
-          <span>${escapeHtml(diagnosticSummary)}</span>
-          <small>${diagnosticRoutes.map((route) => `<code data-dashboard-detail="${escapeHtml(route.route)}" aria-label="${escapeHtml(route.description)}">${escapeHtml(route.label)}</code>`).join("")}</small>
-        </article>` : ""}
-        ${input.hasCandidateTriage ? `
-        <article class="candidate-triage-reference" data-dashboard-detail="candidate-triage" data-candidate-triage-reference data-reference-library-index="candidate-triage">
-          <strong>Candidate Backlog Index</strong>
-          <span>${escapeHtml(input.candidateTriageSummary)}</span>
-          ${input.candidateTriageFocus ? `<span data-candidate-triage-focus>${escapeHtml(input.candidateTriageFocus)}</span>` : ""}
-          <small><code data-dashboard-detail="candidate-triage:index">candidate_triage</code></small>
-        </article>` : ""}
-        ${input.hasGovernance ? `
-        <article class="governance-reference" data-dashboard-detail="governance-hub" data-governance-reference data-reference-library-index="governance">
-          <strong>Governance Index</strong>
-          <span>${escapeHtml(input.governanceSummary)}</span>
-          <small><code>governance</code></small>
-        </article>` : ""}
-        ${input.hasDogfood ? `
-        <article class="dogfood-review-reference" data-dashboard-detail="dogfood-review" data-dogfood-review-reference data-reference-library-index="dogfood">
-          <strong>Dogfood Notes Index</strong>
-          <span>${escapeHtml(input.dogfoodSummary)}</span>
-          <small><code>dogfood_report</code></small>
-        </article>` : ""}
-        ${input.hasAuditTrail ? `
-        ${input.hasAuditReports ? `
-        <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="audit-reports" data-dashboard-detail="supporting-operational-evidence">
-          <div>
-            <strong>Audit Reports</strong>
-            <span>Lifecycle and capture policy evidence</span>
-          </div>
-          <small><code data-dashboard-detail="memory-lifecycle-audit">memory_lifecycle</code><code data-dashboard-detail="capture-policy-audit">capture_policy</code></small>
-        </article>` : ""}
-        ${input.includeStoreSignals || input.hasRecentValue ? `
-        <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="store-snapshot" data-dashboard-detail="supporting-operational-snapshots">
-          <div>
-            <strong>Store Snapshot</strong>
-            <span>Store signals and recent value</span>
-          </div>
-          <small><code data-dashboard-detail="store-signals">sync</code><code data-dashboard-detail="recent-value">recent_value</code></small>
-        </article>` : ""}
-        <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="raw-store" data-dashboard-detail="debug-inspector">
-          <div>
-            <strong>Raw Store</strong>
-            <span>Records, events, and sync metadata</span>
-          </div>
-          <small><code data-dashboard-detail="supporting-evidence">audit_trail</code><code data-dashboard-detail="inspector:records">recent_records</code><code data-dashboard-detail="inspector:events">recent_events</code><code data-dashboard-detail="inspector:sync">sync</code></small>
-        </article>` : ""}
-        <p>Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.</p>
-      </div>
+        <div class="reference-library-index-wrap">
+          <article class="reference-library-index" data-dashboard-detail="reference-library:index" data-reference-library-index>
+            <strong>Reference Library Index</strong>
+            <span>Background reports indexed</span>
+            <small>${routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("")}</small>
+            <div class="reference-library-index-rows">
+${rows}
+            </div>
+          </article>
+          <p>Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.</p>
+        </div>
   `;
 }
 
@@ -6991,6 +7004,47 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
+    }
+    .reference-library-index-rows {
+      display: grid;
+      gap: 6px;
+      margin-top: 4px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 6px;
+    }
+    .reference-library-index-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px 10px;
+      align-items: center;
+      min-width: 0;
+      padding: 5px 0;
+      border-top: 1px solid var(--hairline);
+    }
+    .reference-library-index-row:first-child { border-top: 0; }
+    .reference-library-index-row div {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .reference-library-index-row strong,
+    .reference-library-index-row span,
+    .reference-library-index-row small {
+      overflow-wrap: anywhere;
+    }
+    .reference-library-index-row strong {
+      color: var(--ink);
+      font-size: 12.5px;
+      font-weight: 760;
+    }
+    .reference-library-index-row span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .reference-library-index-row small {
+      justify-content: flex-end;
+      min-width: 0;
     }
     .reference-library-index-wrap > p {
       margin: 0;
