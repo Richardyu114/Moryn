@@ -1098,9 +1098,10 @@ not briefly duplicate the full receipt inside the queue item. The receipt is
 restored after dashboard fragment refreshes, so the last explicit action remains
 visible instead of disappearing when the queue updates. The visible receipt
 headline reads `Store updated`, followed by the human decision sentence and
-three compact summary chips: `Write boundary`, `Targets`, and `Audit`. `Write
-boundary` reads `Append-only events`, and `Audit` reads `Traceable by timeline`
-when event ids are returned. Record ids, event ids, decision context, and
+three compact summary chips: `Write boundary`, `Changed`, and `Trace`. `Write
+boundary` reads `Append-only events`, `Changed` uses record-oriented language
+such as `1 record updated`, and `Trace` reads `Timeline ready` when event ids
+are returned. Record ids, event ids, decision context, and
 read-only trace commands such as `moryn timeline --event-id <event_id>` and
 `moryn recall --record-id <record_id>` stay inside the collapsed `Audit trail`
 fold. It is a visibility layer only: it does not add background execution, retry

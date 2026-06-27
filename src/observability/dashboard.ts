@@ -5807,6 +5807,7 @@ function dashboardActionReceiptScript(): string {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;");
       const pluralize = (count, singular, plural = singular + "s") => count + " " + (count === 1 ? singular : plural);
+      const changedLabel = (count) => pluralize(count, "record updated", "records updated");
       const titleCase = (value) => String(value || "applied")
         .replaceAll("_", " ")
         .replace(/\\b\\w/g, (match) => match.toUpperCase());
@@ -5836,8 +5837,8 @@ function dashboardActionReceiptScript(): string {
           status: titleCase(result.status),
           decision: decisionLabel(result),
           write_boundary: "Append-only events",
-          changed: pluralize(changedCount, "write target"),
-          audit_status: eventIds.length > 0 ? "Traceable by timeline" : "No event id returned",
+          changed: changedLabel(changedCount),
+          audit_status: eventIds.length > 0 ? "Timeline ready" : "No trace id returned",
           context: [result.plan_id, result.group_id].filter(Boolean),
           record_ids: recordIds,
           event_ids: eventIds,
@@ -5854,8 +5855,8 @@ function dashboardActionReceiptScript(): string {
           </div>
           <div class="action-receipt-summary" aria-label="Action receipt summary">
             <span><strong>Write boundary</strong><small>\${htmlEscape(receipt.write_boundary)}</small></span>
-            <span><strong>Targets</strong><small>\${htmlEscape(receipt.changed)}</small></span>
-            <span><strong>Audit</strong><small>\${htmlEscape(receipt.audit_status)}</small></span>
+            <span><strong>Changed</strong><small>\${htmlEscape(receipt.changed)}</small></span>
+            <span><strong>Trace</strong><small>\${htmlEscape(receipt.audit_status)}</small></span>
           </div>
           <details class="action-receipt-audit" data-dashboard-detail="action-receipt-audit">
             <summary class="dashboard-fold-summary">

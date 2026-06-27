@@ -380,9 +380,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "does not briefly duplicate the full receipt inside the queue item");
     expectText(dashboard, "The receipt is restored after dashboard fragment refreshes");
     expectText(dashboard, "The visible receipt headline reads `Store updated`");
-    expectText(dashboard, "three compact summary chips: `Write boundary`, `Targets`, and `Audit`");
+    expectText(dashboard, "three compact summary chips: `Write boundary`, `Changed`, and `Trace`");
     expectText(dashboard, "`Write boundary` reads `Append-only events`");
-    expectText(dashboard, "`Audit` reads `Traceable by timeline` when event ids are returned");
+    expectText(dashboard, "`Changed` uses record-oriented language such as `1 record updated`");
+    expectText(dashboard, "`Trace` reads `Timeline ready` when event ids are returned");
     expectText(dashboard, "read-only trace commands such as `moryn timeline --event-id <event_id>`");
     expectText(dashboard, "stay inside the collapsed `Audit trail` fold");
     expect(dashboard).toContain("All clear");
