@@ -528,6 +528,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-action-board-item=\"review\"");
       expect(html).not.toContain("data-action-board-item=\"inspect\"");
       expect(html).not.toContain("data-action-board-item=\"sync\"");
+      expect(html).not.toContain("<div class=\"dashboard-overview-safety\" aria-label=\"Dashboard safety\">");
+      expect(html).not.toContain("<span>Read-only overview</span>");
+      expect(html).not.toContain("<span>Writes stay in Capture Inbox, Review Queue, and Candidate Triage</span>");
       expect(html).toContain("<article class=\"reference-library-index\" data-dashboard-detail=\"reference-library:index\" data-reference-library-index>");
       expect(html).toContain("<strong>Reference Library Index</strong>");
       expect(html).toContain("<span>Background reports indexed</span>");
@@ -2587,6 +2590,9 @@ describe("observability dashboard", () => {
         expect(html).toContain("<strong>All clear</strong>");
         expect(html).toContain("<p>No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.</p>");
         expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">Inspect checks</button>");
+        expect(html).not.toContain("<div class=\"dashboard-overview-safety\" aria-label=\"Dashboard safety\">");
+        expect(html).not.toContain("<span>Read-only overview</span>");
+        expect(html).not.toContain("<span>Writes stay in Capture Inbox, Review Queue, and Candidate Triage</span>");
         expect(html).not.toContain("<div class=\"dashboard-overview-grid\">");
         expect(html).not.toContain("data-dashboard-overview-card=\"health\"");
         expect(html).not.toContain("data-dashboard-overview-card=\"action\"");

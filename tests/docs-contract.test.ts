@@ -81,6 +81,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Each background overview card is also a local navigation button");
     expectText(dashboard, "Pure read-only inspections do not turn the overview headline into an urgent next action");
     expectText(dashboard, "the overview reads `All clear` while still offering an `Inspect checks` navigation button");
+    expectText(dashboard, "All-clear Overview states also skip the visible");
+    expectText(dashboard, "`Dashboard safety` chips");
+    expectText(dashboard, "`/api/dashboard.dashboard_overview.safety` still keeps the mutation-surface list");
     expectText(dashboard, "then skips `Background Status` and the stable `dashboard-overview-quiet-cards` route");
     expectText(dashboard, "first screen does not repeat the same sync task");
     expectText(dashboard, "When `Background Status` is rendered in non-sync states");

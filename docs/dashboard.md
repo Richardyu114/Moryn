@@ -585,7 +585,11 @@ the detailed panels folded underneath.
 Pure read-only inspections do not turn the overview headline into an urgent
 next action. If there are no confirmations, warnings, or sync actions, the
 overview reads `All clear` while still offering an `Inspect checks` navigation
-button to the Governance Hub. If pending sync is the only action signal, the
+button to the Governance Hub. All-clear Overview states also skip the visible
+`Dashboard safety` chips because the headline, primary action, Background
+Lanes, and underlying mutation surfaces already carry the quiet boundary;
+`/api/dashboard.dashboard_overview.safety` still keeps the mutation-surface list
+for agents and audit tooling. If pending sync is the only action signal, the
 overview relies on its headline and primary button, then skips
 `Background Status` and the stable `dashboard-overview-quiet-cards` route so the
 first screen does not repeat the same sync task. The `Health`, `Next`,

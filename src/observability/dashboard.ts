@@ -3116,10 +3116,11 @@ function joinHumanList(items: readonly string[]): string {
 
 function dashboardOverview(
   data: DashboardOverview,
-  options: { showBackgroundStatus?: boolean } = {}
+  options: { showBackgroundStatus?: boolean; showSafety?: boolean } = {}
 ): string {
   const visibleCards = data.cards.filter((card) => !isPrimaryDashboardOverviewCard(card, data));
   const showBackgroundStatus = options.showBackgroundStatus ?? true;
+  const showSafety = options.showSafety ?? true;
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
@@ -3131,10 +3132,10 @@ function dashboardOverview(
         <button type="button" class="dashboard-overview-action" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}">${escapeHtml(data.primary_action.label)}</button>
       </div>
       ${showBackgroundStatus ? dashboardOverviewQuietCards(visibleCards) : ""}
-      <div class="dashboard-overview-safety" aria-label="Dashboard safety">
+      ${showSafety ? `<div class="dashboard-overview-safety" aria-label="Dashboard safety">
         <span>Read-only overview</span>
         <span>Writes stay in ${escapeHtml(joinHumanList(data.safety.mutation_surfaces))}</span>
-      </div>
+      </div>` : ""}
     </section>
   `;
 }
@@ -5707,7 +5708,7 @@ function renderDashboardBody(data: DashboardData): string {
 
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
 
-    ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus })}
+    ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: !isAllClearOverview })}
 
     ${shouldRenderWorkLanes ? dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions }) : ""}
 
