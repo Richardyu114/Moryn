@@ -127,6 +127,9 @@ line: review groups first, open item details only when needed, and canonical
 memory still requires approval. Item-level detail remains available for
 inspection as collapsed candidate details inside each group, but the first read
 is "which group should I approve or reject?" rather than "click every event."
+The `Capture Inbox` heading uses the stable `Manual approval` status instead of
+repeating candidate and group counts. Counts stay in `Queue summary`, Pending
+Decisions, and `/api/dashboard.capture_inbox`.
 Group cards keep Approve Group and Reject Group on the visible path; individual
 Approve Memory and Reject buttons stay available only after opening a candidate
 detail row.

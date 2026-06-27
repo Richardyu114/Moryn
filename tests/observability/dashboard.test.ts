@@ -5731,6 +5731,9 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Capture Inbox");
+      expect(html).toContain("<h2>Capture Inbox</h2>");
+      expect(html).toContain("<span>Manual approval</span>");
+      expect(html).not.toContain("<span>1 candidate | 1 group</span>");
       expect(data.action_board.items_by_id.confirm).toMatchObject({
         value: 1,
         target: "decision-summary",
@@ -5991,6 +5994,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-capture-inbox-queue-summary");
       expect(html).toContain("<h3>Queue summary</h3>");
       expect(html).toContain("4 candidates grouped into 2 review groups.");
+      expect(html).toContain("<h2>Capture Inbox</h2>");
+      expect(html).toContain("<span>Manual approval</span>");
+      expect(html).not.toContain("<span>4 candidates | 2 groups</span>");
       expect(html).toContain("Review groups first; open item details only when needed. Canonical memory still requires approval.");
       expect(html).not.toContain("Default path: review by group first, then open item details only when needed.");
       expect(html).not.toContain("Manual review: candidates become canonical only after Approve Memory or Approve Group.");

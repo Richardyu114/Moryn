@@ -347,6 +347,8 @@ describe("documentation contracts", () => {
     expect(dashboard).toContain("Safe Action Registry");
     expect(dashboard).toContain("Capture Inbox");
     expectText(dashboard, "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`");
+    expectText(dashboard, "The `Capture Inbox` heading uses the stable `Manual approval` status instead of repeating candidate and group counts");
+    expectText(dashboard, "Counts stay in `Queue summary`, Pending Decisions, and `/api/dashboard.capture_inbox`");
     expectText(dashboard, "Group card faces use `Review N captures` plus `Approve or reject this group.` instead of rendering capture text on the first row");
     expectText(dashboard, "Group id, record ids, rules, and noise evidence stay behind an `Evidence index` fold inside `Item review`");
     expectText(dashboard, "`Item review` opens to the evidence index and collapsed candidate rows instead of raw group internals");

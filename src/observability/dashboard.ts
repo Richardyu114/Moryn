@@ -4994,7 +4994,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
     <section id="capture-inbox" class="panel capture-inbox" aria-label="Capture Inbox">
       <div class="capture-inbox-heading">
         <h2>Capture Inbox</h2>
-        <span>${escapeHtml(pluralize(items.total, "candidate"))} | ${escapeHtml(pluralize(items.group_total, "group"))}</span>
+        <span>Manual approval</span>
       </div>
       ${items.total > 0 ? captureInboxQueueSummary(items) : ""}
       <div class="capture-inbox-list">
