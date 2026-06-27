@@ -5240,7 +5240,7 @@ function supportingEvidencePanel(data: DashboardData, options: { includeStoreSig
     ...(hasAuditReports ? [{
       id: "audit-reports" as const,
       label: "Audit Reports",
-      summary: "Lifecycle and capture policy evidence",
+      summary: "Lifecycle checks indexed",
       route: "supporting-operational-evidence",
       paths: [
         { label: "memory_lifecycle", route: "memory-lifecycle-audit" },
@@ -5250,7 +5250,7 @@ function supportingEvidencePanel(data: DashboardData, options: { includeStoreSig
     ...(includeStoreSignals || data.recent_value.length > 0 ? [{
       id: "store-snapshot" as const,
       label: "Store Snapshot",
-      summary: "Store signals and recent value",
+      summary: "Store signals indexed",
       route: "supporting-operational-snapshots",
       paths: [
         { label: "sync", route: "store-signals" },
@@ -5260,7 +5260,7 @@ function supportingEvidencePanel(data: DashboardData, options: { includeStoreSig
     {
       id: "raw-store" as const,
       label: "Raw Store",
-      summary: "Records, events, and sync metadata",
+      summary: "Raw evidence indexed",
       route: "debug-inspector",
       paths: [
         { label: "recent_records", route: "inspector:records" },
@@ -5547,7 +5547,7 @@ function referenceLibraryIndex(input: {
             <div class="reference-library-index-row" data-reference-library-index-row="audit-reports" data-supporting-evidence-summary="audit-reports" data-dashboard-detail="supporting-operational-evidence">
               <div>
                 <strong>Audit Reports</strong>
-                <span>Lifecycle and capture policy evidence</span>
+                <span>Lifecycle checks indexed</span>
               </div>
               <small><code data-dashboard-detail="memory-lifecycle-audit">memory_lifecycle</code><code data-dashboard-detail="capture-policy-audit">capture_policy</code></small>
             </div>` : "",
@@ -5555,7 +5555,7 @@ function referenceLibraryIndex(input: {
             <div class="reference-library-index-row" data-reference-library-index-row="store-snapshot" data-supporting-evidence-summary="store-snapshot" data-dashboard-detail="supporting-operational-snapshots">
               <div>
                 <strong>Store Snapshot</strong>
-                <span>Store signals and recent value</span>
+                <span>Store signals indexed</span>
               </div>
               <small><code data-dashboard-detail="store-signals">sync</code><code data-dashboard-detail="recent-value">recent_value</code></small>
             </div>` : "",
@@ -5563,7 +5563,7 @@ function referenceLibraryIndex(input: {
             <div class="reference-library-index-row" data-reference-library-index-row="raw-store" data-supporting-evidence-summary="raw-store" data-dashboard-detail="debug-inspector">
               <div>
                 <strong>Raw Store</strong>
-                <span>Records, events, and sync metadata</span>
+                <span>Raw evidence indexed</span>
               </div>
               <small><code data-dashboard-detail="supporting-evidence">audit_trail</code><code data-dashboard-detail="inspector:records">recent_records</code><code data-dashboard-detail="inspector:events">recent_events</code><code data-dashboard-detail="inspector:sync">sync</code></small>
             </div>` : ""

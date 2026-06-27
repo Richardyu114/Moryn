@@ -956,12 +956,14 @@ while still opening the same `Audit Trail` route.
 
 Expanding `Audit Trail` shows three lightweight rows:
 
-- `Audit Reports`, with route `supporting-operational-evidence` and chips for
-  `memory_lifecycle` and `capture_policy`
-- `Store Snapshot`, with route `supporting-operational-snapshots` and chips for
-  `sync` and `recent_value`
-- `Raw Store`, with route `debug-inspector` and chips for `recent_records`,
-  `recent_events`, and `sync`
+- `Audit Reports`, whose visible summary is `Lifecycle checks indexed`, with
+  route `supporting-operational-evidence` and chips for `memory_lifecycle` and
+  `capture_policy`
+- `Store Snapshot`, whose visible summary is `Store signals indexed`, with
+  route `supporting-operational-snapshots` and chips for `sync` and
+  `recent_value`
+- `Raw Store`, whose visible summary is `Raw evidence indexed`, with route
+  `debug-inspector` and chips for `recent_records`, `recent_events`, and `sync`
 
 The dashboard HTML does not render nested `Audit Reports`, `Audit Evidence`,
 `Store Signals`, `Recent Value`, `Raw Store Reference`, `Raw Store Inspector`,

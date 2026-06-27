@@ -3257,15 +3257,18 @@ describe("observability dashboard", () => {
       expect(storeSnapshotHtml).toContain("data-dashboard-detail=\"supporting-operational-snapshots\"");
       expect(rawStoreHtml).toContain("data-dashboard-detail=\"debug-inspector\"");
       expect(auditReportsHtml).toContain("<strong>Audit Reports</strong>");
-      expect(auditReportsHtml).toContain("<span>Lifecycle and capture policy evidence</span>");
+      expect(auditReportsHtml).toContain("<span>Lifecycle checks indexed</span>");
+      expect(auditReportsHtml).not.toContain("<span>Lifecycle and capture policy evidence</span>");
       expect(auditReportsHtml).toContain("<code data-dashboard-detail=\"memory-lifecycle-audit\">memory_lifecycle</code>");
       expect(auditReportsHtml).toContain("<code data-dashboard-detail=\"capture-policy-audit\">capture_policy</code>");
       expect(storeSnapshotHtml).toContain("<strong>Store Snapshot</strong>");
-      expect(storeSnapshotHtml).toContain("<span>Store signals and recent value</span>");
+      expect(storeSnapshotHtml).toContain("<span>Store signals indexed</span>");
+      expect(storeSnapshotHtml).not.toContain("<span>Store signals and recent value</span>");
       expect(storeSnapshotHtml).toContain("<code data-dashboard-detail=\"store-signals\">sync</code>");
       expect(storeSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
       expect(rawStoreHtml).toContain("<strong>Raw Store</strong>");
-      expect(rawStoreHtml).toContain("<span>Records, events, and sync metadata</span>");
+      expect(rawStoreHtml).toContain("<span>Raw evidence indexed</span>");
+      expect(rawStoreHtml).not.toContain("<span>Records, events, and sync metadata</span>");
       expect(rawStoreHtml).toContain("<code data-dashboard-detail=\"supporting-evidence\">audit_trail</code>");
       expect(rawStoreHtml).toContain("<code data-dashboard-detail=\"inspector:records\">recent_records</code>");
       expect(rawStoreHtml).toContain("<code data-dashboard-detail=\"inspector:events\">recent_events</code>");
@@ -3345,7 +3348,8 @@ describe("observability dashboard", () => {
 
       expect(data.recent_value[0]?.summary).toBe(longText);
       expect(auditTrailHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"store-snapshot\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
-      expect(auditTrailHtml).toContain("<span>Store signals and recent value</span>");
+      expect(auditTrailHtml).toContain("<span>Store signals indexed</span>");
+      expect(auditTrailHtml).not.toContain("<span>Store signals and recent value</span>");
       expect(auditTrailHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
       expect(html).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(auditTrailHtml).not.toContain("Important compact recent value intro.");
@@ -3503,7 +3507,8 @@ describe("observability dashboard", () => {
       expect(data.recent_events).toHaveLength(13);
       expect(data.recent_records[0]?.text).toContain("base64 IyBSZW53ZWkgV3JpdGluZy");
       expect(debugHtml).toContain("<strong>Raw Store</strong>");
-      expect(debugHtml).toContain("<span>Records, events, and sync metadata</span>");
+      expect(debugHtml).toContain("<span>Raw evidence indexed</span>");
+      expect(debugHtml).not.toContain("<span>Records, events, and sync metadata</span>");
       expect(debugHtml).toContain("<code data-dashboard-detail=\"inspector:records\">recent_records</code>");
       expect(debugHtml).toContain("<code data-dashboard-detail=\"inspector:events\">recent_events</code>");
       expect(debugHtml).toContain("<code data-dashboard-detail=\"inspector:sync\">sync</code>");
@@ -6658,7 +6663,8 @@ describe("observability dashboard", () => {
       const auditReportsEnd = html.indexOf("<div class=\"reference-library-index-row\"", auditReportsIndex + 1);
       const auditReportsHtml = html.slice(auditReportsIndex, auditReportsEnd);
       expect(auditReportsHtml).toContain("<strong>Audit Reports</strong>");
-      expect(auditReportsHtml).toContain("<span>Lifecycle and capture policy evidence</span>");
+      expect(auditReportsHtml).toContain("<span>Lifecycle checks indexed</span>");
+      expect(auditReportsHtml).not.toContain("<span>Lifecycle and capture policy evidence</span>");
       expect(auditReportsHtml).toContain("<code data-dashboard-detail=\"memory-lifecycle-audit\">memory_lifecycle</code>");
       expect(auditReportsHtml).toContain("<code data-dashboard-detail=\"capture-policy-audit\">capture_policy</code>");
       expect(html).not.toContain("<details class=\"clean-audit-report memory-lifecycle\" data-dashboard-detail=\"memory-lifecycle-audit\"");

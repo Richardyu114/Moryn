@@ -249,11 +249,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Audit reports, raw records, events, sync details, recent value, and store telemetry remain available through `/api/dashboard`");
     expectText(dashboard, "The collapsed `Audit Trail` row reads `Optional trace data`");
     expectText(dashboard, "the Evidence index `Audit` route also reads `Optional trace data`");
-    expectText(dashboard, "`Audit Reports`, with route `supporting-operational-evidence` and chips for");
+    expectText(dashboard, "`Audit Reports`, whose visible summary is `Lifecycle checks indexed`, with");
+    expectText(dashboard, "route `supporting-operational-evidence` and chips for");
     expectText(dashboard, "`memory_lifecycle` and `capture_policy`");
-    expectText(dashboard, "`Store Snapshot`, with route `supporting-operational-snapshots` and chips for");
+    expectText(dashboard, "`Store Snapshot`, whose visible summary is `Store signals indexed`, with");
+    expectText(dashboard, "route `supporting-operational-snapshots` and chips for");
     expectText(dashboard, "`sync` and `recent_value`");
-    expectText(dashboard, "`Raw Store`, with route `debug-inspector` and chips for");
+    expectText(dashboard, "`Raw Store`, whose visible summary is `Raw evidence indexed`, with route");
+    expectText(dashboard, "`debug-inspector` and chips for");
     expectText(dashboard, "`recent_records`, `recent_events`, and `sync`");
     expectText(dashboard, "The dashboard HTML does not render nested `Audit Reports`, `Audit Evidence`");
     expectText(dashboard, "`Store Signals`, `Recent Value`, `Raw Store Reference`, `Raw Store Inspector`");
