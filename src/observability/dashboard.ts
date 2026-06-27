@@ -5496,7 +5496,16 @@ function referenceLibraryIndex(input: {
     };
   });
   const diagnosticSummary = "Routine checks indexed";
-  const routeChips = routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(route.label)}</code>`).join("");
+  const routeLabel = (route: { label: string; route: string }): string => {
+    if (!input.compact) return route.label;
+    if (route.route === "routine-diagnostics") return "Diagnostics";
+    if (route.route === "dogfood-review") return "Dogfood notes";
+    if (route.route === "governance-hub") return "Governance";
+    if (route.route === "candidate-triage") return "Candidate backlog";
+    if (route.route === "supporting-evidence") return "Audit trail";
+    return route.label;
+  };
+  const routeChips = routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(routeLabel(route))}</code>`).join("");
   const indexTitle = input.compact ? "Audit Summary" : "Reference Library Index";
   const indexSummary = input.compact ? "Read-only reports available" : "Background reports indexed";
   const routeFaceSummary = input.compact ? "Optional details" : routeChips;

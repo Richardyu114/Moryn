@@ -175,9 +175,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "instead of the normal `panel evidence-library` shell");
     expectText(dashboard, "reveals an `Audit Summary` face with `Read-only reports available` and");
     expectText(dashboard, "`Optional details`, so the compact path does not lead with internal reference library naming");
-    expectText(dashboard, "Machine route chips such as `dogfood_report` or `audit_trail`");
-    expectText(dashboard, "move into the collapsed `Audit details` fold");
-    expectText(dashboard, "`data-reference-library-route` attributes");
+    expectText(dashboard, "Compact route chips move into the collapsed `Audit details`");
+    expectText(dashboard, "human labels such as `Dogfood notes`, `Candidate backlog`, and");
+    expectText(dashboard, "stable `data-reference-library-route` attributes still keep");
     expectText(dashboard, "The long `/api/dashboard` pointer is shortened inside that fold in compact mode");
     expectText(dashboard, "`Full evidence stays in /api/dashboard.`");
     expectText(dashboard, "does not render prose about every API evidence family");
