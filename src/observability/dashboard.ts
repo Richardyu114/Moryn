@@ -5655,10 +5655,11 @@ function evidenceLibrary(
   `;
 }
 
-function dashboardStatusSummary(data: DashboardData): string {
+function dashboardStatusSummary(data: DashboardData, options: { hideHealthyLine?: boolean } = {}): string {
   const health = data.health;
   const statusClass = healthClass(health.status);
   if (health.status === "healthy") {
+    if (options.hideHealthyLine) return "";
     return `
     <p class="dashboard-status-line ${statusClass}" data-dashboard-status="${escapeHtml(health.status)}"><strong>${escapeHtml(health.label)}</strong><span>${escapeHtml(health.explanation)}</span></p>
   `;
@@ -5696,7 +5697,7 @@ function renderDashboardBody(data: DashboardData): string {
       <span class="health-badge ${healthClass(data.health.status)}">${escapeHtml(data.health.label)}</span>
     </header>
 
-    ${dashboardStatusSummary(data)}
+    ${dashboardStatusSummary(data, { hideHealthyLine: isAllClearOverview })}
 
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
 

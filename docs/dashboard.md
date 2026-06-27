@@ -558,11 +558,14 @@ The first screen favors human-readable summaries over raw ids:
 - Review Queue maintenance plans when a project identity repair is available
 
 The top health message stays below the header, but healthy snapshots render as a
-lightweight `dashboard-status-line` instead of a full status panel. Sync pending
-states skip the extra status line because the header badge, Overview or Health
-lane, Store Signals, and Sync shortcut already show the same pending state.
-Non-healthy states that need a separate explanation, such as local-only, review,
-or conflict, still render the full status strip because they need first-screen
+lightweight `dashboard-status-line` instead of a full status panel unless the
+Overview already owns the zero-state. All-clear Overview states skip that
+healthy status line because the header badge, Overview, Background Lanes, and
+Reference Library already carry the quiet state. Sync pending states skip the
+extra status line because the header badge, Overview or Health lane, Store
+Signals, and Sync shortcut already show the same pending state. Non-healthy
+states that need a separate explanation, such as local-only, review, or
+conflict, still render the full status strip because they need first-screen
 attention.
 
 Directly below the health message, `Dashboard Overview` is the first-screen

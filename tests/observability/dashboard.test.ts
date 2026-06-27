@@ -473,8 +473,11 @@ describe("observability dashboard", () => {
         severity: "info",
         title: "Raw records waiting for review"
       }));
+      expect(data.health.explanation).toBe("Sync is clean and no urgent safety items were detected in this snapshot.");
+      expect(html).toContain("<span class=\"health-badge good\">Healthy</span>");
       expect(html).not.toContain("<section class=\"status-strip good\" data-dashboard-status=\"healthy\">");
-      expect(html).toContain("<p class=\"dashboard-status-line good\" data-dashboard-status=\"healthy\"><strong>Healthy</strong><span>Sync is clean and no urgent safety items were detected in this snapshot.</span></p>");
+      expect(html).not.toContain("<p class=\"dashboard-status-line good\" data-dashboard-status=\"healthy\">");
+      expect(html).not.toContain("Sync is clean and no urgent safety items were detected in this snapshot.</span></p>");
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
       expect(html).not.toContain("<details class=\"dashboard-overview-quiet\" data-dashboard-detail=\"dashboard-overview-quiet-cards\">");
       expect(html).not.toContain("<span>Background Status</span>");

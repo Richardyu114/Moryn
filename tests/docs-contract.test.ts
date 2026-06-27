@@ -66,6 +66,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "expanded panel still shows the read-only unavailable reason and zero-case stats");
     expect(dashboard).toContain("data-dashboard-action-id");
     expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");
+    expectText(dashboard, "unless the Overview already owns the zero-state");
+    expectText(dashboard, "All-clear Overview states skip that healthy status line");
+    expectText(dashboard, "the header badge, Overview, Background Lanes, and Reference Library already carry the quiet state");
     expectText(dashboard, "Sync pending states skip the extra status line");
     expectText(dashboard, "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip");
     expectText(dashboard, "first-screen Overview to the headline, primary action, and read-only boundary");
