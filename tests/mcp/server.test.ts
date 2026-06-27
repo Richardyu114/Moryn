@@ -3691,8 +3691,8 @@ describe("MCP stdio server", () => {
           });
           const pushDashboardHtml = await readFile(push.dashboard.path, "utf8");
           const pushStoreSnapshotHtml = storeSnapshotAuditRowHtml(pushDashboardHtml);
-          expect(pushStoreSnapshotHtml).toContain("<strong>Store Signals</strong>");
-          expect(pushStoreSnapshotHtml).toContain("<span>Store position indexed</span>");
+          expect(pushStoreSnapshotHtml).toContain("<strong>Shared Copy</strong>");
+          expect(pushStoreSnapshotHtml).toContain("<span>Shared copy indexed</span>");
           expect(pushStoreSnapshotHtml).not.toContain("<strong>Store Snapshot</strong>");
           expect(pushStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">Recent value</code>");
           expect(pushStoreSnapshotHtml).not.toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
@@ -3713,8 +3713,8 @@ describe("MCP stdio server", () => {
           });
           const pullDashboardHtml = await readFile(pull.dashboard.path, "utf8");
           const pullStoreSnapshotHtml = storeSnapshotAuditRowHtml(pullDashboardHtml);
-          expect(pullStoreSnapshotHtml).toContain("<strong>Store Signals</strong>");
-          expect(pullStoreSnapshotHtml).toContain("<span>Store position indexed</span>");
+          expect(pullStoreSnapshotHtml).toContain("<strong>Shared Copy</strong>");
+          expect(pullStoreSnapshotHtml).toContain("<span>Shared copy indexed</span>");
           expect(pullStoreSnapshotHtml).not.toContain("<strong>Store Snapshot</strong>");
           expect(pullStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">Recent value</code>");
           expect(pullStoreSnapshotHtml).not.toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
@@ -4064,8 +4064,8 @@ describe("MCP stdio server", () => {
           });
           const startDashboardHtml = await readFile(start.dashboard.path, "utf8");
           const startStoreSnapshotHtml = storeSnapshotAuditRowHtml(startDashboardHtml);
-          expect(startStoreSnapshotHtml).toContain("<strong>Store Signals</strong>");
-          expect(startStoreSnapshotHtml).toContain("<span>Store position indexed</span>");
+          expect(startStoreSnapshotHtml).toContain("<strong>Shared Copy</strong>");
+          expect(startStoreSnapshotHtml).toContain("<span>Shared copy indexed</span>");
           expect(startStoreSnapshotHtml).not.toContain("<strong>Store Snapshot</strong>");
           expect(startStoreSnapshotHtml).toContain("<code data-dashboard-detail=\"recent-value\">Recent value</code>");
           expect(startStoreSnapshotHtml).not.toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");

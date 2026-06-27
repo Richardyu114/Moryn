@@ -325,8 +325,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("Local sync changes are waiting to be pushed or pulled");
       expect(data.dashboard_overview.cards_by_id.health.summary).toContain("Local sync changes are waiting to be pushed or pulled");
       expect(html).not.toContain("<strong>Review sync changes</strong>");
-      expect(html).toContain("<strong>Inspect sync</strong>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">Inspect sync</button>");
+      expect(html).toContain("<strong data-i18n-en=\"Inspect sync\" data-i18n-zh=\"检查共享副本\">Inspect sync</strong>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\" data-i18n-en=\"Inspect sync\" data-i18n-zh=\"检查共享副本\">Inspect sync</button>");
       expect(html).not.toContain("<div class=\"dashboard-overview-grid\">");
       expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"health\"");
@@ -395,7 +395,7 @@ describe("observability dashboard", () => {
       expect(data.charts.memory_states.length).toBeGreaterThan(0);
       expect(data.charts.record_types.length).toBeGreaterThan(0);
       const workLanesStart = html.indexOf("data-dashboard-work-lanes");
-      const evidenceLibraryStart = html.indexOf("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Background Reference\">");
+      const evidenceLibraryStart = html.indexOf("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Technical details\">");
       expect(html).toContain("<section id=\"store-signals\" class=\"panel store-signals store-signals-promoted\" data-dashboard-detail=\"store-signals\" data-dashboard-promoted-store-signals aria-label=\"Store Signals\">");
       expect(html).toContain("<div class=\"store-signals-promoted-head\">\n        <span>Store Signals</span>\n        <small>Sync action ready</small>\n      </div>");
       expect(html).not.toContain("<details open id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\">");
@@ -409,10 +409,10 @@ describe("observability dashboard", () => {
       expect(evidenceLibraryStart).toBeGreaterThan(-1);
       expect(storeSignalsStart).toBeGreaterThan(overviewStart);
       expect(storeSignalsStart).toBeLessThan(evidenceLibraryStart);
-      expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Background Reference\">");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Background Reference: Optional read-only checks\">");
-      expect(html).toContain("<span>Background Reference</span>");
-      expect(html).toContain("<small>Optional checks</small>");
+      expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Technical details\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Technical details: Optional read-only checks\">");
+      expect(html).toContain("<span data-i18n-en=\"Technical details\" data-i18n-zh=\"技术细节\">Technical details</span>");
+      expect(html).toContain("<small data-i18n-en=\"Optional checks\" data-i18n-zh=\"可选检查\">Optional checks</small>");
       expect(html).not.toContain("<small>Audit route available</small>");
       expect(html).not.toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
       expect(html).not.toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Reference evidence only\">");
@@ -422,12 +422,12 @@ describe("observability dashboard", () => {
       expect(referenceRoutesStart).toBeGreaterThan(-1);
       const referenceIndexFaceHtml = referenceIndexHtml.slice(0, referenceRoutesStart);
       const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
-      expect(referenceIndexFaceHtml).toContain("<strong>Audit Summary</strong>");
+      expect(referenceIndexFaceHtml).toContain("<strong>Check records</strong>");
       expect(referenceIndexFaceHtml).not.toContain("<strong>Audit Index</strong>");
-      expect(referenceIndexFaceHtml).toContain("<span>Read-only reports available</span>");
+      expect(referenceIndexFaceHtml).toContain("<span>Read-only details available</span>");
       expect(referenceIndexFaceHtml).toContain("<small>Optional details</small>");
       expect(referenceIndexFaceHtml).not.toContain("<strong>Reference Library Index</strong>");
-      expect(referenceRoutesHtml).toContain("<span>Reference details</span>");
+      expect(referenceRoutesHtml).toContain("<span>Detail links</span>");
       expect(referenceRoutesHtml).toContain("<small>Routes and checks</small>");
       expect(referenceRoutesHtml).not.toContain("<span>Audit details</span>");
       expect(referenceRoutesHtml).not.toContain("<small>Routes and raw evidence</small>");
@@ -436,15 +436,15 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).toContain("Full evidence stays in <code>/api/dashboard</code>.");
       expect(referenceRoutesHtml).not.toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
-      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"routine-diagnostics\">Diagnostics</code>");
+      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"routine-diagnostics\">Health checks</code>");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
-      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"supporting-evidence\">Audit trail</code>");
+      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"supporting-evidence\">History</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"routine-diagnostics\">diagnostics</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"supporting-evidence\">audit_trail</code>");
-      expect(referenceRoutesHtml).toContain("<strong>Diagnostics</strong>");
+      expect(referenceRoutesHtml).toContain("<strong>Health Checks</strong>");
       expect(referenceRoutesHtml).not.toContain("<strong>Diagnostics Index</strong>");
       expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"health-check\" aria-label=\"Health Check: Healthy local store. Full report is available in /api/dashboard.health_check.\">Health check</code>");
-      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"recall-eval\" aria-label=\"Recall Eval: No recall eval cases yet. Full report is available in /api/dashboard.recall_eval.\">Recall eval</code>");
+      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"recall-eval\" aria-label=\"Recall Eval: No recall eval cases yet. Full report is available in /api/dashboard.recall_eval.\">Recall check</code>");
       expect(referenceRoutesHtml).not.toContain(">health_check</code>");
       expect(referenceRoutesHtml).not.toContain(">recall_eval</code>");
       expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
@@ -475,7 +475,7 @@ describe("observability dashboard", () => {
     }
   });
 
-  it("compresses Action Board summary to active counts and all clear", async () => {
+  it("renders a human-first dashboard with memory inventory, shared copy, recent status, and language switch", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-dashboard-action-board-"));
     const storePath = join(root, "store");
     const remote = join(root, "remote.git");
@@ -488,7 +488,11 @@ describe("observability dashboard", () => {
       const engine = createEngine({
         storePath,
         now: (() => {
-          const timestamps = ["2026-06-01T00:01:00.000Z"];
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z"
+          ];
           return () => timestamps.shift() ?? "2026-06-01T00:02:00.000Z";
         })(),
         id: (() => {
@@ -506,6 +510,25 @@ describe("observability dashboard", () => {
         state: "raw",
         source: { client: "codex", session_id: "dashboard-all-clear-info" }
       });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Moryn should make dashboard storage easy to understand.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex", session_id: "dashboard-all-clear-info" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Recent session status belongs on the dashboard front page.", format: "text" },
+        state: "candidate",
+        source: { client: "gemini", session_id: "dashboard-all-clear-info" }
+      });
       await initializeGitSync(storePath, remote);
 
       const data = await buildDashboardData(storePath, {
@@ -518,39 +541,71 @@ describe("observability dashboard", () => {
       expect(data.action_board.items.map((item) => item.value)).toEqual([0, 0, 0, 0]);
       expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
       expect(data.health.status).toBe("healthy");
-      expect(data.dashboard_overview.headline).toBe("All clear");
-      expect(data.dashboard_overview.detail).toBe("No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.");
+      expect(data.memory_inventory).toMatchObject({
+        summary: {
+          remembered: 1,
+          new_items: 1,
+          temporary: 1,
+          set_aside: 0,
+          total_visible: 3
+        },
+        review_suggested: true
+      });
+      expect(data.memory_inventory.states.map((state) => state.id)).toEqual(["remembered", "new_items", "temporary", "set_aside"]);
+      expect(data.memory_inventory.kind_summary).toEqual(expect.arrayContaining([
+        expect.objectContaining({ kind: "memory", label: "Memories", count: 1 }),
+        expect.objectContaining({ kind: "session_summary", label: "Session notes", count: 1 }),
+        expect.objectContaining({ kind: "agent_note", label: "Agent notes", count: 1 })
+      ]));
+      expect(data.dashboard_overview.headline).toBe("Review suggested");
+      expect(data.dashboard_overview.detail).toBe("1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.");
+      expect(data.dashboard_overview.primary_action).toMatchObject({
+        label: "Review new notes",
+        target: "candidate-triage",
+        source: "memory_inventory"
+      });
       expect(data.attention_items).toContainEqual(expect.objectContaining({
         severity: "info",
         title: "Raw records waiting for review"
       }));
       expect(data.health.explanation).toBe("Sync is clean and no urgent safety items were detected in this snapshot.");
-      expect(html).toContain("<strong>All clear</strong>");
-      expect(html).toContain("<p>No work needs attention.</p>");
-      expect(html).not.toContain("<p>No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.</p>");
-      expect(data.dashboard_overview.primary_action.label).toBe("Check attention");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action dashboard-overview-action-quiet\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">View details</button>");
-      expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Check attention</button>");
-      expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">Inspect checks</button>");
+      expect(html).toContain("<span class=\"language-toggle-label\" data-i18n-en=\"Language\" data-i18n-zh=\"语言\">Language</span>");
+      expect(html).toContain("<button type=\"button\" class=\"language-option active\" data-dashboard-language-option=\"en\" aria-pressed=\"true\">EN</button>");
+      expect(html).toContain("<button type=\"button\" class=\"language-option\" data-dashboard-language-option=\"zh\" aria-pressed=\"false\">中文</button>");
+      expect(html).toContain("const key = \"moryn.dashboard.language\";");
+      expect(html).toContain("localStorage.getItem(key)");
+      expect(html).toContain("<strong data-i18n-en=\"Review suggested\" data-i18n-zh=\"建议看一下\">Review suggested</strong>");
+      expect(html).toContain("<p data-i18n-en=\"1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.\" data-i18n-zh=\"Moryn 已安全保存 1 条新内容和 1 条临时内容。你想让它长期记住时再确认。\">1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.</p>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"candidate-triage\" aria-controls=\"candidate-triage\" data-i18n-en=\"Review new notes\" data-i18n-zh=\"查看新内容\">Review new notes</button>");
+      expect(html).not.toContain("<strong>All clear</strong>");
+      expect(html).not.toContain("<p>No work needs attention.</p>");
       expect(html).toContain("<span class=\"health-badge good\">Healthy</span>");
-      expect(html).toContain(`<p class="store-path" title="${storePath}">Local store</p>`);
+      expect(html).toContain(`<p class="store-path" title="${storePath}" data-i18n-en="Local memory" data-i18n-zh="本机记忆">Local memory</p>`);
       expect(html).toContain("<p class=\"dashboard-generated-at\"><time datetime=\"2026-06-21T00:00:00.000Z\" title=\"2026-06-21T00:00:00.000Z\">Updated 00:00 UTC</time></p>");
-      expect(html).not.toContain(`<p class="store-path" title="${storePath}">${storePath}</p>`);
-      expect(html).not.toContain("<p>Generated <time title=\"2026-06-21T00:00:00.000Z\">2026-06-21T00:00:00.000Z</time></p>");
-      expect(html).not.toContain("<section class=\"status-strip good\" data-dashboard-status=\"healthy\">");
-      expect(html).not.toContain("<p class=\"dashboard-status-line good\" data-dashboard-status=\"healthy\">");
-      expect(html).not.toContain("Sync is clean and no urgent safety items were detected in this snapshot.</span></p>");
+      expect(html).toContain("<section class=\"front-status-grid\" data-front-status-grid aria-label=\"Local and shared status\">");
+      expect(html).toContain("<span data-i18n-en=\"This device\" data-i18n-zh=\"本机记忆\">This device</span>");
+      expect(html).toContain("<strong data-i18n-en=\"Healthy\" data-i18n-zh=\"正常\">Healthy</strong>");
+      expect(html).toContain("<span data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</span>");
+      expect(html).toContain("<strong data-i18n-en=\"Up to date\" data-i18n-zh=\"已同步\">Up to date</strong>");
+      expect(html).toContain("<small data-i18n-en=\"0 behind · 0 ahead\" data-i18n-zh=\"落后 0 · 待上传 0\">0 behind · 0 ahead</small>");
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
-      expect(html).not.toContain("<details class=\"dashboard-overview-quiet\" data-dashboard-detail=\"dashboard-overview-quiet-cards\">");
-      expect(html).not.toContain("<span>Background Status</span>");
-      expect(html).not.toContain("data-dashboard-overview-quiet-card=\"health\"");
-      expect(html).not.toContain("data-dashboard-overview-quiet-card=\"context\"");
-      expect(html).not.toContain("data-dashboard-overview-quiet-card=\"sync\"");
-      expect(html).not.toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
-      expect(html).not.toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
-      expect(html).not.toContain("<span>Info Checks</span>");
-      expect(html).not.toContain("data-dashboard-detail=\"attention:Raw records waiting for review\"");
-      expect(html).not.toContain("<strong>Raw records waiting for review</strong>");
+      expect(html).toContain("<section class=\"memory-inventory\" data-memory-inventory aria-label=\"What Moryn stores\">");
+      expect(html).toContain("<h2 data-i18n-en=\"What Moryn remembers\" data-i18n-zh=\"Moryn 记住了什么\">What Moryn remembers</h2>");
+      expect(html).toContain("<span data-i18n-en=\"Remembered\" data-i18n-zh=\"已记住\">Remembered</span>");
+      expect(html).toContain("<strong>1</strong>");
+      expect(html).toContain("<span data-i18n-en=\"New\" data-i18n-zh=\"等你确认\">New</span>");
+      expect(html).toContain("<span data-i18n-en=\"Temporary\" data-i18n-zh=\"临时保存\">Temporary</span>");
+      expect(html).toContain("<span data-i18n-en=\"Set aside\" data-i18n-zh=\"已放一边\">Set aside</span>");
+      expect(html).toContain("<section class=\"recent-status\" data-recent-status aria-label=\"Recent status\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Recent status\" data-i18n-zh=\"最近状态\">Recent status</h2>");
+      expect(html).toContain("<span data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</span>");
+      expect(html).toContain("<span data-i18n-en=\"Latest source\" data-i18n-zh=\"最近来源\">Latest source</span>");
+      expect(html).toContain("<span data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</span>");
+      expect(data.recent_records[0]).toMatchObject({
+        source: { client: "gemini" },
+        text: "Recent session status belongs on the dashboard front page."
+      });
+      expect(html).toContain("2 new or temporary items");
       expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
       expect(data.action_board.items_by_id.review).toMatchObject({
         label: "Review",
@@ -594,10 +649,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<div class=\"dashboard-overview-safety\" aria-label=\"Dashboard safety\">");
       expect(html).not.toContain("<span>Read-only overview</span>");
       expect(html).not.toContain("<span>Writes stay in Capture Inbox, Review Queue, and Candidate Triage</span>");
-      expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Background Reference\">");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Background Reference: Optional read-only checks\">");
-      expect(html).toContain("<span>Background Reference</span>");
-      expect(html).toContain("<small>Optional checks</small>");
+      expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Technical details\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Technical details: Optional read-only checks\">");
+      expect(html).toContain("<span data-i18n-en=\"Technical details\" data-i18n-zh=\"技术细节\">Technical details</span>");
+      expect(html).toContain("<small data-i18n-en=\"Optional checks\" data-i18n-zh=\"可选检查\">Optional checks</small>");
       expect(html).not.toContain("<small>Audit route available</small>");
       expect(html).not.toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
       expect(html).not.toContain("<span>Reference Library</span>");
@@ -609,12 +664,12 @@ describe("observability dashboard", () => {
       expect(referenceRoutesStart).toBeGreaterThan(-1);
       const referenceIndexFaceHtml = referenceIndexHtml.slice(0, referenceRoutesStart);
       const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
-      expect(referenceIndexFaceHtml).toContain("<strong>Audit Summary</strong>");
+      expect(referenceIndexFaceHtml).toContain("<strong>Check records</strong>");
       expect(referenceIndexFaceHtml).not.toContain("<strong>Audit Index</strong>");
-      expect(referenceIndexFaceHtml).toContain("<span>Read-only reports available</span>");
+      expect(referenceIndexFaceHtml).toContain("<span>Read-only details available</span>");
       expect(referenceIndexFaceHtml).toContain("<small>Optional details</small>");
       expect(referenceIndexFaceHtml).not.toContain("<strong>Reference Library Index</strong>");
-      expect(referenceRoutesHtml).toContain("<span>Reference details</span>");
+      expect(referenceRoutesHtml).toContain("<span>Detail links</span>");
       expect(referenceRoutesHtml).toContain("<small>Routes and checks</small>");
       expect(referenceRoutesHtml).not.toContain("<span>Audit details</span>");
       expect(referenceRoutesHtml).not.toContain("<small>Routes and raw evidence</small>");
@@ -623,20 +678,20 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).toContain("Full evidence stays in <code>/api/dashboard</code>.");
       expect(referenceRoutesHtml).not.toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
-      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"routine-diagnostics\">Diagnostics</code>");
+      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"routine-diagnostics\">Health checks</code>");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
-      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"supporting-evidence\">Audit trail</code>");
+      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"supporting-evidence\">History</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"routine-diagnostics\">diagnostics</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"supporting-evidence\">audit_trail</code>");
-      expect(referenceRoutesHtml).toContain("<strong>Diagnostics</strong>");
+      expect(referenceRoutesHtml).toContain("<strong>Health Checks</strong>");
       expect(referenceRoutesHtml).not.toContain("<strong>Diagnostics Index</strong>");
-      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"supporting-evidence\">Audit trail</code>");
+      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"supporting-evidence\">History</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-dashboard-detail=\"supporting-evidence\">audit_trail</code>");
       expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
       expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"raw-store\" data-supporting-evidence-summary=\"raw-store\" data-dashboard-detail=\"debug-inspector\">");
-      expect(html).toContain("<code data-dashboard-detail=\"supporting-evidence\">Audit trail</code>");
+      expect(html).toContain("<code data-dashboard-detail=\"supporting-evidence\">History</code>");
       expect(html).not.toContain("<article class=\"routine-diagnostics-reference\"");
       expect(html).not.toContain("<article class=\"supporting-evidence-summary-row\"");
       expect(html).toContain("Full evidence stays in <code>/api/dashboard</code>.");
@@ -657,7 +712,7 @@ describe("observability dashboard", () => {
     }
   });
 
-  it("keeps compact Background Reference summaries quiet when all-clear has background inspect signals", async () => {
+  it("keeps compact technical details quiet when only saved notes need review", async () => {
     const root = await mkdtemp(join(tmpdir(), "moryn-dashboard-quiet-background-"));
     const storePath = join(root, "store");
     const remote = join(root, "remote.git");
@@ -725,7 +780,12 @@ describe("observability dashboard", () => {
       const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
 
       expect(data.health.status).toBe("healthy");
-      expect(data.dashboard_overview.headline).toBe("All clear");
+      expect(data.dashboard_overview.headline).toBe("Review suggested");
+      expect(data.dashboard_overview.primary_action).toMatchObject({
+        label: "Review new notes",
+        target: "candidate-triage",
+        source: "memory_inventory"
+      });
       expect(data.candidate_triage.summary).toMatchObject({
         total_candidates: 3,
         groups: 1,
@@ -738,41 +798,41 @@ describe("observability dashboard", () => {
       });
       expect(data.dogfood_report.findings).toHaveLength(1);
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"candidate-triage\"");
-      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"candidate-triage\">Candidate backlog</code>");
+      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"candidate-triage\">New notes</code>");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"governance-hub\"");
-      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"governance-hub\">Governance</code>");
+      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"governance-hub\">Safety checks</code>");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"dogfood-review\"");
-      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"dogfood-review\">Dogfood notes</code>");
+      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"dogfood-review\">Product notes</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"candidate-triage\">candidate_triage</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"dogfood-review\">dogfood_report</code>");
-      expect(referenceRoutesHtml).toContain("<strong>Candidate Backlog</strong>");
-      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"candidate-triage:index\">Candidate backlog</code>");
+      expect(referenceRoutesHtml).toContain("<strong>New Notes</strong>");
+      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"candidate-triage:index\">New notes</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-dashboard-detail=\"candidate-triage:index\">candidate_triage</code>");
-      expect(referenceRoutesHtml).toContain("<span>Backlog signals indexed</span>");
+      expect(referenceRoutesHtml).toContain("<span>Saved notes indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>3 candidates across 1 group indexed</span>");
       expect(referenceRoutesHtml).not.toContain("data-candidate-triage-focus");
       expect(referenceRoutesHtml).not.toContain("Audit focus:");
-      expect(referenceRoutesHtml).toContain("<strong>Governance</strong>");
-      expect(referenceRoutesHtml).toContain("<span>Governance signals indexed</span>");
+      expect(referenceRoutesHtml).toContain("<strong>Safety Checks</strong>");
+      expect(referenceRoutesHtml).toContain("<span>Safety checks indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>2 governance notes indexed</span>");
-      expect(referenceRoutesHtml).toContain("<strong>Dogfood Notes</strong>");
-      expect(referenceRoutesHtml).toContain("<code>Dogfood report</code>");
+      expect(referenceRoutesHtml).toContain("<strong>Product Notes</strong>");
+      expect(referenceRoutesHtml).toContain("<code>Product notes</code>");
       expect(referenceRoutesHtml).not.toContain("<code>dogfood_report</code>");
-      expect(referenceRoutesHtml).toContain("<span>Dogfood signals indexed</span>");
+      expect(referenceRoutesHtml).toContain("<span>Product notes indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>1 finding indexed</span>");
       expect(referenceRoutesHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"audit-reports\" data-supporting-evidence-summary=\"audit-reports\" data-dashboard-detail=\"supporting-operational-evidence\">");
-      expect(referenceRoutesHtml).toContain("<strong>Lifecycle</strong>");
-      expect(referenceRoutesHtml).toContain("<span>Lifecycle signals indexed</span>");
+      expect(referenceRoutesHtml).toContain("<strong>Cleanup Checks</strong>");
+      expect(referenceRoutesHtml).toContain("<span>Cleanup checks indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<strong>Audit Reports</strong>");
       expect(referenceRoutesHtml).not.toContain("<span>Lifecycle checks indexed</span>");
       expect(referenceRoutesHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"store-snapshot\" data-supporting-evidence-summary=\"store-snapshot\" data-dashboard-detail=\"supporting-operational-snapshots\">");
-      expect(referenceRoutesHtml).toContain("<strong>Store Signals</strong>");
-      expect(referenceRoutesHtml).toContain("<span>Store position indexed</span>");
+      expect(referenceRoutesHtml).toContain("<strong>Shared Copy</strong>");
+      expect(referenceRoutesHtml).toContain("<span>Shared copy indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<strong>Store Snapshot</strong>");
       expect(referenceRoutesHtml).not.toContain("<span>Store signals indexed</span>");
       expect(referenceRoutesHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"raw-store\" data-supporting-evidence-summary=\"raw-store\" data-dashboard-detail=\"debug-inspector\">");
-      expect(referenceRoutesHtml).toContain("<strong>Store History</strong>");
-      expect(referenceRoutesHtml).toContain("<span>History routes indexed</span>");
+      expect(referenceRoutesHtml).toContain("<strong>History</strong>");
+      expect(referenceRoutesHtml).toContain("<span>History indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<strong>Raw Store</strong>");
       expect(referenceRoutesHtml).not.toContain("<span>Raw evidence indexed</span>");
       expect(referenceRoutesHtml).toContain("Full evidence stays in <code>/api/dashboard</code>.");
@@ -2818,10 +2878,10 @@ describe("observability dashboard", () => {
         const html = renderDashboardHtml(data);
         expect(html).toContain("Recall Eval");
         expect(html).toContain("<section class=\"dashboard-overview good\" data-dashboard-overview aria-label=\"Dashboard Overview\">");
-        expect(html).toContain("<strong>All clear</strong>");
-        expect(html).toContain("<p>No work needs attention.</p>");
+        expect(html).toContain("<strong data-i18n-en=\"All clear\" data-i18n-zh=\"暂时不用管\">All clear</strong>");
+        expect(html).toContain("<p data-i18n-en=\"No work needs attention.\" data-i18n-zh=\"No work needs attention.\">No work needs attention.</p>");
         expect(html).not.toContain("<p>No confirmations, warnings, or sync actions need attention. Read-only inspections remain available below.</p>");
-        expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action dashboard-overview-action-quiet\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">View checks</button>");
+        expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action dashboard-overview-action-quiet\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\" data-i18n-en=\"View checks\" data-i18n-zh=\"查看检查\">View checks</button>");
         expect(html).not.toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"governance-hub\" aria-controls=\"governance-hub\">Inspect checks</button>");
         expect(html).not.toContain("<div class=\"dashboard-overview-safety\" aria-label=\"Dashboard safety\">");
         expect(html).not.toContain("<span>Read-only overview</span>");
@@ -2856,7 +2916,7 @@ describe("observability dashboard", () => {
           value: "Healthy",
           source: "action_board.items_by_id.sync"
         });
-        expect(html).toContain("<strong>All clear</strong>");
+        expect(html).toContain("<strong data-i18n-en=\"All clear\" data-i18n-zh=\"暂时不用管\">All clear</strong>");
         expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
         expect(data.action_board.items_by_id.inspect).toMatchObject({
           label: "Inspect",
@@ -3069,10 +3129,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-dashboard-status=\"");
       expect(html).not.toContain("<section class=\"hero\">");
       expect(html).toContain("<section class=\"dashboard-overview warning\" data-dashboard-overview aria-label=\"Dashboard Overview\">");
-      expect(html).toContain("<h2>Dashboard Overview</h2>");
-      expect(html).toContain("<strong>Review warnings</strong>");
-      expect(html).toContain("<p>Warnings and critical signals remain visible in Needs Attention.</p>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">Review warnings</button>");
+      expect(html).not.toContain("<h2>Dashboard Overview</h2>");
+      expect(html).toContain("<h2><span data-i18n-en=\"Needs attention?\" data-i18n-zh=\"现在需要我做什么吗？\">Needs attention?</span></h2>");
+      expect(html).toContain("<strong data-i18n-en=\"Review warnings\" data-i18n-zh=\"Review warnings\">Review warnings</strong>");
+      expect(html).toContain("<p data-i18n-en=\"Warnings and critical signals remain visible in Needs Attention.\" data-i18n-zh=\"Warnings and critical signals remain visible in Needs Attention.\">Warnings and critical signals remain visible in Needs Attention.</p>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-i18n-en=\"Review warnings\" data-i18n-zh=\"Review warnings\">Review warnings</button>");
       expect(html).not.toContain("<div class=\"dashboard-overview-grid\">");
       expect(html).not.toContain("data-dashboard-overview-card=\"health\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"context\"");
@@ -5325,7 +5386,7 @@ describe("observability dashboard", () => {
         value: "Review decisions",
         source: "action_board.items_by_id.confirm"
       });
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\">Review decisions</button>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review decisions\" data-i18n-zh=\"Review decisions\">Review decisions</button>");
       expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"action\"");
       expect(html).not.toContain("data-dashboard-detail=\"dashboard-overview-quiet-cards\"");
@@ -5423,7 +5484,7 @@ describe("observability dashboard", () => {
         target: "store-signals",
         source: "action_board.items_by_id.sync"
       });
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\">Review decisions</button>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review decisions\" data-i18n-zh=\"Review decisions\">Review decisions</button>");
       expect(html).toContain("<span class=\"health-badge warning\">Sync Pending</span>");
       expect(html).not.toContain("<p class=\"dashboard-status-line warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).not.toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");

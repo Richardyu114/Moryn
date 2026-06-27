@@ -564,74 +564,88 @@ The first screen favors human-readable summaries over raw ids:
 - recent valuable records, newest first
 - Review Queue maintenance plans when a project identity repair is available
 
-The header keeps first-screen metadata quiet: it shows `Local store` and a short
-`Updated HH:MM UTC` timestamp instead of the full filesystem path and raw ISO
-timestamp. The full store path stays in the `store-path` title attribute, the
-full timestamp stays in the `time` element's `datetime` and title attributes,
-and `/api/dashboard.store.path` plus `/api/dashboard.generated_at` remain the
-machine-readable audit source.
+The header keeps first-screen metadata quiet: it shows `Local memory` and a
+short `Updated HH:MM UTC` timestamp instead of the full filesystem path and raw
+ISO timestamp. The full store path stays in the `store-path` title attribute,
+the full timestamp stays in the `time` element's `datetime` and title
+attributes, and `/api/dashboard.store.path` plus
+`/api/dashboard.generated_at` remain the machine-readable audit source. A
+language toggle defaults to English and can switch the visible dashboard copy to
+Chinese; the browser remembers the choice in `moryn.dashboard.language`.
+
+The first screen is arranged around four plain questions:
+
+```text
+Need action?  -> Needs attention? / All clear / Review suggested
+Stored what?  -> What Moryn remembers
+State now?    -> This device, Recent status
+Shared copy?  -> Shared copy
+```
+
+`This device` and `Shared copy` appear before the main action summary. `Shared
+copy` is the user-facing name for Git sync state: it can read `Up to date`,
+`Waiting to upload`, `New shared updates`, `Needs help`, or `Not connected`.
+The API still exposes the underlying sync data in `/api/dashboard.sync`.
+
+The main action summary is labeled `Needs attention?` in the visible UI. It
+picks the most urgent derived action in this order: explicit decisions, visible
+warnings, sync work, then saved notes that would benefit from review. `Review
+suggested` is intentionally lighter than an urgent warning: it appears only
+when there are no higher-priority actions and Moryn has saved `New`,
+`Temporary`, or `Set aside` items that the user may want to review. It routes to
+Capture Inbox when review candidates exist, to Candidate Triage when candidate
+notes exist, or to Needs Attention for the remaining saved-note review.
+
+`All clear` now means there are no confirmations, visible warnings, sync tasks,
+or saved-note reviews waiting. Pure read-only inspections do not turn the
+headline into urgent work. The API still keeps the full overview contract in
+`/api/dashboard.dashboard_overview`, including `primary_action`,
+`cards`, `cards_by_id`, `safety`, and `evidence_sources`, so agents retain the
+audit trail even when visible cards are folded or hidden.
+
+Directly below the action summary, `What Moryn remembers` shows the user-facing
+memory inventory:
+
+```text
+remembered  <- canonical records
+new         <- candidate records
+temporary   <- raw records
+set aside   <- archived or quarantined records
+```
+
+The inventory also groups visible records by kind, using human labels such as
+`Memories`, `Skills`, `Preferences`, `Session notes`, and `Agent notes`.
+`/api/dashboard.memory_inventory` keeps the counts and source states for agents.
+
+`Recent status` shows the last write time, latest source, shared-copy state, and
+the number of new or temporary saved items. This gives the user the recent state
+of the local memory without opening the raw record list.
 
 The top health message stays below the header, but healthy snapshots render as a
 lightweight `dashboard-status-line` instead of a full status panel unless the
-Overview already owns the zero-state. All-clear Overview states skip that
-healthy status line because the header badge, Overview, and compact Background
-Reference already carry the quiet state. Sync pending states skip the
-extra status line because the header badge, Overview or Health lane, Store
-Signals, and Sync shortcut already show the same pending state. Non-healthy
-states that need a separate explanation, such as local-only, review, or
-conflict, still render the full status strip because they need first-screen
-attention.
+first-screen action summary already owns the zero-state. Non-healthy states that
+need a separate explanation, such as local-only, review, or conflict, still
+render the full status strip because they need first-screen attention.
 
-Directly below the health message, `Dashboard Overview` is the first-screen
-summary. It picks the most urgent derived Action Board item and keeps the
-first-screen Overview to the headline, primary action, and read-only boundary.
-The four derived cards for current health, next action, context, and sync still
-point back to source paths such as `health`,
-`action_board.items_by_id.review`, `context_pack_review`, or
-`action_board.items_by_id.sync`. The visible card footer uses a human navigation
-label such as `Review health`, `Open context`, or `Inspect sync`, while the
-internal source path stays available in `cards[].source` and
-`data-dashboard-overview-source` for audit tooling. Each background overview card is
-also a local navigation button that reuses the same scroll targets as the Action Board.
-It does not add a new API endpoint, Safe Action Registry entry, or memory
-mutation path. Its job is to answer "what should I look at first?" while keeping
-the detailed panels folded underneath.
-Pure read-only inspections do not turn the overview headline into an urgent
-next action. If there are no confirmations, warnings, or sync actions, the
-overview reads `All clear` while rendering a quiet visible navigation button
-such as `View checks` or `View details`. The API action remains authoritative:
-`/api/dashboard.dashboard_overview.primary_action.label` still keeps the
-underlying `Inspect checks` or `Check attention` action label for agents and
-audit tooling. The visible all-clear detail uses the shorter `No work needs
-attention.` sentence; the full explanation remains in
-`/api/dashboard.dashboard_overview.detail`.
-All-clear Overview states also skip the visible
-`Dashboard safety` chips because the headline, primary action, Background
-Reference route, and underlying mutation surfaces already carry the quiet boundary;
-`/api/dashboard.dashboard_overview.safety` still keeps the mutation-surface list
-for agents and audit tooling. If pending sync is the only action signal, the
-overview relies on its headline and primary button, then skips
-`Background Status` and the stable `dashboard-overview-quiet-cards` route so the
-first screen does not repeat the same sync task. The `Health`, `Next`,
-`Context`, and `Sync` cards remain preserved in
-`/api/dashboard.dashboard_overview.cards` without repeating status cards on the
-first screen. All-clear Overview states skip `Background Status` and the stable
-`dashboard-overview-quiet-cards` route for the same reason: `Background Lanes`,
-Reference Library, `/api/dashboard.action_board`, and
-`/api/dashboard.dashboard_overview.cards` already preserve the audit routes, so
-the user sees one quiet zero-state instead of three status summaries. The
-Reference Library route also renders through the lighter `Background Reference`
-shell in this state, with `data-dashboard-background-reference`, so routine
-evidence is visible as an audit fold rather than a second task panel. All-clear
-pages also skip the quiet `Info Checks` anchor when only informational attention
-items remain and skip the visible `Background Shortcuts` strip because
-the Overview action, compact Background Reference, and `/api/dashboard` already expose the same local
-navigation. `/api/dashboard.attention_items` remains the audit source for those
+When a high-priority action owns the first screen, the four derived cards for
+current health, next action, context, and sync still point back to source paths
+such as `health`, `action_board.items_by_id.review`,
+`context_pack_review`, or `action_board.items_by_id.sync`. The visible card
+footer uses a human navigation label such as `Review health`, `Open context`, or
+`Inspect sync`, while the internal source path stays available in
+`cards[].source` and `data-dashboard-overview-source` for audit tooling. Each
+background overview card is also a local navigation button that reuses the same
+scroll targets as the Action Board. It does not add a new API endpoint, Safe
+Action Registry entry, or memory mutation path.
+
+All-clear and Review-suggested pages skip duplicate shortcut grids, work lanes,
+and safety chips on the first screen because the summary, inventory, recent
+status, compact `Technical details` fold, and `/api/dashboard` already expose
+the same routes. `/api/dashboard.attention_items` remains the audit source for
 routine checks, and `/api/dashboard.action_board` remains the audit source for
-the complete shortcut list. When
-`Background Status` is rendered in non-sync states, a card
-with the same source as the headline primary action is skipped in both the
-visible grid and `Background Status`; the card still stays in
+the complete shortcut list. When `Background Status` is rendered in non-sync
+states, a card with the same source as the headline primary action is skipped in
+both the visible grid and `Background Status`; the card still stays in
 `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling.
 `Background Status` opens with `Signals ready`, while the accessible summary
 keeps `Healthy signals kept for context` so the folded row reads as supporting
@@ -643,11 +657,12 @@ uninterrupted; the overview cards remain in
 If sync is also pending, Pending Decisions still owns the Overview headline and
 primary action because it is the explicit confirmation path; sync remains visible
 through the health badge, Store Signals, and `/api/dashboard.dashboard_overview.cards`.
-When sync is the active warning, Store Signals promotes into a compact
+When sync is the active warning, the sync details promote into a compact
 current-task section with `data-dashboard-promoted-store-signals`, a `Sync
-Action` brief, and a quiet `Sync action ready` label. The brief shows the
-suggested read-only command, remote/branch context, and ahead/behind counts
-without adding an Approve or Apply control.
+Action` brief, and a quiet `Sync action ready` label. The visible first-screen
+copy refers to the remote as the `Shared copy`; the underlying brief still keeps
+branch and ahead/behind counts for audit without adding an Approve or Apply
+control.
 Store Signals keeps `Sync Action` in the foreground, moves `Sync Position`
 behind a collapsed `Sync details` fold, and leaves Agent Activity, Record
 Quality, and Record Types in `/api/dashboard.charts` instead of rendering a
@@ -660,8 +675,8 @@ The promoted section omits `Telemetry Context` so the open sync state stays
 focused on the action and position rail. The Reference Library still keeps the
 Audit route and raw evidence, but it does not render a second `store-signals`
 panel.
-In the same sync-only mode, Reference Library renders as a compact
-`Background Reference` strip with `data-dashboard-background-reference` while
+In the same sync-only mode, the read-only evidence layer renders as a compact
+`Technical details` strip with `data-dashboard-background-reference` while
 keeping the stable `data-dashboard-detail="evidence-library"` route. The strip
 uses the quiet `Optional checks` label and `Optional read-only checks`
 accessible summary so background evidence stays reachable without sounding like
@@ -696,7 +711,7 @@ lanes visible on the first screen and fold non-blocking routes under
 `Decide`, `Context`, and `Evidence` stay available as quiet background lanes.
 In all-clear states, the visible HTML skips `Dashboard Work Lanes` and
 `Background Lanes` entirely so the first screen moves from Overview directly to
-the compact `Background Reference` fold. The same Decide, Context, Health, Evidence, and safe
+the compact `Technical details` fold. The same Decide, Context, Health, Evidence, and safe
 inspection routes remain available through the Overview primary action,
 the stable `data-dashboard-detail="evidence-library"` route, and
 `/api/dashboard.action_board` for agents and audit
@@ -747,7 +762,7 @@ Overview and Work Lane already route to the same current task.
 and audit tooling.
 All-clear Overview states skip the visible `Background Shortcuts` strip and
 `data-dashboard-background-shortcuts` route entirely, so the first screen moves
-from `Background Lanes` to compact Background Reference without another generic
+from `Background Lanes` to compact Technical details without another generic
 navigation fold. `/api/dashboard.action_board` still keeps the complete shortcut list,
 including zero-state Review, Inspect, Confirm, and Sync entries, for agents and
 audit tooling.
@@ -831,52 +846,32 @@ already owns the Overview and Health lane, the visible HTML skips the quiet
 for agents and audit tooling.
 
 Read-only diagnostic detail lives in the collapsed evidence layer. The visible
-Evidence Library title is `Reference Library`, while the stable route remains
+full title is still `Reference Library`, while the stable route remains
 `data-dashboard-detail="evidence-library"`. Its visible summary is
-content-aware: when there are findings it reads `Reference material`
-while the accessible summary keeps `Read-only reference material`;
-when there is only routine/background material it reads `Reference evidence only`.
-It does not list every child module on the first screen. When there is only
-routine/background material, expanding `Reference Library` skips the
-`Evidence index` route bar and renders a single `Reference Library Index`
-instead of opening child reference panels. That single card lists background
-report families such as `diagnostics`, `candidate_triage`, `governance`,
-`dogfood_report`, and `audit_trail` as compact API route chips; detailed
-background rows stay behind a collapsed `Reference routes` fold inside the same
-card. It does not render separate `Diagnostics Index`, `Candidate Backlog
-Index`, `Governance Index`, `Dogfood Notes Index`, `Audit Reports`, `Store
-Snapshot`, or `Raw Store` cards beside it. Full routine diagnostics, candidate
-groups, governance notes, dogfood notes, lifecycle and capture policy reports,
-recent values, records, events, and sync metadata remain in `/api/dashboard`.
-The visible HTML does not
-render `Routine Reference`, `Routine Diagnostics`, `Audit Trail`, `Candidate
-Backlog`, `Governance Hub`, or `Dogfood Notes` child panels in this
-background-only mode.
-When sync-only current-task mode or all-clear mode is active, the same
-background-only reference content uses the lighter `Background Reference` shell
-instead of the normal `panel evidence-library` shell. Expanding it still
-reveals an `Audit Summary` face with `Read-only reports available` and
-`Optional details`, so the compact path does not lead with internal reference
-library naming. Compact route chips move into the collapsed `Reference details`
-fold with human labels such as `Dogfood notes`, `Candidate backlog`, and
-`Audit trail`; their stable `data-reference-library-route` attributes still keep
-the machine routes for audit tooling. The long `/api/dashboard` pointer
-is shortened inside that fold in compact mode to `Full evidence stays in
-/api/dashboard.`, so expanding `Background Reference` does not render prose
-about every API evidence family. Compact background row titles also use shorter
-user-facing labels such as `Diagnostics`, `Candidate Backlog`, `Governance`, and
-`Dogfood Notes`; supporting background rows use `Lifecycle`, `Store Signals`,
-and `Store History` instead of `Audit Reports`, `Store Snapshot`, and `Raw
-Store`. The normal `Reference Library` index and dedicated reference panels keep
-their `... Index` titles where those titles clarify the API-backed audit card.
-The compact rows also use quiet summaries such as `Backlog signals indexed`,
-`Governance signals indexed`, `Dogfood signals indexed`, `Lifecycle signals
-indexed`, `Store position indexed`, and `History routes indexed` instead of
+content-aware: when there are findings it reads `Reference material` while the
+accessible summary keeps `Read-only reference material`; when there is only
+routine/background material it reads `Reference evidence only`.
+
+When the first screen is quiet, sync-only, or review-suggested, the same
+read-only material uses the lighter `Technical details` shell instead of the
+normal full evidence panel. Expanding it reveals a `Check records` face with
+`Read-only details available` and `Optional details`, so the compact path does
+not lead with internal reference-library naming. Compact route chips move into
+the collapsed `Detail links` fold with human labels such as `Product notes`,
+`New notes`, and `History`; their stable
+`data-reference-library-route` attributes still keep the machine routes for
+audit tooling. The long `/api/dashboard` pointer is shortened inside that fold
+in compact mode to `Full evidence stays in /api/dashboard.`, so expanding
+`Technical details` does not render prose about every API evidence family.
+
+The compact rows also use quiet summaries such as `Saved notes indexed`,
+`Safety checks indexed`, `Product notes indexed`, `Cleanup checks indexed`,
+`Shared copy indexed`, and `History indexed` instead of
 foregrounding candidate counts, governance counts, dogfood finding counts,
 review-focus text, or raw-store language. Those counts and focus hints remain in
 `/api/dashboard` and the normal reference panels. Compact row evidence chips use
-the same human-label rule, such as `Health check`, `Candidate backlog`,
-`Dogfood report`, and `Recent records`, while their `data-dashboard-detail`
+the same human-label rule, such as `Health check`, `New notes`,
+`Product notes`, and `Recent records`, while their `data-dashboard-detail`
 attributes keep the stable API routes.
 
 When review-oriented findings exist, the expanded library can still start with
@@ -905,7 +900,7 @@ Inside the background-only `Reference Library Index`, the collapsed
 `Reference routes` fold contains routine read-only diagnostics such as a healthy
 Health Check, clean or unavailable Recall Eval, and ready or unavailable Context
 Pack Review as a `Diagnostics Index` row in the normal shell, or `Diagnostics`
-inside compact `Background Reference`. The row
+inside compact `Technical details`. The row
 uses the stable visible summary `Routine checks indexed` instead of listing each
 diagnostic module name. It keeps stable `data-dashboard-detail` chips for
 `health-check`, `recall-eval`, and `context-pack-review`, and those chips carry
@@ -925,8 +920,8 @@ child panel counts. When review-oriented panels force the grouped evidence
 layout, Routine Diagnostics and Audit Trail can still appear behind `Routine
 Reference`. In background-only mode, however, the same audit material appears as
 `Audit Reports`, `Store Snapshot`, and `Raw Store` rows in the normal
-`Reference Library Index`; inside compact `Background Reference`, the same
-stable rows are labeled `Lifecycle`, `Store Signals`, and `Store History`.
+`Reference Library Index`; inside compact `Technical details`, the same
+stable rows are labeled `Cleanup Checks`, `Shared Copy`, and `History`.
 Empty audit report rows are omitted when there is no
 lifecycle or capture policy data, so the library does not add a placeholder when
 there is only background evidence. The index rows still keep stable

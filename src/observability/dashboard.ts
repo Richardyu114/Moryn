@@ -59,6 +59,14 @@ const CAPTURE_INBOX_POLICY: DashboardCaptureInboxPolicy = {
   explanation: "Capture Inbox groups reduce review clicks, but candidates become canonical only after explicit user approval."
 };
 
+declare global {
+  interface Window {
+    applyDashboardLanguage?: () => void;
+    restoreActionReceipt?: () => void;
+    renderActionReceipt?: (result: unknown) => void;
+  }
+}
+
 export type DashboardActionSurface = "capture_inbox" | "capture_policy" | "maintenance_review" | "candidate_triage";
 export type DashboardActionKind = "dashboard_api" | "cli_command";
 export type DashboardActionIntent = "approve" | "reject" | "inspect";
@@ -315,6 +323,36 @@ export interface DashboardRecordTypeChartItem {
   label: string;
   count: number;
   percent: number;
+}
+
+export type DashboardMemoryInventoryStateId = "remembered" | "new_items" | "temporary" | "set_aside";
+
+export interface DashboardMemoryInventoryState {
+  id: DashboardMemoryInventoryStateId;
+  label: string;
+  zh_label: string;
+  count: number;
+  source_states: MorynRecord["state"][];
+}
+
+export interface DashboardMemoryInventoryKind {
+  kind: RecordKind;
+  label: string;
+  zh_label: string;
+  count: number;
+}
+
+export interface DashboardMemoryInventory {
+  summary: {
+    remembered: number;
+    new_items: number;
+    temporary: number;
+    set_aside: number;
+    total_visible: number;
+  };
+  review_suggested: boolean;
+  states: DashboardMemoryInventoryState[];
+  kind_summary: DashboardMemoryInventoryKind[];
 }
 
 export interface DashboardSyncPositionChart {
@@ -741,6 +779,7 @@ export interface DashboardData {
   action_board: DashboardActionBoard;
   decision_summary: DashboardDecisionSummary;
   charts: DashboardCharts;
+  memory_inventory: DashboardMemoryInventory;
   totals: {
     events: number;
     records: number;
@@ -1215,6 +1254,75 @@ function buildRecordTypeChart(records: MorynRecord[]): DashboardRecordTypeChartI
       percent: Math.round(((counts.get(kind) ?? 0) / total) * 100)
     }))
     .filter((item) => item.count > 0);
+}
+
+function memoryKindLabel(kind: RecordKind): { en: string; zh: string } {
+  if (kind === "memory") return { en: "Memories", zh: "记忆" };
+  if (kind === "skill") return { en: "Skills", zh: "技能" };
+  if (kind === "soul") return { en: "Preferences", zh: "偏好" };
+  if (kind === "session_summary") return { en: "Session notes", zh: "会话记录" };
+  return { en: "Agent notes", zh: "代理记录" };
+}
+
+function buildMemoryInventory(records: MorynRecord[]): DashboardMemoryInventory {
+  const counts = stateCounts(records);
+  const remembered = counts.get("canonical") ?? 0;
+  const newItems = counts.get("candidate") ?? 0;
+  const temporary = counts.get("raw") ?? 0;
+  const setAside = (counts.get("archived") ?? 0) + (counts.get("quarantined") ?? 0);
+  const kinds: RecordKind[] = ["memory", "skill", "soul", "session_summary", "agent_note"];
+  const kindCountsByName = kindCounts(records);
+  return {
+    summary: {
+      remembered,
+      new_items: newItems,
+      temporary,
+      set_aside: setAside,
+      total_visible: records.length
+    },
+    review_suggested: newItems > 0 || temporary > 0 || setAside > 0,
+    states: [
+      {
+        id: "remembered",
+        label: "Remembered",
+        zh_label: "已记住",
+        count: remembered,
+        source_states: ["canonical"]
+      },
+      {
+        id: "new_items",
+        label: "New",
+        zh_label: "等你确认",
+        count: newItems,
+        source_states: ["candidate"]
+      },
+      {
+        id: "temporary",
+        label: "Temporary",
+        zh_label: "临时保存",
+        count: temporary,
+        source_states: ["raw"]
+      },
+      {
+        id: "set_aside",
+        label: "Set aside",
+        zh_label: "已放一边",
+        count: setAside,
+        source_states: ["archived", "quarantined"]
+      }
+    ],
+    kind_summary: kinds
+      .map((kind) => {
+        const label = memoryKindLabel(kind);
+        return {
+          kind,
+          label: label.en,
+          zh_label: label.zh,
+          count: kindCountsByName.get(kind) ?? 0
+        };
+      })
+      .filter((item) => item.count > 0)
+  };
 }
 
 function buildSyncPositionChart(sync: GitSyncStatus): DashboardSyncPositionChart {
@@ -2109,8 +2217,13 @@ function buildDashboardOverview(input: {
   actionBoard: DashboardActionBoard;
   health: DashboardHealth;
   contextPackReview: DashboardContextPackReview;
+  memoryInventory: DashboardMemoryInventory;
+  captureInbox: DashboardCaptureInbox;
 }): DashboardOverview {
-  const primary = focusBriefPrimaryItem(input.actionBoard);
+  const actionPrimary = focusBriefPrimaryItem(input.actionBoard);
+  const primary = actionPrimary.next_action_label === "All clear" && input.memoryInventory.review_suggested
+    ? memoryInventoryReviewItem(input.memoryInventory, input.captureInbox)
+    : actionPrimary;
   const isAllClearPrimary = primary.next_action_label === "All clear";
   const actionCardPrimary = isAllClearPrimary
     ? {
@@ -2119,6 +2232,8 @@ function buildDashboardOverview(input: {
       target: input.actionBoard.items_by_id.inspect.value > 0 ? "governance-hub" : "needs-attention"
     }
     : primary;
+  const headline = primary.source === "memory_inventory" ? "Review suggested" : primary.next_action_label;
+  const primaryActionLabel = primary.source === "memory_inventory" ? primary.hint : actionCardPrimary.next_action_label;
   const contextGate = input.contextPackReview.handoff_pack?.quality_gate.status;
   const cards: DashboardOverviewCard[] = [
     {
@@ -2166,12 +2281,12 @@ function buildDashboardOverview(input: {
   ];
   return {
     status: overviewStatusFromActionSeverity(primary.severity),
-    headline: primary.next_action_label,
+    headline,
     detail: primary.detail,
     primary_action: {
-      label: actionCardPrimary.next_action_label,
+      label: primaryActionLabel,
       target: actionCardPrimary.target,
-      source: `action_board.items_by_id.${primary.id}`
+      source: primary.source ?? `action_board.items_by_id.${primary.id}`
     },
     safety: {
       read_only: true,
@@ -2901,10 +3016,13 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     sync,
     health
   });
+  const memoryInventory = buildMemoryInventory(records);
   const dashboardOverviewData = buildDashboardOverview({
     actionBoard: actionBoardData,
     health,
-    contextPackReview: contextPackReviewData
+    contextPackReview: contextPackReviewData,
+    memoryInventory,
+    captureInbox: captureInboxData
   });
 
   return {
@@ -2924,6 +3042,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
       record_types: buildRecordTypeChart(records),
       sync_position: buildSyncPositionChart(sync)
     },
+    memory_inventory: memoryInventory,
     totals: {
       events: visibleEvents.length,
       records: records.length,
@@ -2960,6 +3079,14 @@ function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
+function i18nText(en: string, zh: string, tag = "span"): string {
+  return `<${tag} data-i18n-en="${escapeHtml(en)}" data-i18n-zh="${escapeHtml(zh)}">${escapeHtml(en)}</${tag}>`;
+}
+
+function i18nAttribute(en: string, zh: string): string {
+  return `data-i18n-en="${escapeHtml(en)}" data-i18n-zh="${escapeHtml(zh)}"`;
+}
+
 function statusClass(sync: GitSyncStatus): string {
   if (sync.sync_state === "clean") return "good";
   if (sync.sync_state === "conflict") return "critical";
@@ -2971,6 +3098,63 @@ function syncLabel(sync: GitSyncStatus): string {
   if (sync.sync_state === "dirty") return "Local changes";
   if (sync.sync_state) return titleCase(sync.sync_state);
   return sync.configured ? "Configured" : "Not configured";
+}
+
+function sharedCopyLabel(sync: GitSyncStatus): { label: string; zh: string; detail: string; zhDetail: string; severity: DashboardOverviewStatus } {
+  const ahead = sync.ahead ?? 0;
+  const behind = sync.behind ?? 0;
+  if (!sync.configured) {
+    return {
+      label: "Not connected",
+      zh: "未连接",
+      detail: "This device only",
+      zhDetail: "仅本机可见",
+      severity: "info"
+    };
+  }
+  if (sync.sync_state === "conflict") {
+    return {
+      label: "Needs help",
+      zh: "需要处理",
+      detail: "Both sides changed",
+      zhDetail: "两边都有变化",
+      severity: "critical"
+    };
+  }
+  if (sync.sync_state === "dirty") {
+    return {
+      label: "Waiting to upload",
+      zh: "等待上传",
+      detail: `${behind} behind · ${ahead} ahead`,
+      zhDetail: `落后 ${behind} · 待上传 ${ahead}`,
+      severity: "warning"
+    };
+  }
+  if (behind > 0) {
+    return {
+      label: "New shared updates",
+      zh: "共享副本有更新",
+      detail: `${behind} behind · ${ahead} ahead`,
+      zhDetail: `落后 ${behind} · 待上传 ${ahead}`,
+      severity: "warning"
+    };
+  }
+  if (ahead > 0) {
+    return {
+      label: "Waiting to upload",
+      zh: "等待上传",
+      detail: `${behind} behind · ${ahead} ahead`,
+      zhDetail: `落后 ${behind} · 待上传 ${ahead}`,
+      severity: "info"
+    };
+  }
+  return {
+    label: "Up to date",
+    zh: "已同步",
+    detail: "0 behind · 0 ahead",
+    zhDetail: "落后 0 · 待上传 0",
+    severity: "good"
+  };
 }
 
 function syncPositionLabel(sync: DashboardSyncPositionChart): string {
@@ -3067,7 +3251,43 @@ function actionBoard(data: DashboardActionBoard): string {
   `;
 }
 
-function focusBriefPrimaryItem(actionBoardData: DashboardActionBoard): DashboardActionBoardItem {
+type DashboardPrimaryFocusItem = DashboardActionBoardItem & { source?: string };
+
+function memoryInventoryReviewDetail(inventory: DashboardMemoryInventory): string {
+  const parts = [
+    inventory.summary.new_items > 0 ? pluralize(inventory.summary.new_items, "new item") : "",
+    inventory.summary.temporary > 0 ? pluralize(inventory.summary.temporary, "temporary item") : "",
+    inventory.summary.set_aside > 0 ? pluralize(inventory.summary.set_aside, "set-aside item") : ""
+  ].filter(Boolean);
+  const subject = joinHumanList(parts);
+  return `${subject} ${parts.length === 1 ? "is" : "are"} saved safely. Review ${parts.length === 1 ? "it" : "them"} when you want Moryn to remember ${parts.length === 1 ? "it" : "them"} long term.`;
+}
+
+function memoryInventoryReviewItem(
+  inventory: DashboardMemoryInventory,
+  captureInbox: DashboardCaptureInbox
+): DashboardPrimaryFocusItem {
+  const reviewCount = inventory.summary.new_items + inventory.summary.temporary + inventory.summary.set_aside;
+  const target = captureInbox.total > 0
+    ? "capture-inbox"
+    : inventory.summary.new_items > 0
+      ? "candidate-triage"
+      : "needs-attention";
+  return {
+    id: "review",
+    label: "Review",
+    value: reviewCount,
+    severity: "warning",
+    summary: pluralize(reviewCount, "saved item"),
+    hint: "Review new notes",
+    detail: memoryInventoryReviewDetail(inventory),
+    next_action_label: "Review suggested",
+    target,
+    source: "memory_inventory"
+  };
+}
+
+function focusBriefPrimaryItem(actionBoardData: DashboardActionBoard): DashboardPrimaryFocusItem {
   const priority = ["confirm", "review", "sync"] as const;
   const inspectCount = actionBoardData.items_by_id.inspect.value;
   return priority
@@ -3136,15 +3356,37 @@ function dashboardOverview(
   const actionLabel = isAllClear
     ? data.primary_action.label === "Inspect checks" ? "View checks" : "View details"
     : data.primary_action.label;
+  const headlineZh = data.headline === "Review suggested"
+    ? "建议看一下"
+    : data.headline === "All clear"
+      ? "暂时不用管"
+      : data.headline === "Inspect sync"
+        ? "检查共享副本"
+        : data.headline;
+  const detailZh = data.headline === "Review suggested"
+    ? data.detail
+      .replace("1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.", "Moryn 已安全保存 1 条新内容和 1 条临时内容。你想让它长期记住时再确认。")
+      .replace("1 new item is saved safely. Review it when you want Moryn to remember it long term.", "Moryn 已安全保存 1 条新内容。你想让它长期记住时再确认。")
+      .replace("1 temporary item is saved safely. Review it when you want Moryn to remember it long term.", "Moryn 已安全保存 1 条临时内容。你想让它长期记住时再确认。")
+    : visibleDetail;
+  const actionLabelZh = actionLabel === "Review new notes"
+    ? "查看新内容"
+    : actionLabel === "View checks"
+      ? "查看检查"
+      : actionLabel === "View details"
+        ? "查看详情"
+        : actionLabel === "Inspect sync"
+          ? "检查共享副本"
+          : actionLabel;
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
         <div>
-          <h2>Dashboard Overview</h2>
-          <strong>${escapeHtml(data.headline)}</strong>
-          <p>${escapeHtml(visibleDetail)}</p>
+          <h2>${i18nText("Needs attention?", "现在需要我做什么吗？")}</h2>
+          ${i18nText(data.headline, headlineZh, "strong")}
+          <p ${i18nAttribute(visibleDetail, detailZh)}>${escapeHtml(visibleDetail)}</p>
         </div>
-        <button type="button" class="${escapeHtml(actionClass)}" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}">${escapeHtml(actionLabel)}</button>
+        <button type="button" class="${escapeHtml(actionClass)}" data-action-board-target="${escapeHtml(data.primary_action.target)}" aria-controls="${escapeHtml(data.primary_action.target)}" ${i18nAttribute(actionLabel, actionLabelZh)}>${escapeHtml(actionLabel)}</button>
       </div>
       ${showBackgroundStatus ? dashboardOverviewQuietCards(visibleCards) : ""}
       ${showSafety ? `<div class="dashboard-overview-safety" aria-label="Dashboard safety">
@@ -5515,50 +5757,50 @@ function referenceLibraryIndex(input: {
   const diagnosticSummary = "Routine checks indexed";
   const routeLabel = (route: { label: string; route: string }): string => {
     if (!input.compact) return route.label;
-    if (route.route === "routine-diagnostics") return "Diagnostics";
-    if (route.route === "dogfood-review") return "Dogfood notes";
-    if (route.route === "governance-hub") return "Governance";
-    if (route.route === "candidate-triage") return "Candidate backlog";
-    if (route.route === "supporting-evidence") return "Audit trail";
+    if (route.route === "routine-diagnostics") return "Health checks";
+    if (route.route === "dogfood-review") return "Product notes";
+    if (route.route === "governance-hub") return "Safety checks";
+    if (route.route === "candidate-triage") return "New notes";
+    if (route.route === "supporting-evidence") return "History";
     return route.label;
   };
   const routeChips = routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(routeLabel(route))}</code>`).join("");
-  const indexTitle = input.compact ? "Audit Summary" : "Reference Library Index";
-  const indexSummary = input.compact ? "Read-only reports available" : "Background reports indexed";
+  const indexTitle = input.compact ? "Check records" : "Reference Library Index";
+  const indexSummary = input.compact ? "Read-only details available" : "Background reports indexed";
   const routeFaceSummary = input.compact ? "Optional details" : routeChips;
-  const routeFoldTitle = input.compact ? "Reference details" : "Reference routes";
+  const routeFoldTitle = input.compact ? "Detail links" : "Reference routes";
   const routeFoldSummary = input.compact ? "Routes and checks" : "Indexed background sources";
   const detailedApiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
   const compactApiReferenceHint = "Full evidence stays in <code>/api/dashboard</code>.";
-  const diagnosticsTitle = input.compact ? "Diagnostics" : "Diagnostics Index";
-  const candidateTriageTitle = input.compact ? "Candidate Backlog" : "Candidate Backlog Index";
-  const governanceTitle = input.compact ? "Governance" : "Governance Index";
-  const dogfoodTitle = input.compact ? "Dogfood Notes" : "Dogfood Notes Index";
-  const candidateTriageSummary = input.compact ? "Backlog signals indexed" : input.candidateTriageSummary;
-  const governanceSummary = input.compact ? "Governance signals indexed" : input.governanceSummary;
-  const dogfoodSummary = input.compact ? "Dogfood signals indexed" : input.dogfoodSummary;
+  const diagnosticsTitle = input.compact ? "Health Checks" : "Diagnostics Index";
+  const candidateTriageTitle = input.compact ? "New Notes" : "Candidate Backlog Index";
+  const governanceTitle = input.compact ? "Safety Checks" : "Governance Index";
+  const dogfoodTitle = input.compact ? "Product Notes" : "Dogfood Notes Index";
+  const candidateTriageSummary = input.compact ? "Saved notes indexed" : input.candidateTriageSummary;
+  const governanceSummary = input.compact ? "Safety checks indexed" : input.governanceSummary;
+  const dogfoodSummary = input.compact ? "Product notes indexed" : input.dogfoodSummary;
   const candidateTriageFocus = input.compact ? "" : input.candidateTriageFocus;
-  const auditReportsTitle = input.compact ? "Lifecycle" : "Audit Reports";
-  const auditReportsSummary = input.compact ? "Lifecycle signals indexed" : "Lifecycle checks indexed";
-  const storeSnapshotTitle = input.compact ? "Store Signals" : "Store Snapshot";
-  const storeSnapshotSummary = input.compact ? "Store position indexed" : "Store signals indexed";
-  const rawStoreTitle = input.compact ? "Store History" : "Raw Store";
-  const rawStoreSummary = input.compact ? "History routes indexed" : "Raw evidence indexed";
+  const auditReportsTitle = input.compact ? "Cleanup Checks" : "Audit Reports";
+  const auditReportsSummary = input.compact ? "Cleanup checks indexed" : "Lifecycle checks indexed";
+  const storeSnapshotTitle = input.compact ? "Shared Copy" : "Store Snapshot";
+  const storeSnapshotSummary = input.compact ? "Shared copy indexed" : "Store signals indexed";
+  const rawStoreTitle = input.compact ? "History" : "Raw Store";
+  const rawStoreSummary = input.compact ? "History indexed" : "Raw evidence indexed";
   const evidenceLabel = (label: string): string => {
     if (!input.compact) return label;
     if (label === "health_check") return "Health check";
-    if (label === "recall_eval") return "Recall eval";
-    if (label === "context_pack_review") return "Context pack";
-    if (label === "candidate_triage") return "Candidate backlog";
-    if (label === "governance") return "Governance";
-    if (label === "dogfood_report") return "Dogfood report";
-    if (label === "memory_lifecycle") return "Memory lifecycle";
-    if (label === "capture_policy") return "Capture policy";
+    if (label === "recall_eval") return "Recall check";
+    if (label === "context_pack_review") return "Handoff context";
+    if (label === "candidate_triage") return "New notes";
+    if (label === "governance") return "Safety checks";
+    if (label === "dogfood_report") return "Product notes";
+    if (label === "memory_lifecycle") return "Cleanup checks";
+    if (label === "capture_policy") return "Capture checks";
     if (label === "recent_value") return "Recent value";
     if (label === "recent_records") return "Recent records";
     if (label === "recent_events") return "Recent events";
-    if (label === "audit_trail") return "Audit trail";
-    if (label === "sync") return "Sync";
+    if (label === "audit_trail") return "History";
+    if (label === "sync") return "Shared copy";
     return label;
   };
   const evidenceCode = (label: string, attributes = ""): string => `<code${attributes}>${escapeHtml(evidenceLabel(label))}</code>`;
@@ -5713,17 +5955,17 @@ function evidenceLibrary(
   );
   const indexOnly = reviewPanels.length === 0;
   const detailClass = compactBackground ? "evidence-library evidence-library-compact" : "panel evidence-library";
-  const ariaLabel = compactBackground ? "Background Reference" : "Reference Library";
+  const ariaLabel = compactBackground ? "Technical details" : "Reference Library";
   const summaryClass = compactBackground ? "dashboard-fold-summary evidence-library-fold evidence-library-compact-fold" : "dashboard-fold-summary evidence-library-fold";
-  const summaryLabel = compactBackground ? "Background Reference" : "Reference Library";
+  const summaryLabel = compactBackground ? "Technical details" : "Reference Library";
   const visibleSummary = compactBackground ? "Optional checks" : visibleEvidenceSummary;
   const accessibleSummary = compactBackground ? "Optional read-only checks" : evidenceSummary;
   const backgroundReferenceAttribute = compactBackground ? " data-dashboard-background-reference" : "";
   return `
     <details class="${detailClass}" data-dashboard-detail="evidence-library"${backgroundReferenceAttribute} aria-label="${escapeHtml(ariaLabel)}">
       <summary class="${summaryClass}" aria-label="${escapeHtml(`${summaryLabel}: ${accessibleSummary}`)}">
-        <span>${escapeHtml(summaryLabel)}</span>
-        <small>${escapeHtml(visibleSummary)}</small>
+        ${compactBackground ? i18nText(summaryLabel, "技术细节") : `<span>${escapeHtml(summaryLabel)}</span>`}
+        ${compactBackground ? i18nText(visibleSummary, "可选检查", "small") : `<small>${escapeHtml(visibleSummary)}</small>`}
       </summary>
       ${showRouteIndex ? evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length }) : ""}
       ${indexOnly ? referenceLibraryIndex({
@@ -5775,6 +6017,97 @@ function dashboardGeneratedAtLabel(generatedAt: string): string {
   return `Updated ${hours}:${minutes} UTC`;
 }
 
+function dashboardLanguageToggle(): string {
+  return `
+      <div class="language-toggle" data-dashboard-language-toggle aria-label="Language">
+        <span class="language-toggle-label" data-i18n-en="Language" data-i18n-zh="语言">Language</span>
+        <div class="language-options" role="group" aria-label="Language">
+          <button type="button" class="language-option active" data-dashboard-language-option="en" aria-pressed="true">EN</button>
+          <button type="button" class="language-option" data-dashboard-language-option="zh" aria-pressed="false">中文</button>
+        </div>
+      </div>
+  `;
+}
+
+function frontStatusGrid(data: DashboardData): string {
+  const shared = sharedCopyLabel(data.sync);
+  return `
+    <section class="front-status-grid" data-front-status-grid aria-label="Local and shared status">
+      <article class="front-status-card ${escapeHtml(overviewStatusFromHealth(data.health.status))}">
+        ${i18nText("This device", "本机记忆")}
+        ${i18nText(data.health.status === "healthy" ? "Healthy" : data.health.label, data.health.status === "healthy" ? "正常" : data.health.label, "strong")}
+        ${i18nText("Local memory is ready", "本机记忆可用", "small")}
+      </article>
+      <article class="front-status-card ${escapeHtml(shared.severity)}">
+        ${i18nText("Shared copy", "共享副本")}
+        ${i18nText(shared.label, shared.zh, "strong")}
+        <small ${i18nAttribute(shared.detail, shared.zhDetail)}>${escapeHtml(shared.detail)}</small>
+      </article>
+    </section>
+  `;
+}
+
+function memoryInventoryPanel(inventory: DashboardMemoryInventory): string {
+  const kindSummary = inventory.kind_summary.length > 0
+    ? inventory.kind_summary.map((kind) => `<span ${i18nAttribute(`${kind.label} ${kind.count}`, `${kind.zh_label} ${kind.count}`)}>${escapeHtml(`${kind.label} ${kind.count}`)}</span>`).join("")
+    : i18nText("No stored content yet", "还没有存储内容", "span");
+  return `
+    <section class="memory-inventory" data-memory-inventory aria-label="What Moryn stores">
+      <div class="section-heading">
+        <h2 data-i18n-en="What Moryn remembers" data-i18n-zh="Moryn 记住了什么">What Moryn remembers</h2>
+        ${i18nText(`${inventory.summary.total_visible} visible items`, `${inventory.summary.total_visible} 条可见内容`, "small")}
+      </div>
+      <div class="memory-inventory-grid">
+        ${inventory.states.map((state) => `
+          <article class="memory-inventory-card memory-inventory-${escapeHtml(state.id)}">
+            <span data-i18n-en="${escapeHtml(state.label)}" data-i18n-zh="${escapeHtml(state.zh_label)}">${escapeHtml(state.label)}</span>
+            <strong>${escapeHtml(state.count)}</strong>
+          </article>
+        `).join("")}
+      </div>
+      <div class="memory-kind-strip" aria-label="Memory types">
+        ${kindSummary}
+      </div>
+    </section>
+  `;
+}
+
+function recentStatusPanel(data: DashboardData): string {
+  const latestRecord = data.recent_records[0];
+  const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
+  const latestSourceZh = latestRecord ? latestSource : "还没有写入";
+  const reviewable = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
+  const reviewableLabel = reviewable > 0 ? pluralize(reviewable, "new or temporary item") : "No new review items";
+  const reviewableZh = reviewable > 0 ? `${reviewable} 条新内容或临时内容` : "没有新的待确认内容";
+  const shared = sharedCopyLabel(data.sync);
+  return `
+    <section class="recent-status" data-recent-status aria-label="Recent status">
+      <div class="section-heading">
+        <h2 data-i18n-en="Recent status" data-i18n-zh="最近状态">Recent status</h2>
+        ${i18nText("Latest changes and sync", "最近变化和同步", "small")}
+      </div>
+      <div class="recent-status-grid">
+        <article>
+          ${i18nText("Last write", "最近写入")}
+          <strong>${latestRecord ? `<time datetime="${escapeHtml(latestRecord.updated_at)}" title="${escapeHtml(latestRecord.updated_at)}">${escapeHtml(relativeTime(latestRecord.updated_at, data.generated_at))}</time>` : escapeHtml("None")}</strong>
+        </article>
+        <article>
+          ${i18nText("Latest source", "最近来源")}
+          <strong ${i18nAttribute(latestSource, latestSourceZh)}>${escapeHtml(latestSource)}</strong>
+        </article>
+        <article>
+          ${i18nText("Shared copy", "共享副本")}
+          ${i18nText(shared.label, shared.zh, "strong")}
+        </article>
+        <article>
+          ${i18nText("Needs attention", "需要注意")}
+          <strong ${i18nAttribute(reviewableLabel, reviewableZh)}>${escapeHtml(reviewableLabel)}</strong>
+        </article>
+      </div>
+    </section>
+  `;
+}
+
 function renderDashboardBody(data: DashboardData): string {
   const hasActionSignals = data.attention_items.some(isReviewAttentionItem);
   const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
@@ -5786,23 +6119,33 @@ function renderDashboardBody(data: DashboardData): string {
   const quietInfoPanel = shouldRenderQuietInfoPanel ? needsAttentionPanel(data.attention_items) : "";
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel && !isAllClearOverview;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
-  const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview;
+  const isReviewSuggestedOverview = data.dashboard_overview.headline === "Review suggested";
+  const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview && !isReviewSuggestedOverview;
   const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
   return `
     <header>
       <div>
         <h1>Moryn Dashboard</h1>
-        <p class="store-path" title="${escapeHtml(data.store.path)}">Local store</p>
+        <p class="store-path" title="${escapeHtml(data.store.path)}" data-i18n-en="Local memory" data-i18n-zh="本机记忆">Local memory</p>
         <p class="dashboard-generated-at"><time datetime="${escapeHtml(data.generated_at)}" title="${escapeHtml(data.generated_at)}">${escapeHtml(dashboardGeneratedAtLabel(data.generated_at))}</time></p>
       </div>
-      <span class="health-badge ${healthClass(data.health.status)}">${escapeHtml(data.health.label)}</span>
+      <div class="dashboard-header-actions">
+        <span class="health-badge ${healthClass(data.health.status)}">${escapeHtml(data.health.label)}</span>
+        ${dashboardLanguageToggle()}
+      </div>
     </header>
 
     ${dashboardStatusSummary(data, { hideHealthyLine: isAllClearOverview })}
 
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
 
-    ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: !isAllClearOverview })}
+    ${frontStatusGrid(data)}
+
+    ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: !isAllClearOverview && !isReviewSuggestedOverview })}
+
+    ${memoryInventoryPanel(data.memory_inventory)}
+
+    ${recentStatusPanel(data)}
 
     ${shouldRenderWorkLanes ? dashboardWorkLanes(data, { showBackgroundLanes: !hasPendingDecisions }) : ""}
 
@@ -5818,12 +6161,12 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${quietInfoPanel}
 
-    ${shortcutPanel}
+    ${isReviewSuggestedOverview ? "" : shortcutPanel}
 
     ${evidenceLibrary(data, {
       includeStoreSignals: !shouldPromoteStoreSignals,
       showEvidenceIndex: !hasPendingDecisions,
-      compactBackground: shouldPromoteStoreSignals || isAllClearOverview,
+      compactBackground: shouldPromoteStoreSignals || isAllClearOverview || isReviewSuggestedOverview,
       auditOnly: hasPendingDecisions
     })}
   `;
@@ -5863,12 +6206,48 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
           if (!response.ok) return;
           main.innerHTML = await response.text();
           restoreDetailState(detailState);
+          window.applyDashboardLanguage?.();
           window.restoreActionReceipt?.();
         } catch {
           // Keep the last successful render visible if a refresh fails.
         }
       };
       window.setInterval(refresh, interval);
+    })();
+  </script>`;
+}
+
+function dashboardLanguageScript(): string {
+  return `
+  <script>
+    (() => {
+      const key = "moryn.dashboard.language";
+      const validLanguage = (value) => value === "zh" ? "zh" : "en";
+      const selectedLanguage = () => validLanguage(localStorage.getItem(key));
+      const apply = (language = selectedLanguage()) => {
+        document.documentElement.lang = language === "zh" ? "zh" : "en";
+        document.querySelectorAll("[data-i18n-en][data-i18n-zh]").forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          node.textContent = language === "zh" ? node.dataset.i18nZh || "" : node.dataset.i18nEn || "";
+        });
+        document.querySelectorAll("[data-dashboard-language-option]").forEach((node) => {
+          if (!(node instanceof HTMLButtonElement)) return;
+          const active = node.dataset.dashboardLanguageOption === language;
+          node.classList.toggle("active", active);
+          node.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+      };
+      window.applyDashboardLanguage = () => apply();
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const option = target.closest("[data-dashboard-language-option]");
+        if (!(option instanceof HTMLElement)) return;
+        const language = validLanguage(option.dataset.dashboardLanguageOption);
+        localStorage.setItem(key, language);
+        apply(language);
+      });
+      apply();
     })();
   </script>`;
 }
@@ -6032,6 +6411,7 @@ function dashboardMaintenanceScript(): string {
         if (!response.ok) return;
         main.innerHTML = await response.text();
         hideRejectedPlans();
+        window.applyDashboardLanguage?.();
         window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
@@ -6102,6 +6482,7 @@ function dashboardCaptureInboxScript(): string {
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
+        window.applyDashboardLanguage?.();
         window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
@@ -6169,6 +6550,7 @@ function dashboardCandidateTriageScript(): string {
         const response = await fetch("fragment", { cache: "no-store" });
         if (!response.ok) return;
         main.innerHTML = await response.text();
+        window.applyDashboardLanguage?.();
         window.restoreActionReceipt?.();
       };
       const responseJson = async (response) => {
@@ -6229,24 +6611,24 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
   <style>
     :root {
       color-scheme: light;
-      --canvas: #f6f7f8;
-      --surface: #ffffff;
-      --surface-2: #fafbfc;
-      --surface-3: #f1f3f5;
-      --ink: #15191e;
-      --ink-2: #2a323a;
-      --muted: #66717d;
-      --subtle: #8b949e;
-      --border: #d9dee3;
-      --hairline: #e8ebef;
-      --signal-blue: #315f9f;
-      --signal-blue-soft: #eaf0f8;
-      --signal-green: #21715e;
-      --signal-green-soft: #e8f3ef;
-      --signal-amber: #9b6a20;
-      --signal-amber-soft: #f4eee3;
-      --signal-red: #b0453c;
-      --signal-red-soft: #f5e8e6;
+      --canvas: #f4f2ee;
+      --surface: #fffefa;
+      --surface-2: #f8f6f1;
+      --surface-3: #ede9df;
+      --ink: #191815;
+      --ink-2: #34312b;
+      --muted: #6e695f;
+      --subtle: #969085;
+      --border: #ddd6ca;
+      --hairline: #ebe5da;
+      --signal-blue: #315f8f;
+      --signal-blue-soft: #e8f0f6;
+      --signal-green: #2f6d57;
+      --signal-green-soft: #e7f0eb;
+      --signal-amber: #a46f1f;
+      --signal-amber-soft: #f4ead9;
+      --signal-red: #ad4b42;
+      --signal-red-soft: #f5e5e1;
       --signal-violet: #65579d;
       --signal-slate: #53606d;
       --text: var(--ink);
@@ -6264,7 +6646,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     body {
       margin: 0;
       background:
-        linear-gradient(180deg, #fbfcfd 0, var(--canvas) 250px),
+        radial-gradient(circle at 18% -10%, rgba(255,255,255,0.9), rgba(255,255,255,0) 28%),
+        linear-gradient(180deg, #fbfaf7 0, var(--canvas) 310px),
         var(--canvas);
       color: var(--text);
       font: 14px/1.55 Inter, "Aptos", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -6315,6 +6698,150 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       overflow-wrap: anywhere;
     }
     .health-badge { min-height: 32px; padding: 5px 13px; box-shadow: 0 8px 18px rgba(21, 25, 30, 0.06); }
+    .dashboard-header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+    }
+    .language-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 32px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px 4px 3px 9px;
+      background: rgba(255, 254, 250, 0.82);
+      box-shadow: 0 8px 18px rgba(25, 24, 21, 0.045);
+    }
+    .language-toggle-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 760;
+    }
+    .language-options {
+      display: inline-flex;
+      gap: 3px;
+    }
+    .language-option {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 3px 7px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 790;
+    }
+    .language-option.active {
+      border-color: var(--border);
+      background: var(--ink);
+      color: var(--surface);
+    }
+    .front-status-grid,
+    .memory-inventory-grid,
+    .recent-status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .front-status-card,
+    .memory-inventory,
+    .recent-status {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255, 254, 250, 0.86);
+      box-shadow: 0 12px 30px rgba(25, 24, 21, 0.05);
+    }
+    .front-status-card {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      border-left-width: 4px;
+      padding: 12px;
+    }
+    .front-status-card.good { border-left-color: var(--good); }
+    .front-status-card.info { border-left-color: var(--info); }
+    .front-status-card.warning { border-left-color: var(--warning); }
+    .front-status-card.critical { border-left-color: var(--critical); }
+    .front-status-card span,
+    .memory-inventory-card span,
+    .recent-status article span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
+    .front-status-card strong,
+    .recent-status article strong {
+      color: var(--ink);
+      font-size: 17px;
+      line-height: 1.2;
+      font-weight: 830;
+      overflow-wrap: anywhere;
+    }
+    .memory-inventory,
+    .recent-status {
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .section-heading {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 11px;
+    }
+    .section-heading h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .memory-inventory-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-bottom: 10px;
+    }
+    .memory-inventory-card,
+    .recent-status article {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--surface-2);
+    }
+    .memory-inventory-card strong {
+      color: var(--ink);
+      font-size: 24px;
+      line-height: 1;
+      font-weight: 850;
+    }
+    .memory-kind-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .memory-kind-strip span {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 3px 8px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 740;
+    }
+    .recent-status-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-bottom: 0;
+    }
     .good, .state-canonical { color: var(--signal-green); border-color: #bfd8d0; background: var(--signal-green-soft); }
     .warning, .state-raw { color: var(--signal-amber); border-color: #dfcfb2; background: var(--signal-amber-soft); }
     .critical, .state-quarantined { color: var(--signal-red); border-color: #e0c4c0; background: var(--signal-red-soft); }
@@ -8824,9 +9351,10 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .front-status-grid, .memory-inventory-grid, .recent-status-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
+      .dashboard-header-actions { justify-content: flex-start; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
       .dashboard-overview-main { display: grid; align-items: stretch; }
       .dashboard-overview-action { width: 100%; white-space: normal; }
@@ -8856,6 +9384,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
 </head>
 <body class="neutral-intelligence">
   <main${refreshAttributes}>${renderDashboardBody(data)}</main>
+  ${dashboardLanguageScript()}
   ${dashboardRefreshScript(options.refreshIntervalMs)}
   ${dashboardActionBoardScript()}
   ${dashboardActionReceiptScript()}
