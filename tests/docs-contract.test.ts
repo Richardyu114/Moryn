@@ -68,7 +68,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");
     expectText(dashboard, "Sync pending states skip the extra status line");
     expectText(dashboard, "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip");
-    expectText(dashboard, "first-screen Overview to the headline, primary action, read-only boundary, and a collapsed `Background Status` fold");
+    expectText(dashboard, "first-screen Overview to the headline, primary action, and read-only boundary");
+    expectText(dashboard, "All-clear Overview states skip `Background Status` and the stable `dashboard-overview-quiet-cards` route");
+    expectText(dashboard, "The `Health`, `Next`, `Context`, and `Sync` cards remain preserved in `/api/dashboard.dashboard_overview.cards`");
     expectText(dashboard, "Each background overview card is also a local navigation button");
     expectText(dashboard, "Pure read-only inspections do not turn the overview headline into an urgent next action");
     expectText(dashboard, "the overview reads `All clear` while still offering an `Inspect checks` navigation button");
@@ -588,6 +590,14 @@ describe("documentation contracts", () => {
     expect(roadmap).toContain("Phase 4: Recall Eval");
     expect(roadmap).toContain("Phase 5: Public Polish");
     expect(roadmap).toContain("Phase 6: Release Gate");
+    expect(roadmap).toContain("v0.2.0 Acceptance Matrix");
+    expect(roadmap).toContain("setup -> context pack -> capture -> review -> approve -> sync");
+    expect(roadmap).toContain("No silent canonical writes");
+    expect(roadmap).toContain("Dashboard first screen shows one current task");
+    expect(roadmap).toContain("All-clear dashboard skips duplicate `Background Status`");
+    expect(roadmap).toContain("Evidence remains in `/api/dashboard`");
+    expect(roadmap).toContain("npm run smoke:dogfood-demo");
+    expect(roadmap).toContain("npm run release:check");
     expect(roadmap).toContain("Do not start this phase until");
   });
 

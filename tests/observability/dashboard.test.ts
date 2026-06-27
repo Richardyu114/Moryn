@@ -449,6 +449,12 @@ describe("observability dashboard", () => {
       expect(data.health.status).toBe("healthy");
       expect(html).not.toContain("<section class=\"status-strip good\" data-dashboard-status=\"healthy\">");
       expect(html).toContain("<p class=\"dashboard-status-line good\" data-dashboard-status=\"healthy\"><strong>Healthy</strong><span>Sync is clean and no urgent safety items were detected in this snapshot.</span></p>");
+      expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
+      expect(html).not.toContain("<details class=\"dashboard-overview-quiet\" data-dashboard-detail=\"dashboard-overview-quiet-cards\">");
+      expect(html).not.toContain("<span>Background Status</span>");
+      expect(html).not.toContain("data-dashboard-overview-quiet-card=\"health\"");
+      expect(html).not.toContain("data-dashboard-overview-quiet-card=\"context\"");
+      expect(html).not.toContain("data-dashboard-overview-quiet-card=\"sync\"");
       expect(html).toContain("<details class=\"action-board-background\" aria-label=\"Background Shortcuts\" data-dashboard-detail=\"action-board\" data-dashboard-background-shortcuts>");
       expect(html).toContain("<span>Background Shortcuts</span>");
       expect(html).toContain("<small>Optional section links</small>");
@@ -2538,20 +2544,31 @@ describe("observability dashboard", () => {
         expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
         expect(html).not.toContain("data-dashboard-overview-card=\"context\"");
         expect(html).not.toContain("data-dashboard-overview-card=\"sync\"");
-        expect(html).toContain("<details class=\"dashboard-overview-quiet\" data-dashboard-detail=\"dashboard-overview-quiet-cards\">");
-        expect(html).toContain("<span>Background Status</span>");
-        expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-overview-quiet-fold\" aria-label=\"Background Status: Healthy signals kept for context\">");
-        expect(html).toContain("<small>Signals ready</small>");
+        expect(html).not.toContain("<details class=\"dashboard-overview-quiet\" data-dashboard-detail=\"dashboard-overview-quiet-cards\">");
+        expect(html).not.toContain("<span>Background Status</span>");
+        expect(html).not.toContain("<summary class=\"dashboard-fold-summary dashboard-overview-quiet-fold\" aria-label=\"Background Status: Healthy signals kept for context\">");
+        expect(html).not.toContain("<small>Signals ready</small>");
         expect(html).not.toContain("<small>Healthy signals kept for context</small>");
         expect(html).not.toContain("<small>4 reference cards</small>");
         expect(html).not.toContain("<span>Reference Cards</span>");
         expect(html).not.toContain("<span>Quiet Overview</span>");
         expect(html).not.toContain("<small>4 quiet cards</small>");
-        expect(html).toContain("<div class=\"dashboard-overview-quiet-list\">");
-        expect(html).toContain("data-dashboard-overview-quiet-card=\"health\"");
+        expect(html).not.toContain("<div class=\"dashboard-overview-quiet-list\">");
+        expect(html).not.toContain("data-dashboard-overview-quiet-card=\"health\"");
         expect(html).not.toContain("data-dashboard-overview-quiet-card=\"action\"");
-        expect(html).toContain("data-dashboard-overview-quiet-card=\"context\"");
-        expect(html).toContain("data-dashboard-overview-quiet-card=\"sync\"");
+        expect(html).not.toContain("data-dashboard-overview-quiet-card=\"context\"");
+        expect(html).not.toContain("data-dashboard-overview-quiet-card=\"sync\"");
+        expect(data.dashboard_overview.cards_by_id.health).toMatchObject({
+          value: "Healthy",
+          source: "health"
+        });
+        expect(data.dashboard_overview.cards_by_id.context).toMatchObject({
+          source: "context_pack_review"
+        });
+        expect(data.dashboard_overview.cards_by_id.sync).toMatchObject({
+          value: "Healthy",
+          source: "action_board.items_by_id.sync"
+        });
         expect(html).toContain("<strong>All clear</strong>");
         expect(html).toContain("<details class=\"action-board-background\" aria-label=\"Background Shortcuts\" data-dashboard-detail=\"action-board\" data-dashboard-background-shortcuts>");
         expect(html).toContain("<span>Background Shortcuts</span>");

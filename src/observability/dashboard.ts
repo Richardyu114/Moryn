@@ -5671,7 +5671,8 @@ function renderDashboardBody(data: DashboardData): string {
   const shouldRenderQuietInfoPanel = !hasActionSignals && !hasPendingDecisions && !shouldHideQuietInfoPanel;
   const quietInfoPanel = shouldRenderQuietInfoPanel ? needsAttentionPanel(data.attention_items) : "";
   const shortcutPanel = hasPendingDecisions ? "" : actionBoard(data.action_board);
-  const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel;
+  const isAllClearOverview = data.dashboard_overview.headline === "All clear";
+  const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel && !isAllClearOverview;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
   const shouldRenderWorkLanes = !shouldPromoteStoreSignals;
   const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";

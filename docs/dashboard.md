@@ -567,9 +567,9 @@ attention.
 
 Directly below the health message, `Dashboard Overview` is the first-screen
 summary. It picks the most urgent derived Action Board item and keeps the
-first-screen Overview to the headline, primary action, read-only boundary, and
-a collapsed `Background Status` fold. The four derived cards for current
-health, next action, context, and sync still point back to source paths such as `health`,
+first-screen Overview to the headline, primary action, and read-only boundary.
+The four derived cards for current health, next action, context, and sync still
+point back to source paths such as `health`,
 `action_board.items_by_id.review`, `context_pack_review`, or
 `action_board.items_by_id.sync`. The visible card footer uses a human navigation
 label such as `Review health`, `Open context`, or `Inspect sync`, while the
@@ -588,7 +588,11 @@ overview relies on its headline and primary button, then skips
 first screen does not repeat the same sync task. The `Health`, `Next`,
 `Context`, and `Sync` cards remain preserved in
 `/api/dashboard.dashboard_overview.cards` without repeating status cards on the
-first screen. When `Background Status` is rendered in non-sync states, a card
+first screen. All-clear Overview states skip `Background Status` and the stable
+`dashboard-overview-quiet-cards` route for the same reason: `Background Lanes`,
+`Background Shortcuts`, and `/api/dashboard.dashboard_overview.cards` already
+preserve the audit routes, so the user sees one quiet zero-state instead of
+three status summaries. When `Background Status` is rendered in non-sync states, a card
 with the same source as the headline primary action is skipped in both the
 visible grid and `Background Status`; the card still stays in
 `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling.

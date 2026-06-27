@@ -35,6 +35,35 @@ store:
 - Operation contracts and selection-source contracts for agent hosts.
 - Package smoke tests and lifecycle smoke tests.
 
+## v0.2.0 Acceptance Matrix
+
+v0.2.0 is release-ready only when the default dogfood path is simple and the
+power surfaces stay optional. The release narrative is:
+
+```text
+setup -> context pack -> capture -> review -> approve -> sync
+  |          |             |          |          |       |
+local     useful      automatic   grouped    explicit  portable
+dry-run   handoff     evidence    decision   append    user-owned
+```
+
+| Area | Acceptance | Evidence |
+| --- | --- | --- |
+| Setup | `moryn setup` stays dry-run by default; `--apply` writes only Moryn-local store/project config. | `tests/cli/cli.test.ts`, `tests/mcp/server.test.ts`, docs contract. |
+| Context pack | `moryn context pack` returns Handoff Pack v0.2 with quality gate, evidence paths, and required capture action. | CLI/MCP tests, `npm run smoke:dogfood-demo`. |
+| Capture | Low-risk handoffs auto-capture as local evidence; risky or durable handoffs enter Capture Inbox. | Capture policy tests and dashboard smoke evidence. |
+| Review | Capture Inbox groups decisions by source/session/project/day; Review Queue and Candidate Triage use the same approval brief language. | Dashboard tests and `/api/dashboard.decision_summary`. |
+| Approval | No silent canonical writes. Canonical memory changes only happen through explicit Capture Inbox, Review Queue, or Candidate Triage approval controls with append-only events. | Safe Action Registry, stale guards, timeline evidence. |
+| Sync | Private Git sync can report clean/pending/conflict, push local events, pull remote events, and leave generated views local-only. | Sync adapter tests, lifecycle tests, live `moryn sync --status`. |
+| Dashboard | Dashboard first screen shows one current task, not a log dump. All-clear dashboard skips duplicate `Background Status`; Background Lanes, Background Shortcuts, and Evidence Library keep routes available. | `tests/observability/dashboard.test.ts`, live `/api/dashboard`, browser fragment smoke. |
+| Audit | Evidence remains in `/api/dashboard`; visible HTML may collapse or index evidence, but should not delete the machine-readable trail. | Docs contract, dashboard JSON smoke, release check. |
+| Release gate | Typecheck, build, focused dashboard tests, docs-contract, `npm run smoke:dogfood-demo`, `npm run release:check`, diff check, package contents, dashboard restart, and clean Moryn store sync all pass. | Terminal verification and final commit summary. |
+
+Two rules cut across every row:
+
+- No silent canonical writes.
+- Evidence remains in `/api/dashboard` even when the visible UI gets quieter.
+
 ## First-Version Completion Criteria
 
 - [x] Agents can connect through a real MCP stdio server.
