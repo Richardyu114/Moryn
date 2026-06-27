@@ -279,8 +279,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "those approvals also appear in `Pending Decisions` as a `Candidate Triage` route");
     expectText(dashboard, "Expanding a read-only `Candidate Backlog` panel shows a compact `Candidate Backlog Index` reference");
     expectText(dashboard, "mapped to `/api/dashboard.candidate_triage`");
-    expectText(dashboard, "plus one `review_focus` line");
+    expectText(dashboard, "plus one visible `review_focus` line softened for the read-only UI");
+    expectText(dashboard, "`Audit focus: Likely noise - Inspect likely noise before archive`");
     expectText(dashboard, "That focus is read-only routing guidance, not a write action");
+    expectText(dashboard, "the raw `Start with ...` summary");
     expectText(dashboard, "`/api/dashboard.candidate_triage.review_focus`");
     expectText(dashboard, "The dashboard HTML does not render read-only candidate group cards");
     expectText(dashboard, "per-group `candidate-triage:<group_id>` routes");

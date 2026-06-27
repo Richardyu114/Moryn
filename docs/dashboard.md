@@ -413,10 +413,11 @@ folded row reads `Read-only backlog`. If promotion drafts are waiting,
 draft count, and those approvals also appear in `Pending Decisions` as a
 `Candidate Triage` route. Expanding a read-only `Candidate Backlog` panel shows
 a compact `Candidate Backlog Index` reference mapped to
-`/api/dashboard.candidate_triage` plus one `review_focus` line such as `Start
-with Likely noise: Inspect likely noise before archive`. That focus is
-read-only routing guidance, not a write action; its full group id, recommended
-next step, write boundary, confirmation flag, and evidence path live in
+`/api/dashboard.candidate_triage` plus one visible `review_focus` line softened
+for the read-only UI, such as `Audit focus: Likely noise - Inspect likely noise
+before archive`. That focus is read-only routing guidance, not a write action;
+the raw `Start with ...` summary, full group id, recommended next step, write
+boundary, confirmation flag, and evidence path live in
 `/api/dashboard.candidate_triage.review_focus`. The dashboard HTML does not
 render read-only candidate group cards, per-group
 `candidate-triage:<group_id>` routes, record counts per group, sample rows,

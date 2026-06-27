@@ -1188,6 +1188,9 @@ describe("observability dashboard", () => {
       expect(candidateTriageHtml).toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage:index\" data-candidate-triage-reference>");
       expect(candidateTriageHtml).toContain("<strong>Candidate Backlog Index</strong>");
       expect(candidateTriageHtml).toContain("<span>4 candidates across 1 group indexed</span>");
+      expect(data.candidate_triage.review_focus?.summary).toBe("Start with Session summaries: Inspect handoff value");
+      expect(candidateTriageHtml).toContain("<span data-candidate-triage-focus>Audit focus: Session summaries - Inspect handoff value</span>");
+      expect(candidateTriageHtml).not.toContain("<span data-candidate-triage-focus>Start with Session summaries: Inspect handoff value</span>");
       expect(candidateTriageHtml).toContain("<code>candidate_triage</code>");
       expect(candidateTriageHtml).toContain("<p>Open <code>/api/dashboard</code> for candidate groups, record order, evidence paths, and trace commands.</p>");
       expect(candidateTriageHtml).not.toContain("<h2>Candidate Backlog</h2>");
@@ -1768,7 +1771,8 @@ describe("observability dashboard", () => {
       expect(groupHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"candidate-triage\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(groupHtml).toContain("<strong>Candidate Backlog Index</strong>");
       expect(groupHtml).toContain("<span>7 candidates across 1 group indexed</span>");
-      expect(groupHtml).toContain("<span data-candidate-triage-focus>Start with Needs inspection: Inspect timeline</span>");
+      expect(groupHtml).toContain("<span data-candidate-triage-focus>Audit focus: Needs inspection - Inspect timeline</span>");
+      expect(groupHtml).not.toContain("<span data-candidate-triage-focus>Start with Needs inspection: Inspect timeline</span>");
       expect(groupHtml).toContain("<code data-dashboard-detail=\"candidate-triage:index\">candidate_triage</code>");
       expect(groupHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(groupHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage:index\" data-candidate-triage-reference>");
@@ -1913,7 +1917,9 @@ describe("observability dashboard", () => {
       const groupHtml = dashboardDetailBlock(html, "candidate-triage");
       expect(groupHtml).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"candidate-triage\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(groupHtml).toContain("<span>2 candidates across 1 group indexed</span>");
-      expect(groupHtml).toContain("<span data-candidate-triage-focus>Start with Needs inspection: Inspect timeline</span>");
+      expect(data.candidate_triage.review_focus?.summary).toBe("Start with Needs inspection: Inspect timeline");
+      expect(groupHtml).toContain("<span data-candidate-triage-focus>Audit focus: Needs inspection - Inspect timeline</span>");
+      expect(groupHtml).not.toContain("<span data-candidate-triage-focus>Start with Needs inspection: Inspect timeline</span>");
       expect(groupHtml).not.toContain("candidate-triage-index-card");
       expect(groupHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(data.candidate_triage.groups_by_id.needs_inspection?.evidence_path).toBe("candidate_triage.groups_by_id.needs_inspection");
@@ -4643,7 +4649,8 @@ describe("observability dashboard", () => {
         summary: "Start with Likely noise: Inspect likely noise before archive",
         evidence_path: "candidate_triage.groups_by_id.likely_noise"
       });
-      expect(candidateTriageHtml).toContain("<span data-candidate-triage-focus>Start with Likely noise: Inspect likely noise before archive</span>");
+      expect(candidateTriageHtml).toContain("<span data-candidate-triage-focus>Audit focus: Likely noise - Inspect likely noise before archive</span>");
+      expect(candidateTriageHtml).not.toContain("<span data-candidate-triage-focus>Start with Likely noise: Inspect likely noise before archive</span>");
       expect(candidateTriageHtml).not.toContain("<article class=\"candidate-triage-reference\" data-dashboard-detail=\"candidate-triage\" data-candidate-triage-reference data-reference-library-index=\"candidate-triage\">");
       expect(candidateTriageHtml).not.toContain("candidate-triage-index-card");
       expect(candidateTriageHtml).not.toContain("<strong>Likely noise</strong>");

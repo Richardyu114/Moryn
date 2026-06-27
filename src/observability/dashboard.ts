@@ -2545,6 +2545,13 @@ function candidateTriageReviewFocus(groups: DashboardCandidateTriageGroup[]): Da
   };
 }
 
+function candidateTriageVisibleFocus(summary?: string): string {
+  if (!summary) return "";
+  const match = /^Start with ([^:]+): (.+)$/.exec(summary);
+  if (!match) return `Audit focus: ${summary}`;
+  return `Audit focus: ${match[1]} - ${match[2]}`;
+}
+
 function buildCandidateTriage(
   records: MorynRecord[],
   eventsByRecord: Map<string, MorynEvent>,
@@ -4235,8 +4242,9 @@ function renderCandidateTriageGroup(group: DashboardCandidateTriageGroup): strin
 
 function renderCandidateBacklogReference(triage: DashboardCandidateTriage): string {
   const summary = `${pluralize(triage.summary.total_candidates, "candidate")} across ${pluralize(triage.summary.groups, "group")} indexed`;
-  const focus = triage.review_focus
-    ? `<span data-candidate-triage-focus>${escapeHtml(triage.review_focus.summary)}</span>`
+  const visibleFocus = candidateTriageVisibleFocus(triage.review_focus?.summary);
+  const focus = visibleFocus
+    ? `<span data-candidate-triage-focus>${escapeHtml(visibleFocus)}</span>`
     : "";
   return `
     <article class="candidate-triage-reference" data-dashboard-detail="candidate-triage:index" data-candidate-triage-reference>
@@ -5674,7 +5682,7 @@ function evidenceLibrary(
         dogfoodSummary: `${pluralize(data.dogfood_report.findings.length, "finding")} indexed`,
         governanceSummary: `${pluralize(data.governance.summary.total_items, "governance note")} indexed`,
         candidateTriageSummary: `${pluralize(data.candidate_triage.summary.total_candidates, "candidate")} across ${pluralize(data.candidate_triage.summary.groups, "group")} indexed`,
-        candidateTriageFocus: data.candidate_triage.review_focus?.summary
+        candidateTriageFocus: candidateTriageVisibleFocus(data.candidate_triage.review_focus?.summary)
       }) : `<div class="evidence-library-list">
         ${evidenceLibraryReviewGroup(reviewPanels)}
         ${evidenceLibraryBackgroundGroup(backgroundPanels)}
