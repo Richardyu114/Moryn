@@ -23,15 +23,23 @@ tool. It uses a black high-contrast surface with visible status colors and chart
 cards before any evidence folds. A user should be able to answer these questions
 without opening a collapsed section:
 
-- Need action? -> `Needs attention?`, `All clear`, or `Review suggested`.
-- Stored what? -> the `At a glance` memory-state chart and `What Moryn remembers`.
+- Need action? -> `Needs attention?`, `All clear`, or `Review suggested`, plus a
+  visible `Needs your decision` panel when review or approval is waiting.
+- Stored what? -> the `At a glance` memory-state chart, `Stored content` text
+  previews, and `What Moryn remembers`.
 - State now? -> `This device`, `Recent status`, and recent activity bars.
 - Shared copy? -> the `Shared copy` card and sync rail.
 
-The `At a glance` row is visible above `Technical details`. It shows a memory
-state meter, content-type bars, shared-copy state, and recent source activity.
-Collapsed sections are for audit evidence, raw trace details, and optional
-checks; they should not be required to understand the current dashboard state.
+The `Needs your decision`, `At a glance`, and `Stored content` rows are visible
+above `Technical details` in the live non-private dashboard. `Needs your
+decision` routes users to the owning approval rows when a real write is waiting;
+if the state is only `Review suggested`, it says that no write happens from the
+summary card. Approve and reject buttons stay on the owning row beside the
+relevant evidence. `At a glance` shows a memory state meter, content-type bars,
+shared-copy state, and recent source activity. `Stored content` shows recent
+saved text previews with memory state labels. Collapsed sections are for audit
+evidence, raw trace details, and optional checks; they should not be required to
+understand the current dashboard state.
 
 ## Quick Start
 
@@ -113,6 +121,11 @@ as `/moryn-dashboard/`.
 Pass `--include-private` only when the user explicitly wants private memory in
 the dashboard. The same flag applies to the server shell, `/fragment`, and
 `/api/dashboard`.
+
+Visible `Stored content` previews render in the live dashboard when private
+records are not included. Static snapshots and `--include-private` fragments
+keep saved text out of the visible HTML; use `/api/dashboard.recent_value[]` for
+the explicit machine-readable view in those cases.
 
 Pass `--project-id <id>` or `--project <path>` when you want the server to
 generate project-specific Review Queue plans, Memory Lifecycle review, and
@@ -1332,6 +1345,9 @@ Default read-boundary and redaction rules still apply:
 - quarantined records render as `[quarantined]`
 - sensitive text is not shown in overview cards
 - inspector tables also avoid exposing quarantined content
+- visible `Stored content` previews are disabled for static snapshots and
+  `--include-private` HTML fragments, while `/api/dashboard.recent_value[]`
+  remains the explicit data source
 
 If you bind to `0.0.0.0`, anyone who can reach that host and port may view the
 dashboard. Use local-only binding, firewall rules, SSH tunnels, Tailscale, or a

@@ -536,7 +536,7 @@ describe("observability dashboard", () => {
         project_id: "moryn",
         now: "2026-06-21T00:00:00.000Z"
       });
-      const html = renderDashboardHtml(data);
+      const html = renderDashboardHtml(data, { showStoredContent: true });
 
       expect(data.action_board.items.map((item) => item.value)).toEqual([0, 0, 0, 0]);
       expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
@@ -601,6 +601,21 @@ describe("observability dashboard", () => {
       expect(html).toContain("<article class=\"glance-chart recent-activity\" data-recent-activity-chart>");
       expect(html.indexOf("data-dashboard-glance")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
+      expect(html).toContain("<section class=\"decision-panel\" data-dashboard-decision-panel aria-label=\"Needs your decision\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Needs your decision\" data-i18n-zh=\"需要你确认\">Needs your decision</h2>");
+      expect(html).toContain("<span data-i18n-en=\"Review suggested\" data-i18n-zh=\"建议看一下\">Review suggested</span>");
+      expect(html).toContain("<strong data-i18n-en=\"2 saved items to review\" data-i18n-zh=\"2 条保存内容可查看\">2 saved items to review</strong>");
+      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"candidate-triage\" aria-controls=\"candidate-triage\" data-i18n-en=\"Review new notes\" data-i18n-zh=\"查看新内容\">Review new notes</button>");
+      expect(html).toContain("<small data-i18n-en=\"No write happens from this card; approval stays in Capture Inbox, Review Queue, or Candidate Triage rows when available.\" data-i18n-zh=\"这张卡不会写入；如果有审批按钮，会出现在 Capture Inbox、Review Queue 或 Candidate Triage 行内。\">No write happens from this card; approval stays in Capture Inbox, Review Queue, or Candidate Triage rows when available.</small>");
+      expect(html.indexOf("data-dashboard-decision-panel")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
+      expect(html).toContain("<section class=\"stored-content\" data-stored-content aria-label=\"Stored content\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Stored content\" data-i18n-zh=\"存储内容\">Stored content</h2>");
+      expect(html).toContain("<article class=\"stored-content-item state-candidate\" data-stored-content-item=\"rec_action_board_3\">");
+      expect(html).toContain("<p>Recent session status belongs on the dashboard front page.</p>");
+      expect(html).toContain("<article class=\"stored-content-item state-canonical\" data-stored-content-item=\"rec_action_board_2\">");
+      expect(html).toContain("<p>Moryn should make dashboard storage easy to understand.</p>");
+      expect(html).toContain("<a href=\"#\" data-action-board-target=\"recent-value\" aria-controls=\"recent-value\" data-i18n-en=\"View more\" data-i18n-zh=\"查看更多\">View more</a>");
+      expect(html.indexOf("data-stored-content")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).toContain("<section class=\"memory-inventory\" data-memory-inventory aria-label=\"What Moryn stores\">");
       expect(html).toContain("<h2 data-i18n-en=\"What Moryn remembers\" data-i18n-zh=\"Moryn 记住了什么\">What Moryn remembers</h2>");
       expect(html).toContain("<span data-i18n-en=\"Remembered\" data-i18n-zh=\"已记住\">Remembered</span>");
@@ -7040,6 +7055,8 @@ describe("observability dashboard", () => {
         expect(page).toContain("main.addEventListener(\"toggle\"");
         expect(page).not.toContain("<article class=\"recent-value-reference\" data-dashboard-detail=\"recent-value:index\">");
         expect(page).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
+        expect(page).toContain("<section class=\"stored-content\" data-stored-content aria-label=\"Stored content\">");
+        expect(page).toContain("Initial live dashboard memory");
 
         const head = await fetch(server.url, { method: "HEAD" });
         expect(head.status).toBe(200);
@@ -7096,6 +7113,8 @@ describe("observability dashboard", () => {
         expect(refreshedApi.recent_value.map((record) => record.summary)).toContain("Live dashboard refresh memory");
 
         const refreshedFragment = await (await fetch(new URL("/fragment", server.url))).text();
+        expect(refreshedFragment).toContain("<section class=\"stored-content\" data-stored-content aria-label=\"Stored content\">");
+        expect(refreshedFragment).toContain("Live dashboard refresh memory");
         const refreshedAuditTrailHtml = supportingEvidenceSummaryRowHtml(refreshedFragment, "store-snapshot");
         expect(refreshedAuditTrailHtml).toContain("<code data-dashboard-detail=\"recent-value\">recent_value</code>");
         expect(refreshedAuditTrailHtml).not.toContain("<span>2 recent records available</span>");

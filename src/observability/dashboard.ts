@@ -823,6 +823,11 @@ export interface DashboardServerOptions extends DashboardOptions {
   refreshIntervalMs?: number;
 }
 
+export interface DashboardRenderOptions {
+  refreshIntervalMs?: number;
+  showStoredContent?: boolean;
+}
+
 export interface DashboardServerHandle {
   serving: true;
   host: string;
@@ -6167,6 +6172,126 @@ function dashboardGlanceBoard(data: DashboardData): string {
   `;
 }
 
+function reviewableSavedItemsCount(inventory: DashboardMemoryInventory): number {
+  return inventory.summary.new_items + inventory.summary.temporary + inventory.summary.set_aside;
+}
+
+function decisionPanelItem(input: {
+  kind: "write" | "review";
+  status: string;
+  zhStatus: string;
+  title: string;
+  zhTitle: string;
+  detail: string;
+  zhDetail: string;
+  target: string;
+  actionLabel: string;
+  zhActionLabel: string;
+  note: string;
+  zhNote: string;
+}): string {
+  return `
+        <article class="decision-panel-item ${escapeHtml(input.kind)}">
+          <div>
+            <span data-i18n-en="${escapeHtml(input.status)}" data-i18n-zh="${escapeHtml(input.zhStatus)}">${escapeHtml(input.status)}</span>
+            <strong data-i18n-en="${escapeHtml(input.title)}" data-i18n-zh="${escapeHtml(input.zhTitle)}">${escapeHtml(input.title)}</strong>
+            <p data-i18n-en="${escapeHtml(input.detail)}" data-i18n-zh="${escapeHtml(input.zhDetail)}">${escapeHtml(input.detail)}</p>
+            <small data-i18n-en="${escapeHtml(input.note)}" data-i18n-zh="${escapeHtml(input.zhNote)}">${escapeHtml(input.note)}</small>
+          </div>
+          <button type="button" class="decision-panel-link" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}" data-i18n-en="${escapeHtml(input.actionLabel)}" data-i18n-zh="${escapeHtml(input.zhActionLabel)}">${escapeHtml(input.actionLabel)}</button>
+        </article>
+  `;
+}
+
+function dashboardDecisionPanel(data: DashboardData): string {
+  const explicitDecisions = data.decision_summary.total_decisions;
+  const reviewable = reviewableSavedItemsCount(data.memory_inventory);
+  const items: string[] = [];
+  if (explicitDecisions > 0) {
+    for (const route of decisionSummaryRoutes(data.decision_summary)) {
+      const title = `${pluralize(route.count, "approval")} in ${route.label}`;
+      items.push(decisionPanelItem({
+        kind: "write",
+        status: "Approval required",
+        zhStatus: "需要确认",
+        title,
+        zhTitle: `${route.count} 个确认项在 ${route.label}`,
+        detail: "Review this before Moryn changes stored memory.",
+        zhDetail: "Moryn 改写存储记忆前，需要你先确认。",
+        target: route.target,
+        actionLabel: route.target_label,
+        zhActionLabel: route.label === "Capture Inbox" ? "打开捕获收件箱" : route.label === "Review Queue" ? "打开审核队列" : "打开候选内容",
+        note: "Approve or reject buttons live inside the owning row, next to the evidence.",
+        zhNote: "批准或拒绝按钮会出现在对应条目旁边，和证据放在一起。"
+      }));
+    }
+  } else if (reviewable > 0) {
+    const title = `${pluralize(reviewable, "saved item")} to review`;
+    items.push(decisionPanelItem({
+      kind: "review",
+      status: "Review suggested",
+      zhStatus: "建议看一下",
+      title,
+      zhTitle: `${reviewable} 条保存内容可查看`,
+      detail: "These are saved safely. Open the review view when you want to decide what becomes long-term memory.",
+      zhDetail: "这些内容已经安全保存。你想决定哪些进入长期记忆时，再打开查看。",
+      target: data.dashboard_overview.primary_action.target,
+      actionLabel: data.dashboard_overview.primary_action.label,
+      zhActionLabel: data.dashboard_overview.primary_action.label === "Review new notes" ? "查看新内容" : "查看详情",
+      note: "No write happens from this card; approval stays in Capture Inbox, Review Queue, or Candidate Triage rows when available.",
+      zhNote: "这张卡不会写入；如果有审批按钮，会出现在 Capture Inbox、Review Queue 或 Candidate Triage 行内。"
+    }));
+  }
+  if (items.length === 0) return "";
+  return `
+    <section class="decision-panel" data-dashboard-decision-panel aria-label="Needs your decision">
+      <div class="section-heading">
+        <h2 data-i18n-en="Needs your decision" data-i18n-zh="需要你确认">Needs your decision</h2>
+        ${i18nText(explicitDecisions > 0 ? "Actions are explicit" : "Nothing writes from this summary", explicitDecisions > 0 ? "操作需要明确确认" : "这里不会直接写入", "small")}
+      </div>
+      <div class="decision-panel-list">
+        ${items.join("")}
+      </div>
+    </section>
+  `;
+}
+
+function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
+  if (state === "canonical") return { en: "Remembered", zh: "已记住" };
+  if (state === "candidate") return { en: "New", zh: "等你确认" };
+  if (state === "raw") return { en: "Temporary", zh: "临时保存" };
+  return { en: "Set aside", zh: "已放一边" };
+}
+
+function storedContentPanel(data: DashboardData): string {
+  const items = data.recent_value.slice(0, 4);
+  if (items.length === 0) return "";
+  return `
+    <section class="stored-content" data-stored-content aria-label="Stored content">
+      <div class="section-heading">
+        <h2 data-i18n-en="Stored content" data-i18n-zh="存储内容">Stored content</h2>
+        ${i18nText("Recent saved text", "最近保存的内容", "small")}
+      </div>
+      <div class="stored-content-list">
+        ${items.map((item) => {
+          const state = memoryStateLabelFromRecordState(item.state);
+          return `
+            <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}">
+              <div class="stored-content-item-head">
+                <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
+                <small>${escapeHtml(`${item.source_label} | ${item.relative_time}`)}</small>
+              </div>
+              <strong>${escapeHtml(item.title)}</strong>
+              ${textExcerptBlock(item.summary)}
+            </article>
+          `;
+        }).join("")}
+      </div>
+      <a href="#" data-action-board-target="recent-value" aria-controls="recent-value" data-i18n-en="View more" data-i18n-zh="查看更多">View more</a>
+    </section>
+  `;
+}
+
 function memoryInventoryPanel(inventory: DashboardMemoryInventory): string {
   const kindSummary = inventory.kind_summary.length > 0
     ? inventory.kind_summary.map((kind) => `<span ${i18nAttribute(`${kind.label} ${kind.count}`, `${kind.zh_label} ${kind.count}`)}>${escapeHtml(`${kind.label} ${kind.count}`)}</span>`).join("")
@@ -6228,7 +6353,7 @@ function recentStatusPanel(data: DashboardData): string {
   `;
 }
 
-function renderDashboardBody(data: DashboardData): string {
+function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
   const hasActionSignals = data.attention_items.some(isReviewAttentionItem);
   const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
   const hasPendingDecisions = data.decision_summary.total_decisions > 0;
@@ -6263,7 +6388,11 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: !isAllClearOverview && !isReviewSuggestedOverview })}
 
+    ${dashboardDecisionPanel(data)}
+
     ${dashboardGlanceBoard(data)}
+
+    ${options.showStoredContent === true ? storedContentPanel(data) : ""}
 
     ${memoryInventoryPanel(data.memory_inventory)}
 
@@ -6720,7 +6849,7 @@ function dashboardCandidateTriageScript(): string {
   </script>`;
 }
 
-function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?: number } = {}): string {
+function renderDashboardShell(data: DashboardData, options: DashboardRenderOptions = {}): string {
   const refreshAttributes = options.refreshIntervalMs === undefined
     ? ""
     : ` data-dashboard-refresh="${escapeHtml(options.refreshIntervalMs)}"`;
@@ -6960,6 +7089,121 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .recent-status-grid {
       grid-template-columns: repeat(4, minmax(0, 1fr));
       margin-bottom: 0;
+    }
+    .decision-panel,
+    .stored-content {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+      background: rgba(16, 18, 22, 0.92);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
+    }
+    .decision-panel-list {
+      display: grid;
+      gap: 10px;
+    }
+    .decision-panel-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      border: 1px solid var(--hairline);
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 11px;
+      background: var(--surface-2);
+    }
+    .decision-panel-item.write { border-left-color: var(--signal-amber); }
+    .decision-panel-item.review { border-left-color: var(--signal-blue); }
+    .decision-panel-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 780;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .decision-panel-item strong {
+      display: block;
+      margin-top: 3px;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1.15;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+    .decision-panel-item p {
+      margin-top: 5px;
+      color: var(--ink-2);
+      overflow-wrap: anywhere;
+    }
+    .decision-panel-item small {
+      margin-top: 6px;
+      color: var(--muted);
+    }
+    .decision-panel-link {
+      appearance: none;
+      border: 1px solid rgba(116, 242, 145, 0.44);
+      border-radius: 6px;
+      padding: 8px 11px;
+      background: var(--signal-green);
+      color: #061007;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 820;
+      white-space: nowrap;
+    }
+    .decision-panel-link:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .stored-content-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .stored-content-item {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+      min-height: 148px;
+      border: 1px solid var(--hairline);
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 11px;
+      background: var(--surface-2);
+    }
+    .stored-content-item-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 6px;
+      min-width: 0;
+    }
+    .stored-content-item-head span {
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 820;
+    }
+    .stored-content-item strong {
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.2;
+      font-weight: 820;
+      overflow-wrap: anywhere;
+    }
+    .stored-content-item p {
+      margin: 0;
+      color: var(--ink-2);
+      overflow-wrap: anywhere;
+    }
+    .stored-content > a {
+      display: inline-flex;
+      margin-top: 10px;
+      color: var(--signal-blue);
+      font-size: 12px;
+      font-weight: 820;
+      text-decoration: none;
     }
     .glance-board {
       margin-bottom: 12px;
@@ -9607,13 +9851,15 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .front-status-grid, .memory-inventory-grid, .recent-status-grid, .glance-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .front-status-grid, .memory-inventory-grid, .recent-status-grid, .glance-grid, .stored-content-list, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .dashboard-header-actions { justify-content: flex-start; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
       .dashboard-overview-main { display: grid; align-items: stretch; }
       .dashboard-overview-action { width: 100%; white-space: normal; }
+      .decision-panel-item { grid-template-columns: 1fr; align-items: stretch; }
+      .decision-panel-link { width: 100%; white-space: normal; }
       .sync-action-brief { grid-template-columns: 1fr; }
       .sync-action-brief > code { justify-self: stretch; max-width: none; }
       .decision-summary-heading { display: grid; }
@@ -9639,7 +9885,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
   </style>
 </head>
 <body class="neutral-intelligence">
-  <main${refreshAttributes}>${renderDashboardBody(data)}</main>
+  <main${refreshAttributes}>${renderDashboardBody(data, { showStoredContent: options.showStoredContent })}</main>
   ${dashboardLanguageScript()}
   ${dashboardRefreshScript(options.refreshIntervalMs)}
   ${dashboardActionBoardScript()}
@@ -9652,16 +9898,16 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
 `;
 }
 
-export function renderDashboardHtml(data: DashboardData): string {
-  return renderDashboardShell(data);
+export function renderDashboardHtml(data: DashboardData, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
+  return renderDashboardShell(data, options);
 }
 
-export function renderDashboardServerHtml(data: DashboardData, refreshIntervalMs: number): string {
-  return renderDashboardShell(data, { refreshIntervalMs });
+export function renderDashboardServerHtml(data: DashboardData, refreshIntervalMs: number, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
+  return renderDashboardShell(data, { refreshIntervalMs, showStoredContent: options.showStoredContent });
 }
 
-export function renderDashboardFragment(data: DashboardData): string {
-  return renderDashboardBody(data);
+export function renderDashboardFragment(data: DashboardData, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
+  return renderDashboardBody(data, options);
 }
 
 export function createDashboardDataLoader<T>(build: () => Promise<T>): { load: () => Promise<T> } {
@@ -9971,6 +10217,9 @@ export async function startDashboardServer(storePath: string, options: Dashboard
   const refreshIntervalMs = dashboardRefreshInterval(options.refreshIntervalMs);
   const limit = dashboardLimit(options.limit);
   const includePrivate = options.include_private;
+  const renderOptions: Pick<DashboardRenderOptions, "showStoredContent"> = {
+    showStoredContent: includePrivate !== true
+  };
   const dashboardDataLoader = createDashboardDataLoader(() => buildDashboardData(storePath, {
     limit,
     include_private: includePrivate,
@@ -10063,12 +10312,12 @@ export async function startDashboardServer(storePath: string, options: Dashboard
       }
       if (url.pathname === "/" || url.pathname === "/index.html") {
         const data = await dashboardDataLoader.load();
-        sendResponse(response, 200, renderDashboardServerHtml(data, refreshIntervalMs), "text/html; charset=utf-8", includeBody);
+        sendResponse(response, 200, renderDashboardServerHtml(data, refreshIntervalMs, renderOptions), "text/html; charset=utf-8", includeBody);
         return;
       }
       if (url.pathname === "/fragment") {
         const data = await dashboardDataLoader.load();
-        sendResponse(response, 200, renderDashboardFragment(data), "text/html; charset=utf-8", includeBody);
+        sendResponse(response, 200, renderDashboardFragment(data, renderOptions), "text/html; charset=utf-8", includeBody);
         return;
       }
       if (url.pathname === "/api/dashboard") {
