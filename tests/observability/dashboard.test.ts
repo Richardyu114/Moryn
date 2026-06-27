@@ -431,7 +431,8 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).toContain("<small>Routes and raw evidence</small>");
       expect(referenceIndexFaceHtml).not.toContain("data-reference-library-route=");
       expect(referenceIndexWrapHtml.slice(0, referenceRoutesStart)).not.toContain("Open <code>/api/dashboard</code>");
-      expect(referenceRoutesHtml).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
+      expect(referenceRoutesHtml).toContain("Full evidence stays in <code>/api/dashboard</code>.");
+      expect(referenceRoutesHtml).not.toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
       expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
@@ -605,7 +606,8 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).toContain("<small>Routes and raw evidence</small>");
       expect(referenceIndexFaceHtml).not.toContain("data-reference-library-route=");
       expect(referenceIndexWrapHtml.slice(0, referenceRoutesStart)).not.toContain("Open <code>/api/dashboard</code>");
-      expect(referenceRoutesHtml).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
+      expect(referenceRoutesHtml).toContain("Full evidence stays in <code>/api/dashboard</code>.");
+      expect(referenceRoutesHtml).not.toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
       expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
@@ -615,7 +617,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<code data-dashboard-detail=\"supporting-evidence\">audit_trail</code>");
       expect(html).not.toContain("<article class=\"routine-diagnostics-reference\"");
       expect(html).not.toContain("<article class=\"supporting-evidence-summary-row\"");
-      expect(html).toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
+      expect(html).toContain("Full evidence stays in <code>/api/dashboard</code>.");
+      expect(html).not.toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(html).not.toContain("data-evidence-library-brief");
       expect(html).not.toContain("<h3>Evidence index</h3>");
       expect(html).not.toContain("<div class=\"evidence-library-routebar\" role=\"list\" aria-label=\"Evidence index\">");

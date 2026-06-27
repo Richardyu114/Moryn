@@ -859,8 +859,9 @@ library naming. Machine route chips such as `dogfood_report` or `audit_trail`
 move into the collapsed `Audit details` fold, where they remain available with
 the detailed background rows and stable
 `data-reference-library-route` attributes. The long `/api/dashboard` pointer
-also lives inside that fold in compact mode, so expanding `Background Reference`
-does not immediately render prose about API internals.
+is shortened inside that fold in compact mode to `Full evidence stays in
+/api/dashboard.`, so expanding `Background Reference` does not render prose
+about every API evidence family.
 
 When review-oriented findings exist, the expanded library can still start with
 a compact `Evidence index` bar; empty routes are omitted instead of rendering

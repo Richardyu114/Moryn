@@ -5502,13 +5502,14 @@ function referenceLibraryIndex(input: {
   const routeFaceSummary = input.compact ? "Optional details" : routeChips;
   const routeFoldTitle = input.compact ? "Audit details" : "Reference routes";
   const routeFoldSummary = input.compact ? "Routes and raw evidence" : "Indexed background sources";
-  const apiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
+  const detailedApiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
+  const compactApiReferenceHint = "Full evidence stays in <code>/api/dashboard</code>.";
   const routeChipsRow = input.compact ? `
                 <div class="reference-library-route-chips" data-reference-library-route-chips>
                   ${routeChips}
                 </div>
-                <p class="reference-library-api-hint">${apiReferenceHint}</p>` : "";
-  const indexFooter = input.compact ? "" : `<p>${apiReferenceHint}</p>`;
+                <p class="reference-library-api-hint">${compactApiReferenceHint}</p>` : "";
+  const indexFooter = input.compact ? "" : `<p>${detailedApiReferenceHint}</p>`;
   const rows = [
     diagnosticRoutes.length > 0 ? `
             <div class="reference-library-index-row" data-reference-library-index-row="diagnostics" data-dashboard-detail="routine-diagnostics" data-routine-diagnostics-reference data-reference-library-index="diagnostics">
