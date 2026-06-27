@@ -116,8 +116,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "while the accessible summary keeps the lane names, such as `Decide, Context, Health, and Evidence are quiet`");
     expectText(dashboard, "When `Pending Decisions` is rendered, Work Lanes keep the active decision lane visible and skip `Background Lanes` and `dashboard-work-lanes-background` in the HTML");
     expectText(dashboard, "the same routes remain available through `/api/dashboard.action_board`, `Page Shortcuts`, and the underlying panels");
-    expectText(dashboard, "`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail=\"action-board\"` route");
-    expectText(dashboard, "navigator below explicit review and action surfaces rather than another primary first-screen card grid");
+    expectText(dashboard, "`Action Board` is rendered as `Page Shortcuts` in the UI while keeping the stable `data-dashboard-detail=\"action-board\"` route when two or more active shortcut cards need navigation");
+    expectText(dashboard, "shortcut cards need navigation below explicit review and action surfaces");
     expectText(dashboard, "`Page Shortcuts` opens with `Optional section links`");
     expectText(dashboard, "The collapsed `Page Shortcuts` summary does not repeat active counts");
     expectText(dashboard, "Counts remain in the expanded shortcut cards and `/api/dashboard.action_board`");
@@ -330,9 +330,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the non-zero sync count remains visible on the expanded shortcut card and in `/api/dashboard.action_board`");
     expectText(dashboard, "When exactly one active shortcut exists, such as sync-only pending work, the visible HTML skips `Page Shortcuts` and `data-action-board-nav`");
     expectText(dashboard, "`/api/dashboard.action_board` still keeps the complete shortcut list for agents and audit tooling");
-    expectText(dashboard, "zero-value `good` targets are grouped under `Quiet Shortcuts` while keeping the stable `action-board-quiet-targets` route");
-    expectText(dashboard, "`Quiet Shortcuts` opens with `Background section links`");
-    expectText(dashboard, "Non-zero or non-good items stay in the main Action Board grid");
+    expectText(dashboard, "When no active shortcut exists, all-clear and read-only shortcut targets render under a single compact `Background Shortcuts` strip");
+    expectText(dashboard, "`data-dashboard-background-shortcuts`");
+    expectText(dashboard, "while keeping the stable `data-dashboard-detail=\"action-board\"` route");
+    expectText(dashboard, "Its list carries the `action-board-quiet-targets` route directly");
+    expectText(dashboard, "without a nested `Page Shortcuts` -> `Quiet Shortcuts` directory");
+    expectText(dashboard, "non-zero or non-good items stay in the main Action Board grid");
     expectText(dashboard, "When any active shortcut is visible in `Page Shortcuts`, the HTML skips `Quiet Shortcuts` and `action-board-quiet-targets` entirely");
     expectText(dashboard, "The same quiet shortcut items remain in `/api/dashboard.action_board.items` and `items_by_id`");
     expectText(dashboard, "When `Pending Decisions` is already rendered, the visible HTML skips `Page Shortcuts` and the stable `data-dashboard-detail=\"action-board\"` route");
@@ -373,7 +376,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Audit` reads `Traceable by timeline` when event ids are returned");
     expectText(dashboard, "read-only trace commands such as `moryn timeline --event-id <event_id>`");
     expectText(dashboard, "stay inside the collapsed `Audit trail` fold");
-    expect(dashboard).toContain("all clear");
+    expect(dashboard).toContain("All clear");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/reject");
     expect(dashboard).toContain("POST /api/capture-inbox/groups/:group_id/approve");

@@ -670,14 +670,13 @@ promoted Store Signals current-task section. The same sync route remains in
 `/api/dashboard.action_board.items_by_id.sync` for agents and audit tooling.
 
 `Action Board` is rendered as `Page Shortcuts` in the UI while keeping the
-stable `data-dashboard-detail="action-board"` route: a secondary, collapsed
-navigator below explicit review and action surfaces rather than another primary
-first-screen card grid. `Page Shortcuts` opens with `Optional section links`.
-The collapsed `Page Shortcuts` summary does not repeat active counts such as
-`1 review / 1 sync`, `1 sync issue`, or `all clear`, so it reads as navigation
-rather than another status queue. Counts remain in the expanded shortcut cards
-and `/api/dashboard.action_board`. Expanding it still reveals the four scroll
-targets for:
+stable `data-dashboard-detail="action-board"` route when two or more active
+shortcut cards need navigation below explicit review and action surfaces.
+`Page Shortcuts` opens with `Optional section links`. The collapsed `Page
+Shortcuts` summary does not repeat active counts such as `1 review / 1 sync` or
+`1 sync issue`, so it reads as navigation rather than another status queue.
+Counts remain in the expanded shortcut cards and `/api/dashboard.action_board`.
+Expanding it still reveals the active scroll targets for:
 
 - `Confirm`: explicit decision units in Capture Inbox or Review Queue
 - `Review`: warning or critical attention signals
@@ -702,6 +701,13 @@ visible HTML skips `Page Shortcuts` and `data-action-board-nav` because the
 Overview and Work Lane already route to the same current task.
 `/api/dashboard.action_board` still keeps the complete shortcut list for agents
 and audit tooling.
+When no active shortcut exists, all-clear and read-only shortcut targets render
+under a single compact `Background Shortcuts` strip with
+`data-dashboard-background-shortcuts`, while keeping the stable
+`data-dashboard-detail="action-board"` route. Its list carries the
+`action-board-quiet-targets` route directly, so users and agents can still open
+Needs Attention, Governance Hub, or Store Signals for audit without a nested
+`Page Shortcuts` -> `Quiet Shortcuts` directory.
 When `Pending Decisions` is already rendered, the visible HTML skips
 `Page Shortcuts` and the stable `data-dashboard-detail="action-board"` route so
 the decision path does not get another generic navigation fold. The old
@@ -712,17 +718,9 @@ for agents and audit tooling, including
 When no approval queue is rendered, the `Confirm` card points to `Needs
 Attention` as a stable zero-state target. If a target sits inside another
 collapsed detail panel, the dashboard opens the parent panels before scrolling.
-When the Action Board is expanded, zero-value `good` targets are grouped under
-`Quiet Shortcuts` while keeping the stable `action-board-quiet-targets` route
-instead of occupying the primary grid. Non-zero or non-good items stay in the
-main Action Board grid, except pure read-only `Inspect` signals: safe
-inspections remain under `Quiet Shortcuts` even when their count is non-zero.
-Quiet shortcuts keep the same `data-action-board-target` navigation controls,
-so users and agents can still open Needs Attention, Governance Hub, or Store
-Signals for audit without making empty checks or optional inspections look like
-active work.
-`Quiet Shortcuts` opens with `Background section links` to keep that supporting
-role visible before expansion.
+When active shortcuts are present, non-zero or non-good items stay in the main
+Action Board grid, except pure read-only `Inspect` signals: safe inspections are
+kept out of the active grid even when their count is non-zero.
 When any active shortcut is visible in `Page Shortcuts`, the HTML skips
 `Quiet Shortcuts` and `action-board-quiet-targets` entirely so zero-state and
 read-only navigation does not compete with the current task. The same quiet

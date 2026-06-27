@@ -3024,15 +3024,15 @@ function actionBoardItemButton(item: DashboardActionBoardItem, dataAttribute = "
   `;
 }
 
-function actionBoardQuietTargets(items: DashboardActionBoardItem[]): string {
+function actionBoardBackgroundShortcuts(items: DashboardActionBoardItem[]): string {
   if (items.length === 0) return "";
   return `
-    <details class="action-board-quiet" data-dashboard-detail="action-board-quiet-targets">
-      <summary class="dashboard-fold-summary action-board-quiet-fold">
-        <span>Quiet Shortcuts</span>
-        <small>Background section links</small>
+    <details class="action-board-background" aria-label="Background Shortcuts" data-dashboard-detail="action-board" data-dashboard-background-shortcuts>
+      <summary class="dashboard-fold-summary action-board-background-fold">
+        <span>Background Shortcuts</span>
+        <small>Optional section links</small>
       </summary>
-      <div class="action-board-quiet-list">
+      <div class="action-board-background-list" data-dashboard-detail="action-board-quiet-targets">
         ${items.map((item) => actionBoardItemButton(item, "data-action-board-quiet-item")).join("")}
       </div>
     </details>
@@ -3044,7 +3044,7 @@ function actionBoard(data: DashboardActionBoard): string {
   const activeItems = shortcutItems.filter(isActiveActionBoardItem);
   const quietItems = shortcutItems.filter((item) => !isActiveActionBoardItem(item));
   if (activeItems.length === 1) return "";
-  const quietTargets = activeItems.length === 0 ? actionBoardQuietTargets(quietItems) : "";
+  if (activeItems.length === 0) return actionBoardBackgroundShortcuts(quietItems);
   return `
     <details class="action-board action-board-secondary" aria-label="Page Shortcuts" data-dashboard-detail="action-board" data-action-board-nav>
       <summary class="dashboard-fold-summary action-board-fold">
@@ -3056,7 +3056,6 @@ function actionBoard(data: DashboardActionBoard): string {
           ${activeItems.map((item) => actionBoardItemButton(item)).join("")}
         </div>
       `}
-      ${quietTargets}
     </details>
   `;
 }
@@ -6697,6 +6696,22 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding: 10px 12px;
       margin: 0 0 14px;
     }
+    .action-board-background {
+      margin: 0 0 12px;
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      background: var(--surface-2);
+    }
+    .action-board-background > summary {
+      padding: 9px 10px;
+    }
+    .action-board-background[open] {
+      padding: 0 10px 10px;
+    }
+    .action-board-background[open] > summary {
+      margin: 0 -10px 10px;
+      border-bottom: 1px solid var(--hairline);
+    }
     .action-board-secondary[open] { padding-bottom: 12px; }
     .action-board[open] > summary { margin-bottom: 10px; }
     .action-board-secondary[open] > summary { margin-bottom: 9px; }
@@ -6711,7 +6726,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       padding-top: 10px;
     }
     .action-board-quiet[open] > summary { margin-bottom: 8px; }
-    .action-board-quiet-list {
+    .action-board-quiet-list,
+    .action-board-background-list {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
@@ -6759,17 +6775,20 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       overflow-wrap: anywhere;
     }
     .action-board-item small { margin-top: 3px; }
-    .action-board-quiet-list .action-board-item {
+    .action-board-quiet-list .action-board-item,
+    .action-board-background-list .action-board-item {
       border-left-width: 1px;
       padding: 8px;
       background: var(--surface);
       box-shadow: none;
     }
-    .action-board-quiet-list .action-board-item strong {
+    .action-board-quiet-list .action-board-item strong,
+    .action-board-background-list .action-board-item strong {
       font-size: 16px;
       color: var(--muted);
     }
-    .action-board-quiet-list .action-board-item p {
+    .action-board-quiet-list .action-board-item p,
+    .action-board-background-list .action-board-item p {
       font-weight: 650;
       color: var(--muted);
     }
@@ -8633,7 +8652,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .status-strip { grid-template-columns: 1fr; align-items: start; }
