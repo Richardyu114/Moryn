@@ -5556,10 +5556,11 @@ ${rows}
 
 function evidenceLibrary(
   data: DashboardData,
-  options: { includeStoreSignals?: boolean; showEvidenceIndex?: boolean } = {}
+  options: { includeStoreSignals?: boolean; showEvidenceIndex?: boolean; compactBackground?: boolean } = {}
 ): string {
   const includeStoreSignals = options.includeStoreSignals ?? true;
   const showEvidenceIndex = options.showEvidenceIndex ?? true;
+  const compactBackground = options.compactBackground ?? false;
   const routinePanels: RoutineDiagnosticPanel[] = [];
   if (isRoutineHealthCheck(data.health_check)) {
     routinePanels.push({
@@ -5611,11 +5612,17 @@ function evidenceLibrary(
   const evidenceSummary = evidenceLibrarySummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   const visibleEvidenceSummary = evidenceLibraryVisibleSummary(reviewPanels.length > 0 ? 1 : 0, backgroundPanels.length > 0 ? 1 : 0);
   const indexOnly = reviewPanels.length === 0;
+  const detailClass = compactBackground ? "evidence-library evidence-library-compact" : "panel evidence-library";
+  const ariaLabel = compactBackground ? "Background Reference" : "Reference Library";
+  const summaryClass = compactBackground ? "dashboard-fold-summary evidence-library-fold evidence-library-compact-fold" : "dashboard-fold-summary evidence-library-fold";
+  const summaryLabel = compactBackground ? "Background Reference" : "Reference Library";
+  const visibleSummary = compactBackground ? "Audit route available" : visibleEvidenceSummary;
+  const backgroundReferenceAttribute = compactBackground ? " data-dashboard-background-reference" : "";
   return `
-    <details class="panel evidence-library" data-dashboard-detail="evidence-library" aria-label="Reference Library">
-      <summary class="dashboard-fold-summary evidence-library-fold" aria-label="${escapeHtml(`Reference Library: ${evidenceSummary}`)}">
-        <span>Reference Library</span>
-        <small>${escapeHtml(visibleEvidenceSummary)}</small>
+    <details class="${detailClass}" data-dashboard-detail="evidence-library"${backgroundReferenceAttribute} aria-label="${escapeHtml(ariaLabel)}">
+      <summary class="${summaryClass}" aria-label="${escapeHtml(`${summaryLabel}: ${evidenceSummary}`)}">
+        <span>${escapeHtml(summaryLabel)}</span>
+        <small>${escapeHtml(visibleSummary)}</small>
       </summary>
       ${showRouteIndex ? evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length }) : ""}
       ${indexOnly ? referenceLibraryIndex({
@@ -5701,7 +5708,11 @@ function renderDashboardBody(data: DashboardData): string {
 
     ${shortcutPanel}
 
-    ${evidenceLibrary(data, { includeStoreSignals: !shouldPromoteStoreSignals, showEvidenceIndex: !hasPendingDecisions })}
+    ${evidenceLibrary(data, {
+      includeStoreSignals: !shouldPromoteStoreSignals,
+      showEvidenceIndex: !hasPendingDecisions,
+      compactBackground: shouldPromoteStoreSignals
+    })}
   `;
 }
 
@@ -6980,7 +6991,25 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .evidence-library {
       border-left: 4px solid var(--signal-slate);
     }
+    .evidence-library-compact {
+      margin-bottom: 12px;
+      border: 1px solid var(--hairline);
+      border-left: 0;
+      border-radius: 7px;
+      background: var(--surface-2);
+    }
+    .evidence-library-compact > summary {
+      padding: 9px 10px;
+    }
+    .evidence-library-compact[open] {
+      padding: 0 10px 10px;
+    }
+    .evidence-library-compact[open] > summary {
+      margin: 0 -10px 10px;
+      border-bottom: 1px solid var(--hairline);
+    }
     .evidence-library[open] > summary { margin-bottom: 10px; }
+    .evidence-library-compact[open] > summary { margin-bottom: 10px; }
     .reference-library-index-wrap {
       display: grid;
       gap: 8px;

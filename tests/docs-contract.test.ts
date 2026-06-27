@@ -93,6 +93,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "so the current task is not repeated by another visible heading, navigation row, or routine reference panel");
     expectText(dashboard, "The promoted section omits `Telemetry Context`");
     expectText(dashboard, "The Reference Library still keeps the Audit route and raw evidence, but it does not render a second `store-signals` panel");
+    expectText(dashboard, "Reference Library renders as a compact `Background Reference` strip");
+    expectText(dashboard, "`data-dashboard-background-reference`");
+    expectText(dashboard, "keeping the stable `data-dashboard-detail=\"evidence-library\"` route");
+    expectText(dashboard, "uses the quiet `Audit route available` label");
     expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
     expectText(dashboard, "Decide -> Pending Decisions, Capture Inbox, or Review Queue confirmation");
@@ -136,6 +140,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Full routine diagnostics, candidate groups, governance notes, dogfood notes, lifecycle and capture policy reports, recent values, records, events, and sync metadata remain in `/api/dashboard`");
     expectText(dashboard, "does not render `Routine Reference`,");
     expectText(dashboard, "`Dogfood Notes` child panels in this background-only mode");
+    expectText(dashboard, "When sync-only current-task mode is active, the same background-only reference content uses the lighter `Background Reference` shell");
+    expectText(dashboard, "instead of the normal `panel evidence-library` shell");
+    expectText(dashboard, "Expanding it still reveals the same `Reference Library Index`; only the first-screen weight changes");
     expectText(dashboard, "When review-oriented findings exist, the expanded library can still start with a compact `Evidence index` bar");
     expectText(dashboard, "empty routes are omitted instead of rendering \"nothing here\" buttons");
     expectText(dashboard, "single wrapping rail");

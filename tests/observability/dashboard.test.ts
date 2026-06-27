@@ -380,7 +380,7 @@ describe("observability dashboard", () => {
       expect(data.charts.memory_states.length).toBeGreaterThan(0);
       expect(data.charts.record_types.length).toBeGreaterThan(0);
       const workLanesStart = html.indexOf("data-dashboard-work-lanes");
-      const evidenceLibraryStart = html.indexOf("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
+      const evidenceLibraryStart = html.indexOf("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Background Reference\">");
       expect(html).toContain("<section id=\"store-signals\" class=\"panel store-signals store-signals-promoted\" data-dashboard-detail=\"store-signals\" data-dashboard-promoted-store-signals aria-label=\"Store Signals\">");
       expect(html).toContain("<div class=\"store-signals-promoted-head\">\n        <span>Store Signals</span>\n        <small>Sync action ready</small>\n      </div>");
       expect(html).not.toContain("<details open id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\">");
@@ -394,6 +394,12 @@ describe("observability dashboard", () => {
       expect(evidenceLibraryStart).toBeGreaterThan(-1);
       expect(storeSignalsStart).toBeGreaterThan(overviewStart);
       expect(storeSignalsStart).toBeLessThan(evidenceLibraryStart);
+      expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Background Reference\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Background Reference: Reference evidence only\">");
+      expect(html).toContain("<span>Background Reference</span>");
+      expect(html).toContain("<small>Audit route available</small>");
+      expect(html).not.toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
+      expect(html).not.toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Reference evidence only\">");
       expect(html.match(/<section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Store Signals"/g)?.length).toBe(1);
       const storeSignalsEnd = evidenceLibraryStart;
       const storeSignalsHtml = html.slice(storeSignalsStart, storeSignalsEnd);
