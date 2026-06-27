@@ -6263,19 +6263,9 @@ function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: str
   return { en: "Set aside", zh: "已放一边" };
 }
 
-function storedContentPanel(data: DashboardData): string {
-  const items = data.recent_value.slice(0, 4);
-  if (items.length === 0) return "";
+function storedContentItem(item: DashboardValueRecord): string {
+  const state = memoryStateLabelFromRecordState(item.state);
   return `
-    <section class="stored-content" data-stored-content aria-label="Stored content">
-      <div class="section-heading">
-        <h2 data-i18n-en="Stored content" data-i18n-zh="存储内容">Stored content</h2>
-        ${i18nText("Recent saved text", "最近保存的内容", "small")}
-      </div>
-      <div class="stored-content-list">
-        ${items.map((item) => {
-          const state = memoryStateLabelFromRecordState(item.state);
-          return `
             <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}">
               <div class="stored-content-item-head">
                 <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
@@ -6284,10 +6274,31 @@ function storedContentPanel(data: DashboardData): string {
               <strong>${escapeHtml(item.title)}</strong>
               ${textExcerptBlock(item.summary)}
             </article>
-          `;
-        }).join("")}
+  `;
+}
+
+function storedContentPanel(data: DashboardData): string {
+  const visibleItems = data.recent_value.slice(0, 4);
+  const overflowItems = data.recent_value.slice(4);
+  if (visibleItems.length === 0) return "";
+  const overflowCount = overflowItems.length;
+  const moreLabel = `View ${overflowCount} more`;
+  const moreLabelZh = `查看更多 ${overflowCount} 条`;
+  return `
+    <section class="stored-content" data-stored-content aria-label="Stored content">
+      <div class="section-heading">
+        <h2 data-i18n-en="Stored content" data-i18n-zh="存储内容">Stored content</h2>
+        ${i18nText("Recent saved text", "最近保存的内容", "small")}
       </div>
-      <a href="#" data-action-board-target="recent-value" aria-controls="recent-value" data-i18n-en="View more" data-i18n-zh="查看更多">View more</a>
+      <div class="stored-content-list">
+        ${visibleItems.map(storedContentItem).join("")}
+      </div>
+      ${overflowItems.length > 0 ? `
+        <div id="stored-content-overflow" class="stored-content-list stored-content-overflow" data-stored-content-overflow hidden>
+          ${overflowItems.map(storedContentItem).join("")}
+        </div>
+        <button type="button" class="stored-content-more" data-stored-content-more aria-expanded="false" aria-controls="stored-content-overflow" data-i18n-en="${escapeHtml(moreLabel)}" data-i18n-zh="${escapeHtml(moreLabelZh)}" data-stored-content-collapsed-en="${escapeHtml(moreLabel)}" data-stored-content-collapsed-zh="${escapeHtml(moreLabelZh)}" data-stored-content-expanded-en="Show fewer" data-stored-content-expanded-zh="收起">${escapeHtml(moreLabel)}</button>
+      ` : ""}
     </section>
   `;
 }
@@ -6534,6 +6545,36 @@ function dashboardActionBoardScript(): string {
           parent = parent.parentElement?.closest("details") ?? null;
         }
         target.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+    })();
+  </script>`;
+}
+
+function dashboardStoredContentScript(): string {
+  return `
+  <script>
+    (() => {
+      const cssEscape = (value) => window.CSS?.escape ? window.CSS.escape(value) : value.replaceAll("\\\\", "\\\\\\\\").replaceAll('"', '\\"');
+      const selectedLanguage = () => document.documentElement.lang === "zh" ? "zh" : "en";
+      const labelFor = (button, expanded) => {
+        const language = selectedLanguage();
+        if (expanded) return language === "zh" ? button.dataset.storedContentExpandedZh || "收起" : button.dataset.storedContentExpandedEn || "Show fewer";
+        return language === "zh" ? button.dataset.storedContentCollapsedZh || button.dataset.i18nZh || "查看更多" : button.dataset.storedContentCollapsedEn || button.dataset.i18nEn || "View more";
+      };
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const button = target.closest("[data-stored-content-more]");
+        if (!(button instanceof HTMLButtonElement)) return;
+        const section = button.closest("[data-stored-content]");
+        const overflowId = button.getAttribute("aria-controls");
+        const overflow = overflowId && section instanceof HTMLElement ? section.querySelector("#" + cssEscape(overflowId)) : null;
+        if (!(overflow instanceof HTMLElement)) return;
+        const willOpen = button.getAttribute("aria-expanded") !== "true";
+        button.setAttribute("aria-expanded", willOpen ? "true" : "false");
+        overflow.hidden = !willOpen;
+        button.textContent = labelFor(button, willOpen);
+        if (willOpen) overflow.scrollIntoView({ block: "nearest", behavior: "smooth" });
       });
     })();
   </script>`;
@@ -7162,6 +7203,9 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
     }
+    .stored-content-overflow {
+      margin-top: 10px;
+    }
     .stored-content-item {
       display: grid;
       gap: 7px;
@@ -7197,14 +7241,24 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       color: var(--ink-2);
       overflow-wrap: anywhere;
     }
-    .stored-content > a {
+    .stored-content-more {
+      appearance: none;
+      border: 1px solid rgba(69, 185, 255, 0.42);
+      border-radius: 6px;
+      padding: 7px 10px;
+      background: var(--surface-2);
       display: inline-flex;
+      align-items: center;
+      justify-content: center;
       margin-top: 10px;
       color: var(--signal-blue);
+      cursor: pointer;
+      font: inherit;
       font-size: 12px;
       font-weight: 820;
-      text-decoration: none;
     }
+    .stored-content-more:hover { border-color: rgba(69, 185, 255, 0.78); background: var(--surface-3); }
+    .stored-content-more:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .glance-board {
       margin-bottom: 12px;
     }
@@ -9889,6 +9943,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
   ${dashboardLanguageScript()}
   ${dashboardRefreshScript(options.refreshIntervalMs)}
   ${dashboardActionBoardScript()}
+  ${dashboardStoredContentScript()}
   ${dashboardActionReceiptScript()}
   ${dashboardMaintenanceScript()}
   ${dashboardCaptureInboxScript()}

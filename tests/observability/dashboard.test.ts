@@ -614,7 +614,6 @@ describe("observability dashboard", () => {
       expect(html).toContain("<p>Recent session status belongs on the dashboard front page.</p>");
       expect(html).toContain("<article class=\"stored-content-item state-canonical\" data-stored-content-item=\"rec_action_board_2\">");
       expect(html).toContain("<p>Moryn should make dashboard storage easy to understand.</p>");
-      expect(html).toContain("<a href=\"#\" data-action-board-target=\"recent-value\" aria-controls=\"recent-value\" data-i18n-en=\"View more\" data-i18n-zh=\"查看更多\">View more</a>");
       expect(html.indexOf("data-stored-content")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).toContain("<section class=\"memory-inventory\" data-memory-inventory aria-label=\"What Moryn stores\">");
       expect(html).toContain("<h2 data-i18n-en=\"What Moryn remembers\" data-i18n-zh=\"Moryn 记住了什么\">What Moryn remembers</h2>");
@@ -737,6 +736,59 @@ describe("observability dashboard", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it("expands additional stored content from the first-screen view-more control", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let timestamp = 0;
+          return () => `2026-06-01T00:${String(++timestamp).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_stored_more_${++record}` : `evt_stored_more_${++event}`;
+        })()
+      });
+      for (let index = 1; index <= 6; index += 1) {
+        await engine.write({
+          kind: "memory",
+          type: "decision",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: `Stored content item ${index}`, format: "text" },
+          state: "canonical",
+          confirmed: true,
+          source: { client: "codex" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data, { showStoredContent: true });
+
+      expect(data.recent_value).toHaveLength(6);
+      expect(html).toContain("<button type=\"button\" class=\"stored-content-more\" data-stored-content-more aria-expanded=\"false\" aria-controls=\"stored-content-overflow\"");
+      expect(html).toContain("data-i18n-en=\"View 2 more\" data-i18n-zh=\"查看更多 2 条\"");
+      expect(html).toContain("data-stored-content-expanded-en=\"Show fewer\" data-stored-content-expanded-zh=\"收起\"");
+      expect(html).toContain("<div id=\"stored-content-overflow\" class=\"stored-content-list stored-content-overflow\" data-stored-content-overflow hidden>");
+      expect(html).toContain("<article class=\"stored-content-item state-canonical\" data-stored-content-item=\"rec_stored_more_2\">");
+      expect(html).toContain("<p>Stored content item 2</p>");
+      expect(html).toContain("<article class=\"stored-content-item state-canonical\" data-stored-content-item=\"rec_stored_more_1\">");
+      expect(html).toContain("<p>Stored content item 1</p>");
+      expect(html).not.toContain("href=\"#\" data-action-board-target=\"recent-value\"");
+      expect(html).toContain("data-stored-content-more");
+      expect(html).toContain("overflow.hidden = !willOpen;");
+    });
   });
 
   it("keeps compact technical details quiet when only saved notes need review", async () => {
