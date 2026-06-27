@@ -372,6 +372,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The `Capture Inbox` heading uses the stable `Manual approval` status instead of repeating candidate and group counts");
     expectText(dashboard, "Counts stay in `Queue summary`, Pending Decisions, and `/api/dashboard.capture_inbox`");
     expectText(dashboard, "Group card faces use `Review N captures` plus `Approve or reject this group.` instead of rendering capture text on the first row");
+    expectText(dashboard, "a compact `Review signal` strip with human labels such as `Smoke/test marker` and `Duplicate capture text`");
+    expectText(dashboard, "does not add an automatic merge, archive, approve, or background execution path");
     expectText(dashboard, "Group id, record ids, rules, and noise evidence stay behind an `Evidence index` fold inside `Item review`");
     expectText(dashboard, "`Item review` opens to the evidence index and collapsed candidate rows instead of raw group internals");
     expectText(dashboard, "Group cards and candidate detail rows start with a compact `Approval brief`");

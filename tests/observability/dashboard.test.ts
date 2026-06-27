@@ -6216,8 +6216,20 @@ describe("observability dashboard", () => {
       expect(codexGroupFaceHtml).not.toContain("<span>Reject Group appends archive</span>");
       expect(codexGroupFaceHtml).not.toContain("Codex prepared bulk review controls.");
       expect(codexGroupFaceHtml).not.toContain("Codex finished dashboard grouping.");
+      expect(codexGroupFaceHtml).not.toContain("Review signal");
+      expect(codexGroupFaceHtml).not.toContain("Duplicate capture text");
       expect(codexItemReviewHtml).toContain("Codex prepared bulk review controls.");
       expect(codexItemReviewHtml).toContain("Codex finished dashboard grouping.");
+      const noisyGroupStart = html.indexOf(`data-capture-inbox-group="${noisyGroup?.id}"`);
+      const noisyContextStart = html.indexOf("<details class=\"capture-inbox-context\"", noisyGroupStart);
+      const noisyGroupFaceHtml = html.slice(noisyGroupStart, noisyContextStart);
+      expect(noisyGroupFaceHtml).toContain("<p>Archive likely noise or inspect items.</p>");
+      expect(noisyGroupFaceHtml).toContain("<div class=\"capture-inbox-review-signal\" data-capture-inbox-review-signal>");
+      expect(noisyGroupFaceHtml).toContain("<strong>Review signal</strong>");
+      expect(noisyGroupFaceHtml).toContain("<span>Smoke/test marker</span>");
+      expect(noisyGroupFaceHtml).toContain("<span>Duplicate capture text</span>");
+      expect(noisyGroupFaceHtml).toContain("<small>Looks like smoke, test, or fixture output. Duplicate capture text appears in this batch.</small>");
+      expect(noisyGroupFaceHtml).not.toContain("data-dashboard-action-id=\"capture_inbox.signal");
       expect(html.indexOf("<summary>Review context</summary>")).toBeLessThan(
         html.indexOf("<dl class=\"capture-inbox-summary\" data-capture-inbox-group-summary>")
       );

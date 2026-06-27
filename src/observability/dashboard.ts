@@ -553,7 +553,7 @@ export interface DashboardCaptureInboxItem {
 export interface DashboardCaptureNoise {
   level: "normal" | "likely_noise";
   reasons: string[];
-  rule_ids: string[];
+  rule_ids: DashboardCaptureNoiseRule["id"][];
   suggested_action: "review" | "archive";
 }
 
@@ -4970,6 +4970,22 @@ function captureInboxGroupBrief(group: DashboardCaptureInboxGroup): string {
   `;
 }
 
+function captureInboxNoiseRuleLabel(ruleId: DashboardCaptureNoiseRule["id"]): string {
+  return CAPTURE_NOISE_RULES.find((rule) => rule.id === ruleId)?.label ?? ruleId;
+}
+
+function captureInboxGroupReviewSignal(group: DashboardCaptureInboxGroup): string {
+  if (group.noise.level !== "likely_noise" || group.noise.rule_ids.length === 0) return "";
+  const ruleLabels = group.noise.rule_ids.map((ruleId) => `<span>${escapeHtml(captureInboxNoiseRuleLabel(ruleId))}</span>`).join("");
+  const reasons = group.noise.reasons.length ? group.noise.reasons.join(" ") : "Noise signals detected before approval.";
+  return `
+            <div class="capture-inbox-review-signal" data-capture-inbox-review-signal>
+              <strong>Review signal</strong>
+              <div>${ruleLabels}</div>
+              <small>${escapeHtml(reasons)}</small>
+            </div>`;
+}
+
 function captureInboxGroupFaceTitle(group: DashboardCaptureInboxGroup): string {
   return `Review ${pluralize(group.total, "capture")}`;
 }
@@ -5018,6 +5034,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
               <span class="pill ${group.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(group.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
             </div>
             ${captureInboxGroupBrief(group)}
+            ${captureInboxGroupReviewSignal(group)}
             <details class="capture-inbox-context" data-dashboard-detail="capture-inbox-context:${escapeHtml(group.id)}">
               <summary>Review context</summary>
               <dl class="capture-inbox-summary" data-capture-inbox-group-summary>
@@ -8330,6 +8347,40 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 720;
     }
     .capture-inbox-context .capture-inbox-summary { margin-bottom: 0; }
+    .capture-inbox-review-signal {
+      display: grid;
+      gap: 7px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 9px;
+      margin: 0 0 10px;
+      background: var(--surface-2);
+    }
+    .capture-inbox-review-signal strong {
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 780;
+    }
+    .capture-inbox-review-signal div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .capture-inbox-review-signal span {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+    .capture-inbox-review-signal small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
     .capture-inbox-item-review {
       border: 1px solid var(--hairline);
       border-radius: 7px;
