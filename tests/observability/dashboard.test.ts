@@ -574,6 +574,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<button type=\"button\" class=\"language-option\" data-dashboard-language-option=\"zh\" aria-pressed=\"false\">中文</button>");
       expect(html).toContain("const key = \"moryn.dashboard.language\";");
       expect(html).toContain("localStorage.getItem(key)");
+      expect(html).toContain("color-scheme: dark;");
+      expect(html).toContain("--canvas: #050505;");
+      expect(html).toContain("--surface: #101216;");
+      expect(html).not.toContain("--canvas: #f4f2ee;");
       expect(html).toContain("<strong data-i18n-en=\"Review suggested\" data-i18n-zh=\"建议看一下\">Review suggested</strong>");
       expect(html).toContain("<p data-i18n-en=\"1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.\" data-i18n-zh=\"Moryn 已安全保存 1 条新内容和 1 条临时内容。你想让它长期记住时再确认。\">1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.</p>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"candidate-triage\" aria-controls=\"candidate-triage\" data-i18n-en=\"Review new notes\" data-i18n-zh=\"查看新内容\">Review new notes</button>");
@@ -588,6 +592,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</span>");
       expect(html).toContain("<strong data-i18n-en=\"Up to date\" data-i18n-zh=\"已同步\">Up to date</strong>");
       expect(html).toContain("<small data-i18n-en=\"0 behind · 0 ahead\" data-i18n-zh=\"落后 0 · 待上传 0\">0 behind · 0 ahead</small>");
+      expect(html).toContain("<section class=\"glance-board\" data-dashboard-glance aria-label=\"At a glance\">");
+      expect(html).toContain("<h2 data-i18n-en=\"At a glance\" data-i18n-zh=\"一眼看懂\">At a glance</h2>");
+      expect(html).toContain("<article class=\"glance-chart memory-shape\" data-memory-state-chart>");
+      expect(html).toContain("<div class=\"memory-state-meter\" aria-label=\"Memory state chart\">");
+      expect(html).toContain("<article class=\"glance-chart memory-types\" data-memory-kind-chart>");
+      expect(html).toContain("<article class=\"glance-chart shared-copy good\" data-shared-copy-chart>");
+      expect(html).toContain("<article class=\"glance-chart recent-activity\" data-recent-activity-chart>");
+      expect(html.indexOf("data-dashboard-glance")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
       expect(html).toContain("<section class=\"memory-inventory\" data-memory-inventory aria-label=\"What Moryn stores\">");
       expect(html).toContain("<h2 data-i18n-en=\"What Moryn remembers\" data-i18n-zh=\"Moryn 记住了什么\">What Moryn remembers</h2>");

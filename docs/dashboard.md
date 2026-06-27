@@ -16,6 +16,23 @@ Use it to answer:
 The dashboard stays local-first. It reads the current event history from the
 local store and never uploads dashboard data.
 
+## First Screen
+
+The first screen is optimized for one-glance reading, not for browsing a project
+tool. It uses a black high-contrast surface with visible status colors and chart
+cards before any evidence folds. A user should be able to answer these questions
+without opening a collapsed section:
+
+- Need action? -> `Needs attention?`, `All clear`, or `Review suggested`.
+- Stored what? -> the `At a glance` memory-state chart and `What Moryn remembers`.
+- State now? -> `This device`, `Recent status`, and recent activity bars.
+- Shared copy? -> the `Shared copy` card and sync rail.
+
+The `At a glance` row is visible above `Technical details`. It shows a memory
+state meter, content-type bars, shared-copy state, and recent source activity.
+Collapsed sections are for audit evidence, raw trace details, and optional
+checks; they should not be required to understand the current dashboard state.
+
 ## Quick Start
 
 Serve the dashboard for the current machine:
@@ -547,15 +564,16 @@ start server mode from the CLI.
 
 ## What It Shows
 
-The first screen favors human-readable summaries over raw ids:
+The first screen favors human-readable summaries and visible charts over raw ids:
 
 - health status
 - attention items
 - sync summary
 - active record counts
-- agent activity
-- record quality distribution
-- record type distribution
+- the `At a glance` memory-state meter
+- content-type bars
+- recent source activity bars
+- the shared-copy sync rail
 - Context Pack Review handoff readiness when project context is explicit
 - Memory Lifecycle retained/stale/archive review
 - Capture Inbox candidate approvals when autocaptured records need review
@@ -577,15 +595,18 @@ The first screen is arranged around four plain questions:
 
 ```text
 Need action?  -> Needs attention? / All clear / Review suggested
-Stored what?  -> What Moryn remembers
-State now?    -> This device, Recent status
-Shared copy?  -> Shared copy
+Stored what?  -> At a glance, What Moryn remembers
+State now?    -> This device, Recent status, recent activity
+Shared copy?  -> Shared copy card and sync rail
 ```
 
-`This device` and `Shared copy` appear before the main action summary. `Shared
-copy` is the user-facing name for Git sync state: it can read `Up to date`,
-`Waiting to upload`, `New shared updates`, `Needs help`, or `Not connected`.
-The API still exposes the underlying sync data in `/api/dashboard.sync`.
+`This device` and `Shared copy` appear before the main action summary. The
+`At a glance` chart row appears before `What Moryn remembers`, `Recent status`,
+and the compact `Technical details` fold, so the user does not need to open a
+detail section to understand the current state. `Shared copy` is the
+user-facing name for Git sync state: it can read `Up to date`, `Waiting to
+upload`, `New shared updates`, `Needs help`, or `Not connected`. The API still
+exposes the underlying sync data in `/api/dashboard.sync`.
 
 The main action summary is labeled `Needs attention?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible

@@ -6047,6 +6047,126 @@ function frontStatusGrid(data: DashboardData): string {
   `;
 }
 
+function chartPercent(count: number, total: number): string {
+  if (count <= 0 || total <= 0) return "0";
+  const percent = (count / total) * 100;
+  return (percent >= 10 ? percent.toFixed(0) : percent.toFixed(1)).replace(/\.0$/, "");
+}
+
+function memoryStateClass(id: DashboardMemoryInventoryStateId): string {
+  if (id === "remembered") return "memory-state-remembered";
+  if (id === "new_items") return "memory-state-new";
+  if (id === "temporary") return "memory-state-temporary";
+  return "memory-state-set-aside";
+}
+
+function memoryStateMeter(inventory: DashboardMemoryInventory): string {
+  const total = inventory.summary.total_visible;
+  const segments = inventory.states
+    .filter((state) => state.count > 0)
+    .map((state) => {
+      const percent = chartPercent(state.count, total);
+      return `<span class="${escapeHtml(memoryStateClass(state.id))}" data-memory-state-segment="${escapeHtml(state.id)}" style="width: ${escapeHtml(percent)}%" title="${escapeHtml(`${state.label}: ${state.count}`)}"></span>`;
+    })
+    .join("");
+  return `
+      <div class="memory-state-meter" aria-label="Memory state chart">
+        ${segments || `<span class="memory-state-empty" style="width: 100%" title="No stored content"></span>`}
+      </div>
+      <div class="memory-state-key">
+        ${inventory.states.map((state) => `
+          <span class="${escapeHtml(memoryStateClass(state.id))}" data-memory-state-key="${escapeHtml(state.id)}">
+            <i></i>
+            <strong>${escapeHtml(state.count)}</strong>
+            <span data-i18n-en="${escapeHtml(state.label)}" data-i18n-zh="${escapeHtml(state.zh_label)}">${escapeHtml(state.label)}</span>
+          </span>
+        `).join("")}
+      </div>
+  `;
+}
+
+function memoryKindBars(inventory: DashboardMemoryInventory): string {
+  if (inventory.kind_summary.length === 0) return `<div class="empty-state">No stored content yet.</div>`;
+  const max = Math.max(1, ...inventory.kind_summary.map((kind) => kind.count));
+  return `
+      <div class="kind-bars" aria-label="Stored content types">
+        ${inventory.kind_summary.map((kind) => {
+          const percent = chartPercent(kind.count, max);
+          return `
+            <div class="kind-row type-${escapeHtml(kind.kind)}">
+              <div class="type-label">
+                <strong data-i18n-en="${escapeHtml(kind.label)}" data-i18n-zh="${escapeHtml(kind.zh_label)}">${escapeHtml(kind.label)}</strong>
+                <span>${escapeHtml(kind.count)}</span>
+              </div>
+              <div class="type-track" aria-hidden="true"><span style="width: ${escapeHtml(percent)}%"></span></div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+  `;
+}
+
+function recentActivityBars(agents: DashboardAgentChartItem[]): string {
+  if (agents.length === 0) return `<div class="empty-state">No recent activity yet.</div>`;
+  return `
+      <div class="activity-bars" aria-label="Recent source activity">
+        ${agents.map((agent) => `
+          <div class="activity-row">
+            <div class="type-label">
+              <strong>${escapeHtml(agent.client)}</strong>
+              <span>${escapeHtml(agent.records)} saved | ${escapeHtml(agent.relative_time)}</span>
+            </div>
+            <div class="bar-track" aria-hidden="true"><span style="width: ${escapeHtml(agent.weight)}%"></span></div>
+          </div>
+        `).join("")}
+      </div>
+  `;
+}
+
+function dashboardGlanceBoard(data: DashboardData): string {
+  const shared = sharedCopyLabel(data.sync);
+  const latestRecord = data.recent_records[0];
+  const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
+  const latestSourceZh = latestRecord ? latestSource : "还没有写入";
+  const latestWhen = latestRecord ? relativeTime(latestRecord.updated_at, data.generated_at) : "None";
+  const latestWhenZh = latestRecord ? latestWhen : "无";
+  return `
+    <section class="glance-board" data-dashboard-glance aria-label="At a glance">
+      <div class="section-heading">
+        <h2 data-i18n-en="At a glance" data-i18n-zh="一眼看懂">At a glance</h2>
+        ${i18nText("Memory, changes, and shared copy", "记忆、变化和共享副本", "small")}
+      </div>
+      <div class="glance-grid">
+        <article class="glance-chart memory-shape" data-memory-state-chart>
+          <h3 data-i18n-en="Stored what?" data-i18n-zh="存了什么？">Stored what?</h3>
+          <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
+          ${i18nText("visible items", "条可见内容", "small")}
+          ${memoryStateMeter(data.memory_inventory)}
+        </article>
+        <article class="glance-chart memory-types" data-memory-kind-chart>
+          <h3 data-i18n-en="Content mix" data-i18n-zh="内容类型">Content mix</h3>
+          ${memoryKindBars(data.memory_inventory)}
+        </article>
+        <article class="glance-chart shared-copy ${escapeHtml(shared.severity)}" data-shared-copy-chart>
+          <h3 data-i18n-en="Shared copy" data-i18n-zh="共享副本">Shared copy</h3>
+          <strong data-i18n-en="${escapeHtml(shared.label)}" data-i18n-zh="${escapeHtml(shared.zh)}">${escapeHtml(shared.label)}</strong>
+          <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
+          ${syncRail(data.charts.sync_position)}
+        </article>
+        <article class="glance-chart recent-activity" data-recent-activity-chart>
+          <h3 data-i18n-en="Recent activity" data-i18n-zh="最近动态">Recent activity</h3>
+          <div class="recent-activity-focus">
+            <span data-i18n-en="Last write" data-i18n-zh="最近写入">Last write</span>
+            <strong data-i18n-en="${escapeHtml(latestWhen)}" data-i18n-zh="${escapeHtml(latestWhenZh)}">${escapeHtml(latestWhen)}</strong>
+            <small data-i18n-en="${escapeHtml(latestSource)}" data-i18n-zh="${escapeHtml(latestSourceZh)}">${escapeHtml(latestSource)}</small>
+          </div>
+          ${recentActivityBars(data.charts.agent_activity.slice(0, 4))}
+        </article>
+      </div>
+    </section>
+  `;
+}
+
 function memoryInventoryPanel(inventory: DashboardMemoryInventory): string {
   const kindSummary = inventory.kind_summary.length > 0
     ? inventory.kind_summary.map((kind) => `<span ${i18nAttribute(`${kind.label} ${kind.count}`, `${kind.zh_label} ${kind.count}`)}>${escapeHtml(`${kind.label} ${kind.count}`)}</span>`).join("")
@@ -6142,6 +6262,8 @@ function renderDashboardBody(data: DashboardData): string {
     ${frontStatusGrid(data)}
 
     ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: !isAllClearOverview && !isReviewSuggestedOverview })}
+
+    ${dashboardGlanceBoard(data)}
 
     ${memoryInventoryPanel(data.memory_inventory)}
 
@@ -6610,27 +6732,27 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
   <title>Moryn Dashboard</title>
   <style>
     :root {
-      color-scheme: light;
-      --canvas: #f4f2ee;
-      --surface: #fffefa;
-      --surface-2: #f8f6f1;
-      --surface-3: #ede9df;
-      --ink: #191815;
-      --ink-2: #34312b;
-      --muted: #6e695f;
-      --subtle: #969085;
-      --border: #ddd6ca;
-      --hairline: #ebe5da;
-      --signal-blue: #315f8f;
-      --signal-blue-soft: #e8f0f6;
-      --signal-green: #2f6d57;
-      --signal-green-soft: #e7f0eb;
-      --signal-amber: #a46f1f;
-      --signal-amber-soft: #f4ead9;
-      --signal-red: #ad4b42;
-      --signal-red-soft: #f5e5e1;
-      --signal-violet: #65579d;
-      --signal-slate: #53606d;
+      color-scheme: dark;
+      --canvas: #050505;
+      --surface: #101216;
+      --surface-2: #161a20;
+      --surface-3: #20262e;
+      --ink: #f5f7fb;
+      --ink-2: #dce3eb;
+      --muted: #9da8b6;
+      --subtle: #6f7a88;
+      --border: #2b333d;
+      --hairline: #202832;
+      --signal-blue: #45b9ff;
+      --signal-blue-soft: rgba(69, 185, 255, 0.14);
+      --signal-green: #74f291;
+      --signal-green-soft: rgba(116, 242, 145, 0.13);
+      --signal-amber: #ffd166;
+      --signal-amber-soft: rgba(255, 209, 102, 0.16);
+      --signal-red: #ff5c74;
+      --signal-red-soft: rgba(255, 92, 116, 0.15);
+      --signal-violet: #d38cff;
+      --signal-slate: #9aa6b2;
       --text: var(--ink);
       --main: var(--surface);
       --accent: var(--signal-green);
@@ -6639,16 +6761,13 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       --critical: var(--signal-red);
       --good: var(--signal-green);
       --info: var(--signal-blue);
-      --code: #eef1f4;
+      --code: #0b0d10;
     }
     * { box-sizing: border-box; }
     html, body { max-width: 100%; overflow-x: hidden; }
     body {
       margin: 0;
-      background:
-        radial-gradient(circle at 18% -10%, rgba(255,255,255,0.9), rgba(255,255,255,0) 28%),
-        linear-gradient(180deg, #fbfaf7 0, var(--canvas) 310px),
-        var(--canvas);
+      background: linear-gradient(180deg, #050505 0, #0a0c0f 360px, var(--canvas) 100%);
       color: var(--text);
       font: 14px/1.55 Inter, "Aptos", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0;
@@ -6697,7 +6816,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 780;
       overflow-wrap: anywhere;
     }
-    .health-badge { min-height: 32px; padding: 5px 13px; box-shadow: 0 8px 18px rgba(21, 25, 30, 0.06); }
+    .health-badge { min-height: 32px; padding: 5px 13px; box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3); }
     .dashboard-header-actions {
       display: flex;
       flex-wrap: wrap;
@@ -6714,8 +6833,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 3px 4px 3px 9px;
-      background: rgba(255, 254, 250, 0.82);
-      box-shadow: 0 8px 18px rgba(25, 24, 21, 0.045);
+      background: rgba(16, 18, 22, 0.86);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
     }
     .language-toggle-label {
       color: var(--muted);
@@ -6739,9 +6858,9 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 790;
     }
     .language-option.active {
-      border-color: var(--border);
-      background: var(--ink);
-      color: var(--surface);
+      border-color: rgba(116, 242, 145, 0.42);
+      background: var(--signal-green);
+      color: #061007;
     }
     .front-status-grid,
     .memory-inventory-grid,
@@ -6756,8 +6875,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .recent-status {
       border: 1px solid var(--border);
       border-radius: 8px;
-      background: rgba(255, 254, 250, 0.86);
-      box-shadow: 0 12px 30px rgba(25, 24, 21, 0.05);
+      background: rgba(16, 18, 22, 0.92);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
     }
     .front-status-card {
       display: grid;
@@ -6842,11 +6961,148 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       grid-template-columns: repeat(4, minmax(0, 1fr));
       margin-bottom: 0;
     }
-    .good, .state-canonical { color: var(--signal-green); border-color: #bfd8d0; background: var(--signal-green-soft); }
-    .warning, .state-raw { color: var(--signal-amber); border-color: #dfcfb2; background: var(--signal-amber-soft); }
-    .critical, .state-quarantined { color: var(--signal-red); border-color: #e0c4c0; background: var(--signal-red-soft); }
-    .info, .state-candidate { color: var(--signal-blue); border-color: #c9d5e6; background: var(--signal-blue-soft); }
-    .state-archived { color: var(--signal-slate); border-color: #ccd2d8; background: var(--surface-3); }
+    .glance-board {
+      margin-bottom: 12px;
+    }
+    .glance-grid {
+      display: grid;
+      grid-template-columns: minmax(240px, 1.25fr) repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .glance-chart {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      min-width: 0;
+      min-height: 214px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015)), var(--surface);
+      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.38);
+    }
+    .glance-chart h3 {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .glance-chart > strong {
+      color: var(--ink);
+      font-size: 32px;
+      line-height: 1;
+      font-weight: 850;
+    }
+    .memory-state-meter {
+      display: flex;
+      height: 18px;
+      border: 1px solid var(--hairline);
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--surface-3);
+    }
+    .memory-state-meter span {
+      min-width: 4px;
+    }
+    .memory-state-key {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 8px;
+    }
+    .memory-state-key > span {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+    .memory-state-key i {
+      flex: 0 0 auto;
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+    }
+    .memory-state-key strong {
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1;
+      font-weight: 820;
+    }
+    .memory-state-key > span > span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .memory-state-meter .memory-state-remembered,
+    .memory-state-key .memory-state-remembered i { background: var(--signal-green); }
+    .memory-state-meter .memory-state-new,
+    .memory-state-key .memory-state-new i { background: var(--signal-blue); }
+    .memory-state-meter .memory-state-temporary,
+    .memory-state-key .memory-state-temporary i { background: var(--signal-amber); }
+    .memory-state-meter .memory-state-set-aside,
+    .memory-state-key .memory-state-set-aside i { background: var(--signal-slate); }
+    .memory-state-empty { background: var(--surface-3); }
+    .kind-bars,
+    .activity-bars {
+      display: grid;
+      gap: 9px;
+    }
+    .kind-row,
+    .activity-row {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .activity-row { --bar-accent: var(--signal-green); }
+    .activity-row:nth-child(1) { --bar-accent: var(--signal-green); }
+    .activity-row:nth-child(2) { --bar-accent: var(--signal-blue); }
+    .activity-row:nth-child(3) { --bar-accent: var(--signal-amber); }
+    .activity-row:nth-child(4) { --bar-accent: var(--signal-violet); }
+    .recent-activity-focus {
+      display: grid;
+      gap: 2px;
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px;
+      background: var(--surface-2);
+    }
+    .recent-activity-focus span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 760;
+    }
+    .recent-activity-focus strong {
+      color: var(--ink);
+      font-size: 20px;
+      line-height: 1.1;
+      font-weight: 840;
+      overflow-wrap: anywhere;
+    }
+    .glance-chart.shared-copy {
+      border-left-width: 4px;
+    }
+    .glance-chart.shared-copy.good { border-left-color: var(--signal-green); }
+    .glance-chart.shared-copy.info { border-left-color: var(--signal-blue); }
+    .glance-chart.shared-copy.warning { border-left-color: var(--signal-amber); }
+    .glance-chart.shared-copy.critical { border-left-color: var(--signal-red); }
+    .glance-chart.shared-copy > strong {
+      color: var(--ink);
+      font-size: 22px;
+      line-height: 1.1;
+      font-weight: 840;
+      overflow-wrap: anywhere;
+    }
+    .glance-chart.shared-copy .sync-rail {
+      align-self: end;
+    }
+    .good, .state-canonical { color: var(--signal-green); border-color: rgba(116, 242, 145, 0.36); background: var(--signal-green-soft); }
+    .warning, .state-raw { color: var(--signal-amber); border-color: rgba(255, 209, 102, 0.38); background: var(--signal-amber-soft); }
+    .critical, .state-quarantined { color: var(--signal-red); border-color: rgba(255, 92, 116, 0.38); background: var(--signal-red-soft); }
+    .info, .state-candidate { color: var(--signal-blue); border-color: rgba(69, 185, 255, 0.36); background: var(--signal-blue-soft); }
+    .state-archived { color: var(--signal-slate); border-color: rgba(154, 166, 178, 0.34); background: var(--surface-3); }
     .muted { color: var(--muted); }
     .panel, .action-board {
       background: var(--surface);
@@ -6933,8 +7189,8 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 7px 10px;
-      background: var(--ink);
-      color: #fff;
+      background: var(--signal-green);
+      color: #061007;
       font: inherit;
       font-size: 12px;
       font-weight: 780;
@@ -6972,7 +7228,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       text-align: left;
       transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
     }
-    .dashboard-overview-card:hover { border-color: #b8c0c8; box-shadow: 0 8px 18px rgba(21, 25, 30, 0.045); transform: translateY(-1px); }
+    .dashboard-overview-card:hover { border-color: rgba(69, 185, 255, 0.62); box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34); transform: translateY(-1px); }
     .dashboard-overview-card:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .dashboard-overview-card.good { border-left-color: var(--good); }
     .dashboard-overview-card.info { border-left-color: var(--info); }
@@ -7052,7 +7308,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       box-shadow: 0 8px 18px rgba(21, 25, 30, 0.04);
       transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
     }
-    .dashboard-work-lane:hover { border-color: #b8c0c8; box-shadow: 0 10px 20px rgba(21, 25, 30, 0.055); transform: translateY(-1px); }
+    .dashboard-work-lane:hover { border-color: rgba(69, 185, 255, 0.62); box-shadow: 0 12px 26px rgba(0, 0, 0, 0.36); transform: translateY(-1px); }
     .dashboard-work-lane:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .dashboard-work-lane.good { border-left-color: var(--good); }
     .dashboard-work-lane.info { border-left-color: var(--info); }
@@ -7393,7 +7649,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       text-align: left;
       transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
     }
-    .action-board-item:hover { border-color: #b8c0c8; box-shadow: 0 10px 20px rgba(21, 25, 30, 0.055); transform: translateY(-1px); }
+    .action-board-item:hover { border-color: rgba(69, 185, 255, 0.62); box-shadow: 0 12px 26px rgba(0, 0, 0, 0.36); transform: translateY(-1px); }
     .action-board-item:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .action-board-item.good { border-left-color: var(--good); }
     .action-board-item.info { border-left-color: var(--info); }
@@ -7533,9 +7789,9 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     }
     .decision-summary-link {
       justify-self: start;
-      background: var(--ink);
-      border-color: var(--ink);
-      color: #fff;
+      background: var(--signal-green);
+      border-color: var(--signal-green);
+      color: #061007;
     }
     .needs-attention-quiet-line {
       margin: -2px 0 12px;
@@ -7817,7 +8073,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       text-align: left;
       transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
     }
-    .evidence-library-route:hover { border-color: #b8c0c8; box-shadow: 0 6px 14px rgba(21, 25, 30, 0.04); transform: translateY(-1px); }
+    .evidence-library-route:hover { border-color: rgba(69, 185, 255, 0.62); box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32); transform: translateY(-1px); }
     .evidence-library-route:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .evidence-library-route strong,
     .evidence-library-route span {
@@ -9233,7 +9489,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
       font-weight: 720;
       cursor: pointer;
     }
-    button.primary { background: var(--signal-green); border-color: var(--signal-green); color: #fff; }
+    button.primary { background: var(--signal-green); border-color: var(--signal-green); color: #061007; }
     button:disabled { cursor: wait; opacity: 0.68; }
     .agent-bars { display: grid; gap: 10px; }
     .bar-row { --bar-accent: var(--signal-green); display: grid; gap: 6px; }
@@ -9351,7 +9607,7 @@ function renderDashboardShell(data: DashboardData, options: { refreshIntervalMs?
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .front-status-grid, .memory-inventory-grid, .recent-status-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .front-status-grid, .memory-inventory-grid, .recent-status-grid, .glance-grid, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .dashboard-header-actions { justify-content: flex-start; }
