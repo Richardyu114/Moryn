@@ -5504,6 +5504,10 @@ function referenceLibraryIndex(input: {
   const routeFoldSummary = input.compact ? "Routes and raw evidence" : "Indexed background sources";
   const detailedApiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
   const compactApiReferenceHint = "Full evidence stays in <code>/api/dashboard</code>.";
+  const diagnosticsTitle = input.compact ? "Diagnostics" : "Diagnostics Index";
+  const candidateTriageTitle = input.compact ? "Candidate Backlog" : "Candidate Backlog Index";
+  const governanceTitle = input.compact ? "Governance" : "Governance Index";
+  const dogfoodTitle = input.compact ? "Dogfood Notes" : "Dogfood Notes Index";
   const routeChipsRow = input.compact ? `
                 <div class="reference-library-route-chips" data-reference-library-route-chips>
                   ${routeChips}
@@ -5514,7 +5518,7 @@ function referenceLibraryIndex(input: {
     diagnosticRoutes.length > 0 ? `
             <div class="reference-library-index-row" data-reference-library-index-row="diagnostics" data-dashboard-detail="routine-diagnostics" data-routine-diagnostics-reference data-reference-library-index="diagnostics">
               <div>
-                <strong>Diagnostics Index</strong>
+                <strong>${escapeHtml(diagnosticsTitle)}</strong>
                 <span>${escapeHtml(diagnosticSummary)}</span>
               </div>
               <small>${diagnosticRoutes.map((route) => `<code data-dashboard-detail="${escapeHtml(route.route)}" aria-label="${escapeHtml(route.description)}">${escapeHtml(route.label)}</code>`).join("")}</small>
@@ -5522,7 +5526,7 @@ function referenceLibraryIndex(input: {
     input.hasCandidateTriage ? `
             <div class="reference-library-index-row" data-reference-library-index-row="candidate-triage" data-dashboard-detail="candidate-triage" data-candidate-triage-reference data-reference-library-index="candidate-triage">
               <div>
-                <strong>Candidate Backlog Index</strong>
+                <strong>${escapeHtml(candidateTriageTitle)}</strong>
                 <span>${escapeHtml(input.candidateTriageSummary)}</span>
                 ${input.candidateTriageFocus ? `<span data-candidate-triage-focus>${escapeHtml(input.candidateTriageFocus)}</span>` : ""}
               </div>
@@ -5531,7 +5535,7 @@ function referenceLibraryIndex(input: {
     input.hasGovernance ? `
             <div class="reference-library-index-row" data-reference-library-index-row="governance" data-dashboard-detail="governance-hub" data-governance-reference data-reference-library-index="governance">
               <div>
-                <strong>Governance Index</strong>
+                <strong>${escapeHtml(governanceTitle)}</strong>
                 <span>${escapeHtml(input.governanceSummary)}</span>
               </div>
               <small><code>governance</code></small>
@@ -5539,7 +5543,7 @@ function referenceLibraryIndex(input: {
     input.hasDogfood ? `
             <div class="reference-library-index-row" data-reference-library-index-row="dogfood" data-dashboard-detail="dogfood-review" data-dogfood-review-reference data-reference-library-index="dogfood">
               <div>
-                <strong>Dogfood Notes Index</strong>
+                <strong>${escapeHtml(dogfoodTitle)}</strong>
                 <span>${escapeHtml(input.dogfoodSummary)}</span>
               </div>
               <small><code>dogfood_report</code></small>

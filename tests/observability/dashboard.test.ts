@@ -435,6 +435,8 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).not.toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
+      expect(referenceRoutesHtml).toContain("<strong>Diagnostics</strong>");
+      expect(referenceRoutesHtml).not.toContain("<strong>Diagnostics Index</strong>");
       expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(html.match(/<section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Store Signals"/g)?.length).toBe(1);
@@ -610,6 +612,8 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).not.toContain("Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
+      expect(referenceRoutesHtml).toContain("<strong>Diagnostics</strong>");
+      expect(referenceRoutesHtml).not.toContain("<strong>Diagnostics Index</strong>");
       expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(html).toContain("<div class=\"reference-library-index-row\" data-reference-library-index-row=\"diagnostics\" data-dashboard-detail=\"routine-diagnostics\" data-routine-diagnostics-reference data-reference-library-index=\"diagnostics\">");
@@ -3089,6 +3093,8 @@ describe("observability dashboard", () => {
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"routine-diagnostics\"");
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"candidate-triage\"");
       expect(referenceIndexHtml).toContain("data-reference-library-route=\"supporting-evidence\"");
+      expect(referenceIndexHtml).toContain("<strong>Diagnostics Index</strong>");
+      expect(referenceIndexHtml).toContain("<strong>Candidate Backlog Index</strong>");
       expect(referenceIndexHtml).toContain("<span>Routine checks indexed</span>");
       expect(referenceIndexHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
       expect(referenceIndexHtml.match(/<article class=\"/g)?.length).toBe(1);

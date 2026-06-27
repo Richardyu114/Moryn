@@ -181,6 +181,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The long `/api/dashboard` pointer is shortened inside that fold in compact mode");
     expectText(dashboard, "`Full evidence stays in /api/dashboard.`");
     expectText(dashboard, "does not render prose about every API evidence family");
+    expectText(dashboard, "Compact background row titles also use shorter");
+    expectText(dashboard, "`Diagnostics`, `Candidate Backlog`, `Governance`, and");
+    expectText(dashboard, "dedicated reference panels keep their `... Index` titles");
     expectText(dashboard, "When review-oriented findings exist, the expanded library can still start with a compact `Evidence index` bar");
     expectText(dashboard, "empty routes are omitted instead of rendering \"nothing here\" buttons");
     expectText(dashboard, "single wrapping rail");
@@ -198,7 +201,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The route bar is navigation copy only");
     expectText(dashboard, "does not render Approve, Reject, Promote, Archive, or Apply controls");
     expectText(dashboard, "the collapsed `Reference routes` fold contains routine read-only diagnostics");
-    expectText(dashboard, "as a `Diagnostics Index` row inside the single index card");
+    expectText(dashboard, "as a `Diagnostics Index` row in the normal shell, or `Diagnostics`");
+    expectText(dashboard, "inside compact `Background Reference`");
     expectText(dashboard, "uses the stable visible summary `Routine checks indexed` instead of listing each diagnostic module name");
     expectText(dashboard, "stable `data-dashboard-detail` chips for `health-check`,");
     expectText(dashboard, "those chips carry accessible summaries");

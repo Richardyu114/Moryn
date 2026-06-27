@@ -861,7 +861,11 @@ the detailed background rows and stable
 `data-reference-library-route` attributes. The long `/api/dashboard` pointer
 is shortened inside that fold in compact mode to `Full evidence stays in
 /api/dashboard.`, so expanding `Background Reference` does not render prose
-about every API evidence family.
+about every API evidence family. Compact background row titles also use shorter
+user-facing labels such as `Diagnostics`, `Candidate Backlog`, `Governance`, and
+`Dogfood Notes`; the normal `Reference Library` index and dedicated reference
+panels keep their `... Index` titles where those titles clarify the API-backed
+audit card.
 
 When review-oriented findings exist, the expanded library can still start with
 a compact `Evidence index` bar; empty routes are omitted instead of rendering
@@ -888,7 +892,8 @@ buttons can open the parent library before scrolling to `governance-hub`,
 Inside the background-only `Reference Library Index`, the collapsed
 `Reference routes` fold contains routine read-only diagnostics such as a healthy
 Health Check, clean or unavailable Recall Eval, and ready or unavailable Context
-Pack Review as a `Diagnostics Index` row inside the single index card. The row
+Pack Review as a `Diagnostics Index` row in the normal shell, or `Diagnostics`
+inside compact `Background Reference`. The row
 uses the stable visible summary `Routine checks indexed` instead of listing each
 diagnostic module name. It keeps stable `data-dashboard-detail` chips for
 `health-check`, `recall-eval`, and `context-pack-review`, and those chips carry
