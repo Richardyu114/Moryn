@@ -794,6 +794,7 @@ describe("observability dashboard", () => {
       expect(serverHtml).toContain("writeStoredContentState({ overflowOpen: willOpen });");
       expect(serverHtml).toContain("window.restoreStoredContentState = applyStoredContentState;");
       expect(serverHtml).toContain("const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches(\"[data-memory-search-input]\");");
+      expect(serverHtml).toContain("if (window.shouldPauseStoredContentRefresh?.()) return;");
       expect(serverHtml).toContain("window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });");
     });
   });
@@ -846,7 +847,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("writeStoredContentState({ searchQuery: query, searchOpen: true });");
       expect(html).toContain("filterMemorySearch(panel, query);");
       expect(html).toContain("filterMemorySearch(panel, state.searchQuery || \"\");");
+      expect(html).toContain("window.shouldPauseStoredContentRefresh = () => {");
+      expect(html).toContain("return state.searchOpen === true && (String(state.searchQuery || \"\").trim().length > 0 || hasSearchFocus);");
       expect(html).toContain("data-memory-search-status");
+      expect(html).toContain("grid-template-columns: minmax(12ch, max-content) minmax(0, 1fr);");
+      expect(html).toContain("span[data-memory-search-status]");
+      expect(html).toContain("height: clamp(320px, 46vh, 520px);");
+      expect(html).toContain("scrollbar-gutter: stable both-edges;");
+      expect(html).toContain("transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;");
     });
   });
 

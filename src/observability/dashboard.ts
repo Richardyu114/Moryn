@@ -6539,6 +6539,7 @@ function dashboardRefreshScript(refreshIntervalMs: number | undefined): string {
       };
       const refresh = async () => {
         try {
+          if (window.shouldPauseStoredContentRefresh?.()) return;
           const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-memory-search-input]");
           const response = await fetch("fragment", { cache: "no-store" });
           if (!response.ok) return;
@@ -6720,6 +6721,12 @@ function dashboardStoredContentScript(): string {
         setSearchState(state, options);
       };
       window.restoreStoredContentState = applyStoredContentState;
+      window.shouldPauseStoredContentRefresh = () => {
+        const state = readStoredContentState();
+        const active = document.activeElement;
+        const hasSearchFocus = active instanceof HTMLInputElement && active.matches("[data-memory-search-input]");
+        return state.searchOpen === true && (String(state.searchQuery || "").trim().length > 0 || hasSearchFocus);
+      };
       document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
@@ -7313,12 +7320,14 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .decision-panel,
     .stored-content {
-      border: 1px solid var(--border);
+      border: 1px solid rgba(112, 129, 149, 0.24);
       border-radius: 8px;
-      padding: 14px;
+      padding: 16px;
       margin-bottom: 12px;
-      background: rgba(16, 18, 22, 0.92);
-      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+        rgba(12, 14, 18, 0.94);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.045);
     }
     .decision-panel-list {
       display: grid;
@@ -7387,26 +7396,31 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .memory-search-toggle {
       appearance: none;
-      border: 1px solid rgba(116, 242, 145, 0.38);
+      border: 1px solid rgba(116, 242, 145, 0.46);
       border-radius: 6px;
-      padding: 6px 9px;
-      background: var(--surface-2);
+      padding: 7px 11px;
+      background: linear-gradient(180deg, rgba(116, 242, 145, 0.16), rgba(116, 242, 145, 0.07));
       color: var(--signal-green);
       cursor: pointer;
       font: inherit;
       font-size: 12px;
       font-weight: 820;
+      box-shadow: 0 8px 20px rgba(116, 242, 145, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
-    .memory-search-toggle:hover { border-color: rgba(116, 242, 145, 0.74); background: var(--surface-3); }
+    .memory-search-toggle:hover { border-color: rgba(116, 242, 145, 0.76); background: rgba(116, 242, 145, 0.13); box-shadow: 0 10px 24px rgba(116, 242, 145, 0.12); transform: translateY(-1px); }
     .memory-search-toggle:focus-visible { outline: 2px solid var(--signal-green); outline-offset: 2px; }
     .memory-search-panel {
       display: grid;
-      gap: 9px;
-      border: 1px solid var(--hairline);
+      gap: 10px;
+      border: 1px solid rgba(112, 129, 149, 0.24);
       border-radius: 8px;
-      padding: 11px;
-      margin-bottom: 10px;
-      background: var(--surface-2);
+      padding: 14px;
+      margin-bottom: 12px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+        rgba(10, 12, 15, 0.72);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     .memory-search-label {
       color: var(--ink);
@@ -7415,39 +7429,63 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .memory-search-input {
       width: 100%;
-      min-height: 36px;
-      border: 1px solid var(--border);
+      min-height: 44px;
+      border: 1px solid rgba(112, 129, 149, 0.34);
       border-radius: 7px;
-      padding: 7px 9px;
-      background: var(--code);
+      padding: 8px 12px;
+      background: rgba(4, 5, 7, 0.78);
       color: var(--ink);
       font: inherit;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
     }
     .memory-search-input:focus { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .memory-search-meta {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: minmax(12ch, max-content) minmax(0, 1fr);
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      gap: 10px;
+      min-height: 22px;
       color: var(--muted);
       font-size: 12px;
+    }
+    .memory-search-meta span[data-memory-search-status] {
+      display: inline-flex;
+      align-items: center;
+      min-width: 12ch;
+      color: #b9d7ff;
+      font-weight: 760;
+      white-space: nowrap;
+    }
+    .memory-search-meta small {
+      text-align: right;
+      white-space: nowrap;
     }
     .memory-search-results {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      max-height: 360px;
+      align-content: start;
+      gap: 10px;
+      height: clamp(320px, 46vh, 520px);
       overflow: auto;
+      scrollbar-gutter: stable both-edges;
+      padding-right: 2px;
     }
     .memory-search-result {
       display: grid;
-      gap: 4px;
+      gap: 6px;
       min-width: 0;
-      border: 1px solid var(--hairline);
+      border: 1px solid rgba(112, 129, 149, 0.22);
       border-radius: 8px;
-      padding: 9px;
-      background: var(--surface);
+      padding: 12px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.006)), rgba(8, 10, 13, 0.92);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+    .memory-search-result:hover {
+      border-color: rgba(69, 185, 255, 0.34);
+      background: linear-gradient(180deg, rgba(69, 185, 255, 0.05), rgba(255, 255, 255, 0.008)), rgba(10, 12, 16, 0.96);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+      transform: translateY(-1px);
     }
     .memory-search-result span {
       color: var(--muted);
@@ -7477,14 +7515,22 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .stored-content-item {
       display: grid;
-      gap: 7px;
+      gap: 8px;
       min-width: 0;
       min-height: 148px;
-      border: 1px solid var(--hairline);
+      border: 1px solid rgba(112, 129, 149, 0.24);
       border-left-width: 4px;
       border-radius: 8px;
-      padding: 11px;
-      background: var(--surface-2);
+      padding: 13px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.008)), rgba(18, 21, 27, 0.86);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+    .stored-content-item:hover {
+      border-color: rgba(69, 185, 255, 0.32);
+      background: linear-gradient(180deg, rgba(69, 185, 255, 0.045), rgba(255, 255, 255, 0.01)), rgba(20, 23, 29, 0.92);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+      transform: translateY(-1px);
     }
     .stored-content-item-head {
       display: flex;
@@ -10183,6 +10229,9 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       .dashboard-overview-action { width: 100%; white-space: normal; }
       .decision-panel-item { grid-template-columns: 1fr; align-items: stretch; }
       .decision-panel-link { width: 100%; white-space: normal; }
+      .memory-search-meta { grid-template-columns: 1fr; align-items: start; }
+      .memory-search-meta small { text-align: left; white-space: normal; }
+      .memory-search-results { grid-template-columns: 1fr; height: clamp(320px, 58vh, 520px); }
       .sync-action-brief { grid-template-columns: 1fr; }
       .sync-action-brief > code { justify-self: stretch; max-width: none; }
       .decision-summary-heading { display: grid; }
