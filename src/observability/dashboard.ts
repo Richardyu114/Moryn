@@ -4444,6 +4444,11 @@ function governanceHubSummaryText(governance: DashboardGovernance): string {
   return counts.length > 0 ? counts.join(" | ") : "All clear";
 }
 
+function governanceHubSummaryZh(governance: DashboardGovernance, summary: string): string {
+  if (isSafeOnlyGovernance(governance)) return "参考检查";
+  return summary;
+}
+
 function governanceCountChips(governance: DashboardGovernance): string {
   const chips = [
     governance.summary.needs_user_action > 0 ? `${governance.summary.needs_user_action} need confirmation` : undefined,
@@ -4455,10 +4460,14 @@ function governanceCountChips(governance: DashboardGovernance): string {
 }
 
 function governanceReferenceIndex(safeInspections: DashboardGovernanceItem[]): string {
+  const title = "Governance Index";
+  const titleZh = "治理索引";
+  const summary = `${pluralize(safeInspections.length, "read-only check")} indexed`;
+  const summaryZh = `${safeInspections.length} 项只读检查已建立索引`;
   return `
         <article class="governance-reference" data-dashboard-detail="governance:index" data-governance-reference>
-          <strong>Governance Index</strong>
-          <span>${escapeHtml(`${pluralize(safeInspections.length, "read-only check")} indexed`)}</span>
+          <strong ${i18nAttribute(title, titleZh)}>${escapeHtml(title)}</strong>
+          <span ${i18nAttribute(summary, summaryZh)}>${escapeHtml(summary)}</span>
           <code>governance</code>
         </article>
         <p>Open <code>/api/dashboard</code> for governance items, evidence paths, review logs, and safe inspection commands.</p>
@@ -4469,12 +4478,20 @@ function governanceHubBody(governance: DashboardGovernance): string {
   const safeInspections = governance.items.filter(isSafeGovernanceInspection);
   const primaryItems = governance.items.filter((item) => !isSafeGovernanceInspection(item));
   const safeOnly = isSafeOnlyGovernance(governance);
+  const title = safeOnly ? "Read-only Governance" : "Governance Hub";
+  const titleZh = safeOnly ? "只读治理" : "治理中心";
+  const subtitle = safeOnly ? "API-backed governance index" : "Read-only inspection index";
+  const subtitleZh = safeOnly ? "API 支持的治理索引" : "只读检查索引";
+  const safeGroupTitle = safeOnly ? "Reference Checks" : "Safe Inspections";
+  const safeGroupTitleZh = safeOnly ? "参考检查" : "安全检查";
+  const safeGroupSummary = safeOnly ? "Read-only, no writes" : "Background checks, read-only";
+  const safeGroupSummaryZh = safeOnly ? "只读，不写入" : "后台检查，只读";
   return `
     <div class="governance-hub-body">
       <div class="governance-heading">
         <div>
-          <h2>${escapeHtml(safeOnly ? "Read-only Governance" : "Governance Hub")}</h2>
-          <p>${escapeHtml(safeOnly ? "API-backed governance index" : "Read-only inspection index")}</p>
+          <h2 ${i18nAttribute(title, titleZh)}>${escapeHtml(title)}</h2>
+          <p ${i18nAttribute(subtitle, subtitleZh)}>${escapeHtml(subtitle)}</p>
         </div>
         <div class="governance-counts">
           ${safeOnly ? "" : governanceCountChips(governance)}
@@ -4486,8 +4503,8 @@ function governanceHubBody(governance: DashboardGovernance): string {
         ${safeInspections.length === 0 ? "" : `
           ${safeOnly ? "" : `<details class="governance-safe-group" data-dashboard-detail="governance-safe-inspections">
             <summary class="dashboard-fold-summary">
-              <span>${escapeHtml(safeOnly ? "Reference Checks" : "Safe Inspections")}</span>
-              <small>${escapeHtml(safeOnly ? "Read-only, no writes" : "Background checks, read-only")}</small>
+              <span ${i18nAttribute(safeGroupTitle, safeGroupTitleZh)}>${escapeHtml(safeGroupTitle)}</span>
+              <small ${i18nAttribute(safeGroupSummary, safeGroupSummaryZh)}>${escapeHtml(safeGroupSummary)}</small>
             </summary>
             <div class="governance-safe-list" data-governance-safe-list>
               ${safeInspections.map(governanceSafeRow).join("")}
@@ -4505,11 +4522,14 @@ function governanceHub(governance: DashboardGovernance): string {
   const body = governanceHubBody(governance);
   const safeOnly = isSafeOnlyGovernance(governance);
   if (governance.summary.needs_user_action === 0) {
+    const title = safeOnly ? "Read-only Governance" : "Governance Hub";
+    const titleZh = safeOnly ? "只读治理" : "治理中心";
+    const summary = governanceHubSummaryText(governance);
     return `
       <details id="governance-hub" class="panel governance-hub" data-dashboard-detail="governance-hub" aria-label="Governance Hub">
         <summary class="dashboard-fold-summary governance-hub-fold">
-          <span>${escapeHtml(safeOnly ? "Read-only Governance" : "Governance Hub")}</span>
-          <small>${escapeHtml(governanceHubSummaryText(governance))}</small>
+          <span ${i18nAttribute(title, titleZh)}>${escapeHtml(title)}</span>
+          <small ${i18nAttribute(summary, governanceHubSummaryZh(governance, summary))}>${escapeHtml(summary)}</small>
         </summary>
         ${body}
       </details>
@@ -6066,8 +6086,10 @@ function referenceLibraryIndex(input: {
   const candidateTriageTitle = input.compact ? "Saved Notes" : "Candidate Backlog Index";
   const governanceTitle = input.compact ? "Safety Checks" : "Governance Index";
   const dogfoodTitle = input.compact ? "Product Notes" : "Dogfood Notes Index";
+  const governanceTitleZh = input.compact ? "安全检查" : "治理索引";
   const candidateTriageSummary = input.compact ? "Saved notes indexed" : input.candidateTriageSummary;
   const governanceSummary = input.compact ? "Safety checks indexed" : input.governanceSummary;
+  const governanceSummaryZh = input.compact ? "安全检查已建立索引" : input.governanceSummary.replace(/^(\d+) governance note(s)? indexed$/, "$1 条治理记录已建立索引");
   const dogfoodSummary = input.compact ? "Product notes indexed" : input.dogfoodSummary;
   const candidateTriageFocus = input.compact ? "" : input.candidateTriageFocus;
   const auditReportsTitle = input.compact ? "Cleanup Checks" : "Audit Reports";
@@ -6121,8 +6143,8 @@ function referenceLibraryIndex(input: {
     input.hasGovernance ? `
             <div class="reference-library-index-row" data-reference-library-index-row="governance" data-dashboard-detail="governance-hub" data-governance-reference data-reference-library-index="governance">
               <div>
-                <strong>${escapeHtml(governanceTitle)}</strong>
-                <span>${escapeHtml(governanceSummary)}</span>
+                <strong ${i18nAttribute(governanceTitle, governanceTitleZh)}>${escapeHtml(governanceTitle)}</strong>
+                <span ${i18nAttribute(governanceSummary, governanceSummaryZh)}>${escapeHtml(governanceSummary)}</span>
               </div>
               <small>${evidenceCode("governance")}</small>
             </div>` : "",

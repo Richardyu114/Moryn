@@ -544,6 +544,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "mixed case, safe inspection rows stay short");
     expectText(dashboard, "evidence source are grouped once behind a `Reference audit` fold");
     expectText(dashboard, "rather than repeated user approval work");
+    expectText(dashboard, "Governance Hub and Reference Library labels");
+    expectText(dashboard, "follow the dashboard language toggle");
     expectText(dashboard, "The expanded safe-only Governance Hub heading reads `API-backed governance");
     expectText(dashboard, "its visible card reads `Governance Index` instead of exposing");
     expectText(dashboard, "The JSON contract still keeps `governance.summary` for agents and audit tooling");

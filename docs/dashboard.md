@@ -453,6 +453,9 @@ mixed case, safe inspection rows stay short; detection, next step, write
 boundary, and evidence source are grouped once behind a `Reference audit` fold,
 so the expanded content reads as read-only audit evidence rather than repeated
 user approval work.
+Governance Hub and Reference Library labels, including `Read-only Governance`,
+`Governance Index`, `Safe Inspections`, and the `Background checks, read-only`
+summary, follow the dashboard language toggle.
 `memory_doctor.findings_by_id.candidate_backlog` appears as a `Memory Doctor`
 safe inspection when candidate records are accumulating faster than canonical
 records. It points back to the raw memory doctor evidence and does not add
