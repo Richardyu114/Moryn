@@ -553,7 +553,7 @@ describe("observability dashboard", () => {
         review_suggested: true
       });
       expect(data.memory_inventory.states.map((state) => state.id)).toEqual(["remembered", "new_items", "temporary", "set_aside"]);
-      expect(data.memory_inventory.states.map((state) => state.label)).toEqual(["Long-term memory", "Saved for review", "Recent notes", "Set aside"]);
+      expect(data.memory_inventory.states.map((state) => state.label)).toEqual(["Long-term memory", "Saved recently", "Recent notes", "Set aside"]);
       expect(data.memory_inventory.kind_summary).toEqual(expect.arrayContaining([
         expect.objectContaining({ kind: "memory", label: "Memories", count: 1 }),
         expect.objectContaining({ kind: "session_summary", label: "Session notes", count: 1 }),
@@ -673,8 +673,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-stored-content-source=\"Gemini\"");
       expect(html).toContain("data-memory-explorer-title=\"Status\"");
       expect(html).toContain("data-memory-explorer-full-text=\"Recent session status belongs on the dashboard front page.\"");
-      expect(html).toContain("data-memory-explorer-state-en=\"Saved for review\"");
-      expect(html).toContain("data-memory-explorer-state-zh=\"待整理保存\"");
+      expect(html).toContain("data-memory-explorer-state-en=\"Saved recently\"");
+      expect(html).toContain("data-memory-explorer-state-zh=\"最近保存\"");
       expect(html).toContain("data-memory-explorer-timeline=\"moryn timeline --record-id rec_action_board_3 --project-id moryn\"");
       expect(html).toContain("data-memory-explorer-recall=\"moryn recall --record-id rec_action_board_3 --project-id moryn\"");
       expect(html).toContain("<button type=\"button\" class=\"stored-content-open\" data-memory-explorer-open data-i18n-en=\"Inspect\" data-i18n-zh=\"查看\">Inspect</button>");
@@ -686,7 +686,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<h2 data-i18n-en=\"What Moryn remembers\" data-i18n-zh=\"Moryn 记住了什么\">What Moryn remembers</h2>");
       expect(html).toContain("<span data-i18n-en=\"Long-term memory\" data-i18n-zh=\"长期记忆\">Long-term memory</span>");
       expect(html).toContain("<strong>1</strong>");
-      expect(html).toContain("<span data-i18n-en=\"Saved for review\" data-i18n-zh=\"待整理保存\">Saved for review</span>");
+      expect(html).toContain("<span data-i18n-en=\"Saved recently\" data-i18n-zh=\"最近保存\">Saved recently</span>");
       expect(html).toContain("<span data-i18n-en=\"Recent notes\" data-i18n-zh=\"最近笔记\">Recent notes</span>");
       expect(html).toContain("<span data-i18n-en=\"Set aside\" data-i18n-zh=\"已搁置\">Set aside</span>");
       expect(html).not.toContain("Saved, not remembered yet");

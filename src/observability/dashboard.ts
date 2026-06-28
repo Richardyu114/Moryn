@@ -1296,8 +1296,8 @@ function buildMemoryInventory(records: MorynRecord[]): DashboardMemoryInventory 
       },
       {
         id: "new_items",
-        label: "Saved for review",
-        zh_label: "待整理保存",
+        label: "Saved recently",
+        zh_label: "最近保存",
         count: newItems,
         source_states: ["candidate"]
       },
@@ -6361,7 +6361,7 @@ function dashboardDecisionPanel(data: DashboardData): string {
 
 function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
   if (state === "canonical") return { en: "Long-term memory", zh: "长期记忆" };
-  if (state === "candidate") return { en: "Saved for review", zh: "待整理保存" };
+  if (state === "candidate") return { en: "Saved recently", zh: "最近保存" };
   if (state === "raw") return { en: "Recent notes", zh: "最近笔记" };
   return { en: "Set aside", zh: "已搁置" };
 }

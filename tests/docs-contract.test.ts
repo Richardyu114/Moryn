@@ -149,7 +149,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`All clear` now means there are no confirmations, visible warnings, sync tasks, or saved items waiting for later organization");
     expectText(dashboard, "Directly below the action summary, `What Moryn remembers` shows the user-facing memory inventory");
     expectText(dashboard, "long-term memory <- canonical records");
-    expectText(dashboard, "saved for review <- candidate records");
+    expectText(dashboard, "saved recently <- candidate records");
     expectText(dashboard, "recent notes <- raw records");
     expectText(dashboard, "set aside <- archived or quarantined records");
     expectText(dashboard, "`Recent status` shows the last write time, latest source, shared-copy state, and the number of `items to review`");

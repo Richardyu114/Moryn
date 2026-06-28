@@ -659,7 +659,7 @@ click has visible feedback. Candidate Triage stays a technical/audit route
 unless it has an explicit promotion approval.
 
 The memory-state chart is also a local navigation control: clicking
-`Long-term memory`, `Saved for review`, `Recent notes`, or `Set aside` opens
+`Long-term memory`, `Saved recently`, `Recent notes`, or `Set aside` opens
 `Memory Explorer` and filters the visible previews by that state. The Explorer
 filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
@@ -678,7 +678,7 @@ memory inventory:
 
 ```text
 long-term memory <- canonical records
-saved for review <- candidate records
+saved recently   <- candidate records
 recent notes     <- raw records
 set aside        <- archived or quarantined records
 ```
