@@ -166,7 +166,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the recent card opens `Find what Moryn saved`");
     expectText(dashboard, "and the sync card opens `Shared copy details`");
     expectText(dashboard, "shared hover/focus elevation tokens");
-    expectText(dashboard, "The memory card also shows a compact `Ready to use` / `Saved, not organized` / `Saved briefly` mix bar");
+    expectText(dashboard, "The memory card also shows a compact `Ready to use` / `Saved for later` / `Saved briefly` mix bar");
     expectText(dashboard, "so the first screen shows whether saved content is already long-term memory before the user opens search");
     expectText(dashboard, "A short `Write safety`");
     expectText(dashboard, "keeps the write boundary visible without repeating");
@@ -192,7 +192,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Top source` opens saved");
     expectText(dashboard, "content search filtered to that source");
     expectText(dashboard, "`Needs your decision` routes users to the owning approval rows only when a real");
-    expectText(dashboard, "If the state is only `Saved, not organized`, the visible saved-and-searchable panel");
+    expectText(dashboard, "If the state is only `Saved for later`, the visible saved-and-searchable panel");
     expectText(dashboard, "Its button says `Search saved content`");
     expectText(dashboard, "opens `Find what Moryn saved`, expands saved previews, and keeps search visible");
     expectText(dashboard, "Approve and reject buttons stay on the owning row beside the");
@@ -206,7 +206,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "beside a read-only reminder");
     expectText(dashboard, "The search panel includes a compact memory-status guide");
     expectText(dashboard, "`Ready to use` means Moryn can already use the item as long-term");
-    expectText(dashboard, "`Saved, not organized` means the item is saved and searchable");
+    expectText(dashboard, "`Saved for later` means the item is saved and searchable");
     expectText(dashboard, "`Saved briefly` is lookup context");
     expectText(dashboard, "`Set aside`");
     expectText(dashboard, "Those guide cards are read-only filter shortcuts");
@@ -227,7 +227,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Shared copy` is the user-facing name for Git sync state");
     expectText(dashboard, "The main action summary is labeled `Do I need to act?` in the visible UI");
     expectText(dashboard, "Ordinary saved content does not become a user decision");
-    expectText(dashboard, "when the only state is `Saved, not organized`, `Saved briefly`, or");
+    expectText(dashboard, "when the only state is `Saved for later`, `Saved briefly`, or");
     expectText(dashboard, "the headline stays `No action needed`");
     expectText(dashboard, "opens `Find what Moryn saved`");
     expectText(dashboard, "That click expands hidden saved previews and highlights the section");
@@ -243,7 +243,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The saved-content filter bar can switch back to `All`");
     expectText(dashboard, "Its search controls filter across recent records and events by keyword, memory state, and source");
     expectText(dashboard, "The search panel also shows a live result mix for `Ready to use`,");
-    expectText(dashboard, "`Saved, not organized`, `Saved briefly`, `Set aside`, and `Events`");
+    expectText(dashboard, "`Saved for later`, `Saved briefly`, `Set aside`, and `Events`");
     expectText(dashboard, "those counts follow typed queries, shortcut chips, and source/status filters");
     expectText(dashboard, "Search shortcut chips write readable local queries into the same input");
     expectText(dashboard, "`source:Codex`, `state:long-term`, `state:recently-saved`, `type:event`");
@@ -256,7 +256,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Next step` guidance from the card");
     expectText(dashboard, "client-side and read-only");
     expectText(dashboard, "The preview cards are representative rather than strictly newest-first");
-    expectText(dashboard, "shows available `Saved, not organized`, `Ready to use`, `Saved briefly`, and");
+    expectText(dashboard, "shows available `Saved for later`, `Ready to use`, `Saved briefly`, and");
     expectText(dashboard, "`Set aside` examples before filling the remaining preview slots by recency");
     expectText(dashboard, "The full");
     expectText(dashboard, "newest-first list remains in `/api/dashboard.recent_value[]`");
@@ -274,12 +274,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`All clear` now means there are no confirmations, visible warnings, sync tasks, or saved items waiting for later organization");
     expectText(dashboard, "Directly below the action summary, `What Moryn stores` shows the user-facing memory inventory");
     expectText(dashboard, "Ready to use <- canonical records");
-    expectText(dashboard, "Saved, not organized <- candidate records");
+    expectText(dashboard, "Saved for later <- candidate records");
     expectText(dashboard, "Each inventory state card is clickable");
     expectText(dashboard, "applies the matching read-only filter");
     expectText(dashboard, "Saved briefly <- raw records");
     expectText(dashboard, "Set aside <- archived or quarantined records");
-    expectText(dashboard, "`Saved, not organized` means the item is already saved and searchable");
+    expectText(dashboard, "`Saved for later` means the item is already saved and searchable");
     expectText(dashboard, "it is not a user decision by itself");
     expectText(dashboard, "`Recent status` shows the last write time, latest source, shared-copy state, and the number of searchable saved items");
     expectText(dashboard, "Its last-write relative time follows the language toggle");

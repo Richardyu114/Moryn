@@ -1429,8 +1429,8 @@ function buildMemoryInventory(records: MorynRecord[]): DashboardMemoryInventory 
       },
       {
         id: "new_items",
-        label: "Saved, not organized",
-        zh_label: "已保存，未整理",
+        label: "Saved for later",
+        zh_label: "已保存，稍后整理",
         count: newItems,
         source_states: ["candidate"]
       },
@@ -6894,8 +6894,8 @@ function answerMemoryCountLabel(state: DashboardMemoryInventoryState): { en: str
     zh: `${state.count} 条可直接使用`
   };
   if (state.id === "new_items") return {
-    en: `${state.count} not organized`,
-    zh: `${state.count} 条已保存，未整理`
+    en: `${state.count} saved for later`,
+    zh: `${state.count} 条已保存，稍后整理`
   };
   if (state.id === "temporary") return {
     en: `${state.count} saved briefly`,
@@ -7247,7 +7247,7 @@ function dashboardDecisionPanel(data: DashboardData): string {
 
 function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
   if (state === "canonical") return { en: "Ready to use", zh: "可直接使用" };
-  if (state === "candidate") return { en: "Saved, not organized", zh: "已保存，未整理" };
+  if (state === "candidate") return { en: "Saved for later", zh: "已保存，稍后整理" };
   if (state === "raw") return { en: "Saved briefly", zh: "临时保存" };
   return { en: "Set aside", zh: "已放一边" };
 }
@@ -7461,8 +7461,8 @@ function memoryStateGuide(): string {
             ${memoryStateGuideCard(
               "memory-state-to-organize",
               "candidate",
-              "Saved, not organized",
-              "已保存，未整理",
+              "Saved for later",
+              "已保存，稍后整理",
               "Saved and searchable; organize later only if useful.",
               "已保存并可搜索；有用时再整理。"
             )}
@@ -7609,7 +7609,7 @@ function memorySearchShortcutChips(input: { sources: string[]; recordStates: Mor
   const sourceChips = input.sources.slice(0, 3).map((source) => memorySearchChip(`source:${source}`, source, source));
   const stateChips = [
     input.recordStates.includes("canonical") ? memorySearchChip("state:long-term", "Ready to use", "可直接使用") : "",
-    input.recordStates.includes("candidate") ? memorySearchChip("state:recently-saved", "Saved, not organized", "已保存，未整理") : "",
+    input.recordStates.includes("candidate") ? memorySearchChip("state:recently-saved", "Saved for later", "已保存，稍后整理") : "",
     input.recordStates.includes("raw") ? memorySearchChip("state:for-this-session", "Saved briefly", "临时保存") : "",
     (input.recordStates.includes("archived") || input.recordStates.includes("quarantined")) ? memorySearchChip("state:kept-for-history", "Set aside", "已放一边") : ""
   ].filter(Boolean);

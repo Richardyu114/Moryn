@@ -40,7 +40,7 @@ The `Right now`, `Needs your decision`, `Saved and searchable`, `At a glance`, a
 `Find what Moryn saved` rows are visible above `More details` in the live
 non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
-write is waiting. If the state is only `Saved, not organized`, the visible
+write is waiting. If the state is only `Saved for later`, the visible
 saved-and-searchable panel opens `Find what Moryn saved`, expands saved previews,
 and keeps search visible without writing. Its button says `Search saved content`
 so the user reads it as lookup, not a required review. Approve and reject buttons
@@ -692,7 +692,7 @@ current on this device. Those answer cards reuse the dashboard's
 local navigation: the action card opens the current next step, the memory card
 opens `Find what Moryn saved`, the recent card opens `Find what Moryn saved`,
 and the sync card opens `Shared copy details`.
-The memory card also shows a compact `Ready to use` / `Saved, not organized` / `Saved briefly`
+The memory card also shows a compact `Ready to use` / `Saved for later` / `Saved briefly`
 mix bar and short counts, so the first screen shows whether saved content is
 already long-term memory before the user opens search. A short `Write safety`
 line under the answer cards keeps the write boundary visible without repeating
@@ -718,7 +718,7 @@ connected`. The API still exposes the underlying sync data in
 The main action summary is labeled `Do I need to act?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible
 warnings, then sync work. Ordinary saved content does not become a user decision
-by itself: when the only state is `Saved, not organized`, `Saved briefly`, or
+by itself: when the only state is `Saved for later`, `Saved briefly`, or
 `Set aside`, the headline stays `No action needed` and the saved-and-searchable
 panel simply opens `Find what Moryn saved`. The visible button says
 `Search saved content`, because it is read-only lookup rather than a review
@@ -728,25 +728,25 @@ Inbox. Candidate Triage stays a technical/audit route unless it has an explicit
 promotion approval.
 Entrypoints carry their intent into Memory Explorer instead of only scrolling:
 `Do I need to act?` and `Search saved content` open saved-for-later items
-(`Saved, not organized`, `Saved briefly`, and `Set aside`) and focus search,
+(`Saved for later`, `Saved briefly`, and `Set aside`) and focus search,
 `What is stored?` opens all saved content with search focused, and `What changed
 recently?` selects the newest saved item in the detail pane. The intent is encoded
 with `data-memory-explorer-*` attributes and applied by `openStoredContentPanel`,
 so the behavior survives fragment refreshes through the stored client state.
 
 The memory-state chart is also a local navigation control: clicking
-`Ready to use`, `Saved, not organized`, `Saved briefly`, or `Set aside` opens
+`Ready to use`, `Saved for later`, `Saved briefly`, or `Set aside` opens
 `Find what Moryn saved` and filters the visible previews by that state. The
 saved-content filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
 source. The search panel includes a compact memory-status guide before the
 result mix: `Ready to use` means Moryn can already use the item as long-term
-memory, `Saved, not organized` means the item is saved and searchable but should only
+memory, `Saved for later` means the item is saved and searchable but should only
 be organized if useful, `Saved briefly` is lookup context, and `Set aside`
 items are archived or replaced records kept for traceability. Those guide cards
 are read-only filter shortcuts; they open and filter saved content but never
 write. The search panel also shows a live result mix for `Ready to use`,
-`Saved, not organized`, `Saved briefly`, `Set aside`, and `Events`, and those counts follow
+`Saved for later`, `Saved briefly`, `Set aside`, and `Events`, and those counts follow
 typed queries, shortcut chips, and source/status filters. Search shortcut chips
 write readable local queries into the same input, such as `source:Codex`,
 `state:long-term`, `state:recently-saved`, `type:event`, and `recent:7d`; users
@@ -762,7 +762,7 @@ the card so opening details preserves the user's context before showing trace
 commands. Visible source labels use readable agent names such as `Codex session`;
 raw client/session ids stay in `/api/dashboard` and trace commands. All of these controls are client-side and read-only.
 The preview cards are representative rather than strictly newest-first: Moryn
-shows available `Saved, not organized`, `Ready to use`, `Saved briefly`, and
+shows available `Saved for later`, `Ready to use`, `Saved briefly`, and
 `Set aside` examples before filling the remaining preview slots by recency. The full
 newest-first list remains in `/api/dashboard.recent_value[]`.
 Each saved-content card now carries three read-only explanation cards before
@@ -785,12 +785,12 @@ memory inventory:
 
 ```text
 Ready to use           <- canonical records
-Saved, not organized   <- candidate records
+Saved for later   <- candidate records
 Saved briefly          <- raw records
 Set aside              <- archived or quarantined records
 ```
 
-Each inventory state includes a plain-language explanation. `Saved, not organized`
+Each inventory state includes a plain-language explanation. `Saved for later`
 means the item is already saved and searchable; it can be organized later if it
 becomes useful, but it is not a user decision by itself.
 Each inventory state card is clickable: it opens `Find what Moryn saved` and
