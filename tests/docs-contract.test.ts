@@ -173,6 +173,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Find what Moryn saved` to the matching saved items");
     expectText(dashboard, "This saved-content area combines recent");
     expectText(dashboard, "a detail pane with full text, source, and status");
+    expectText(dashboard, "The search panel includes a compact memory-status guide");
+    expectText(dashboard, "`Ready to use` means Moryn can already use the item as long-term");
+    expectText(dashboard, "`Saved for later` means the item is saved and searchable");
+    expectText(dashboard, "`Session notes` are lookup context");
+    expectText(dashboard, "`Kept for history`");
+    expectText(dashboard, "Those guide cards are read-only filter shortcuts");
+    expectText(dashboard, "open and filter saved content but never");
+    expectText(dashboard, "write");
     expectText(dashboard, "defaults to the first visible item");
     expectText(dashboard, "Filtering updates the detail pane to the first matching visible");
     expectText(dashboard, "Visible `Find what Moryn saved` previews render in the live dashboard when private");

@@ -7040,6 +7040,64 @@ function storedContentFilterBar(items: DashboardValueRecord[]): string {
   `;
 }
 
+function memoryStateGuideCard(
+  className: string,
+  filter: string,
+  label: string,
+  zhLabel: string,
+  detail: string,
+  zhDetail: string
+): string {
+  return `
+          <button type="button" class="memory-state-guide-card ${escapeHtml(className)}" data-memory-state-filter="${escapeHtml(filter)}" data-action-board-target="stored-content" aria-controls="stored-content">
+            <strong ${i18nAttribute(label, zhLabel)}>${escapeHtml(label)}</strong>
+            <small ${i18nAttribute(detail, zhDetail)}>${escapeHtml(detail)}</small>
+          </button>
+  `;
+}
+
+function memoryStateGuide(): string {
+  return `
+        <div class="memory-state-guide" data-memory-state-guide aria-label="Memory status guide">
+          <span data-i18n-en="Memory status guide" data-i18n-zh="记忆状态说明">Memory status guide</span>
+          <div class="memory-state-guide-grid">
+            ${memoryStateGuideCard(
+              "memory-state-remembered",
+              "canonical",
+              "Ready to use",
+              "可直接使用",
+              "Moryn can already use this as long-term memory.",
+              "Moryn 已经可以把这些作为长期记忆使用。"
+            )}
+            ${memoryStateGuideCard(
+              "memory-state-to-organize",
+              "candidate",
+              "Saved for later",
+              "稍后整理",
+              "Saved and searchable; organize later only if it becomes useful.",
+              "已保存并可搜索；有用时再整理。"
+            )}
+            ${memoryStateGuideCard(
+              "memory-state-temporary",
+              "raw",
+              "Session notes",
+              "会话记录",
+              "Kept as session context for lookup.",
+              "作为会话上下文保留，可供查找。"
+            )}
+            ${memoryStateGuideCard(
+              "memory-state-set-aside",
+              "archived,quarantined",
+              "Kept for history",
+              "历史留存",
+              "Archived or replaced items kept for traceability.",
+              "为追溯保留的归档或已替换内容。"
+            )}
+          </div>
+        </div>
+  `;
+}
+
 function memorySearchText(parts: unknown[]): string {
   return parts
     .filter((part) => part !== undefined && part !== null)
@@ -7219,6 +7277,7 @@ function memorySearchPanel(data: DashboardData): string {
           <span data-memory-search-status ${i18nAttribute(statusLabel.en, statusLabel.zh)}>${escapeHtml(statusLabel.en)}</span>
           <small data-i18n-en="Local search only; no writes happen here." data-i18n-zh="仅本地搜索；这里不会写入。">Local search only; no writes happen here.</small>
         </div>
+        ${memoryStateGuide()}
         ${memorySearchMix(data.recent_records, data.recent_events)}
         <div class="memory-search-results" data-memory-search-results>
           ${entries.join("")}
@@ -9188,6 +9247,68 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       text-align: right;
       white-space: nowrap;
     }
+    .memory-state-guide {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+      border: 1px solid rgba(112, 129, 149, 0.22);
+      border-radius: 8px;
+      padding: 10px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.032), rgba(116, 242, 145, 0.018)),
+        rgba(5, 7, 10, 0.46);
+    }
+    .memory-state-guide > span {
+      color: #bde6ff;
+      font-size: 12px;
+      font-weight: 820;
+    }
+    .memory-state-guide-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .memory-state-guide-card {
+      appearance: none;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 4px;
+      min-width: 0;
+      min-height: 82px;
+      border: 1px solid rgba(112, 129, 149, 0.24);
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 9px;
+      background: rgba(8, 10, 13, 0.62);
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+    .memory-state-guide-card:hover {
+      border-color: rgba(69, 185, 255, 0.46);
+      background: rgba(12, 15, 20, 0.88);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+      transform: translateY(-1px);
+    }
+    .memory-state-guide-card:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .memory-state-guide-card strong {
+      color: var(--ink);
+      font-size: 12.5px;
+      line-height: 1.15;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+    .memory-state-guide-card small {
+      color: var(--muted);
+      font-size: 11.5px;
+      line-height: 1.25;
+    }
+    .memory-state-guide-card.memory-state-remembered { border-left-color: var(--signal-green); }
+    .memory-state-guide-card.memory-state-to-organize { border-left-color: var(--signal-blue); }
+    .memory-state-guide-card.memory-state-temporary { border-left-color: var(--signal-amber); }
+    .memory-state-guide-card.memory-state-set-aside { border-left-color: var(--signal-violet); }
     .memory-search-mix {
       display: flex;
       flex-wrap: wrap;
@@ -12197,6 +12318,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
       header, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      .memory-state-guide-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .dashboard-header-actions { justify-content: flex-start; }

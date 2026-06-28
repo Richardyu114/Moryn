@@ -702,7 +702,13 @@ The memory-state chart is also a local navigation control: clicking
 `Find what Moryn saved` and filters the visible previews by that state. The
 saved-content filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
-source. The search panel also shows a live result mix for `Ready to use`,
+source. The search panel includes a compact memory-status guide before the
+result mix: `Ready to use` means Moryn can already use the item as long-term
+memory, `Saved for later` means the item is saved and searchable but should only
+be organized if useful, `Session notes` are lookup context, and `Kept for history`
+items are archived or replaced records kept for traceability. Those guide cards
+are read-only filter shortcuts; they open and filter saved content but never
+write. The search panel also shows a live result mix for `Ready to use`,
 `Saved, not organized`, `Session notes`, `Kept for history`, and `Events`, and those counts follow
 typed queries, shortcut chips, and source/status filters. Search shortcut chips
 write readable local queries into the same input, such as `source:Codex`,

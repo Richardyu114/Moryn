@@ -817,6 +817,18 @@ describe("observability dashboard", () => {
       expect(html).toContain("<section id=\"stored-content\" class=\"stored-content memory-explorer\" data-stored-content data-memory-explorer aria-label=\"Find what Moryn saved\">");
       expect(html).toContain("<h2 data-i18n-en=\"Find what Moryn saved\" data-i18n-zh=\"查找 Moryn 保存的内容\">Find what Moryn saved</h2>");
       expect(html).toContain("<small data-i18n-en=\"Search first, then open any item for full text. Nothing writes here.\" data-i18n-zh=\"先搜索，再打开任何内容查看全文；这里不会写入。\">Search first, then open any item for full text. Nothing writes here.</small>");
+      expect(html).toContain("<div class=\"memory-state-guide\" data-memory-state-guide aria-label=\"Memory status guide\">");
+      expect(html).toContain("<span data-i18n-en=\"Memory status guide\" data-i18n-zh=\"记忆状态说明\">Memory status guide</span>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-state-guide-card memory-state-remembered\" data-memory-state-filter=\"canonical\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<strong data-i18n-en=\"Ready to use\" data-i18n-zh=\"可直接使用\">Ready to use</strong>");
+      expect(html).toContain("<small data-i18n-en=\"Moryn can already use this as long-term memory.\" data-i18n-zh=\"Moryn 已经可以把这些作为长期记忆使用。\">Moryn can already use this as long-term memory.</small>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-state-guide-card memory-state-to-organize\" data-memory-state-filter=\"candidate\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<strong data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</strong>");
+      expect(html).toContain("<small data-i18n-en=\"Saved and searchable; organize later only if it becomes useful.\" data-i18n-zh=\"已保存并可搜索；有用时再整理。\">Saved and searchable; organize later only if it becomes useful.</small>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-state-guide-card memory-state-temporary\" data-memory-state-filter=\"raw\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<strong data-i18n-en=\"Session notes\" data-i18n-zh=\"会话记录\">Session notes</strong>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-state-guide-card memory-state-set-aside\" data-memory-state-filter=\"archived,quarantined\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<strong data-i18n-en=\"Kept for history\" data-i18n-zh=\"历史留存\">Kept for history</strong>");
       expect(html).toContain("<div class=\"memory-explorer-layout\" data-memory-explorer-layout>");
       expect(html).toContain("<div class=\"memory-explorer-main\" data-memory-explorer-main>");
       const detailHtml = memoryExplorerDetailHtml(html);
