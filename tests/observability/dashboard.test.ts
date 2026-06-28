@@ -987,6 +987,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"Set aside\" data-i18n-zh=\"已放一边\">Set aside</span>");
       expect(html).toContain("<small data-i18n-en=\"Archived or replaced items kept for traceability.\" data-i18n-zh=\"为追溯保留的归档或已替换内容。\">Archived or replaced items kept for traceability.</small>");
       expect(html).not.toContain("<article class=\"memory-inventory-card");
+      expect(html).toContain(".memory-inventory-card,");
+      expect(html).toContain(".recent-status article {");
+      expect(html).toContain("grid-template-rows: minmax(1.25em, auto) minmax(30px, 1fr) minmax(2.6em, auto);");
+      expect(html).toContain("min-height: 86px;");
+      expect(html).toContain("align-content: stretch;");
       expect(html).toContain(".memory-inventory-card:hover {");
       expect(html).toContain("background: var(--surface-hover);");
       expect(html).toContain("box-shadow: var(--elevation-hover);");

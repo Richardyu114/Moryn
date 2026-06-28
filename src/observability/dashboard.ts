@@ -9407,8 +9407,11 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .memory-inventory-card,
     .recent-status article {
       display: grid;
+      grid-template-rows: minmax(1.25em, auto) minmax(30px, 1fr) minmax(2.6em, auto);
       gap: 4px;
+      align-content: stretch;
       min-width: 0;
+      min-height: 86px;
       border: 1px solid var(--hairline);
       border-radius: 8px;
       padding: 10px;
