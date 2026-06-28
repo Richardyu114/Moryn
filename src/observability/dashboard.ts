@@ -6190,10 +6190,20 @@ function evidenceLibraryRoute(input: {
   summary: string;
   note: string;
 }): string {
+  const titleZh: Record<typeof input.id, string> = {
+    findings: "发现",
+    diagnostics: "诊断",
+    audit: "追踪"
+  };
+  const summaryZh: Record<string, string> = {
+    "Reference notes": "参考记录",
+    "Healthy checks and handoff readiness": "健康检查和交接状态",
+    "Optional trace data": "可选追踪数据"
+  };
   const ariaLabel = `${input.title}: ${input.summary}. ${input.note}`;
   return `
           <button type="button" class="evidence-library-route" data-evidence-library-route="${escapeHtml(input.id)}" role="listitem" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}" aria-label="${escapeHtml(ariaLabel)}">
-            <strong>${escapeHtml(input.title)}</strong><span>${escapeHtml(input.summary)}</span>
+            <strong ${i18nAttribute(input.title, titleZh[input.id])}>${escapeHtml(input.title)}</strong><span ${i18nAttribute(input.summary, summaryZh[input.summary] ?? input.summary)}>${escapeHtml(input.summary)}</span>
           </button>
   `;
 }

@@ -4179,6 +4179,12 @@ describe("observability dashboard", () => {
         expect(html).toContain("<h3 data-i18n-en=\"Evidence index\" data-i18n-zh=\"依据索引\">Evidence index</h3>");
         expect(html).toContain("data-evidence-library-route=\"findings\"");
         expect(html).toContain("data-action-board-target=\"evidence-review-evidence\"");
+        expect(html).toContain("<strong data-i18n-en=\"Findings\" data-i18n-zh=\"发现\">Findings</strong><span data-i18n-en=\"Reference notes\" data-i18n-zh=\"参考记录\">Reference notes</span>");
+        expect(html).toContain("<strong data-i18n-en=\"Diagnostics\" data-i18n-zh=\"诊断\">Diagnostics</strong><span data-i18n-en=\"Healthy checks and handoff readiness\" data-i18n-zh=\"健康检查和交接状态\">Healthy checks and handoff readiness</span>");
+        expect(html).toContain("<strong data-i18n-en=\"Audit\" data-i18n-zh=\"追踪\">Audit</strong><span data-i18n-en=\"Optional trace data\" data-i18n-zh=\"可选追踪数据\">Optional trace data</span>");
+        expect(html).not.toContain("<strong>Findings</strong><span>Reference notes</span>");
+        expect(html).not.toContain("<strong>Diagnostics</strong><span>Healthy checks and handoff readiness</span>");
+        expect(html).not.toContain("<strong>Audit</strong><span>Optional trace data</span>");
         expect(html).toContain("<span data-i18n-en=\"Review Notes\" data-i18n-zh=\"审查记录\">Review Notes</span>");
         expect(html).toContain("<span data-i18n-en=\"Routine Reference\" data-i18n-zh=\"日常参考\">Routine Reference</span>");
         expect(html).not.toContain("<h3>Evidence index</h3>");

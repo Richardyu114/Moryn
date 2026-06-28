@@ -1087,6 +1087,9 @@ existing `data-action-board-target` behavior: `Findings` opens `Review Notes`,
 Those route buttons keep only the route label and current status visible in a
 single wrapping rail; the longer route hints stay in accessible labels so the
 expanded evidence entry does not become another card grid or prose panel.
+The route labels and short summaries carry English and Chinese display text, so
+Chinese mode does not leave `Findings`, `Diagnostics`, `Audit`, or
+`Optional trace data` as bare English labels.
 When `Pending Decisions` is rendered, the visible summary reads
 `Audit evidence only` and the visible HTML skips the `Evidence index` route bar;
 the accessible summary still names `Read-only reference material`, and the

@@ -403,6 +403,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Diagnostics` opens `Routine Diagnostics`, and `Audit` opens `Audit Trail`");
     expectText(dashboard, "route buttons keep only the route label and current status visible");
     expectText(dashboard, "longer route hints stay in accessible labels");
+    expectText(dashboard, "route labels and short summaries carry English and Chinese display text");
+    expectText(dashboard, "does not leave `Findings`, `Diagnostics`, `Audit`, or");
+    expectText(dashboard, "`Optional trace data` as bare English labels");
     expectText(dashboard, "The route bar is navigation copy only");
     expectText(dashboard, "does not render Approve, Reject, Promote, Archive, or Apply controls");
     expectText(dashboard, "the collapsed `Reference routes` fold contains routine read-only diagnostics");
