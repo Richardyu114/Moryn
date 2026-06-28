@@ -714,15 +714,14 @@ and safety chips on the first screen because the summary, inventory, recent
 status, compact `Technical details` fold, and `/api/dashboard` already expose
 the same routes. `/api/dashboard.attention_items` remains the audit source for
 routine checks, and `/api/dashboard.action_board` remains the audit source for
-the complete shortcut list. When `Background Status` is rendered in non-sync
-states, a card with the same source as the headline primary action is skipped in
-both the visible grid and `Background Status`; the card still stays in
-`/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling.
-`Background Status` opens with `Signals ready`, while the accessible summary
-keeps `Healthy signals kept for context` so the folded row reads as supporting
-context instead of another count to process.
-When `Pending Decisions` is rendered, the visible HTML skips `Background Status`
-and the stable `dashboard-overview-quiet-cards` route so the approval path stays
+the complete shortcut list. When the quiet overview card group is rendered in
+non-sync states, its visible label is `Other status` with `Ready if needed` so it
+reads as optional context rather than another task. A card with the same source
+as the headline primary action is skipped in both the visible grid and the quiet
+group; the card still stays in `/api/dashboard.dashboard_overview.cards` and
+`cards_by_id` for audit tooling.
+When `Pending Decisions` is rendered, the visible HTML skips the `Other status`
+group and the stable `dashboard-overview-quiet-cards` route so the approval path stays
 uninterrupted; the overview cards remain in
 `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling.
 If sync is also pending, Pending Decisions still owns the Overview headline and
@@ -778,17 +777,17 @@ target, so routes such as `context-pack-review` and `evidence-library` open the
 collapsed detail panel before scrolling.
 When warning or critical signals exist, the Work Lanes keep only those blocking
 lanes visible on the first screen and fold non-blocking routes under
-`Background Lanes`. For example, a Health warning keeps `Health` visible while
+`Other paths`. For example, a Health warning keeps `Health` visible while
 `Decide`, `Context`, and `Evidence` stay available as quiet background lanes.
 In all-clear states, the visible HTML skips `Dashboard Work Lanes` and
-`Background Lanes` entirely so the first screen moves from Overview directly to
+`Other paths` entirely so the first screen moves from Overview directly to
 the compact `Technical details` fold. The same Decide, Context, Health, Evidence, and safe
 inspection routes remain available through the Overview primary action,
 the stable `data-dashboard-detail="evidence-library"` route, and
 `/api/dashboard.action_board` for agents and audit
 tooling.
 When `Pending Decisions` is rendered, Work Lanes keep the active decision lane
-visible and skip `Background Lanes` and `dashboard-work-lanes-background` in the
+visible and skip `Other paths` and `dashboard-work-lanes-background` in the
 HTML; the same routes remain available through `/api/dashboard.action_board`,
 `Page Shortcuts`, and the underlying panels.
 Sync-only pending warnings do not open the `Action Signals` / Needs Attention
@@ -833,7 +832,7 @@ Overview and Work Lane already route to the same current task.
 and audit tooling.
 All-clear Overview states skip the visible `Background Shortcuts` strip and
 `data-dashboard-background-shortcuts` route entirely, so the first screen moves
-from `Background Lanes` to compact Technical details without another generic
+from `Other paths` to compact Technical details without another generic
 navigation fold. `/api/dashboard.action_board` still keeps the complete shortcut list,
 including zero-state Review, Inspect, Confirm, and Sync entries, for agents and
 audit tooling.

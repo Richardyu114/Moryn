@@ -3457,9 +3457,9 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-dashboard-overview-card=\"context\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"sync\"");
       expect(html).toContain("<details class=\"dashboard-overview-quiet\" data-dashboard-detail=\"dashboard-overview-quiet-cards\">");
-      expect(html).toContain("<span>Background Status</span>");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-overview-quiet-fold\" aria-label=\"Background Status: Healthy signals kept for context\">");
-      expect(html).toContain("<small>Signals ready</small>");
+      expect(html).toContain("<span data-i18n-en=\"Other status\" data-i18n-zh=\"其他状态\">Other status</span>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-overview-quiet-fold\" aria-label=\"Other status: supporting signals are ready\">");
+      expect(html).toContain("<small data-i18n-en=\"Ready if needed\" data-i18n-zh=\"需要时可查看\">Ready if needed</small>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-card info\" data-dashboard-overview-quiet-card=\"health\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-dashboard-overview-source=\"health\">");
       expect(html).toContain("<span data-i18n-en=\"Health\" data-i18n-zh=\"健康\">Health</span>");
       expect(html).toContain("<strong data-i18n-en=\"Local Only\" data-i18n-zh=\"仅本机\">Local Only</strong>");
@@ -3471,8 +3471,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<small>action_board.items_by_id.sync</small>");
       expect(html).not.toContain("<small>context_pack_review</small>");
       expect(html).not.toContain("<article class=\"dashboard-overview-card");
-      expect(html).toContain("<span>Read-only overview</span>");
-      expect(html).toContain("<span>Writes stay in Capture Inbox, Review Queue, and Candidate Triage</span>");
+      expect(html).toContain("<span data-i18n-en=\"Read-only summary\" data-i18n-zh=\"只读摘要\">Read-only summary</span>");
+      expect(html).toContain("<span data-i18n-en=\"Approvals stay in Capture Inbox, Review Queue, and Candidate Triage\" data-i18n-zh=\"确认操作仍在 Capture Inbox, Review Queue, and Candidate Triage 中完成\">Approvals stay in Capture Inbox, Review Queue, and Candidate Triage</span>");
       expect(html).not.toContain("data-dashboard-focus-brief");
       expect(html.indexOf("data-dashboard-overview")).toBeLessThan(html.indexOf("data-dashboard-detail=\"health-check\""));
       expect(html.indexOf("data-dashboard-overview")).toBeLessThan(html.indexOf("data-action-board-nav"));
@@ -3495,8 +3495,9 @@ describe("observability dashboard", () => {
       expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"context\"");
       expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"evidence\"");
       expect(html).toContain("<details class=\"dashboard-work-lanes-quiet\" data-dashboard-detail=\"dashboard-work-lanes-background\">");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-work-lanes-quiet-fold\" aria-label=\"Background Lanes: Decide, Context, and Evidence are quiet\">");
-      expect(html).toContain("<small>Quiet lanes ready</small>");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary dashboard-work-lanes-quiet-fold\" aria-label=\"Other paths: Decide, Context, and Evidence are quiet\">");
+      expect(html).toContain("<span data-i18n-en=\"Other paths\" data-i18n-zh=\"其他入口\">Other paths</span>");
+      expect(html).toContain("<small data-i18n-en=\"Ready if needed\" data-i18n-zh=\"需要时可查看\">Ready if needed</small>");
       expect(quietWorkLanesHtml).toContain("<button type=\"button\" class=\"dashboard-work-lane good\" data-dashboard-work-lane-quiet=\"decide\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
       expect(quietWorkLanesHtml).toContain("<span>Decide</span>");
       expect(quietWorkLanesHtml).toContain("<strong>No approvals waiting</strong>");
@@ -5980,8 +5981,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<details open class=\"panel context-pack-review\"");
       expect(html).not.toContain("<summary class=\"dashboard-fold-summary context-pack-review-fold\">");
       expect(html).toContain("<details class=\"dashboard-work-lanes-quiet\" data-dashboard-detail=\"dashboard-work-lanes-background\">");
-      expect(html).toContain("<span>Background Lanes</span>");
-      expect(html).toContain("<small>Quiet lanes ready</small>");
+      expect(html).toContain("<span data-i18n-en=\"Other paths\" data-i18n-zh=\"其他入口\">Other paths</span>");
+      expect(html).toContain("<small data-i18n-en=\"Ready if needed\" data-i18n-zh=\"需要时可查看\">Ready if needed</small>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-work-lane good\" data-dashboard-work-lane-quiet=\"context\" data-action-board-target=\"context-pack-review\" aria-controls=\"context-pack-review\">");
       expect(html).not.toContain("<button type=\"button\" class=\"dashboard-work-lane good\" data-dashboard-work-lane=\"context\" data-action-board-target=\"context-pack-review\" aria-controls=\"context-pack-review\">");
       expect(html).toContain("<strong>Ready handoff context</strong>");

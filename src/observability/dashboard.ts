@@ -3405,9 +3405,9 @@ function dashboardOverviewQuietCards(cards: DashboardOverviewCard[]): string {
   if (cards.length === 0) return "";
   return `
       <details class="dashboard-overview-quiet" data-dashboard-detail="dashboard-overview-quiet-cards">
-        <summary class="dashboard-fold-summary dashboard-overview-quiet-fold" aria-label="Background Status: Healthy signals kept for context">
-          <span>Background Status</span>
-          <small>Signals ready</small>
+        <summary class="dashboard-fold-summary dashboard-overview-quiet-fold" aria-label="Other status: supporting signals are ready">
+          ${i18nText("Other status", "其他状态")}
+          ${i18nText("Ready if needed", "需要时可查看", "small")}
         </summary>
         <div class="dashboard-overview-quiet-list">
           ${cards.map((card) => dashboardOverviewCardButton(card, "data-dashboard-overview-quiet-card")).join("")}
@@ -3457,8 +3457,8 @@ function dashboardOverview(
       </div>
       ${showBackgroundStatus ? dashboardOverviewQuietCards(visibleCards) : ""}
       ${showSafety ? `<div class="dashboard-overview-safety" aria-label="Dashboard safety">
-        <span>Read-only overview</span>
-        <span>Writes stay in ${escapeHtml(joinHumanList(data.safety.mutation_surfaces))}</span>
+        ${i18nText("Read-only summary", "只读摘要")}
+        ${i18nText(`Approvals stay in ${joinHumanList(data.safety.mutation_surfaces)}`, `确认操作仍在 ${joinHumanList(data.safety.mutation_surfaces)} 中完成`)}
       </div>` : ""}
     </section>
   `;
@@ -3565,9 +3565,9 @@ function dashboardWorkLanes(
       ${defaultLanes.map((lane) => workLaneButton(lane)).join("")}
       ${!showBackgroundLanes || backgroundLanes.length === 0 ? "" : `
         <details class="dashboard-work-lanes-quiet" data-dashboard-detail="dashboard-work-lanes-background">
-          <summary class="dashboard-fold-summary dashboard-work-lanes-quiet-fold" aria-label="Background Lanes: ${escapeHtml(backgroundLaneSummary)}">
-            <span>Background Lanes</span>
-            <small>Quiet lanes ready</small>
+          <summary class="dashboard-fold-summary dashboard-work-lanes-quiet-fold" aria-label="Other paths: ${escapeHtml(backgroundLaneSummary)}">
+            ${i18nText("Other paths", "其他入口")}
+            ${i18nText("Ready if needed", "需要时可查看", "small")}
           </summary>
           <div class="dashboard-work-lanes-quiet-list">
             ${backgroundLanes.map((lane) => workLaneButton(lane, "data-dashboard-work-lane-quiet")).join("")}
