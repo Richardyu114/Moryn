@@ -122,11 +122,11 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the action card opens the current next step");
     expectText(dashboard, "the memory card opens `Find what");
     expectText(dashboard, "Moryn saved`, and the sync card opens `Store Signals`");
-    expectText(dashboard, "The `Current answers`, `Needs your decision`, `Saved for later`, `At a glance`, and");
+    expectText(dashboard, "The `Current answers`, `Needs your decision`, `Saved, not remembered`, `At a glance`, and");
     expectText(dashboard, "`Find what Moryn saved` rows are visible");
     expectText(dashboard, "above `More details` in the live non-private dashboard");
     expectText(dashboard, "`Needs your decision` routes users to the owning approval rows only when a real");
-    expectText(dashboard, "If the state is only `Saved for later`, the visible action");
+    expectText(dashboard, "If the state is only `Saved, not remembered`, the visible action");
     expectText(dashboard, "opens `Find what Moryn saved`, expands saved previews, and keeps search visible");
     expectText(dashboard, "Approve and reject buttons stay on the owning row beside the");
     expectText(dashboard, "clickable memory state meter, content-type bars, shared-copy state, and recent source activity");
@@ -145,7 +145,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "should not be required to understand the current dashboard state");
     expectText(dashboard, "`Shared copy` is the user-facing name for Git sync state");
     expectText(dashboard, "The main action summary is labeled `Do I need to act?` in the visible UI");
-    expectText(dashboard, "Saved for later` is intentionally lighter than an urgent warning");
+    expectText(dashboard, "Saved, not remembered` is intentionally lighter than an urgent warning");
     expectText(dashboard, "opens `Find what");
     expectText(dashboard, "Moryn saved`, expands hidden saved previews, and highlights the");
     expectText(dashboard, "The memory-state chart is also a local navigation control");
@@ -155,7 +155,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "selecting a saved item fills the read-only detail pane");
     expectText(dashboard, "client-side and read-only");
     expectText(dashboard, "The preview cards are representative rather than strictly newest-first");
-    expectText(dashboard, "shows available `Saved recently`, `Long-term memory`, `Recent notes`, and `Set");
+    expectText(dashboard, "shows available `Saved, not remembered`, `Remembered`, `Session notes`, and `Set");
     expectText(dashboard, "aside` examples before filling the remaining preview slots by recency");
     expectText(dashboard, "The full");
     expectText(dashboard, "newest-first list remains in `/api/dashboard.recent_value[]`");
@@ -169,9 +169,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Candidate Triage stays a technical/audit route unless it has an explicit promotion approval");
     expectText(dashboard, "`All clear` now means there are no confirmations, visible warnings, sync tasks, or saved items waiting for later organization");
     expectText(dashboard, "Directly below the action summary, `What Moryn remembers` shows the user-facing memory inventory");
-    expectText(dashboard, "long-term memory <- canonical records");
-    expectText(dashboard, "saved recently <- candidate records");
-    expectText(dashboard, "recent notes <- raw records");
+    expectText(dashboard, "remembered <- canonical records");
+    expectText(dashboard, "saved, not remembered <- candidate records");
+    expectText(dashboard, "session notes <- raw records");
     expectText(dashboard, "set aside <- archived or quarantined records");
     expectText(dashboard, "`Recent status` shows the last write time, latest source, shared-copy state, and the number of `items to organize`");
     expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");

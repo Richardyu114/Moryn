@@ -30,11 +30,11 @@ without opening a collapsed section:
 - Is sync healthy? -> the `Current answers` shared-copy card, `This device`,
   and the sync rail.
 
-The `Current answers`, `Needs your decision`, `Saved for later`, `At a glance`, and
+The `Current answers`, `Needs your decision`, `Saved, not remembered`, `At a glance`, and
 `Find what Moryn saved` rows are visible above `More details` in the live
 non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
-write is waiting. If the state is only `Saved for later`, the visible action
+write is waiting. If the state is only `Saved, not remembered`, the visible action
 opens `Find what Moryn saved`, expands saved previews, and keeps search visible
 without writing. Approve and reject buttons stay on the owning row beside the
 relevant evidence.
@@ -656,23 +656,23 @@ connected`. The API still exposes the underlying sync data in
 The main action summary is labeled `Do I need to act?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible
 warnings, sync work, then saved notes that are available for later organization.
-`Saved for later` is intentionally lighter than an urgent warning: it appears
-only when there are no higher-priority actions and Moryn has saved `Saved for
-review`, `Recent notes`, or `Set aside` items. If Capture Inbox has real
+`Saved, not remembered` is intentionally lighter than an urgent warning: it
+appears only when there are no higher-priority actions and Moryn has saved
+`Saved, not remembered`, `Session notes`, or `Set aside` items. If Capture Inbox has real
 approval work, the action opens Capture Inbox. Otherwise it opens `Find what
 Moryn saved`, expands hidden saved previews, and highlights the
 section so the click has visible feedback. Candidate Triage stays a technical/audit route
 unless it has an explicit promotion approval.
 
 The memory-state chart is also a local navigation control: clicking
-`Long-term memory`, `Saved recently`, `Recent notes`, or `Set aside` opens
+`Remembered`, `Saved, not remembered`, `Session notes`, or `Set aside` opens
 `Find what Moryn saved` and filters the visible previews by that state. The
 saved-content filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
 source; selecting a saved item fills the read-only detail pane. All of these
 controls are client-side and read-only.
 The preview cards are representative rather than strictly newest-first: Moryn
-shows available `Saved recently`, `Long-term memory`, `Recent notes`, and `Set
+shows available `Saved, not remembered`, `Remembered`, `Session notes`, and `Set
 aside` examples before filling the remaining preview slots by recency. The full
 newest-first list remains in `/api/dashboard.recent_value[]`.
 Each saved-content card also carries a plain next-step hint: `Already
@@ -692,10 +692,10 @@ Directly below the action summary, `What Moryn remembers` shows the user-facing
 memory inventory:
 
 ```text
-long-term memory <- canonical records
-saved recently   <- candidate records
-recent notes     <- raw records
-set aside        <- archived or quarantined records
+remembered            <- canonical records
+saved, not remembered <- candidate records
+session notes         <- raw records
+set aside             <- archived or quarantined records
 ```
 
 The inventory also groups visible records by kind, using human labels such as
@@ -1097,8 +1097,8 @@ Attention items call out conditions such as:
 - ahead or behind remote counts
 - unresolved quarantined records
 - quarantined records that have active safe replacement indexes
-- temporary notes waiting outside normal recall
-- many recently saved items relative to long-term memory
+- session notes that are searchable but not remembered
+- many saved items that are searchable but not remembered
 - missing sync remote
 
 Attention items render as compact expandable rows. The default row shows the

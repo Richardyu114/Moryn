@@ -1230,15 +1230,15 @@ function buildAttentionItems(sync: GitSyncStatus, records: MorynRecord[]): Dashb
   if (raw > 0) {
     items.push({
       severity: "info",
-      title: "Temporary notes waiting",
-      description: `${raw} temporary note(s) are preserved but excluded from normal recall.`
+      title: "Session notes not remembered",
+      description: `${raw} session note(s) are searchable for context but not treated as long-term memory.`
     });
   }
   if (candidates > Math.max(8, canonical * 2)) {
     items.push({
       severity: "info",
-      title: "Many recently saved items",
-      description: `${candidates} recently saved item(s) may need long-term memory, archive, or cleanup.`
+      title: "Many saved items not remembered",
+      description: `${candidates} saved item(s) are searchable but not long-term memory yet.`
     });
   }
 
@@ -1309,22 +1309,22 @@ function buildMemoryInventory(records: MorynRecord[]): DashboardMemoryInventory 
     states: [
       {
         id: "remembered",
-        label: "Long-term memory",
-        zh_label: "长期记忆",
+        label: "Remembered",
+        zh_label: "已记住",
         count: remembered,
         source_states: ["canonical"]
       },
       {
         id: "new_items",
-        label: "Saved recently",
-        zh_label: "最近保存",
+        label: "Saved, not remembered",
+        zh_label: "已保存，未记住",
         count: newItems,
         source_states: ["candidate"]
       },
       {
         id: "temporary",
-        label: "Recent notes",
-        zh_label: "最近笔记",
+        label: "Session notes",
+        zh_label: "本次会话笔记",
         count: temporary,
         source_states: ["raw"]
       },
@@ -2277,7 +2277,7 @@ function buildDashboardOverview(input: {
       target: input.actionBoard.items_by_id.inspect.value > 0 ? "governance-hub" : "needs-attention"
     }
     : primary;
-  const headline = primary.source === "memory_inventory" ? "Saved for later" : primary.next_action_label;
+  const headline = primary.source === "memory_inventory" ? "Saved, not remembered" : primary.next_action_label;
   const primaryActionLabel = primary.source === "memory_inventory" ? primary.hint : actionCardPrimary.next_action_label;
   const zhDetail = primary.source === "memory_inventory" ? memoryInventoryReviewDetailZh(input.memoryInventory) : undefined;
   const contextGate = input.contextPackReview.handoff_pack?.quality_gate.status;
@@ -3171,7 +3171,9 @@ function dashboardActionLabelZh(label: string): string {
   if (label === "Inspect checks") return "查看检查";
   if (label === "Inspect sync") return "检查共享副本";
   if (label === "Browse saved notes") return "浏览已保存内容";
+  if (label === "Search saved content") return "搜索已保存内容";
   if (label === "Saved for later") return "已保存，可稍后整理";
+  if (label === "Saved, not remembered") return "已保存，未记住";
   if (label === "All clear") return "暂时不用管";
   if (label === "View checks") return "查看检查";
   if (label === "View details") return "查看详情";
@@ -3393,12 +3395,12 @@ type DashboardPrimaryFocusItem = DashboardActionBoardItem & { source?: string };
 
 function memoryInventoryReviewDetail(inventory: DashboardMemoryInventory): string {
   const parts = [
-    inventory.summary.new_items > 0 ? pluralize(inventory.summary.new_items, "recently saved item") : "",
-    inventory.summary.temporary > 0 ? pluralize(inventory.summary.temporary, "recent note") : "",
+    inventory.summary.new_items > 0 ? pluralize(inventory.summary.new_items, "saved item") : "",
+    inventory.summary.temporary > 0 ? pluralize(inventory.summary.temporary, "session note") : "",
     inventory.summary.set_aside > 0 ? pluralize(inventory.summary.set_aside, "set-aside item") : ""
   ].filter(Boolean);
   const subject = joinHumanList(parts);
-  return `${subject} ${parts.length === 1 ? "is" : "are"} stored safely. Browse ${parts.length === 1 ? "it" : "them"} when you want to decide what becomes long-term memory.`;
+  return `${subject} ${parts.length === 1 ? "is" : "are"} searchable now. ${parts.length === 1 ? "It becomes" : "They become"} long-term memory only if you organize ${parts.length === 1 ? "it" : "them"} later.`;
 }
 
 function zhCount(count: number, label: string): string {
@@ -3413,12 +3415,12 @@ function joinZhList(items: readonly string[]): string {
 
 function memoryInventoryReviewDetailZh(inventory: DashboardMemoryInventory): string {
   const parts = [
-    inventory.summary.new_items > 0 ? zhCount(inventory.summary.new_items, "最近保存内容") : "",
-    inventory.summary.temporary > 0 ? zhCount(inventory.summary.temporary, "最近笔记") : "",
+    inventory.summary.new_items > 0 ? zhCount(inventory.summary.new_items, "保存内容") : "",
+    inventory.summary.temporary > 0 ? zhCount(inventory.summary.temporary, "会话笔记") : "",
     inventory.summary.set_aside > 0 ? zhCount(inventory.summary.set_aside, "已搁置内容") : ""
   ].filter(Boolean);
   const subject = joinZhList(parts);
-  return `Moryn 已安全保存 ${subject}。你想决定${parts.length === 1 ? "它是否" : "哪些"}进入长期记忆时再查看。`;
+  return `${subject}现在可搜索；只有稍后整理后才会进入长期记忆。`;
 }
 
 function memoryInventoryReviewItem(
@@ -3435,9 +3437,9 @@ function memoryInventoryReviewItem(
     value: reviewCount,
     severity: "warning",
     summary: pluralize(reviewCount, "saved item"),
-    hint: "Browse saved notes",
+    hint: "Search saved content",
     detail: memoryInventoryReviewDetail(inventory),
-    next_action_label: "Saved for later",
+    next_action_label: "Saved, not remembered",
     target,
     source: "memory_inventory"
   };
@@ -3513,11 +3515,11 @@ function dashboardOverview(
     ? data.primary_action.label === "Inspect checks" ? "View checks" : "View details"
     : data.primary_action.label;
   const headlineZh = dashboardActionLabelZh(data.headline);
-  const detailZh = data.headline === "Saved for later"
+  const detailZh = data.headline === "Saved, not remembered" || data.headline === "Saved for later"
     ? data.zh_detail ?? data.detail
-      .replace("1 recently saved item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条最近保存内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。")
-      .replace("1 recently saved item is stored safely. Browse it when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条最近保存内容。你想决定它是否进入长期记忆时再查看。")
-      .replace("1 recent note is stored safely. Browse it when you want to decide what becomes long-term memory.", "Moryn 已安全保存 1 条最近笔记。你想决定它是否进入长期记忆时再查看。")
+      .replace("1 saved item and 1 session note are searchable now. They become long-term memory only if you organize them later.", "1 条保存内容和 1 条会话笔记现在可搜索；只有稍后整理后才会进入长期记忆。")
+      .replace("1 saved item is searchable now. It becomes long-term memory only if you organize it later.", "1 条保存内容现在可搜索；只有稍后整理后才会进入长期记忆。")
+      .replace("1 session note is searchable now. It becomes long-term memory only if you organize it later.", "1 条会话笔记现在可搜索；只有稍后整理后才会进入长期记忆。")
     : dashboardActionDetailZh(visibleDetail);
   const actionLabelZh = dashboardActionLabelZh(actionLabel);
   return `
@@ -4073,6 +4075,8 @@ function attentionTitleZh(title: string): string {
   if (title === "Quarantined records superseded") return "隔离内容已有安全替代";
   if (title === "Temporary notes waiting") return "临时笔记待整理";
   if (title === "Many recently saved items") return "较多最近保存内容";
+  if (title === "Session notes not remembered") return "会话笔记未记住";
+  if (title === "Many saved items not remembered") return "较多内容已保存但未记住";
   return title;
 }
 
@@ -4094,8 +4098,12 @@ function attentionDescriptionZh(description: string): string {
   if (supersededMatch) return `${supersededMatch[1]} 条隔离内容已有安全替代版本。`;
   const rawMatch = description.match(/^(\d+) temporary note\(s\) are preserved but excluded from normal recall\.$/);
   if (rawMatch) return `${rawMatch[1]} 条临时内容已保留，但不会被当作长期记忆使用。`;
+  const sessionNoteMatch = description.match(/^(\d+) session note\(s\) are searchable for context but not treated as long-term memory\.$/);
+  if (sessionNoteMatch) return `${sessionNoteMatch[1]} 条会话笔记可作为上下文搜索，但不会被当作长期记忆。`;
   const candidateMatch = description.match(/^(\d+) recently saved item\(s\) may need long-term memory, archive, or cleanup\.$/);
   if (candidateMatch) return `${candidateMatch[1]} 条最近保存内容可以稍后整理：记住、继续保留，或放一边。`;
+  const savedNotRememberedMatch = description.match(/^(\d+) saved item\(s\) are searchable but not long-term memory yet\.$/);
+  if (savedNotRememberedMatch) return `${savedNotRememberedMatch[1]} 条内容已保存并可搜索，但还不是长期记忆。`;
   return description;
 }
 
@@ -6222,7 +6230,7 @@ function dashboardLanguageToggle(): string {
 
 function statusBoard(data: DashboardData): string {
   const shared = sharedCopyLabel(data.sync);
-  const actionIsCalm = data.decision_summary.total_decisions === 0 && (data.dashboard_overview.headline === "Saved for later" || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
+  const actionIsCalm = data.decision_summary.total_decisions === 0 && ((data.dashboard_overview.headline === "Saved, not remembered" || data.dashboard_overview.headline === "Saved for later") || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
   const actionClass = actionIsCalm ? "calm" : escapeHtml(data.dashboard_overview.status);
   const healthLabel = data.health.status === "healthy" ? "Healthy" : data.health.label;
   const healthZh = dashboardHealthZh(data.health.status, healthLabel);
@@ -6452,18 +6460,18 @@ function dashboardDecisionPanel(data: DashboardData): string {
       }));
     }
   } else if (reviewable > 0) {
-    const title = `${pluralize(reviewable, "item")} saved for later`;
+    const title = `${pluralize(reviewable, "saved item")} not remembered yet`;
     items.push(decisionPanelItem({
       kind: "review",
-      status: "No approval needed",
-      zhStatus: "不需要立刻确认",
+      status: "No decision needed now",
+      zhStatus: "现在不需要决定",
       title,
-      zhTitle: `${reviewable} 条内容已保存，可稍后整理`,
+      zhTitle: `${reviewable} 条已保存但未记住的内容`,
       detail: "These are saved safely, but Moryn will not treat them as long-term memory unless you choose to organize them later.",
       zhDetail: "这些内容已经安全保存，但除非你稍后整理，Moryn 不会把它们当作长期记忆。",
       target: "stored-content",
-      actionLabel: "Browse saved content",
-      zhActionLabel: "浏览已保存内容",
+      actionLabel: "Search saved content",
+      zhActionLabel: "搜索已保存内容",
       note: "This only opens saved content. Nothing becomes long-term memory from this summary.",
       zhNote: "这里只打开已保存内容；这里不会把内容写成长久记忆。",
       feedback: "Nothing to open here yet.",
@@ -6471,8 +6479,8 @@ function dashboardDecisionPanel(data: DashboardData): string {
     }));
   }
   if (items.length === 0) return "";
-  const panelLabel = explicitDecisions > 0 ? "Needs your decision" : "Saved for later";
-  const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "已保存，可稍后整理";
+  const panelLabel = explicitDecisions > 0 ? "Needs your decision" : "Saved, not remembered";
+  const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "已保存，未记住";
   return `
     <section class="decision-panel${explicitDecisions > 0 ? "" : " saved-later"}" data-dashboard-decision-panel aria-label="${escapeHtml(panelLabel)}">
       <div class="section-heading">
@@ -6487,9 +6495,9 @@ function dashboardDecisionPanel(data: DashboardData): string {
 }
 
 function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
-  if (state === "canonical") return { en: "Long-term memory", zh: "长期记忆" };
-  if (state === "candidate") return { en: "Saved recently", zh: "最近保存" };
-  if (state === "raw") return { en: "Recent notes", zh: "最近笔记" };
+  if (state === "canonical") return { en: "Remembered", zh: "已记住" };
+  if (state === "candidate") return { en: "Saved, not remembered", zh: "已保存，未记住" };
+  if (state === "raw") return { en: "Session notes", zh: "本次会话笔记" };
   return { en: "Set aside", zh: "已搁置" };
 }
 
@@ -6514,8 +6522,8 @@ function storedContentNextStep(item: DashboardValueRecord): { label: string; zhL
     return {
       label: "Keep for context",
       zhLabel: "作为上下文保留",
-      detail: "Recent notes stay searchable but are not treated as long-term memory.",
-      zhDetail: "最近笔记可搜索，但不会被当作长期记忆。"
+      detail: "Session notes stay searchable for context but are not long-term memory.",
+      zhDetail: "本次会话笔记可作为上下文搜索，但不是长期记忆。"
     };
   }
   return {
@@ -6806,7 +6814,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
   const quietInfoPanel = shouldRenderQuietInfoPanel ? needsAttentionPanel(data.attention_items) : "";
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel && !isAllClearOverview;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
-  const isSavedForLaterOverview = data.dashboard_overview.headline === "Saved for later";
+  const isSavedForLaterOverview = data.dashboard_overview.headline === "Saved, not remembered" || data.dashboard_overview.headline === "Saved for later";
   const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview && !isSavedForLaterOverview;
   const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
   const healthLabelZh = dashboardHealthZh(data.health.status, data.health.label);
@@ -6929,6 +6937,8 @@ function dashboardLanguageScript(): string {
         ["Quarantined records superseded", "隔离内容已有安全替代"],
         ["Temporary notes waiting", "临时笔记待整理"],
         ["Many recently saved items", "较多最近保存内容"],
+        ["Session notes not remembered", "会话笔记未记住"],
+        ["Many saved items not remembered", "较多内容已保存但未记住"],
         ["Check records", "检查记录"],
         ["Read-only details available", "可查看只读详情"],
         ["Optional details", "可选详情"],

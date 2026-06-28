@@ -321,17 +321,17 @@ describe("observability dashboard", () => {
 
       expect(data.attention_items.map((item) => item.title)).toEqual(expect.arrayContaining([
         "Quarantined records superseded",
-        "Temporary notes waiting",
-        "Many recently saved items"
+        "Session notes not remembered",
+        "Many saved items not remembered"
       ]));
       expect(html).toContain("<span data-i18n-en=\"Background checks\" data-i18n-zh=\"后台检查\">Background checks</span>");
       expect(html).toContain("<small data-i18n-en=\"Routine checks\" data-i18n-zh=\"日常检查\">Routine checks</small>");
       expect(html).toContain("<strong data-i18n-en=\"Quarantined records superseded\" data-i18n-zh=\"隔离内容已有安全替代\">Quarantined records superseded</strong>");
       expect(html).toContain("<p data-i18n-en=\"1 quarantined record(s) have active safe replacement index records.\" data-i18n-zh=\"1 条隔离内容已有安全替代版本。\">1 quarantined record(s) have active safe replacement index records.</p>");
-      expect(html).toContain("<strong data-i18n-en=\"Temporary notes waiting\" data-i18n-zh=\"临时笔记待整理\">Temporary notes waiting</strong>");
-      expect(html).toContain("<p data-i18n-en=\"1 temporary note(s) are preserved but excluded from normal recall.\" data-i18n-zh=\"1 条临时内容已保留，但不会被当作长期记忆使用。\">1 temporary note(s) are preserved but excluded from normal recall.</p>");
-      expect(html).toContain("<strong data-i18n-en=\"Many recently saved items\" data-i18n-zh=\"较多最近保存内容\">Many recently saved items</strong>");
-      expect(html).toContain("<p data-i18n-en=\"10 recently saved item(s) may need long-term memory, archive, or cleanup.\" data-i18n-zh=\"10 条最近保存内容可以稍后整理：记住、继续保留，或放一边。\">10 recently saved item(s) may need long-term memory, archive, or cleanup.</p>");
+      expect(html).toContain("<strong data-i18n-en=\"Session notes not remembered\" data-i18n-zh=\"会话笔记未记住\">Session notes not remembered</strong>");
+      expect(html).toContain("<p data-i18n-en=\"1 session note(s) are searchable for context but not treated as long-term memory.\" data-i18n-zh=\"1 条会话笔记可作为上下文搜索，但不会被当作长期记忆。\">1 session note(s) are searchable for context but not treated as long-term memory.</p>");
+      expect(html).toContain("<strong data-i18n-en=\"Many saved items not remembered\" data-i18n-zh=\"较多内容已保存但未记住\">Many saved items not remembered</strong>");
+      expect(html).toContain("<p data-i18n-en=\"10 saved item(s) are searchable but not long-term memory yet.\" data-i18n-zh=\"10 条内容已保存并可搜索，但还不是长期记忆。\">10 saved item(s) are searchable but not long-term memory yet.</p>");
       expect(html).toContain("<span data-i18n-en=\"Info\" data-i18n-zh=\"信息\">Info</span>");
     });
   });
@@ -650,22 +650,22 @@ describe("observability dashboard", () => {
         review_suggested: true
       });
       expect(data.memory_inventory.states.map((state) => state.id)).toEqual(["remembered", "new_items", "temporary", "set_aside"]);
-      expect(data.memory_inventory.states.map((state) => state.label)).toEqual(["Long-term memory", "Saved recently", "Recent notes", "Set aside"]);
+      expect(data.memory_inventory.states.map((state) => state.label)).toEqual(["Remembered", "Saved, not remembered", "Session notes", "Set aside"]);
       expect(data.memory_inventory.kind_summary).toEqual(expect.arrayContaining([
         expect.objectContaining({ kind: "memory", label: "Memories", count: 1 }),
         expect.objectContaining({ kind: "session_summary", label: "Session notes", count: 1 }),
         expect.objectContaining({ kind: "agent_note", label: "Agent notes", count: 1 })
       ]));
-      expect(data.dashboard_overview.headline).toBe("Saved for later");
-      expect(data.dashboard_overview.detail).toBe("1 recently saved item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.");
+      expect(data.dashboard_overview.headline).toBe("Saved, not remembered");
+      expect(data.dashboard_overview.detail).toBe("1 saved item and 1 session note are searchable now. They become long-term memory only if you organize them later.");
       expect(data.dashboard_overview.primary_action).toMatchObject({
-        label: "Browse saved notes",
+        label: "Search saved content",
         target: "stored-content",
         source: "memory_inventory"
       });
       expect(data.attention_items).toContainEqual(expect.objectContaining({
         severity: "info",
-        title: "Temporary notes waiting"
+        title: "Session notes not remembered"
       }));
       expect(data.health.explanation).toBe("Sync is clean and no urgent safety items were detected in this snapshot.");
       expect(html).toContain("<span class=\"language-toggle-label\" data-i18n-en=\"Language\" data-i18n-zh=\"语言\">Language</span>");
@@ -679,8 +679,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("[\"Check records\", \"检查记录\"]");
       expect(html).toContain("[\"Detail links\", \"详情入口\"]");
       expect(html).toContain("[\"Health checks\", \"健康检查\"]");
-      expect(html).toContain("[\"Temporary notes waiting\", \"临时笔记待整理\"]");
-      expect(html).toContain("[\"Many recently saved items\", \"较多最近保存内容\"]");
+      expect(html).toContain("[\"Session notes not remembered\", \"会话笔记未记住\"]");
+      expect(html).toContain("[\"Many saved items not remembered\", \"较多内容已保存但未记住\"]");
       expect(html).toContain("translateStaticText(original)");
       expect(html).toContain("translateLegacyText(document.body, language);");
       expect(html).toContain("localStorage.getItem(key)");
@@ -688,9 +688,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("--canvas: #050505;");
       expect(html).toContain("--surface: #101216;");
       expect(html).not.toContain("--canvas: #f4f2ee;");
-      expect(html).toContain("<strong data-i18n-en=\"Saved for later\" data-i18n-zh=\"已保存，可稍后整理\">Saved for later</strong>");
-      expect(html).toContain("<p data-i18n-en=\"1 recently saved item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.\" data-i18n-zh=\"Moryn 已安全保存 1 条最近保存内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。\">1 recently saved item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.</p>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Browse saved notes\" data-i18n-zh=\"浏览已保存内容\">Browse saved notes</button>");
+      expect(html).toContain("<strong data-i18n-en=\"Saved, not remembered\" data-i18n-zh=\"已保存，未记住\">Saved, not remembered</strong>");
+      expect(html).toContain("<p data-i18n-en=\"1 saved item and 1 session note are searchable now. They become long-term memory only if you organize them later.\" data-i18n-zh=\"1 条保存内容和 1 条会话笔记现在可搜索；只有稍后整理后才会进入长期记忆。\">1 saved item and 1 session note are searchable now. They become long-term memory only if you organize them later.</p>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Search saved content\" data-i18n-zh=\"搜索已保存内容\">Search saved content</button>");
       expect(html).toContain("<p data-i18n-en=\"2 saved items\" data-i18n-zh=\"2 条已保存内容\">2 saved items</p>");
       expect(html).toContain("<p data-i18n-en=\"Clean\" data-i18n-zh=\"已同步\">Clean</p>");
       expect(html).not.toContain("data-i18n-zh=\"2 saved items\"");
@@ -736,11 +736,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"1 saved | 19d ago\" data-i18n-zh=\"1 条保存内容 | 19 天前\">1 saved | 19d ago</span>");
       expect(html.indexOf("data-dashboard-glance")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
-      expect(html).toContain("<section class=\"decision-panel saved-later\" data-dashboard-decision-panel aria-label=\"Saved for later\">");
-      expect(html).toContain("<h2 data-i18n-en=\"Saved for later\" data-i18n-zh=\"已保存，可稍后整理\">Saved for later</h2>");
-      expect(html).toContain("<span data-i18n-en=\"No approval needed\" data-i18n-zh=\"不需要立刻确认\">No approval needed</span>");
-      expect(html).toContain("<strong data-i18n-en=\"2 items saved for later\" data-i18n-zh=\"2 条内容已保存，可稍后整理\">2 items saved for later</strong>");
-      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Browse saved content\" data-i18n-zh=\"浏览已保存内容\">Browse saved content</button>");
+      expect(html).toContain("<section class=\"decision-panel saved-later\" data-dashboard-decision-panel aria-label=\"Saved, not remembered\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Saved, not remembered\" data-i18n-zh=\"已保存，未记住\">Saved, not remembered</h2>");
+      expect(html).toContain("<span data-i18n-en=\"No decision needed now\" data-i18n-zh=\"现在不需要决定\">No decision needed now</span>");
+      expect(html).toContain("<strong data-i18n-en=\"2 saved items not remembered yet\" data-i18n-zh=\"2 条已保存但未记住的内容\">2 saved items not remembered yet</strong>");
+      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Search saved content\" data-i18n-zh=\"搜索已保存内容\">Search saved content</button>");
       expect(html).toContain("<small data-i18n-en=\"This only opens saved content. Nothing becomes long-term memory from this summary.\" data-i18n-zh=\"这里只打开已保存内容；这里不会把内容写成长久记忆。\">This only opens saved content. Nothing becomes long-term memory from this summary.</small>");
       expect(html).toContain("const feedback = document.querySelector(\"[data-dashboard-action-feedback]\");");
       expect(html).toContain("if (!target) {");
@@ -778,8 +778,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-stored-content-source=\"Gemini\"");
       expect(html).toContain("data-memory-explorer-title=\"Status\"");
       expect(html).toContain("data-memory-explorer-full-text=\"Recent session status belongs on the dashboard front page.\"");
-      expect(html).toContain("data-memory-explorer-state-en=\"Saved recently\"");
-      expect(html).toContain("data-memory-explorer-state-zh=\"最近保存\"");
+      expect(html).toContain("data-memory-explorer-state-en=\"Saved, not remembered\"");
+      expect(html).toContain("data-memory-explorer-state-zh=\"已保存，未记住\"");
       expect(html).toContain("data-memory-explorer-updated-zh=\"19 天前 | 2026-06-01T00:03:00.000Z\"");
       expect(html).toContain("data-memory-explorer-timeline=\"moryn timeline --record-id rec_action_board_3 --project-id moryn\"");
       expect(html).toContain("data-memory-explorer-recall=\"moryn recall --record-id rec_action_board_3 --project-id moryn\"");
@@ -795,17 +795,18 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small data-i18n-en=\"This is already in long-term memory.\" data-i18n-zh=\"这条已经在长期记忆里。\">This is already in long-term memory.</small>");
       expect(html).toContain("<article class=\"stored-content-item state-raw\" data-stored-content-item=\"rec_action_board_1\"");
       expect(html).toContain("<span data-i18n-en=\"Keep for context\" data-i18n-zh=\"作为上下文保留\">Keep for context</span>");
-      expect(html).toContain("<small data-i18n-en=\"Recent notes stay searchable but are not treated as long-term memory.\" data-i18n-zh=\"最近笔记可搜索，但不会被当作长期记忆。\">Recent notes stay searchable but are not treated as long-term memory.</small>");
+      expect(html).toContain("<small data-i18n-en=\"Session notes stay searchable for context but are not long-term memory.\" data-i18n-zh=\"本次会话笔记可作为上下文搜索，但不是长期记忆。\">Session notes stay searchable for context but are not long-term memory.</small>");
       expect(html).toContain("<p>Moryn should make dashboard storage easy to understand.</p>");
       expect(html.indexOf("data-stored-content")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).toContain("<section class=\"memory-inventory\" data-memory-inventory aria-label=\"What Moryn stores\">");
       expect(html).toContain("<h2 data-i18n-en=\"What Moryn remembers\" data-i18n-zh=\"Moryn 记住了什么\">What Moryn remembers</h2>");
-      expect(html).toContain("<span data-i18n-en=\"Long-term memory\" data-i18n-zh=\"长期记忆\">Long-term memory</span>");
+      expect(html).toContain("<span data-i18n-en=\"Remembered\" data-i18n-zh=\"已记住\">Remembered</span>");
       expect(html).toContain("<strong>1</strong>");
-      expect(html).toContain("<span data-i18n-en=\"Saved recently\" data-i18n-zh=\"最近保存\">Saved recently</span>");
-      expect(html).toContain("<span data-i18n-en=\"Recent notes\" data-i18n-zh=\"最近笔记\">Recent notes</span>");
+      expect(html).toContain("<span data-i18n-en=\"Saved, not remembered\" data-i18n-zh=\"已保存，未记住\">Saved, not remembered</span>");
+      expect(html).toContain("<span data-i18n-en=\"Session notes\" data-i18n-zh=\"本次会话笔记\">Session notes</span>");
       expect(html).toContain("<span data-i18n-en=\"Set aside\" data-i18n-zh=\"已搁置\">Set aside</span>");
-      expect(html).not.toContain("Saved, not remembered yet");
+      expect(html).not.toContain("Saved recently");
+      expect(html).not.toContain("Recent notes");
       expect(html).toContain("<section class=\"recent-status\" data-recent-status aria-label=\"Recent status\">");
       expect(html).toContain("<h2 data-i18n-en=\"Recent status\" data-i18n-zh=\"最近状态\">Recent status</h2>");
       expect(html).toContain("<span data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</span>");
@@ -1173,7 +1174,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<div class=\"memory-search-controls\" data-memory-search-controls>");
       expect(html).toContain("<select class=\"memory-search-select\" data-memory-search-state aria-label=\"Filter search by memory state\">");
       expect(html).toContain("<option value=\"all\" data-i18n-en=\"All statuses\" data-i18n-zh=\"全部状态\">All statuses</option>");
-      expect(html).toContain("<option value=\"canonical\" data-i18n-en=\"Long-term memory\" data-i18n-zh=\"长期记忆\">Long-term memory</option>");
+      expect(html).toContain("<option value=\"canonical\" data-i18n-en=\"Remembered\" data-i18n-zh=\"已记住\">Remembered</option>");
       expect(html).toContain("<option value=\"event\" data-i18n-en=\"Events\" data-i18n-zh=\"事件\">Events</option>");
       expect(html).toContain("<select class=\"memory-search-select\" data-memory-search-source aria-label=\"Filter search by source\">");
       expect(html).toContain("<option value=\"all\" data-i18n-en=\"All sources\" data-i18n-zh=\"全部来源\">All sources</option>");
@@ -1184,14 +1185,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-memory-search-source=\"Codex\"");
       expect(html).toContain("Searchable dashboard keyword alpha");
       expect(html).toContain("<span data-i18n-en=\"Memory\" data-i18n-zh=\"记忆\">Memory</span>");
-      expect(html).toContain("<small data-i18n-en=\"Long-term memory | Codex | 19d ago\" data-i18n-zh=\"长期记忆 | Codex | 19 天前\">Long-term memory | Codex | 19d ago</small>");
+      expect(html).toContain("<small data-i18n-en=\"Remembered | Codex | 19d ago\" data-i18n-zh=\"已记住 | Codex | 19 天前\">Remembered | Codex | 19d ago</small>");
       expect(html).toContain("<article class=\"memory-search-result event\" data-memory-search-entry=\"event:evt_memory_search_1\"");
       expect(html).toContain("data-memory-search-state=\"event\"");
       expect(html).toContain("data-memory-search-source=\"Codex\"");
       expect(html).toContain("<span data-i18n-en=\"Event\" data-i18n-zh=\"事件\">Event</span>");
       expect(html).toContain("<p><span data-i18n-en=\"Saved item\" data-i18n-zh=\"保存内容\">Saved item</span> <code>rec_memory_search_1</code></p>");
       expect(html).toContain("<small data-i18n-en=\"Codex | 19d ago\" data-i18n-zh=\"Codex | 19 天前\">Codex | 19d ago</small>");
-      expect(html).not.toContain("data-i18n-zh=\"长期记忆 | Codex | 19d ago\"");
+      expect(html).not.toContain("data-i18n-zh=\"Remembered | Codex | 19d ago\"");
       expect(html).not.toContain("data-i18n-zh=\"Codex | 19d ago\"");
       expect(html).toContain("data-memory-search-text=");
       expect(html).toContain("writeStoredContentState({ searchQuery: query, searchOpen: true });");
@@ -1305,15 +1306,15 @@ describe("observability dashboard", () => {
       const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
 
       expect(data.health.status).toBe("healthy");
-      expect(data.dashboard_overview.headline).toBe("Saved for later");
-      expect(data.dashboard_overview.detail).toBe("3 recently saved items and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.");
-      expect(html).toContain("<p data-i18n-en=\"3 recently saved items and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.\" data-i18n-zh=\"Moryn 已安全保存 3 条最近保存内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。\">3 recently saved items and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.</p>");
+      expect(data.dashboard_overview.headline).toBe("Saved, not remembered");
+      expect(data.dashboard_overview.detail).toBe("3 saved items and 1 session note are searchable now. They become long-term memory only if you organize them later.");
+      expect(html).toContain("<p data-i18n-en=\"3 saved items and 1 session note are searchable now. They become long-term memory only if you organize them later.\" data-i18n-zh=\"3 条保存内容和 1 条会话笔记现在可搜索；只有稍后整理后才会进入长期记忆。\">3 saved items and 1 session note are searchable now. They become long-term memory only if you organize them later.</p>");
       expect(data.dashboard_overview.primary_action).toMatchObject({
-        label: "Browse saved notes",
+        label: "Search saved content",
         target: "stored-content",
         source: "memory_inventory"
       });
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Browse saved notes\" data-i18n-zh=\"浏览已保存内容\">Browse saved notes</button>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Search saved content\" data-i18n-zh=\"搜索已保存内容\">Search saved content</button>");
       expect(data.candidate_triage.summary).toMatchObject({
         total_candidates: 3,
         groups: 1,
