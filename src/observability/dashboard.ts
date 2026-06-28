@@ -1382,29 +1382,29 @@ function buildMemoryInventory(records: MorynRecord[]): DashboardMemoryInventory 
     states: [
       {
         id: "remembered",
-        label: "Ready to use",
-        zh_label: "可直接使用",
+        label: "Long-term",
+        zh_label: "长期记住",
         count: remembered,
         source_states: ["canonical"]
       },
       {
         id: "new_items",
-        label: "Saved, not organized",
-        zh_label: "已保存待整理",
+        label: "Recently saved",
+        zh_label: "最近保存",
         count: newItems,
         source_states: ["candidate"]
       },
       {
         id: "temporary",
-        label: "Session notes",
-        zh_label: "会话记录",
+        label: "For this session",
+        zh_label: "本次临时",
         count: temporary,
         source_states: ["raw"]
       },
       {
         id: "set_aside",
         label: "Kept for history",
-        zh_label: "历史留存",
+        zh_label: "留作记录",
         count: setAside,
         source_states: ["archived", "quarantined"]
       }
@@ -6608,16 +6608,16 @@ function memoryStateClass(id: DashboardMemoryInventoryStateId): string {
 
 function memoryInventoryStateExplanation(state: DashboardMemoryInventoryState): { en: string; zh: string } {
   if (state.id === "remembered") return {
-    en: "Moryn can use this as long-term memory.",
+    en: "Moryn can use these as long-term memory.",
     zh: "Moryn 可以把这些作为长期记忆使用。"
   };
   if (state.id === "new_items") return {
-    en: "Saved and searchable; not long-term memory yet.",
-    zh: "已保存并可搜索；还不是长期记忆。"
+    en: "Saved and searchable; organize later only if useful.",
+    zh: "已保存并可搜索；有用时再整理。"
   };
   if (state.id === "temporary") return {
-    en: "Session context kept for lookup.",
-    zh: "作为会话上下文保留，可供查找。"
+    en: "Context from this session kept for lookup.",
+    zh: "本次会话上下文已保留，可供查找。"
   };
   return {
     en: "Archived or replaced items kept for traceability.",
@@ -6631,20 +6631,20 @@ function memoryInventoryFilterValue(state: DashboardMemoryInventoryState): strin
 
 function answerMemoryCountLabel(state: DashboardMemoryInventoryState): { en: string; zh: string } {
   if (state.id === "remembered") return {
-    en: `${state.count} ready to use`,
-    zh: `${state.count} 条可直接使用`
+    en: `${state.count} long-term`,
+    zh: `${state.count} 条长期记住`
   };
   if (state.id === "new_items") return {
-    en: `${state.count} saved, not organized`,
-    zh: `${state.count} 条已保存待整理`
+    en: `${state.count} recently saved`,
+    zh: `${state.count} 条最近保存`
   };
   if (state.id === "temporary") return {
-    en: pluralize(state.count, "session note"),
-    zh: `${state.count} 条会话笔记`
+    en: `${state.count} for this session`,
+    zh: `${state.count} 条本次临时`
   };
   return {
     en: pluralize(state.count, "set aside"),
-    zh: `${state.count} 条历史留存`
+    zh: `${state.count} 条留作记录`
   };
 }
 
@@ -6782,7 +6782,7 @@ function glanceSummaryStrip(data: DashboardData): string {
           <small ${i18nAttribute(recentWritesLabel, recentWritesZh)}>${escapeHtml(recentWritesLabel)}</small>
         </button>
         <button type="button" data-glance-summary="remembered-now" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="canonical">
-          <span data-i18n-en="Ready to use" data-i18n-zh="可直接使用">Ready to use</span>
+          <span data-i18n-en="Long-term" data-i18n-zh="长期记住">Long-term</span>
           <strong>${escapeHtml(remembered)}</strong>
           <small data-i18n-en="Moryn can use now" data-i18n-zh="Moryn 现在可用">Moryn can use now</small>
         </button>
@@ -6941,10 +6941,10 @@ function dashboardDecisionPanel(data: DashboardData): string {
 }
 
 function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
-  if (state === "canonical") return { en: "Ready to use", zh: "可直接使用" };
-  if (state === "candidate") return { en: "Saved, not organized", zh: "已保存待整理" };
-  if (state === "raw") return { en: "Session notes", zh: "会话记录" };
-  return { en: "Kept for history", zh: "历史留存" };
+  if (state === "canonical") return { en: "Long-term", zh: "长期记住" };
+  if (state === "candidate") return { en: "Recently saved", zh: "最近保存" };
+  if (state === "raw") return { en: "For this session", zh: "本次临时" };
+  return { en: "Kept for history", zh: "留作记录" };
 }
 
 function storedContentNextStep(item: DashboardValueRecord): { label: string; zhLabel: string; detail: string; zhDetail: string } {
@@ -7131,24 +7131,24 @@ function memoryStateGuide(): string {
             ${memoryStateGuideCard(
               "memory-state-remembered",
               "canonical",
-              "Ready to use",
-              "可直接使用",
+              "Long-term",
+              "长期记住",
               "Moryn can already use this as long-term memory.",
               "Moryn 已经可以把这些作为长期记忆使用。"
             )}
             ${memoryStateGuideCard(
               "memory-state-to-organize",
               "candidate",
-              "Saved for later",
-              "稍后整理",
-              "Saved and searchable; organize later only if it becomes useful.",
+              "Recently saved",
+              "最近保存",
+              "Saved and searchable; organize later only if useful.",
               "已保存并可搜索；有用时再整理。"
             )}
             ${memoryStateGuideCard(
               "memory-state-temporary",
               "raw",
-              "Session notes",
-              "会话记录",
+              "For this session",
+              "本次临时",
               "Kept as session context for lookup.",
               "作为会话上下文保留，可供查找。"
             )}
@@ -7156,7 +7156,7 @@ function memoryStateGuide(): string {
               "memory-state-set-aside",
               "archived,quarantined",
               "Kept for history",
-              "历史留存",
+              "留作记录",
               "Archived or replaced items kept for traceability.",
               "为追溯保留的归档或已替换内容。"
             )}
@@ -7284,10 +7284,10 @@ function memorySearchChip(query: string, label: string, zhLabel: string): string
 function memorySearchShortcutChips(input: { sources: string[]; recordStates: MorynRecord["state"][]; hasEvents: boolean }): string {
   const sourceChips = input.sources.slice(0, 3).map((source) => memorySearchChip(`source:${source}`, source, source));
   const stateChips = [
-    input.recordStates.includes("canonical") ? memorySearchChip("state:remembered", "Ready to use", "可直接使用") : "",
-    input.recordStates.includes("candidate") ? memorySearchChip("state:to-organize", "Saved, not organized", "已保存待整理") : "",
-    input.recordStates.includes("raw") ? memorySearchChip("state:session-notes", "Session notes", "会话记录") : "",
-    (input.recordStates.includes("archived") || input.recordStates.includes("quarantined")) ? memorySearchChip("state:set-aside", "Kept for history", "历史留存") : ""
+    input.recordStates.includes("canonical") ? memorySearchChip("state:long-term", "Long-term", "长期记住") : "",
+    input.recordStates.includes("candidate") ? memorySearchChip("state:recently-saved", "Recently saved", "最近保存") : "",
+    input.recordStates.includes("raw") ? memorySearchChip("state:for-this-session", "For this session", "本次临时") : "",
+    (input.recordStates.includes("archived") || input.recordStates.includes("quarantined")) ? memorySearchChip("state:kept-for-history", "Kept for history", "留作记录") : ""
   ].filter(Boolean);
   const eventChip = input.hasEvents ? memorySearchChip("type:event", "Events", "事件") : "";
   const chips = [
@@ -8015,10 +8015,10 @@ function dashboardStoredContentScript(): string {
       });
       const normalizeMemoryStateQuery = (value) => {
         const normalized = String(value || "").toLowerCase();
-        if (normalized === "remembered") return "canonical";
-        if (normalized === "to-organize" || normalized === "organize") return "candidate";
-        if (normalized === "session-notes" || normalized === "session") return "raw";
-        if (normalized === "set-aside") return "archived";
+        if (normalized === "long-term" || normalized === "remembered") return "canonical";
+        if (normalized === "recently-saved" || normalized === "to-organize" || normalized === "organize") return "candidate";
+        if (normalized === "for-this-session" || normalized === "session-notes" || normalized === "session") return "raw";
+        if (normalized === "kept-for-history" || normalized === "set-aside") return "archived";
         return normalized;
       };
       const parseMemorySearchQuery = (query) => {
@@ -8637,8 +8637,12 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       --signal-red-soft: rgba(255, 92, 116, 0.15);
       --signal-violet: #d38cff;
       --signal-slate: #9aa6b2;
+      --surface-hover: linear-gradient(145deg, rgba(69, 185, 255, 0.075), rgba(116, 242, 145, 0.026)), rgba(15, 19, 25, 0.96);
+      --panel-highlight: rgba(69, 185, 255, 0.42);
+      --ring-soft: 0 0 0 1px rgba(69, 185, 255, 0.18);
       --panel-glow: 0 0 0 1px rgba(116, 242, 145, 0.08), 0 24px 70px rgba(0, 0, 0, 0.46);
       --elevation-card: 0 18px 48px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+      --elevation-hover: 0 18px 44px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.055);
       --text: var(--ink);
       --main: var(--surface);
       --accent: var(--signal-green);
@@ -9020,11 +9024,9 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
     .memory-inventory-card:hover {
-      border-color: rgba(69, 185, 255, 0.38);
-      background:
-        linear-gradient(145deg, rgba(69, 185, 255, 0.075), rgba(116, 242, 145, 0.025)),
-        rgba(18, 23, 30, 0.96);
-      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+      border-color: var(--panel-highlight);
+      background: var(--surface-hover);
+      box-shadow: var(--elevation-hover);
       transform: translateY(-1px);
     }
     .memory-inventory-card:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
@@ -9617,6 +9619,23 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .stored-content-open:hover { border-color: rgba(69, 185, 255, 0.76); background: rgba(69, 185, 255, 0.16); }
     .stored-content-open:focus-visible,
     .stored-content-item:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .stored-content-item:hover,
+    .memory-search-result:hover,
+    .glance-summary-strip button:hover,
+    .memory-state-filter:hover,
+    .memory-state-guide-card:hover,
+    .memory-inventory-card:hover,
+    .stored-content-filter:hover,
+    .memory-search-chip:hover,
+    .memory-search-mix-item:hover,
+    .evidence-library-route:hover,
+    .reference-library-index-row:hover,
+    .routine-diagnostics-route:hover {
+      border-color: var(--panel-highlight);
+      background: var(--surface-hover);
+      box-shadow: var(--elevation-hover);
+      transform: translateY(-1px);
+    }
     .stored-content-more {
       appearance: none;
       border: 1px solid rgba(69, 185, 255, 0.42);
@@ -10797,10 +10816,12 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       gap: 6px 10px;
       align-items: center;
       min-width: 0;
-      padding: 5px 0;
-      border-top: 1px solid var(--hairline);
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: rgba(5, 7, 10, 0.34);
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
-    .reference-library-index-row:first-child { border-top: 0; }
     .reference-library-index-row div {
       display: grid;
       gap: 2px;
@@ -10868,9 +10889,9 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       cursor: pointer;
       font: inherit;
       text-align: left;
-      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
-    .evidence-library-route:hover { border-color: rgba(69, 185, 255, 0.62); box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32); transform: translateY(-1px); }
+    .evidence-library-route:hover { border-color: var(--panel-highlight); background: var(--surface-hover); box-shadow: var(--elevation-hover); transform: translateY(-1px); }
     .evidence-library-route:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .evidence-library-route strong,
     .evidence-library-route span {
@@ -10991,6 +11012,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       font-size: 12px;
       font-weight: 760;
       cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
     .routine-diagnostics-route.good { border-color: rgba(47, 125, 83, 0.28); }
     .routine-diagnostics-route.info { border-color: rgba(46, 108, 166, 0.28); }
