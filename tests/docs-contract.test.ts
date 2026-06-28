@@ -109,6 +109,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "chips, and result-count feedback also follow the language toggle");
     expectText(dashboard, "Clicking a Memory Search result-mix chip applies that status or event filter");
     expectText(dashboard, "while keeping the search local and read-only");
+    expectText(dashboard, "Search results open the same read-only");
+    expectText(dashboard, "detail pane with full text, source, status, and timeline/recall commands");
     expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
     expectText(dashboard, "First-screen action labels, health badges, current-answer cards, and derived overview cards also follow the language toggle");
     expectText(dashboard, "Derived overview-card count and status snippets such as `saved items`, `safe check available`, and `Clean` also carry Chinese display text");

@@ -700,7 +700,9 @@ organize`, `Session notes`, `Set aside`, and `Events`, and those counts follow
 typed queries, shortcut chips, and source/status filters. Search shortcut chips
 write readable local queries into the same input, such as `source:Codex`,
 `state:remembered`, `state:to-organize`, `type:event`, and `recent:7d`; users
-can also type those query terms directly. The read-only
+can also type those query terms directly. Search results open the same read-only
+detail pane with full text, source, status, and timeline/recall commands, so
+users can inspect a memory or event without leaving the search. The read-only
 detail pane opens with the first visible saved item and follows the first
 matching item after filtering; selecting another saved item updates the same
 pane. All of these controls are client-side and read-only.

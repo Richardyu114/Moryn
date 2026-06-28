@@ -6838,7 +6838,7 @@ function storedContentItem(item: DashboardValueRecord, selected = false): string
   const updatedEn = `${item.relative_time} | ${item.exact_time}`;
   const updatedZh = `${relativeTimeZh(item.relative_time)} | ${item.exact_time}`;
   return `
-            <article class="stored-content-item state-${escapeHtml(item.state)}${selected ? " selected" : ""}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
+            <article class="stored-content-item state-${escapeHtml(item.state)}${selected ? " selected" : ""}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-item-id="${escapeHtml(item.id)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
               <div class="stored-content-item-head">
                 <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
                 <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
@@ -6883,6 +6883,9 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
   const relative = relativeTime(record.updated_at, generatedAt);
   const metaEn = `${stateLabel.en} | ${source} | ${relative}`;
   const metaZh = `${stateLabel.zh} | ${source} | ${relativeTimeZh(relative)}`;
+  const title = titleCase(record.type || record.kind);
+  const updatedEn = `${relative} | ${record.updated_at}`;
+  const updatedZh = `${relativeTimeZh(relative)} | ${record.updated_at}`;
   const searchText = memorySearchText([
     "record",
     record.id,
@@ -6895,9 +6898,9 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
     record.text
   ]);
   return `
-          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}">
+          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}" data-memory-explorer-item-id="record:${escapeHtml(record.id)}" data-memory-explorer-title="${escapeHtml(title)}" data-memory-explorer-full-text="${escapeHtml(record.text)}" data-memory-explorer-state="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-en="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-zh="${escapeHtml(stateLabel.zh)}" data-memory-explorer-source="${escapeHtml(source)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-timeline="${escapeHtml(record.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(record.citation.recall_command)}" tabindex="0">
             <span ${i18nAttribute("Memory", "记忆")}>Memory</span>
-            <strong>${escapeHtml(titleCase(record.type || record.kind))}</strong>
+            <strong>${escapeHtml(title)}</strong>
             <p>${escapeHtml(record.text)}</p>
             <small ${i18nAttribute(metaEn, metaZh)}>${escapeHtml(metaEn)}</small>
           </article>
@@ -6908,6 +6911,10 @@ function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: strin
   const source = humanSourceLabel(event.source);
   const relative = relativeTime(event.created_at, generatedAt);
   const meta = sourceRelativePair(source, relative);
+  const updatedEn = `${relative} | ${event.created_at}`;
+  const updatedZh = `${relativeTimeZh(relative)} | ${event.created_at}`;
+  const detailText = event.record_id ? `Saved item ${event.record_id}` : "Store-level event";
+  const detailTextZh = event.record_id ? `保存内容 ${event.record_id}` : "全局事件";
   const eventTarget = event.record_id
     ? `<span ${i18nAttribute("Saved item", "保存内容")}>Saved item</span> <code>${escapeHtml(event.record_id)}</code>`
     : i18nText("Store-level event", "全局事件", "span");
@@ -6919,7 +6926,7 @@ function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: strin
     source
   ]);
   return `
-          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="event" data-memory-search-record-type="${escapeHtml(event.op)}" data-memory-search-updated-at="${escapeHtml(event.created_at)}">
+          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="event" data-memory-search-record-type="${escapeHtml(event.op)}" data-memory-search-updated-at="${escapeHtml(event.created_at)}" data-memory-explorer-item-id="event:${escapeHtml(event.event_id)}" data-memory-explorer-title="${escapeHtml(event.op)}" data-memory-explorer-full-text="${escapeHtml(detailText)}" data-memory-explorer-full-text-zh="${escapeHtml(detailTextZh)}" data-memory-explorer-state="Event" data-memory-explorer-state-en="Event" data-memory-explorer-state-zh="事件" data-memory-explorer-source="${escapeHtml(source)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-timeline="${escapeHtml(event.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(event.citation.recall_command ?? "")}" tabindex="0">
             <span ${i18nAttribute("Event", "事件")}>Event</span>
             <strong>${escapeHtml(event.op)}</strong>
             <p>${eventTarget}</p>
@@ -7569,9 +7576,10 @@ function dashboardStoredContentScript(): string {
         });
       };
       const setMemoryExplorerSelection = (item) => {
-        document.querySelectorAll("[data-stored-content-item]").forEach((node) => {
+        const selectedId = item instanceof HTMLElement ? item.dataset.memoryExplorerItemId || item.dataset.storedContentItem || item.dataset.memorySearchEntry || "" : "";
+        document.querySelectorAll("[data-stored-content-item], [data-memory-search-entry]").forEach((node) => {
           if (node instanceof HTMLElement) {
-            node.classList.toggle("selected", item instanceof HTMLElement && node.dataset.storedContentItem === item.dataset.storedContentItem);
+            node.classList.toggle("selected", item instanceof HTMLElement && selectedId.length > 0 && node.dataset.memoryExplorerItemId === selectedId);
           }
         });
       };
@@ -7610,7 +7618,7 @@ function dashboardStoredContentScript(): string {
         writeStoredContentState({ selectedItemId: null });
       };
       const visibleMemoryExplorerItem = (section = document) => {
-        return Array.from(section.querySelectorAll("[data-stored-content-item]")).find((node) => {
+        return Array.from(section.querySelectorAll("[data-stored-content-item], [data-memory-search-entry]")).find((node) => {
           return node instanceof HTMLElement && !node.hidden && node.offsetParent !== null;
         });
       };
@@ -7625,7 +7633,7 @@ function dashboardStoredContentScript(): string {
         const detailGrid = detail.querySelector("[data-memory-explorer-detail-grid]");
         const trace = detail.querySelector("[data-memory-explorer-trace]");
         setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || "Saved item");
-        setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || "");
+        setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || "", item.dataset.memoryExplorerFullTextZh || item.dataset.memoryExplorerFullText || item.textContent || "");
         setLocalizedDetailText(detailState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || "", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || "");
         setDetailText("[data-memory-explorer-detail-source]", item.dataset.memoryExplorerSource || "");
         setLocalizedDetailText(detailUpdated, item.dataset.memoryExplorerUpdated || "", item.dataset.memoryExplorerUpdatedZh || item.dataset.memoryExplorerUpdated || "");
@@ -7634,10 +7642,10 @@ function dashboardStoredContentScript(): string {
         if (detailGrid instanceof HTMLElement) detailGrid.hidden = false;
         if (trace instanceof HTMLElement) trace.hidden = false;
         setMemoryExplorerSelection(item);
-        writeStoredContentState({ selectedItemId: item.dataset.storedContentItem || null });
+        writeStoredContentState({ selectedItemId: item.dataset.memoryExplorerItemId || item.dataset.storedContentItem || item.dataset.memorySearchEntry || null });
       };
       const restoreMemoryExplorerSelection = (state) => {
-        const selected = state.selectedItemId ? document.querySelector(\`[data-stored-content-item="\${cssEscape(state.selectedItemId)}"]\`) : null;
+        const selected = state.selectedItemId ? document.querySelector(\`[data-memory-explorer-item-id="\${cssEscape(state.selectedItemId)}"]\`) : null;
         if (selected instanceof HTMLElement && !selected.hidden && selected.offsetParent !== null) {
           selectMemoryExplorerItem(selected);
           return;
@@ -7815,9 +7823,9 @@ function dashboardStoredContentScript(): string {
       document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
-        const explorerTrigger = target.closest("[data-memory-explorer-open], [data-stored-content-item]");
+        const explorerTrigger = target.closest("[data-memory-explorer-open], [data-stored-content-item], [data-memory-search-entry]");
         if (explorerTrigger instanceof HTMLElement) {
-          const item = explorerTrigger.closest("[data-stored-content-item]");
+          const item = explorerTrigger.matches("[data-stored-content-item], [data-memory-search-entry]") ? explorerTrigger : explorerTrigger.closest("[data-stored-content-item], [data-memory-search-entry]");
           if (item instanceof HTMLElement) selectMemoryExplorerItem(item);
           return;
         }
@@ -7892,6 +7900,15 @@ function dashboardStoredContentScript(): string {
           writeStoredContentState({ searchSourceFilter: target.value, searchOpen: true });
           filterMemorySearch(panel, currentSearchFilters(readStoredContentState()));
         }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const item = target.closest("[data-stored-content-item], [data-memory-search-entry]");
+        if (!(item instanceof HTMLElement)) return;
+        event.preventDefault();
+        selectMemoryExplorerItem(item);
       });
       applyStoredContentState();
     })();
@@ -8973,6 +8990,12 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.045);
       transform: translateY(-1px);
     }
+    .memory-search-result.selected {
+      border-color: rgba(116, 242, 145, 0.56);
+      background: linear-gradient(180deg, rgba(116, 242, 145, 0.08), rgba(69, 185, 255, 0.035)), rgba(10, 12, 16, 0.98);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.3), inset 4px 0 0 rgba(116, 242, 145, 0.74);
+    }
+    .memory-search-result:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .memory-search-result span {
       color: var(--muted);
       font-size: 11px;
