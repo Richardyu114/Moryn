@@ -5935,21 +5935,21 @@ describe("observability dashboard", () => {
       });
       const html = renderDashboardHtml(data);
 
-      expect(data.dashboard_overview.headline).toBe("Review decisions");
+      expect(data.dashboard_overview.headline).toBe("Approval needed");
       expect(data.dashboard_overview.primary_action).toMatchObject({
-        label: "Review decisions",
+        label: "Review approvals",
         target: "decision-summary",
         source: "action_board.items_by_id.confirm"
       });
       expect(data.dashboard_overview.cards_by_id.action).toMatchObject({
         id: "action",
         label: "Next",
-        value: "Review decisions",
+        value: "Approval needed",
         source: "action_board.items_by_id.confirm"
       });
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review decisions\" data-i18n-zh=\"查看待确认事项\">Review decisions</button>");
-      expect(html).toContain("<strong data-i18n-en=\"Review decisions\" data-i18n-zh=\"查看待确认事项\">Review decisions</strong>");
-      expect(html).toContain("<small data-i18n-en=\"Review decisions\" data-i18n-zh=\"查看待确认事项\">Review decisions</small>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review approvals\" data-i18n-zh=\"查看确认项\">Review approvals</button>");
+      expect(html).toContain("<strong data-i18n-en=\"Approval needed\" data-i18n-zh=\"需要确认\">Approval needed</strong>");
+      expect(html).toContain("<small data-i18n-en=\"Review approvals\" data-i18n-zh=\"查看确认项\">Review approvals</small>");
       expect(html).toContain("data-i18n-en=\"Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.\" data-i18n-zh=\"需要明确确认的操作会保留在 Capture Inbox、Review Queue 和 Candidate Triage 中。\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"action\"");
       expect(html).not.toContain("data-dashboard-overview-quiet-card=\"action\"");
@@ -6035,10 +6035,10 @@ describe("observability dashboard", () => {
         target: "store-signals"
       });
       expect(data.dashboard_overview).toMatchObject({
-        headline: "Review decisions",
+        headline: "Approval needed",
         detail: "Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.",
         primary_action: {
-          label: "Review decisions",
+          label: "Review approvals",
           target: "decision-summary",
           source: "action_board.items_by_id.confirm"
         }
@@ -6048,7 +6048,7 @@ describe("observability dashboard", () => {
         target: "store-signals",
         source: "action_board.items_by_id.sync"
       });
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review decisions\" data-i18n-zh=\"查看待确认事项\">Review decisions</button>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"decision-summary\" aria-controls=\"decision-summary\" data-i18n-en=\"Review approvals\" data-i18n-zh=\"查看确认项\">Review approvals</button>");
       expect(html).toContain("<span class=\"health-badge warning\" data-i18n-en=\"Sync Pending\" data-i18n-zh=\"等待同步\">Sync Pending</span>");
       expect(html).not.toContain("<p class=\"dashboard-status-line warning\" data-dashboard-status=\"sync_pending\">");
       expect(html).not.toContain("<section class=\"status-strip warning\" data-dashboard-status=\"sync_pending\">");
@@ -6453,9 +6453,9 @@ describe("observability dashboard", () => {
       const captureDecisionGroup = data.capture_inbox.groups[0]!;
       expect(data.action_board.items_by_id.confirm).toMatchObject({
         value: 1,
-        summary: "1 decision waiting",
+        summary: "1 approval waiting",
         hint: "Open decision summary",
-        next_action_label: "Review decisions",
+        next_action_label: "Approval needed",
         target: "decision-summary"
       });
       expect(data.decision_summary).toMatchObject({
@@ -6543,7 +6543,7 @@ describe("observability dashboard", () => {
       expect(data.action_board.items_by_id.confirm).toMatchObject({
         value: 1,
         target: "decision-summary",
-        next_action_label: "Review decisions"
+        next_action_label: "Approval needed"
       });
       expect(html).toContain("<section id=\"decision-summary\" class=\"panel decision-summary\" data-dashboard-detail=\"decision-summary\" aria-label=\"Decision Summary\">");
       expect(html).toContain("<h2>Pending Decisions</h2>");

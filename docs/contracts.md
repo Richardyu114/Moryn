@@ -493,7 +493,7 @@ as `moryn capture policy` and MCP `capture_policy`. It includes
 `suggested_actions_by_id`, and keyed record/event evidence for autocapture
 capture/review/archive decisions. Suggested actions are dashboard or timeline
 inspection only. Capture decisions expose `inspect_auto_captured_handoff`
-timeline commands and do not enter Capture Inbox. Review decisions reuse the
+timeline commands and do not enter Capture Inbox. Review approvals reuse the
 existing Capture Inbox approval and rejection endpoints, while policy-archived
 decisions expose only `inspect_policy_archived_record` timeline commands. The
 dashboard does not expose a separate Capture Policy apply endpoint.

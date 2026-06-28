@@ -2199,10 +2199,10 @@ function buildActionBoard(input: {
       label: "Confirm",
       value: confirmCount,
       severity: actionBoardSeverity(confirmCount),
-      summary: confirmCount === 0 ? "No approvals waiting" : pluralize(confirmCount, "decision waiting"),
+      summary: confirmCount === 0 ? "No approvals waiting" : pluralize(confirmCount, "approval waiting"),
       hint: confirmCount === 0 ? "No confirmation needed" : "Open decision summary",
       detail: "Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.",
-      next_action_label: confirmCount === 0 ? "Check attention" : "Review decisions",
+      next_action_label: confirmCount === 0 ? "Check attention" : "Approval needed",
       target: confirmCount === 0 ? "needs-attention" : "decision-summary"
     },
     {
@@ -2282,8 +2282,13 @@ function buildDashboardOverview(input: {
       target: input.actionBoard.items_by_id.inspect.value > 0 ? "governance-hub" : "needs-attention"
     }
     : primary;
+  const primaryTargetLabel = primary.id === "confirm" && primary.value > 0
+    ? "Review approvals"
+    : actionCardPrimary.next_action_label;
   const headline = primary.next_action_label;
-  const primaryActionLabel = primary.source === "memory_inventory" ? primary.hint : actionCardPrimary.next_action_label;
+  const primaryActionLabel = primary.id === "confirm" && primary.value > 0
+    ? "Review approvals"
+    : primary.source === "memory_inventory" ? primary.hint : actionCardPrimary.next_action_label;
   const zhDetail = primary.source === "memory_inventory" ? memoryInventoryReviewDetailZh(input.memoryInventory) : undefined;
   const contextGate = input.contextPackReview.handoff_pack?.quality_gate.status;
   const cards: DashboardOverviewCard[] = [
@@ -2304,7 +2309,7 @@ function buildDashboardOverview(input: {
       summary: primary.summary,
       severity: overviewStatusFromActionSeverity(primary.severity),
       target: actionCardPrimary.target,
-      target_label: actionCardPrimary.next_action_label,
+      target_label: primaryTargetLabel,
       source: `action_board.items_by_id.${primary.id}`
     },
     {
@@ -3166,7 +3171,8 @@ function dashboardActionLabelZh(label: string): string {
   if (label === "Configured") return "已配置";
   if (label === "Not configured") return "未配置";
   if (label === "Local changes") return "本机有新变化";
-  if (label === "Review decisions") return "查看待确认事项";
+  if (label === "Approval needed") return "需要确认";
+  if (label === "Review approvals") return "查看确认项";
   if (label === "Review warnings") return "查看提醒";
   if (label === "Review health") return "查看健康状态";
   if (label === "Open info checks") return "查看后台检查";

@@ -586,7 +586,7 @@ describe("documentation contracts", () => {
     expectText(contracts, "does not create a background executor");
     expect(contracts).toContain('decision: "capture"');
     expect(contracts).toContain("inspect_auto_captured_handoff");
-    expectText(contracts, "Review decisions reuse the existing Capture Inbox");
+    expectText(contracts, "Review approvals reuse the existing Capture Inbox");
     expectText(contracts, "policy-archived decisions expose only");
     expectText(contracts, "does not expose a separate Capture Policy apply endpoint");
     expect(contracts).toContain("policy_decision");
