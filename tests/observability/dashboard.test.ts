@@ -691,6 +691,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong data-i18n-en=\"Saved for later\" data-i18n-zh=\"已保存，可稍后整理\">Saved for later</strong>");
       expect(html).toContain("<p data-i18n-en=\"1 recently saved item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.\" data-i18n-zh=\"Moryn 已安全保存 1 条最近保存内容和 1 条最近笔记。你想决定哪些进入长期记忆时再查看。\">1 recently saved item and 1 recent note are stored safely. Browse them when you want to decide what becomes long-term memory.</p>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Browse saved notes\" data-i18n-zh=\"浏览已保存内容\">Browse saved notes</button>");
+      expect(html).toContain("<p data-i18n-en=\"2 saved items\" data-i18n-zh=\"2 条已保存内容\">2 saved items</p>");
+      expect(html).toContain("<p data-i18n-en=\"Clean\" data-i18n-zh=\"已同步\">Clean</p>");
+      expect(html).not.toContain("data-i18n-zh=\"2 saved items\"");
+      expect(html).not.toContain("data-i18n-zh=\"Clean\"");
       expect(html).not.toContain("<strong>All clear</strong>");
       expect(html).not.toContain("<p>No work needs attention.</p>");
       expect(html).toContain("<span class=\"health-badge good\" data-i18n-en=\"Healthy\" data-i18n-zh=\"正常\">Healthy</span>");

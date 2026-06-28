@@ -626,9 +626,10 @@ labels, event target labels, and memory-state metadata follow the language
 toggle. First-screen action labels, health badges, current-answer cards, and
 derived overview cards also follow the language toggle, so `Review decisions`,
 `Review warnings`, `Local Only`, and `Sync Pending` do not remain as English-only
-UI labels in Chinese mode. Source names, timestamps, event operation names, and
-record ids stay literal; saved memory text and event evidence stay in their
-original wording.
+UI labels in Chinese mode. Derived overview-card count and status snippets such
+as `saved items`, `safe check available`, and `Clean` also carry Chinese display
+text. Source names, timestamps, event operation names, and record ids stay
+literal; saved memory text and event evidence stay in their original wording.
 
 The first screen is arranged around three plain questions:
 

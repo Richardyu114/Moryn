@@ -3161,10 +3161,22 @@ function dashboardActionLabelZh(label: string): string {
 }
 
 function dashboardDisplayZh(label: string): string {
+  const safeCheckAvailable = label.match(/^(\d+) safe check(s)? available$/);
+  if (safeCheckAvailable) return `${safeCheckAvailable[1]} 项安全检查可查看`;
   return dashboardActionLabelZh(label);
 }
 
 function dashboardActionDetailZh(detail: string): string {
+  const savedItems = detail.match(/^(\d+) saved item(s)?$/);
+  if (savedItems) return `${savedItems[1]} 条已保存内容`;
+  const attentionItems = detail.match(/^(\d+) attention item(s)?$/);
+  if (attentionItems) return `${attentionItems[1]} 条提醒`;
+  const safeChecks = detail.match(/^(\d+) safe check(s)?$/);
+  if (safeChecks) return `${safeChecks[1]} 项安全检查`;
+  if (detail === "Clean") return "已同步";
+  if (detail === "No action needed") return "无需操作";
+  if (detail === "No urgent review") return "没有紧急提醒";
+  if (detail === "No safe checks") return "没有安全检查";
   if (detail === "Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.") {
     return "需要明确确认的操作会保留在 Capture Inbox、Review Queue 和 Candidate Triage 中。";
   }
