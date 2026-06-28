@@ -651,7 +651,7 @@ while keeping the search local and read-only. Memory Search
 result type labels, event target labels, and memory-state metadata follow the
 language toggle. First-screen action labels, health badges, current-answer cards, and
 derived overview cards also follow the language toggle, so `Approval needed`,
-`Review approvals`, `Review warnings`, `Local Only`, and `Sync Pending` do not remain as English-only
+`Review approvals`, `Review what changed`, `Local Only`, and `Sync Pending` do not remain as English-only
 UI labels in Chinese mode. Derived overview-card count and status snippets such
 as `saved items`, `safe check available`, and `Clean` also carry Chinese display
 text. Relative-time labels such as `2d ago` also carry Chinese display text.
@@ -913,12 +913,12 @@ The Action Board is a derived summary only; it does not add mutation endpoints
 or hide the underlying panels. Clicking an Action Board card only scrolls to the
 matching local dashboard section and opens that section when it is a collapsed
 detail panel. Each card also shows a short verb-first next-action label such as
-`Review approvals`, `Review warnings`, `Open governance`, or `Inspect sync`, so
+`Review approvals`, `Review what changed`, `Open governance`, or `Inspect sync`, so
 the first screen reads as a review cockpit instead of only a count summary. If
 sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the
-Review shortcut stays quiet with `Open info checks` instead of adding a second
+Review shortcut stays quiet with `Open checks` instead of adding a second
 review task. When there are no warning or critical signals, the quiet review
-shortcut also reads `Open info checks` instead of `Review warnings`. The
+shortcut also reads `Open checks` instead of `Review what changed`. The
 collapsed `Page Shortcuts` summary still stays count-free; the non-zero sync
 count remains visible on the expanded shortcut card and in
 `/api/dashboard.action_board`.

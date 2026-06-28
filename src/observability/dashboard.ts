@@ -2234,13 +2234,13 @@ function reviewActionCopy(attentionItems: DashboardAttentionItem[]): {
     return {
       hint: "Sync handled separately",
       detail: "Sync pending is shown in the Sync lane and Shared copy details.",
-      next_action_label: "Open info checks"
+      next_action_label: "Open checks"
     };
   }
   return {
-    hint: reviewItems.length === 0 ? "No warning action" : "Review visible warnings",
-    detail: "Warnings and critical signals remain visible in Needs Attention.",
-    next_action_label: reviewItems.length === 0 ? "Open info checks" : "Review warnings"
+    hint: reviewItems.length === 0 ? "No check needed" : "Important checks found",
+    detail: "Important checks stay visible in Needs a look.",
+    next_action_label: reviewItems.length === 0 ? "Open checks" : "Review what changed"
   };
 }
 
@@ -3244,9 +3244,9 @@ function dashboardActionLabelZh(label: string): string {
   if (label === "Local changes") return "本机有新变化";
   if (label === "Approval needed") return "需要确认";
   if (label === "Review approvals") return "查看确认项";
-  if (label === "Review warnings") return "查看提醒";
+  if (label === "Review what changed") return "查看变化";
   if (label === "Review health") return "查看健康状态";
-  if (label === "Open info checks") return "查看后台检查";
+  if (label === "Open checks") return "打开检查";
   if (label === "Open context") return "查看上下文";
   if (label === "Open governance") return "查看安全检查";
   if (label === "Check attention") return "查看需要注意的内容";
@@ -3293,8 +3293,8 @@ function dashboardActionDetailZh(detail: string): string {
   if (detail === "Everything is synced and no action is waiting.") {
     return "已同步，没有等待处理的事项。";
   }
-  if (detail === "Warnings and critical signals remain visible in Needs Attention.") {
-    return "提醒和重要信号会继续显示在需要注意的区域。";
+  if (detail === "Important checks stay visible in Needs a look.") {
+    return "重要检查会继续显示在需要看一下区域。";
   }
   if (detail === "Sync pending is shown in the Sync lane and Shared copy details.") {
     return "同步事项会显示在共享副本和共享副本详情中。";
@@ -3647,7 +3647,7 @@ function dashboardHealthWorkLaneItem(board: DashboardActionBoard): DashboardActi
   const review = board.items_by_id.review;
   const sync = board.items_by_id.sync;
   if (review.value === 0 && sync.value > 0) return sync;
-  if (review.detail === "Sync changes are the only warning signal in Needs Attention.") return sync;
+  if (review.detail === "Sync pending is shown in the Sync lane and Shared copy details.") return sync;
   return review;
 }
 

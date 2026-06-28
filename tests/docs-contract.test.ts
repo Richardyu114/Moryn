@@ -548,8 +548,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Sync-only pending warnings do not open the visible `Needs a look` review path");
     expectText(dashboard, "When sync is the only active warning, Work Lanes are skipped in the visible HTML so the Overview action lands directly on the promoted Shared copy details current-task section");
     expectText(dashboard, "The same sync route remains in `/api/dashboard.action_board.items_by_id.sync`");
-    expectText(dashboard, "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open info checks`");
-    expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut also reads `Open info checks` instead of `Review warnings`");
+    expectText(dashboard, "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open checks`");
+    expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut also reads `Open checks` instead of `Review what changed`");
     expectText(dashboard, "The visible panel is a route summary grouped by owning confirmation surface");
     expectText(dashboard, "show how many explicit approvals are waiting there, provide one navigation button");
     expectText(dashboard, "`Append-only, guarded in owning surface`");

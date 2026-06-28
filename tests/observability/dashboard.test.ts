@@ -416,7 +416,7 @@ describe("observability dashboard", () => {
         summary: "No urgent review",
         hint: "Sync handled separately",
         detail: "Sync pending is shown in the Sync lane and Shared copy details.",
-        next_action_label: "Open info checks",
+        next_action_label: "Open checks",
         target: "needs-attention"
       });
       expect(data.dashboard_overview).toMatchObject({
@@ -478,7 +478,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-action-board-quiet-item=\"confirm\"");
       expect(html).not.toContain("data-action-board-quiet-item=\"review\"");
       expect(html).not.toContain("data-action-board-quiet-item=\"inspect\"");
-      expect(html).not.toContain("<em class=\"action-board-next\">Open info checks</em>");
+      expect(html).not.toContain("<em class=\"action-board-next\">Open checks</em>");
       expect(html).not.toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Sync changes not pushed\">");
       expect(html).not.toContain("Local event history has changes that are not committed or pushed yet.");
       expect(html).not.toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
@@ -979,7 +979,7 @@ describe("observability dashboard", () => {
       expect(data.action_board.items_by_id.review).toMatchObject({
         label: "Review",
         value: 0,
-        next_action_label: "Open info checks",
+        next_action_label: "Open checks",
         target: "needs-attention"
       });
       expect(html).not.toContain("<details class=\"action-board-background\" aria-label=\"Background Shortcuts\" data-dashboard-detail=\"action-board\" data-dashboard-background-shortcuts>");
@@ -4101,9 +4101,9 @@ describe("observability dashboard", () => {
         value: 1,
         severity: "warning",
         summary: "1 attention item",
-        hint: "Review visible warnings",
-        detail: "Warnings and critical signals remain visible in Needs Attention.",
-        next_action_label: "Review warnings"
+        hint: "Important checks found",
+        detail: "Important checks stay visible in Needs a look.",
+        next_action_label: "Review what changed"
       });
       expect(data.action_board.items_by_id.sync).toMatchObject({
         label: "Sync",
@@ -4124,9 +4124,9 @@ describe("observability dashboard", () => {
       });
       expect(data.dashboard_overview).toMatchObject({
         status: "warning",
-        headline: "Review warnings",
+        headline: "Review what changed",
         primary_action: {
-          label: "Review warnings",
+          label: "Review what changed",
           target: "needs-attention",
           source: "action_board.items_by_id.review"
         },
@@ -4147,9 +4147,9 @@ describe("observability dashboard", () => {
           expect.objectContaining({
             id: "action",
             label: "Next",
-            value: "Review warnings",
+            value: "Review what changed",
             target: "needs-attention",
-            target_label: "Review warnings",
+            target_label: "Review what changed",
             source: "action_board.items_by_id.review"
           }),
           expect.objectContaining({
@@ -4186,9 +4186,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<section class=\"dashboard-overview warning\" data-dashboard-overview aria-label=\"Dashboard Overview\">");
       expect(html).not.toContain("<h2>Dashboard Overview</h2>");
       expect(html).toContain("<h2><span data-i18n-en=\"Do I need to act?\" data-i18n-zh=\"我需要操作吗？\">Do I need to act?</span></h2>");
-      expect(html).toContain("<strong data-i18n-en=\"Review warnings\" data-i18n-zh=\"查看提醒\">Review warnings</strong>");
-      expect(html).toContain("<p data-i18n-en=\"Warnings and critical signals remain visible in Needs Attention.\" data-i18n-zh=\"提醒和重要信号会继续显示在需要注意的区域。\">Warnings and critical signals remain visible in Needs Attention.</p>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-i18n-en=\"Review warnings\" data-i18n-zh=\"查看提醒\">Review warnings</button>");
+      expect(html).toContain("<strong data-i18n-en=\"Review what changed\" data-i18n-zh=\"查看变化\">Review what changed</strong>");
+      expect(html).toContain("<p data-i18n-en=\"Important checks stay visible in Needs a look.\" data-i18n-zh=\"重要检查会继续显示在需要看一下区域。\">Important checks stay visible in Needs a look.</p>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-i18n-en=\"Review what changed\" data-i18n-zh=\"查看变化\">Review what changed</button>");
       expect(html).not.toContain("<div class=\"dashboard-overview-grid\">");
       expect(html).not.toContain("data-dashboard-overview-card=\"health\"");
       expect(html).not.toContain("data-dashboard-overview-card=\"context\"");
@@ -4227,7 +4227,7 @@ describe("observability dashboard", () => {
       expect(activeWorkLanesHtml).toContain("<button type=\"button\" class=\"dashboard-work-lane warning\" data-dashboard-work-lane=\"health\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\">");
       expect(activeWorkLanesHtml).toContain("<span>Health</span>");
       expect(activeWorkLanesHtml).toContain("<strong>1 attention item</strong>");
-      expect(activeWorkLanesHtml).toContain("<em>Review warnings</em>");
+      expect(activeWorkLanesHtml).toContain("<em>Review what changed</em>");
       expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"decide\"");
       expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"context\"");
       expect(activeWorkLanesHtml).not.toContain("data-dashboard-work-lane=\"evidence\"");
@@ -4286,15 +4286,15 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("data-action-board-quiet-item=\"inspect\"");
       expect(html).toContain("data-action-board-nav");
       expect(actionBoardHtml).not.toContain("<em class=\"action-board-next\">Check attention</em>");
-      expect(actionBoardHtml).toContain("<em class=\"action-board-next\">Review warnings</em>");
+      expect(actionBoardHtml).toContain("<em class=\"action-board-next\">Review what changed</em>");
       expect(actionBoardHtml).not.toContain("<em class=\"action-board-next\">Open governance</em>");
       expect(actionBoardHtml).toContain("<em class=\"action-board-next\">Inspect sync</em>");
       expect(actionBoardHtml).not.toContain("<small>No confirmation needed</small>");
-      expect(actionBoardHtml).toContain("<small>Review visible warnings</small>");
+      expect(actionBoardHtml).toContain("<small>Important checks found</small>");
       expect(actionBoardHtml).not.toContain("<small>No inspection needed</small>");
       expect(actionBoardHtml).toContain("<small>Local only</small>");
       expect(html).not.toContain("<small>Explicit approvals stay in Capture Inbox, Review Queue, and Candidate Triage.</small>");
-      expect(html).not.toContain("<small>Warnings and critical signals remain visible in Needs Attention.</small>");
+      expect(html).not.toContain("Warnings and critical signals remain visible in Needs Attention.");
       expect(html).not.toContain("<small>Read-only inspections are grouped in Governance Hub.</small>");
       expect(html).toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
       expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Reference evidence only\">");
@@ -4504,7 +4504,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("target.open = true");
       expect(html).toContain("target.closest(\"details\")");
       expect(html).toContain("target.scrollIntoView({ block: \"start\", behavior: \"smooth\" })");
-      expect(html).toContain("Warnings and critical signals remain visible in Needs Attention.");
+      expect(html).toContain("Important checks stay visible in Needs a look.");
+      expect(html).not.toContain("Warnings and critical signals remain visible in Needs Attention.");
       expect(html).not.toContain("<section class=\"overview-grid\" aria-label=\"Dashboard overview\">");
       expect(html).not.toContain(">Action Signals<");
       expect(html).toContain("<section id=\"needs-attention\" class=\"panel action-signals\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
@@ -6225,7 +6226,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<p>No private records included.</p>");
       expect(data.action_board.items_by_id.review).toMatchObject({
         target: "needs-attention",
-        next_action_label: "Open info checks"
+        next_action_label: "Open checks"
       });
       expect(data.action_board.items_by_id.review.next_action_label).not.toBe("Review warnings");
       const repairBriefStart = html.indexOf("<div class=\"maintenance-brief\" data-maintenance-brief>");
@@ -6554,7 +6555,7 @@ describe("observability dashboard", () => {
       expect(data.decision_summary.total_decisions).toBe(1);
       expect(data.action_board.items_by_id.review).toMatchObject({
         value: 0,
-        next_action_label: "Open info checks",
+        next_action_label: "Open checks",
         target: "needs-attention"
       });
       expect(data.action_board.items_by_id.sync).toMatchObject({
