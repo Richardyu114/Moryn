@@ -697,6 +697,16 @@ describe("observability dashboard", () => {
       expect(html).toContain("[\"Many items to organize\", \"较多内容待整理\"]");
       expect(html).not.toContain("[\"Raw records waiting for review\", \"临时内容待整理\"]");
       expect(html).not.toContain("[\"Many candidate records\", \"较多已保存内容待整理\"]");
+      expect(html).toContain("[\"Sync details\", \"同步详情\"]");
+      expect(html).toContain("[\"Position rail\", \"位置状态\"]");
+      expect(html).toContain("[\"Sync Position\", \"同步位置\"]");
+      expect(html).toContain("[\"Sync Action\", \"同步操作\"]");
+      expect(html).toContain("[\"Push sync\", \"上传同步\"]");
+      expect(html).toContain("[\"Remote configured\", \"远端已连接\"]");
+      expect(html).toContain("const branchMatch = text.match(/^Branch (.+)$/);");
+      expect(html).toContain("const behindMatch = text.match(/^(\\d+) behind$/);");
+      expect(html).toContain("const aheadMatch = text.match(/^(\\d+) ahead$/);");
+      expect(html).toContain("[data-dashboard-sync-action], [data-dashboard-detail='store-sync-details']");
       expect(html).toContain("<strong data-i18n-en=\"Saved details\" data-i18n-zh=\"保存细节\">Saved details</strong>");
       expect(html).toContain("<span data-i18n-en=\"Read-only details available\" data-i18n-zh=\"可查看只读详情\">Read-only details available</span>");
       expect(html).toContain("<small data-i18n-en=\"Optional context\" data-i18n-zh=\"可选上下文\">Optional context</small>");

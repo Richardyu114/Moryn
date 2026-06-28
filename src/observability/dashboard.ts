@@ -8017,15 +8017,30 @@ function dashboardLanguageScript(): string {
         ["Product notes indexed", "产品记录已建立索引"],
         ["Cleanup checks indexed", "清理检查已建立索引"],
         ["Shared copy indexed", "共享副本已建立索引"],
-        ["History indexed", "历史记录已建立索引"]
+        ["History indexed", "历史记录已建立索引"],
+        ["Sync details", "同步详情"],
+        ["Position rail", "位置状态"],
+        ["Sync Position", "同步位置"],
+        ["Sync Action", "同步操作"],
+        ["Push sync", "上传同步"],
+        ["Pull sync", "拉取同步"],
+        ["Check sync", "检查同步"],
+        ["Remote configured", "远端已连接"],
+        ["Remote not configured", "远端未连接"]
       ]);
       const validLanguage = (value) => value === "zh" ? "zh" : "en";
       const selectedLanguage = () => validLanguage(localStorage.getItem(key));
-      const legacyTranslationScopes = "[data-dashboard-detail='attention-info-checks'], [data-reference-library-index]";
+      const legacyTranslationScopes = "[data-dashboard-detail='attention-info-checks'], [data-reference-library-index], [data-dashboard-sync-action], [data-dashboard-detail='store-sync-details']";
       const translateStaticText = (text) => {
         if (staticTranslations.has(text)) return staticTranslations.get(text);
         const routineMatch = text.match(/^(\\d+) routine check(s)?$/);
         if (routineMatch) return routineMatch[1] + " 项日常检查";
+        const branchMatch = text.match(/^Branch (.+)$/);
+        if (branchMatch) return "分支 " + branchMatch[1];
+        const behindMatch = text.match(/^(\\d+) behind$/);
+        if (behindMatch) return "落后 " + behindMatch[1];
+        const aheadMatch = text.match(/^(\\d+) ahead$/);
+        if (aheadMatch) return "待上传 " + aheadMatch[1];
         const supersededMatch = text.match(/^(\\d+) quarantined record\\(s\\) have active safe replacement index records\\.$/);
         if (supersededMatch) return supersededMatch[1] + " 条隔离内容已有可用的安全替代索引。";
         const rawMatch = text.match(/^(\\d+) raw record\\(s\\) are preserved but excluded from normal recall\\.$/);
