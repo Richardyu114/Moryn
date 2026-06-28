@@ -62,6 +62,7 @@ const CAPTURE_INBOX_POLICY: DashboardCaptureInboxPolicy = {
 declare global {
   interface Window {
     applyDashboardLanguage?: () => void;
+    currentDashboardLanguage?: () => "en" | "zh";
     restoreActionReceipt?: () => void;
     renderActionReceipt?: (result: unknown) => void;
   }
@@ -8152,6 +8153,7 @@ function dashboardLanguageScript(): string {
         });
       };
       window.applyDashboardLanguage = () => apply();
+      window.currentDashboardLanguage = () => selectedLanguage();
       document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
@@ -8977,6 +8979,12 @@ function dashboardCaptureInboxScript(): string {
           return { ok: false, message: text };
         }
       };
+      const setActionStatus = (status, en, zh = en) => {
+        if (!(status instanceof HTMLElement)) return;
+        status.dataset.i18nEn = en;
+        status.dataset.i18nZh = zh;
+        status.textContent = window.currentDashboardLanguage?.() === "zh" ? zh : en;
+      };
       main.addEventListener("click", async (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
@@ -8993,7 +9001,11 @@ function dashboardCaptureInboxScript(): string {
         const isGroup = Boolean(groupApprove || groupReject);
         const recordIds = (button.dataset.recordIds || "").split(",").filter(Boolean);
         button.disabled = true;
-        if (status) status.textContent = isReject ? "Rejecting candidate..." : "Approving memory...";
+        if (isReject) {
+          setActionStatus(status, "Rejecting candidate...", "正在拒绝候选内容...");
+        } else {
+          setActionStatus(status, "Approving memory...", "正在批准为记忆...");
+        }
         try {
           const response = await fetch(button.dataset.endpoint || "", {
             method: "POST",
@@ -9005,17 +9017,27 @@ function dashboardCaptureInboxScript(): string {
           });
           const result = await responseJson(response);
           if (!response.ok || result.ok === false) {
-            if (status) status.textContent = result.message || "Capture Inbox action failed.";
+            if (result.message) {
+              setActionStatus(status, result.message);
+            } else {
+              setActionStatus(status, "Capture Inbox action failed.", "Capture Inbox 操作失败。");
+            }
             button.disabled = false;
             return;
           }
-          if (status) {
-            status.textContent = isReject ? "Rejected. Receipt saved; refreshing dashboard..." : "Approved. Receipt saved; refreshing dashboard...";
-            window.renderActionReceipt?.(result);
+          if (isReject) {
+            setActionStatus(status, "Rejected. Receipt saved; refreshing dashboard...", "已拒绝。回执已保存，正在刷新 dashboard...");
+          } else {
+            setActionStatus(status, "Approved. Receipt saved; refreshing dashboard...", "已批准。回执已保存，正在刷新 dashboard...");
           }
+          window.renderActionReceipt?.(result);
           await refreshFragment();
         } catch (error) {
-          if (status) status.textContent = error instanceof Error ? error.message : "Capture Inbox action failed.";
+          if (error instanceof Error) {
+            setActionStatus(status, error.message);
+          } else {
+            setActionStatus(status, "Capture Inbox action failed.", "Capture Inbox 操作失败。");
+          }
           button.disabled = false;
         }
       });
@@ -9047,6 +9069,12 @@ function dashboardCandidateTriageScript(): string {
           return { ok: false, message: text };
         }
       };
+      const setActionStatus = (status, en, zh = en) => {
+        if (!(status instanceof HTMLElement)) return;
+        status.dataset.i18nEn = en;
+        status.dataset.i18nZh = zh;
+        status.textContent = window.currentDashboardLanguage?.() === "zh" ? zh : en;
+      };
       main.addEventListener("click", async (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
@@ -9056,7 +9084,7 @@ function dashboardCandidateTriageScript(): string {
         if (!(draft instanceof HTMLElement)) return;
         const status = draft.querySelector("[data-candidate-triage-promotion-status]");
         button.disabled = true;
-        if (status) status.textContent = "Approving memory...";
+        setActionStatus(status, "Applying memory approval...", "正在批准为记忆...");
         try {
           const response = await fetch(button.dataset.endpoint || "", {
             method: "POST",
@@ -9065,17 +9093,23 @@ function dashboardCandidateTriageScript(): string {
           });
           const result = await responseJson(response);
           if (!response.ok || result.ok === false) {
-            if (status) status.textContent = result.message || "Candidate Triage approval failed.";
+            if (result.message) {
+              setActionStatus(status, result.message);
+            } else {
+              setActionStatus(status, "Candidate Triage approval failed.", "候选内容批准失败。");
+            }
             button.disabled = false;
             return;
           }
-          if (status) {
-            status.textContent = "Approved. Receipt saved; refreshing dashboard...";
-            window.renderActionReceipt?.(result);
-          }
+          setActionStatus(status, "Approved. Receipt saved; refreshing dashboard...", "已批准。回执已保存，正在刷新 dashboard...");
+          window.renderActionReceipt?.(result);
           await refreshFragment();
         } catch (error) {
-          if (status) status.textContent = error instanceof Error ? error.message : "Candidate Triage approval failed.";
+          if (error instanceof Error) {
+            setActionStatus(status, error.message);
+          } else {
+            setActionStatus(status, "Candidate Triage approval failed.", "候选内容批准失败。");
+          }
           button.disabled = false;
         }
       });
