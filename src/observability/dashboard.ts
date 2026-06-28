@@ -6264,6 +6264,7 @@ function statusBoard(data: DashboardData): string {
           ${i18nText("What is stored?", "存了什么？")}
           <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
           ${i18nText("visible saved items", "条可见保存内容", "small")}
+          ${answerMemoryMix(data.memory_inventory)}
         </button>
         <button type="button" class="answer-card sync ${escapeHtml(shared.severity)}" data-dashboard-priority="sync" data-action-board-target="store-signals" aria-controls="store-signals">
           ${i18nText("Is sync healthy?", "同步健康吗？")}
@@ -6290,6 +6291,46 @@ function memoryStateClass(id: DashboardMemoryInventoryStateId): string {
 
 function memoryInventoryFilterValue(state: DashboardMemoryInventoryState): string {
   return state.source_states.join(",");
+}
+
+function answerMemoryCountLabel(state: DashboardMemoryInventoryState): { en: string; zh: string } {
+  if (state.id === "remembered") return {
+    en: pluralize(state.count, "remembered"),
+    zh: `${state.count} 条已记住`
+  };
+  if (state.id === "new_items") return {
+    en: `${state.count} saved, not remembered`,
+    zh: `${state.count} 条已保存，未记住`
+  };
+  if (state.id === "temporary") return {
+    en: pluralize(state.count, "session note"),
+    zh: `${state.count} 条会话笔记`
+  };
+  return {
+    en: pluralize(state.count, "set aside"),
+    zh: `${state.count} 条已搁置`
+  };
+}
+
+function answerMemoryMix(inventory: DashboardMemoryInventory): string {
+  const total = Math.max(1, inventory.summary.total_visible);
+  const visibleStates = inventory.states.filter((state) => state.count > 0);
+  return `
+          <div class="answer-memory-mix" data-answer-memory-mix aria-label="Stored content mix">
+            <div class="answer-memory-track" aria-hidden="true">
+              ${visibleStates.map((state) => {
+                const percent = Math.max(4, Math.round((state.count / total) * 100));
+                return `<span class="answer-memory-segment ${memoryStateClass(state.id)}" style="width: ${escapeHtml(percent)}%" title="${escapeHtml(`${state.label} ${state.count}`)}"></span>`;
+              }).join("")}
+            </div>
+            <div class="answer-memory-counts" data-answer-memory-counts>
+              ${visibleStates.slice(0, 3).map((state) => {
+                const label = answerMemoryCountLabel(state);
+                return `<span ${i18nAttribute(label.en, label.zh)}>${escapeHtml(label.en)}</span>`;
+              }).join("")}
+            </div>
+          </div>
+  `;
 }
 
 function memoryStateMeter(inventory: DashboardMemoryInventory): string {
@@ -7953,8 +7994,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       text-align: left;
       color: inherit;
       cursor: pointer;
-      grid-template-rows: auto minmax(2.4em, auto) auto;
-      min-height: 104px;
+      grid-template-rows: auto minmax(2.4em, auto) auto auto;
+      min-height: 128px;
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008)),
         rgba(12, 15, 20, 0.94);
@@ -7979,6 +8020,49 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .answer-card.sync.info { border-left-color: var(--signal-blue); }
     .answer-card.sync.warning { border-left-color: var(--signal-amber); }
     .answer-card.sync.critical { border-left-color: var(--signal-red); }
+    .answer-memory-mix {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+      min-height: 40px;
+      align-self: end;
+    }
+    .answer-memory-track {
+      display: flex;
+      width: 100%;
+      height: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(112, 129, 149, 0.2);
+      border-radius: 999px;
+      background: rgba(4, 5, 7, 0.56);
+    }
+    .answer-memory-segment {
+      display: block;
+      min-width: 4px;
+      height: 100%;
+    }
+    .answer-memory-counts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      min-height: 20px;
+      align-items: center;
+    }
+    .answer-memory-counts span {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      min-height: 18px;
+      border: 1px solid rgba(112, 129, 149, 0.22);
+      border-radius: 6px;
+      padding: 1px 5px;
+      background: rgba(8, 10, 13, 0.62);
+      color: var(--muted);
+      font-size: 10.5px;
+      line-height: 1.2;
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
     .status-chip span,
     .answer-card span,
     .memory-inventory-card span,

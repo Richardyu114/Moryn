@@ -644,7 +644,10 @@ Is sync healthy?  -> Current answers shared-copy card, sync rail
 `Shared copy` as compact status chips, then answers action, memory, and sync in
 three larger cards. Those answer cards reuse the dashboard's local navigation:
 the action card opens the current next step, the memory card opens `Find what
-Moryn saved`, and the sync card opens `Store Signals`. The `At a glance` chart row
+Moryn saved`, and the sync card opens `Store Signals`. The memory card also
+shows a compact `Remembered` / `Saved, not remembered` / `Session notes` mix bar
+and short counts, so the first screen shows whether saved content is already
+long-term memory before the user opens search. The `At a glance` chart row
 appears before `What Moryn remembers`, `Recent status`, and the compact
 `More details` fold, so the user does not need to open a detail section to
 understand the current state.

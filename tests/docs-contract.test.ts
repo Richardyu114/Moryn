@@ -122,6 +122,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the action card opens the current next step");
     expectText(dashboard, "the memory card opens `Find what");
     expectText(dashboard, "Moryn saved`, and the sync card opens `Store Signals`");
+    expectText(dashboard, "The memory card also shows a compact `Remembered` / `Saved, not remembered` / `Session notes` mix bar");
+    expectText(dashboard, "so the first screen shows whether saved content is already long-term memory before the user opens search");
     expectText(dashboard, "The `Current answers`, `Needs your decision`, `Saved, not remembered`, `At a glance`, and");
     expectText(dashboard, "`Find what Moryn saved` rows are visible");
     expectText(dashboard, "above `More details` in the live non-private dashboard");
