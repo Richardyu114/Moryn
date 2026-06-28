@@ -3275,9 +3275,7 @@ function memoryInventoryReviewItem(
   const reviewCount = inventory.summary.new_items + inventory.summary.temporary + inventory.summary.set_aside;
   const target = captureInbox.total > 0
     ? "capture-inbox"
-    : inventory.summary.new_items > 0
-      ? "candidate-triage"
-      : "needs-attention";
+    : "stored-content";
   return {
     id: "review",
     label: "Review",
@@ -6633,8 +6631,10 @@ function dashboardActionBoardScript(): string {
           target.open = true;
         }
         if (target.matches("[data-stored-content]")) {
-          window.openStoredContentSearch?.();
+          window.openStoredContentPanel?.();
         }
+        target.classList.add("dashboard-target-active");
+        window.setTimeout(() => target.classList.remove("dashboard-target-active"), 1800);
         let parent = target.closest("details");
         while (parent instanceof HTMLDetailsElement) {
           parent.open = true;
@@ -6733,15 +6733,27 @@ function dashboardStoredContentScript(): string {
           filterMemorySearch(panel, state.searchQuery || "");
         });
       };
+      const setStoredContentActive = () => {
+        document.querySelectorAll("[data-stored-content]").forEach((section) => {
+          if (!(section instanceof HTMLElement)) return;
+          section.classList.add("stored-content-active");
+          window.setTimeout(() => section.classList.remove("stored-content-active"), 1800);
+        });
+      };
       const applyStoredContentState = (options = {}) => {
         const state = readStoredContentState();
         setOverflowState(state);
         setSearchState(state, options);
+        if (options.highlight === true) setStoredContentActive();
       };
       window.restoreStoredContentState = applyStoredContentState;
       window.openStoredContentSearch = () => {
         writeStoredContentState({ searchOpen: true });
         applyStoredContentState({ focusSearch: true });
+      };
+      window.openStoredContentPanel = () => {
+        writeStoredContentState({ overflowOpen: true, searchOpen: true });
+        applyStoredContentState({ focusSearch: true, highlight: true });
       };
       window.shouldPauseStoredContentRefresh = () => {
         const state = readStoredContentState();
@@ -7350,6 +7362,11 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
         linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
         rgba(12, 14, 18, 0.94);
       box-shadow: 0 18px 44px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    }
+    .dashboard-target-active,
+    .stored-content-active {
+      border-color: rgba(116, 242, 145, 0.78);
+      box-shadow: 0 0 0 1px rgba(116, 242, 145, 0.32), 0 20px 52px rgba(0, 0, 0, 0.42), 0 0 34px rgba(116, 242, 145, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
     .decision-panel-list {
       display: grid;

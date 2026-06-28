@@ -86,7 +86,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The `Needs your decision`, `At a glance`, and `Stored content` rows are visible");
     expectText(dashboard, "above `Technical details` in the live non-private dashboard");
     expectText(dashboard, "`Needs your decision` routes users to the owning");
-    expectText(dashboard, "if the state is only `Review suggested`, it says that no write happens from the summary card");
+    expectText(dashboard, "if the state is only `Review suggested`, the visible action opens `Stored content`");
+    expectText(dashboard, "expands saved previews, and opens `Memory search` without writing");
     expectText(dashboard, "Approve and reject buttons stay on the owning row beside the");
     expectText(dashboard, "memory state meter, content-type bars, shared-copy state, and recent source activity");
     expectText(dashboard, "`Stored content` shows recent saved text previews with memory");
@@ -98,6 +99,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Shared copy` is the user-facing name for Git sync state");
     expectText(dashboard, "The main action summary is labeled `Needs attention?` in the visible UI");
     expectText(dashboard, "Review suggested` is intentionally lighter than an urgent warning");
+    expectText(dashboard, "opens `Stored content`, expands hidden saved previews, opens `Memory search`");
+    expectText(dashboard, "Candidate Triage stays a technical/audit route unless it has an explicit promotion approval");
     expectText(dashboard, "`All clear` now means there are no confirmations, visible warnings, sync tasks, or saved-note reviews waiting");
     expectText(dashboard, "Directly below the action summary, `What Moryn remembers` shows the user-facing memory inventory");
     expectText(dashboard, "remembered <- canonical records");

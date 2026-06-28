@@ -33,13 +33,14 @@ without opening a collapsed section:
 The `Needs your decision`, `At a glance`, and `Stored content` rows are visible
 above `Technical details` in the live non-private dashboard. `Needs your
 decision` routes users to the owning approval rows when a real write is waiting;
-if the state is only `Review suggested`, it says that no write happens from the
-summary card. Approve and reject buttons stay on the owning row beside the
-relevant evidence. `At a glance` shows a memory state meter, content-type bars,
-shared-copy state, and recent source activity. `Stored content` shows recent
-saved text previews with memory state labels. Collapsed sections are for audit
-evidence, raw trace details, and optional checks; they should not be required to
-understand the current dashboard state.
+if the state is only `Review suggested`, the visible action opens `Stored
+content`, expands saved previews, and opens `Memory search` without writing.
+Approve and reject buttons stay on the owning row beside the relevant evidence.
+`At a glance` shows a memory state meter, content-type bars, shared-copy state,
+and recent source activity. `Stored content` shows recent saved text previews
+with memory state labels. Collapsed sections are for audit evidence, raw trace
+details, and optional checks; they should not be required to understand the
+current dashboard state.
 
 ## Quick Start
 
@@ -626,9 +627,11 @@ picks the most urgent derived action in this order: explicit decisions, visible
 warnings, sync work, then saved notes that would benefit from review. `Review
 suggested` is intentionally lighter than an urgent warning: it appears only
 when there are no higher-priority actions and Moryn has saved `New`,
-`Temporary`, or `Set aside` items that the user may want to review. It routes to
-Capture Inbox when review candidates exist, to Candidate Triage when candidate
-notes exist, or to Needs Attention for the remaining saved-note review.
+`Temporary`, or `Set aside` items that the user may want to review. If Capture
+Inbox has real approval work, the action opens Capture Inbox. Otherwise it
+opens `Stored content`, expands hidden saved previews, opens `Memory search`,
+and highlights the section so the click has visible feedback. Candidate Triage
+stays a technical/audit route unless it has an explicit promotion approval.
 
 `All clear` now means there are no confirmations, visible warnings, sync tasks,
 or saved-note reviews waiting. Pure read-only inspections do not turn the

@@ -562,7 +562,7 @@ describe("observability dashboard", () => {
       expect(data.dashboard_overview.detail).toBe("1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.");
       expect(data.dashboard_overview.primary_action).toMatchObject({
         label: "Review new notes",
-        target: "candidate-triage",
+        target: "stored-content",
         source: "memory_inventory"
       });
       expect(data.attention_items).toContainEqual(expect.objectContaining({
@@ -581,7 +581,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("--canvas: #f4f2ee;");
       expect(html).toContain("<strong data-i18n-en=\"Review suggested\" data-i18n-zh=\"建议看一下\">Review suggested</strong>");
       expect(html).toContain("<p data-i18n-en=\"1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.\" data-i18n-zh=\"Moryn 已安全保存 1 条新内容和 1 条临时内容。你想让它长期记住时再确认。\">1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.</p>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"candidate-triage\" aria-controls=\"candidate-triage\" data-i18n-en=\"Review new notes\" data-i18n-zh=\"查看新内容\">Review new notes</button>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Review new notes\" data-i18n-zh=\"查看新内容\">Review new notes</button>");
       expect(html).not.toContain("<strong>All clear</strong>");
       expect(html).not.toContain("<p>No work needs attention.</p>");
       expect(html).toContain("<span class=\"health-badge good\">Healthy</span>");
@@ -613,6 +613,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("feedback.textContent = document.documentElement.lang === \"zh\"");
       expect(html).toContain("feedback.dataset.i18nZh || \"这里暂时没有可打开的内容。\"");
       expect(html).toContain("feedback.dataset.i18nEn || \"Nothing to open here yet.\";");
+      expect(html).toContain("target.classList.add(\"dashboard-target-active\");");
+      expect(html).toContain("window.setTimeout(() => target.classList.remove(\"dashboard-target-active\"), 1800);");
+      expect(html).toContain(".dashboard-target-active,");
+      expect(html).toContain(".stored-content-active {");
       expect(html.indexOf("data-dashboard-decision-panel")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).toContain("<section id=\"stored-content\" class=\"stored-content\" data-stored-content aria-label=\"Stored content\">");
       expect(html).toContain("<h2 data-i18n-en=\"Stored content\" data-i18n-zh=\"存储内容\">Stored content</h2>");
@@ -797,10 +801,62 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-stored-content-more");
       expect(serverHtml).toContain("const storedContentKey = \"moryn.dashboard.storedContentState\";");
       expect(serverHtml).toContain("writeStoredContentState({ overflowOpen: willOpen });");
+      expect(serverHtml).toContain("window.openStoredContentPanel = () => {");
+      expect(serverHtml).toContain("writeStoredContentState({ overflowOpen: true, searchOpen: true });");
+      expect(serverHtml).toContain("applyStoredContentState({ focusSearch: true, highlight: true });");
+      expect(serverHtml).toContain("section.classList.add(\"stored-content-active\");");
       expect(serverHtml).toContain("window.restoreStoredContentState = applyStoredContentState;");
       expect(serverHtml).toContain("const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches(\"[data-memory-search-input]\");");
       expect(serverHtml).toContain("if (window.shouldPauseStoredContentRefresh?.()) return;");
       expect(serverHtml).toContain("window.restoreStoredContentState?.({ focusSearch: hadStoredContentSearchFocus });");
+    });
+  });
+
+  it("keeps dashboard action targets resolvable from visible controls", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let timestamp = 0;
+          return () => `2026-06-01T00:${String(++timestamp).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_action_target_${++record}` : `evt_action_target_${++event}`;
+        })()
+      });
+      for (let index = 1; index <= 5; index += 1) {
+        await engine.write({
+          kind: "session_summary",
+          type: "status",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: `Action target saved content ${index}`, format: "text" },
+          state: index === 1 ? "candidate" : "canonical",
+          confirmed: index !== 1,
+          source: { client: "codex" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data, { showStoredContent: true });
+      const targetMatches = [...html.matchAll(/data-action-board-target="([^"]+)"/g)].map((match) => match[1]);
+      const unresolved = targetMatches.filter((target) => {
+        const escaped = target?.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return !new RegExp(`id="${escaped}"`).test(html) && !new RegExp(`data-dashboard-detail="${escaped}"`).test(html);
+      });
+
+      expect(targetMatches).toContain("stored-content");
+      expect(unresolved).toEqual([]);
     });
   });
 
@@ -934,9 +990,10 @@ describe("observability dashboard", () => {
       expect(data.dashboard_overview.headline).toBe("Review suggested");
       expect(data.dashboard_overview.primary_action).toMatchObject({
         label: "Review new notes",
-        target: "candidate-triage",
+        target: "stored-content",
         source: "memory_inventory"
       });
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Review new notes\" data-i18n-zh=\"查看新内容\">Review new notes</button>");
       expect(data.candidate_triage.summary).toMatchObject({
         total_candidates: 3,
         groups: 1,
