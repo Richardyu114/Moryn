@@ -197,6 +197,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "and `recent:7d`; users can also type those query terms directly");
     expectText(dashboard, "The read-only detail pane opens with the first visible saved item");
     expectText(dashboard, "follows the first matching item after filtering");
+    expectText(dashboard, "the detail pane repeats the plain-language `Why saved`");
+    expectText(dashboard, "`Next step` guidance from the card");
     expectText(dashboard, "client-side and read-only");
     expectText(dashboard, "The preview cards are representative rather than strictly newest-first");
     expectText(dashboard, "shows available `To organize`, `Remembered`, `Session notes`, and `Set");

@@ -708,7 +708,10 @@ detail pane with full text, source, status, and timeline/recall commands, so
 users can inspect a memory or event without leaving the search. The read-only
 detail pane opens with the first visible saved item and follows the first
 matching item after filtering; selecting another saved item updates the same
-pane. All of these controls are client-side and read-only.
+pane. For saved content, the detail pane repeats the plain-language `Why saved`
+and `Next step` guidance from the card so opening details preserves the user's
+context before showing trace commands. All of these controls are client-side and
+read-only.
 The preview cards are representative rather than strictly newest-first: Moryn
 shows available `To organize`, `Remembered`, `Session notes`, and `Set
 aside` examples before filling the remaining preview slots by recency. The full

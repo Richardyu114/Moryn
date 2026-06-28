@@ -6871,6 +6871,41 @@ function storedContentExplainCard(kind: "why-saved" | "status" | "next-step", la
   `;
 }
 
+function memoryExplorerGuidanceCard(kind: "why-saved" | "next-step", label: string, zhLabel: string, value: string, zhValue: string, detail?: string, zhDetail?: string): string {
+  const valueAttribute = kind === "why-saved" ? "data-memory-explorer-detail-why" : "data-memory-explorer-detail-next-step";
+  return `
+        <div class="memory-explorer-guidance-card" data-memory-explorer-guidance-card="${escapeHtml(kind)}">
+          <span data-i18n-en="${escapeHtml(label)}" data-i18n-zh="${escapeHtml(zhLabel)}">${escapeHtml(label)}</span>
+          <strong ${valueAttribute} data-i18n-en="${escapeHtml(value)}" data-i18n-zh="${escapeHtml(zhValue)}">${escapeHtml(value)}</strong>
+          ${kind === "next-step" ? `<small data-memory-explorer-detail-next-step-detail data-i18n-en="${escapeHtml(detail ?? "")}" data-i18n-zh="${escapeHtml(zhDetail ?? detail ?? "")}">${escapeHtml(detail ?? "")}</small>` : ""}
+        </div>
+  `;
+}
+
+function memoryExplorerGuidanceAttributes(input: {
+  state: MorynRecord["state"];
+  sourceLabel: string;
+  provenanceMethod?: NonNullable<MorynRecord["provenance"]>["method"];
+  provenanceReason?: string;
+}): string {
+  const item = {
+    state: input.state,
+    source_label: input.sourceLabel,
+    provenance_method: input.provenanceMethod,
+    provenance_reason: input.provenanceReason
+  } as DashboardValueRecord;
+  const whySaved = storedContentWhySaved(item);
+  const nextStep = storedContentNextStep(item);
+  return [
+    `data-memory-explorer-why-saved="${escapeHtml(whySaved.label)}"`,
+    `data-memory-explorer-why-saved-zh="${escapeHtml(whySaved.zhLabel)}"`,
+    `data-memory-explorer-next-step="${escapeHtml(nextStep.label)}"`,
+    `data-memory-explorer-next-step-zh="${escapeHtml(nextStep.zhLabel)}"`,
+    `data-memory-explorer-next-step-detail="${escapeHtml(nextStep.detail)}"`,
+    `data-memory-explorer-next-step-detail-zh="${escapeHtml(nextStep.zhDetail)}"`
+  ].join(" ");
+}
+
 function storedContentItem(item: DashboardValueRecord, selected = false): string {
   const state = memoryStateLabelFromRecordState(item.state);
   const nextStep = storedContentNextStep(item);
@@ -6878,8 +6913,14 @@ function storedContentItem(item: DashboardValueRecord, selected = false): string
   const sourceRelative = sourceRelativePair(item.source_label, item.relative_time);
   const updatedEn = `${item.relative_time} | ${item.exact_time}`;
   const updatedZh = `${relativeTimeZh(item.relative_time)} | ${item.exact_time}`;
+  const guidanceAttributes = memoryExplorerGuidanceAttributes({
+    state: item.state,
+    sourceLabel: item.source_label,
+    provenanceMethod: item.provenance_method,
+    provenanceReason: item.provenance_reason
+  });
   return `
-            <article class="stored-content-item state-${escapeHtml(item.state)}${selected ? " selected" : ""}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-item-id="${escapeHtml(item.id)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
+            <article class="stored-content-item state-${escapeHtml(item.state)}${selected ? " selected" : ""}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-item-id="${escapeHtml(item.id)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
               <div class="stored-content-item-head">
                 <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
                 <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
@@ -6927,6 +6968,10 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
   const title = titleCase(record.type || record.kind);
   const updatedEn = `${relative} | ${record.updated_at}`;
   const updatedZh = `${relativeTimeZh(relative)} | ${record.updated_at}`;
+  const guidanceAttributes = memoryExplorerGuidanceAttributes({
+    state: record.state,
+    sourceLabel: source
+  });
   const searchText = memorySearchText([
     "record",
     record.id,
@@ -6939,7 +6984,7 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
     record.text
   ]);
   return `
-          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}" data-memory-explorer-item-id="record:${escapeHtml(record.id)}" data-memory-explorer-title="${escapeHtml(title)}" data-memory-explorer-full-text="${escapeHtml(record.text)}" data-memory-explorer-state="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-en="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-zh="${escapeHtml(stateLabel.zh)}" data-memory-explorer-source="${escapeHtml(source)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-timeline="${escapeHtml(record.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(record.citation.recall_command)}" tabindex="0">
+          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}" data-memory-explorer-item-id="record:${escapeHtml(record.id)}" data-memory-explorer-title="${escapeHtml(title)}" data-memory-explorer-full-text="${escapeHtml(record.text)}" data-memory-explorer-state="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-en="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-zh="${escapeHtml(stateLabel.zh)}" data-memory-explorer-source="${escapeHtml(source)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(record.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(record.citation.recall_command)}" tabindex="0">
             <span ${i18nAttribute("Memory", "记忆")}>Memory</span>
             <strong>${escapeHtml(title)}</strong>
             <p>${escapeHtml(record.text)}</p>
@@ -6967,7 +7012,7 @@ function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: strin
     source
   ]);
   return `
-          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="event" data-memory-search-record-type="${escapeHtml(event.op)}" data-memory-search-updated-at="${escapeHtml(event.created_at)}" data-memory-explorer-item-id="event:${escapeHtml(event.event_id)}" data-memory-explorer-title="${escapeHtml(event.op)}" data-memory-explorer-full-text="${escapeHtml(detailText)}" data-memory-explorer-full-text-zh="${escapeHtml(detailTextZh)}" data-memory-explorer-state="Event" data-memory-explorer-state-en="Event" data-memory-explorer-state-zh="事件" data-memory-explorer-source="${escapeHtml(source)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-timeline="${escapeHtml(event.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(event.citation.recall_command ?? "")}" tabindex="0">
+          <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="event" data-memory-search-record-type="${escapeHtml(event.op)}" data-memory-search-updated-at="${escapeHtml(event.created_at)}" data-memory-explorer-item-id="event:${escapeHtml(event.event_id)}" data-memory-explorer-title="${escapeHtml(event.op)}" data-memory-explorer-full-text="${escapeHtml(detailText)}" data-memory-explorer-full-text-zh="${escapeHtml(detailTextZh)}" data-memory-explorer-state="Event" data-memory-explorer-state-en="Event" data-memory-explorer-state-zh="事件" data-memory-explorer-source="${escapeHtml(source)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-has-guidance="false" data-memory-explorer-timeline="${escapeHtml(event.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(event.citation.recall_command ?? "")}" tabindex="0">
             <span ${i18nAttribute("Event", "事件")}>Event</span>
             <strong>${escapeHtml(event.op)}</strong>
             <p>${eventTarget}</p>
@@ -7095,6 +7140,8 @@ function memorySearchPanel(data: DashboardData): string {
 
 function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
   const state = item ? memoryStateLabelFromRecordState(item.state) : undefined;
+  const nextStep = item ? storedContentNextStep(item) : undefined;
+  const whySaved = item ? storedContentWhySaved(item) : undefined;
   const updatedEn = item ? `${item.relative_time} | ${item.exact_time}` : "";
   const updatedZh = item ? `${relativeTimeZh(item.relative_time)} | ${item.exact_time}` : "";
   const title = item?.title ?? "Select an item";
@@ -7102,6 +7149,7 @@ function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
   const text = item?.summary ?? "Select a saved item to read its full text, source, and status.";
   const textAttrs = item ? "" : ` data-i18n-en="Select a saved item to read its full text, source, and status." data-i18n-zh="选择一条保存内容，可查看全文、来源和状态。"`;
   const gridHidden = item ? "" : " hidden";
+  const guidanceHidden = item ? "" : " hidden";
   const traceHidden = item ? "" : " hidden";
   return `
       <aside class="memory-explorer-detail" data-memory-explorer-detail aria-live="polite">
@@ -7113,6 +7161,15 @@ function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
           <div><dt data-i18n-en="Source" data-i18n-zh="来源">Source</dt><dd data-memory-explorer-detail-source>${item ? escapeHtml(item.source_detail || item.source_label) : ""}</dd></div>
           <div><dt data-i18n-en="Updated" data-i18n-zh="更新时间">Updated</dt><dd data-memory-explorer-detail-updated${item ? ` data-i18n-en="${escapeHtml(updatedEn)}" data-i18n-zh="${escapeHtml(updatedZh)}"` : ""}>${item ? escapeHtml(updatedEn) : ""}</dd></div>
         </dl>
+        <div class="memory-explorer-guidance" data-memory-explorer-guidance${guidanceHidden}>
+          ${whySaved && nextStep ? `
+          ${memoryExplorerGuidanceCard("why-saved", "Why saved", "为什么保存", whySaved.label, whySaved.zhLabel)}
+          ${memoryExplorerGuidanceCard("next-step", "Next step", "下一步", nextStep.label, nextStep.zhLabel, nextStep.detail, nextStep.zhDetail)}
+          ` : `
+          ${memoryExplorerGuidanceCard("why-saved", "Why saved", "为什么保存", "", "")}
+          ${memoryExplorerGuidanceCard("next-step", "Next step", "下一步", "", "", "", "")}
+          `}
+        </div>
         <div class="memory-explorer-trace" data-memory-explorer-trace${traceHidden}>
           <span data-i18n-en="History links" data-i18n-zh="历史入口">History links</span>
           <code data-memory-explorer-detail-timeline>${item ? escapeHtml(item.citation.timeline_command) : ""}</code>
@@ -7640,6 +7697,7 @@ function dashboardStoredContentScript(): string {
           const detailTitle = detail.querySelector("[data-memory-explorer-detail-title]");
           const detailText = detail.querySelector("[data-memory-explorer-detail-text]");
           const detailGrid = detail.querySelector("[data-memory-explorer-detail-grid]");
+          const guidance = detail.querySelector("[data-memory-explorer-guidance]");
           const trace = detail.querySelector("[data-memory-explorer-trace]");
           if (detailTitle instanceof HTMLElement) {
             detailTitle.dataset.i18nEn = "Select an item";
@@ -7654,9 +7712,13 @@ function dashboardStoredContentScript(): string {
           setDetailText("[data-memory-explorer-detail-state]", "");
           setDetailText("[data-memory-explorer-detail-source]", "");
           setDetailText("[data-memory-explorer-detail-updated]", "");
+          setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-why]"), "");
+          setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-next-step]"), "");
+          setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-next-step-detail]"), "");
           setDetailText("[data-memory-explorer-detail-timeline]", "");
           setDetailText("[data-memory-explorer-detail-recall]", "");
           if (detailGrid instanceof HTMLElement) detailGrid.hidden = true;
+          if (guidance instanceof HTMLElement) guidance.hidden = true;
           if (trace instanceof HTMLElement) trace.hidden = true;
         });
         setMemoryExplorerSelection(null);
@@ -7675,16 +7737,25 @@ function dashboardStoredContentScript(): string {
         const detailText = detail.querySelector("[data-memory-explorer-detail-text]");
         const detailState = detail.querySelector("[data-memory-explorer-detail-state]");
         const detailUpdated = detail.querySelector("[data-memory-explorer-detail-updated]");
+        const detailWhy = detail.querySelector("[data-memory-explorer-detail-why]");
+        const detailNextStep = detail.querySelector("[data-memory-explorer-detail-next-step]");
+        const detailNextStepDetail = detail.querySelector("[data-memory-explorer-detail-next-step-detail]");
         const detailGrid = detail.querySelector("[data-memory-explorer-detail-grid]");
+        const guidance = detail.querySelector("[data-memory-explorer-guidance]");
         const trace = detail.querySelector("[data-memory-explorer-trace]");
         setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || "Saved item");
         setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || "", item.dataset.memoryExplorerFullTextZh || item.dataset.memoryExplorerFullText || item.textContent || "");
         setLocalizedDetailText(detailState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || "", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || "");
+        const hasGuidance = item.dataset.memoryExplorerHasGuidance !== "false" && (item.dataset.memoryExplorerWhySaved || item.dataset.memoryExplorerNextStep);
+        setLocalizedDetailText(detailWhy, item.dataset.memoryExplorerWhySaved || "", item.dataset.memoryExplorerWhySavedZh || item.dataset.memoryExplorerWhySaved || "");
+        setLocalizedDetailText(detailNextStep, item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerNextStep || "");
+        setLocalizedDetailText(detailNextStepDetail, item.dataset.memoryExplorerNextStepDetail || "", item.dataset.memoryExplorerNextStepDetailZh || item.dataset.memoryExplorerNextStepDetail || "");
         setDetailText("[data-memory-explorer-detail-source]", item.dataset.memoryExplorerSource || "");
         setLocalizedDetailText(detailUpdated, item.dataset.memoryExplorerUpdated || "", item.dataset.memoryExplorerUpdatedZh || item.dataset.memoryExplorerUpdated || "");
         setDetailText("[data-memory-explorer-detail-timeline]", item.dataset.memoryExplorerTimeline || "");
         setDetailText("[data-memory-explorer-detail-recall]", item.dataset.memoryExplorerRecall || "");
         if (detailGrid instanceof HTMLElement) detailGrid.hidden = false;
+        if (guidance instanceof HTMLElement) guidance.hidden = !hasGuidance;
         if (trace instanceof HTMLElement) trace.hidden = false;
         setMemoryExplorerSelection(item);
         writeStoredContentState({ selectedItemId: item.dataset.memoryExplorerItemId || item.dataset.storedContentItem || item.dataset.memorySearchEntry || null });
@@ -8875,6 +8946,34 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .memory-explorer-detail-grid div {
       grid-template-columns: 74px minmax(0, 1fr);
+    }
+    .memory-explorer-guidance {
+      display: grid;
+      gap: 8px;
+      border-top: 1px solid rgba(112, 129, 149, 0.22);
+      padding-top: 10px;
+    }
+    .memory-explorer-guidance-card {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      border: 1px solid rgba(112, 129, 149, 0.22);
+      border-radius: 8px;
+      padding: 9px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .memory-explorer-guidance-card span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 820;
+      text-transform: uppercase;
+    }
+    .memory-explorer-guidance-card strong {
+      font-size: 13px;
+      line-height: 1.25;
+    }
+    .memory-explorer-guidance-card small {
+      color: var(--muted);
     }
     .memory-explorer-trace {
       display: grid;
