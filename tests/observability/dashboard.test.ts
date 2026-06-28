@@ -1506,6 +1506,15 @@ describe("observability dashboard", () => {
       expect(html).toContain("<option value=\"all\" data-i18n-en=\"All sources\" data-i18n-zh=\"全部来源\">All sources</option>");
       expect(html).toContain("<option value=\"Codex\">Codex</option>");
       expect(html).toContain("<span data-memory-search-status data-i18n-en=\"2 items to search\" data-i18n-zh=\"可搜索 2 条内容\">2 items to search</span>");
+      expect(html).toContain("<div class=\"memory-search-summary\" data-memory-search-summary aria-label=\"Search summary\">");
+      expect(html).toContain("<article class=\"memory-search-summary-card\">");
+      expect(html).toContain("<span data-i18n-en=\"Searchable\" data-i18n-zh=\"可搜索\">Searchable</span>");
+      expect(html).toContain("<strong data-memory-search-summary-total data-i18n-en=\"2 items\" data-i18n-zh=\"2 条内容\">2 items</strong>");
+      expect(html).toContain("<span data-i18n-en=\"Showing\" data-i18n-zh=\"当前显示\">Showing</span>");
+      expect(html).toContain("<strong data-memory-search-summary-visible data-i18n-en=\"2 items\" data-i18n-zh=\"2 条内容\">2 items</strong>");
+      expect(html).toContain("<span data-i18n-en=\"Selected\" data-i18n-zh=\"当前选择\">Selected</span>");
+      expect(html).toContain("<strong data-memory-search-summary-selected data-i18n-en=\"Decision\" data-i18n-zh=\"Decision\">Decision</strong>");
+      expect(html).toContain("<small class=\"memory-search-summary-readonly\" data-i18n-en=\"Read-only: opening an item only updates this detail view.\" data-i18n-zh=\"只读：打开内容只会更新详情视图。\">Read-only: opening an item only updates this detail view.</small>");
       expect(html).toContain("<div class=\"memory-search-mix\" data-memory-search-mix aria-label=\"Search result mix\">");
       expect(html).toContain("<button type=\"button\" class=\"memory-search-mix-item\" data-memory-search-mix-item=\"canonical\" data-memory-search-mix-filter=\"canonical\" aria-pressed=\"false\" data-i18n-singular-en=\"Long-term\" data-i18n-plural-en=\"Long-term\" data-i18n-label-zh=\"长期记住\" data-i18n-en=\"1 Long-term\" data-i18n-zh=\"1 条长期记住\">1 Long-term</button>");
       expect(html).toContain("<button type=\"button\" class=\"memory-search-mix-item\" data-memory-search-mix-item=\"event\" data-memory-search-mix-filter=\"event\" aria-pressed=\"false\" data-i18n-singular-en=\"Event\" data-i18n-plural-en=\"Events\" data-i18n-label-zh=\"事件\" data-i18n-en=\"1 Event\" data-i18n-zh=\"1 条事件\">1 Event</button>");
@@ -1591,6 +1600,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("const matchesSource = filters.source === \"all\" || entry.dataset.memorySearchSource === filters.source;");
       expect(html).toContain("const setMemorySearchStatus = (status, count, filtered) => {");
       expect(html).toContain("status.dataset.i18nZh = filtered ? `显示 ${count} 条内容` : `可搜索 ${count} 条内容`;");
+      expect(html).toContain("const updateMemorySearchSummary = (panel, totalCount, visibleCount) => {");
+      expect(html).toContain("setMemorySearchSummaryValue(panel.querySelector(\"[data-memory-search-summary-visible]\"), itemCountLabel(visibleCount).en, itemCountLabel(visibleCount).zh);");
+      expect(html).toContain("setMemorySearchSummaryValue(document.querySelectorAll(\"[data-memory-search-summary-selected]\"), item.dataset.memoryExplorerTitle || \"Selected item\");");
+      expect(html).toContain("setMemorySearchSummaryValue(document.querySelectorAll(\"[data-memory-search-summary-selected]\"), \"Nothing selected\", \"未选择\");");
       expect(html).toContain("const updateMemorySearchMix = (panel, visibleEntries) => {");
       expect(html).toContain("const key = entry.dataset.memorySearchState || \"event\";");
       expect(html).toContain("item.hidden = count === 0;");
@@ -1614,6 +1627,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("border-color: rgba(69, 185, 255, 0.42);");
       expect(html).toContain("grid-template-columns: minmax(12ch, max-content) minmax(0, 1fr);");
       expect(html).toContain("span[data-memory-search-status]");
+      expect(html).toContain(".memory-search-summary {");
+      expect(html).toContain(".memory-search-summary-card {");
+      expect(html).toContain(".memory-search-summary-readonly {");
       expect(html).toContain(".memory-search-mix-item {");
       expect(html).toContain(".memory-search-result.selected {");
       expect(html).toContain(".memory-search-result:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }");

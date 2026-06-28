@@ -7304,6 +7304,34 @@ function memorySearchShortcutChips(input: { sources: string[]; recordStates: Mor
   `;
 }
 
+function memorySearchItemCountLabel(count: number): { en: string; zh: string } {
+  return {
+    en: `${count} ${count === 1 ? "item" : "items"}`,
+    zh: `${count} 条内容`
+  };
+}
+
+function memorySearchSummary(totalCount: number, selectedTitle: string): string {
+  const total = memorySearchItemCountLabel(totalCount);
+  return `
+        <div class="memory-search-summary" data-memory-search-summary aria-label="Search summary">
+          <article class="memory-search-summary-card">
+            <span data-i18n-en="Searchable" data-i18n-zh="可搜索">Searchable</span>
+            <strong data-memory-search-summary-total data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</strong>
+          </article>
+          <article class="memory-search-summary-card">
+            <span data-i18n-en="Showing" data-i18n-zh="当前显示">Showing</span>
+            <strong data-memory-search-summary-visible data-i18n-en="${escapeHtml(total.en)}" data-i18n-zh="${escapeHtml(total.zh)}">${escapeHtml(total.en)}</strong>
+          </article>
+          <article class="memory-search-summary-card">
+            <span data-i18n-en="Selected" data-i18n-zh="当前选择">Selected</span>
+            <strong data-memory-search-summary-selected data-i18n-en="${escapeHtml(selectedTitle)}" data-i18n-zh="${escapeHtml(selectedTitle)}">${escapeHtml(selectedTitle)}</strong>
+          </article>
+          <small class="memory-search-summary-readonly" data-i18n-en="Read-only: opening an item only updates this detail view." data-i18n-zh="只读：打开内容只会更新详情视图。">Read-only: opening an item only updates this detail view.</small>
+        </div>
+  `;
+}
+
 function memorySearchPanel(data: DashboardData): string {
   const entries = [
     ...data.recent_records.map((record) => memorySearchRecordEntry(record, data.generated_at)),
@@ -7321,6 +7349,7 @@ function memorySearchPanel(data: DashboardData): string {
     recordStates,
     hasEvents: data.recent_events.length > 0
   });
+  const selectedTitle = data.recent_records[0] ? titleCase(data.recent_records[0].type || data.recent_records[0].kind) : "Selected item";
   return `
       <div id="memory-search-panel" class="memory-search-panel primary-memory-search" data-memory-search-panel data-memory-search-now="${escapeHtml(data.generated_at)}" aria-label="Find memory">
         <label class="memory-search-label" for="memory-search-input" data-i18n-en="Find memory or events" data-i18n-zh="查找记忆或事件">Find memory or events</label>
@@ -7344,6 +7373,7 @@ function memorySearchPanel(data: DashboardData): string {
           <span data-memory-search-status ${i18nAttribute(statusLabel.en, statusLabel.zh)}>${escapeHtml(statusLabel.en)}</span>
           <small data-i18n-en="Local search only; no writes happen here." data-i18n-zh="仅本地搜索；这里不会写入。">Local search only; no writes happen here.</small>
         </div>
+        ${memorySearchSummary(entries.length, selectedTitle)}
         ${memoryStateGuide()}
         ${memorySearchMix(data.recent_records, data.recent_events)}
         <div class="memory-search-results" data-memory-search-results>
@@ -7989,6 +8019,7 @@ function dashboardStoredContentScript(): string {
           if (trace instanceof HTMLElement) trace.hidden = true;
         });
         setMemoryExplorerSelection(null);
+        setMemorySearchSummaryValue(document.querySelectorAll("[data-memory-search-summary-selected]"), "Nothing selected", "未选择");
         writeStoredContentState({ selectedItemId: null });
       };
       const visibleMemoryExplorerItem = (section = document) => {
@@ -8025,6 +8056,7 @@ function dashboardStoredContentScript(): string {
         if (guidance instanceof HTMLElement) guidance.hidden = !hasGuidance;
         if (trace instanceof HTMLElement) trace.hidden = false;
         setMemoryExplorerSelection(item);
+        setMemorySearchSummaryValue(document.querySelectorAll("[data-memory-search-summary-selected]"), item.dataset.memoryExplorerTitle || "Selected item");
         writeStoredContentState({ selectedItemId: item.dataset.memoryExplorerItemId || item.dataset.storedContentItem || item.dataset.memorySearchEntry || null });
       };
       const restoreMemoryExplorerSelection = (state) => {
@@ -8102,6 +8134,24 @@ function dashboardStoredContentScript(): string {
         status.dataset.i18nZh = filtered ? \`显示 \${count} 条内容\` : \`可搜索 \${count} 条内容\`;
         status.textContent = selectedLanguage() === "zh" ? status.dataset.i18nZh : status.dataset.i18nEn;
       };
+      const itemCountLabel = (count) => ({
+        en: count + " " + (count === 1 ? "item" : "items"),
+        zh: count + " 条内容"
+      });
+      const setMemorySearchSummaryValue = (targets, en, zh = en) => {
+        const nodes = targets instanceof NodeList ? Array.from(targets) : [targets];
+        for (const node of nodes) {
+          if (!(node instanceof HTMLElement)) continue;
+          node.dataset.i18nEn = en || "";
+          node.dataset.i18nZh = zh || en || "";
+          node.textContent = selectedLanguage() === "zh" ? node.dataset.i18nZh : node.dataset.i18nEn;
+        }
+      };
+      const updateMemorySearchSummary = (panel, totalCount, visibleCount) => {
+        if (!(panel instanceof HTMLElement)) return;
+        setMemorySearchSummaryValue(panel.querySelector("[data-memory-search-summary-total]"), itemCountLabel(totalCount).en, itemCountLabel(totalCount).zh);
+        setMemorySearchSummaryValue(panel.querySelector("[data-memory-search-summary-visible]"), itemCountLabel(visibleCount).en, itemCountLabel(visibleCount).zh);
+      };
       const setMemorySearchMixItem = (item, count) => {
         if (!(item instanceof HTMLElement)) return;
         const singular = item.dataset.i18nSingularEn || item.dataset.i18nLabelEn || "";
@@ -8156,6 +8206,7 @@ function dashboardStoredContentScript(): string {
         const status = panel.querySelector("[data-memory-search-status]");
         const filtered = normalizedQuery.length > 0 || filters.state !== "all" || filters.source !== "all";
         setMemorySearchStatus(status, filtered ? visible : entries.length, filtered);
+        updateMemorySearchSummary(panel, entries.length, filtered ? visible : entries.length);
         updateMemorySearchMix(panel, filtered ? visibleEntries : entries);
       };
       const setSearchState = (state, options = {}) => {
@@ -9450,6 +9501,51 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .memory-search-meta small {
       text-align: right;
       white-space: nowrap;
+    }
+    .memory-search-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(220px, 1.05fr);
+      gap: 8px;
+      align-items: stretch;
+    }
+    .memory-search-summary-card,
+    .memory-search-summary-readonly {
+      min-width: 0;
+      border: 1px solid rgba(112, 129, 149, 0.24);
+      border-radius: 8px;
+      background: rgba(5, 7, 10, 0.54);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    }
+    .memory-search-summary-card {
+      display: grid;
+      gap: 4px;
+      min-height: 64px;
+      padding: 9px 10px;
+    }
+    .memory-search-summary-card span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 820;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .memory-search-summary-card strong {
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.2;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+    .memory-search-summary-readonly {
+      display: flex;
+      align-items: center;
+      min-height: 64px;
+      padding: 9px 10px;
+      color: #bde6ff;
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 740;
+      overflow-wrap: anywhere;
     }
     .memory-state-guide {
       display: grid;
@@ -12541,7 +12637,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .recent-change-list, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .recent-change-list, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .memory-search-summary, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .memory-state-guide-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }

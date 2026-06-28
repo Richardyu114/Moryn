@@ -179,6 +179,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Find what Moryn saved` to the matching saved items");
     expectText(dashboard, "This saved-content area combines recent");
     expectText(dashboard, "a detail pane with full text, source, and status");
+    expectText(dashboard, "A compact search summary shows the");
+    expectText(dashboard, "searchable total, currently visible results, and currently selected item");
+    expectText(dashboard, "beside a read-only reminder");
     expectText(dashboard, "The search panel includes a compact memory-status guide");
     expectText(dashboard, "`Long-term` means Moryn can already use the item as long-term");
     expectText(dashboard, "`Recently saved` means the item is saved and searchable");
@@ -188,7 +191,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "open and filter saved content but never");
     expectText(dashboard, "write");
     expectText(dashboard, "defaults to the first visible item");
-    expectText(dashboard, "Filtering updates the detail pane to the first matching visible");
+    expectText(dashboard, "Filtering updates the search summary and detail pane to the first matching visible");
     expectText(dashboard, "Visible `Find what Moryn saved` previews render in the live dashboard when private");
     expectText(dashboard, "visible preview chooses representative saved");
     expectText(dashboard, "items across states before filling the rest by recency");

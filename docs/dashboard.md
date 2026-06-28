@@ -48,9 +48,11 @@ owning row beside the relevant evidence.
 shared-copy state, and recent source activity. Clicking a memory state filters
 `Find what Moryn saved` to the matching saved items. This saved-content area combines recent
 saved text previews, keyword search, memory-state/source filters, and a detail
-pane with full text, source, and status. The detail pane defaults to the first
-visible item and keeps history links visible. Filtering updates the detail pane
-to the first matching visible item. It never writes.
+pane with full text, source, and status. A compact search summary shows the
+searchable total, currently visible results, and currently selected item beside
+a read-only reminder. The detail pane defaults to the first visible item and
+keeps history links visible. Filtering updates the search summary and detail
+pane to the first matching visible item. It never writes.
 Collapsed sections are for audit evidence, raw trace details, and
 optional checks; they should not be required to understand the current dashboard
 state.
