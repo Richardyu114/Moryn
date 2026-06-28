@@ -1081,6 +1081,29 @@ describe("observability dashboard", () => {
     }
   });
 
+  it("translates recent status empty write state", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_empty_recent_status"
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-01T00:05:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(html).toContain("<section class=\"recent-status\" data-recent-status aria-label=\"Recent status\">");
+      expect(html).toContain("<span data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</span>");
+      expect(html).toContain("<strong data-i18n-en=\"None\" data-i18n-zh=\"暂无写入\">None</strong>");
+      expect(html).toContain("<strong data-i18n-en=\"No writes yet\" data-i18n-zh=\"还没有写入\">No writes yet</strong>");
+      expect(html).toContain("<span data-status-ticker-item=\"last-write\"><b data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</b><strong data-i18n-en=\"None\" data-i18n-zh=\"暂无写入\">None</strong></span>");
+      expect(html).toContain("<strong data-i18n-en=\"None\" data-i18n-zh=\"暂无写入\">None</strong>\n            <small data-i18n-en=\"No writes yet\" data-i18n-zh=\"还没有写入\">No writes yet</small>");
+    });
+  });
+
   it("shows a seven-day saved-content trend on the first screen", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

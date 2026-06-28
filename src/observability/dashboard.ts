@@ -6548,8 +6548,8 @@ function statusBoardTicker(data: DashboardData, shared: ReturnType<typeof shared
   const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
   const latestSourceZh = latestRecord ? latestSource : "还没有写入";
   const latestWrite = latestRecord ? relativeTime(latestRecord.updated_at, data.generated_at) : "None";
-  const latestWriteZh = latestRecord ? relativeTimeZh(latestWrite) : "无";
-  const latestWriteHtml = latestRecord ? relativeTimeElement(latestRecord.updated_at, data.generated_at) : escapeHtml(latestWrite);
+  const latestWriteZh = latestRecord ? relativeTimeZh(latestWrite) : "暂无写入";
+  const latestWriteHtml = latestRecord ? relativeTimeElement(latestRecord.updated_at, data.generated_at) : undefined;
   const toOrganize = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
   const toOrganizeLabel = toOrganize > 0 ? `${toOrganize} saved for later` : "Nothing saved for later";
   const toOrganizeZh = toOrganize > 0 ? `${toOrganize} 条已保存待整理` : "没有稍后整理内容";
@@ -6836,7 +6836,7 @@ function dashboardGlanceBoard(data: DashboardData): string {
   const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
   const latestSourceZh = latestRecord ? latestSource : "还没有写入";
   const latestWhen = latestRecord ? relativeTime(latestRecord.updated_at, data.generated_at) : "None";
-  const latestWhenZh = latestRecord ? relativeTimeZh(latestWhen) : "无";
+  const latestWhenZh = latestRecord ? relativeTimeZh(latestWhen) : "暂无写入";
   return `
     <section class="glance-board" data-dashboard-glance aria-label="At a glance">
       <div class="section-heading">
@@ -7564,6 +7564,7 @@ function recentStatusPanel(data: DashboardData): string {
   const latestRecord = data.recent_records[0];
   const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
   const latestSourceZh = latestRecord ? latestSource : "还没有写入";
+  const latestWriteHtml = latestRecord ? `<strong>${relativeTimeElement(latestRecord.updated_at, data.generated_at)}</strong>` : i18nText("None", "暂无写入", "strong");
   const reviewable = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
   const reviewableLabel = reviewable > 0 ? `${reviewable} saved for later` : "Nothing saved for later";
   const reviewableZh = reviewable > 0 ? `${reviewable} 条已保存待整理` : "没有稍后整理内容";
@@ -7577,7 +7578,7 @@ function recentStatusPanel(data: DashboardData): string {
       <div class="recent-status-grid">
         <article>
           ${i18nText("Last write", "最近写入")}
-          <strong>${latestRecord ? relativeTimeElement(latestRecord.updated_at, data.generated_at) : escapeHtml("None")}</strong>
+          ${latestWriteHtml}
         </article>
         <article>
           ${i18nText("Latest source", "最近来源")}

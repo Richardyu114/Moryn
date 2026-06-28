@@ -654,7 +654,8 @@ derived overview cards also follow the language toggle, so `Approval needed`,
 `Review approvals`, `Review what changed`, `Local Only`, and `Sync Pending` do not remain as English-only
 UI labels in Chinese mode. Derived overview-card count and status snippets such
 as `saved items`, `safe check available`, and `Clean` also carry Chinese display
-text. Relative-time labels such as `2d ago` also carry Chinese display text.
+text. Relative-time and empty-write labels such as `2d ago`, `None`, and
+`No writes yet` also carry Chinese display text.
 Source names, exact timestamps, event operation names, and record ids stay
 literal; saved memory text and event evidence stay in their original wording.
 
