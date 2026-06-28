@@ -760,7 +760,9 @@ users can inspect a memory or event without leaving the search. The read-only
 detail pane opens with the first visible saved item and follows the first
 matching item after filtering; selecting another saved item updates the same
 pane. It starts with a read-first summary for `Status`, `Meaning`, `Why saved`,
-and `Next`, then shows the full text and trace links. For saved content, the
+and `Next`, then shows the full text and trace links. `Meaning` explains what
+the current memory state means, while `Next` explains the optional or required
+next step so saved content does not read like a task. For saved content, the
 detail pane repeats the plain-language `Why saved` and `Next step` guidance from
 the card so opening details preserves the user's context before showing trace
 commands. Visible source labels use readable agent names such as `Codex session`;

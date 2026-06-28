@@ -7285,6 +7285,39 @@ function storedContentNextStep(item: DashboardValueRecord): { label: string; zhL
   };
 }
 
+function storedContentMeaning(item: DashboardValueRecord): { label: string; zhLabel: string; detail: string; zhDetail: string } {
+  if (item.state === "canonical") {
+    return {
+      label: "Long-term memory",
+      zhLabel: "长期记忆",
+      detail: "Moryn can use this automatically when this project needs context.",
+      zhDetail: "项目需要上下文时，Moryn 可以自动使用这条。"
+    };
+  }
+  if (item.state === "candidate") {
+    return {
+      label: "Saved and searchable",
+      zhLabel: "已保存并可搜索",
+      detail: "Useful context is kept here, but it is not long-term memory yet.",
+      zhDetail: "有用上下文保存在这里，但还不是长期记忆。"
+    };
+  }
+  if (item.state === "raw") {
+    return {
+      label: "Session context",
+      zhLabel: "会话上下文",
+      detail: "Kept for lookup during this work, not used as durable memory.",
+      zhDetail: "用于本次工作中查找，不会作为长期记忆使用。"
+    };
+  }
+  return {
+    label: "Kept for traceability",
+    zhLabel: "用于追踪",
+    detail: "Kept so the history remains inspectable without changing memory.",
+    zhDetail: "保留用于查看历史，不会改变记忆。"
+  };
+}
+
 function storedContentReasonZh(reason: string): string {
   if (reason === "Captured through Moryn host adapter autocapture.") {
     return "Moryn 自动保存了这条内容，稍后可整理。";
@@ -7372,10 +7405,15 @@ function memoryExplorerGuidanceAttributes(input: {
     provenance_reason: input.provenanceReason
   } as DashboardValueRecord;
   const whySaved = storedContentWhySaved(item);
+  const meaning = storedContentMeaning(item);
   const nextStep = storedContentNextStep(item);
   return [
     `data-memory-explorer-why-saved="${escapeHtml(whySaved.label)}"`,
     `data-memory-explorer-why-saved-zh="${escapeHtml(whySaved.zhLabel)}"`,
+    `data-memory-explorer-meaning="${escapeHtml(meaning.label)}"`,
+    `data-memory-explorer-meaning-zh="${escapeHtml(meaning.zhLabel)}"`,
+    `data-memory-explorer-meaning-detail="${escapeHtml(meaning.detail)}"`,
+    `data-memory-explorer-meaning-detail-zh="${escapeHtml(meaning.zhDetail)}"`,
     `data-memory-explorer-next-step="${escapeHtml(nextStep.label)}"`,
     `data-memory-explorer-next-step-zh="${escapeHtml(nextStep.zhLabel)}"`,
     `data-memory-explorer-next-step-detail="${escapeHtml(nextStep.detail)}"`,
@@ -7726,6 +7764,7 @@ function memorySearchPanel(data: DashboardData): string {
 
 function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
   const state = item ? memoryStateLabelFromRecordState(item.state) : undefined;
+  const meaning = item ? storedContentMeaning(item) : undefined;
   const nextStep = item ? storedContentNextStep(item) : undefined;
   const whySaved = item ? storedContentWhySaved(item) : undefined;
   const sourceDisplay = item ? memoryExplorerSourceDisplay(item.source_label, item.source_detail) : undefined;
@@ -7747,7 +7786,7 @@ function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
           <span data-i18n-en="Read first" data-i18n-zh="先看这个">Read first</span>
           <div class="memory-explorer-read-first-grid">
             <article><span data-i18n-en="Status" data-i18n-zh="状态">Status</span><strong data-memory-explorer-summary-state${state ? ` data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}"` : ""}>${state ? escapeHtml(state.en) : ""}</strong></article>
-            <article><span data-i18n-en="Meaning" data-i18n-zh="含义">Meaning</span><strong data-memory-explorer-summary-meaning${nextStep ? ` data-i18n-en="${escapeHtml(nextStep.label)}" data-i18n-zh="${escapeHtml(nextStep.zhLabel)}"` : ""}>${nextStep ? escapeHtml(nextStep.label) : ""}</strong></article>
+            <article><span data-i18n-en="Meaning" data-i18n-zh="含义">Meaning</span><strong data-memory-explorer-summary-meaning${meaning ? ` data-i18n-en="${escapeHtml(meaning.label)}" data-i18n-zh="${escapeHtml(meaning.zhLabel)}"` : ""}>${meaning ? escapeHtml(meaning.label) : ""}</strong></article>
             <article><span data-i18n-en="Why saved" data-i18n-zh="为什么保存">Why saved</span><strong data-memory-explorer-summary-why${whySaved ? ` data-i18n-en="${escapeHtml(whySaved.label)}" data-i18n-zh="${escapeHtml(whySaved.zhLabel)}"` : ""}>${whySaved ? escapeHtml(whySaved.label) : ""}</strong></article>
             <article><span data-i18n-en="Next" data-i18n-zh="下一步">Next</span><strong data-memory-explorer-summary-next${nextStep ? ` data-i18n-en="${escapeHtml(nextStep.label)}" data-i18n-zh="${escapeHtml(nextStep.zhLabel)}"` : ""}>${nextStep ? escapeHtml(nextStep.label) : ""}</strong></article>
           </div>
@@ -7758,8 +7797,8 @@ function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
         </div>
         <div class="memory-explorer-meaning" data-memory-explorer-meaning${guidanceHidden}>
           <span data-i18n-en="What this means" data-i18n-zh="这意味着什么">What this means</span>
-          <strong data-memory-explorer-detail-meaning${nextStep ? ` data-i18n-en="${escapeHtml(nextStep.label)}" data-i18n-zh="${escapeHtml(nextStep.zhLabel)}"` : ""}>${nextStep ? escapeHtml(nextStep.label) : ""}</strong>
-          <small data-memory-explorer-detail-meaning-detail${nextStep ? ` data-i18n-en="${escapeHtml(nextStep.detail)}" data-i18n-zh="${escapeHtml(nextStep.zhDetail)}"` : ""}>${nextStep ? escapeHtml(nextStep.detail) : ""}</small>
+          <strong data-memory-explorer-detail-meaning${meaning ? ` data-i18n-en="${escapeHtml(meaning.label)}" data-i18n-zh="${escapeHtml(meaning.zhLabel)}"` : ""}>${meaning ? escapeHtml(meaning.label) : ""}</strong>
+          <small data-memory-explorer-detail-meaning-detail${meaning ? ` data-i18n-en="${escapeHtml(meaning.detail)}" data-i18n-zh="${escapeHtml(meaning.zhDetail)}"` : ""}>${meaning ? escapeHtml(meaning.detail) : ""}</small>
         </div>
         <dl class="memory-explorer-detail-grid" data-memory-explorer-detail-grid${gridHidden}>
           <div><dt data-i18n-en="State" data-i18n-zh="状态">State</dt><dd data-memory-explorer-detail-state${state ? ` data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}"` : ""}>${state ? escapeHtml(state.en) : ""}</dd></div>
@@ -8471,16 +8510,16 @@ function dashboardStoredContentScript(): string {
         setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || "Saved item", item.dataset.memoryExplorerTitleZh || item.dataset.memoryExplorerTitle || "Saved item");
         setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || "", item.dataset.memoryExplorerFullTextZh || item.dataset.memoryExplorerFullText || item.textContent || "");
         setLocalizedDetailText(detailState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || "", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || "");
-        const hasGuidance = item.dataset.memoryExplorerHasGuidance !== "false" && (item.dataset.memoryExplorerWhySaved || item.dataset.memoryExplorerNextStep);
+        const hasGuidance = item.dataset.memoryExplorerHasGuidance !== "false" && (item.dataset.memoryExplorerWhySaved || item.dataset.memoryExplorerMeaning || item.dataset.memoryExplorerNextStep);
         setLocalizedDetailText(summaryState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || "", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || "");
-        setLocalizedDetailText(summaryMeaning, item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerNextStep || "");
+        setLocalizedDetailText(summaryMeaning, item.dataset.memoryExplorerMeaning || item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerMeaningZh || item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerMeaning || item.dataset.memoryExplorerNextStep || "");
         setLocalizedDetailText(summaryWhy, item.dataset.memoryExplorerWhySaved || "", item.dataset.memoryExplorerWhySavedZh || item.dataset.memoryExplorerWhySaved || "");
         setLocalizedDetailText(summaryNext, item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerNextStep || "");
         setLocalizedDetailText(detailWhy, item.dataset.memoryExplorerWhySaved || "", item.dataset.memoryExplorerWhySavedZh || item.dataset.memoryExplorerWhySaved || "");
         setLocalizedDetailText(detailNextStep, item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerNextStep || "");
         setLocalizedDetailText(detailNextStepDetail, item.dataset.memoryExplorerNextStepDetail || "", item.dataset.memoryExplorerNextStepDetailZh || item.dataset.memoryExplorerNextStepDetail || "");
-        setLocalizedDetailText(detailMeaning, item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerNextStep || "");
-        setLocalizedDetailText(detailMeaningDetail, item.dataset.memoryExplorerNextStepDetail || "", item.dataset.memoryExplorerNextStepDetailZh || item.dataset.memoryExplorerNextStepDetail || "");
+        setLocalizedDetailText(detailMeaning, item.dataset.memoryExplorerMeaning || item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerMeaningZh || item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerMeaning || item.dataset.memoryExplorerNextStep || "");
+        setLocalizedDetailText(detailMeaningDetail, item.dataset.memoryExplorerMeaningDetail || item.dataset.memoryExplorerNextStepDetail || "", item.dataset.memoryExplorerMeaningDetailZh || item.dataset.memoryExplorerNextStepDetailZh || item.dataset.memoryExplorerMeaningDetail || item.dataset.memoryExplorerNextStepDetail || "");
         setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-source]"), item.dataset.memoryExplorerSource || "", item.dataset.memoryExplorerSourceZh || item.dataset.memoryExplorerSource || "");
         setLocalizedDetailText(detailUpdated, item.dataset.memoryExplorerUpdated || "", item.dataset.memoryExplorerUpdatedZh || item.dataset.memoryExplorerUpdated || "");
         setDetailText("[data-memory-explorer-detail-timeline]", item.dataset.memoryExplorerTimeline || "");

@@ -256,6 +256,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "follows the first matching item after filtering");
     expectText(dashboard, "It starts with a read-first summary for `Status`, `Meaning`, `Why saved`,");
     expectText(dashboard, "and `Next`, then shows the full text and trace links");
+    expectText(dashboard, "`Meaning` explains what the current memory state means");
+    expectText(dashboard, "`Next` explains the optional or required next step");
+    expectText(dashboard, "saved content does not read like a task");
     expectText(dashboard, "the detail pane repeats the plain-language `Why saved`");
     expectText(dashboard, "`Next step` guidance from the card");
     expectText(dashboard, "client-side and read-only");
