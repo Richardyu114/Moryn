@@ -6050,11 +6050,16 @@ function referenceLibraryIndex(input: {
     return route.label;
   };
   const routeChips = routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(routeLabel(route))}</code>`).join("");
-  const indexTitle = input.compact ? "Check records" : "Reference Library Index";
+  const indexTitle = input.compact ? "Saved details" : "Reference Library Index";
+  const indexTitleZh = input.compact ? "保存细节" : "参考资料索引";
   const indexSummary = input.compact ? "Read-only details available" : "Background reports indexed";
-  const routeFaceSummary = input.compact ? "Optional details" : routeChips;
+  const indexSummaryZh = input.compact ? "可查看只读详情" : "后台报告已建立索引";
+  const routeFaceSummary = input.compact ? "Optional context" : routeChips;
+  const routeFaceSummaryZh = input.compact ? "可选上下文" : "";
   const routeFoldTitle = input.compact ? "Detail links" : "Reference routes";
+  const routeFoldTitleZh = input.compact ? "详情入口" : "参考入口";
   const routeFoldSummary = input.compact ? "Routes and checks" : "Indexed background sources";
+  const routeFoldSummaryZh = input.compact ? "入口和检查" : "已索引的后台来源";
   const detailedApiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
   const compactApiReferenceHint = "Full evidence stays in <code>/api/dashboard</code>.";
   const diagnosticsTitle = input.compact ? "Health Checks" : "Diagnostics Index";
@@ -6157,13 +6162,15 @@ function referenceLibraryIndex(input: {
   return `
         <div class="reference-library-index-wrap">
           <article class="reference-library-index" data-dashboard-detail="reference-library:index" data-reference-library-index>
-            <strong>${escapeHtml(indexTitle)}</strong>
-            <span>${escapeHtml(indexSummary)}</span>
-            <small>${routeFaceSummary}</small>
+            <strong ${i18nAttribute(indexTitle, indexTitleZh)}>${escapeHtml(indexTitle)}</strong>
+            <span ${i18nAttribute(indexSummary, indexSummaryZh)}>${escapeHtml(indexSummary)}</span>
+            ${input.compact
+              ? `<small ${i18nAttribute(routeFaceSummary, routeFaceSummaryZh)}>${escapeHtml(routeFaceSummary)}</small>`
+              : `<small>${routeFaceSummary}</small>`}
             <details class="reference-library-routes" data-dashboard-detail="reference-library:routes">
               <summary class="dashboard-fold-summary reference-library-routes-fold">
-                <span>${escapeHtml(routeFoldTitle)}</span>
-                <small>${escapeHtml(routeFoldSummary)}</small>
+                <span ${i18nAttribute(routeFoldTitle, routeFoldTitleZh)}>${escapeHtml(routeFoldTitle)}</span>
+                <small ${i18nAttribute(routeFoldSummary, routeFoldSummaryZh)}>${escapeHtml(routeFoldSummary)}</small>
               </summary>
 ${routeChipsRow}
               <div class="reference-library-index-rows">
@@ -7262,11 +7269,8 @@ function dashboardLanguageScript(): string {
       const key = "moryn.dashboard.language";
       const staticTranslations = new Map([
         ["Background checks", "后台检查"],
-        ["Info Checks", "后台检查"],
         ["Check details", "检查详情"],
-        ["Info Details", "检查详情"],
         ["Routine checks", "日常检查"],
-        ["Routine status checks", "日常状态检查"],
         ["Info", "信息"],
         ["Warning", "警告"],
         ["Critical", "严重"],
@@ -7275,13 +7279,6 @@ function dashboardLanguageScript(): string {
         ["Many recently saved items", "较多最近保存内容"],
         ["Session notes not remembered", "会话笔记未记住"],
         ["Many items to organize", "较多内容待整理"],
-        ["Raw records waiting for review", "临时内容待整理"],
-        ["Many candidate records", "较多已保存内容待整理"],
-        ["Check records", "检查记录"],
-        ["Read-only details available", "可查看只读详情"],
-        ["Optional details", "可选详情"],
-        ["Detail links", "详情入口"],
-        ["Routes and checks", "入口和检查"],
         ["Full evidence stays in /api/dashboard.", "完整依据保留在 /api/dashboard。"],
         ["Health checks", "健康检查"],
         ["Product notes", "产品记录"],

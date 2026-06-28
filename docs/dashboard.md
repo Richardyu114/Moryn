@@ -625,11 +625,13 @@ attributes, and `/api/dashboard.store.path` plus
 `/api/dashboard.generated_at` remain the machine-readable audit source. A
 language toggle defaults to English and can switch the visible dashboard copy to
 Chinese; the browser remembers the choice in `moryn.dashboard.language`.
-The same language switch also covers legacy diagnostic labels inside
-`Background checks` and compact `More details`, including older labels such as
-`Info Checks`, `Routine status checks`, `Info Details`, `Raw records waiting for
-review`, and `Many candidate records`. Memory Search controls, query shortcut
-chips, and result-count feedback also follow the language toggle. Memory Search
+The same language switch covers first-screen diagnostic labels inside
+`Background checks` and compact `More details` from the source markup, including
+plain labels such as `Saved details`, `Check details`, `Detail links`, and
+`Routes and checks`. Older internal labels such as `Info Checks`, `Routine
+status checks`, `Info Details`, `Raw records waiting for review`, and `Many
+candidate records` should not appear as visible dashboard copy. Memory Search
+controls, query shortcut chips, and result-count feedback also follow the language toggle. Memory Search
 result type labels, event target labels, and memory-state metadata follow the
 language toggle. First-screen action labels, health badges, current-answer cards, and
 derived overview cards also follow the language toggle, so `Approval needed`,
@@ -971,8 +973,8 @@ routine/background material it reads `Reference evidence only`.
 
 When the first screen is quiet, sync-only, or saved-for-later, the same
 read-only material uses the lighter `More details` shell instead of the
-normal full evidence panel. Expanding it reveals a `Check records` face with
-`Read-only details available` and `Optional details`, so the compact path does
+normal full evidence panel. Expanding it reveals a `Saved details` face with
+`Read-only details available` and `Optional context`, so the compact path does
 not lead with internal reference-library naming. Compact route chips move into
 the collapsed `Detail links` fold with human labels such as `Product notes`,
 `Saved notes`, and `History`; their stable

@@ -98,9 +98,13 @@ describe("documentation contracts", () => {
     expectText(dashboard, "machine-readable audit source");
     expectText(dashboard, "language toggle defaults to English and can switch the visible dashboard copy to Chinese");
     expectText(dashboard, "moryn.dashboard.language");
-    expectText(dashboard, "covers legacy diagnostic labels inside `Background checks` and compact `More details`");
-    expectText(dashboard, "`Info Checks`, `Routine status checks`, `Info Details`, `Raw records waiting for");
-    expectText(dashboard, "review`, and `Many candidate records`");
+    expectText(dashboard, "language switch covers first-screen diagnostic labels inside");
+    expectText(dashboard, "`Background checks` and compact `More details` from the source markup");
+    expectText(dashboard, "plain labels such as `Saved details`, `Check details`, `Detail links`, and");
+    expectText(dashboard, "`Routes and checks`");
+    expectText(dashboard, "Older internal labels such as `Info Checks`, `Routine");
+    expectText(dashboard, "status checks`, `Info Details`, `Raw records waiting for review`, and `Many");
+    expectText(dashboard, "candidate records` should not appear as visible dashboard copy");
     expectText(dashboard, "Memory Search controls, query shortcut");
     expectText(dashboard, "chips, and result-count feedback also follow the language toggle");
     expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
@@ -282,7 +286,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "while the accessible summary keeps `Read-only reference material`");
     expectText(dashboard, "reads `Reference evidence only`");
     expectText(dashboard, "When the first screen is quiet, sync-only, or saved-for-later, the same read-only material uses the lighter `More details` shell");
-    expectText(dashboard, "Expanding it reveals a `Check records` face with `Read-only details available` and `Optional details`");
+    expectText(dashboard, "Expanding it reveals a `Saved details` face with `Read-only details available` and `Optional context`");
     expectText(dashboard, "Compact route chips move into the collapsed `Detail links` fold");
     expectText(dashboard, "human labels such as `Product notes`, `Saved notes`, and `History`");
     expectText(dashboard, "stable `data-reference-library-route` attributes still keep");
