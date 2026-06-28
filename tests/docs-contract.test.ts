@@ -229,6 +229,11 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the headline stays `No action needed`");
     expectText(dashboard, "opens `Find what Moryn saved`");
     expectText(dashboard, "That click expands hidden saved previews and highlights the section");
+    expectText(dashboard, "Entrypoints carry their intent into Memory Explorer instead of only scrolling");
+    expectText(dashboard, "`Do I need to act?` and `Open saved content` open saved-for-later items");
+    expectText(dashboard, "`What is stored?` opens all saved content with search focused");
+    expectText(dashboard, "recently?` selects the newest saved item in the detail pane");
+    expectText(dashboard, "with `data-memory-explorer-*` attributes and applied by `openStoredContentPanel`");
     expectText(dashboard, "The memory-state chart is also a local navigation control");
     expectText(dashboard, "opens `Find what Moryn saved` and filters the visible previews by that state");
     expectText(dashboard, "The saved-content filter bar can switch back to `All`");

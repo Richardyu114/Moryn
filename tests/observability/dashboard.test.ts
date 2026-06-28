@@ -748,10 +748,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<small data-i18n-en=\"0 behind · 0 ahead\" data-i18n-zh=\"落后 0 · 待上传 0\">0 behind · 0 ahead</small>");
       expect(html).toContain("<div class=\"status-board-answers\" data-status-board-answers>");
       expect(html).not.toContain("<section class=\"dashboard-priority-strip\" data-dashboard-priority-strip aria-label=\"Dashboard priorities\">");
-      expect(html).toContain("<button type=\"button\" class=\"answer-card action calm\" data-dashboard-priority=\"action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<button type=\"button\" class=\"answer-card action calm\" data-dashboard-priority=\"action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-memory-explorer-stored-filter=\"candidate,raw,archived,quarantined\" data-memory-explorer-state-filter=\"candidate,raw,archived,quarantined\" data-memory-explorer-focus-search=\"true\">");
       expect(html).toContain("<span data-i18n-en=\"Do I need to act?\" data-i18n-zh=\"我需要操作吗？\">Do I need to act?</span>");
       expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"Saved items are searchable; no confirmation is waiting.\" data-i18n-zh=\"内容已保存可搜索；没有等待确认的操作。\">Saved items are searchable; no confirmation is waiting.</p>");
-      expect(html).toContain("<button type=\"button\" class=\"answer-card memory\" data-dashboard-priority=\"memory\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<button type=\"button\" class=\"answer-card memory\" data-dashboard-priority=\"memory\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-memory-explorer-stored-filter=\"all\" data-memory-explorer-state-filter=\"all\" data-memory-explorer-focus-search=\"true\">");
       expect(html).toContain("<span data-i18n-en=\"What is stored?\" data-i18n-zh=\"存了什么？\">What is stored?</span>");
       expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"1 ready to use · 2 saved for later\" data-i18n-zh=\"1 条可直接使用 · 2 条稍后整理\">1 ready to use · 2 saved for later</p>");
       expect(html).toContain("<div class=\"answer-memory-mix\" data-answer-memory-mix aria-label=\"Stored content mix\">");
@@ -762,7 +762,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"1 ready to use\" data-i18n-zh=\"1 条可直接使用\">1 ready to use</span>");
       expect(html).toContain("<span data-i18n-en=\"1 not organized\" data-i18n-zh=\"1 条已保存，未整理\">1 not organized</span>");
       expect(html).toContain("<span data-i18n-en=\"1 saved briefly\" data-i18n-zh=\"1 条临时保存\">1 saved briefly</span>");
-      expect(html).toContain("<button type=\"button\" class=\"answer-card recent\" data-dashboard-priority=\"recent\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<button type=\"button\" class=\"answer-card recent\" data-dashboard-priority=\"recent\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-memory-explorer-stored-filter=\"all\" data-memory-explorer-state-filter=\"all\" data-memory-explorer-selected-id=\"rec_action_board_3\">");
       expect(html).toContain("<span data-i18n-en=\"What changed recently?\" data-i18n-zh=\"最近有什么变化？\">What changed recently?</span>");
       expect(html).toContain("<strong><time datetime=\"2026-06-01T00:03:00.000Z\" title=\"2026-06-01T00:03:00.000Z\" data-i18n-en=\"19d ago\" data-i18n-zh=\"19 天前\">19d ago</time></strong>");
       expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"Latest saved content came from Gemini.\" data-i18n-zh=\"最近保存内容来自 Gemini。\">Latest saved content came from Gemini.</p>");
@@ -847,7 +847,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<h2 data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</h2>");
       expect(html).toContain("<span data-i18n-en=\"Saved safely\" data-i18n-zh=\"已安全保存\">Saved safely</span>");
       expect(html).toContain("<strong data-i18n-en=\"2 saved for later\" data-i18n-zh=\"2 条已保存待整理\">2 saved for later</strong>");
-      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Open saved content\" data-i18n-zh=\"打开已保存内容\">Open saved content</button>");
+      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-memory-explorer-stored-filter=\"candidate,raw,archived,quarantined\" data-memory-explorer-state-filter=\"candidate,raw,archived,quarantined\" data-memory-explorer-focus-search=\"true\" data-i18n-en=\"Open saved content\" data-i18n-zh=\"打开已保存内容\">Open saved content</button>");
       expect(html).toContain("<small data-i18n-en=\"This only opens saved content. Nothing becomes long-term memory from this summary.\" data-i18n-zh=\"这里只打开已保存内容；这里不会把内容写成长久记忆。\">This only opens saved content. Nothing becomes long-term memory from this summary.</small>");
       expect(html).toContain("const feedback = document.querySelector(\"[data-dashboard-action-feedback]\");");
       expect(html).toContain("if (!target) {");
@@ -856,6 +856,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("feedback.dataset.i18nEn || \"Nothing to open here yet.\";");
       expect(html).toContain("target.classList.add(\"dashboard-target-active\");");
       expect(html).toContain("window.setTimeout(() => target.classList.remove(\"dashboard-target-active\"), 1800);");
+      expect(html).toContain("window.openStoredContentPanel?.(trigger);");
+      expect(html).toContain("const explorerIntentFromTrigger = (triggerOrIntent) => {");
+      expect(html).toContain("triggerOrIntent.dataset.memoryExplorerStoredFilter");
+      expect(html).toContain("triggerOrIntent.dataset.memoryExplorerStateFilter");
+      expect(html).toContain("triggerOrIntent.dataset.memoryExplorerSelectedId");
+      expect(html).toContain("focusSearch: triggerOrIntent.dataset.memoryExplorerFocusSearch === \"true\"");
+      expect(html).toContain("writeStoredContentState({ overflowOpen: true, searchOpen: true, ...intent });");
       expect(html).toContain(".dashboard-target-active,");
       expect(html).toContain(".stored-content-active {");
       expect(html.indexOf("data-dashboard-decision-panel")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
@@ -1138,7 +1145,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</span>");
       expect(html).toContain("<strong data-i18n-en=\"None\" data-i18n-zh=\"暂无写入\">None</strong>");
       expect(html).toContain("<strong data-i18n-en=\"None\" data-i18n-zh=\"暂无写入\">None</strong>\n            <small data-i18n-en=\"No writes yet\" data-i18n-zh=\"还没有写入\">No writes yet</small>");
-      expect(html).toContain("<button type=\"button\" class=\"answer-card recent\" data-dashboard-priority=\"recent\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<button type=\"button\" class=\"answer-card recent\" data-dashboard-priority=\"recent\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-memory-explorer-stored-filter=\"all\" data-memory-explorer-state-filter=\"all\" data-memory-explorer-focus-search=\"true\">");
       expect(html).toContain("<span data-i18n-en=\"What changed recently?\" data-i18n-zh=\"最近有什么变化？\">What changed recently?</span>");
       expect(html).toContain("<strong data-i18n-en=\"No writes yet\" data-i18n-zh=\"还没有写入\">No writes yet</strong>");
       expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"No saved content has changed yet.\" data-i18n-zh=\"还没有保存内容变化。\">No saved content has changed yet.</p>");
@@ -1283,9 +1290,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-stored-content-more");
       expect(serverHtml).toContain("const storedContentKey = \"moryn.dashboard.storedContentState\";");
       expect(serverHtml).toContain("writeStoredContentState({ overflowOpen: willOpen });");
-      expect(serverHtml).toContain("window.openStoredContentPanel = () => {");
-      expect(serverHtml).toContain("writeStoredContentState({ overflowOpen: true });");
-      expect(serverHtml).toContain("applyStoredContentState({ highlight: true });");
+      expect(serverHtml).toContain("const explorerIntentFromTrigger = (triggerOrIntent) => {");
+      expect(serverHtml).toContain("window.openStoredContentPanel = (triggerOrIntent) => {");
+      expect(serverHtml).toContain("writeStoredContentState({ overflowOpen: true, searchOpen: true, ...intent });");
+      expect(serverHtml).toContain("applyStoredContentState({ highlight: true, focusSearch: intent.focusSearch === true });");
       expect(serverHtml).toContain("storedContentFilter: \"all\"");
       expect(serverHtml).toContain("const filterStoredContent = (state) => {");
       expect(serverHtml).toContain("const matches = state.storedContentFilter === \"all\" || String(state.storedContentFilter || \"\").split(\",\").includes(node.dataset.storedContentState || \"\");");
@@ -1691,7 +1699,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("searchStateFilter:");
       expect(html).toContain("searchSourceFilter:");
       expect(html).toContain("filterMemorySearch(panel, {");
-      expect(html).toContain("const matchesState = filters.state === \"all\" || entry.dataset.memorySearchState === filters.state;");
+      expect(html).toContain("const stateFilters = String(filters.state || \"all\").split(\",\").filter(Boolean);");
+      expect(html).toContain("const matchesState = filters.state === \"all\" || stateFilters.includes(entry.dataset.memorySearchState || \"\");");
       expect(html).toContain("const matchesSource = filters.source === \"all\" || entry.dataset.memorySearchSource === filters.source;");
       expect(html).toContain("const setMemorySearchStatus = (status, count, filtered) => {");
       expect(html).toContain("status.dataset.i18nZh = filtered ? `显示 ${count} 条内容` : `可搜索 ${count} 条内容`;");

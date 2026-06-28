@@ -6696,12 +6696,38 @@ function answerCardConclusionText(conclusion: { en: string; zh: string }): strin
   return `<p class="answer-card-conclusion" ${i18nAttribute(conclusion.en, conclusion.zh)}>${escapeHtml(conclusion.en)}</p>`;
 }
 
+function memoryExplorerIntentAttributes(input: {
+  storedFilter?: string;
+  stateFilter?: string;
+  selectedId?: string;
+  focusSearch?: boolean;
+}): string {
+  const attributes = [
+    input.storedFilter ? `data-memory-explorer-stored-filter="${escapeHtml(input.storedFilter)}"` : "",
+    input.stateFilter ? `data-memory-explorer-state-filter="${escapeHtml(input.stateFilter)}"` : "",
+    input.selectedId ? `data-memory-explorer-selected-id="${escapeHtml(input.selectedId)}"` : "",
+    input.focusSearch ? `data-memory-explorer-focus-search="true"` : ""
+  ].filter(Boolean);
+  return attributes.join(" ");
+}
+
 function statusBoard(data: DashboardData): string {
   const shared = sharedCopyLabel(data.sync);
   const actionConclusion = actionAnswerConclusion(data);
   const memoryConclusion = memoryAnswerConclusion(data.memory_inventory);
   const syncConclusion = syncAnswerConclusion(data.sync);
   const recent = recentAnswer(data);
+  const savedForLaterFilter = "candidate,raw,archived,quarantined";
+  const actionExplorerIntent = data.dashboard_overview.primary_action.target === "stored-content"
+    ? ` ${memoryExplorerIntentAttributes({ storedFilter: savedForLaterFilter, stateFilter: savedForLaterFilter, focusSearch: true })}`
+    : "";
+  const memoryExplorerIntent = memoryExplorerIntentAttributes({ storedFilter: "all", stateFilter: "all", focusSearch: true });
+  const recentExplorerIntent = memoryExplorerIntentAttributes({
+    storedFilter: "all",
+    stateFilter: "all",
+    selectedId: data.recent_records[0]?.id,
+    focusSearch: data.recent_records.length === 0
+  });
   const actionIsCalm = data.decision_summary.total_decisions === 0 && ((data.dashboard_overview.headline === "Saved, not remembered" || data.dashboard_overview.headline === "Saved for later") || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
   const actionClass = actionIsCalm ? "calm" : escapeHtml(data.dashboard_overview.status);
   const healthLabel = data.health.status === "healthy" ? "Healthy" : data.health.label;
@@ -6728,20 +6754,20 @@ function statusBoard(data: DashboardData): string {
         </article>
       </div>
       <div class="status-board-answers" data-status-board-answers>
-        <button type="button" class="answer-card action ${actionClass}" data-dashboard-priority="action" data-action-board-target="${escapeHtml(data.dashboard_overview.primary_action.target)}" aria-controls="${escapeHtml(data.dashboard_overview.primary_action.target)}">
+        <button type="button" class="answer-card action ${actionClass}" data-dashboard-priority="action" data-action-board-target="${escapeHtml(data.dashboard_overview.primary_action.target)}" aria-controls="${escapeHtml(data.dashboard_overview.primary_action.target)}"${actionExplorerIntent}>
           ${i18nText("Do I need to act?", "我需要操作吗？")}
           <strong data-i18n-en="${escapeHtml(data.dashboard_overview.headline)}" data-i18n-zh="${escapeHtml(headlineZh)}">${escapeHtml(data.dashboard_overview.headline)}</strong>
           ${answerCardConclusionText(actionConclusion)}
           <small data-i18n-en="${escapeHtml(data.dashboard_overview.primary_action.label)}" data-i18n-zh="${escapeHtml(primaryActionZh)}">${escapeHtml(data.dashboard_overview.primary_action.label)}</small>
         </button>
-        <button type="button" class="answer-card memory" data-dashboard-priority="memory" data-action-board-target="stored-content" aria-controls="stored-content">
+        <button type="button" class="answer-card memory" data-dashboard-priority="memory" data-action-board-target="stored-content" aria-controls="stored-content" ${memoryExplorerIntent}>
           ${i18nText("What is stored?", "存了什么？")}
           <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
           ${answerCardConclusionText(memoryConclusion)}
           ${i18nText("visible saved items", "条可见保存内容", "small")}
           ${answerMemoryMix(data.memory_inventory)}
         </button>
-        <button type="button" class="answer-card recent" data-dashboard-priority="recent" data-action-board-target="stored-content" aria-controls="stored-content">
+        <button type="button" class="answer-card recent" data-dashboard-priority="recent" data-action-board-target="stored-content" aria-controls="stored-content" ${recentExplorerIntent}>
           ${i18nText("What changed recently?", "最近有什么变化？")}
           ${recent.valueHtml}
           ${answerCardConclusionText(recent.conclusion)}
@@ -7088,7 +7114,9 @@ function decisionPanelItem(input: {
   zhNote: string;
   feedback?: string;
   zhFeedback?: string;
+  explorerIntent?: string;
 }): string {
+  const explorerIntent = input.explorerIntent ? ` ${input.explorerIntent}` : "";
   return `
         <article class="decision-panel-item ${escapeHtml(input.kind)}">
           <div>
@@ -7097,7 +7125,7 @@ function decisionPanelItem(input: {
             <p data-i18n-en="${escapeHtml(input.detail)}" data-i18n-zh="${escapeHtml(input.zhDetail)}">${escapeHtml(input.detail)}</p>
             <small data-i18n-en="${escapeHtml(input.note)}" data-i18n-zh="${escapeHtml(input.zhNote)}">${escapeHtml(input.note)}</small>
           </div>
-          <button type="button" class="decision-panel-link" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}" data-i18n-en="${escapeHtml(input.actionLabel)}" data-i18n-zh="${escapeHtml(input.zhActionLabel)}">${escapeHtml(input.actionLabel)}</button>
+          <button type="button" class="decision-panel-link" data-action-board-target="${escapeHtml(input.target)}" aria-controls="${escapeHtml(input.target)}"${explorerIntent} data-i18n-en="${escapeHtml(input.actionLabel)}" data-i18n-zh="${escapeHtml(input.zhActionLabel)}">${escapeHtml(input.actionLabel)}</button>
           ${input.feedback ? `<p class="decision-panel-feedback" data-dashboard-action-feedback data-i18n-en="${escapeHtml(input.feedback)}" data-i18n-zh="${escapeHtml(input.zhFeedback ?? input.feedback)}" hidden>${escapeHtml(input.feedback)}</p>` : ""}
         </article>
   `;
@@ -7127,6 +7155,7 @@ function dashboardDecisionPanel(data: DashboardData): string {
   }
   } else if (reviewable > 0) {
     const title = `${reviewable} saved for later`;
+    const savedForLaterFilter = "candidate,raw,archived,quarantined";
     items.push(decisionPanelItem({
       kind: "review",
       status: "Saved safely",
@@ -7141,7 +7170,8 @@ function dashboardDecisionPanel(data: DashboardData): string {
       note: "This only opens saved content. Nothing becomes long-term memory from this summary.",
       zhNote: "这里只打开已保存内容；这里不会把内容写成长久记忆。",
       feedback: "Nothing to open here yet.",
-      zhFeedback: "这里暂时没有可打开的审核队列。"
+      zhFeedback: "这里暂时没有可打开的审核队列。",
+      explorerIntent: memoryExplorerIntentAttributes({ storedFilter: savedForLaterFilter, stateFilter: savedForLaterFilter, focusSearch: true })
     }));
   }
   if (items.length === 0) return "";
@@ -8129,7 +8159,7 @@ function dashboardActionBoardScript(): string {
           target.open = true;
         }
         if (target.matches("[data-stored-content]")) {
-          window.openStoredContentPanel?.();
+          window.openStoredContentPanel?.(trigger);
         }
         target.classList.add("dashboard-target-active");
         window.setTimeout(() => target.classList.remove("dashboard-target-active"), 1800);
@@ -8474,7 +8504,8 @@ function dashboardStoredContentScript(): string {
           const text = entry.dataset.memorySearchText || entry.textContent || "";
           const searchableText = text.toLowerCase();
           const matchesQuery = parsed.terms.length === 0 || parsed.terms.every((term) => searchableText.includes(term));
-          const matchesState = filters.state === "all" || entry.dataset.memorySearchState === filters.state;
+          const stateFilters = String(filters.state || "all").split(",").filter(Boolean);
+          const matchesState = filters.state === "all" || stateFilters.includes(entry.dataset.memorySearchState || "");
           const matchesSource = filters.source === "all" || entry.dataset.memorySearchSource === filters.source;
           const matchesCommandSource = !parsed.source || String(entry.dataset.memorySearchSource || "").toLowerCase() === parsed.source;
           const matchesCommandState = !parsed.state || entry.dataset.memorySearchState === parsed.state;
@@ -8502,7 +8533,12 @@ function dashboardStoredContentScript(): string {
             if (options.focusSearch === true) input.focus();
           }
           const stateSelect = panel.querySelector("[data-memory-search-state]");
-          if (stateSelect instanceof HTMLSelectElement) stateSelect.value = state.searchStateFilter || "all";
+          if (stateSelect instanceof HTMLSelectElement) {
+            const requestedState = state.searchStateFilter || "all";
+            stateSelect.value = Array.from(stateSelect.options).some((option) => option.value === requestedState)
+              ? requestedState
+              : "all";
+          }
           const sourceSelect = panel.querySelector("[data-memory-search-source]");
           if (sourceSelect instanceof HTMLSelectElement) sourceSelect.value = state.searchSourceFilter || "all";
           filterMemorySearch(panel, { ...currentSearchFilters(state) });
@@ -8528,9 +8564,29 @@ function dashboardStoredContentScript(): string {
         writeStoredContentState({ searchOpen: true });
         applyStoredContentState({ focusSearch: true });
       };
-      window.openStoredContentPanel = () => {
-        writeStoredContentState({ overflowOpen: true });
-        applyStoredContentState({ highlight: true });
+      const explorerIntentFromTrigger = (triggerOrIntent) => {
+        if (!(triggerOrIntent instanceof HTMLElement)) {
+          const intent = triggerOrIntent && typeof triggerOrIntent === "object" ? triggerOrIntent : {};
+          return {
+            storedContentFilter: typeof intent.storedContentFilter === "string" ? intent.storedContentFilter : undefined,
+            searchStateFilter: typeof intent.searchStateFilter === "string" ? intent.searchStateFilter : undefined,
+            searchSourceFilter: typeof intent.searchSourceFilter === "string" ? intent.searchSourceFilter : undefined,
+            selectedItemId: typeof intent.selectedItemId === "string" ? intent.selectedItemId : undefined,
+            focusSearch: intent.focusSearch === true
+          };
+        }
+        return {
+          storedContentFilter: triggerOrIntent.dataset.memoryExplorerStoredFilter || undefined,
+          searchStateFilter: triggerOrIntent.dataset.memoryExplorerStateFilter || undefined,
+          searchSourceFilter: triggerOrIntent.dataset.memoryExplorerSourceFilter || undefined,
+          selectedItemId: triggerOrIntent.dataset.memoryExplorerSelectedId || undefined,
+          focusSearch: triggerOrIntent.dataset.memoryExplorerFocusSearch === "true"
+        };
+      };
+      window.openStoredContentPanel = (triggerOrIntent) => {
+        const intent = explorerIntentFromTrigger(triggerOrIntent);
+        writeStoredContentState({ overflowOpen: true, searchOpen: true, ...intent });
+        applyStoredContentState({ highlight: true, focusSearch: intent.focusSearch === true });
       };
       window.shouldPauseStoredContentRefresh = () => {
         const state = readStoredContentState();

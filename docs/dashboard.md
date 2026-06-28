@@ -720,6 +720,13 @@ previews and highlights the section so the user can inspect what was stored
 without writing anything. If Capture Inbox has real approval work, the action opens Capture
 Inbox. Candidate Triage stays a technical/audit route unless it has an explicit
 promotion approval.
+Entrypoints carry their intent into Memory Explorer instead of only scrolling:
+`Do I need to act?` and `Open saved content` open saved-for-later items
+(`Saved, not organized`, `Saved briefly`, and `Set aside`) and focus search,
+`What is stored?` opens all saved content with search focused, and `What changed
+recently?` selects the newest saved item in the detail pane. The intent is encoded
+with `data-memory-explorer-*` attributes and applied by `openStoredContentPanel`,
+so the behavior survives fragment refreshes through the stored client state.
 
 The memory-state chart is also a local navigation control: clicking
 `Ready to use`, `Saved, not organized`, `Saved briefly`, or `Set aside` opens
