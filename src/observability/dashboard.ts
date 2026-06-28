@@ -6880,8 +6880,8 @@ function memoryStateMeter(inventory: DashboardMemoryInventory): string {
   const savedForLaterPercent = chartPercentLabel(savedForLaterCount, total);
   const insight = total > 0
     ? {
-      en: `${rememberedPercent} ready to use · ${savedForLaterPercent} saved for later`,
-      zh: `${rememberedPercent} 可直接使用 · ${savedForLaterPercent} 稍后整理`
+      en: `${rememberedPercent} ready to use · ${savedForLaterPercent} searchable`,
+      zh: `${rememberedPercent} 可直接使用 · ${savedForLaterPercent} 可搜索`
     }
     : {
       en: "No stored content yet",
@@ -7033,9 +7033,9 @@ function glanceSummaryStrip(data: DashboardData): string {
           <small data-i18n-en="Moryn can use now" data-i18n-zh="Moryn 现在可用">Moryn can use now</small>
         </button>
         <button type="button" data-glance-summary="to-organize" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="candidate,raw,archived,quarantined">
-          <span data-i18n-en="Saved for later" data-i18n-zh="稍后整理">Saved for later</span>
+          <span data-i18n-en="Searchable" data-i18n-zh="可搜索内容">Searchable</span>
           <strong>${escapeHtml(toOrganize)}</strong>
-          <small data-i18n-en="Saved for later" data-i18n-zh="稍后整理">Saved for later</small>
+          <small data-i18n-en="Saved, not final" data-i18n-zh="已保存，未定稿">Saved, not final</small>
         </button>
         <button type="button" data-glance-summary="top-source" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-source="${escapeHtml(topSourceFilter)}">
           <span data-i18n-en="Top source" data-i18n-zh="主要来源">Top source</span>

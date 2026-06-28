@@ -182,13 +182,13 @@ describe("documentation contracts", () => {
     expectText(dashboard, "shared-copy rail, and source activity bars");
     expectText(dashboard, "Memory-state, content-mix, and");
     expectText(dashboard, "source-activity charts include a short insight line and percentages");
-    expectText(dashboard, "ready-to-use versus saved-for-later share, leading content type, and top source");
+    expectText(dashboard, "ready-to-use versus searchable share, leading content type, and top source share");
     expectText(dashboard, "share");
     expectText(dashboard, "The summary numbers are also read-only shortcuts");
     expectText(dashboard, "`Recent");
     expectText(dashboard, "writes` opens all saved content");
     expectText(dashboard, "`Ready to use` filters to memory Moryn can use now");
-    expectText(dashboard, "`Saved, not organized` filters to saved-but-not-final items");
+    expectText(dashboard, "`Searchable` filters to saved-but-not-final items");
     expectText(dashboard, "`Top source` opens saved");
     expectText(dashboard, "content search filtered to that source");
     expectText(dashboard, "`Needs your decision` routes users to the owning approval rows only when a real");

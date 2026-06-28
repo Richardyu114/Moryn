@@ -701,10 +701,10 @@ then shows the memory-state chart, content mix, seven-day saved-content trend,
 shared-copy rail, and source activity bars. The user does not need to open a
 detail section to understand the current state. Memory-state, content-mix, and
 source-activity charts include a short insight line and percentages, such as
-ready-to-use versus saved-for-later share, leading content type, and top source
-share. The summary numbers are also read-only shortcuts: `Recent
+ready-to-use versus searchable share, leading content type, and top source share.
+The summary numbers are also read-only shortcuts: `Recent
 writes` opens all saved content, `Ready to use` filters to memory Moryn can use now,
-`Saved, not organized` filters to saved-but-not-final items, and `Top source` opens saved
+`Searchable` filters to saved-but-not-final items, and `Top source` opens saved
 content search filtered to that source.
 `Shared copy` is the user-facing name for Git sync state: it can read `Up to
 date`, `Waiting to upload`, `New shared updates`, `Needs help`, or `Not
