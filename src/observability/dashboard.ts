@@ -6300,13 +6300,14 @@ function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: str
 function storedContentItem(item: DashboardValueRecord): string {
   const state = memoryStateLabelFromRecordState(item.state);
   return `
-            <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}">
+            <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(`${item.relative_time} | ${item.exact_time}`)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
               <div class="stored-content-item-head">
                 <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
                 <small>${escapeHtml(`${item.source_label} | ${item.relative_time}`)}</small>
               </div>
               <strong>${escapeHtml(item.title)}</strong>
               ${textExcerptBlock(item.summary)}
+              <button type="button" class="stored-content-open" data-memory-explorer-open data-i18n-en="Inspect" data-i18n-zh="查看">Inspect</button>
             </article>
   `;
 }
@@ -6388,7 +6389,7 @@ function memorySearchPanel(data: DashboardData): string {
     ...data.recent_events.map((event) => humanSourceLabel(event.source))
   ])].sort((left, right) => left.localeCompare(right));
   return `
-      <div id="memory-search-panel" class="memory-search-panel" data-memory-search-panel hidden>
+      <div id="memory-search-panel" class="memory-search-panel" data-memory-search-panel>
         <label class="memory-search-label" for="memory-search-input" data-i18n-en="Search memory or events" data-i18n-zh="搜索记忆或事件">Search memory or events</label>
         <div class="memory-search-controls" data-memory-search-controls>
           <input id="memory-search-input" class="memory-search-input" type="search" data-memory-search-input placeholder="Search memory or events" aria-label="Search memory or events">
@@ -6416,6 +6417,26 @@ function memorySearchPanel(data: DashboardData): string {
   `;
 }
 
+function memoryExplorerDetailPanel(): string {
+  return `
+      <aside class="memory-explorer-detail" data-memory-explorer-detail aria-live="polite">
+        <span data-i18n-en="Selected item" data-i18n-zh="当前内容">Selected item</span>
+        <strong data-memory-explorer-detail-title data-i18n-en="Select an item" data-i18n-zh="选择一条内容">Select an item</strong>
+        <p data-memory-explorer-detail-text data-i18n-en="Click a saved item to see the full text, source, state, and trace commands." data-i18n-zh="点击保存内容，可查看全文、来源、状态和追踪命令。">Click a saved item to see the full text, source, state, and trace commands.</p>
+        <dl class="memory-explorer-detail-grid" data-memory-explorer-detail-grid hidden>
+          <div><dt data-i18n-en="State" data-i18n-zh="状态">State</dt><dd data-memory-explorer-detail-state></dd></div>
+          <div><dt data-i18n-en="Source" data-i18n-zh="来源">Source</dt><dd data-memory-explorer-detail-source></dd></div>
+          <div><dt data-i18n-en="Updated" data-i18n-zh="更新时间">Updated</dt><dd data-memory-explorer-detail-updated></dd></div>
+        </dl>
+        <div class="memory-explorer-trace" data-memory-explorer-trace hidden>
+          <span data-i18n-en="Trace commands" data-i18n-zh="追踪命令">Trace commands</span>
+          <code data-memory-explorer-detail-timeline></code>
+          <code data-memory-explorer-detail-recall></code>
+        </div>
+      </aside>
+  `;
+}
+
 function storedContentPanel(data: DashboardData): string {
   const visibleItems = data.recent_value.slice(0, 4);
   const overflowItems = data.recent_value.slice(4);
@@ -6424,25 +6445,29 @@ function storedContentPanel(data: DashboardData): string {
   const moreLabel = `View ${overflowCount} more`;
   const moreLabelZh = `查看更多 ${overflowCount} 条`;
   return `
-    <section id="stored-content" class="stored-content" data-stored-content aria-label="Stored content">
+    <section id="stored-content" class="stored-content memory-explorer" data-stored-content data-memory-explorer aria-label="Memory Explorer">
       <div class="section-heading">
-        <h2 data-i18n-en="Stored content" data-i18n-zh="存储内容">Stored content</h2>
+        <h2 data-i18n-en="Memory Explorer" data-i18n-zh="记忆浏览器">Memory Explorer</h2>
         <div class="stored-content-tools">
-          ${i18nText("Recent saved text", "最近保存的内容", "small")}
-          <button type="button" class="memory-search-toggle" data-memory-search-toggle aria-expanded="false" aria-controls="memory-search-panel" data-i18n-en="Memory search" data-i18n-zh="搜索记忆">Memory search</button>
+          ${i18nText("Search, filter, and inspect saved memory without writing.", "搜索、筛选并查看保存的记忆；这里不会写入。", "small")}
         </div>
       </div>
-      ${memorySearchPanel(data)}
-      ${storedContentFilterBar(data.recent_value)}
-      <div class="stored-content-list">
-        ${visibleItems.map(storedContentItem).join("")}
-      </div>
-      ${overflowItems.length > 0 ? `
-        <div id="stored-content-overflow" class="stored-content-list stored-content-overflow" data-stored-content-overflow hidden>
-          ${overflowItems.map(storedContentItem).join("")}
+      <div class="memory-explorer-layout" data-memory-explorer-layout>
+        <div class="memory-explorer-main" data-memory-explorer-main>
+          ${memorySearchPanel(data)}
+          ${storedContentFilterBar(data.recent_value)}
+          <div class="stored-content-list">
+            ${visibleItems.map(storedContentItem).join("")}
+          </div>
+          ${overflowItems.length > 0 ? `
+            <div id="stored-content-overflow" class="stored-content-list stored-content-overflow" data-stored-content-overflow hidden>
+              ${overflowItems.map(storedContentItem).join("")}
+            </div>
+            <button type="button" class="stored-content-more" data-stored-content-more aria-expanded="false" aria-controls="stored-content-overflow" data-i18n-en="${escapeHtml(moreLabel)}" data-i18n-zh="${escapeHtml(moreLabelZh)}" data-stored-content-collapsed-en="${escapeHtml(moreLabel)}" data-stored-content-collapsed-zh="${escapeHtml(moreLabelZh)}" data-stored-content-expanded-en="Show fewer" data-stored-content-expanded-zh="收起">${escapeHtml(moreLabel)}</button>
+          ` : ""}
         </div>
-        <button type="button" class="stored-content-more" data-stored-content-more aria-expanded="false" aria-controls="stored-content-overflow" data-i18n-en="${escapeHtml(moreLabel)}" data-i18n-zh="${escapeHtml(moreLabelZh)}" data-stored-content-collapsed-en="${escapeHtml(moreLabel)}" data-stored-content-collapsed-zh="${escapeHtml(moreLabelZh)}" data-stored-content-expanded-en="Show fewer" data-stored-content-expanded-zh="收起">${escapeHtml(moreLabel)}</button>
-      ` : ""}
+        ${memoryExplorerDetailPanel()}
+      </div>
     </section>
   `;
 }
@@ -6814,20 +6839,22 @@ function dashboardStoredContentScript(): string {
       const storedContentKey = "moryn.dashboard.storedContentState";
       const defaultStoredContentState = () => ({
         overflowOpen: false,
-        searchOpen: false,
+        searchOpen: true,
         searchQuery: "",
         searchStateFilter: "all",
         searchSourceFilter: "all",
-        storedContentFilter: "all"
+        storedContentFilter: "all",
+        selectedItemId: null
       });
       let fallbackStoredContentState = defaultStoredContentState();
       const normalizeStoredContentState = (value) => ({
         overflowOpen: value?.overflowOpen === true,
-        searchOpen: value?.searchOpen === true,
+        searchOpen: value?.searchOpen !== false,
         searchQuery: typeof value?.searchQuery === "string" ? value.searchQuery : "",
         searchStateFilter: typeof value?.searchStateFilter === "string" && value.searchStateFilter.length > 0 ? value.searchStateFilter : "all",
         searchSourceFilter: typeof value?.searchSourceFilter === "string" && value.searchSourceFilter.length > 0 ? value.searchSourceFilter : "all",
-        storedContentFilter: typeof value?.storedContentFilter === "string" && value.storedContentFilter.length > 0 ? value.storedContentFilter : "all"
+        storedContentFilter: typeof value?.storedContentFilter === "string" && value.storedContentFilter.length > 0 ? value.storedContentFilter : "all",
+        selectedItemId: typeof value?.selectedItemId === "string" && value.selectedItemId.length > 0 ? value.selectedItemId : null
       });
       const readStoredContentState = () => {
         try {
@@ -6892,6 +6919,80 @@ function dashboardStoredContentScript(): string {
         });
         setStoredFilterButtons(state);
       };
+      const setDetailText = (selector, value) => {
+        document.querySelectorAll(selector).forEach((node) => {
+          if (node instanceof HTMLElement) node.textContent = value || "";
+        });
+      };
+      const setMemoryExplorerSelection = (item) => {
+        document.querySelectorAll("[data-stored-content-item]").forEach((node) => {
+          if (node instanceof HTMLElement) {
+            node.classList.toggle("selected", item instanceof HTMLElement && node.dataset.storedContentItem === item.dataset.storedContentItem);
+          }
+        });
+      };
+      const setLocalizedDetailText = (node, value) => {
+        if (!(node instanceof HTMLElement)) return;
+        node.dataset.i18nEn = value || "";
+        node.dataset.i18nZh = value || "";
+        node.textContent = value || "";
+      };
+      const resetMemoryExplorerDetail = () => {
+        document.querySelectorAll("[data-memory-explorer-detail]").forEach((detail) => {
+          if (!(detail instanceof HTMLElement)) return;
+          const detailTitle = detail.querySelector("[data-memory-explorer-detail-title]");
+          const detailText = detail.querySelector("[data-memory-explorer-detail-text]");
+          const detailGrid = detail.querySelector("[data-memory-explorer-detail-grid]");
+          const trace = detail.querySelector("[data-memory-explorer-trace]");
+          if (detailTitle instanceof HTMLElement) {
+            detailTitle.dataset.i18nEn = "Select an item";
+            detailTitle.dataset.i18nZh = "选择一条内容";
+            detailTitle.textContent = selectedLanguage() === "zh" ? "选择一条内容" : "Select an item";
+          }
+          if (detailText instanceof HTMLElement) {
+            detailText.dataset.i18nEn = "Click a saved item to see the full text, source, state, and trace commands.";
+            detailText.dataset.i18nZh = "点击保存内容，可查看全文、来源、状态和追踪命令。";
+            detailText.textContent = selectedLanguage() === "zh" ? "点击保存内容，可查看全文、来源、状态和追踪命令。" : "Click a saved item to see the full text, source, state, and trace commands.";
+          }
+          setDetailText("[data-memory-explorer-detail-state]", "");
+          setDetailText("[data-memory-explorer-detail-source]", "");
+          setDetailText("[data-memory-explorer-detail-updated]", "");
+          setDetailText("[data-memory-explorer-detail-timeline]", "");
+          setDetailText("[data-memory-explorer-detail-recall]", "");
+          if (detailGrid instanceof HTMLElement) detailGrid.hidden = true;
+          if (trace instanceof HTMLElement) trace.hidden = true;
+        });
+        setMemoryExplorerSelection(null);
+        writeStoredContentState({ selectedItemId: null });
+      };
+      const selectMemoryExplorerItem = (item) => {
+        if (!(item instanceof HTMLElement)) return;
+        const detail = item.closest("[data-memory-explorer]")?.querySelector("[data-memory-explorer-detail]");
+        if (!(detail instanceof HTMLElement)) return;
+        const detailTitle = detail.querySelector("[data-memory-explorer-detail-title]");
+        const detailText = detail.querySelector("[data-memory-explorer-detail-text]");
+        const detailGrid = detail.querySelector("[data-memory-explorer-detail-grid]");
+        const trace = detail.querySelector("[data-memory-explorer-trace]");
+        setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || "Saved item");
+        setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || "");
+        setDetailText("[data-memory-explorer-detail-state]", item.dataset.memoryExplorerState || "");
+        setDetailText("[data-memory-explorer-detail-source]", item.dataset.memoryExplorerSource || "");
+        setDetailText("[data-memory-explorer-detail-updated]", item.dataset.memoryExplorerUpdated || "");
+        setDetailText("[data-memory-explorer-detail-timeline]", item.dataset.memoryExplorerTimeline || "");
+        setDetailText("[data-memory-explorer-detail-recall]", item.dataset.memoryExplorerRecall || "");
+        if (detailGrid instanceof HTMLElement) detailGrid.hidden = false;
+        if (trace instanceof HTMLElement) trace.hidden = false;
+        setMemoryExplorerSelection(item);
+        writeStoredContentState({ selectedItemId: item.dataset.storedContentItem || null });
+      };
+      const restoreMemoryExplorerSelection = (state) => {
+        const selected = state.selectedItemId ? document.querySelector(\`[data-stored-content-item="\${cssEscape(state.selectedItemId)}"]\`) : null;
+        if (selected instanceof HTMLElement && !selected.hidden && selected.offsetParent !== null) {
+          selectMemoryExplorerItem(selected);
+          return;
+        }
+        if (state.selectedItemId) resetMemoryExplorerDetail();
+      };
       const currentSearchFilters = (state) => ({
         query: String(state.searchQuery || ""),
         state: state.searchStateFilter || "all",
@@ -6915,16 +7016,12 @@ function dashboardStoredContentScript(): string {
         if (status instanceof HTMLElement) status.textContent = normalizedQuery.length === 0 && filters.state === "all" && filters.source === "all" ? entries.length + " searchable items" : visible + " matches";
       };
       const setSearchState = (state, options = {}) => {
-        document.querySelectorAll("[data-memory-search-toggle]").forEach((node) => {
-          if (!(node instanceof HTMLButtonElement)) return;
-          const panel = controlledElementFor(node);
+        document.querySelectorAll("[data-memory-search-panel]").forEach((panel) => {
           if (!(panel instanceof HTMLElement)) return;
-          node.setAttribute("aria-expanded", state.searchOpen ? "true" : "false");
-          panel.hidden = !state.searchOpen;
           const input = panel.querySelector("[data-memory-search-input]");
           if (input instanceof HTMLInputElement) {
             if (input.value !== state.searchQuery) input.value = state.searchQuery;
-            if (options.focusSearch === true && state.searchOpen) input.focus();
+            if (options.focusSearch === true) input.focus();
           }
           const stateSelect = panel.querySelector("[data-memory-search-state]");
           if (stateSelect instanceof HTMLSelectElement) stateSelect.value = state.searchStateFilter || "all";
@@ -6945,6 +7042,7 @@ function dashboardStoredContentScript(): string {
         setOverflowState(state);
         filterStoredContent(state);
         setSearchState(state, options);
+        restoreMemoryExplorerSelection(state);
         if (options.highlight === true) setStoredContentActive();
       };
       window.restoreStoredContentState = applyStoredContentState;
@@ -6965,11 +7063,10 @@ function dashboardStoredContentScript(): string {
       document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
-        const searchToggle = target.closest("[data-memory-search-toggle]");
-        if (searchToggle instanceof HTMLButtonElement) {
-          const willOpen = !readStoredContentState().searchOpen;
-          writeStoredContentState({ searchOpen: willOpen });
-          applyStoredContentState({ focusSearch: willOpen });
+        const explorerTrigger = target.closest("[data-memory-explorer-open], [data-stored-content-item]");
+        if (explorerTrigger instanceof HTMLElement) {
+          const item = explorerTrigger.closest("[data-stored-content-item]");
+          if (item instanceof HTMLElement) selectMemoryExplorerItem(item);
           return;
         }
         const memoryStateFilter = target.closest("[data-memory-state-filter]");
@@ -7698,22 +7795,64 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       justify-content: flex-end;
       gap: 8px;
     }
-    .memory-search-toggle {
-      appearance: none;
-      border: 1px solid rgba(116, 242, 145, 0.46);
-      border-radius: 6px;
-      padding: 7px 11px;
-      background: linear-gradient(180deg, rgba(116, 242, 145, 0.16), rgba(116, 242, 145, 0.07));
-      color: var(--signal-green);
-      cursor: pointer;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 820;
-      box-shadow: 0 8px 20px rgba(116, 242, 145, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    .memory-explorer-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+      gap: 12px;
+      align-items: start;
     }
-    .memory-search-toggle:hover { border-color: rgba(116, 242, 145, 0.76); background: rgba(116, 242, 145, 0.13); box-shadow: 0 10px 24px rgba(116, 242, 145, 0.12); transform: translateY(-1px); }
-    .memory-search-toggle:focus-visible { outline: 2px solid var(--signal-green); outline-offset: 2px; }
+    .memory-explorer-main {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+    .memory-explorer-detail {
+      position: sticky;
+      top: 14px;
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+      border: 1px solid rgba(112, 129, 149, 0.28);
+      border-radius: 8px;
+      padding: 14px;
+      background:
+        linear-gradient(180deg, rgba(69, 185, 255, 0.065), rgba(255, 255, 255, 0.01)),
+        rgba(8, 10, 13, 0.9);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+    .memory-explorer-detail > span,
+    .memory-explorer-trace > span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 820;
+      text-transform: uppercase;
+    }
+    .memory-explorer-detail strong {
+      color: var(--ink);
+      font-size: 17px;
+      line-height: 1.18;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+    .memory-explorer-detail p {
+      margin: 0;
+      color: var(--ink-2);
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+    .memory-explorer-detail-grid {
+      border-top: 1px solid rgba(112, 129, 149, 0.22);
+      padding-top: 10px;
+    }
+    .memory-explorer-detail-grid div {
+      grid-template-columns: 74px minmax(0, 1fr);
+    }
+    .memory-explorer-trace {
+      display: grid;
+      gap: 7px;
+      border-top: 1px solid rgba(112, 129, 149, 0.22);
+      padding-top: 10px;
+    }
     .memory-search-panel {
       display: grid;
       gap: 10px;
@@ -7886,6 +8025,11 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.045);
       transform: translateY(-1px);
     }
+    .stored-content-item.selected {
+      border-color: rgba(69, 185, 255, 0.72);
+      background: linear-gradient(180deg, rgba(69, 185, 255, 0.09), rgba(255, 255, 255, 0.012)), rgba(18, 23, 30, 0.96);
+      box-shadow: 0 0 0 1px rgba(69, 185, 255, 0.22), 0 14px 34px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
     .stored-content-item-head {
       display: flex;
       flex-wrap: wrap;
@@ -7910,6 +8054,22 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       color: var(--ink-2);
       overflow-wrap: anywhere;
     }
+    .stored-content-open {
+      justify-self: start;
+      appearance: none;
+      border: 1px solid rgba(69, 185, 255, 0.42);
+      border-radius: 6px;
+      padding: 5px 8px;
+      background: rgba(69, 185, 255, 0.1);
+      color: #bde6ff;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 820;
+    }
+    .stored-content-open:hover { border-color: rgba(69, 185, 255, 0.76); background: rgba(69, 185, 255, 0.16); }
+    .stored-content-open:focus-visible,
+    .stored-content-item:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .stored-content-more {
       appearance: none;
       border: 1px solid rgba(69, 185, 255, 0.42);
@@ -10588,7 +10748,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .front-status-grid, .dashboard-priority-strip, .memory-inventory-grid, .recent-status-grid, .glance-grid, .stored-content-list, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .front-status-grid, .dashboard-priority-strip, .memory-inventory-grid, .recent-status-grid, .glance-grid, .memory-explorer-layout, .stored-content-list, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .dashboard-header-actions { justify-content: flex-start; }
@@ -10600,6 +10760,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       .memory-search-meta { grid-template-columns: 1fr; align-items: start; }
       .memory-search-meta small { text-align: left; white-space: normal; }
       .memory-search-results { grid-template-columns: 1fr; height: clamp(320px, 58vh, 520px); }
+      .memory-explorer-detail { position: static; }
       .sync-action-brief { grid-template-columns: 1fr; }
       .sync-action-brief > code { justify-self: stretch; max-width: none; }
       .decision-summary-heading { display: grid; }

@@ -25,23 +25,23 @@ without opening a collapsed section:
 
 - Do I need to act? -> `Needs attention?`, `All clear`, or `Saved for later`, plus a
   visible `Needs your decision` panel only when approval is waiting.
-- What is stored? -> the `At a glance` memory-state chart, `Stored content` text
-  previews, and `What Moryn remembers`.
+- What is stored? -> the `At a glance` memory-state chart, `Memory Explorer`,
+  and `What Moryn remembers`.
 - Is sync healthy? -> `This device`, the `Shared copy` card, and the sync rail.
 
-The `Needs your decision`, `Saved for later`, `At a glance`, and `Stored content`
+The `Needs your decision`, `Saved for later`, `At a glance`, and `Memory Explorer`
 rows are visible above `Technical details` in the live non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
 write is waiting. If the state is only `Saved for later`, the visible action
-opens `Stored content` and expands saved previews without opening `Memory
-search` or writing. Approve and reject buttons stay on the owning row beside the
+opens `Memory Explorer`, expands saved previews, and keeps search visible
+without writing. Approve and reject buttons stay on the owning row beside the
 relevant evidence.
 `At a glance` shows a clickable memory state meter, content-type bars,
 shared-copy state, and recent source activity. Clicking a memory state filters
-`Stored content` to the matching saved items. `Stored content` shows recent
-saved text previews with memory state labels and state filters. `Memory search`
-is a separate local workbench with keyword, state, and source filters; it never
-writes. Collapsed sections are for audit evidence, raw trace details, and
+`Memory Explorer` to the matching saved items. `Memory Explorer` combines recent
+saved text previews, keyword search, memory-state/source filters, and a detail
+pane with full text, source, state, and trace commands; it never writes.
+Collapsed sections are for audit evidence, raw trace details, and
 optional checks; they should not be required to understand the current dashboard
 state.
 
@@ -132,7 +132,7 @@ Pass `--include-private` only when the user explicitly wants private memory in
 the dashboard. The same flag applies to the server shell, `/fragment`, and
 `/api/dashboard`.
 
-Visible `Stored content` previews render in the live dashboard when private
+Visible `Memory Explorer` previews render in the live dashboard when private
 records are not included. Static snapshots and `--include-private` fragments
 keep saved text out of the visible HTML; use `/api/dashboard.recent_value[]` for
 the explicit machine-readable view in those cases.
@@ -621,7 +621,7 @@ The first screen is arranged around three plain questions:
 
 ```text
 Do I need to act? -> Needs attention? / All clear / Saved for later
-What is stored?   -> At a glance, Stored content, What Moryn remembers
+What is stored?   -> At a glance, Memory Explorer, What Moryn remembers
 Is sync healthy?  -> This device, Shared copy, sync rail
 ```
 
@@ -639,19 +639,18 @@ warnings, sync work, then saved notes that are available for later organization.
 `Saved for later` is intentionally lighter than an urgent warning: it appears
 only when there are no higher-priority actions and Moryn has saved `Saved, not
 remembered yet`, `Temporary`, or `Set aside` items. If Capture Inbox has real
-approval work, the action opens Capture Inbox. Otherwise it opens `Stored
-content`, expands hidden saved previews, and highlights the section so the click
-has visible feedback. `Memory search` remains a separate button for searching
-across memory and events. Candidate Triage stays a technical/audit route unless
-it has an explicit promotion approval.
+approval work, the action opens Capture Inbox. Otherwise it opens `Memory
+Explorer`, expands hidden saved previews, and highlights the section so the
+click has visible feedback. Candidate Triage stays a technical/audit route
+unless it has an explicit promotion approval.
 
 The memory-state chart is also a local navigation control: clicking
 `Remembered`, `Saved, not remembered yet`, `Temporary`, or `Set aside` opens
-`Stored content` and filters the visible previews by that state. The `Stored
-content` filter bar can switch back to `All` or jump between available states.
-The `Memory search` workbench filters across recent records and events by
-keyword, memory state, and source; all of these controls are client-side and
-read-only.
+`Memory Explorer` and filters the visible previews by that state. The Explorer
+filter bar can switch back to `All` or jump between available states. Its search
+controls filter across recent records and events by keyword, memory state, and
+source; selecting a saved item fills the read-only detail pane. All of these
+controls are client-side and read-only.
 
 `All clear` now means there are no confirmations, visible warnings, sync tasks,
 or saved items waiting for later organization. Pure read-only inspections do not
@@ -1369,7 +1368,7 @@ Default read-boundary and redaction rules still apply:
 - quarantined records render as `[quarantined]`
 - sensitive text is not shown in overview cards
 - inspector tables also avoid exposing quarantined content
-- visible `Stored content` previews are disabled for static snapshots and
+- visible `Memory Explorer` previews are disabled for static snapshots and
   `--include-private` HTML fragments, while `/api/dashboard.recent_value[]`
   remains the explicit data source
 
