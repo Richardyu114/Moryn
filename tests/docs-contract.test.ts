@@ -131,6 +131,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "so the first screen shows whether saved content is already long-term memory before the user opens search");
     expectText(dashboard, "A short `Why this is here`");
     expectText(dashboard, "only rows with confirm buttons can change long-term memory");
+    expectText(dashboard, "a fixed-height status ticker repeats the");
+    expectText(dashboard, "latest write, latest source, shared-copy state, and items to organize");
+    expectText(dashboard, "without");
+    expectText(dashboard, "resizing the first screen");
     expectText(dashboard, "The `Current answers`, `Needs your decision`, `To organize`, `At a glance`, and");
     expectText(dashboard, "`Find what Moryn saved` rows are visible");
     expectText(dashboard, "above `More details` in the live non-private dashboard");

@@ -6258,6 +6258,31 @@ function statusBoardExplainText(data: DashboardData): { en: string; zh: string }
   };
 }
 
+function statusTickerItem(id: string, label: string, zhLabel: string, value: string, zhValue: string, valueHtml?: string): string {
+  const valueAttribute = valueHtml ? "" : ` ${i18nAttribute(value, zhValue)}`;
+  return `<span data-status-ticker-item="${escapeHtml(id)}"><b ${i18nAttribute(label, zhLabel)}>${escapeHtml(label)}</b><strong${valueAttribute}>${valueHtml ?? escapeHtml(value)}</strong></span>`;
+}
+
+function statusBoardTicker(data: DashboardData, shared: ReturnType<typeof sharedCopyLabel>): string {
+  const latestRecord = data.recent_records[0];
+  const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
+  const latestSourceZh = latestRecord ? latestSource : "还没有写入";
+  const latestWrite = latestRecord ? relativeTime(latestRecord.updated_at, data.generated_at) : "None";
+  const latestWriteZh = latestRecord ? relativeTimeZh(latestWrite) : "无";
+  const latestWriteHtml = latestRecord ? relativeTimeElement(latestRecord.updated_at, data.generated_at) : escapeHtml(latestWrite);
+  const toOrganize = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
+  const toOrganizeLabel = toOrganize > 0 ? pluralize(toOrganize, "item to organize", "items to organize") : "Nothing to organize";
+  const toOrganizeZh = toOrganize > 0 ? `${toOrganize} 条待整理内容` : "没有待整理内容";
+  return `
+      <div class="status-board-ticker" data-status-board-ticker aria-label="Latest status ticker">
+        ${statusTickerItem("last-write", "Last write", "最近写入", latestWrite, latestWriteZh, latestWriteHtml)}
+        ${statusTickerItem("source", "Source", "来源", latestSource, latestSourceZh)}
+        ${statusTickerItem("shared-copy", "Shared copy", "共享副本", shared.label, shared.zh)}
+        ${statusTickerItem("to-organize", "To organize", "待整理", toOrganizeLabel, toOrganizeZh)}
+      </div>
+  `;
+}
+
 function statusBoard(data: DashboardData): string {
   const shared = sharedCopyLabel(data.sync);
   const actionIsCalm = data.decision_summary.total_decisions === 0 && ((data.dashboard_overview.headline === "Saved, not remembered" || data.dashboard_overview.headline === "Saved for later") || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
@@ -6303,6 +6328,7 @@ function statusBoard(data: DashboardData): string {
           <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
         </button>
       </div>
+      ${statusBoardTicker(data, shared)}
       <div class="status-board-explain" data-status-board-explain>
         ${i18nText("Why this is here", "为什么会看到这些内容")}
         <p ${i18nAttribute(explain.en, explain.zh)}>${escapeHtml(explain.en)}</p>
@@ -8078,6 +8104,47 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .status-board-answers {
       grid-template-columns: 1.15fr 1fr 1fr;
       margin-bottom: 0;
+    }
+    .status-board-ticker {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      align-items: center;
+      min-height: 44px;
+      border: 1px solid rgba(112, 129, 149, 0.2);
+      border-radius: 8px;
+      padding: 7px 9px;
+      margin-top: 10px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035), rgba(69, 185, 255, 0.028)),
+        rgba(5, 7, 10, 0.58);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    }
+    .status-board-ticker span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      white-space: nowrap;
+    }
+    .status-board-ticker b {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 820;
+    }
+    .status-board-ticker strong {
+      min-width: 0;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 820;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .status-board-ticker time {
+      color: inherit;
+      font-size: inherit;
     }
     .status-board-explain {
       display: grid;

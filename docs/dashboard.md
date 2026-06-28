@@ -657,7 +657,10 @@ shows a compact `Remembered` / `To organize` / `Session notes` mix bar
 and short counts, so the first screen shows whether saved content is already
 long-term memory before the user opens search. A short `Why this is here`
 explanation under the answer cards states why saved items appear and reminds the
-user that only rows with confirm buttons can change long-term memory. The `At a glance` chart row
+user that only rows with confirm buttons can change long-term memory. Between
+the answer cards and that explanation, a fixed-height status ticker repeats the
+latest write, latest source, shared-copy state, and items to organize without
+resizing the first screen. The `At a glance` chart row
 appears before `What Moryn remembers`, `Recent status`, and the compact
 `More details` fold. It starts with a compact recent-activity summary for
 visible writes, remembered items, items to organize, and the most active source,
