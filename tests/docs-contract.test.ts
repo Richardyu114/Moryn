@@ -134,6 +134,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "a detail pane with full text, source, and status");
     expectText(dashboard, "history links stay available after an");
     expectText(dashboard, "Visible `Find what Moryn saved` previews render in the live dashboard when private");
+    expectText(dashboard, "visible preview chooses representative saved");
+    expectText(dashboard, "items across states before filling the rest by recency");
+    expectText(dashboard, "does not hide recently saved, long-term, temporary, or set-aside memory");
     expectText(dashboard, "Static snapshots and `--include-private` fragments");
     expectText(dashboard, "keep saved text out of the visible HTML");
     expectText(dashboard, "Collapsed sections are for audit evidence, raw trace details, and optional checks");
@@ -149,6 +152,11 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Its search controls filter across recent records and events by keyword, memory state, and source");
     expectText(dashboard, "selecting a saved item fills the read-only detail pane");
     expectText(dashboard, "client-side and read-only");
+    expectText(dashboard, "The preview cards are representative rather than strictly newest-first");
+    expectText(dashboard, "shows available `Saved recently`, `Long-term memory`, `Recent notes`, and `Set");
+    expectText(dashboard, "aside` examples before filling the remaining preview slots by recency");
+    expectText(dashboard, "The full");
+    expectText(dashboard, "newest-first list remains in `/api/dashboard.recent_value[]`");
     expectText(dashboard, "Each saved-content card also carries a plain next-step hint");
     expectText(dashboard, "`Already");
     expectText(dashboard, "remembered`, `Can be organized`, `Keep for context`, or `Set aside`");

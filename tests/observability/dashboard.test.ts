@@ -894,6 +894,88 @@ describe("observability dashboard", () => {
     });
   });
 
+  it("keeps first-screen stored content representative across memory states", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let timestamp = 0;
+          return () => `2026-06-01T00:${String(++timestamp).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_representative_${++record}` : `evt_representative_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Representative canonical memory", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Representative candidate memory", format: "text" },
+        state: "candidate",
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "raw_note",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Representative raw note", format: "text" },
+        state: "raw",
+        source: { client: "codex" }
+      });
+      for (let index = 1; index <= 4; index += 1) {
+        await engine.write({
+          kind: "session_summary",
+          type: "status",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: `Newest archived memory ${index}`, format: "text" },
+          state: "archived",
+          source: { client: "codex" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data, { showStoredContent: true });
+      const visibleStart = html.indexOf("<div class=\"stored-content-list\">");
+      const overflowStart = html.indexOf("<div id=\"stored-content-overflow\"");
+      const visibleHtml = html.slice(visibleStart, overflowStart);
+      const overflowHtml = html.slice(overflowStart);
+
+      expect(data.recent_value.slice(0, 4).map((item) => item.state)).toEqual(["archived", "archived", "archived", "archived"]);
+      expect(data.stored_content_preview.map((item) => item.state)).toEqual(["candidate", "canonical", "raw", "archived"]);
+      expect(visibleHtml).toContain("Representative candidate memory");
+      expect(visibleHtml).toContain("Representative canonical memory");
+      expect(visibleHtml).toContain("Representative raw note");
+      expect(visibleHtml).toContain("Newest archived memory 4");
+      expect(visibleHtml).not.toContain("Newest archived memory 3");
+      expect(overflowHtml).toContain("Newest archived memory 3");
+      expect(html).toContain("data-i18n-en=\"View 3 more\" data-i18n-zh=\"查看更多 3 条\"");
+    });
+  });
+
   it("keeps dashboard action targets resolvable from visible controls", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {

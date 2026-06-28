@@ -136,9 +136,12 @@ the dashboard. The same flag applies to the server shell, `/fragment`, and
 `/api/dashboard`.
 
 Visible `Find what Moryn saved` previews render in the live dashboard when private
-records are not included. Static snapshots and `--include-private` fragments
-keep saved text out of the visible HTML; use `/api/dashboard.recent_value[]` for
-the explicit machine-readable view in those cases.
+records are not included. The visible preview chooses representative saved
+items across states before filling the rest by recency, so a burst of one state
+does not hide recently saved, long-term, temporary, or set-aside memory from the
+first read. Static snapshots and `--include-private` fragments keep saved text
+out of the visible HTML; use `/api/dashboard.recent_value[]` for the explicit
+machine-readable view in those cases.
 
 Pass `--project-id <id>` or `--project <path>` when you want the server to
 generate project-specific Review Queue plans, Memory Lifecycle review, and
@@ -666,6 +669,10 @@ saved-content filter bar can switch back to `All` or jump between available stat
 controls filter across recent records and events by keyword, memory state, and
 source; selecting a saved item fills the read-only detail pane. All of these
 controls are client-side and read-only.
+The preview cards are representative rather than strictly newest-first: Moryn
+shows available `Saved recently`, `Long-term memory`, `Recent notes`, and `Set
+aside` examples before filling the remaining preview slots by recency. The full
+newest-first list remains in `/api/dashboard.recent_value[]`.
 Each saved-content card also carries a plain next-step hint: `Already
 remembered`, `Can be organized`, `Keep for context`, or `Set aside`. Those hints
 explain what the item means now and expose only `Open details`; remember,

@@ -799,6 +799,7 @@ export interface DashboardData {
   health_check: HealthCheckReport;
   memory_lifecycle: MemoryLifecycleResult;
   dogfood_report: DogfoodReportResult;
+  stored_content_preview: DashboardValueRecord[];
   recent_value: DashboardValueRecord[];
   recent_records: DashboardRecordSummary[];
   recent_events: DashboardEventSummary[];
@@ -1372,15 +1373,35 @@ function summarizeValueRecord(record: MorynRecord, generatedAt: string, eventsBy
   };
 }
 
-function buildRecentValue(records: MorynRecord[], generatedAt: string, limit: number, eventsByRecord: Map<string, MorynEvent>): DashboardValueRecord[] {
+function valueRecordsNewestFirst(records: MorynRecord[]): MorynRecord[] {
   return [...records]
     .sort((left, right) => {
       const timeDiff = right.updated_at.localeCompare(left.updated_at);
       const scoreDiff = recordValueScore(right) - recordValueScore(left);
       return timeDiff || scoreDiff || left.id.localeCompare(right.id);
-    })
+    });
+}
+
+function buildRecentValue(records: MorynRecord[], generatedAt: string, limit: number, eventsByRecord: Map<string, MorynEvent>): DashboardValueRecord[] {
+  return valueRecordsNewestFirst(records)
     .slice(0, limit)
     .map((record) => summarizeValueRecord(record, generatedAt, eventsByRecord));
+}
+
+function buildStoredContentPreview(records: MorynRecord[], generatedAt: string, limit: number, eventsByRecord: Map<string, MorynEvent>): DashboardValueRecord[] {
+  const sorted = valueRecordsNewestFirst(records);
+  const selected = new Map<string, MorynRecord>();
+  const stateOrder: MorynRecord["state"][] = ["candidate", "canonical", "raw", "archived", "quarantined"];
+  for (const state of stateOrder) {
+    if (selected.size >= limit) break;
+    const record = sorted.find((candidate) => candidate.state === state);
+    if (record) selected.set(record.id, record);
+  }
+  for (const record of sorted) {
+    if (selected.size >= limit) break;
+    selected.set(record.id, record);
+  }
+  return [...selected.values()].map((record) => summarizeValueRecord(record, generatedAt, eventsByRecord));
 }
 
 function captureInboxApproveEndpoint(recordId: string): string {
@@ -3069,6 +3090,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     health_check: healthCheckData,
     memory_lifecycle: memoryLifecycleData,
     dogfood_report: dogfoodReportData,
+    stored_content_preview: buildStoredContentPreview(records, generatedAt, 4, eventsByRecord),
     recent_value: buildRecentValue(records, generatedAt, Math.min(limit, RECENT_VALUE_LIMIT), eventsByRecord),
     recent_records: recentRecords.map((record) => summarizeRecord(record, eventsByRecord)),
     recent_events: recentEvents.map((event) => summarizeEvent(event, recordsById)),
@@ -6588,8 +6610,11 @@ function memoryExplorerDetailPanel(): string {
 }
 
 function storedContentPanel(data: DashboardData): string {
-  const visibleItems = data.recent_value.slice(0, 4);
-  const overflowItems = data.recent_value.slice(4);
+  const visibleItems = data.stored_content_preview.length > 0
+    ? data.stored_content_preview
+    : data.recent_value.slice(0, 4);
+  const visibleIds = new Set(visibleItems.map((item) => item.id));
+  const overflowItems = data.recent_value.filter((item) => !visibleIds.has(item.id));
   if (visibleItems.length === 0) return "";
   const overflowCount = overflowItems.length;
   const moreLabel = `View ${overflowCount} more`;
