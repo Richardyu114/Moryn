@@ -993,7 +993,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<time datetime=\"2026-06-01T00:03:00.000Z\" title=\"2026-06-01T00:03:00.000Z\" data-i18n-en=\"19d ago\" data-i18n-zh=\"19 天前\">19d ago</time>");
       expect(html).toContain("<span data-i18n-en=\"Latest source\" data-i18n-zh=\"最近来源\">Latest source</span>");
       expect(html).toContain("<span data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</span>");
-      expect(html).toContain("<span data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</span>");
+      const recentStatusHtml = html.slice(html.indexOf("data-recent-status"), html.indexOf("data-recent-changes"));
+      expect(recentStatusHtml).toContain("<span data-i18n-en=\"Searchable\" data-i18n-zh=\"可搜索内容\">Searchable</span>");
+      expect(recentStatusHtml).toContain("<strong data-i18n-en=\"2 searchable items\" data-i18n-zh=\"2 条可搜索内容\">2 searchable items</strong>");
       expect(html).toContain("<div class=\"recent-changes\" data-recent-changes aria-label=\"Recent changes\">");
       expect(html).toContain("<div class=\"recent-changes-heading\">");
       expect(html).toContain("<span data-i18n-en=\"Recent changes\" data-i18n-zh=\"最近变化\">Recent changes</span>");

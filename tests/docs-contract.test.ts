@@ -281,7 +281,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Set aside <- archived or quarantined records");
     expectText(dashboard, "`Saved, not organized` means the item is already saved and searchable");
     expectText(dashboard, "it is not a user decision by itself");
-    expectText(dashboard, "`Recent status` shows the last write time, latest source, shared-copy state, and the number of `saved for later` items");
+    expectText(dashboard, "`Recent status` shows the last write time, latest source, shared-copy state, and the number of searchable saved items");
     expectText(dashboard, "Its last-write relative time follows the language toggle");
     expectText(dashboard, "exact timestamp stays in the `time` title and `datetime` attributes");
     expectText(dashboard, "It also shows a read-only `Recent changes` strip");

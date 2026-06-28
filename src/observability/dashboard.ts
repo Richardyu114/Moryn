@@ -7798,8 +7798,8 @@ function recentStatusPanel(data: DashboardData): string {
   const latestSourceZh = latestRecord ? latestSource : "还没有写入";
   const latestWriteHtml = latestRecord ? `<strong>${relativeTimeElement(latestRecord.updated_at, data.generated_at)}</strong>` : i18nText("None", "暂无写入", "strong");
   const reviewable = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
-  const reviewableLabel = reviewable > 0 ? `${reviewable} saved for later` : "Nothing saved for later";
-  const reviewableZh = reviewable > 0 ? `${reviewable} 条已保存待整理` : "没有稍后整理内容";
+  const reviewableLabel = reviewable > 0 ? `${reviewable} searchable ${reviewable === 1 ? "item" : "items"}` : "No searchable items";
+  const reviewableZh = reviewable > 0 ? `${reviewable} 条可搜索内容` : "没有可搜索内容";
   const shared = sharedCopyLabel(data.sync);
   return `
     <section class="recent-status" data-recent-status aria-label="Recent status">
@@ -7821,7 +7821,7 @@ function recentStatusPanel(data: DashboardData): string {
           ${i18nText(shared.label, shared.zh, "strong")}
         </article>
         <article>
-          ${i18nText("Saved for later", "稍后整理")}
+          ${i18nText("Searchable", "可搜索内容")}
           <strong ${i18nAttribute(reviewableLabel, reviewableZh)}>${escapeHtml(reviewableLabel)}</strong>
         </article>
       </div>

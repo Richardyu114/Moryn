@@ -796,7 +796,7 @@ The inventory also groups visible records by kind, using human labels such as
 `/api/dashboard.memory_inventory` keeps the counts and source states for agents.
 
 `Recent status` shows the last write time, latest source, shared-copy state, and
-the number of `saved for later` items instead of exposing saved-recently versus
+the number of searchable saved items instead of exposing saved-recently versus
 recent-note wording. This gives the user the recent state of the local memory
 without opening the raw record list. Its last-write relative time follows the
 language toggle, while the exact timestamp stays in the `time` title and
