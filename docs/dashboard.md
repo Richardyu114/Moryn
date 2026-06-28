@@ -613,6 +613,9 @@ attributes, and `/api/dashboard.store.path` plus
 `/api/dashboard.generated_at` remain the machine-readable audit source. A
 language toggle defaults to English and can switch the visible dashboard copy to
 Chinese; the browser remembers the choice in `moryn.dashboard.language`.
+The same language switch also covers legacy diagnostic labels inside `Info
+Checks` and compact `Technical details`, while saved memory text and event
+evidence stay in their original wording.
 
 The first screen is arranged around three plain questions:
 

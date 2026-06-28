@@ -6633,14 +6633,107 @@ function dashboardLanguageScript(): string {
   <script>
     (() => {
       const key = "moryn.dashboard.language";
+      const staticTranslations = new Map([
+        ["Info Checks", "常规检查"],
+        ["Info Details", "检查详情"],
+        ["Routine status checks", "日常状态检查"],
+        ["Info", "信息"],
+        ["Warning", "警告"],
+        ["Critical", "严重"],
+        ["Quarantined records superseded", "隔离内容已有安全替代"],
+        ["Raw records waiting for review", "临时内容待整理"],
+        ["Many candidate records", "较多新内容待整理"],
+        ["Check records", "检查记录"],
+        ["Read-only details available", "可查看只读详情"],
+        ["Optional details", "可选详情"],
+        ["Detail links", "详情入口"],
+        ["Routes and checks", "入口和检查"],
+        ["Full evidence stays in /api/dashboard.", "完整依据保留在 /api/dashboard。"],
+        ["Health checks", "健康检查"],
+        ["Product notes", "产品记录"],
+        ["Safety checks", "安全检查"],
+        ["Saved notes", "已保存内容"],
+        ["History", "历史记录"],
+        ["Health Checks", "健康检查"],
+        ["Saved Notes", "已保存内容"],
+        ["Safety Checks", "安全检查"],
+        ["Product Notes", "产品记录"],
+        ["Cleanup Checks", "清理检查"],
+        ["Shared Copy", "共享副本"],
+        ["Health check", "健康检查"],
+        ["Recall check", "召回检查"],
+        ["Handoff context", "交接上下文"],
+        ["Cleanup checks", "清理检查"],
+        ["Capture checks", "捕获检查"],
+        ["Recent value", "最近重点"],
+        ["Recent records", "最近记录"],
+        ["Recent events", "最近事件"],
+        ["Shared copy", "共享副本"],
+        ["Routine checks indexed", "常规检查已建立索引"],
+        ["Saved notes indexed", "已保存内容已建立索引"],
+        ["Safety checks indexed", "安全检查已建立索引"],
+        ["Product notes indexed", "产品记录已建立索引"],
+        ["Cleanup checks indexed", "清理检查已建立索引"],
+        ["Shared copy indexed", "共享副本已建立索引"],
+        ["History indexed", "历史记录已建立索引"]
+      ]);
       const validLanguage = (value) => value === "zh" ? "zh" : "en";
       const selectedLanguage = () => validLanguage(localStorage.getItem(key));
+      const legacyTranslationScopes = "[data-dashboard-detail='attention-info-checks'], [data-reference-library-index]";
+      const translateStaticText = (text) => {
+        if (staticTranslations.has(text)) return staticTranslations.get(text);
+        const routineMatch = text.match(/^(\\d+) routine check(s)?$/);
+        if (routineMatch) return routineMatch[1] + " 项日常检查";
+        const supersededMatch = text.match(/^(\\d+) quarantined record\\(s\\) have active safe replacement index records\\.$/);
+        if (supersededMatch) return supersededMatch[1] + " 条隔离内容已有可用的安全替代索引。";
+        const rawMatch = text.match(/^(\\d+) raw record\\(s\\) are preserved but excluded from normal recall\\.$/);
+        if (rawMatch) return rawMatch[1] + " 条临时内容已保留，但不会进入日常回忆。";
+        const candidateMatch = text.match(/^(\\d+) candidate record\\(s\\) may need promotion, archival, or cleanup\\.$/);
+        if (candidateMatch) return candidateMatch[1] + " 条新内容可能需要记住、归档或清理。";
+        return text;
+      };
+      const translateMixedLegacyText = (node, language) => {
+        const original = node.dataset.i18nOriginal || node.textContent || "";
+        if (!node.dataset.i18nOriginal) node.dataset.i18nOriginal = original;
+        if (original !== "Full evidence stays in /api/dashboard.") return false;
+        if (language === "zh") {
+          const code = node.querySelector("code");
+          if (code) {
+            node.replaceChildren("完整依据保留在 ", code, "。");
+            return true;
+          }
+          node.textContent = "完整依据保留在 /api/dashboard。";
+          return true;
+        }
+        node.innerHTML = 'Full evidence stays in <code>/api/dashboard</code>.';
+        return true;
+      };
+      const translateLegacyText = (root, language) => {
+        const scopes = [
+          ...(root.matches?.(legacyTranslationScopes) ? [root] : []),
+          ...root.querySelectorAll(legacyTranslationScopes)
+        ];
+        scopes.forEach((scope) => {
+          scope.querySelectorAll("span, strong, small, p, code").forEach((node) => {
+            if (!(node instanceof HTMLElement)) return;
+            if (node.matches("[data-i18n-en][data-i18n-zh]")) return;
+            if (node.children.length > 0 && !translateMixedLegacyText(node, language)) return;
+            if (node.children.length > 0) return;
+            const original = node.dataset.i18nOriginal || node.textContent || "";
+            const translated = translateStaticText(original);
+            if (translated === original && !node.dataset.i18nOriginal) return;
+            if (!node.dataset.i18nOriginal) node.dataset.i18nOriginal = original;
+            node.textContent = language === "zh" ? translated : original;
+          });
+        });
+      };
       const apply = (language = selectedLanguage()) => {
         document.documentElement.lang = language === "zh" ? "zh" : "en";
         document.querySelectorAll("[data-i18n-en][data-i18n-zh]").forEach((node) => {
           if (!(node instanceof HTMLElement)) return;
           node.textContent = language === "zh" ? node.dataset.i18nZh || "" : node.dataset.i18nEn || "";
         });
+        if (document.body) translateLegacyText(document.body, language);
         document.querySelectorAll("[data-dashboard-language-option]").forEach((node) => {
           if (!(node instanceof HTMLButtonElement)) return;
           const active = node.dataset.dashboardLanguageOption === language;

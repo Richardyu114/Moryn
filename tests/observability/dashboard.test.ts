@@ -574,6 +574,17 @@ describe("observability dashboard", () => {
       expect(html).toContain("<button type=\"button\" class=\"language-option active\" data-dashboard-language-option=\"en\" aria-pressed=\"true\">EN</button>");
       expect(html).toContain("<button type=\"button\" class=\"language-option\" data-dashboard-language-option=\"zh\" aria-pressed=\"false\">中文</button>");
       expect(html).toContain("const key = \"moryn.dashboard.language\";");
+      expect(html).toContain("const staticTranslations = new Map(");
+      expect(html).toContain("[\"Info Checks\", \"常规检查\"]");
+      expect(html).toContain("[\"Info Details\", \"检查详情\"]");
+      expect(html).toContain("[\"Routine status checks\", \"日常状态检查\"]");
+      expect(html).toContain("[\"Check records\", \"检查记录\"]");
+      expect(html).toContain("[\"Detail links\", \"详情入口\"]");
+      expect(html).toContain("[\"Health checks\", \"健康检查\"]");
+      expect(html).toContain("[\"Raw records waiting for review\", \"临时内容待整理\"]");
+      expect(html).toContain("[\"Many candidate records\", \"较多新内容待整理\"]");
+      expect(html).toContain("translateStaticText(original)");
+      expect(html).toContain("translateLegacyText(document.body, language);");
       expect(html).toContain("localStorage.getItem(key)");
       expect(html).toContain("color-scheme: dark;");
       expect(html).toContain("--canvas: #050505;");

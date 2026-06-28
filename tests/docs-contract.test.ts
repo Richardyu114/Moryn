@@ -98,6 +98,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "machine-readable audit source");
     expectText(dashboard, "language toggle defaults to English and can switch the visible dashboard copy to Chinese");
     expectText(dashboard, "moryn.dashboard.language");
+    expectText(dashboard, "covers legacy diagnostic labels inside `Info Checks` and compact `Technical details`");
+    expectText(dashboard, "saved memory text and event evidence stay in their original wording");
     expectText(dashboard, "black high-contrast surface");
     expectText(dashboard, "visible status colors and chart cards before any evidence folds");
     expectText(dashboard, "The first screen is arranged around three plain questions");
