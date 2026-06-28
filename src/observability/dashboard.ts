@@ -7505,6 +7505,15 @@ function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
       <aside class="memory-explorer-detail" data-memory-explorer-detail aria-live="polite">
         <span data-i18n-en="Selected item" data-i18n-zh="当前内容">Selected item</span>
         <strong data-memory-explorer-detail-title${titleAttrs}>${escapeHtml(title)}</strong>
+        <div class="memory-explorer-read-first" data-memory-explorer-read-first>
+          <span data-i18n-en="Read first" data-i18n-zh="先看这个">Read first</span>
+          <div class="memory-explorer-read-first-grid">
+            <article><span data-i18n-en="Status" data-i18n-zh="状态">Status</span><strong data-memory-explorer-summary-state${state ? ` data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}"` : ""}>${state ? escapeHtml(state.en) : ""}</strong></article>
+            <article><span data-i18n-en="Meaning" data-i18n-zh="含义">Meaning</span><strong data-memory-explorer-summary-meaning${nextStep ? ` data-i18n-en="${escapeHtml(nextStep.label)}" data-i18n-zh="${escapeHtml(nextStep.zhLabel)}"` : ""}>${nextStep ? escapeHtml(nextStep.label) : ""}</strong></article>
+            <article><span data-i18n-en="Why saved" data-i18n-zh="为什么保存">Why saved</span><strong data-memory-explorer-summary-why${whySaved ? ` data-i18n-en="${escapeHtml(whySaved.label)}" data-i18n-zh="${escapeHtml(whySaved.zhLabel)}"` : ""}>${whySaved ? escapeHtml(whySaved.label) : ""}</strong></article>
+            <article><span data-i18n-en="Next" data-i18n-zh="下一步">Next</span><strong data-memory-explorer-summary-next${nextStep ? ` data-i18n-en="${escapeHtml(nextStep.label)}" data-i18n-zh="${escapeHtml(nextStep.zhLabel)}"` : ""}>${nextStep ? escapeHtml(nextStep.label) : ""}</strong></article>
+          </div>
+        </div>
         <div class="memory-explorer-full-text" data-memory-explorer-full-text>
           <span data-i18n-en="Full text" data-i18n-zh="全文">Full text</span>
           <p data-memory-explorer-detail-text${textAttrs}>${escapeHtml(text)}</p>
@@ -8150,6 +8159,10 @@ function dashboardStoredContentScript(): string {
           setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-next-step-detail]"), "");
           setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-meaning]"), "");
           setLocalizedDetailText(detail.querySelector("[data-memory-explorer-detail-meaning-detail]"), "");
+          setLocalizedDetailText(detail.querySelector("[data-memory-explorer-summary-state]"), "");
+          setLocalizedDetailText(detail.querySelector("[data-memory-explorer-summary-meaning]"), "");
+          setLocalizedDetailText(detail.querySelector("[data-memory-explorer-summary-why]"), "");
+          setLocalizedDetailText(detail.querySelector("[data-memory-explorer-summary-next]"), "");
           setDetailText("[data-memory-explorer-detail-timeline]", "");
           setDetailText("[data-memory-explorer-detail-recall]", "");
           if (detailGrid instanceof HTMLElement) detailGrid.hidden = true;
@@ -8179,6 +8192,10 @@ function dashboardStoredContentScript(): string {
         const detailNextStepDetail = detail.querySelector("[data-memory-explorer-detail-next-step-detail]");
         const detailMeaning = detail.querySelector("[data-memory-explorer-detail-meaning]");
         const detailMeaningDetail = detail.querySelector("[data-memory-explorer-detail-meaning-detail]");
+        const summaryState = detail.querySelector("[data-memory-explorer-summary-state]");
+        const summaryMeaning = detail.querySelector("[data-memory-explorer-summary-meaning]");
+        const summaryWhy = detail.querySelector("[data-memory-explorer-summary-why]");
+        const summaryNext = detail.querySelector("[data-memory-explorer-summary-next]");
         const detailGrid = detail.querySelector("[data-memory-explorer-detail-grid]");
         const meaning = detail.querySelector("[data-memory-explorer-meaning]");
         const guidance = detail.querySelector("[data-memory-explorer-guidance]");
@@ -8187,6 +8204,10 @@ function dashboardStoredContentScript(): string {
         setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || "", item.dataset.memoryExplorerFullTextZh || item.dataset.memoryExplorerFullText || item.textContent || "");
         setLocalizedDetailText(detailState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || "", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || "");
         const hasGuidance = item.dataset.memoryExplorerHasGuidance !== "false" && (item.dataset.memoryExplorerWhySaved || item.dataset.memoryExplorerNextStep);
+        setLocalizedDetailText(summaryState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || "", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || "");
+        setLocalizedDetailText(summaryMeaning, item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerNextStep || "");
+        setLocalizedDetailText(summaryWhy, item.dataset.memoryExplorerWhySaved || "", item.dataset.memoryExplorerWhySavedZh || item.dataset.memoryExplorerWhySaved || "");
+        setLocalizedDetailText(summaryNext, item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerNextStep || "");
         setLocalizedDetailText(detailWhy, item.dataset.memoryExplorerWhySaved || "", item.dataset.memoryExplorerWhySavedZh || item.dataset.memoryExplorerWhySaved || "");
         setLocalizedDetailText(detailNextStep, item.dataset.memoryExplorerNextStep || "", item.dataset.memoryExplorerNextStepZh || item.dataset.memoryExplorerNextStep || "");
         setLocalizedDetailText(detailNextStepDetail, item.dataset.memoryExplorerNextStepDetail || "", item.dataset.memoryExplorerNextStepDetailZh || item.dataset.memoryExplorerNextStepDetail || "");
@@ -9496,6 +9517,53 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       color: var(--ink-2);
       overflow-wrap: anywhere;
       white-space: pre-wrap;
+    }
+    .memory-explorer-read-first {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+      border: 1px solid rgba(69, 185, 255, 0.24);
+      border-radius: 8px;
+      padding: 10px;
+      background:
+        linear-gradient(135deg, rgba(69, 185, 255, 0.08), rgba(116, 242, 145, 0.026)),
+        rgba(5, 7, 10, 0.54);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    }
+    .memory-explorer-read-first > span {
+      color: var(--signal-blue);
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .memory-explorer-read-first-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }
+    .memory-explorer-read-first-grid article {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      border: 1px solid rgba(112, 129, 149, 0.22);
+      border-radius: 7px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.026);
+    }
+    .memory-explorer-read-first-grid span {
+      color: var(--muted);
+      font-size: 10.5px;
+      font-weight: 820;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .memory-explorer-read-first-grid strong {
+      color: var(--ink);
+      font-size: 12.5px;
+      line-height: 1.25;
+      font-weight: 850;
+      overflow-wrap: anywhere;
     }
     .memory-explorer-full-text {
       display: grid;
