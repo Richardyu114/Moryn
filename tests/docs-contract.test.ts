@@ -561,6 +561,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Capture Inbox group metadata such as Source, Project, Items, and Captured is folded behind `Review context`");
     expectText(dashboard, "The `Capture Inbox` heading uses the stable `Manual approval` status instead of repeating candidate and group counts");
     expectText(dashboard, "Counts stay in `Queue summary`, Pending Decisions, and `/api/dashboard.capture_inbox`");
+    expectText(dashboard, "Capture Inbox visible approval copy, including `Manual approval`, `Queue summary`,");
+    expectText(dashboard, "`Approval brief`, `Review context`, `Item review`, `Trace details`, `Approve Group`,");
+    expectText(dashboard, "`Reject Group`, `Approve Memory`, and `Reject`, carries English and Chinese display");
+    expectText(dashboard, "text so the Chinese dashboard does not leave the approval surface half-translated");
     expectText(dashboard, "Group card faces use `Review N captures` plus `Approve or reject this group.` instead of rendering capture text on the first row");
     expectText(dashboard, "a compact `Review signal` strip with human labels such as `Smoke/test marker` and `Duplicate capture text`");
     expectText(dashboard, "does not add an automatic merge, archive, approve, or background execution path");

@@ -5650,14 +5650,19 @@ function captureInboxAudit(items: DashboardCaptureInbox): string {
 
 function captureInboxDecisionBrief(item: DashboardCaptureInboxItem): string {
   const reason = item.provenance_reason ?? "Candidate memory is waiting for review.";
+  const reasonZh = reason === "Captured through Moryn host adapter autocapture."
+    ? "由 Moryn 主机适配器自动捕获。"
+    : reason === "Candidate memory is waiting for review."
+      ? "候选记忆正在等待查看。"
+      : reason;
   return `
     <div class="capture-inbox-brief" data-capture-inbox-brief>
-      <h4>Approval brief</h4>
+      ${i18nText("Approval brief", "确认摘要", "h4")}
       <dl class="capture-inbox-brief-list" aria-label="Approval brief">
-        <div><dt>Change</dt><dd>Review 1 candidate</dd></div>
-        <div><dt>Scope</dt><dd>${escapeHtml(reason)}</dd></div>
-        <div><dt>Guard</dt><dd>Server rechecks active candidate before writing</dd></div>
-        <div><dt>Writes</dt><dd>Approve appends memory; Reject appends archive</dd></div>
+        <div>${i18nText("Change", "变化", "dt")}<dd ${i18nAttribute("Review 1 candidate", "查看 1 条候选内容")}>Review 1 candidate</dd></div>
+        <div>${i18nText("Scope", "范围", "dt")}<dd ${i18nAttribute(reason, reasonZh)}>${escapeHtml(reason)}</dd></div>
+        <div>${i18nText("Guard", "保护", "dt")}<dd ${i18nAttribute("Server rechecks active candidate before writing", "写入前服务器会重新检查当前候选内容")}>Server rechecks active candidate before writing</dd></div>
+        <div>${i18nText("Writes", "写入", "dt")}<dd ${i18nAttribute("Approve appends memory; Reject appends archive", "批准会追加记忆；拒绝会追加归档")}>Approve appends memory; Reject appends archive</dd></div>
       </dl>
     </div>
   `;
@@ -5665,14 +5670,17 @@ function captureInboxDecisionBrief(item: DashboardCaptureInboxItem): string {
 
 function captureInboxGroupBrief(group: DashboardCaptureInboxGroup): string {
   const scope = group.noise.level === "likely_noise" ? "Likely noise" : "Normal review";
+  const scopeZh = group.noise.level === "likely_noise" ? "可能是噪音" : "正常查看";
+  const change = `Review ${pluralize(group.total, "candidate")}`;
+  const changeZh = `查看 ${group.total} 条候选内容`;
   return `
     <div class="capture-inbox-brief" data-capture-inbox-group-brief>
-      <h4>Approval brief</h4>
+      ${i18nText("Approval brief", "确认摘要", "h4")}
       <dl class="capture-inbox-brief-list" aria-label="Approval brief">
-        <div><dt>Change</dt><dd>${escapeHtml(`Review ${pluralize(group.total, "candidate")}`)}</dd></div>
-        <div><dt>Scope</dt><dd>${escapeHtml(scope)}</dd></div>
-        <div><dt>Guard</dt><dd>Server rechecks selected group records before writing</dd></div>
-        <div><dt>Writes</dt><dd>Approve Group appends memory; Reject Group appends archive</dd></div>
+        <div>${i18nText("Change", "变化", "dt")}<dd ${i18nAttribute(change, changeZh)}>${escapeHtml(change)}</dd></div>
+        <div>${i18nText("Scope", "范围", "dt")}<dd ${i18nAttribute(scope, scopeZh)}>${escapeHtml(scope)}</dd></div>
+        <div>${i18nText("Guard", "保护", "dt")}<dd ${i18nAttribute("Server rechecks selected group records before writing", "写入前服务器会重新检查所选分组记录")}>Server rechecks selected group records before writing</dd></div>
+        <div>${i18nText("Writes", "写入", "dt")}<dd ${i18nAttribute("Approve Group appends memory; Reject Group appends archive", "批准分组会追加记忆；拒绝分组会追加归档")}>Approve Group appends memory; Reject Group appends archive</dd></div>
       </dl>
     </div>
   `;
@@ -5688,7 +5696,7 @@ function captureInboxGroupReviewSignal(group: DashboardCaptureInboxGroup): strin
   const reasons = group.noise.reasons.length ? group.noise.reasons.join(" ") : "Noise signals detected before approval.";
   return `
             <div class="capture-inbox-review-signal" data-capture-inbox-review-signal>
-              <strong>Review signal</strong>
+              ${i18nText("Review signal", "查看信号", "strong")}
               <div>${ruleLabels}</div>
               <small>${escapeHtml(reasons)}</small>
             </div>`;
@@ -5698,23 +5706,33 @@ function captureInboxGroupFaceTitle(group: DashboardCaptureInboxGroup): string {
   return `Review ${pluralize(group.total, "capture")}`;
 }
 
+function captureInboxGroupFaceTitleZh(group: DashboardCaptureInboxGroup): string {
+  return `查看 ${group.total} 条捕获内容`;
+}
+
 function captureInboxGroupFaceHint(group: DashboardCaptureInboxGroup): string {
   return group.noise.level === "likely_noise" ? "Archive likely noise or inspect items." : "Approve or reject this group.";
+}
+
+function captureInboxGroupFaceHintZh(group: DashboardCaptureInboxGroup): string {
+  return group.noise.level === "likely_noise" ? "把可能的噪音归档，或先查看内容。" : "批准或拒绝这个分组。";
 }
 
 function captureInboxQueueSummary(items: DashboardCaptureInbox): string {
   const likelyNoise = items.items.filter((item) => item.noise.level === "likely_noise").length;
   const normalReview = Math.max(0, items.total - likelyNoise);
+  const queueSummary = `${pluralize(items.total, "candidate")} grouped into ${pluralize(items.group_total, "review group")}.`;
+  const queueSummaryZh = `${items.total} 条候选内容分成 ${items.group_total} 个查看分组。`;
   return `
       <div class="capture-inbox-queue-summary" data-capture-inbox-queue-summary>
         <div>
-          <h3>Queue summary</h3>
-          <p>${escapeHtml(pluralize(items.total, "candidate"))} grouped into ${escapeHtml(pluralize(items.group_total, "review group"))}.</p>
-          <p>Review groups first; open item details only when needed. Canonical memory still requires approval.</p>
+          ${i18nText("Queue summary", "队列摘要", "h3")}
+          <p ${i18nAttribute(queueSummary, queueSummaryZh)}>${escapeHtml(queueSummary)}</p>
+          <p ${i18nAttribute("Review groups first; open item details only when needed. Canonical memory still requires approval.", "先按分组查看；只有需要时再打开逐条详情。成为长期记忆仍需要确认。")}>Review groups first; open item details only when needed. Canonical memory still requires approval.</p>
         </div>
         <div class="capture-inbox-queue-chips" aria-label="Capture Inbox queue counts">
-          <span>${escapeHtml(normalReview)} normal review</span>
-          <span>${escapeHtml(likelyNoise)} likely noise</span>
+          <span ${i18nAttribute(`${normalReview} normal review`, `${normalReview} 条正常查看`)}>${escapeHtml(normalReview)} normal review</span>
+          <span ${i18nAttribute(`${likelyNoise} likely noise`, `${likelyNoise} 条可能是噪音`)}>${escapeHtml(likelyNoise)} likely noise</span>
         </div>
       </div>
   `;
@@ -5725,26 +5743,30 @@ function captureInbox(items: DashboardCaptureInbox): string {
   return `
     <section id="capture-inbox" class="panel capture-inbox" aria-label="Capture Inbox">
       <div class="capture-inbox-heading">
-        <h2>Capture Inbox</h2>
-        <span>Manual approval</span>
+        ${i18nText("Capture Inbox", "捕获收件箱", "h2")}
+        ${i18nText("Manual approval", "手动确认")}
       </div>
       ${items.total > 0 ? captureInboxQueueSummary(items) : ""}
       <div class="capture-inbox-list">
         ${items.groups.map((group) => {
           const groupItems = items.items.filter((item) => item.group_id === group.id);
+          const faceTitle = captureInboxGroupFaceTitle(group);
+          const faceHint = captureInboxGroupFaceHint(group);
+          const facePill = group.noise.level === "likely_noise" ? "Likely noise" : "candidate";
+          const facePillZh = group.noise.level === "likely_noise" ? "可能是噪音" : "候选内容";
           return `
           <article class="capture-inbox-group" data-capture-inbox-group="${escapeHtml(group.id)}">
             <div class="capture-inbox-main">
               <div>
-                <h3>${escapeHtml(captureInboxGroupFaceTitle(group))}</h3>
-                <p>${escapeHtml(captureInboxGroupFaceHint(group))}</p>
+                <h3 ${i18nAttribute(faceTitle, captureInboxGroupFaceTitleZh(group))}>${escapeHtml(faceTitle)}</h3>
+                <p ${i18nAttribute(faceHint, captureInboxGroupFaceHintZh(group))}>${escapeHtml(faceHint)}</p>
               </div>
-              <span class="pill ${group.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(group.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
+              <span class="pill ${group.noise.level === "likely_noise" ? "warning" : "state-candidate"}" ${i18nAttribute(facePill, facePillZh)}>${escapeHtml(facePill)}</span>
             </div>
             ${captureInboxGroupBrief(group)}
             ${captureInboxGroupReviewSignal(group)}
             <details class="capture-inbox-context" data-dashboard-detail="capture-inbox-context:${escapeHtml(group.id)}">
-              <summary>Review context</summary>
+              ${i18nText("Review context", "查看上下文", "summary")}
               <dl class="capture-inbox-summary" data-capture-inbox-group-summary>
                 <div><dt>Source</dt><dd>${escapeHtml(group.source_label)}<small>${escapeHtml(group.source_detail)}</small></dd></div>
                 <div><dt>Project</dt><dd><code>${escapeHtml(group.project_id ?? "global")}</code></dd></div>
@@ -5753,9 +5775,9 @@ function captureInbox(items: DashboardCaptureInbox): string {
               </dl>
             </details>
             <details class="capture-inbox-item-review" data-dashboard-detail="capture-group:${escapeHtml(group.id)}">
-              <summary>Item review</summary>
+              ${i18nText("Item review", "逐条查看", "summary")}
               <details class="capture-inbox-evidence-index" data-dashboard-detail="capture-inbox-evidence-index:${escapeHtml(group.id)}">
-                <summary>Trace details</summary>
+                ${i18nText("Trace details", "追踪详情", "summary")}
                 <dl>
                   <div><dt>Group</dt><dd><code>${escapeHtml(group.id)}</code></dd></div>
                   <div><dt>Records</dt><dd>${group.record_ids.map((recordId) => `<code>${escapeHtml(recordId)}</code>`).join(" ")}</dd></div>
@@ -5773,11 +5795,11 @@ function captureInbox(items: DashboardCaptureInbox): string {
                       </span>
                       <span class="capture-inbox-item-meta">
                         <span>${escapeHtml(item.relative_time)}</span>
-                        <span>${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
+                        <span ${i18nAttribute(item.noise.level === "likely_noise" ? "Likely noise" : "candidate", item.noise.level === "likely_noise" ? "可能是噪音" : "候选内容")}>${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
                       </span>
                     </summary>
                     <div class="capture-inbox-item-body">
-                      <span class="pill ${item.noise.level === "likely_noise" ? "warning" : "state-candidate"}">${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
+                      <span class="pill ${item.noise.level === "likely_noise" ? "warning" : "state-candidate"}" ${i18nAttribute(item.noise.level === "likely_noise" ? "Likely noise" : "candidate", item.noise.level === "likely_noise" ? "可能是噪音" : "候选内容")}>${escapeHtml(item.noise.level === "likely_noise" ? "Likely noise" : "candidate")}</span>
                       ${captureInboxDecisionBrief(item)}
                       <dl class="capture-inbox-summary">
                         <div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}<small>${escapeHtml(item.priority)} priority</small></dd></div>
@@ -5791,6 +5813,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
                           data-capture-inbox-reject
                           data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("reject", item.id))}"
                           data-endpoint="${escapeHtml(item.reject_endpoint)}"
+                          ${i18nAttribute("Reject", "拒绝")}
                         >Reject</button>
                         <button
                           type="button"
@@ -5798,6 +5821,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
                           data-capture-inbox-approve
                           data-dashboard-action-id="${escapeHtml(captureInboxRecordActionId("approve", item.id))}"
                           data-endpoint="${escapeHtml(item.approve_endpoint)}"
+                          ${i18nAttribute("Approve Memory", "批准为记忆")}
                         >Approve Memory</button>
                       </div>
                       <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
@@ -5813,6 +5837,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
                 data-dashboard-action-id="${escapeHtml(captureInboxGroupActionId("reject", group.id))}"
                 data-endpoint="${escapeHtml(group.reject_endpoint)}"
                 data-record-ids="${escapeHtml(group.record_ids.join(","))}"
+                ${i18nAttribute("Reject Group", "拒绝分组")}
               >Reject Group</button>
               <button
                 type="button"
@@ -5821,6 +5846,7 @@ function captureInbox(items: DashboardCaptureInbox): string {
                 data-dashboard-action-id="${escapeHtml(captureInboxGroupActionId("approve", group.id))}"
                 data-endpoint="${escapeHtml(group.approve_endpoint)}"
                 data-record-ids="${escapeHtml(group.record_ids.join(","))}"
+                ${i18nAttribute("Approve Group", "批准分组")}
               >Approve Group</button>
             </div>
             <p class="capture-inbox-status" data-capture-inbox-status role="status" aria-live="polite"></p>
