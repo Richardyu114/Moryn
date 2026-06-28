@@ -335,8 +335,10 @@ describe("observability dashboard", () => {
       ]));
       expect(html).toContain("<span data-i18n-en=\"Background checks\" data-i18n-zh=\"后台检查\">Background checks</span>");
       expect(html).toContain("<small data-i18n-en=\"Routine checks\" data-i18n-zh=\"日常检查\">Routine checks</small>");
-      expect(html).toContain("<strong data-i18n-en=\"Quarantined records superseded\" data-i18n-zh=\"隔离内容已有安全替代\">Quarantined records superseded</strong>");
-      expect(html).toContain("<p data-i18n-en=\"1 quarantined record(s) have active safe replacement index records.\" data-i18n-zh=\"1 条隔离内容已有安全替代版本。\">1 quarantined record(s) have active safe replacement index records.</p>");
+      expect(html).toContain("<strong data-i18n-en=\"Paused content has a safe replacement\" data-i18n-zh=\"暂停内容已有安全替代\">Paused content has a safe replacement</strong>");
+      expect(html).toContain("<p data-i18n-en=\"1 paused item(s) already have a safe replacement.\" data-i18n-zh=\"1 条暂停内容已有安全替代版本。\">1 paused item(s) already have a safe replacement.</p>");
+      expect(html).not.toContain("<strong data-i18n-en=\"Quarantined records superseded\"");
+      expect(html).not.toContain("quarantined record(s)");
       expect(html).toContain("<strong data-i18n-en=\"Session notes not remembered\" data-i18n-zh=\"会话笔记未记住\">Session notes not remembered</strong>");
       expect(html).toContain("<p data-i18n-en=\"1 session note(s) are searchable for context but not treated as long-term memory.\" data-i18n-zh=\"1 条会话笔记可作为上下文搜索，但不会被当作长期记忆。\">1 session note(s) are searchable for context but not treated as long-term memory.</p>");
       expect(html).toContain("<strong data-i18n-en=\"Many items to organize\" data-i18n-zh=\"较多内容待整理\">Many items to organize</strong>");
@@ -4518,6 +4520,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span class=\"attention-next-action\" data-attention-next-action>Review warnings</span>");
       expect(html).not.toContain("<em>Next: Review warnings</em>");
       expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Quarantined records hidden\">");
+      expect(html).toContain("<strong data-i18n-en=\"Some saved content is paused\" data-i18n-zh=\"部分保存内容已暂停使用\">Some saved content is paused</strong>");
+      expect(html).toContain("<p data-i18n-en=\"1 saved item(s) are paused because they may contain sensitive or unsafe content.\" data-i18n-zh=\"1 条保存内容已暂停使用，因为它们可能包含敏感或不安全内容。\">1 saved item(s) are paused because they may contain sensitive or unsafe content.</p>");
+      expect(html).not.toContain("<strong data-i18n-en=\"Quarantined records hidden\"");
       expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
       expect(html).toContain("<span data-i18n-en=\"Background checks\" data-i18n-zh=\"后台检查\">Background checks</span>");
       expect(html).toContain("<small data-i18n-en=\"Routine checks\" data-i18n-zh=\"日常检查\">Routine checks</small>");

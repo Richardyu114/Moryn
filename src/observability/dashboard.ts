@@ -4128,9 +4128,9 @@ function healthClass(status: DashboardHealthStatus): string {
 }
 
 function attentionItem(item: DashboardAttentionItem): string {
-  const title = item.title;
+  const title = attentionDisplayTitle(item.title);
   const severity = titleCase(item.severity);
-  const description = item.description;
+  const description = attentionDisplayDescription(item.description);
   return `
     <details class="attention ${escapeHtml(item.severity)}" data-dashboard-detail="attention:${escapeHtml(item.title)}">
       <summary class="attention-summary">
@@ -4145,6 +4145,20 @@ function attentionItem(item: DashboardAttentionItem): string {
   `;
 }
 
+function attentionDisplayTitle(title: string): string {
+  if (title === "Quarantined records hidden") return "Some saved content is paused";
+  if (title === "Quarantined records superseded") return "Paused content has a safe replacement";
+  return title;
+}
+
+function attentionDisplayDescription(description: string): string {
+  const hiddenMatch = description.match(/^(\d+) record\(s\) are hidden because they may contain sensitive or unsafe content\.$/);
+  if (hiddenMatch) return `${hiddenMatch[1]} saved item(s) are paused because they may contain sensitive or unsafe content.`;
+  const supersededMatch = description.match(/^(\d+) quarantined record\(s\) have active safe replacement index records\.$/);
+  if (supersededMatch) return `${supersededMatch[1]} paused item(s) already have a safe replacement.`;
+  return description;
+}
+
 function attentionSeverityZh(severity: DashboardAttentionSeverity): string {
   if (severity === "critical") return "严重";
   if (severity === "warning") return "提醒";
@@ -4156,8 +4170,8 @@ function attentionTitleZh(title: string): string {
   if (title === "Sync conflict") return "共享副本有冲突";
   if (title === "Sync changes not pushed") return "本机改动还没上传";
   if (title === "Remote position changed") return "共享副本位置已变化";
-  if (title === "Quarantined records hidden") return "部分内容已暂不使用";
-  if (title === "Quarantined records superseded") return "隔离内容已有安全替代";
+  if (title === "Some saved content is paused") return "部分保存内容已暂停使用";
+  if (title === "Paused content has a safe replacement") return "暂停内容已有安全替代";
   if (title === "Temporary notes waiting") return "临时笔记待整理";
   if (title === "Many recently saved items") return "较多最近保存内容";
   if (title === "Session notes not remembered") return "会话笔记未记住";
@@ -4177,10 +4191,10 @@ function attentionDescriptionZh(description: string): string {
   }
   const remoteMatch = description.match(/^This store is (\d+) commit\(s\) ahead and (\d+) commit\(s\) behind the configured remote\.$/);
   if (remoteMatch) return `这份记忆比共享副本超前 ${remoteMatch[1]} 次提交、落后 ${remoteMatch[2]} 次提交。`;
-  const hiddenMatch = description.match(/^(\d+) record\(s\) are hidden because they may contain sensitive or unsafe content\.$/);
-  if (hiddenMatch) return `${hiddenMatch[1]} 条内容可能包含敏感或不安全信息，已暂不使用。`;
-  const supersededMatch = description.match(/^(\d+) quarantined record\(s\) have active safe replacement index records\.$/);
-  if (supersededMatch) return `${supersededMatch[1]} 条隔离内容已有安全替代版本。`;
+  const hiddenMatch = description.match(/^(\d+) saved item\(s\) are paused because they may contain sensitive or unsafe content\.$/);
+  if (hiddenMatch) return `${hiddenMatch[1]} 条保存内容已暂停使用，因为它们可能包含敏感或不安全内容。`;
+  const supersededMatch = description.match(/^(\d+) paused item\(s\) already have a safe replacement\.$/);
+  if (supersededMatch) return `${supersededMatch[1]} 条暂停内容已有安全替代版本。`;
   const rawMatch = description.match(/^(\d+) temporary note\(s\) are preserved but excluded from normal recall\.$/);
   if (rawMatch) return `${rawMatch[1]} 条临时内容已保留，但不会被当作长期记忆使用。`;
   const sessionNoteMatch = description.match(/^(\d+) session note\(s\) are searchable for context but not treated as long-term memory\.$/);
@@ -7699,7 +7713,8 @@ function dashboardLanguageScript(): string {
         ["Info", "信息"],
         ["Warning", "警告"],
         ["Critical", "严重"],
-        ["Quarantined records superseded", "隔离内容已有安全替代"],
+        ["Some saved content is paused", "部分保存内容已暂停使用"],
+        ["Paused content has a safe replacement", "暂停内容已有安全替代"],
         ["Temporary notes waiting", "临时笔记待整理"],
         ["Many recently saved items", "较多最近保存内容"],
         ["Session notes not remembered", "会话笔记未记住"],

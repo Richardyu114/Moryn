@@ -109,6 +109,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Older internal labels such as `Info Checks`, `Routine");
     expectText(dashboard, "status checks`, `Info Details`, `Raw records waiting for review`, and `Many");
     expectText(dashboard, "candidate records` should not appear as visible dashboard copy");
+    expectText(dashboard, "Safety wording uses plain visible copy such as `Some saved content is paused`");
+    expectText(dashboard, "`Paused content has a safe replacement`");
+    expectText(dashboard, "`Quarantined records hidden` and `Quarantined records superseded` stay only in");
+    expectText(dashboard, "stable routes, API fields, or audit evidence");
     expectText(dashboard, "Memory Search controls, query shortcut");
     expectText(dashboard, "chips, and result-count feedback also follow the language toggle");
     expectText(dashboard, "Clicking a Memory Search result-mix chip applies that status or event filter");

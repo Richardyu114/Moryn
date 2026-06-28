@@ -642,6 +642,10 @@ Store`, while preserving literal API routes and source ids. Older internal label
 status checks`, `Info Details`, `Raw records waiting for review`, and `Many
 candidate records` should not appear as visible dashboard copy. Memory Search
 controls, query shortcut chips, and result-count feedback also follow the language toggle.
+Safety wording uses plain visible copy such as `Some saved content is paused`
+and `Paused content has a safe replacement`; internal phrases such as
+`Quarantined records hidden` and `Quarantined records superseded` stay only in
+stable routes, API fields, or audit evidence.
 Clicking a Memory Search result-mix chip applies that status or event filter
 while keeping the search local and read-only. Memory Search
 result type labels, event target labels, and memory-state metadata follow the
