@@ -887,8 +887,8 @@ When `Pending Decisions` is rendered, Work Lanes keep the active decision lane
 visible and skip `Other paths` and `dashboard-work-lanes-background` in the
 HTML; the same routes remain available through `/api/dashboard.action_board`,
 `Page Shortcuts`, and the underlying panels.
-Sync-only pending warnings do not open the `Action Signals` / Needs Attention
-review path. The warning remains in `/api/dashboard.attention_items` for agents,
+Sync-only pending warnings do not open the visible `Needs a look` review path.
+The warning remains in `/api/dashboard.attention_items` for agents,
 while the visible HTML routes the user through `Inspect sync`, Shared copy details,
 and the Sync shortcut. When sync is the only active warning, Work Lanes are
 skipped in the visible HTML so the Overview action lands directly on the
@@ -985,19 +985,19 @@ reason behind each navigation target. When `items[].hint` repeats the visible
 next-action label, the card shows that phrase once as the action chip instead of
 rendering duplicate footer text.
 
-When warning or critical action signals exist, the `needs-attention` scroll
-target renders as `Action Signals`. `Action Signals` opens with `Warnings and
-critical checks`, then shows a compact focus strip; the section preserves
+When warning or critical checks exist, the `needs-attention` scroll target
+renders as `Needs a look`. `Needs a look` opens with `Warnings and important
+checks`, then shows a compact focus strip; the section preserves
 `id="needs-attention"` and `data-dashboard-detail="needs-attention"` so existing
 overview, Work Lane, and Page Shortcuts routes keep working. The strip
-counts action signals, non-zero warning checks, and non-zero informational
+counts things to check, non-zero warning checks, and non-zero informational
 checks, then shows the next review step as a dedicated action chip. Warning and
 critical items remain directly visible. Informational checks are grouped under a
 collapsed `Background checks` summary so routine status signals remain inspectable
 without competing with action-oriented warnings. The collapsed `Background checks`
 detail opens with `Routine checks` so the row explains its purpose
 instead of repeating the focus-strip count. When there are no warning or
-critical action signals but the Overview is not all-clear, the same scroll
+critical checks but the Overview is not all-clear, the same scroll
 target renders as a quiet `needs-attention-quiet-line` anchor. It contains only
 the collapsed `Background checks` detail and does not render the focus strip or a
 separate quiet summary. Quiet `Background checks` opens first to a nested `Check

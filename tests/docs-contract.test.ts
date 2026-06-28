@@ -393,10 +393,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");
     expectText(dashboard, "`Background checks` detail opens with `Routine checks`");
     expectText(dashboard, "instead of repeating the focus-strip count");
-    expectText(dashboard, "When warning or critical action signals exist, the `needs-attention` scroll target renders as `Action Signals`");
-    expectText(dashboard, "`Action Signals` opens with `Warnings and critical checks`");
+    expectText(dashboard, "When warning or critical checks exist, the `needs-attention` scroll target");
+    expectText(dashboard, "renders as `Needs a look`");
+    expectText(dashboard, "`Needs a look` opens with `Warnings and important checks`");
+    expectText(dashboard, "counts things to check");
     expectText(dashboard, "the section preserves `id=\"needs-attention\"` and `data-dashboard-detail=\"needs-attention\"`");
-    expectText(dashboard, "When there are no warning or critical action signals but the Overview is not all-clear");
+    expectText(dashboard, "When there are no warning or critical checks but the Overview is not all-clear");
     expectText(dashboard, "the same scroll target renders as a quiet `needs-attention-quiet-line` anchor");
     expectText(dashboard, "It contains only the collapsed `Background checks` detail");
     expectText(dashboard, "Quiet `Background checks` opens first to a nested `Check details` fold");
@@ -543,7 +545,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "append-only approve/reject boundary visible before trace details");
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
     expectText(dashboard, "visible first-screen copy refers to the remote as the `Shared copy`");
-    expectText(dashboard, "Sync-only pending warnings do not open the `Action Signals` / Needs Attention review path");
+    expectText(dashboard, "Sync-only pending warnings do not open the visible `Needs a look` review path");
     expectText(dashboard, "When sync is the only active warning, Work Lanes are skipped in the visible HTML so the Overview action lands directly on the promoted Shared copy details current-task section");
     expectText(dashboard, "The same sync route remains in `/api/dashboard.action_board.items_by_id.sync`");
     expectText(dashboard, "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open info checks`");

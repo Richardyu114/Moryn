@@ -4216,9 +4216,8 @@ function attentionFocusNextAction(items: DashboardAttentionItem[]): string {
   const reviewItems = items.filter(isReviewAttentionItem);
   const critical = reviewItems.filter((item) => item.severity === "critical").length;
   const warning = reviewItems.filter((item) => item.severity === "warning").length;
-  const reviewCopy = reviewActionCopy(items);
-  if (critical > 0) return "Review criticals";
-  if (warning > 0) return reviewCopy.next_action_label;
+  if (critical > 0) return "Review what changed";
+  if (warning > 0) return "Review what changed";
   return "Inspect checks";
 }
 
@@ -4236,11 +4235,13 @@ function attentionFocus(items: DashboardAttentionItem[]): string {
   ].filter((chip) => chip.count > 0);
   const chipLabel = (chip: { severity: DashboardAttentionItem["severity"]; count: number }) =>
     chip.severity === "info" ? pluralize(chip.count, "info check") : pluralize(chip.count, chip.severity);
+  const focusLabel = actionSignals === 1 ? "thing to check" : "things to check";
+  const nextZh = next === "Review what changed" ? "查看变化" : "查看检查";
   return `
-    <div class="attention-focus" aria-label="Action Signals focus">
-      <span><strong>${escapeHtml(actionSignals)}</strong> ${escapeHtml(actionSignals === 1 ? "action signal" : "action signals")}</span>
+    <div class="attention-focus" aria-label="Needs a look summary">
+      <span data-attention-focus-count><strong>${escapeHtml(actionSignals)}</strong> ${escapeHtml(focusLabel)}</span>
       ${chips.map((chip) => `<span class="attention-focus-count ${escapeHtml(chip.severity)}">${escapeHtml(chipLabel(chip))}</span>`).join("")}
-      <span class="attention-next-action" data-attention-next-action>${escapeHtml(next)}</span>
+      <span class="attention-next-action" data-attention-next-action ${i18nAttribute(next, nextZh)}>${escapeHtml(next)}</span>
     </div>
   `;
 }
@@ -4299,8 +4300,8 @@ function needsAttentionPanel(items: DashboardAttentionItem[]): string {
   return `
     <section id="needs-attention" class="panel action-signals" data-dashboard-section="needs-attention" data-dashboard-detail="needs-attention">
       <div class="action-signals-heading">
-        <h2>Action Signals</h2>
-        <small>Warnings and critical checks</small>
+        <h2 data-i18n-en="Needs a look" data-i18n-zh="需要看一下">Needs a look</h2>
+        <small data-i18n-en="Warnings and important checks" data-i18n-zh="提醒和重要检查">Warnings and important checks</small>
       </div>
       ${attentionItems(items)}
     </section>
@@ -7710,6 +7711,9 @@ function dashboardLanguageScript(): string {
         ["Background checks", "后台检查"],
         ["Check details", "检查详情"],
         ["Routine checks", "日常检查"],
+        ["Needs a look", "需要看一下"],
+        ["Warnings and important checks", "提醒和重要检查"],
+        ["Review what changed", "查看变化"],
         ["Info", "信息"],
         ["Warning", "警告"],
         ["Critical", "严重"],
