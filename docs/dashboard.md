@@ -770,8 +770,8 @@ newest-first list remains in `/api/dashboard.recent_value[]`.
 Each saved-content card now carries three read-only explanation cards before
 the detail pane: why it was saved, current status, and next step. The why-saved
 line uses the stored provenance reason when available, then falls back to clear
-source/state wording. Next-step values remain `Ready to use`, `Can be
-organized`, `Keep for context`, or `Set aside`, and the card exposes only `Open
+source/state wording. Next-step values remain `Ready to use`, `Organize later
+if useful`, `Keep for context`, or `Set aside`, and the card exposes only `Open
 details`; remember, dismiss, archive, or approval writes appear only beside the
 real confirmation rows that already have server endpoints.
 

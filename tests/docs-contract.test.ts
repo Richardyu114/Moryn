@@ -264,8 +264,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "why it was saved, current status, and next step");
     expectText(dashboard, "The why-saved");
     expectText(dashboard, "line uses the stored provenance reason when available");
-    expectText(dashboard, "Next-step values remain `Ready to use`, `Can be");
-    expectText(dashboard, "organized`, `Keep for context`, or `Set aside`");
+    expectText(dashboard, "Next-step values remain `Ready to use`, `Organize later");
+    expectText(dashboard, "if useful`, `Keep for context`, or `Set aside`");
     expectText(dashboard, "exposes only `Open details`");
     expectText(dashboard, "remember,");
     expectText(dashboard, "dismiss, archive, or approval writes appear only beside the real confirmation");

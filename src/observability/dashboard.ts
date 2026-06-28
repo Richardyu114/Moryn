@@ -7263,10 +7263,10 @@ function storedContentNextStep(item: DashboardValueRecord): { label: string; zhL
   }
   if (item.state === "candidate") {
     return {
-      label: "Can be organized",
-      zhLabel: "可以整理",
-      detail: "Open details first. If this can change memory, Moryn will show real confirm buttons nearby.",
-      zhDetail: "先打开详情；如果这条可以改变记忆，Moryn 会在附近显示真正的确认按钮。"
+      label: "Organize later if useful",
+      zhLabel: "需要时再整理",
+      detail: "Already saved and searchable. Organize it only if it should become long-term memory.",
+      zhDetail: "已保存并可搜索；只有需要成为长期记忆时再整理。"
     };
   }
   if (item.state === "raw") {
