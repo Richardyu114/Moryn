@@ -155,6 +155,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "users can read the answer without interpreting raw counts");
     expectText(dashboard, "the action card says whether confirmation is waiting");
     expectText(dashboard, "the memory card summarizes");
+    expectText(dashboard, "ready-to-use versus searchable content");
     expectText(dashboard, "the recent card shows the latest");
     expectText(dashboard, "saved-content time and source");
     expectText(dashboard, "the sync card says whether the");

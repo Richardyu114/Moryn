@@ -753,7 +753,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"Saved items are searchable; no confirmation is waiting.\" data-i18n-zh=\"内容已保存可搜索；没有等待确认的操作。\">Saved items are searchable; no confirmation is waiting.</p>");
       expect(html).toContain("<button type=\"button\" class=\"answer-card memory\" data-dashboard-priority=\"memory\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-memory-explorer-stored-filter=\"all\" data-memory-explorer-state-filter=\"all\" data-memory-explorer-focus-search=\"true\">");
       expect(html).toContain("<span data-i18n-en=\"What is stored?\" data-i18n-zh=\"存了什么？\">What is stored?</span>");
-      expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"1 ready to use · 2 saved for later\" data-i18n-zh=\"1 条可直接使用 · 2 条稍后整理\">1 ready to use · 2 saved for later</p>");
+      expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"1 ready to use · 2 searchable\" data-i18n-zh=\"1 条可直接使用 · 2 条可搜索\">1 ready to use · 2 searchable</p>");
       expect(html).toContain("<div class=\"answer-memory-mix\" data-answer-memory-mix aria-label=\"Stored content mix\">");
       expect(html).toContain("<span class=\"answer-memory-segment memory-state-remembered\" style=\"width: 33%\" title=\"Ready to use 1\"></span>");
       expect(html).toContain("<span class=\"answer-memory-segment memory-state-to-organize\" style=\"width: 33%\" title=\"Saved, not organized 1\"></span>");

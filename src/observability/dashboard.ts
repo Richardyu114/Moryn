@@ -6616,12 +6616,12 @@ function memoryAnswerConclusion(inventory: DashboardMemoryInventory): { en: stri
   const history = inventory.summary.set_aside;
   const enParts = [
     ready > 0 ? `${ready} ready to use` : "",
-    later > 0 ? `${later} saved for later` : "",
+    later > 0 ? `${later} searchable` : "",
     history > 0 ? `${history} kept for history` : ""
   ].filter(Boolean);
   const zhParts = [
     ready > 0 ? `${ready} 条可直接使用` : "",
-    later > 0 ? `${later} 条稍后整理` : "",
+    later > 0 ? `${later} 条可搜索` : "",
     history > 0 ? `${history} 条历史留存` : ""
   ].filter(Boolean);
   return {

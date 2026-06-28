@@ -682,7 +682,7 @@ confirm button.
 change, and sync in four larger cards. Each answer card includes a short conclusion sentence before
 its navigation hint, so users can read the answer without interpreting raw counts:
 the action card says whether confirmation is waiting, the memory card summarizes
-ready-to-use versus saved-for-later content, the recent card shows the latest
+ready-to-use versus searchable content, the recent card shows the latest
 saved-content time and source, and the sync card says whether the shared copy is
 current on this device. Those answer cards reuse the dashboard's
 local navigation: the action card opens the current next step, the memory card
