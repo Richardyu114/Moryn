@@ -618,9 +618,9 @@ Chinese; the browser remembers the choice in `moryn.dashboard.language`.
 The same language switch also covers legacy diagnostic labels inside
 `Background checks` and compact `Technical details`. Memory Search controls and
 result-count feedback also follow the language toggle. Memory Search result type
-labels and memory-state metadata follow the language toggle. Source names and
-timestamps stay literal; saved memory text and event evidence stay in their
-original wording.
+labels, event target labels, and memory-state metadata follow the language
+toggle. Source names, timestamps, event operation names, and record ids stay
+literal; saved memory text and event evidence stay in their original wording.
 
 The first screen is arranged around three plain questions:
 

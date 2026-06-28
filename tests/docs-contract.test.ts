@@ -100,7 +100,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "moryn.dashboard.language");
     expectText(dashboard, "covers legacy diagnostic labels inside `Background checks` and compact `Technical details`");
     expectText(dashboard, "Memory Search controls and result-count feedback also follow the language toggle");
-    expectText(dashboard, "Memory Search result type labels and memory-state metadata follow the language toggle");
+    expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
+    expectText(dashboard, "event operation names, and record ids stay literal");
     expectText(dashboard, "saved memory text and event evidence stay in their original wording");
     expectText(dashboard, "black high-contrast surface");
     expectText(dashboard, "visible status colors and chart cards before any evidence folds");

@@ -989,6 +989,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-memory-search-state=\"event\"");
       expect(html).toContain("data-memory-search-source=\"Codex\"");
       expect(html).toContain("<span data-i18n-en=\"Event\" data-i18n-zh=\"事件\">Event</span>");
+      expect(html).toContain("<p><span data-i18n-en=\"Record\" data-i18n-zh=\"记录\">Record</span> <code>rec_memory_search_1</code></p>");
       expect(html).toContain("data-memory-search-text=");
       expect(html).toContain("writeStoredContentState({ searchQuery: query, searchOpen: true });");
       expect(html).toContain("selectedItemId: null");

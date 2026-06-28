@@ -6363,6 +6363,9 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
 
 function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: string): string {
   const source = humanSourceLabel(event.source);
+  const eventTarget = event.record_id
+    ? `<span ${i18nAttribute("Record", "记录")}>Record</span> <code>${escapeHtml(event.record_id)}</code>`
+    : i18nText("Store-level event", "全局事件", "span");
   const searchText = memorySearchText([
     "event",
     event.event_id,
@@ -6374,7 +6377,7 @@ function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: strin
           <article class="memory-search-result event" data-memory-search-entry="event:${escapeHtml(event.event_id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="event" data-memory-search-source="${escapeHtml(source)}">
             <span ${i18nAttribute("Event", "事件")}>Event</span>
             <strong>${escapeHtml(event.op)}</strong>
-            <p>${event.record_id ? `Record <code>${escapeHtml(event.record_id)}</code>` : "Store-level event"}</p>
+            <p>${eventTarget}</p>
             <small>${escapeHtml(`${source} | ${relativeTime(event.created_at, generatedAt)}`)}</small>
           </article>
   `;
