@@ -6948,7 +6948,7 @@ function memorySearchMixItem(state: MorynRecord["state"] | "event", count: numbe
   })();
   const en = `${count} ${count === 1 ? label.en : label.pluralEn}`;
   const zh = `${count} 条${label.zh}`;
-  return `<span data-memory-search-mix-item="${escapeHtml(state)}" data-i18n-singular-en="${escapeHtml(label.en)}" data-i18n-plural-en="${escapeHtml(label.pluralEn)}" data-i18n-label-zh="${escapeHtml(label.zh)}" ${i18nAttribute(en, zh)}${count === 0 ? " hidden" : ""}>${escapeHtml(en)}</span>`;
+  return `<button type="button" class="memory-search-mix-item" data-memory-search-mix-item="${escapeHtml(state)}" data-memory-search-mix-filter="${escapeHtml(state)}" aria-pressed="false" data-i18n-singular-en="${escapeHtml(label.en)}" data-i18n-plural-en="${escapeHtml(label.pluralEn)}" data-i18n-label-zh="${escapeHtml(label.zh)}" ${i18nAttribute(en, zh)}${count === 0 ? " hidden" : ""}>${escapeHtml(en)}</button>`;
 }
 
 function memorySearchMix(records: DashboardRecordSummary[], events: DashboardEventSummary[]): string {
@@ -7722,6 +7722,8 @@ function dashboardStoredContentScript(): string {
       };
       const updateMemorySearchMix = (panel, visibleEntries) => {
         const counts = {};
+        const stateSelect = panel.querySelector("[data-memory-search-state]");
+        const selectedState = stateSelect instanceof HTMLSelectElement ? stateSelect.value : "all";
         for (const entry of visibleEntries) {
           if (!(entry instanceof HTMLElement)) continue;
           const key = entry.dataset.memorySearchState || "event";
@@ -7731,6 +7733,8 @@ function dashboardStoredContentScript(): string {
           if (!(item instanceof HTMLElement)) return;
           const count = counts[item.dataset.memorySearchMixItem || ""] || 0;
           item.hidden = count === 0;
+          item.setAttribute("aria-pressed", selectedState === item.dataset.memorySearchMixFilter ? "true" : "false");
+          item.classList.toggle("active", selectedState === item.dataset.memorySearchMixFilter);
           setMemorySearchMixItem(item, count);
         });
       };
@@ -7836,6 +7840,12 @@ function dashboardStoredContentScript(): string {
           writeStoredContentState({ overflowOpen: true, storedContentFilter: "all", searchOpen: true, searchSourceFilter: glanceSource.dataset.glanceSource || "all" });
           applyStoredContentState({ highlight: true });
           document.querySelector("[data-stored-content]")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
+        const mixItem = target.closest("[data-memory-search-mix-filter]");
+        if (mixItem instanceof HTMLElement) {
+          writeStoredContentState({ searchStateFilter: mixItem.dataset.memorySearchMixFilter || "all", searchOpen: true });
+          applyStoredContentState({ focusSearch: true });
           return;
         }
         const chip = target.closest("[data-memory-search-chip]");
@@ -8909,7 +8919,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       min-height: 26px;
       align-items: center;
     }
-    .memory-search-mix span {
+    .memory-search-mix-item {
+      appearance: none;
       display: inline-flex;
       align-items: center;
       min-height: 24px;
@@ -8918,10 +8929,23 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       padding: 3px 8px;
       background: rgba(4, 5, 7, 0.42);
       color: var(--ink-2);
+      cursor: pointer;
+      font: inherit;
       font-size: 11px;
       font-weight: 800;
       overflow-wrap: anywhere;
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
     }
+    .memory-search-mix-item:hover,
+    .memory-search-mix-item.active {
+      border-color: rgba(69, 185, 255, 0.48);
+      background: rgba(69, 185, 255, 0.12);
+      color: var(--ink);
+    }
+    .memory-search-mix-item:hover {
+      transform: translateY(-1px);
+    }
+    .memory-search-mix-item:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .memory-search-results {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));

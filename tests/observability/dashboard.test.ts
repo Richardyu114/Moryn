@@ -1432,8 +1432,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<option value=\"Codex\">Codex</option>");
       expect(html).toContain("<span data-memory-search-status data-i18n-en=\"2 items to search\" data-i18n-zh=\"可搜索 2 条内容\">2 items to search</span>");
       expect(html).toContain("<div class=\"memory-search-mix\" data-memory-search-mix aria-label=\"Search result mix\">");
-      expect(html).toContain("<span data-memory-search-mix-item=\"canonical\" data-i18n-singular-en=\"Remembered\" data-i18n-plural-en=\"Remembered\" data-i18n-label-zh=\"已记住\" data-i18n-en=\"1 Remembered\" data-i18n-zh=\"1 条已记住\">1 Remembered</span>");
-      expect(html).toContain("<span data-memory-search-mix-item=\"event\" data-i18n-singular-en=\"Event\" data-i18n-plural-en=\"Events\" data-i18n-label-zh=\"事件\" data-i18n-en=\"1 Event\" data-i18n-zh=\"1 条事件\">1 Event</span>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-search-mix-item\" data-memory-search-mix-item=\"canonical\" data-memory-search-mix-filter=\"canonical\" aria-pressed=\"false\" data-i18n-singular-en=\"Remembered\" data-i18n-plural-en=\"Remembered\" data-i18n-label-zh=\"已记住\" data-i18n-en=\"1 Remembered\" data-i18n-zh=\"1 条已记住\">1 Remembered</button>");
+      expect(html).toContain("<button type=\"button\" class=\"memory-search-mix-item\" data-memory-search-mix-item=\"event\" data-memory-search-mix-filter=\"event\" aria-pressed=\"false\" data-i18n-singular-en=\"Event\" data-i18n-plural-en=\"Events\" data-i18n-label-zh=\"事件\" data-i18n-en=\"1 Event\" data-i18n-zh=\"1 条事件\">1 Event</button>");
       expect(html).toContain("<article class=\"memory-search-result record\" data-memory-search-entry=\"record:rec_memory_search_1\"");
       expect(html).toContain("data-memory-search-state=\"canonical\"");
       expect(html).toContain("data-memory-search-source=\"Codex\"");
@@ -1483,7 +1483,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("const updateMemorySearchMix = (panel, visibleEntries) => {");
       expect(html).toContain("const key = entry.dataset.memorySearchState || \"event\";");
       expect(html).toContain("item.hidden = count === 0;");
+      expect(html).toContain("item.setAttribute(\"aria-pressed\", selectedState === item.dataset.memorySearchMixFilter ? \"true\" : \"false\");");
+      expect(html).toContain("item.classList.toggle(\"active\", selectedState === item.dataset.memorySearchMixFilter);");
       expect(html).toContain("setMemorySearchMixItem(item, count);");
+      expect(html).toContain("const mixItem = target.closest(\"[data-memory-search-mix-filter]\");");
+      expect(html).toContain("writeStoredContentState({ searchStateFilter: mixItem.dataset.memorySearchMixFilter || \"all\", searchOpen: true });");
       expect(html).toContain("writeStoredContentState({ searchQuery: query, searchOpen: true });");
       expect(html).toContain("writeStoredContentState({ searchStateFilter: target.value, searchOpen: true });");
       expect(html).toContain("writeStoredContentState({ searchSourceFilter: target.value, searchOpen: true });");
@@ -1494,6 +1498,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("border-color: rgba(69, 185, 255, 0.42);");
       expect(html).toContain("grid-template-columns: minmax(12ch, max-content) minmax(0, 1fr);");
       expect(html).toContain("span[data-memory-search-status]");
+      expect(html).toContain(".memory-search-mix-item {");
       expect(html).toContain("height: clamp(320px, 46vh, 520px);");
       expect(html).toContain("scrollbar-gutter: stable both-edges;");
       expect(html).toContain("transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;");

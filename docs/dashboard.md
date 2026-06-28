@@ -631,7 +631,9 @@ plain labels such as `Saved details`, `Check details`, `Detail links`, and
 `Routes and checks`. Older internal labels such as `Info Checks`, `Routine
 status checks`, `Info Details`, `Raw records waiting for review`, and `Many
 candidate records` should not appear as visible dashboard copy. Memory Search
-controls, query shortcut chips, and result-count feedback also follow the language toggle. Memory Search
+controls, query shortcut chips, and result-count feedback also follow the language toggle.
+Clicking a Memory Search result-mix chip applies that status or event filter
+while keeping the search local and read-only. Memory Search
 result type labels, event target labels, and memory-state metadata follow the
 language toggle. First-screen action labels, health badges, current-answer cards, and
 derived overview cards also follow the language toggle, so `Approval needed`,
