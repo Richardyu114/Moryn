@@ -694,9 +694,14 @@ describe("observability dashboard", () => {
       expect(html).toContain("[\"Background checks\", \"后台检查\"]");
       expect(html).toContain("[\"Check details\", \"检查详情\"]");
       expect(html).toContain("[\"Routine checks\", \"日常检查\"]");
-      expect(html).not.toContain("[\"Info Checks\", \"后台检查\"]");
-      expect(html).not.toContain("[\"Info Details\", \"检查详情\"]");
-      expect(html).not.toContain("[\"Routine status checks\", \"日常状态检查\"]");
+      expect(html).toContain("[\"Info Checks\", \"后台检查\"]");
+      expect(html).toContain("[\"Info Details\", \"检查详情\"]");
+      expect(html).toContain("[\"Routine status checks\", \"日常检查\"]");
+      expect(html).toContain("[\"Check records\", \"检查记录\"]");
+      expect(html).toContain("[\"Read-only details available\", \"可查看只读详情\"]");
+      expect(html).toContain("[\"Optional details\", \"可选详情\"]");
+      expect(html).toContain("[\"Detail links\", \"详情入口\"]");
+      expect(html).toContain("[\"Routes and checks\", \"路线和检查\"]");
       expect(html).toContain("[\"Health checks\", \"健康检查\"]");
       expect(html).toContain("[\"Session notes not remembered\", \"会话笔记未记住\"]");
       expect(html).toContain("[\"Many items to organize\", \"较多内容待整理\"]");

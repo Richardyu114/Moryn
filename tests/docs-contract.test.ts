@@ -109,6 +109,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Older internal labels such as `Info Checks`, `Routine");
     expectText(dashboard, "status checks`, `Info Details`, `Raw records waiting for review`, and `Many");
     expectText(dashboard, "candidate records` should not appear as visible dashboard copy");
+    expectText(dashboard, "Legacy translations for those older labels remain in the language script only to");
+    expectText(dashboard, "translate stale browser fragments during Chinese-mode refreshes");
     expectText(dashboard, "Safety wording uses plain visible copy such as `Some saved content is paused`");
     expectText(dashboard, "`Paused content has a safe replacement`");
     expectText(dashboard, "`Quarantined records hidden` and `Quarantined records superseded` stay only in");

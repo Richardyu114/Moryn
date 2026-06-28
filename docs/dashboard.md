@@ -645,7 +645,9 @@ Library` index labels such as `Evidence index`, `Review Notes`, `Routine
 Reference`, `Diagnostics Index`, `Audit Reports`, `Store Snapshot`, and `Raw
 Store`, while preserving literal API routes and source ids. Older internal labels such as `Info Checks`, `Routine
 status checks`, `Info Details`, `Raw records waiting for review`, and `Many
-candidate records` should not appear as visible dashboard copy. Memory Search
+candidate records` should not appear as visible dashboard copy. Legacy
+translations for those older labels remain in the language script only to
+translate stale browser fragments during Chinese-mode refreshes. Memory Search
 controls, query shortcut chips, and result-count feedback also follow the language toggle.
 System-generated saved-content titles such as `Summary`, `Status`, `Decision`,
 and `Raw Note` follow the language toggle in Stored Content, Memory Search,
