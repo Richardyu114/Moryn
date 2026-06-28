@@ -647,7 +647,7 @@ date`, `Waiting to upload`, `New shared updates`, `Needs help`, or `Not
 connected`. The API still exposes the underlying sync data in
 `/api/dashboard.sync`.
 
-The main action summary is labeled `Needs attention?` in the visible UI. It
+The main action summary is labeled `Do I need to act?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible
 warnings, sync work, then saved notes that are available for later organization.
 `Saved for later` is intentionally lighter than an urgent warning: it appears

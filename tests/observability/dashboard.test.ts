@@ -695,6 +695,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</span>");
       expect(html).toContain("<span data-i18n-en=\"Latest source\" data-i18n-zh=\"最近来源\">Latest source</span>");
       expect(html).toContain("<span data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</span>");
+      expect(html).toContain("<span data-i18n-en=\"To organize\" data-i18n-zh=\"待整理\">To organize</span>");
       expect(data.recent_records[0]).toMatchObject({
         source: { client: "gemini" },
         text: "Recent session status belongs on the dashboard front page."
@@ -3450,7 +3451,7 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<section class=\"hero\">");
       expect(html).toContain("<section class=\"dashboard-overview warning\" data-dashboard-overview aria-label=\"Dashboard Overview\">");
       expect(html).not.toContain("<h2>Dashboard Overview</h2>");
-      expect(html).toContain("<h2><span data-i18n-en=\"Needs attention?\" data-i18n-zh=\"现在需要我做什么吗？\">Needs attention?</span></h2>");
+      expect(html).toContain("<h2><span data-i18n-en=\"Do I need to act?\" data-i18n-zh=\"我需要操作吗？\">Do I need to act?</span></h2>");
       expect(html).toContain("<strong data-i18n-en=\"Review warnings\" data-i18n-zh=\"查看提醒\">Review warnings</strong>");
       expect(html).toContain("<p data-i18n-en=\"Warnings and critical signals remain visible in Needs Attention.\" data-i18n-zh=\"提醒和重要信号会继续显示在需要注意的区域。\">Warnings and critical signals remain visible in Needs Attention.</p>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"needs-attention\" aria-controls=\"needs-attention\" data-i18n-en=\"Review warnings\" data-i18n-zh=\"查看提醒\">Review warnings</button>");

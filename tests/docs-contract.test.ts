@@ -136,7 +136,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Collapsed sections are for audit evidence, raw trace details, and optional checks");
     expectText(dashboard, "should not be required to understand the current dashboard state");
     expectText(dashboard, "`Shared copy` is the user-facing name for Git sync state");
-    expectText(dashboard, "The main action summary is labeled `Needs attention?` in the visible UI");
+    expectText(dashboard, "The main action summary is labeled `Do I need to act?` in the visible UI");
     expectText(dashboard, "Saved for later` is intentionally lighter than an urgent warning");
     expectText(dashboard, "opens `Memory Explorer`, expands hidden saved previews, and highlights the section");
     expectText(dashboard, "The memory-state chart is also a local navigation control");

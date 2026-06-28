@@ -3472,7 +3472,7 @@ function dashboardOverview(
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
       <div class="dashboard-overview-main">
         <div>
-          <h2>${i18nText("Needs attention?", "现在需要我做什么吗？")}</h2>
+          <h2>${i18nText("Do I need to act?", "我需要操作吗？")}</h2>
           ${i18nText(data.headline, headlineZh, "strong")}
           <p ${i18nAttribute(visibleDetail, detailZh)}>${escapeHtml(visibleDetail)}</p>
         </div>
@@ -6637,7 +6637,7 @@ function recentStatusPanel(data: DashboardData): string {
           ${i18nText(shared.label, shared.zh, "strong")}
         </article>
         <article>
-          ${i18nText("Needs attention", "需要注意")}
+          ${i18nText("To organize", "待整理")}
           <strong ${i18nAttribute(reviewableLabel, reviewableZh)}>${escapeHtml(reviewableLabel)}</strong>
         </article>
       </div>
