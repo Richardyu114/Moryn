@@ -6748,20 +6748,20 @@ function dashboardDecisionPanel(data: DashboardData): string {
         note: "Approve or reject buttons live inside the owning row, next to the evidence.",
         zhNote: "批准或拒绝按钮会出现在对应条目旁边，和证据放在一起。"
       }));
-    }
+  }
   } else if (reviewable > 0) {
-    const title = pluralize(reviewable, "item to organize", "items to organize");
+    const title = `${reviewable} saved for later`;
     items.push(decisionPanelItem({
       kind: "review",
-      status: "No decision needed now",
-      zhStatus: "现在不需要决定",
+      status: "Saved safely",
+      zhStatus: "已安全保存",
       title,
-      zhTitle: `${reviewable} 条待整理内容`,
+      zhTitle: `${reviewable} 条已保存待整理`,
       detail: "These are saved safely, but Moryn will not treat them as long-term memory unless you choose to organize them later.",
       zhDetail: "这些内容已经安全保存，但除非你稍后整理，Moryn 不会把它们当作长期记忆。",
       target: "stored-content",
-      actionLabel: "Search saved content",
-      zhActionLabel: "搜索已保存内容",
+      actionLabel: "Open saved content",
+      zhActionLabel: "打开已保存内容",
       note: "This only opens saved content. Nothing becomes long-term memory from this summary.",
       zhNote: "这里只打开已保存内容；这里不会把内容写成长久记忆。",
       feedback: "Nothing to open here yet.",
@@ -6769,8 +6769,8 @@ function dashboardDecisionPanel(data: DashboardData): string {
     }));
   }
   if (items.length === 0) return "";
-  const panelLabel = explicitDecisions > 0 ? "Needs your decision" : "To organize";
-  const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "待整理";
+  const panelLabel = explicitDecisions > 0 ? "Needs your decision" : "Saved for later";
+  const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "稍后整理";
   return `
     <section class="decision-panel${explicitDecisions > 0 ? "" : " saved-later"}" data-dashboard-decision-panel aria-label="${escapeHtml(panelLabel)}">
       <div class="section-heading">

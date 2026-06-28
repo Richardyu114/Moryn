@@ -144,7 +144,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "latest write, latest source, shared-copy state, and items to organize");
     expectText(dashboard, "without");
     expectText(dashboard, "resizing the first screen");
-    expectText(dashboard, "The `Current answers`, `Needs your decision`, `To organize`, `At a glance`, and");
+    expectText(dashboard, "The `Current answers`, `Needs your decision`, `Saved for later`, `At a glance`, and");
     expectText(dashboard, "`Find what Moryn saved` rows are visible");
     expectText(dashboard, "above `More details` in the live non-private dashboard");
     expectText(dashboard, "It starts with a compact recent-activity summary for");
@@ -159,7 +159,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Top source` opens saved");
     expectText(dashboard, "content search filtered to that source");
     expectText(dashboard, "`Needs your decision` routes users to the owning approval rows only when a real");
-    expectText(dashboard, "If the state is only `Saved, not organized`, the visible action");
+    expectText(dashboard, "If the state is only `Saved, not organized`, the visible saved-later panel");
     expectText(dashboard, "opens `Find what Moryn saved`, expands saved previews, and keeps search visible");
     expectText(dashboard, "Approve and reject buttons stay on the owning row beside the");
     expectText(dashboard, "clickable memory state meter, content-type bars, shared-copy state, and recent source activity");

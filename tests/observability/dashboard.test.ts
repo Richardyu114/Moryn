@@ -794,11 +794,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"1 saved | 19d ago\" data-i18n-zh=\"1 条保存内容 | 19 天前\">1 saved | 19d ago</span>");
       expect(html.indexOf("data-dashboard-glance")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
-      expect(html).toContain("<section class=\"decision-panel saved-later\" data-dashboard-decision-panel aria-label=\"To organize\">");
-      expect(html).toContain("<h2 data-i18n-en=\"To organize\" data-i18n-zh=\"待整理\">To organize</h2>");
-      expect(html).toContain("<span data-i18n-en=\"No decision needed now\" data-i18n-zh=\"现在不需要决定\">No decision needed now</span>");
-      expect(html).toContain("<strong data-i18n-en=\"2 items to organize\" data-i18n-zh=\"2 条待整理内容\">2 items to organize</strong>");
-      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Search saved content\" data-i18n-zh=\"搜索已保存内容\">Search saved content</button>");
+      expect(html).toContain("<section class=\"decision-panel saved-later\" data-dashboard-decision-panel aria-label=\"Saved for later\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</h2>");
+      expect(html).toContain("<span data-i18n-en=\"Saved safely\" data-i18n-zh=\"已安全保存\">Saved safely</span>");
+      expect(html).toContain("<strong data-i18n-en=\"2 saved for later\" data-i18n-zh=\"2 条已保存待整理\">2 saved for later</strong>");
+      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Open saved content\" data-i18n-zh=\"打开已保存内容\">Open saved content</button>");
       expect(html).toContain("<small data-i18n-en=\"This only opens saved content. Nothing becomes long-term memory from this summary.\" data-i18n-zh=\"这里只打开已保存内容；这里不会把内容写成长久记忆。\">This only opens saved content. Nothing becomes long-term memory from this summary.</small>");
       expect(html).toContain("const feedback = document.querySelector(\"[data-dashboard-action-feedback]\");");
       expect(html).toContain("if (!target) {");
