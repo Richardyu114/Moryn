@@ -3756,6 +3756,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-group-heading\" aria-label=\"Routine Reference: Routine checks and audit trail\">");
       expect(html).toContain("<small data-i18n-en=\"Checks and audit\" data-i18n-zh=\"检查和追踪\">Checks and audit</small>");
       expect(html).not.toContain("<small>Checks and audit</small>");
+      const evidenceBackgroundGroupHtml = html.slice(evidenceBackgroundGroupIndex, dogfoodReviewIndex);
+      expect(evidenceBackgroundGroupHtml).toContain("<button type=\"button\" class=\"routine-diagnostics-route info\" data-dashboard-detail=\"recall-eval\"");
+      expect(evidenceBackgroundGroupHtml).toContain("<span data-i18n-en=\"Recall Eval\" data-i18n-zh=\"召回检查\">Recall Eval</span>");
+      expect(evidenceBackgroundGroupHtml).toContain("<button type=\"button\" class=\"routine-diagnostics-route good\" data-dashboard-detail=\"context-pack-review\"");
+      expect(evidenceBackgroundGroupHtml).toContain("<span data-i18n-en=\"Context Pack Review\" data-i18n-zh=\"交接上下文\">Context Pack Review</span>");
+      expect(evidenceBackgroundGroupHtml).not.toContain("<span>Recall Eval</span>");
+      expect(evidenceBackgroundGroupHtml).not.toContain("<span>Context Pack Review</span>");
       expect(html).not.toContain("<span>Reference Evidence</span>");
       expect(html).not.toContain("<small>Routine checks and audit trail</small>");
       expect(html).not.toContain("reference panels</small>");

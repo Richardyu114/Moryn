@@ -1078,6 +1078,9 @@ review-focus text, or raw-store language. Those counts and focus hints remain in
 the same human-label rule, such as `Health check`, `Saved notes`,
 `Product notes`, and `Recent records`, while their `data-dashboard-detail`
 attributes keep the stable API routes.
+Full Routine Diagnostics route buttons also carry language attributes on their
+visible labels, while the adjacent `health_check`, `recall_eval`, and
+`context_pack_review` code chips remain literal API sources.
 
 When review-oriented findings exist, the expanded library can still start with
 a compact `Evidence index` bar; empty routes are omitted instead of rendering

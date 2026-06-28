@@ -389,6 +389,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Health check`, `Saved notes`,");
     expectText(dashboard, "`Product notes`, and `Recent records`");
     expectText(dashboard, "`data-dashboard-detail` attributes keep the");
+    expectText(dashboard, "Full Routine Diagnostics route buttons also carry language attributes");
+    expectText(dashboard, "`health_check`, `recall_eval`, and");
+    expectText(dashboard, "`context_pack_review` code chips remain literal API sources");
     expectText(dashboard, "When review-oriented findings exist, the expanded library can still start with a compact `Evidence index` bar");
     expectText(dashboard, "empty routes are omitted instead of rendering \"nothing here\" buttons");
     expectText(dashboard, "single wrapping rail");

@@ -6119,9 +6119,14 @@ function routineDiagnosticRoute(panel: RoutineDiagnosticPanel): string {
     : panel.id === "recall-eval"
       ? "recall_eval"
       : "context_pack_review";
+  const labelZh: Record<RoutineDiagnosticPanel["id"], string> = {
+    "health-check": "健康检查",
+    "recall-eval": "召回检查",
+    "context-pack-review": "交接上下文"
+  };
   return `
           <button type="button" class="routine-diagnostics-route ${escapeHtml(panel.status)}" data-dashboard-detail="${escapeHtml(panel.id)}" data-action-board-target="${escapeHtml(panel.id)}" aria-controls="${escapeHtml(panel.id)}" aria-label="${escapeHtml(`${panel.label}: ${panel.summary}. Full report is available in /api/dashboard.${source}.`)}">
-            <span>${escapeHtml(panel.label)}</span>
+            <span ${i18nAttribute(panel.label, labelZh[panel.id])}>${escapeHtml(panel.label)}</span>
             <code>${escapeHtml(source)}</code>
           </button>
   `;
