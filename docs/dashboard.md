@@ -664,9 +664,9 @@ resizing the first screen. The `At a glance` chart row
 appears before `What Moryn remembers`, `Recent status`, and the compact
 `More details` fold. It starts with a compact recent-activity summary for
 visible writes, remembered items, items to organize, and the most active source,
-then shows the memory-state chart, content mix, shared-copy rail, and source
-activity bars. The user does not need to open a detail section to understand the
-current state. The summary numbers are also read-only shortcuts: `Recent
+then shows the memory-state chart, content mix, seven-day saved-content trend,
+shared-copy rail, and source activity bars. The user does not need to open a
+detail section to understand the current state. The summary numbers are also read-only shortcuts: `Recent
 writes` opens all saved content, `Remembered` filters to long-term memory, `To
 organize` filters to saved-but-not-final items, and `Top source` opens saved
 content search filtered to that source.
@@ -778,8 +778,8 @@ branch and ahead/behind counts for audit without adding an Approve or Apply
 control.
 Store Signals keeps `Sync Action` in the foreground, moves `Sync Position`
 behind a collapsed `Sync details` fold, and leaves Agent Activity, Record
-Quality, and Record Types in `/api/dashboard.charts` instead of rendering a
-second telemetry fold inside the promoted sync section.
+Quality, Record Types, and Activity Trend in `/api/dashboard.charts` instead of
+rendering a second telemetry fold inside the promoted sync section.
 When sync is the only active warning and no explicit approval is waiting, the
 promoted `Store Signals` section moves directly after the Overview and skips the
 extra open `details` wrapper so the current task is not repeated by another
@@ -1151,6 +1151,7 @@ The JSON returned by `/api/dashboard` includes:
 - `health`
 - `attention_items`
 - `charts.agent_activity`
+- `charts.activity_trend`
 - `charts.memory_states`
 - `charts.record_types`
 - `charts.sync_position`

@@ -140,8 +140,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "above `More details` in the live non-private dashboard");
     expectText(dashboard, "It starts with a compact recent-activity summary for");
     expectText(dashboard, "visible writes, remembered items, items to organize, and the most active source");
-    expectText(dashboard, "then shows the memory-state chart, content mix, shared-copy rail, and source");
-    expectText(dashboard, "activity bars");
+    expectText(dashboard, "then shows the memory-state chart, content mix, seven-day saved-content trend");
+    expectText(dashboard, "shared-copy rail, and source activity bars");
     expectText(dashboard, "The summary numbers are also read-only shortcuts");
     expectText(dashboard, "`Recent");
     expectText(dashboard, "writes` opens all saved content");
@@ -226,7 +226,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "a `Sync Action` brief, and a quiet `Sync action ready` label");
     expectText(dashboard, "visible first-screen copy refers to the remote as the `Shared copy`");
     expectText(dashboard, "Store Signals keeps `Sync Action` in the foreground, moves `Sync Position` behind a collapsed `Sync details` fold");
-    expectText(dashboard, "leaves Agent Activity, Record Quality, and Record Types in `/api/dashboard.charts`");
+    expectText(dashboard, "leaves Agent Activity, Record Quality, Record Types, and Activity Trend in `/api/dashboard.charts`");
     expectText(dashboard, "When sync is the only active warning and no explicit approval is waiting");
     expectText(dashboard, "the promoted `Store Signals` section moves directly after the Overview");
     expectText(dashboard, "skips the extra open `details` wrapper");

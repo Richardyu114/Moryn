@@ -365,8 +365,22 @@ export interface DashboardSyncPositionChart {
   conflict: boolean;
 }
 
+export interface DashboardActivityTrendDay {
+  date: string;
+  label: string;
+  count: number;
+  percent: number;
+}
+
+export interface DashboardActivityTrendChart {
+  days: DashboardActivityTrendDay[];
+  total: number;
+  peak: number;
+}
+
 export interface DashboardCharts {
   agent_activity: DashboardAgentChartItem[];
+  activity_trend: DashboardActivityTrendChart;
   memory_states: DashboardMemoryStateChartItem[];
   record_types: DashboardRecordTypeChartItem[];
   sync_position: DashboardSyncPositionChart;
@@ -1073,6 +1087,18 @@ function relativeTimeElement(iso: string, nowIso: string): string {
   return `<time datetime="${escapeHtml(iso)}" title="${escapeHtml(iso)}" ${i18nAttribute(relative, relativeTimeZh(relative))}>${escapeHtml(relative)}</time>`;
 }
 
+function utcDayKey(iso: string): string | undefined {
+  const time = Date.parse(iso);
+  if (!Number.isFinite(time)) return undefined;
+  return new Date(time).toISOString().slice(0, 10);
+}
+
+function utcDayOffsetKey(base: Date, offsetDays: number): string {
+  const next = new Date(base);
+  next.setUTCDate(base.getUTCDate() + offsetDays);
+  return next.toISOString().slice(0, 10);
+}
+
 function stateCounts(records: MorynRecord[]): Map<MorynRecord["state"], number> {
   const counts = new Map<MorynRecord["state"], number>();
   for (const record of records) {
@@ -1257,6 +1283,46 @@ function buildAgentChart(activity: DashboardAgentActivity[], generatedAt: string
     weight: Math.round(((agent.events + agent.records) / max) * 100),
     relative_time: relativeTime(agent.latest_at, generatedAt)
   }));
+}
+
+function buildActivityTrendChart(records: MorynRecord[], generatedAt: string): DashboardActivityTrendChart {
+  const end = new Date(generatedAt);
+  if (Number.isNaN(end.getTime())) {
+    return {
+      days: [],
+      total: 0,
+      peak: 0
+    };
+  }
+  end.setUTCHours(0, 0, 0, 0);
+
+  const counts = new Map<string, number>();
+  for (const record of records) {
+    const day = utcDayKey(record.updated_at);
+    if (!day) continue;
+    counts.set(day, (counts.get(day) ?? 0) + 1);
+  }
+
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = utcDayOffsetKey(end, index - 6);
+    return {
+      date,
+      label: date.slice(8, 10),
+      count: counts.get(date) ?? 0,
+      percent: 0
+    };
+  });
+  const peak = Math.max(0, ...days.map((day) => day.count));
+  const total = days.reduce((sum, day) => sum + day.count, 0);
+
+  return {
+    days: days.map((day) => ({
+      ...day,
+      percent: peak > 0 ? Math.round((day.count / peak) * 100) : 0
+    })),
+    total,
+    peak
+  };
 }
 
 function buildMemoryStateChart(records: MorynRecord[]): DashboardMemoryStateChartItem[] {
@@ -3095,6 +3161,7 @@ export async function buildDashboardData(storePath: string, options: DashboardOp
     decision_summary: decisionSummaryData,
     charts: {
       agent_activity: buildAgentChart(agentActivity, generatedAt),
+      activity_trend: buildActivityTrendChart(records, generatedAt),
       memory_states: buildMemoryStateChart(records),
       record_types: buildRecordTypeChart(records),
       sync_position: buildSyncPositionChart(sync)
@@ -6461,6 +6528,25 @@ function recentActivityBars(agents: DashboardAgentChartItem[]): string {
   `;
 }
 
+function activityTrendBars(trend: DashboardActivityTrendChart): string {
+  const totalLabel = trend.total === 0 ? "No saved items" : `${trend.total} saved`;
+  const totalZh = trend.total === 0 ? "没有保存内容" : `${trend.total} 条保存内容`;
+  return `
+      <div class="activity-trend-summary">
+        <span data-i18n-en="Last 7 days" data-i18n-zh="最近 7 天">Last 7 days</span>
+        <strong data-i18n-en="${escapeHtml(totalLabel)}" data-i18n-zh="${escapeHtml(totalZh)}">${escapeHtml(totalLabel)}</strong>
+      </div>
+      <div class="activity-trend-bars" aria-label="Saved content by day">
+        ${trend.days.map((day) => `
+          <div class="activity-trend-day">
+            <i style="height: ${escapeHtml(day.percent)}%" title="${escapeHtml(`${day.date}: ${pluralize(day.count, "saved item")}`)}"></i>
+            <span>${escapeHtml(day.label)}</span>
+          </div>
+        `).join("")}
+      </div>
+  `;
+}
+
 function glanceSummaryStrip(data: DashboardData): string {
   const recentWrites = data.recent_records.length;
   const remembered = data.memory_inventory.summary.remembered;
@@ -6530,6 +6616,10 @@ function dashboardGlanceBoard(data: DashboardData): string {
         <article class="glance-chart memory-types" data-memory-kind-chart>
           <h3 data-i18n-en="Content mix" data-i18n-zh="内容类型">Content mix</h3>
           ${memoryKindBars(data.memory_inventory)}
+        </article>
+        <article class="glance-chart activity-trend" data-activity-trend-chart>
+          <h3 data-i18n-en="Saved trend" data-i18n-zh="保存趋势">Saved trend</h3>
+          ${activityTrendBars(data.charts.activity_trend)}
         </article>
         <article class="glance-chart shared-copy ${escapeHtml(shared.severity)}" data-shared-copy-chart>
           <h3 data-i18n-en="Shared copy" data-i18n-zh="共享副本">Shared copy</h3>
@@ -8815,7 +8905,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .glance-grid {
       display: grid;
-      grid-template-columns: minmax(240px, 1.25fr) repeat(3, minmax(0, 1fr));
+      grid-template-columns: minmax(240px, 1.25fr) repeat(4, minmax(0, 1fr));
       gap: 10px;
     }
     .glance-chart {
@@ -8943,6 +9033,64 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       line-height: 1.1;
       font-weight: 840;
       overflow-wrap: anywhere;
+    }
+    .activity-trend {
+      --trend-accent: var(--signal-blue);
+    }
+    .activity-trend-summary {
+      display: grid;
+      gap: 2px;
+      min-height: 50px;
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px;
+      background: linear-gradient(145deg, rgba(69, 185, 255, 0.095), rgba(116, 242, 145, 0.035)), var(--surface-2);
+    }
+    .activity-trend-summary span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 760;
+    }
+    .activity-trend-summary strong {
+      color: var(--ink);
+      font-size: 20px;
+      line-height: 1.1;
+      font-weight: 840;
+      overflow-wrap: anywhere;
+    }
+    .activity-trend-bars {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      align-items: end;
+      gap: 5px;
+      min-height: 94px;
+      border: 1px solid var(--hairline);
+      border-radius: 7px;
+      padding: 8px 7px 6px;
+      background: rgba(5, 7, 10, 0.36);
+    }
+    .activity-trend-day {
+      display: grid;
+      grid-template-rows: minmax(54px, 1fr) 15px;
+      align-items: end;
+      justify-items: center;
+      gap: 5px;
+      min-width: 0;
+      height: 100%;
+    }
+    .activity-trend-bars i {
+      display: block;
+      width: 100%;
+      min-height: 4px;
+      border-radius: 999px 999px 3px 3px;
+      background: linear-gradient(180deg, var(--signal-green), var(--trend-accent));
+      box-shadow: 0 0 18px rgba(69, 185, 255, 0.22);
+    }
+    .activity-trend-bars span {
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1;
+      font-weight: 760;
     }
     .glance-chart.shared-copy {
       border-left-width: 4px;

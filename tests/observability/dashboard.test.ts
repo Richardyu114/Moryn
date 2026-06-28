@@ -987,6 +987,89 @@ describe("observability dashboard", () => {
     }
   });
 
+  it("shows a seven-day saved-content trend on the first screen", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-15T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-15T00:01:00.000Z",
+            "2026-06-17T00:01:00.000Z",
+            "2026-06-20T00:01:00.000Z",
+            "2026-06-21T00:01:00.000Z",
+            "2026-06-21T00:02:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-21T00:03:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_activity_trend_${++record}` : `evt_activity_trend_${++event}`;
+        })()
+      });
+
+      for (const text of [
+        "Saved trend day one",
+        "Saved trend day three",
+        "Saved trend day six",
+        "Saved trend day seven first",
+        "Saved trend day seven second"
+      ]) {
+        await engine.write({
+          kind: "memory",
+          type: "status",
+          scope: "project",
+          project_id: "moryn",
+          content: { text, format: "text" },
+          state: "candidate",
+          source: { client: "codex", session_id: "dashboard-activity-trend" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T12:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data, { showStoredContent: true });
+
+      expect(data.charts.activity_trend).toMatchObject({
+        total: 5,
+        peak: 2
+      });
+      expect(data.charts.activity_trend.days.map((day) => day.date)).toEqual([
+        "2026-06-15",
+        "2026-06-16",
+        "2026-06-17",
+        "2026-06-18",
+        "2026-06-19",
+        "2026-06-20",
+        "2026-06-21"
+      ]);
+      expect(data.charts.activity_trend.days.map((day) => day.count)).toEqual([1, 0, 1, 0, 0, 1, 2]);
+      expect(data.charts.activity_trend.days.map((day) => day.percent)).toEqual([50, 0, 50, 0, 0, 50, 100]);
+
+      expect(html).toContain("<article class=\"glance-chart activity-trend\" data-activity-trend-chart>");
+      expect(html).toContain("<h3 data-i18n-en=\"Saved trend\" data-i18n-zh=\"保存趋势\">Saved trend</h3>");
+      expect(html).toContain("<span data-i18n-en=\"Last 7 days\" data-i18n-zh=\"最近 7 天\">Last 7 days</span>");
+      expect(html).toContain("<strong data-i18n-en=\"5 saved\" data-i18n-zh=\"5 条保存内容\">5 saved</strong>");
+      expect(html).toContain("<div class=\"activity-trend-bars\" aria-label=\"Saved content by day\">");
+      expect(html).toContain("<i style=\"height: 50%\" title=\"2026-06-15: 1 saved item\"></i>");
+      expect(html).toContain("<i style=\"height: 0%\" title=\"2026-06-16: 0 saved items\"></i>");
+      expect(html).toContain("<i style=\"height: 100%\" title=\"2026-06-21: 2 saved items\"></i>");
+      expect(html).toContain("<span>15</span>");
+      expect(html).toContain("<span>21</span>");
+      expect(html).toContain(".activity-trend-bars {");
+      expect(html).toContain("grid-template-columns: repeat(7, minmax(0, 1fr));");
+      expect(html).toContain(".activity-trend-bars i {");
+      expect(html).toContain("min-height: 4px;");
+    });
+  });
+
   it("expands additional stored content from the first-screen view-more control", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
