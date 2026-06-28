@@ -736,8 +736,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<section class=\"dashboard-priority-strip\" data-dashboard-priority-strip aria-label=\"Dashboard priorities\">");
       expect(html).toContain("<button type=\"button\" class=\"answer-card action calm\" data-dashboard-priority=\"action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
       expect(html).toContain("<span data-i18n-en=\"Do I need to act?\" data-i18n-zh=\"我需要操作吗？\">Do I need to act?</span>");
+      expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"Saved items are searchable; no confirmation is waiting.\" data-i18n-zh=\"内容已保存可搜索；没有等待确认的操作。\">Saved items are searchable; no confirmation is waiting.</p>");
       expect(html).toContain("<button type=\"button\" class=\"answer-card memory\" data-dashboard-priority=\"memory\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
       expect(html).toContain("<span data-i18n-en=\"What is stored?\" data-i18n-zh=\"存了什么？\">What is stored?</span>");
+      expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"1 ready to use · 2 saved for later\" data-i18n-zh=\"1 条可直接使用 · 2 条稍后整理\">1 ready to use · 2 saved for later</p>");
       expect(html).toContain("<div class=\"answer-memory-mix\" data-answer-memory-mix aria-label=\"Stored content mix\">");
       expect(html).toContain("<span class=\"answer-memory-segment memory-state-remembered\" style=\"width: 33%\" title=\"Ready to use 1\"></span>");
       expect(html).toContain("<span class=\"answer-memory-segment memory-state-to-organize\" style=\"width: 33%\" title=\"Saved, not organized 1\"></span>");
@@ -748,6 +750,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"1 session note\" data-i18n-zh=\"1 条会话笔记\">1 session note</span>");
       expect(html).toContain("<button type=\"button\" class=\"answer-card sync good\" data-dashboard-priority=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
       expect(html).toContain("<span data-i18n-en=\"Is everything synced?\" data-i18n-zh=\"都同步了吗？\">Is everything synced?</span>");
+      expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"Shared copy is current on this device.\" data-i18n-zh=\"这台设备上的共享副本是最新的。\">Shared copy is current on this device.</p>");
       expect(html).toContain("<div class=\"status-board-ticker\" data-status-board-ticker aria-label=\"Latest status ticker\">");
       expect(html).toContain("<span data-status-ticker-item=\"last-write\"><b data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</b><strong><time datetime=\"2026-06-01T00:03:00.000Z\" title=\"2026-06-01T00:03:00.000Z\" data-i18n-en=\"19d ago\" data-i18n-zh=\"19 天前\">19d ago</time></strong></span>");
       expect(html).toContain("<span data-status-ticker-item=\"source\"><b data-i18n-en=\"Source\" data-i18n-zh=\"来源\">Source</b><strong data-i18n-en=\"Gemini\" data-i18n-zh=\"Gemini\">Gemini</strong></span>");
@@ -756,7 +759,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<div class=\"status-board-explain\" data-status-board-explain>");
       expect(html).toContain("<span data-i18n-en=\"Why this is here\" data-i18n-zh=\"为什么会看到这些内容\">Why this is here</span>");
       expect(html).toContain("<p data-i18n-en=\"Moryn saved 3 recent items from recent work. They stay searchable here; only rows with confirm buttons can change long-term memory.\" data-i18n-zh=\"Moryn 从最近工作保存了 3 条内容；它们会留在这里可搜索，只有带确认按钮的条目才能改变长期记忆。\">Moryn saved 3 recent items from recent work. They stay searchable here; only rows with confirm buttons can change long-term memory.</p>");
-      expect(html).toContain("grid-template-rows: minmax(1.35em, auto) minmax(2.8em, auto) minmax(1.4em, auto) minmax(40px, auto);");
+      expect(html).toContain("grid-template-rows: minmax(1.35em, auto) minmax(2.35em, auto) minmax(2.4em, auto) minmax(1.4em, auto) minmax(40px, auto);");
+      expect(html).toContain(".answer-card-conclusion {");
       expect(html).toContain(".status-chip,");
       expect(html).toContain("min-height: 76px;");
       expect(html).toContain(".status-board-ticker {");

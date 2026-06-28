@@ -132,6 +132,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Find what Moryn saved`, and `What Moryn stores`");
     expectText(dashboard, "Is everything synced? -> the `Current answers` shared-copy card, `This device`");
     expectText(dashboard, "and the sync rail");
+    expectText(dashboard, "Each answer card includes a short conclusion sentence before");
+    expectText(dashboard, "users can read the answer without interpreting raw counts");
+    expectText(dashboard, "the action card says whether confirmation is waiting");
+    expectText(dashboard, "the memory card summarizes");
+    expectText(dashboard, "the sync card says whether the");
+    expectText(dashboard, "shared copy is current on this device");
     expectText(dashboard, "Those answer cards reuse the dashboard's local navigation");
     expectText(dashboard, "the action card opens the current next step");
     expectText(dashboard, "the memory card opens `Find what");

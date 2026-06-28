@@ -6358,6 +6358,89 @@ function statusBoardExplainText(data: DashboardData): { en: string; zh: string }
   };
 }
 
+function actionAnswerConclusion(data: DashboardData): { en: string; zh: string } {
+  const decisions = data.decision_summary.total_decisions;
+  if (decisions > 0) {
+    return {
+      en: `${pluralize(decisions, "confirmation")} waiting before memory changes.`,
+      zh: `${decisions} 个确认项等待处理，之后才会改变记忆。`
+    };
+  }
+  if (data.memory_inventory.summary.total_visible > 0) {
+    return {
+      en: "Saved items are searchable; no confirmation is waiting.",
+      zh: "内容已保存可搜索；没有等待确认的操作。"
+    };
+  }
+  if (data.dashboard_overview.status === "warning" || data.dashboard_overview.status === "critical") {
+    return {
+      en: "No confirmation is waiting; check the highlighted issue.",
+      zh: "没有等待确认的操作；请查看高亮提醒。"
+    };
+  }
+  return {
+    en: "No confirmation is waiting.",
+    zh: "没有等待确认的操作。"
+  };
+}
+
+function memoryAnswerConclusion(inventory: DashboardMemoryInventory): { en: string; zh: string } {
+  const ready = inventory.summary.remembered;
+  const later = inventory.summary.new_items + inventory.summary.temporary;
+  const history = inventory.summary.set_aside;
+  const enParts = [
+    ready > 0 ? `${ready} ready to use` : "",
+    later > 0 ? `${later} saved for later` : "",
+    history > 0 ? `${history} kept for history` : ""
+  ].filter(Boolean);
+  const zhParts = [
+    ready > 0 ? `${ready} 条可直接使用` : "",
+    later > 0 ? `${later} 条稍后整理` : "",
+    history > 0 ? `${history} 条历史留存` : ""
+  ].filter(Boolean);
+  return {
+    en: enParts.length > 0 ? enParts.join(" · ") : "No visible saved content yet",
+    zh: zhParts.length > 0 ? zhParts.join(" · ") : "还没有可见保存内容"
+  };
+}
+
+function syncAnswerConclusion(sync: GitSyncStatus): { en: string; zh: string } {
+  const ahead = sync.ahead ?? 0;
+  const behind = sync.behind ?? 0;
+  if (!sync.configured) {
+    return {
+      en: "Only this device has this memory view.",
+      zh: "这份记忆视图目前只在本机可见。"
+    };
+  }
+  if (sync.sync_state === "conflict") {
+    return {
+      en: "Shared copy needs conflict help.",
+      zh: "共享副本需要处理冲突。"
+    };
+  }
+  if (sync.sync_state === "dirty" || ahead > 0) {
+    return {
+      en: "This device has changes waiting to upload.",
+      zh: "这台设备有变化等待上传。"
+    };
+  }
+  if (behind > 0) {
+    return {
+      en: "Shared copy has updates to pull.",
+      zh: "共享副本有更新等待拉取。"
+    };
+  }
+  return {
+    en: "Shared copy is current on this device.",
+    zh: "这台设备上的共享副本是最新的。"
+  };
+}
+
+function answerCardConclusionText(conclusion: { en: string; zh: string }): string {
+  return `<p class="answer-card-conclusion" ${i18nAttribute(conclusion.en, conclusion.zh)}>${escapeHtml(conclusion.en)}</p>`;
+}
+
 function statusTickerItem(id: string, label: string, zhLabel: string, value: string, zhValue: string, valueHtml?: string): string {
   const valueAttribute = valueHtml ? "" : ` ${i18nAttribute(value, zhValue)}`;
   return `<span data-status-ticker-item="${escapeHtml(id)}"><b ${i18nAttribute(label, zhLabel)}>${escapeHtml(label)}</b><strong${valueAttribute}>${valueHtml ?? escapeHtml(value)}</strong></span>`;
@@ -6385,6 +6468,9 @@ function statusBoardTicker(data: DashboardData, shared: ReturnType<typeof shared
 
 function statusBoard(data: DashboardData): string {
   const shared = sharedCopyLabel(data.sync);
+  const actionConclusion = actionAnswerConclusion(data);
+  const memoryConclusion = memoryAnswerConclusion(data.memory_inventory);
+  const syncConclusion = syncAnswerConclusion(data.sync);
   const actionIsCalm = data.decision_summary.total_decisions === 0 && ((data.dashboard_overview.headline === "Saved, not remembered" || data.dashboard_overview.headline === "Saved for later") || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
   const actionClass = actionIsCalm ? "calm" : escapeHtml(data.dashboard_overview.status);
   const healthLabel = data.health.status === "healthy" ? "Healthy" : data.health.label;
@@ -6414,17 +6500,20 @@ function statusBoard(data: DashboardData): string {
         <button type="button" class="answer-card action ${actionClass}" data-dashboard-priority="action" data-action-board-target="${escapeHtml(data.dashboard_overview.primary_action.target)}" aria-controls="${escapeHtml(data.dashboard_overview.primary_action.target)}">
           ${i18nText("Do I need to act?", "我需要操作吗？")}
           <strong data-i18n-en="${escapeHtml(data.dashboard_overview.headline)}" data-i18n-zh="${escapeHtml(headlineZh)}">${escapeHtml(data.dashboard_overview.headline)}</strong>
+          ${answerCardConclusionText(actionConclusion)}
           <small data-i18n-en="${escapeHtml(data.dashboard_overview.primary_action.label)}" data-i18n-zh="${escapeHtml(primaryActionZh)}">${escapeHtml(data.dashboard_overview.primary_action.label)}</small>
         </button>
         <button type="button" class="answer-card memory" data-dashboard-priority="memory" data-action-board-target="stored-content" aria-controls="stored-content">
           ${i18nText("What is stored?", "存了什么？")}
           <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
+          ${answerCardConclusionText(memoryConclusion)}
           ${i18nText("visible saved items", "条可见保存内容", "small")}
           ${answerMemoryMix(data.memory_inventory)}
         </button>
         <button type="button" class="answer-card sync ${escapeHtml(shared.severity)}" data-dashboard-priority="sync" data-action-board-target="store-signals" aria-controls="store-signals">
           ${i18nText("Is everything synced?", "都同步了吗？")}
           ${i18nText(shared.label, shared.zh, "strong")}
+          ${answerCardConclusionText(syncConclusion)}
           <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
         </button>
       </div>
@@ -8643,8 +8732,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       text-align: left;
       color: inherit;
       cursor: pointer;
-      grid-template-rows: minmax(1.35em, auto) minmax(2.8em, auto) minmax(1.4em, auto) minmax(40px, auto);
-      min-height: 128px;
+      grid-template-rows: minmax(1.35em, auto) minmax(2.35em, auto) minmax(2.4em, auto) minmax(1.4em, auto) minmax(40px, auto);
+      min-height: 148px;
       background:
         linear-gradient(145deg, rgba(255, 255, 255, 0.052), rgba(69, 185, 255, 0.025) 46%, rgba(255, 255, 255, 0.006)),
         var(--surface-glass);
@@ -8734,6 +8823,15 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       font-size: 20px;
       line-height: 1.1;
       font-weight: 850;
+    }
+    .answer-card-conclusion {
+      margin: 0;
+      min-height: 2.4em;
+      color: var(--ink-2);
+      font-size: 13px;
+      line-height: 1.2;
+      font-weight: 720;
+      overflow-wrap: anywhere;
     }
     .memory-inventory,
     .recent-status {
