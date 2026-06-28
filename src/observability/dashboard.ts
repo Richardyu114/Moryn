@@ -1401,29 +1401,29 @@ function buildMemoryInventory(records: MorynRecord[]): DashboardMemoryInventory 
     states: [
       {
         id: "remembered",
-        label: "Long-term",
-        zh_label: "长期记住",
+        label: "Ready to use",
+        zh_label: "可直接使用",
         count: remembered,
         source_states: ["canonical"]
       },
       {
         id: "new_items",
-        label: "Recently saved",
-        zh_label: "最近保存",
+        label: "Saved, not organized",
+        zh_label: "已保存，未整理",
         count: newItems,
         source_states: ["candidate"]
       },
       {
         id: "temporary",
-        label: "For this session",
-        zh_label: "本次临时",
+        label: "Saved briefly",
+        zh_label: "临时保存",
         count: temporary,
         source_states: ["raw"]
       },
       {
         id: "set_aside",
-        label: "Kept for history",
-        zh_label: "留作记录",
+        label: "Set aside",
+        zh_label: "已放一边",
         count: setAside,
         source_states: ["archived", "quarantined"]
       }
@@ -6691,20 +6691,20 @@ function memoryInventoryFilterValue(state: DashboardMemoryInventoryState): strin
 
 function answerMemoryCountLabel(state: DashboardMemoryInventoryState): { en: string; zh: string } {
   if (state.id === "remembered") return {
-    en: `${state.count} long-term`,
-    zh: `${state.count} 条长期记住`
+    en: `${state.count} ready to use`,
+    zh: `${state.count} 条可直接使用`
   };
   if (state.id === "new_items") return {
-    en: `${state.count} recently saved`,
-    zh: `${state.count} 条最近保存`
+    en: `${state.count} not organized`,
+    zh: `${state.count} 条已保存，未整理`
   };
   if (state.id === "temporary") return {
-    en: `${state.count} for this session`,
-    zh: `${state.count} 条本次临时`
+    en: `${state.count} saved briefly`,
+    zh: `${state.count} 条临时保存`
   };
   return {
-    en: pluralize(state.count, "set aside"),
-    zh: `${state.count} 条留作记录`
+    en: `${state.count} set aside`,
+    zh: `${state.count} 条已放一边`
   };
 }
 
@@ -6736,8 +6736,8 @@ function memoryStateMeter(inventory: DashboardMemoryInventory): string {
   const savedForLaterPercent = chartPercentLabel(savedForLaterCount, total);
   const insight = total > 0
     ? {
-      en: `${rememberedPercent} long-term · ${savedForLaterPercent} saved for later`,
-      zh: `${rememberedPercent} 长期记住 · ${savedForLaterPercent} 稍后整理`
+      en: `${rememberedPercent} ready to use · ${savedForLaterPercent} saved for later`,
+      zh: `${rememberedPercent} 可直接使用 · ${savedForLaterPercent} 稍后整理`
     }
     : {
       en: "No stored content yet",
@@ -6884,7 +6884,7 @@ function glanceSummaryStrip(data: DashboardData): string {
           <small ${i18nAttribute(recentWritesLabel, recentWritesZh)}>${escapeHtml(recentWritesLabel)}</small>
         </button>
         <button type="button" data-glance-summary="remembered-now" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="canonical">
-          <span data-i18n-en="Long-term" data-i18n-zh="长期记住">Long-term</span>
+          <span data-i18n-en="Ready to use" data-i18n-zh="可直接使用">Ready to use</span>
           <strong>${escapeHtml(remembered)}</strong>
           <small data-i18n-en="Moryn can use now" data-i18n-zh="Moryn 现在可用">Moryn can use now</small>
         </button>
@@ -7043,10 +7043,10 @@ function dashboardDecisionPanel(data: DashboardData): string {
 }
 
 function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
-  if (state === "canonical") return { en: "Long-term", zh: "长期记住" };
-  if (state === "candidate") return { en: "Recently saved", zh: "最近保存" };
-  if (state === "raw") return { en: "For this session", zh: "本次临时" };
-  return { en: "Kept for history", zh: "留作记录" };
+  if (state === "canonical") return { en: "Ready to use", zh: "可直接使用" };
+  if (state === "candidate") return { en: "Saved, not organized", zh: "已保存，未整理" };
+  if (state === "raw") return { en: "Saved briefly", zh: "临时保存" };
+  return { en: "Set aside", zh: "已放一边" };
 }
 
 function storedContentNextStep(item: DashboardValueRecord): { label: string; zhLabel: string; detail: string; zhDetail: string } {
@@ -7075,8 +7075,8 @@ function storedContentNextStep(item: DashboardValueRecord): { label: string; zhL
     };
   }
   return {
-    label: "Kept for history",
-    zhLabel: "历史留存",
+    label: "Set aside",
+    zhLabel: "已放一边",
     detail: "This stays searchable here without changing long-term memory.",
     zhDetail: "这条仍可在这里搜索，不会改变长期记忆。"
   };
@@ -7233,32 +7233,32 @@ function memoryStateGuide(): string {
             ${memoryStateGuideCard(
               "memory-state-remembered",
               "canonical",
-              "Long-term",
-              "长期记住",
+              "Ready to use",
+              "可直接使用",
               "Moryn can already use this as long-term memory.",
               "Moryn 已经可以把这些作为长期记忆使用。"
             )}
             ${memoryStateGuideCard(
               "memory-state-to-organize",
               "candidate",
-              "Recently saved",
-              "最近保存",
+              "Saved, not organized",
+              "已保存，未整理",
               "Saved and searchable; organize later only if useful.",
               "已保存并可搜索；有用时再整理。"
             )}
             ${memoryStateGuideCard(
               "memory-state-temporary",
               "raw",
-              "For this session",
-              "本次临时",
+              "Saved briefly",
+              "临时保存",
               "Kept as session context for lookup.",
               "作为会话上下文保留，可供查找。"
             )}
             ${memoryStateGuideCard(
               "memory-state-set-aside",
               "archived,quarantined",
-              "Kept for history",
-              "留作记录",
+              "Set aside",
+              "已放一边",
               "Archived or replaced items kept for traceability.",
               "为追溯保留的归档或已替换内容。"
             )}
@@ -7386,10 +7386,10 @@ function memorySearchChip(query: string, label: string, zhLabel: string): string
 function memorySearchShortcutChips(input: { sources: string[]; recordStates: MorynRecord["state"][]; hasEvents: boolean }): string {
   const sourceChips = input.sources.slice(0, 3).map((source) => memorySearchChip(`source:${source}`, source, source));
   const stateChips = [
-    input.recordStates.includes("canonical") ? memorySearchChip("state:long-term", "Long-term", "长期记住") : "",
-    input.recordStates.includes("candidate") ? memorySearchChip("state:recently-saved", "Recently saved", "最近保存") : "",
-    input.recordStates.includes("raw") ? memorySearchChip("state:for-this-session", "For this session", "本次临时") : "",
-    (input.recordStates.includes("archived") || input.recordStates.includes("quarantined")) ? memorySearchChip("state:kept-for-history", "Kept for history", "留作记录") : ""
+    input.recordStates.includes("canonical") ? memorySearchChip("state:long-term", "Ready to use", "可直接使用") : "",
+    input.recordStates.includes("candidate") ? memorySearchChip("state:recently-saved", "Saved, not organized", "已保存，未整理") : "",
+    input.recordStates.includes("raw") ? memorySearchChip("state:for-this-session", "Saved briefly", "临时保存") : "",
+    (input.recordStates.includes("archived") || input.recordStates.includes("quarantined")) ? memorySearchChip("state:kept-for-history", "Set aside", "已放一边") : ""
   ].filter(Boolean);
   const eventChip = input.hasEvents ? memorySearchChip("type:event", "Events", "事件") : "";
   const chips = [
