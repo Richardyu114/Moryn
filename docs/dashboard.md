@@ -727,12 +727,15 @@ and safety chips on the first screen because the summary, inventory, recent
 status, compact `More details` fold, and `/api/dashboard` already expose
 the same routes. `/api/dashboard.attention_items` remains the audit source for
 routine checks, and `/api/dashboard.action_board` remains the audit source for
-the complete shortcut list. When the quiet overview card group is rendered in
-non-sync states, its visible label is `Other status` with `Ready if needed` so it
-reads as optional context rather than another task. A card with the same source
-as the headline primary action is skipped in both the visible grid and the quiet
-group; the card still stays in `/api/dashboard.dashboard_overview.cards` and
-`cards_by_id` for audit tooling.
+the complete shortcut list. The visible background-check labels and item
+descriptions carry English and Chinese display text, so switching language does
+not expose raw status templates such as routine-check counts, temporary-note
+counts, or candidate-record cleanup wording. When the quiet overview card group
+is rendered in non-sync states, its visible label is `Other status` with `Ready
+if needed` so it reads as optional context rather than another task. A card with
+the same source as the headline primary action is skipped in both the visible
+grid and the quiet group; the card still stays in
+`/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling.
 When `Pending Decisions` is rendered, the visible HTML skips the `Other status`
 group and the stable `dashboard-overview-quiet-cards` route so the approval path stays
 uninterrupted; the overview cards remain in

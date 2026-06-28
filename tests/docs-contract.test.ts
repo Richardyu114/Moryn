@@ -180,6 +180,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "compact `More details` fold");
     expectText(dashboard, "`/api/dashboard.attention_items` remains the audit source for routine checks");
     expectText(dashboard, "`/api/dashboard.action_board` remains the audit source for the complete shortcut list");
+    expectText(dashboard, "visible background-check labels and item descriptions carry English and Chinese display text");
+    expectText(dashboard, "does not expose raw status templates such as routine-check counts, temporary-note counts, or candidate-record cleanup wording");
     expectText(dashboard, "Each background overview card is also a local navigation button");
     expectText(dashboard, "its visible label is `Other status` with `Ready if needed`");
     expectText(dashboard, "When `Pending Decisions` is rendered, the visible HTML skips the `Other status` group and the stable `dashboard-overview-quiet-cards` route");

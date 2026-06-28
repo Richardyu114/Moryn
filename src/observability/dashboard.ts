@@ -4011,18 +4011,66 @@ function healthClass(status: DashboardHealthStatus): string {
 }
 
 function attentionItem(item: DashboardAttentionItem): string {
+  const title = item.title;
+  const severity = titleCase(item.severity);
+  const description = item.description;
   return `
     <details class="attention ${escapeHtml(item.severity)}" data-dashboard-detail="attention:${escapeHtml(item.title)}">
       <summary class="attention-summary">
-        <strong>${escapeHtml(item.title)}</strong>
-        <span>${escapeHtml(titleCase(item.severity))}</span>
+        <strong ${i18nAttribute(title, attentionTitleZh(title))}>${escapeHtml(title)}</strong>
+        <span ${i18nAttribute(severity, attentionSeverityZh(item.severity))}>${escapeHtml(severity)}</span>
       </summary>
       <div class="attention-body">
-        <p>${escapeHtml(item.description)}</p>
+        <p ${i18nAttribute(description, attentionDescriptionZh(description))}>${escapeHtml(description)}</p>
         ${item.action_command ? `<code>${escapeHtml(item.action_command)}</code>` : ""}
       </div>
     </details>
   `;
+}
+
+function attentionSeverityZh(severity: DashboardAttentionSeverity): string {
+  if (severity === "critical") return "严重";
+  if (severity === "warning") return "提醒";
+  return "信息";
+}
+
+function attentionTitleZh(title: string): string {
+  if (title === "Sync is not configured") return "共享副本未连接";
+  if (title === "Sync conflict") return "共享副本有冲突";
+  if (title === "Sync changes not pushed") return "本机改动还没上传";
+  if (title === "Remote position changed") return "共享副本位置已变化";
+  if (title === "Quarantined records hidden") return "部分内容已暂不使用";
+  if (title === "Quarantined records superseded") return "隔离内容已有安全替代";
+  if (title === "Temporary notes waiting") return "临时笔记待整理";
+  if (title === "Many recently saved items") return "较多最近保存内容";
+  return title;
+}
+
+function attentionDescriptionZh(description: string): string {
+  if (description === "This store is local-only until a private Git remote is configured.") {
+    return "还没有连接私有共享副本；当前记忆只在这台设备可见。";
+  }
+  if (description === "Git sync reports a conflict. Resolve it before relying on cross-device handoff.") {
+    return "共享副本有冲突；跨设备交接前需要先处理。";
+  }
+  if (description === "Local event history has changes that are not committed or pushed yet.") {
+    return "本机事件历史还有未上传的变化。";
+  }
+  const remoteMatch = description.match(/^This store is (\d+) commit\(s\) ahead and (\d+) commit\(s\) behind the configured remote\.$/);
+  if (remoteMatch) return `这份记忆比共享副本超前 ${remoteMatch[1]} 次提交、落后 ${remoteMatch[2]} 次提交。`;
+  const hiddenMatch = description.match(/^(\d+) record\(s\) are hidden because they may contain sensitive or unsafe content\.$/);
+  if (hiddenMatch) return `${hiddenMatch[1]} 条内容可能包含敏感或不安全信息，已暂不使用。`;
+  const supersededMatch = description.match(/^(\d+) quarantined record\(s\) have active safe replacement index records\.$/);
+  if (supersededMatch) return `${supersededMatch[1]} 条隔离内容已有安全替代版本。`;
+  const rawMatch = description.match(/^(\d+) temporary note\(s\) are preserved but excluded from normal recall\.$/);
+  if (rawMatch) return `${rawMatch[1]} 条临时内容已保留，但不会被当作长期记忆使用。`;
+  const candidateMatch = description.match(/^(\d+) recently saved item\(s\) may need long-term memory, archive, or cleanup\.$/);
+  if (candidateMatch) return `${candidateMatch[1]} 条最近保存内容可以稍后整理：记住、继续保留，或放一边。`;
+  return description;
+}
+
+function routineCheckCountZh(count: number): string {
+  return `${count} 项日常检查`;
 }
 
 function attentionFocusNextAction(items: DashboardAttentionItem[]): string {
@@ -4083,14 +4131,14 @@ function infoChecksGroup(items: DashboardAttentionItem[], options: { quiet?: boo
   return `
         <details class="attention-info-group" data-dashboard-detail="attention-info-checks">
           <summary class="dashboard-fold-summary">
-            <span>Background checks</span>
-            <small>Routine checks</small>
+            ${i18nText("Background checks", "后台检查")}
+            ${i18nText("Routine checks", "日常检查", "small")}
           </summary>
           ${options.quiet ? `
             <details class="attention-info-details" data-dashboard-detail="attention-info-details">
               <summary class="dashboard-fold-summary">
-                <span>Check details</span>
-                <small>${escapeHtml(pluralize(items.length, "routine check"))}</small>
+                ${i18nText("Check details", "检查详情")}
+                <small ${i18nAttribute(pluralize(items.length, "routine check"), routineCheckCountZh(items.length))}>${escapeHtml(pluralize(items.length, "routine check"))}</small>
               </summary>
               ${list}
             </details>

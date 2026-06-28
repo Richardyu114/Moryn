@@ -216,12 +216,12 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("<section id=\"needs-attention\" class=\"needs-attention-quiet-line\" data-dashboard-section=\"needs-attention\" data-dashboard-detail=\"needs-attention\">");
-      expect(html).toContain("<span>Background checks</span>");
-      expect(html).toContain("<small>Routine checks</small>");
+      expect(html).toContain("<span data-i18n-en=\"Background checks\" data-i18n-zh=\"后台检查\">Background checks</span>");
+      expect(html).toContain("<small data-i18n-en=\"Routine checks\" data-i18n-zh=\"日常检查\">Routine checks</small>");
       expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
       expect(html).toContain("<details class=\"attention-info-details\" data-dashboard-detail=\"attention-info-details\">");
-      expect(html).toContain("<span>Check details</span>");
-      expect(html).toContain("<small>1 routine check</small>");
+      expect(html).toContain("<span data-i18n-en=\"Check details\" data-i18n-zh=\"检查详情\">Check details</span>");
+      expect(html).toContain("<small data-i18n-en=\"1 routine check\" data-i18n-zh=\"1 项日常检查\">1 routine check</small>");
       const quietInfoStart = html.indexOf("data-dashboard-detail=\"attention-info-checks\"");
       const quietInfoDetailsStart = html.indexOf("data-dashboard-detail=\"attention-info-details\"", quietInfoStart);
       const quietInfoSummaryHtml = html.slice(quietInfoStart, quietInfoDetailsStart);
@@ -236,6 +236,103 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<details id=\"needs-attention\" class=\"panel needs-attention quiet\" data-dashboard-detail=\"needs-attention\" data-dashboard-section=\"needs-attention\">");
       expect(html).not.toContain("<section id=\"needs-attention\" class=\"panel\" data-dashboard-section=\"needs-attention\">");
       expect(html).not.toContain("data-dashboard-detail=\"decision-summary\"");
+    });
+  });
+
+  it("renders background check items with explicit Chinese translations", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          let timestamp = 0;
+          return () => `2026-06-01T00:${String(++timestamp).padStart(2, "0")}:00.000Z`;
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_attention_i18n_${++record}` : `evt_attention_i18n_${++event}`;
+        })()
+      });
+
+      const unsafe = await engine.write({
+        kind: "skill",
+        type: "codex_workflow_bundle",
+        scope: "global",
+        tags: ["full-content", "portable-install"],
+        content: { text: "sk-test_attention_i18n_1234567890abcdefghijklmnopqrstuvwxyz", format: "text" },
+        priority: "high",
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "skill",
+        type: "codex_workflow_bundle_index",
+        scope: "global",
+        tags: ["portable-install", "index"],
+        content: {
+          format: "json",
+          name: "safe encoded replacement",
+          supersedes_quarantined_record: unsafe.record.id
+        },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "A stable memory keeps candidate threshold realistic.", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "codex" }
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "raw_note",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Temporary raw note should be explained plainly.", format: "text" },
+        state: "raw",
+        source: { client: "codex" }
+      });
+      for (let index = 1; index <= 10; index += 1) {
+        await engine.write({
+          kind: "session_summary",
+          type: "status",
+          scope: "project",
+          project_id: "moryn",
+          content: { text: `Recently saved item ${index}`, format: "text" },
+          state: "candidate",
+          source: { client: "codex" }
+        });
+      }
+
+      const data = await buildDashboardData(storePath, {
+        limit: 20,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data);
+
+      expect(data.attention_items.map((item) => item.title)).toEqual(expect.arrayContaining([
+        "Quarantined records superseded",
+        "Temporary notes waiting",
+        "Many recently saved items"
+      ]));
+      expect(html).toContain("<span data-i18n-en=\"Background checks\" data-i18n-zh=\"后台检查\">Background checks</span>");
+      expect(html).toContain("<small data-i18n-en=\"Routine checks\" data-i18n-zh=\"日常检查\">Routine checks</small>");
+      expect(html).toContain("<strong data-i18n-en=\"Quarantined records superseded\" data-i18n-zh=\"隔离内容已有安全替代\">Quarantined records superseded</strong>");
+      expect(html).toContain("<p data-i18n-en=\"1 quarantined record(s) have active safe replacement index records.\" data-i18n-zh=\"1 条隔离内容已有安全替代版本。\">1 quarantined record(s) have active safe replacement index records.</p>");
+      expect(html).toContain("<strong data-i18n-en=\"Temporary notes waiting\" data-i18n-zh=\"临时笔记待整理\">Temporary notes waiting</strong>");
+      expect(html).toContain("<p data-i18n-en=\"1 temporary note(s) are preserved but excluded from normal recall.\" data-i18n-zh=\"1 条临时内容已保留，但不会被当作长期记忆使用。\">1 temporary note(s) are preserved but excluded from normal recall.</p>");
+      expect(html).toContain("<strong data-i18n-en=\"Many recently saved items\" data-i18n-zh=\"较多最近保存内容\">Many recently saved items</strong>");
+      expect(html).toContain("<p data-i18n-en=\"10 recently saved item(s) may need long-term memory, archive, or cleanup.\" data-i18n-zh=\"10 条最近保存内容可以稍后整理：记住、继续保留，或放一边。\">10 recently saved item(s) may need long-term memory, archive, or cleanup.</p>");
+      expect(html).toContain("<span data-i18n-en=\"Info\" data-i18n-zh=\"信息\">Info</span>");
     });
   });
 
@@ -3878,8 +3975,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<em>Next: Review warnings</em>");
       expect(html).toContain("<details class=\"attention warning\" data-dashboard-detail=\"attention:Quarantined records hidden\">");
       expect(html).toContain("<details class=\"attention-info-group\" data-dashboard-detail=\"attention-info-checks\">");
-      expect(html).toContain("<span>Background checks</span>");
-      expect(html).toContain("<small>Routine checks</small>");
+      expect(html).toContain("<span data-i18n-en=\"Background checks\" data-i18n-zh=\"后台检查\">Background checks</span>");
+      expect(html).toContain("<small data-i18n-en=\"Routine checks\" data-i18n-zh=\"日常检查\">Routine checks</small>");
       expect(html).not.toContain("<small>1 info item</small>");
       expect(html).toContain("<div class=\"attention-info-list\">");
       expect(html).toContain("<details class=\"attention info\" data-dashboard-detail=\"attention:Sync is not configured\">");
