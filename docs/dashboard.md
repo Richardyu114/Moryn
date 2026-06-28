@@ -642,6 +642,9 @@ Store`, while preserving literal API routes and source ids. Older internal label
 status checks`, `Info Details`, `Raw records waiting for review`, and `Many
 candidate records` should not appear as visible dashboard copy. Memory Search
 controls, query shortcut chips, and result-count feedback also follow the language toggle.
+System-generated saved-content titles such as `Summary`, `Status`, `Decision`,
+and `Raw Note` follow the language toggle in Stored Content, Memory Search,
+Recent changes, and the detail pane.
 Safety wording uses plain visible copy such as `Some saved content is paused`
 and `Paused content has a safe replacement`; internal phrases such as
 `Quarantined records hidden` and `Quarantined records superseded` stay only in

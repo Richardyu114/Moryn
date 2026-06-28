@@ -115,6 +115,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "stable routes, API fields, or audit evidence");
     expectText(dashboard, "Memory Search controls, query shortcut");
     expectText(dashboard, "chips, and result-count feedback also follow the language toggle");
+    expectText(dashboard, "System-generated saved-content titles such as `Summary`, `Status`, `Decision`,");
+    expectText(dashboard, "and `Raw Note` follow the language toggle in Stored Content, Memory Search,");
+    expectText(dashboard, "Recent changes, and the detail pane");
     expectText(dashboard, "Clicking a Memory Search result-mix chip applies that status or event filter");
     expectText(dashboard, "while keeping the search local and read-only");
     expectText(dashboard, "Search results open the same read-only");

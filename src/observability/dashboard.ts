@@ -569,6 +569,7 @@ export interface DashboardCandidateTriage {
 export interface DashboardValueRecord {
   id: string;
   title: string;
+  title_zh: string;
   summary: string;
   source_label: string;
   source_detail: string;
@@ -1052,6 +1053,24 @@ function titleCase(value: string): string {
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
+function dashboardRecordTitleLabel(kind: MorynRecord["kind"], type?: string): { en: string; zh: string } {
+  const raw = type || kind;
+  const normalized = raw.toLowerCase();
+  const en = titleCase(raw);
+  if (normalized === "decision") return { en, zh: "决策" };
+  if (normalized === "status") return { en, zh: "状态" };
+  if (normalized === "summary") return { en, zh: "摘要" };
+  if (normalized === "raw_note") return { en, zh: "临时笔记" };
+  if (normalized === "warning") return { en, zh: "提醒" };
+  if (normalized === "blocker") return { en, zh: "阻塞项" };
+  if (normalized === "memory") return { en, zh: "记忆" };
+  if (normalized === "skill") return { en, zh: "技能" };
+  if (normalized === "soul") return { en, zh: "偏好" };
+  if (normalized === "session_summary") return { en, zh: "会话记录" };
+  if (normalized === "agent_note") return { en, zh: "代理记录" };
+  return { en, zh: en };
+}
+
 function relativeTime(iso: string, nowIso: string): string {
   const then = Date.parse(iso);
   const now = Date.parse(nowIso);
@@ -1447,9 +1466,11 @@ function recordValueScore(record: MorynRecord): number {
 }
 
 function summarizeValueRecord(record: MorynRecord, generatedAt: string, eventsByRecord: Map<string, MorynEvent>): DashboardValueRecord {
+  const title = dashboardRecordTitleLabel(record.kind, record.type);
   return {
     id: record.id,
-    title: titleCase(record.type || record.kind),
+    title: title.en,
+    title_zh: title.zh,
     summary: recordText(record),
     source_label: humanSourceLabel(record.source),
     source_detail: humanSourceDetail(record.source),
@@ -7106,12 +7127,12 @@ function storedContentItem(item: DashboardValueRecord, selected = false): string
     provenanceReason: item.provenance_reason
   });
   return `
-            <article class="stored-content-item state-${escapeHtml(item.state)}${selected ? " selected" : ""}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-item-id="${escapeHtml(item.id)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
+            <article class="stored-content-item state-${escapeHtml(item.state)}${selected ? " selected" : ""}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-item-id="${escapeHtml(item.id)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-title-zh="${escapeHtml(item.title_zh)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
               <div class="stored-content-item-head">
                 <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
                 <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
               </div>
-              <strong>${escapeHtml(item.title)}</strong>
+              <strong ${i18nAttribute(item.title, item.title_zh)}>${escapeHtml(item.title)}</strong>
               ${textExcerptBlock(item.summary)}
               <div class="stored-content-explain" data-stored-content-explain>
                 ${storedContentExplainCard("why-saved", "Why saved", "为什么保存", whySaved.label, whySaved.zhLabel)}
@@ -7209,7 +7230,7 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
   const relative = relativeTime(record.updated_at, generatedAt);
   const metaEn = `${stateLabel.en} | ${source} | ${relative}`;
   const metaZh = `${stateLabel.zh} | ${source} | ${relativeTimeZh(relative)}`;
-  const title = titleCase(record.type || record.kind);
+  const title = dashboardRecordTitleLabel(record.kind, record.type);
   const updatedEn = `${relative} | ${record.updated_at}`;
   const updatedZh = `${relativeTimeZh(relative)} | ${record.updated_at}`;
   const guidanceAttributes = memoryExplorerGuidanceAttributes({
@@ -7228,9 +7249,9 @@ function memorySearchRecordEntry(record: DashboardRecordSummary, generatedAt: st
     record.text
   ]);
   return `
-          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}" data-memory-explorer-item-id="record:${escapeHtml(record.id)}" data-memory-explorer-title="${escapeHtml(title)}" data-memory-explorer-full-text="${escapeHtml(record.text)}" data-memory-explorer-state="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-en="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-zh="${escapeHtml(stateLabel.zh)}" data-memory-explorer-source="${escapeHtml(source)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(record.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(record.citation.recall_command)}" tabindex="0">
+          <article class="memory-search-result record" data-memory-search-entry="record:${escapeHtml(record.id)}" data-memory-search-text="${escapeHtml(searchText)}" data-memory-search-state="${escapeHtml(record.state)}" data-memory-search-source="${escapeHtml(source)}" data-memory-search-kind="${escapeHtml(record.kind)}" data-memory-search-record-type="${escapeHtml(record.type)}" data-memory-search-updated-at="${escapeHtml(record.updated_at)}" data-memory-explorer-item-id="record:${escapeHtml(record.id)}" data-memory-explorer-title="${escapeHtml(title.en)}" data-memory-explorer-title-zh="${escapeHtml(title.zh)}" data-memory-explorer-full-text="${escapeHtml(record.text)}" data-memory-explorer-state="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-en="${escapeHtml(stateLabel.en)}" data-memory-explorer-state-zh="${escapeHtml(stateLabel.zh)}" data-memory-explorer-source="${escapeHtml(source)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" ${guidanceAttributes} data-memory-explorer-timeline="${escapeHtml(record.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(record.citation.recall_command)}" tabindex="0">
             <span ${i18nAttribute("Memory", "记忆")}>Memory</span>
-            <strong>${escapeHtml(title)}</strong>
+            <strong ${i18nAttribute(title.en, title.zh)}>${escapeHtml(title.en)}</strong>
             <p>${escapeHtml(record.text)}</p>
             <small ${i18nAttribute(metaEn, metaZh)}>${escapeHtml(metaEn)}</small>
           </article>
@@ -7341,7 +7362,7 @@ function memorySearchItemCountLabel(count: number): { en: string; zh: string } {
   };
 }
 
-function memorySearchSummary(totalCount: number, selectedTitle: string): string {
+function memorySearchSummary(totalCount: number, selectedTitle: string, selectedTitleZh: string): string {
   const total = memorySearchItemCountLabel(totalCount);
   return `
         <div class="memory-search-summary" data-memory-search-summary aria-label="Search summary">
@@ -7355,7 +7376,7 @@ function memorySearchSummary(totalCount: number, selectedTitle: string): string 
           </article>
           <article class="memory-search-summary-card">
             <span data-i18n-en="Selected" data-i18n-zh="当前选择">Selected</span>
-            <strong data-memory-search-summary-selected data-i18n-en="${escapeHtml(selectedTitle)}" data-i18n-zh="${escapeHtml(selectedTitle)}">${escapeHtml(selectedTitle)}</strong>
+            <strong data-memory-search-summary-selected data-i18n-en="${escapeHtml(selectedTitle)}" data-i18n-zh="${escapeHtml(selectedTitleZh)}">${escapeHtml(selectedTitle)}</strong>
           </article>
           <small class="memory-search-summary-readonly" data-i18n-en="Read-only: opening an item only updates this detail view." data-i18n-zh="只读：打开内容只会更新详情视图。">Read-only: opening an item only updates this detail view.</small>
         </div>
@@ -7379,7 +7400,9 @@ function memorySearchPanel(data: DashboardData): string {
     recordStates,
     hasEvents: data.recent_events.length > 0
   });
-  const selectedTitle = data.recent_records[0] ? titleCase(data.recent_records[0].type || data.recent_records[0].kind) : "Selected item";
+  const selectedTitle = data.recent_records[0]
+    ? dashboardRecordTitleLabel(data.recent_records[0].kind, data.recent_records[0].type)
+    : { en: "Selected item", zh: "当前内容" };
   return `
       <div id="memory-search-panel" class="memory-search-panel primary-memory-search" data-memory-search-panel data-memory-search-now="${escapeHtml(data.generated_at)}" aria-label="Find memory">
         <label class="memory-search-label" for="memory-search-input" data-i18n-en="Find memory or events" data-i18n-zh="查找记忆或事件">Find memory or events</label>
@@ -7403,7 +7426,7 @@ function memorySearchPanel(data: DashboardData): string {
           <span data-memory-search-status ${i18nAttribute(statusLabel.en, statusLabel.zh)}>${escapeHtml(statusLabel.en)}</span>
           <small data-i18n-en="Local search only; no writes happen here." data-i18n-zh="仅本地搜索；这里不会写入。">Local search only; no writes happen here.</small>
         </div>
-        ${memorySearchSummary(entries.length, selectedTitle)}
+        ${memorySearchSummary(entries.length, selectedTitle.en, selectedTitle.zh)}
         ${memoryStateGuide()}
         ${memorySearchMix(data.recent_records, data.recent_events)}
         <div class="memory-search-results" data-memory-search-results>
@@ -7420,7 +7443,8 @@ function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
   const updatedEn = item ? `${item.relative_time} | ${item.exact_time}` : "";
   const updatedZh = item ? `${relativeTimeZh(item.relative_time)} | ${item.exact_time}` : "";
   const title = item?.title ?? "Select an item";
-  const titleAttrs = item ? "" : ` data-i18n-en="Select an item" data-i18n-zh="选择一条内容"`;
+  const titleZh = item?.title_zh ?? "选择一条内容";
+  const titleAttrs = ` ${i18nAttribute(title, titleZh)}`;
   const text = item?.summary ?? "Select a saved item to read its full text, source, and status.";
   const textAttrs = item ? "" : ` data-i18n-en="Select a saved item to read its full text, source, and status." data-i18n-zh="选择一条保存内容，可查看全文、来源和状态。"`;
   const gridHidden = item ? "" : " hidden";
@@ -7534,11 +7558,11 @@ function recentChangeRow(record: DashboardRecordSummary, generatedAt: string): s
   const source = humanSourceLabel(record.source);
   const relative = relativeTime(record.updated_at, generatedAt);
   const sourceRelative = sourceRelativePair(source, relative);
-  const title = titleCase(record.type || record.kind);
+  const title = dashboardRecordTitleLabel(record.kind, record.type);
   return `
         <button type="button" class="recent-change-row state-${escapeHtml(record.state)}" data-recent-change-record="${escapeHtml(record.id)}" data-recent-change-select="${escapeHtml(record.id)}" data-action-board-target="stored-content" aria-controls="stored-content">
           <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
-          <strong>${escapeHtml(title)}</strong>
+          <strong ${i18nAttribute(title.en, title.zh)}>${escapeHtml(title.en)}</strong>
           <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
         </button>
   `;
@@ -8091,7 +8115,7 @@ function dashboardStoredContentScript(): string {
         const meaning = detail.querySelector("[data-memory-explorer-meaning]");
         const guidance = detail.querySelector("[data-memory-explorer-guidance]");
         const trace = detail.querySelector("[data-memory-explorer-trace]");
-        setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || "Saved item");
+        setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || "Saved item", item.dataset.memoryExplorerTitleZh || item.dataset.memoryExplorerTitle || "Saved item");
         setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || "", item.dataset.memoryExplorerFullTextZh || item.dataset.memoryExplorerFullText || item.textContent || "");
         setLocalizedDetailText(detailState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || "", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || "");
         const hasGuidance = item.dataset.memoryExplorerHasGuidance !== "false" && (item.dataset.memoryExplorerWhySaved || item.dataset.memoryExplorerNextStep);
@@ -8109,7 +8133,7 @@ function dashboardStoredContentScript(): string {
         if (guidance instanceof HTMLElement) guidance.hidden = !hasGuidance;
         if (trace instanceof HTMLElement) trace.hidden = false;
         setMemoryExplorerSelection(item);
-        setMemorySearchSummaryValue(document.querySelectorAll("[data-memory-search-summary-selected]"), item.dataset.memoryExplorerTitle || "Selected item");
+        setMemorySearchSummaryValue(document.querySelectorAll("[data-memory-search-summary-selected]"), item.dataset.memoryExplorerTitle || "Selected item", item.dataset.memoryExplorerTitleZh || item.dataset.memoryExplorerTitle || "Selected item");
         writeStoredContentState({ selectedItemId: item.dataset.memoryExplorerItemId || item.dataset.storedContentItem || item.dataset.memorySearchEntry || null });
       };
       const restoreMemoryExplorerSelection = (state) => {
