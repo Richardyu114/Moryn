@@ -248,6 +248,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Recent status` shows the last write time, latest source, shared-copy state, and the number of `saved for later` items");
     expectText(dashboard, "Its last-write relative time follows the language toggle");
     expectText(dashboard, "exact timestamp stays in the `time` title and `datetime` attributes");
+    expectText(dashboard, "It also shows a read-only `Recent changes` strip");
+    expectText(dashboard, "Clicking a row opens `Find what Moryn saved` and selects the matching item");
+    expectText(dashboard, "it never writes or approves memory");
     expectText(dashboard, "The top health message stays below the header only when it adds new context");
     expectText(dashboard, "Healthy snapshots render as a lightweight `dashboard-status-line`");
     expectText(dashboard, "`Everything is synced and no action is");

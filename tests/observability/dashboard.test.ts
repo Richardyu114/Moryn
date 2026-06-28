@@ -942,6 +942,24 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"Latest source\" data-i18n-zh=\"最近来源\">Latest source</span>");
       expect(html).toContain("<span data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</span>");
       expect(html).toContain("<span data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</span>");
+      expect(html).toContain("<div class=\"recent-changes\" data-recent-changes aria-label=\"Recent changes\">");
+      expect(html).toContain("<div class=\"recent-changes-heading\">");
+      expect(html).toContain("<span data-i18n-en=\"Recent changes\" data-i18n-zh=\"最近变化\">Recent changes</span>");
+      expect(html).toContain("<small data-i18n-en=\"Latest saved content\" data-i18n-zh=\"最近保存的内容\">Latest saved content</small>");
+      expect(html).toContain("<button type=\"button\" class=\"recent-change-row state-candidate\" data-recent-change-record=\"rec_action_board_3\" data-recent-change-select=\"rec_action_board_3\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<span data-i18n-en=\"Recently saved\" data-i18n-zh=\"最近保存\">Recently saved</span>");
+      expect(html).toContain("<strong>Status</strong>");
+      expect(html).toContain("<small data-i18n-en=\"Gemini | 19d ago\" data-i18n-zh=\"Gemini | 19 天前\">Gemini | 19d ago</small>");
+      expect(html).toContain("<button type=\"button\" class=\"recent-change-row state-canonical\" data-recent-change-record=\"rec_action_board_2\" data-recent-change-select=\"rec_action_board_2\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<span data-i18n-en=\"Long-term\" data-i18n-zh=\"长期记住\">Long-term</span>");
+      expect(html).toContain("<strong>Decision</strong>");
+      expect(html).toContain("<button type=\"button\" class=\"recent-change-row state-raw\" data-recent-change-record=\"rec_action_board_1\" data-recent-change-select=\"rec_action_board_1\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
+      expect(html).toContain("<span data-i18n-en=\"For this session\" data-i18n-zh=\"本次临时\">For this session</span>");
+      expect(html).toContain("<strong>Raw Note</strong>");
+      expect(html).toContain("const recentChange = target.closest(\"[data-recent-change-select]\");");
+      expect(html).toContain("selectedItemId: recentChange.dataset.recentChangeSelect || null");
+      expect(html).toContain(".recent-change-row:hover {");
+      expect(html).toContain(".recent-change-row:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }");
       expect(data.recent_records[0]).toMatchObject({
         source: { client: "gemini" },
         text: "Recent session status belongs on the dashboard front page."

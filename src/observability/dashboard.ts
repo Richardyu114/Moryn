@@ -7461,6 +7461,37 @@ function memoryInventoryPanel(inventory: DashboardMemoryInventory): string {
   `;
 }
 
+function recentChangeRow(record: DashboardRecordSummary, generatedAt: string): string {
+  const state = memoryStateLabelFromRecordState(record.state);
+  const source = humanSourceLabel(record.source);
+  const relative = relativeTime(record.updated_at, generatedAt);
+  const sourceRelative = sourceRelativePair(source, relative);
+  const title = titleCase(record.type || record.kind);
+  return `
+        <button type="button" class="recent-change-row state-${escapeHtml(record.state)}" data-recent-change-record="${escapeHtml(record.id)}" data-recent-change-select="${escapeHtml(record.id)}" data-action-board-target="stored-content" aria-controls="stored-content">
+          <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
+          <strong>${escapeHtml(title)}</strong>
+          <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
+        </button>
+  `;
+}
+
+function recentChangesList(records: DashboardRecordSummary[], generatedAt: string): string {
+  const rows = records.slice(0, 3).map((record) => recentChangeRow(record, generatedAt)).join("");
+  if (!rows) return "";
+  return `
+      <div class="recent-changes" data-recent-changes aria-label="Recent changes">
+        <div class="recent-changes-heading">
+          <span data-i18n-en="Recent changes" data-i18n-zh="最近变化">Recent changes</span>
+          <small data-i18n-en="Latest saved content" data-i18n-zh="最近保存的内容">Latest saved content</small>
+        </div>
+        <div class="recent-change-list">
+          ${rows}
+        </div>
+      </div>
+  `;
+}
+
 function recentStatusPanel(data: DashboardData): string {
   const latestRecord = data.recent_records[0];
   const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
@@ -7493,6 +7524,7 @@ function recentStatusPanel(data: DashboardData): string {
           <strong ${i18nAttribute(reviewableLabel, reviewableZh)}>${escapeHtml(reviewableLabel)}</strong>
         </article>
       </div>
+      ${recentChangesList(data.recent_records, data.generated_at)}
     </section>
   `;
 }
@@ -8174,6 +8206,20 @@ function dashboardStoredContentScript(): string {
       document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
+        const recentChange = target.closest("[data-recent-change-select]");
+        if (recentChange instanceof HTMLElement) {
+          writeStoredContentState({
+            overflowOpen: true,
+            searchOpen: true,
+            storedContentFilter: "all",
+            searchStateFilter: "all",
+            searchSourceFilter: "all",
+            selectedItemId: recentChange.dataset.recentChangeSelect || null
+          });
+          applyStoredContentState({ highlight: true });
+          document.querySelector("[data-stored-content]")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          return;
+        }
         const explorerTrigger = target.closest("[data-memory-explorer-open], [data-stored-content-item], [data-memory-search-entry]");
         if (explorerTrigger instanceof HTMLElement) {
           const item = explorerTrigger.matches("[data-stored-content-item], [data-memory-search-entry]") ? explorerTrigger : explorerTrigger.closest("[data-stored-content-item], [data-memory-search-entry]");
@@ -9054,6 +9100,75 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       grid-template-columns: repeat(4, minmax(0, 1fr));
       margin-bottom: 0;
     }
+    .recent-changes {
+      display: grid;
+      gap: 8px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+    .recent-changes-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .recent-changes-heading span {
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 820;
+      overflow-wrap: anywhere;
+    }
+    .recent-changes-heading small { text-align: right; }
+    .recent-change-list {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .recent-change-row {
+      appearance: none;
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      min-height: 76px;
+      border: 1px solid var(--hairline);
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 9px;
+      background: rgba(8, 10, 13, 0.58);
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+    .recent-change-row.state-canonical { border-left-color: var(--signal-green); }
+    .recent-change-row.state-candidate { border-left-color: var(--signal-blue); }
+    .recent-change-row.state-raw { border-left-color: var(--signal-amber); }
+    .recent-change-row.state-archived,
+    .recent-change-row.state-quarantined { border-left-color: var(--signal-slate); }
+    .recent-change-row:hover {
+      border-color: var(--panel-highlight);
+      background: var(--surface-hover);
+      box-shadow: var(--elevation-hover);
+      transform: translateY(-1px);
+    }
+    .recent-change-row:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .recent-change-row span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 820;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .recent-change-row strong {
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.2;
+      font-weight: 840;
+      overflow-wrap: anywhere;
+    }
+    .recent-change-row small { color: var(--muted); }
     .decision-panel,
     .stored-content {
       border: 1px solid rgba(112, 129, 149, 0.24);
@@ -12426,7 +12541,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .recent-change-list, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .memory-state-guide-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
