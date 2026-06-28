@@ -963,12 +963,16 @@ describe("observability dashboard", () => {
       expect(data.recent_events.map((event) => event.event_id)).toContain("evt_memory_search_1");
       expect(html).not.toContain("<button type=\"button\" class=\"memory-search-toggle\" data-memory-search-toggle");
       expect(html).toContain("<div id=\"memory-search-panel\" class=\"memory-search-panel\" data-memory-search-panel>");
-      expect(html).toContain("<input id=\"memory-search-input\" class=\"memory-search-input\" type=\"search\" data-memory-search-input placeholder=\"Search memory or events\" aria-label=\"Search memory or events\">");
+      expect(html).toContain("<input id=\"memory-search-input\" class=\"memory-search-input\" type=\"search\" data-memory-search-input placeholder=\"Search memory or events\" aria-label=\"Search memory or events\" data-i18n-placeholder-en=\"Search memory or events\" data-i18n-placeholder-zh=\"搜索记忆或事件\" data-i18n-aria-label-en=\"Search memory or events\" data-i18n-aria-label-zh=\"搜索记忆或事件\">");
       expect(html).toContain("<div class=\"memory-search-controls\" data-memory-search-controls>");
       expect(html).toContain("<select class=\"memory-search-select\" data-memory-search-state aria-label=\"Filter search by memory state\">");
-      expect(html).toContain("<option value=\"canonical\">Long-term memory</option>");
+      expect(html).toContain("<option value=\"all\" data-i18n-en=\"All memory states\" data-i18n-zh=\"全部记忆状态\">All memory states</option>");
+      expect(html).toContain("<option value=\"canonical\" data-i18n-en=\"Long-term memory\" data-i18n-zh=\"长期记忆\">Long-term memory</option>");
+      expect(html).toContain("<option value=\"event\" data-i18n-en=\"Events\" data-i18n-zh=\"事件\">Events</option>");
       expect(html).toContain("<select class=\"memory-search-select\" data-memory-search-source aria-label=\"Filter search by source\">");
+      expect(html).toContain("<option value=\"all\" data-i18n-en=\"All sources\" data-i18n-zh=\"全部来源\">All sources</option>");
       expect(html).toContain("<option value=\"Codex\">Codex</option>");
+      expect(html).toContain("<span data-memory-search-status data-i18n-en=\"2 items to search\" data-i18n-zh=\"可搜索 2 条内容\">2 items to search</span>");
       expect(html).toContain("<article class=\"memory-search-result record\" data-memory-search-entry=\"record:rec_memory_search_1\"");
       expect(html).toContain("data-memory-search-state=\"canonical\"");
       expect(html).toContain("data-memory-search-source=\"Codex\"");
@@ -983,6 +987,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("const setLocalizedDetailText = (node, value, zhValue = value) => {");
       expect(html).toContain("node.dataset.i18nEn = value || \"\";");
       expect(html).toContain("node.dataset.i18nZh = zhValue || \"\";");
+      expect(html).toContain("document.querySelectorAll(\"[data-i18n-placeholder-en][data-i18n-placeholder-zh]\").forEach((node) => {");
+      expect(html).toContain("node.setAttribute(\"placeholder\", language === \"zh\" ? node.dataset.i18nPlaceholderZh || \"\" : node.dataset.i18nPlaceholderEn || \"\");");
       expect(html).toContain("setLocalizedDetailText(detailTitle, item.dataset.memoryExplorerTitle || \"Saved item\");");
       expect(html).toContain("setLocalizedDetailText(detailText, item.dataset.memoryExplorerFullText || item.textContent || \"\");");
       expect(html).toContain("setLocalizedDetailText(detailState, item.dataset.memoryExplorerStateEn || item.dataset.memoryExplorerState || \"\", item.dataset.memoryExplorerStateZh || item.dataset.memoryExplorerState || \"\");");
@@ -997,6 +1003,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("filterMemorySearch(panel, {");
       expect(html).toContain("const matchesState = filters.state === \"all\" || entry.dataset.memorySearchState === filters.state;");
       expect(html).toContain("const matchesSource = filters.source === \"all\" || entry.dataset.memorySearchSource === filters.source;");
+      expect(html).toContain("const setMemorySearchStatus = (status, count, filtered) => {");
+      expect(html).toContain("status.dataset.i18nZh = filtered ? `显示 ${count} 条内容` : `可搜索 ${count} 条内容`;");
       expect(html).toContain("writeStoredContentState({ searchQuery: query, searchOpen: true });");
       expect(html).toContain("writeStoredContentState({ searchStateFilter: target.value, searchOpen: true });");
       expect(html).toContain("writeStoredContentState({ searchSourceFilter: target.value, searchOpen: true });");

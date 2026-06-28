@@ -6377,6 +6377,19 @@ function memorySearchEventEntry(event: DashboardEventSummary, generatedAt: strin
   `;
 }
 
+function memorySearchStatusLabel(count: number, filtered = false): { en: string; zh: string } {
+  if (filtered) {
+    return {
+      en: `${pluralize(count, "item")} shown`,
+      zh: `显示 ${count} 条内容`
+    };
+  }
+  return {
+    en: `${pluralize(count, "item")} to search`,
+    zh: `可搜索 ${count} 条内容`
+  };
+}
+
 function memorySearchPanel(data: DashboardData): string {
   const entries = [
     ...data.recent_records.map((record) => memorySearchRecordEntry(record, data.generated_at)),
@@ -6388,26 +6401,27 @@ function memorySearchPanel(data: DashboardData): string {
     ...data.recent_records.map((record) => humanSourceLabel(record.source)),
     ...data.recent_events.map((event) => humanSourceLabel(event.source))
   ])].sort((left, right) => left.localeCompare(right));
+  const statusLabel = memorySearchStatusLabel(entries.length);
   return `
       <div id="memory-search-panel" class="memory-search-panel" data-memory-search-panel>
         <label class="memory-search-label" for="memory-search-input" data-i18n-en="Search memory or events" data-i18n-zh="搜索记忆或事件">Search memory or events</label>
         <div class="memory-search-controls" data-memory-search-controls>
-          <input id="memory-search-input" class="memory-search-input" type="search" data-memory-search-input placeholder="Search memory or events" aria-label="Search memory or events">
+          <input id="memory-search-input" class="memory-search-input" type="search" data-memory-search-input placeholder="Search memory or events" aria-label="Search memory or events" data-i18n-placeholder-en="Search memory or events" data-i18n-placeholder-zh="搜索记忆或事件" data-i18n-aria-label-en="Search memory or events" data-i18n-aria-label-zh="搜索记忆或事件">
           <select class="memory-search-select" data-memory-search-state aria-label="Filter search by memory state">
-            <option value="all">All memory states</option>
+            <option value="all" ${i18nAttribute("All memory states", "全部记忆状态")}>All memory states</option>
             ${recordStates.map((state) => {
               const label = memoryStateLabelFromRecordState(state);
-              return `<option value="${escapeHtml(state)}">${escapeHtml(label.en)}</option>`;
+              return `<option value="${escapeHtml(state)}" ${i18nAttribute(label.en, label.zh)}>${escapeHtml(label.en)}</option>`;
             }).join("")}
-            <option value="event">Events</option>
+            <option value="event" ${i18nAttribute("Events", "事件")}>Events</option>
           </select>
           <select class="memory-search-select" data-memory-search-source aria-label="Filter search by source">
-            <option value="all">All sources</option>
+            <option value="all" ${i18nAttribute("All sources", "全部来源")}>All sources</option>
             ${sources.map((source) => `<option value="${escapeHtml(source)}">${escapeHtml(source)}</option>`).join("")}
           </select>
         </div>
         <div class="memory-search-meta">
-          <span data-memory-search-status>${escapeHtml(pluralize(entries.length, "item"))} to search</span>
+          <span data-memory-search-status ${i18nAttribute(statusLabel.en, statusLabel.zh)}>${escapeHtml(statusLabel.en)}</span>
           <small data-i18n-en="Local search only; no writes happen here." data-i18n-zh="仅本地搜索；这里不会写入。">Local search only; no writes happen here.</small>
         </div>
         <div class="memory-search-results" data-memory-search-results>
@@ -6756,6 +6770,14 @@ function dashboardLanguageScript(): string {
           if (!(node instanceof HTMLElement)) return;
           node.textContent = language === "zh" ? node.dataset.i18nZh || "" : node.dataset.i18nEn || "";
         });
+        document.querySelectorAll("[data-i18n-placeholder-en][data-i18n-placeholder-zh]").forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          node.setAttribute("placeholder", language === "zh" ? node.dataset.i18nPlaceholderZh || "" : node.dataset.i18nPlaceholderEn || "");
+        });
+        document.querySelectorAll("[data-i18n-aria-label-en][data-i18n-aria-label-zh]").forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          node.setAttribute("aria-label", language === "zh" ? node.dataset.i18nAriaLabelZh || "" : node.dataset.i18nAriaLabelEn || "");
+        });
         if (document.body) translateLegacyText(document.body, language);
         document.querySelectorAll("[data-dashboard-language-option]").forEach((node) => {
           if (!(node instanceof HTMLButtonElement)) return;
@@ -6997,6 +7019,12 @@ function dashboardStoredContentScript(): string {
         state: state.searchStateFilter || "all",
         source: state.searchSourceFilter || "all"
       });
+      const setMemorySearchStatus = (status, count, filtered) => {
+        if (!(status instanceof HTMLElement)) return;
+        status.dataset.i18nEn = filtered ? count + (count === 1 ? " item shown" : " items shown") : count + (count === 1 ? " item" : " items") + " to search";
+        status.dataset.i18nZh = filtered ? \`显示 \${count} 条内容\` : \`可搜索 \${count} 条内容\`;
+        status.textContent = selectedLanguage() === "zh" ? status.dataset.i18nZh : status.dataset.i18nEn;
+      };
       const filterMemorySearch = (panel, filters) => {
         const normalizedQuery = String(filters.query || "").trim().toLowerCase();
         const entries = Array.from(panel.querySelectorAll("[data-memory-search-entry]"));
@@ -7012,7 +7040,8 @@ function dashboardStoredContentScript(): string {
           if (matches) visible += 1;
         }
         const status = panel.querySelector("[data-memory-search-status]");
-        if (status instanceof HTMLElement) status.textContent = normalizedQuery.length === 0 && filters.state === "all" && filters.source === "all" ? entries.length + (entries.length === 1 ? " item" : " items") + " to search" : visible + (visible === 1 ? " item shown" : " items shown");
+        const filtered = normalizedQuery.length > 0 || filters.state !== "all" || filters.source !== "all";
+        setMemorySearchStatus(status, filtered ? visible : entries.length, filtered);
       };
       const setSearchState = (state, options = {}) => {
         document.querySelectorAll("[data-memory-search-panel]").forEach((panel) => {
