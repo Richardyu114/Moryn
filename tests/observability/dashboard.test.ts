@@ -687,6 +687,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("color-scheme: dark;");
       expect(html).toContain("--canvas: #050505;");
       expect(html).toContain("--surface: #101216;");
+      expect(html).toContain("--panel-glow: 0 0 0 1px rgba(116, 242, 145, 0.08), 0 24px 70px rgba(0, 0, 0, 0.46);");
+      expect(html).toContain("--elevation-card: 0 18px 48px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.045);");
+      expect(html).toContain("--surface-glass: rgba(13, 16, 21, 0.82);");
       expect(html).not.toContain("--canvas: #f4f2ee;");
       expect(html).toContain("<strong data-i18n-en=\"No action needed\" data-i18n-zh=\"无需操作\">No action needed</strong>");
       expect(html).toContain("<p data-i18n-en=\"1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.\" data-i18n-zh=\"1 条保存内容和 1 条会话笔记现在可搜索；需要时再整理，这个摘要不会写入记忆。\">1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.</p>");
@@ -728,9 +731,11 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"1 session note\" data-i18n-zh=\"1 条会话笔记\">1 session note</span>");
       expect(html).toContain("<button type=\"button\" class=\"answer-card sync good\" data-dashboard-priority=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
       expect(html).toContain("<span data-i18n-en=\"Is sync healthy?\" data-i18n-zh=\"同步健康吗？\">Is sync healthy?</span>");
-      expect(html).toContain("grid-template-rows: auto minmax(2.4em, auto) auto auto;");
+      expect(html).toContain("grid-template-rows: minmax(1.35em, auto) minmax(2.8em, auto) minmax(1.4em, auto) minmax(40px, auto);");
       expect(html).toContain(".status-chip,");
       expect(html).toContain("min-height: 76px;");
+      expect(html).toContain("box-shadow: var(--panel-glow);");
+      expect(html).toContain("background: var(--surface-glass);");
       expect(html).toContain("<section class=\"glance-board\" data-dashboard-glance aria-label=\"At a glance\">");
       expect(html).toContain("<h2 data-i18n-en=\"At a glance\" data-i18n-zh=\"一眼看懂\">At a glance</h2>");
       expect(html).toContain("<article class=\"glance-chart memory-shape\" data-memory-state-chart>");

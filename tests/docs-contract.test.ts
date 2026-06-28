@@ -111,6 +111,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "stay literal inside the collapsed `Trace details` fold");
     expectText(dashboard, "black high-contrast surface");
     expectText(dashboard, "visible status colors and chart cards before any evidence folds");
+    expectText(dashboard, "soft glass surfaces, restrained glow, and stable grid");
+    expectText(dashboard, "Status colors act as narrow");
+    expectText(dashboard, "signals rather than full-card color washes");
     expectText(dashboard, "The first screen is arranged around three plain questions");
     expectText(dashboard, "Do I need to act? -> the `Current answers` action card plus a visible");
     expectText(dashboard, "visible `Needs your decision` panel only when approval is waiting");

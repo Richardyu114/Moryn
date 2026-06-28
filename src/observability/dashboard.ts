@@ -7816,6 +7816,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       --surface: #101216;
       --surface-2: #161a20;
       --surface-3: #20262e;
+      --surface-glass: rgba(13, 16, 21, 0.82);
       --ink: #f5f7fb;
       --ink-2: #dce3eb;
       --muted: #9da8b6;
@@ -7832,6 +7833,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       --signal-red-soft: rgba(255, 92, 116, 0.15);
       --signal-violet: #d38cff;
       --signal-slate: #9aa6b2;
+      --panel-glow: 0 0 0 1px rgba(116, 242, 145, 0.08), 0 24px 70px rgba(0, 0, 0, 0.46);
+      --elevation-card: 0 18px 48px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.045);
       --text: var(--ink);
       --main: var(--surface);
       --accent: var(--signal-green);
@@ -7957,9 +7960,9 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       padding: 14px;
       margin-bottom: 12px;
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012)),
-        rgba(9, 11, 15, 0.96);
-      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+        linear-gradient(145deg, rgba(69, 185, 255, 0.08), rgba(116, 242, 145, 0.03) 42%, rgba(255, 255, 255, 0.012)),
+        var(--surface-glass);
+      box-shadow: var(--panel-glow);
     }
     .status-board-heading { margin-bottom: 10px; }
     .status-board-rail {
@@ -7976,8 +7979,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .recent-status {
       border: 1px solid var(--border);
       border-radius: 8px;
-      background: rgba(16, 18, 22, 0.92);
-      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
+      background: var(--surface-glass);
+      box-shadow: var(--elevation-card);
     }
     .status-chip,
     .answer-card {
@@ -7989,11 +7992,11 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .status-chip {
       grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-rows: auto minmax(2.4em, auto) auto;
+      grid-template-rows: minmax(1.35em, auto) minmax(2.8em, auto) minmax(1.4em, auto);
       align-items: center;
       min-height: 76px;
-      background: rgba(15, 18, 23, 0.78);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.006)), var(--surface-glass);
+      box-shadow: var(--elevation-card);
     }
     .status-chip span,
     .status-chip small { grid-column: 1; }
@@ -8007,19 +8010,19 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       text-align: left;
       color: inherit;
       cursor: pointer;
-      grid-template-rows: auto minmax(2.4em, auto) auto auto;
+      grid-template-rows: minmax(1.35em, auto) minmax(2.8em, auto) minmax(1.4em, auto) minmax(40px, auto);
       min-height: 128px;
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008)),
-        rgba(12, 15, 20, 0.94);
+        linear-gradient(145deg, rgba(255, 255, 255, 0.052), rgba(69, 185, 255, 0.025) 46%, rgba(255, 255, 255, 0.006)),
+        var(--surface-glass);
       font: inherit;
-      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+      box-shadow: var(--elevation-card);
       transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
     .answer-card:hover {
       border-color: rgba(69, 185, 255, 0.38);
-      background: linear-gradient(180deg, rgba(69, 185, 255, 0.055), rgba(255, 255, 255, 0.01)), rgba(14, 17, 23, 0.96);
-      box-shadow: 0 20px 42px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+      background: linear-gradient(145deg, rgba(69, 185, 255, 0.085), rgba(116, 242, 145, 0.032)), rgba(14, 17, 23, 0.96);
+      box-shadow: 0 22px 58px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.06);
       transform: translateY(-1px);
     }
     .answer-card:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }

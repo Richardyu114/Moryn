@@ -30,6 +30,11 @@ without opening a collapsed section:
 - Is sync healthy? -> the `Current answers` shared-copy card, `This device`,
   and the sync rail.
 
+The visual system uses soft glass surfaces, restrained glow, and stable grid
+row heights for the first-screen answer cards. Status colors act as narrow
+signals rather than full-card color washes, so the black dashboard still feels
+calm while hover, focus, and active states remain visible.
+
 The `Current answers`, `Needs your decision`, `Saved, not remembered`, `At a glance`, and
 `Find what Moryn saved` rows are visible above `More details` in the live
 non-private dashboard.
