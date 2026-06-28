@@ -7673,6 +7673,27 @@ function recentStatusPanel(data: DashboardData): string {
   `;
 }
 
+function dashboardCommandFlow(data: DashboardData, options: {
+  showOverview: boolean;
+  showBackgroundStatus: boolean;
+  showStoredContent: boolean;
+}): string {
+  return `
+    <section class="dashboard-command-flow" data-dashboard-command-flow aria-label="Moryn control flow">
+      <div class="dashboard-command-flow-head" data-dashboard-command-flow-head>
+        ${i18nText("Control flow", "控制流")}
+        ${i18nText("Act, inspect, then search", "先看是否要操作，再查看和搜索", "strong")}
+        ${i18nText("No write happens in this flow unless a real confirm button appears.", "这里不会写入；只有真正的确认按钮才会改变记忆。", "small")}
+      </div>
+      ${statusBoard(data)}
+      ${options.showOverview ? dashboardOverview(data.dashboard_overview, { showBackgroundStatus: options.showBackgroundStatus, showSafety: true }) : ""}
+      ${dashboardDecisionPanel(data)}
+      ${dashboardGlanceBoard(data)}
+      ${options.showStoredContent ? storedContentPanel(data) : ""}
+    </section>
+  `;
+}
+
 function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderOptions, "showStoredContent"> = {}): string {
   const hasActionSignals = data.attention_items.some(isReviewAttentionItem);
   const actionSignalsPanel = hasActionSignals ? needsAttentionPanel(data.attention_items) : "";
@@ -7706,15 +7727,11 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
 
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
 
-    ${statusBoard(data)}
-
-    ${shouldRenderOverview ? dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: true }) : ""}
-
-    ${dashboardDecisionPanel(data)}
-
-    ${dashboardGlanceBoard(data)}
-
-    ${options.showStoredContent === true ? storedContentPanel(data) : ""}
+    ${dashboardCommandFlow(data, {
+      showOverview: shouldRenderOverview,
+      showBackgroundStatus,
+      showStoredContent: options.showStoredContent === true
+    })}
 
     ${memoryInventoryPanel(data.memory_inventory)}
 
@@ -10032,6 +10049,60 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .stored-content-more:hover { border-color: rgba(69, 185, 255, 0.78); background: var(--surface-3); }
     .stored-content-more:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
+    .dashboard-command-flow {
+      display: grid;
+      gap: 10px;
+      border: 1px solid rgba(112, 129, 149, 0.26);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 14px;
+      background: linear-gradient(180deg, rgba(69, 185, 255, 0.075), rgba(116, 242, 145, 0.026) 42%, rgba(255, 255, 255, 0.012)), rgba(8, 10, 13, 0.86);
+      box-shadow: var(--panel-glow);
+    }
+    .dashboard-command-flow-head {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 8px 12px;
+      align-items: baseline;
+      min-width: 0;
+      border: 1px solid rgba(69, 185, 255, 0.18);
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: rgba(5, 7, 10, 0.42);
+    }
+    .dashboard-command-flow-head span {
+      color: var(--signal-blue);
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .dashboard-command-flow-head strong {
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.2;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+    .dashboard-command-flow-head small {
+      justify-self: end;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+    }
+    .dashboard-command-flow > .status-board,
+    .dashboard-command-flow > .decision-panel,
+    .dashboard-command-flow > .glance-board,
+    .dashboard-command-flow > .stored-content,
+    .dashboard-command-flow > .dashboard-overview {
+      margin-bottom: 0;
+      box-shadow: none;
+    }
+    .dashboard-command-flow > .status-board,
+    .dashboard-command-flow > .stored-content,
+    .dashboard-command-flow > .decision-panel {
+      background: rgba(12, 15, 20, 0.72);
+    }
     .glance-board {
       margin-bottom: 12px;
     }

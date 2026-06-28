@@ -143,6 +143,14 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Find what Moryn saved`, and `What Moryn stores`");
     expectText(dashboard, "Is everything synced? -> the `Right now` shared-copy card, `This device`");
     expectText(dashboard, "and the sync rail");
+    expectText(dashboard, "The `Control flow` wrapper groups `Right now`, `Needs your decision` or");
+    expectText(dashboard, "`Saved for later`, `At a glance`, and `Find what Moryn saved` into one continuous");
+    expectText(dashboard, "first-screen surface");
+    expectText(dashboard, "It is a visual and navigation grouping only");
+    expectText(dashboard, "it does not");
+    expectText(dashboard, "add a write path");
+    expectText(dashboard, "memory changes require a real");
+    expectText(dashboard, "confirm button");
     expectText(dashboard, "Each answer card includes a short conclusion sentence before");
     expectText(dashboard, "users can read the answer without interpreting raw counts");
     expectText(dashboard, "the action card says whether confirmation is waiting");

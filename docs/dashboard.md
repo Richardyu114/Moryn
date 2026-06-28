@@ -670,6 +670,12 @@ What is stored?   -> Right now memory card, At a glance, Find what Moryn saved
 Is everything synced? -> Right now shared-copy card, sync rail
 ```
 
+The `Control flow` wrapper groups `Right now`, `Needs your decision` or
+`Saved for later`, `At a glance`, and `Find what Moryn saved` into one continuous
+first-screen surface. It is a visual and navigation grouping only: it does not
+add a write path, and it repeats the rule that memory changes require a real
+confirm button.
+
 `Right now` is the first read after the header. It keeps `This device` and
 `Shared copy` as compact status chips, then answers action, memory, and sync in
 three larger cards. Each answer card includes a short conclusion sentence before
