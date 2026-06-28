@@ -699,7 +699,9 @@ describe("observability dashboard", () => {
         source: { client: "gemini" },
         text: "Recent session status belongs on the dashboard front page."
       });
-      expect(html).toContain("2 saved or temporary items");
+      expect(html).toContain("2 items to review");
+      expect(html).toContain("<strong data-i18n-en=\"2 items to review\" data-i18n-zh=\"2 条待整理内容\">2 items to review</strong>");
+      expect(html).not.toContain("2 saved or temporary items");
       expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
       expect(data.action_board.items_by_id.review).toMatchObject({
         label: "Review",

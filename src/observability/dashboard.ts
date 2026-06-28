@@ -6516,8 +6516,8 @@ function recentStatusPanel(data: DashboardData): string {
   const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
   const latestSourceZh = latestRecord ? latestSource : "还没有写入";
   const reviewable = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
-  const reviewableLabel = reviewable > 0 ? pluralize(reviewable, "saved or temporary item") : "No saved items waiting";
-  const reviewableZh = reviewable > 0 ? `${reviewable} 条已保存或临时内容` : "没有待整理的保存内容";
+  const reviewableLabel = reviewable > 0 ? pluralize(reviewable, "item to review", "items to review") : "No items to review";
+  const reviewableZh = reviewable > 0 ? `${reviewable} 条待整理内容` : "没有待整理内容";
   const shared = sharedCopyLabel(data.sync);
   return `
     <section class="recent-status" data-recent-status aria-label="Recent status">

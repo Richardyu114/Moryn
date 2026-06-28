@@ -146,7 +146,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "saved for review <- candidate records");
     expectText(dashboard, "recent notes <- raw records");
     expectText(dashboard, "set aside <- archived or quarantined records");
-    expectText(dashboard, "`Recent status` shows the last write time, latest source, shared-copy state, and the number of saved-for-review or recent-note items waiting for later organization");
+    expectText(dashboard, "`Recent status` shows the last write time, latest source, shared-copy state, and the number of `items to review`");
     expectText(dashboard, "healthy snapshots render as a lightweight `dashboard-status-line`");
     expectText(dashboard, "unless the first-screen action summary already owns the zero-state");
     expectText(dashboard, "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip");
