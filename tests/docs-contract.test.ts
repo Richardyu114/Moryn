@@ -102,6 +102,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Background checks` and compact `More details` from the source markup");
     expectText(dashboard, "plain labels such as `Saved details`, `Check details`, `Detail links`, and");
     expectText(dashboard, "`Routes and checks`");
+    expectText(dashboard, "It also covers the deeper `More details` / `Reference");
+    expectText(dashboard, "Library` index labels such as `Evidence index`, `Review Notes`, `Routine");
+    expectText(dashboard, "Reference`, `Diagnostics Index`, `Audit Reports`, `Store Snapshot`, and `Raw");
+    expectText(dashboard, "Store`, while preserving literal API routes and source ids");
     expectText(dashboard, "Older internal labels such as `Info Checks`, `Routine");
     expectText(dashboard, "status checks`, `Info Details`, `Raw records waiting for review`, and `Many");
     expectText(dashboard, "candidate records` should not appear as visible dashboard copy");

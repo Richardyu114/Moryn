@@ -631,7 +631,10 @@ Chinese; the browser remembers the choice in `moryn.dashboard.language`.
 The same language switch covers first-screen diagnostic labels inside
 `Background checks` and compact `More details` from the source markup, including
 plain labels such as `Saved details`, `Check details`, `Detail links`, and
-`Routes and checks`. Older internal labels such as `Info Checks`, `Routine
+`Routes and checks`. It also covers the deeper `More details` / `Reference
+Library` index labels such as `Evidence index`, `Review Notes`, `Routine
+Reference`, `Diagnostics Index`, `Audit Reports`, `Store Snapshot`, and `Raw
+Store`, while preserving literal API routes and source ids. Older internal labels such as `Info Checks`, `Routine
 status checks`, `Info Details`, `Raw records waiting for review`, and `Many
 candidate records` should not appear as visible dashboard copy. Memory Search
 controls, query shortcut chips, and result-count feedback also follow the language toggle.

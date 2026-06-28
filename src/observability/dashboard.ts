@@ -4795,7 +4795,7 @@ function renderCandidateBacklogReference(triage: DashboardCandidateTriage): stri
     : "";
   return `
     <article class="candidate-triage-reference" data-dashboard-detail="candidate-triage:index" data-candidate-triage-reference>
-      <strong>Candidate Backlog Index</strong>
+      ${i18nText("Candidate Backlog Index", "待整理内容索引", "strong")}
       <span>${escapeHtml(summary)}</span>
       ${focus}
       <code>candidate_triage</code>
@@ -5793,11 +5793,21 @@ type SupportingEvidenceSummaryRow = {
 };
 
 function supportingEvidenceSummaryRow(row: SupportingEvidenceSummaryRow): string {
+  const labelZh: Record<SupportingEvidenceSummaryRow["label"], string> = {
+    "Audit Reports": "审计报告",
+    "Store Snapshot": "存储快照",
+    "Raw Store": "原始存储"
+  };
+  const summaryZh: Record<SupportingEvidenceSummaryRow["summary"], string> = {
+    "Lifecycle checks indexed": "生命周期检查已建立索引",
+    "Store signals indexed": "存储信号已建立索引",
+    "Raw evidence indexed": "原始依据已建立索引"
+  };
   return `
         <article class="supporting-evidence-summary-row" data-supporting-evidence-summary="${escapeHtml(row.id)}" data-dashboard-detail="${escapeHtml(row.route)}">
           <div>
-            <strong>${escapeHtml(row.label)}</strong>
-            <span>${escapeHtml(row.summary)}</span>
+            <strong ${i18nAttribute(row.label, labelZh[row.label])}>${escapeHtml(row.label)}</strong>
+            <span ${i18nAttribute(row.summary, summaryZh[row.summary])}>${escapeHtml(row.summary)}</span>
           </div>
           <small>${row.paths.map((path) => `<code data-dashboard-detail="${escapeHtml(path.route)}">${escapeHtml(path.label)}</code>`).join("")}</small>
         </article>
@@ -5916,14 +5926,14 @@ function routineDiagnosticsPanel(panels: RoutineDiagnosticPanel[]): string {
   return `
     <details class="panel routine-diagnostics" data-dashboard-detail="routine-diagnostics" aria-label="Routine Diagnostics">
       <summary class="dashboard-fold-summary routine-diagnostics-fold" aria-label="Routine Diagnostics: Healthy checks and handoff readiness">
-        <span>Routine Diagnostics</span>
-        <small>Checks ready</small>
+        ${i18nText("Routine Diagnostics", "日常诊断")}
+        ${i18nText("Checks ready", "检查已就绪", "small")}
       </summary>
       <div class="routine-diagnostics-list">
         <article class="routine-diagnostics-reference" data-dashboard-detail="routine-diagnostics:index" data-routine-diagnostics-reference>
-          <strong>Routine Diagnostics Index</strong>
-          <span>Health, recall, and handoff readiness indexed</span>
-          <small>API-backed</small>
+          ${i18nText("Routine Diagnostics Index", "日常诊断索引", "strong")}
+          ${i18nText("Health, recall, and handoff readiness indexed", "健康、召回和交接状态已建立索引")}
+          ${i18nText("API-backed", "API 支持", "small")}
           <div class="routine-diagnostics-routebar" role="list" aria-label="Routine diagnostic API routes">
 ${panels.map(routineDiagnosticRoute).join("")}
           </div>
@@ -5940,8 +5950,8 @@ function evidenceLibraryReviewGroup(panels: string[]): string {
   return `
     <details class="evidence-library-group evidence-library-review" data-dashboard-detail="evidence-review-evidence">
       <summary class="dashboard-fold-summary evidence-library-group-heading">
-        <span>Review Notes</span>
-        <small>Reference notes</small>
+        ${i18nText("Review Notes", "审查记录")}
+        ${i18nText("Reference notes", "参考记录", "small")}
       </summary>
       <div class="evidence-library-group-list">
         ${panels.join("")}
@@ -5955,8 +5965,8 @@ function evidenceLibraryBackgroundGroup(panels: string[]): string {
   return `
     <details class="evidence-library-group evidence-library-background" data-dashboard-detail="evidence-background-evidence">
       <summary class="dashboard-fold-summary evidence-library-group-heading" aria-label="Routine Reference: Routine checks and audit trail">
-        <span>Routine Reference</span>
-        <small>Checks and audit</small>
+        ${i18nText("Routine Reference", "日常参考")}
+        ${i18nText("Checks and audit", "检查和追踪", "small")}
       </summary>
       <div class="evidence-library-group-list">
         ${panels.join("")}
@@ -6008,7 +6018,7 @@ function evidenceLibraryBrief(input: { reviewCount: number; routineCount: number
   if (routes.length === 0) return "";
   return `
       <div class="evidence-library-brief" data-evidence-library-brief>
-        <h3>Evidence index</h3>
+        <h3 data-i18n-en="Evidence index" data-i18n-zh="依据索引">Evidence index</h3>
         <div class="evidence-library-routebar" role="list" aria-label="Evidence index">
 ${routes.join("")}
         </div>
@@ -6104,11 +6114,20 @@ function referenceLibraryIndex(input: {
     if (label === "Cleanup checks indexed") return "清理检查已建立索引";
     if (label === "Shared copy indexed") return "共享副本已建立索引";
     if (label === "History indexed") return "历史记录已建立索引";
+    if (label === "Diagnostics Index") return "诊断索引";
+    if (label === "Candidate Backlog Index") return "待整理内容索引";
+    if (label === "Dogfood Notes Index") return "产品记录索引";
+    if (label === "Audit Reports") return "审计报告";
+    if (label === "Lifecycle checks indexed") return "生命周期检查已建立索引";
+    if (label === "Store Snapshot") return "存储快照";
+    if (label === "Store signals indexed") return "存储信号已建立索引";
+    if (label === "Raw Store") return "原始存储";
+    if (label === "Raw evidence indexed") return "原始依据已建立索引";
     return label;
   };
   const i18nInline = (label: string, tag: string, attributes = ""): string => {
     const translation = uiLabelZh(label);
-    const translationAttributes = input.compact && translation !== label ? ` ${i18nAttribute(label, translation)}` : "";
+    const translationAttributes = translation !== label ? ` ${i18nAttribute(label, translation)}` : "";
     return `<${tag}${attributes}${translationAttributes}>${escapeHtml(label)}</${tag}>`;
   };
   const routeChips = routes.map((route) => {
@@ -7662,17 +7681,36 @@ function dashboardLanguageScript(): string {
       const translateMixedLegacyText = (node, language) => {
         const original = node.dataset.i18nOriginal || node.textContent || "";
         if (!node.dataset.i18nOriginal) node.dataset.i18nOriginal = original;
-        if (original !== "Full evidence stays in /api/dashboard.") return false;
+        const mixedCopy = new Map([
+          ["Full evidence stays in /api/dashboard.", {
+            enBefore: "Full evidence stays in ",
+            enAfter: ".",
+            zhBefore: "完整依据保留在 ",
+            zhAfter: "。"
+          }],
+          ["Open /api/dashboard for full routine diagnostic reports, commands, and evidence paths.", {
+            enBefore: "Open ",
+            enAfter: " for full routine diagnostic reports, commands, and evidence paths.",
+            zhBefore: "打开 ",
+            zhAfter: " 可查看完整日常诊断报告、命令和依据路径。"
+          }]
+        ]);
+        const copy = mixedCopy.get(original);
+        if (!copy) return false;
+        const code = node.querySelector("code");
         if (language === "zh") {
-          const code = node.querySelector("code");
           if (code) {
-            node.replaceChildren("完整依据保留在 ", code, "。");
+            node.replaceChildren(copy.zhBefore, code, copy.zhAfter);
             return true;
           }
-          node.textContent = "完整依据保留在 /api/dashboard。";
+          node.textContent = copy.zhBefore + "/api/dashboard" + copy.zhAfter;
           return true;
         }
-        node.innerHTML = 'Full evidence stays in <code>/api/dashboard</code>.';
+        if (code) {
+          node.replaceChildren(copy.enBefore, code, copy.enAfter);
+          return true;
+        }
+        node.innerHTML = copy.enBefore + '<code>/api/dashboard</code>' + copy.enAfter;
         return true;
       };
       const translateLegacyText = (root, language) => {
