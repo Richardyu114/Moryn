@@ -6741,7 +6741,7 @@ function recentAnswer(data: DashboardData): { valueHtml: string; conclusion: { e
   const latestRecord = data.recent_records[0];
   if (!latestRecord) {
     return {
-      valueHtml: `<strong ${i18nAttribute("No writes yet", "还没有写入")}>No writes yet</strong>`,
+      valueHtml: `<strong ${i18nAttribute("No saves yet", "还没有保存")}>No saves yet</strong>`,
       conclusion: {
         en: "No saved content has changed yet.",
         zh: "还没有保存内容变化。"
@@ -7089,15 +7089,15 @@ function glanceSummaryStrip(data: DashboardData): string {
   const topSourceSignals = topSource ? topSource.records + topSource.events : 0;
   const topSourceLabel = topSource?.client ?? "No source";
   const topSourceLabelZh = topSource?.client ?? "暂无来源";
-  const recentWritesLabel = pluralize(recentWrites, "visible record");
-  const recentWritesZh = `${recentWrites} 条可见内容`;
+  const recentWritesLabel = pluralize(recentWrites, "saved item");
+  const recentWritesZh = `${recentWrites} 条保存内容`;
   const topSourceDetail = topSource ? pluralize(topSourceSignals, "recent signal") : "No recent signals";
   const topSourceDetailZh = topSource ? `${topSourceSignals} 条最近信号` : "暂无最近信号";
   const topSourceFilter = topSource?.client ?? "all";
   return `
       <div class="glance-summary-strip" data-glance-summary-strip aria-label="Recent activity summary">
-        <button type="button" data-glance-summary="recent-writes" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="all">
-          <span data-i18n-en="Recent writes" data-i18n-zh="最近写入">Recent writes</span>
+        <button type="button" data-glance-summary="recent-saves" data-action-board-target="stored-content" aria-controls="stored-content" data-glance-filter="all">
+          <span data-i18n-en="Recent saves" data-i18n-zh="最近保存">Recent saves</span>
           <strong>${escapeHtml(recentWrites)}</strong>
           <small ${i18nAttribute(recentWritesLabel, recentWritesZh)}>${escapeHtml(recentWritesLabel)}</small>
         </button>
@@ -7123,10 +7123,10 @@ function glanceSummaryStrip(data: DashboardData): string {
 function dashboardGlanceBoard(data: DashboardData): string {
   const shared = sharedCopyLabel(data.sync);
   const latestRecord = data.recent_records[0];
-  const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
-  const latestSourceZh = latestRecord ? latestSource : "还没有写入";
+  const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No saves yet";
+  const latestSourceZh = latestRecord ? latestSource : "还没有保存";
   const latestWhen = latestRecord ? relativeTime(latestRecord.updated_at, data.generated_at) : "None";
-  const latestWhenZh = latestRecord ? relativeTimeZh(latestWhen) : "暂无写入";
+  const latestWhenZh = latestRecord ? relativeTimeZh(latestWhen) : "暂无保存";
   return `
     <section class="glance-board" data-dashboard-glance aria-label="At a glance">
       <div class="section-heading">
@@ -7158,7 +7158,7 @@ function dashboardGlanceBoard(data: DashboardData): string {
         <article class="glance-chart recent-activity" data-recent-activity-chart>
           <h3 data-i18n-en="Recent activity" data-i18n-zh="最近动态">Recent activity</h3>
           <div class="recent-activity-focus">
-            <span data-i18n-en="Last write" data-i18n-zh="最近写入">Last write</span>
+            <span data-i18n-en="Last saved" data-i18n-zh="最近保存">Last saved</span>
             <strong data-i18n-en="${escapeHtml(latestWhen)}" data-i18n-zh="${escapeHtml(latestWhenZh)}">${escapeHtml(latestWhen)}</strong>
             <small data-i18n-en="${escapeHtml(latestSource)}" data-i18n-zh="${escapeHtml(latestSourceZh)}">${escapeHtml(latestSource)}</small>
           </div>
@@ -7942,9 +7942,9 @@ function recentChangesList(records: DashboardRecordSummary[], generatedAt: strin
 
 function recentStatusPanel(data: DashboardData): string {
   const latestRecord = data.recent_records[0];
-  const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
-  const latestSourceZh = latestRecord ? latestSource : "还没有写入";
-  const latestWriteHtml = latestRecord ? `<strong>${relativeTimeElement(latestRecord.updated_at, data.generated_at)}</strong>` : i18nText("None", "暂无写入", "strong");
+  const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No saves yet";
+  const latestSourceZh = latestRecord ? latestSource : "还没有保存";
+  const latestWriteHtml = latestRecord ? `<strong>${relativeTimeElement(latestRecord.updated_at, data.generated_at)}</strong>` : i18nText("None", "暂无保存", "strong");
   const reviewable = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
   const reviewableLabel = reviewable > 0 ? `${reviewable} searchable ${reviewable === 1 ? "item" : "items"}` : "No searchable items";
   const reviewableZh = reviewable > 0 ? `${reviewable} 条可搜索内容` : "没有可搜索内容";
@@ -7957,7 +7957,7 @@ function recentStatusPanel(data: DashboardData): string {
       </div>
       <div class="recent-status-grid">
         <article>
-          ${i18nText("Last write", "最近写入")}
+          ${i18nText("Last saved", "最近保存")}
           ${latestWriteHtml}
         </article>
         <article>

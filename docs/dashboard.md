@@ -664,8 +664,8 @@ derived overview cards also follow the language toggle, so `Approval needed`,
 `Review approvals`, `Review what changed`, `Local Only`, and `Sync Pending` do not remain as English-only
 UI labels in Chinese mode. Derived overview-card count and status snippets such
 as `saved items`, `safe check available`, and `Clean` also carry Chinese display
-text. Relative-time and empty-write labels such as `2d ago`, `None`, and
-`No writes yet` also carry Chinese display text.
+text. Relative-time and empty-save labels such as `2d ago`, `None`, and
+`No saves yet` also carry Chinese display text.
 Source names, exact timestamps, event operation names, and record ids stay
 literal; saved memory text and event evidence stay in their original wording.
 
@@ -702,14 +702,14 @@ the saved-content summary: only rows with confirm buttons can change long-term
 memory. The `At a glance` chart row
 appears before `What Moryn stores`, `Recent status`, and the compact
 `More details` fold. It starts with a compact recent-activity summary for
-visible writes, ready-to-use items, saved-but-unorganized items, and the most active source,
+recent saves, ready-to-use items, saved-but-unorganized items, and the most active source,
 then shows the memory-state chart, content mix, seven-day saved-content trend,
 shared-copy rail, and source activity bars. The user does not need to open a
 detail section to understand the current state. Memory-state, content-mix, and
 source-activity charts include a short insight line and percentages, such as
 ready-to-use versus searchable share, leading content type, and top source share.
 The summary numbers are also read-only shortcuts: `Recent
-writes` opens all saved content, `Ready to use` filters to memory Moryn can use now,
+saves` opens all saved content, `Ready to use` filters to memory Moryn can use now,
 `Searchable` filters to saved-but-not-final items, and `Top source` opens saved
 content search filtered to that source.
 `Shared copy` is the user-facing name for Git sync state: it can read `Up to
@@ -808,10 +808,10 @@ The inventory also groups visible records by kind, using human labels such as
 `Memories`, `Skills`, `Preferences`, `Session notes`, and `Agent notes`.
 `/api/dashboard.memory_inventory` keeps the counts and source states for agents.
 
-`Recent status` shows the last write time, latest source, shared-copy state, and
+`Recent status` shows the last saved time, latest source, shared-copy state, and
 the number of searchable saved items instead of exposing saved-recently versus
 recent-note wording. This gives the user the recent state of the local memory
-without opening the raw record list. Its last-write relative time follows the
+without opening the raw record list. Its last-saved relative time follows the
 language toggle, while the exact timestamp stays in the `time` title and
 `datetime` attributes.
 It also shows a read-only `Recent changes` strip with the latest saved content,

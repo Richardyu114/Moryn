@@ -127,7 +127,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
     expectText(dashboard, "First-screen action labels, health badges, current-answer cards, Work Lane labels, and derived overview cards also follow the language toggle");
     expectText(dashboard, "Derived overview-card count and status snippets such as `saved items`, `safe check available`, and `Clean` also carry Chinese display text");
-    expectText(dashboard, "Relative-time and empty-write labels such as `2d ago`, `None`, and `No writes yet` also carry Chinese display text");
+    expectText(dashboard, "Relative-time and empty-save labels such as `2d ago`, `None`, and `No saves yet` also carry Chinese display text");
     expectText(dashboard, "Source names, exact timestamps, event operation names, and record ids stay literal");
     expectText(dashboard, "saved memory text and event evidence stay in their original wording");
     expectText(dashboard, "The visible receipt labels, decision sentence, write-boundary summary, changed count, and trace status follow the dashboard language toggle");
@@ -179,7 +179,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Find what Moryn saved` rows are visible");
     expectText(dashboard, "above `More details` in the live non-private dashboard");
     expectText(dashboard, "It starts with a compact recent-activity summary for");
-    expectText(dashboard, "visible writes, ready-to-use items, saved-but-unorganized items, and the most active source");
+    expectText(dashboard, "recent saves, ready-to-use items, saved-but-unorganized items, and the most active source");
     expectText(dashboard, "then shows the memory-state chart, content mix, seven-day saved-content trend");
     expectText(dashboard, "shared-copy rail, and source activity bars");
     expectText(dashboard, "Memory-state, content-mix, and");
@@ -188,7 +188,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "share");
     expectText(dashboard, "The summary numbers are also read-only shortcuts");
     expectText(dashboard, "`Recent");
-    expectText(dashboard, "writes` opens all saved content");
+    expectText(dashboard, "saves` opens all saved content");
     expectText(dashboard, "`Ready to use` filters to memory Moryn can use now");
     expectText(dashboard, "`Searchable` filters to saved-but-not-final items");
     expectText(dashboard, "`Top source` opens saved");
@@ -288,8 +288,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Set aside <- archived or quarantined records");
     expectText(dashboard, "`Saved for later` means the item is already saved and searchable");
     expectText(dashboard, "it is not a user decision by itself");
-    expectText(dashboard, "`Recent status` shows the last write time, latest source, shared-copy state, and the number of searchable saved items");
-    expectText(dashboard, "Its last-write relative time follows the language toggle");
+    expectText(dashboard, "`Recent status` shows the last saved time, latest source, shared-copy state, and the number of searchable saved items");
+    expectText(dashboard, "Its last-saved relative time follows the language toggle");
     expectText(dashboard, "exact timestamp stays in the `time` title and `datetime` attributes");
     expectText(dashboard, "It also shows a read-only `Recent changes` strip");
     expectText(dashboard, "Clicking a row opens `Find what Moryn saved` and selects the matching item");

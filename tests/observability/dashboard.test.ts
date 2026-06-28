@@ -833,10 +833,13 @@ describe("observability dashboard", () => {
       expect(html).toContain("<section class=\"glance-board\" data-dashboard-glance aria-label=\"At a glance\">");
       expect(html).toContain("<h2 data-i18n-en=\"At a glance\" data-i18n-zh=\"一眼看懂\">At a glance</h2>");
       expect(html).toContain("<div class=\"glance-summary-strip\" data-glance-summary-strip aria-label=\"Recent activity summary\">");
-      expect(html).toContain("<button type=\"button\" data-glance-summary=\"recent-writes\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-glance-filter=\"all\">");
-      expect(html).toContain("<span data-i18n-en=\"Recent writes\" data-i18n-zh=\"最近写入\">Recent writes</span>");
+      expect(html).toContain("<button type=\"button\" data-glance-summary=\"recent-saves\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-glance-filter=\"all\">");
+      expect(html).toContain("<span data-i18n-en=\"Recent saves\" data-i18n-zh=\"最近保存\">Recent saves</span>");
       expect(html).toContain("<strong>3</strong>");
-      expect(html).toContain("<small data-i18n-en=\"3 visible records\" data-i18n-zh=\"3 条可见内容\">3 visible records</small>");
+      expect(html).toContain("<small data-i18n-en=\"3 saved items\" data-i18n-zh=\"3 条保存内容\">3 saved items</small>");
+      expect(html).not.toContain("data-glance-summary=\"recent-writes\"");
+      expect(html).not.toContain("<span data-i18n-en=\"Recent writes\" data-i18n-zh=\"最近写入\">Recent writes</span>");
+      expect(html).not.toContain("<small data-i18n-en=\"3 visible records\" data-i18n-zh=\"3 条可见内容\">3 visible records</small>");
       expect(html).toContain("<button type=\"button\" data-glance-summary=\"remembered-now\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-glance-filter=\"canonical\">");
       expect(html).toContain("<span data-i18n-en=\"Ready to use\" data-i18n-zh=\"可直接使用\">Ready to use</span>");
       expect(html).toContain("<small data-i18n-en=\"Moryn can use now\" data-i18n-zh=\"Moryn 现在可用\">Moryn can use now</small>");
@@ -1031,7 +1034,8 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("Recent notes");
       expect(html).toContain("<section class=\"recent-status\" data-recent-status aria-label=\"Recent status\">");
       expect(html).toContain("<h2 data-i18n-en=\"Recent status\" data-i18n-zh=\"最近状态\">Recent status</h2>");
-      expect(html).toContain("<span data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</span>");
+      expect(html).toContain("<span data-i18n-en=\"Last saved\" data-i18n-zh=\"最近保存\">Last saved</span>");
+      expect(html).not.toContain("<span data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</span>");
       expect(html).toContain("<time datetime=\"2026-06-01T00:03:00.000Z\" title=\"2026-06-01T00:03:00.000Z\" data-i18n-en=\"19d ago\" data-i18n-zh=\"19 天前\">19d ago</time>");
       expect(html).toContain("<span data-i18n-en=\"Latest source\" data-i18n-zh=\"最近来源\">Latest source</span>");
       expect(html).toContain("<span data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</span>");
@@ -1175,7 +1179,7 @@ describe("observability dashboard", () => {
     }
   });
 
-  it("translates recent status empty write state", async () => {
+  it("translates recent status empty saved-content state", async () => {
     await withTempStore(async (storePath) => {
       await initializeStore(storePath, {
         now: () => "2026-06-01T00:00:00.000Z",
@@ -1190,12 +1194,14 @@ describe("observability dashboard", () => {
       const html = renderDashboardHtml(data);
 
       expect(html).toContain("<section class=\"recent-status\" data-recent-status aria-label=\"Recent status\">");
-      expect(html).toContain("<span data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</span>");
-      expect(html).toContain("<strong data-i18n-en=\"None\" data-i18n-zh=\"暂无写入\">None</strong>");
-      expect(html).toContain("<strong data-i18n-en=\"None\" data-i18n-zh=\"暂无写入\">None</strong>\n            <small data-i18n-en=\"No writes yet\" data-i18n-zh=\"还没有写入\">No writes yet</small>");
+      expect(html).toContain("<span data-i18n-en=\"Last saved\" data-i18n-zh=\"最近保存\">Last saved</span>");
+      expect(html).toContain("<strong data-i18n-en=\"None\" data-i18n-zh=\"暂无保存\">None</strong>");
+      expect(html).toContain("<strong data-i18n-en=\"No saves yet\" data-i18n-zh=\"还没有保存\">No saves yet</strong>");
+      expect(html).not.toContain("<span data-i18n-en=\"Last write\" data-i18n-zh=\"最近写入\">Last write</span>");
+      expect(html).not.toContain("No writes yet");
       expect(html).toContain("<button type=\"button\" class=\"answer-card recent\" data-dashboard-priority=\"recent\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-memory-explorer-stored-filter=\"all\" data-memory-explorer-state-filter=\"all\" data-memory-explorer-focus-search=\"true\">");
       expect(html).toContain("<span data-i18n-en=\"What changed recently?\" data-i18n-zh=\"最近有什么变化？\">What changed recently?</span>");
-      expect(html).toContain("<strong data-i18n-en=\"No writes yet\" data-i18n-zh=\"还没有写入\">No writes yet</strong>");
+      expect(html).toContain("<strong data-i18n-en=\"No saves yet\" data-i18n-zh=\"还没有保存\">No saves yet</strong>");
       expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"No saved content has changed yet.\" data-i18n-zh=\"还没有保存内容变化。\">No saved content has changed yet.</p>");
       expect(html).toContain("<small data-i18n-en=\"Waiting for saved content\" data-i18n-zh=\"等待保存内容\">Waiting for saved content</small>");
       expect(html).not.toContain("data-status-ticker-item=\"last-write\"");
