@@ -6588,14 +6588,14 @@ function storedContentNextStep(item: DashboardValueRecord): { label: string; zhL
   };
 }
 
-function storedContentItem(item: DashboardValueRecord): string {
+function storedContentItem(item: DashboardValueRecord, selected = false): string {
   const state = memoryStateLabelFromRecordState(item.state);
   const nextStep = storedContentNextStep(item);
   const sourceRelative = sourceRelativePair(item.source_label, item.relative_time);
   const updatedEn = `${item.relative_time} | ${item.exact_time}`;
   const updatedZh = `${relativeTimeZh(item.relative_time)} | ${item.exact_time}`;
   return `
-            <article class="stored-content-item state-${escapeHtml(item.state)}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
+            <article class="stored-content-item state-${escapeHtml(item.state)}${selected ? " selected" : ""}" data-stored-content-item="${escapeHtml(item.id)}" data-stored-content-state="${escapeHtml(item.state)}" data-stored-content-source="${escapeHtml(item.source_label)}" data-memory-explorer-title="${escapeHtml(item.title)}" data-memory-explorer-full-text="${escapeHtml(item.summary)}" data-memory-explorer-state="${escapeHtml(state.en)}" data-memory-explorer-state-en="${escapeHtml(state.en)}" data-memory-explorer-state-zh="${escapeHtml(state.zh)}" data-memory-explorer-source="${escapeHtml(item.source_detail || item.source_label)}" data-memory-explorer-updated="${escapeHtml(updatedEn)}" data-memory-explorer-updated-zh="${escapeHtml(updatedZh)}" data-memory-explorer-timeline="${escapeHtml(item.citation.timeline_command)}" data-memory-explorer-recall="${escapeHtml(item.citation.recall_command)}" tabindex="0">
               <div class="stored-content-item-head">
                 <span data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}">${escapeHtml(state.en)}</span>
                 <small ${i18nAttribute(sourceRelative.en, sourceRelative.zh)}>${escapeHtml(sourceRelative.en)}</small>
@@ -6738,21 +6738,30 @@ function memorySearchPanel(data: DashboardData): string {
   `;
 }
 
-function memoryExplorerDetailPanel(): string {
+function memoryExplorerDetailPanel(item?: DashboardValueRecord): string {
+  const state = item ? memoryStateLabelFromRecordState(item.state) : undefined;
+  const updatedEn = item ? `${item.relative_time} | ${item.exact_time}` : "";
+  const updatedZh = item ? `${relativeTimeZh(item.relative_time)} | ${item.exact_time}` : "";
+  const title = item?.title ?? "Select an item";
+  const titleAttrs = item ? "" : ` data-i18n-en="Select an item" data-i18n-zh="选择一条内容"`;
+  const text = item?.summary ?? "Select a saved item to read its full text, source, and status.";
+  const textAttrs = item ? "" : ` data-i18n-en="Select a saved item to read its full text, source, and status." data-i18n-zh="选择一条保存内容，可查看全文、来源和状态。"`;
+  const gridHidden = item ? "" : " hidden";
+  const traceHidden = item ? "" : " hidden";
   return `
       <aside class="memory-explorer-detail" data-memory-explorer-detail aria-live="polite">
         <span data-i18n-en="Selected item" data-i18n-zh="当前内容">Selected item</span>
-        <strong data-memory-explorer-detail-title data-i18n-en="Select an item" data-i18n-zh="选择一条内容">Select an item</strong>
-        <p data-memory-explorer-detail-text data-i18n-en="Select a saved item to read its full text, source, and status." data-i18n-zh="选择一条保存内容，可查看全文、来源和状态。">Select a saved item to read its full text, source, and status.</p>
-        <dl class="memory-explorer-detail-grid" data-memory-explorer-detail-grid hidden>
-          <div><dt data-i18n-en="State" data-i18n-zh="状态">State</dt><dd data-memory-explorer-detail-state></dd></div>
-          <div><dt data-i18n-en="Source" data-i18n-zh="来源">Source</dt><dd data-memory-explorer-detail-source></dd></div>
-          <div><dt data-i18n-en="Updated" data-i18n-zh="更新时间">Updated</dt><dd data-memory-explorer-detail-updated></dd></div>
+        <strong data-memory-explorer-detail-title${titleAttrs}>${escapeHtml(title)}</strong>
+        <p data-memory-explorer-detail-text${textAttrs}>${escapeHtml(text)}</p>
+        <dl class="memory-explorer-detail-grid" data-memory-explorer-detail-grid${gridHidden}>
+          <div><dt data-i18n-en="State" data-i18n-zh="状态">State</dt><dd data-memory-explorer-detail-state${state ? ` data-i18n-en="${escapeHtml(state.en)}" data-i18n-zh="${escapeHtml(state.zh)}"` : ""}>${state ? escapeHtml(state.en) : ""}</dd></div>
+          <div><dt data-i18n-en="Source" data-i18n-zh="来源">Source</dt><dd data-memory-explorer-detail-source>${item ? escapeHtml(item.source_detail || item.source_label) : ""}</dd></div>
+          <div><dt data-i18n-en="Updated" data-i18n-zh="更新时间">Updated</dt><dd data-memory-explorer-detail-updated${item ? ` data-i18n-en="${escapeHtml(updatedEn)}" data-i18n-zh="${escapeHtml(updatedZh)}"` : ""}>${item ? escapeHtml(updatedEn) : ""}</dd></div>
         </dl>
-        <div class="memory-explorer-trace" data-memory-explorer-trace hidden>
+        <div class="memory-explorer-trace" data-memory-explorer-trace${traceHidden}>
           <span data-i18n-en="History links" data-i18n-zh="历史入口">History links</span>
-          <code data-memory-explorer-detail-timeline></code>
-          <code data-memory-explorer-detail-recall></code>
+          <code data-memory-explorer-detail-timeline>${item ? escapeHtml(item.citation.timeline_command) : ""}</code>
+          <code data-memory-explorer-detail-recall>${item ? escapeHtml(item.citation.recall_command) : ""}</code>
         </div>
       </aside>
   `;
@@ -6781,16 +6790,16 @@ function storedContentPanel(data: DashboardData): string {
           ${memorySearchPanel(data)}
           ${storedContentFilterBar(data.recent_value)}
           <div class="stored-content-list">
-            ${visibleItems.map(storedContentItem).join("")}
+            ${visibleItems.map((item, index) => storedContentItem(item, index === 0)).join("")}
           </div>
           ${overflowItems.length > 0 ? `
             <div id="stored-content-overflow" class="stored-content-list stored-content-overflow" data-stored-content-overflow hidden>
-              ${overflowItems.map(storedContentItem).join("")}
+              ${overflowItems.map((item) => storedContentItem(item)).join("")}
             </div>
             <button type="button" class="stored-content-more" data-stored-content-more aria-expanded="false" aria-controls="stored-content-overflow" data-i18n-en="${escapeHtml(moreLabel)}" data-i18n-zh="${escapeHtml(moreLabelZh)}" data-stored-content-collapsed-en="${escapeHtml(moreLabel)}" data-stored-content-collapsed-zh="${escapeHtml(moreLabelZh)}" data-stored-content-expanded-en="Show fewer" data-stored-content-expanded-zh="收起">${escapeHtml(moreLabel)}</button>
           ` : ""}
         </div>
-        ${memoryExplorerDetailPanel()}
+        ${memoryExplorerDetailPanel(visibleItems[0])}
       </div>
     </section>
   `;
@@ -7298,6 +7307,11 @@ function dashboardStoredContentScript(): string {
         setMemoryExplorerSelection(null);
         writeStoredContentState({ selectedItemId: null });
       };
+      const visibleMemoryExplorerItem = (section = document) => {
+        return Array.from(section.querySelectorAll("[data-stored-content-item]")).find((node) => {
+          return node instanceof HTMLElement && !node.hidden && node.offsetParent !== null;
+        });
+      };
       const selectMemoryExplorerItem = (item) => {
         if (!(item instanceof HTMLElement)) return;
         const detail = item.closest("[data-memory-explorer]")?.querySelector("[data-memory-explorer-detail]");
@@ -7326,7 +7340,12 @@ function dashboardStoredContentScript(): string {
           selectMemoryExplorerItem(selected);
           return;
         }
-        if (state.selectedItemId) resetMemoryExplorerDetail();
+        const firstVisible = visibleMemoryExplorerItem();
+        if (firstVisible instanceof HTMLElement) {
+          selectMemoryExplorerItem(firstVisible);
+          return;
+        }
+        resetMemoryExplorerDetail();
       };
       const currentSearchFilters = (state) => ({
         query: String(state.searchQuery || ""),

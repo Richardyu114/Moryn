@@ -47,8 +47,9 @@ relevant evidence.
 shared-copy state, and recent source activity. Clicking a memory state filters
 `Find what Moryn saved` to the matching saved items. This saved-content area combines recent
 saved text previews, keyword search, memory-state/source filters, and a detail
-pane with full text, source, and status; history links stay available after an
-item is selected. It never writes.
+pane with full text, source, and status. The detail pane defaults to the first
+visible item and keeps history links visible. Filtering updates the detail pane
+to the first matching visible item. It never writes.
 Collapsed sections are for audit evidence, raw trace details, and
 optional checks; they should not be required to understand the current dashboard
 state.
@@ -677,8 +678,9 @@ The memory-state chart is also a local navigation control: clicking
 `Find what Moryn saved` and filters the visible previews by that state. The
 saved-content filter bar can switch back to `All` or jump between available states. Its search
 controls filter across recent records and events by keyword, memory state, and
-source; selecting a saved item fills the read-only detail pane. All of these
-controls are client-side and read-only.
+source. The read-only detail pane opens with the first visible saved item and
+follows the first matching item after filtering; selecting another saved item
+updates the same pane. All of these controls are client-side and read-only.
 The preview cards are representative rather than strictly newest-first: Moryn
 shows available `Saved, not remembered`, `Remembered`, `Session notes`, and `Set
 aside` examples before filling the remaining preview slots by recency. The full

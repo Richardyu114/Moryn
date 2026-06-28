@@ -139,7 +139,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Find what Moryn saved` to the matching saved items");
     expectText(dashboard, "This saved-content area combines recent");
     expectText(dashboard, "a detail pane with full text, source, and status");
-    expectText(dashboard, "history links stay available after an");
+    expectText(dashboard, "defaults to the first visible item");
+    expectText(dashboard, "Filtering updates the detail pane to the first matching visible");
     expectText(dashboard, "Visible `Find what Moryn saved` previews render in the live dashboard when private");
     expectText(dashboard, "visible preview chooses representative saved");
     expectText(dashboard, "items across states before filling the rest by recency");
@@ -159,7 +160,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "opens `Find what Moryn saved` and filters the visible previews by that state");
     expectText(dashboard, "The saved-content filter bar can switch back to `All`");
     expectText(dashboard, "Its search controls filter across recent records and events by keyword, memory state, and source");
-    expectText(dashboard, "selecting a saved item fills the read-only detail pane");
+    expectText(dashboard, "The read-only detail pane opens with the first visible saved item");
+    expectText(dashboard, "follows the first matching item after filtering");
     expectText(dashboard, "client-side and read-only");
     expectText(dashboard, "The preview cards are representative rather than strictly newest-first");
     expectText(dashboard, "shows available `Saved, not remembered`, `Remembered`, `Session notes`, and `Set");
