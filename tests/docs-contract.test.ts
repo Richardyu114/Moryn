@@ -147,9 +147,11 @@ describe("documentation contracts", () => {
     expectText(dashboard, "should not be required to understand the current dashboard state");
     expectText(dashboard, "`Shared copy` is the user-facing name for Git sync state");
     expectText(dashboard, "The main action summary is labeled `Do I need to act?` in the visible UI");
-    expectText(dashboard, "Saved, not remembered` is intentionally lighter than an urgent warning");
-    expectText(dashboard, "opens `Find what");
-    expectText(dashboard, "Moryn saved`, expands hidden saved previews, and highlights the");
+    expectText(dashboard, "Ordinary saved content does not become a user decision");
+    expectText(dashboard, "when the only state is `Saved, not remembered`, `Session notes`, or");
+    expectText(dashboard, "the headline stays `No action needed`");
+    expectText(dashboard, "opens `Find what Moryn saved`");
+    expectText(dashboard, "That click expands hidden saved previews and highlights the section");
     expectText(dashboard, "The memory-state chart is also a local navigation control");
     expectText(dashboard, "opens `Find what Moryn saved` and filters the visible previews by that state");
     expectText(dashboard, "The saved-content filter bar can switch back to `All`");

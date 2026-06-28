@@ -656,8 +656,8 @@ describe("observability dashboard", () => {
         expect.objectContaining({ kind: "session_summary", label: "Session notes", count: 1 }),
         expect.objectContaining({ kind: "agent_note", label: "Agent notes", count: 1 })
       ]));
-      expect(data.dashboard_overview.headline).toBe("Saved, not remembered");
-      expect(data.dashboard_overview.detail).toBe("1 saved item and 1 session note are searchable now. They become long-term memory only if you organize them later.");
+      expect(data.dashboard_overview.headline).toBe("No action needed");
+      expect(data.dashboard_overview.detail).toBe("1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.");
       expect(data.dashboard_overview.primary_action).toMatchObject({
         label: "Search saved content",
         target: "stored-content",
@@ -688,8 +688,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("--canvas: #050505;");
       expect(html).toContain("--surface: #101216;");
       expect(html).not.toContain("--canvas: #f4f2ee;");
-      expect(html).toContain("<strong data-i18n-en=\"Saved, not remembered\" data-i18n-zh=\"已保存，未记住\">Saved, not remembered</strong>");
-      expect(html).toContain("<p data-i18n-en=\"1 saved item and 1 session note are searchable now. They become long-term memory only if you organize them later.\" data-i18n-zh=\"1 条保存内容和 1 条会话笔记现在可搜索；只有稍后整理后才会进入长期记忆。\">1 saved item and 1 session note are searchable now. They become long-term memory only if you organize them later.</p>");
+      expect(html).toContain("<strong data-i18n-en=\"No action needed\" data-i18n-zh=\"无需操作\">No action needed</strong>");
+      expect(html).toContain("<p data-i18n-en=\"1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.\" data-i18n-zh=\"1 条保存内容和 1 条会话笔记现在可搜索；需要时再整理，这个摘要不会写入记忆。\">1 saved item and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.</p>");
       expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Search saved content\" data-i18n-zh=\"搜索已保存内容\">Search saved content</button>");
       expect(html).toContain("<p data-i18n-en=\"2 saved items\" data-i18n-zh=\"2 条已保存内容\">2 saved items</p>");
       expect(html).toContain("<p data-i18n-en=\"Clean\" data-i18n-zh=\"已同步\">Clean</p>");
@@ -1315,9 +1315,9 @@ describe("observability dashboard", () => {
       const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
 
       expect(data.health.status).toBe("healthy");
-      expect(data.dashboard_overview.headline).toBe("Saved, not remembered");
-      expect(data.dashboard_overview.detail).toBe("3 saved items and 1 session note are searchable now. They become long-term memory only if you organize them later.");
-      expect(html).toContain("<p data-i18n-en=\"3 saved items and 1 session note are searchable now. They become long-term memory only if you organize them later.\" data-i18n-zh=\"3 条保存内容和 1 条会话笔记现在可搜索；只有稍后整理后才会进入长期记忆。\">3 saved items and 1 session note are searchable now. They become long-term memory only if you organize them later.</p>");
+      expect(data.dashboard_overview.headline).toBe("No action needed");
+      expect(data.dashboard_overview.detail).toBe("3 saved items and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.");
+      expect(html).toContain("<p data-i18n-en=\"3 saved items and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.\" data-i18n-zh=\"3 条保存内容和 1 条会话笔记现在可搜索；需要时再整理，这个摘要不会写入记忆。\">3 saved items and 1 session note are searchable now. Organize later if useful; this summary does not write to memory.</p>");
       expect(data.dashboard_overview.primary_action).toMatchObject({
         label: "Search saved content",
         target: "stored-content",

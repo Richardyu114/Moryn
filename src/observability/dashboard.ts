@@ -2282,7 +2282,7 @@ function buildDashboardOverview(input: {
       target: input.actionBoard.items_by_id.inspect.value > 0 ? "governance-hub" : "needs-attention"
     }
     : primary;
-  const headline = primary.source === "memory_inventory" ? "Saved, not remembered" : primary.next_action_label;
+  const headline = primary.next_action_label;
   const primaryActionLabel = primary.source === "memory_inventory" ? primary.hint : actionCardPrimary.next_action_label;
   const zhDetail = primary.source === "memory_inventory" ? memoryInventoryReviewDetailZh(input.memoryInventory) : undefined;
   const contextGate = input.contextPackReview.handoff_pack?.quality_gate.status;
@@ -3179,6 +3179,7 @@ function dashboardActionLabelZh(label: string): string {
   if (label === "Search saved content") return "搜索已保存内容";
   if (label === "Saved for later") return "已保存，可稍后整理";
   if (label === "Saved, not remembered") return "已保存，未记住";
+  if (label === "No action needed") return "无需操作";
   if (label === "All clear") return "暂时不用管";
   if (label === "View checks") return "查看检查";
   if (label === "View details") return "查看详情";
@@ -3405,7 +3406,7 @@ function memoryInventoryReviewDetail(inventory: DashboardMemoryInventory): strin
     inventory.summary.set_aside > 0 ? pluralize(inventory.summary.set_aside, "set-aside item") : ""
   ].filter(Boolean);
   const subject = joinHumanList(parts);
-  return `${subject} ${parts.length === 1 ? "is" : "are"} searchable now. ${parts.length === 1 ? "It becomes" : "They become"} long-term memory only if you organize ${parts.length === 1 ? "it" : "them"} later.`;
+  return `${subject} ${parts.length === 1 ? "is" : "are"} searchable now. Organize later if useful; this summary does not write to memory.`;
 }
 
 function zhCount(count: number, label: string): string {
@@ -3425,7 +3426,7 @@ function memoryInventoryReviewDetailZh(inventory: DashboardMemoryInventory): str
     inventory.summary.set_aside > 0 ? zhCount(inventory.summary.set_aside, "已搁置内容") : ""
   ].filter(Boolean);
   const subject = joinZhList(parts);
-  return `${subject}现在可搜索；只有稍后整理后才会进入长期记忆。`;
+  return `${subject}现在可搜索；需要时再整理，这个摘要不会写入记忆。`;
 }
 
 function memoryInventoryReviewItem(
@@ -3440,11 +3441,11 @@ function memoryInventoryReviewItem(
     id: "review",
     label: "Review",
     value: reviewCount,
-    severity: "warning",
+    severity: "good",
     summary: pluralize(reviewCount, "saved item"),
     hint: "Search saved content",
     detail: memoryInventoryReviewDetail(inventory),
-    next_action_label: "Saved, not remembered",
+    next_action_label: "No action needed",
     target,
     source: "memory_inventory"
   };
@@ -3520,12 +3521,13 @@ function dashboardOverview(
     ? data.primary_action.label === "Inspect checks" ? "View checks" : "View details"
     : data.primary_action.label;
   const headlineZh = dashboardActionLabelZh(data.headline);
-  const detailZh = data.headline === "Saved, not remembered" || data.headline === "Saved for later"
-    ? data.zh_detail ?? data.detail
+  const detailZh = data.zh_detail
+    ?? (data.headline === "Saved, not remembered" || data.headline === "Saved for later"
+      ? data.detail
       .replace("1 saved item and 1 session note are searchable now. They become long-term memory only if you organize them later.", "1 条保存内容和 1 条会话笔记现在可搜索；只有稍后整理后才会进入长期记忆。")
       .replace("1 saved item is searchable now. It becomes long-term memory only if you organize it later.", "1 条保存内容现在可搜索；只有稍后整理后才会进入长期记忆。")
       .replace("1 session note is searchable now. It becomes long-term memory only if you organize it later.", "1 条会话笔记现在可搜索；只有稍后整理后才会进入长期记忆。")
-    : dashboardActionDetailZh(visibleDetail);
+      : dashboardActionDetailZh(visibleDetail));
   const actionLabelZh = dashboardActionLabelZh(actionLabel);
   return `
     <section class="dashboard-overview ${escapeHtml(data.status)}" data-dashboard-overview aria-label="Dashboard Overview">
@@ -6860,7 +6862,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
   const quietInfoPanel = shouldRenderQuietInfoPanel ? needsAttentionPanel(data.attention_items) : "";
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel && !isAllClearOverview;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
-  const isSavedForLaterOverview = data.dashboard_overview.headline === "Saved, not remembered" || data.dashboard_overview.headline === "Saved for later";
+  const isSavedForLaterOverview = data.dashboard_overview.primary_action.source === "memory_inventory";
   const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview && !isSavedForLaterOverview;
   const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
   const healthLabelZh = dashboardHealthZh(data.health.status, data.health.label);

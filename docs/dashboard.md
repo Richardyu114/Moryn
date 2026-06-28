@@ -658,14 +658,14 @@ connected`. The API still exposes the underlying sync data in
 
 The main action summary is labeled `Do I need to act?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible
-warnings, sync work, then saved notes that are available for later organization.
-`Saved, not remembered` is intentionally lighter than an urgent warning: it
-appears only when there are no higher-priority actions and Moryn has saved
-`Saved, not remembered`, `Session notes`, or `Set aside` items. If Capture Inbox has real
-approval work, the action opens Capture Inbox. Otherwise it opens `Find what
-Moryn saved`, expands hidden saved previews, and highlights the
-section so the click has visible feedback. Candidate Triage stays a technical/audit route
-unless it has an explicit promotion approval.
+warnings, then sync work. Ordinary saved content does not become a user decision
+by itself: when the only state is `Saved, not remembered`, `Session notes`, or
+`Set aside`, the headline stays `No action needed` and the visible action simply
+opens `Find what Moryn saved`. That click expands hidden saved previews and
+highlights the section so the user can inspect what was stored without writing
+anything. If Capture Inbox has real approval work, the action opens Capture
+Inbox. Candidate Triage stays a technical/audit route unless it has an explicit
+promotion approval.
 
 The memory-state chart is also a local navigation control: clicking
 `Remembered`, `Saved, not remembered`, `Session notes`, or `Set aside` opens
