@@ -23,14 +23,14 @@ tool. It uses a black high-contrast surface with visible status colors and chart
 cards before any evidence folds. A user should be able to answer these questions
 without opening a collapsed section:
 
-- Do I need to act? -> the `Status Board` answer card plus a visible
+- Do I need to act? -> the `Current answers` action card plus a visible
   `Needs your decision` panel only when approval is waiting.
-- What is stored? -> the `Status Board` memory answer, `At a glance` chart,
+- What is stored? -> the `Current answers` memory card, `At a glance` chart,
   `Memory Explorer`, and `What Moryn remembers`.
-- Is sync healthy? -> the `Status Board` shared-copy answer, `This device`,
+- Is sync healthy? -> the `Current answers` shared-copy card, `This device`,
   and the sync rail.
 
-The `Status Board`, `Needs your decision`, `Saved for later`, `At a glance`, and
+The `Current answers`, `Needs your decision`, `Saved for later`, `At a glance`, and
 `Memory Explorer` rows are visible above `Technical details` in the live
 non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
@@ -623,12 +623,12 @@ and event evidence stay in their original wording.
 The first screen is arranged around three plain questions:
 
 ```text
-Do I need to act? -> Status Board action answer
-What is stored?   -> Status Board memory answer, At a glance, Memory Explorer
-Is sync healthy?  -> Status Board shared-copy answer, sync rail
+Do I need to act? -> Current answers action card
+What is stored?   -> Current answers memory card, At a glance, Memory Explorer
+Is sync healthy?  -> Current answers shared-copy card, sync rail
 ```
 
-`Status Board` is the first read after the header. It keeps `This device` and
+`Current answers` is the first read after the header. It keeps `This device` and
 `Shared copy` as compact status chips, then answers action, memory, and sync in
 three larger cards. Those answer cards reuse the dashboard's local navigation:
 the action card opens the current next step, the memory card opens `Memory

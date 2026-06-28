@@ -6037,10 +6037,10 @@ function statusBoard(data: DashboardData): string {
   const actionIsCalm = data.decision_summary.total_decisions === 0 && (data.dashboard_overview.headline === "Saved for later" || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
   const actionClass = actionIsCalm ? "calm" : escapeHtml(data.dashboard_overview.status);
   return `
-    <section class="status-board" data-status-board aria-label="Status Board">
+    <section class="status-board" data-status-board aria-label="Current answers">
       <div class="section-heading status-board-heading">
-        <h2 data-i18n-en="Status Board" data-i18n-zh="状态总览">Status Board</h2>
-        ${i18nText("Action, memory, and shared copy", "操作、记忆和共享副本", "small")}
+        <h2 data-i18n-en="Current answers" data-i18n-zh="当前结论">Current answers</h2>
+        ${i18nText("Act, memory, and shared copy", "操作、记忆和共享副本", "small")}
       </div>
       <div class="status-board-rail" data-status-board-rail aria-label="Local and shared status">
         <article class="status-chip ${escapeHtml(overviewStatusFromHealth(data.health.status))}" data-status-chip="device">
@@ -7654,8 +7654,9 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     }
     .status-chip {
       grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-rows: auto minmax(2.4em, auto) auto;
       align-items: center;
-      min-height: 70px;
+      min-height: 76px;
       background: rgba(15, 18, 23, 0.78);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
     }
@@ -7671,7 +7672,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       text-align: left;
       color: inherit;
       cursor: pointer;
-      min-height: 94px;
+      grid-template-rows: auto minmax(2.4em, auto) auto;
+      min-height: 104px;
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008)),
         rgba(12, 15, 20, 0.94);

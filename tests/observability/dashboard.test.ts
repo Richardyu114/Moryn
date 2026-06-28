@@ -599,8 +599,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span class=\"health-badge good\">Healthy</span>");
       expect(html).toContain(`<p class="store-path" title="${storePath}" data-i18n-en="Local memory" data-i18n-zh="本机记忆">Local memory</p>`);
       expect(html).toContain("<p class=\"dashboard-generated-at\"><time datetime=\"2026-06-21T00:00:00.000Z\" title=\"2026-06-21T00:00:00.000Z\">Updated 00:00 UTC</time></p>");
-      expect(html).toContain("<section class=\"status-board\" data-status-board aria-label=\"Status Board\">");
-      expect(html).toContain("<h2 data-i18n-en=\"Status Board\" data-i18n-zh=\"状态总览\">Status Board</h2>");
+      expect(html).toContain("<section class=\"status-board\" data-status-board aria-label=\"Current answers\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Current answers\" data-i18n-zh=\"当前结论\">Current answers</h2>");
+      expect(html).not.toContain("<h2 data-i18n-en=\"Status Board\" data-i18n-zh=\"状态总览\">Status Board</h2>");
       expect(html).toContain("<div class=\"status-board-rail\" data-status-board-rail aria-label=\"Local and shared status\">");
       expect(html).not.toContain("<section class=\"front-status-grid\" data-front-status-grid aria-label=\"Local and shared status\">");
       expect(html).toContain("<article class=\"status-chip good\" data-status-chip=\"device\">");
@@ -618,6 +619,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"What is stored?\" data-i18n-zh=\"存了什么？\">What is stored?</span>");
       expect(html).toContain("<button type=\"button\" class=\"answer-card sync good\" data-dashboard-priority=\"sync\" data-action-board-target=\"store-signals\" aria-controls=\"store-signals\">");
       expect(html).toContain("<span data-i18n-en=\"Is sync healthy?\" data-i18n-zh=\"同步健康吗？\">Is sync healthy?</span>");
+      expect(html).toContain("grid-template-rows: auto minmax(2.4em, auto) auto;");
+      expect(html).toContain(".status-chip,");
+      expect(html).toContain("min-height: 76px;");
       expect(html).toContain("<section class=\"glance-board\" data-dashboard-glance aria-label=\"At a glance\">");
       expect(html).toContain("<h2 data-i18n-en=\"At a glance\" data-i18n-zh=\"一眼看懂\">At a glance</h2>");
       expect(html).toContain("<article class=\"glance-chart memory-shape\" data-memory-state-chart>");
