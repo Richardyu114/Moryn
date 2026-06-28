@@ -144,8 +144,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Moryn saved`, and the sync card opens `Shared copy details`");
     expectText(dashboard, "The memory card also shows a compact `Ready to use` / `Saved, not organized` / `Session notes` mix bar");
     expectText(dashboard, "so the first screen shows whether saved content is already long-term memory before the user opens search");
-    expectText(dashboard, "A short `Why this is here`");
-    expectText(dashboard, "only rows with confirm buttons can change long-term memory");
+    expectText(dashboard, "A short `Write safety`");
+    expectText(dashboard, "keeps the write boundary visible without repeating");
+    expectText(dashboard, "only rows with confirm buttons can change long-term");
     expectText(dashboard, "a fixed-height status ticker repeats the");
     expectText(dashboard, "latest write, latest source, shared-copy state, and saved-for-later items");
     expectText(dashboard, "without");

@@ -762,8 +762,10 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-status-ticker-item=\"shared-copy\"><b data-i18n-en=\"Shared copy\" data-i18n-zh=\"共享副本\">Shared copy</b><strong data-i18n-en=\"Up to date\" data-i18n-zh=\"已同步\">Up to date</strong></span>");
       expect(html).toContain("<span data-status-ticker-item=\"to-organize\"><b data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</b><strong data-i18n-en=\"2 saved for later\" data-i18n-zh=\"2 条已保存待整理\">2 saved for later</strong></span>");
       expect(html).toContain("<div class=\"status-board-explain\" data-status-board-explain>");
-      expect(html).toContain("<span data-i18n-en=\"Why this is here\" data-i18n-zh=\"为什么会看到这些内容\">Why this is here</span>");
-      expect(html).toContain("<p data-i18n-en=\"Moryn saved 3 recent items from recent work. They stay searchable here; only rows with confirm buttons can change long-term memory.\" data-i18n-zh=\"Moryn 从最近工作保存了 3 条内容；它们会留在这里可搜索，只有带确认按钮的条目才能改变长期记忆。\">Moryn saved 3 recent items from recent work. They stay searchable here; only rows with confirm buttons can change long-term memory.</p>");
+      expect(html).toContain("<span data-i18n-en=\"Write safety\" data-i18n-zh=\"写入边界\">Write safety</span>");
+      expect(html).toContain("<p data-i18n-en=\"Only confirmation buttons can change long-term memory.\" data-i18n-zh=\"只有确认按钮会改变长期记忆。\">Only confirmation buttons can change long-term memory.</p>");
+      expect(html).not.toContain("<span data-i18n-en=\"Why this is here\" data-i18n-zh=\"为什么会看到这些内容\">Why this is here</span>");
+      expect(html).not.toContain("They stay searchable here; only rows with confirm buttons can change long-term memory.");
       expect(html).toContain("grid-template-rows: minmax(1.35em, auto) minmax(2.35em, auto) minmax(2.4em, auto) minmax(1.4em, auto) minmax(40px, auto);");
       expect(html).toContain(".answer-card-conclusion {");
       expect(html).toContain(".status-chip,");

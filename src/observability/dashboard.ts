@@ -6396,13 +6396,13 @@ function statusBoardExplainText(data: DashboardData): { en: string; zh: string }
   const count = data.memory_inventory.summary.total_visible;
   if (count <= 0) {
     return {
-      en: "Moryn has not saved visible content for this view yet. When agents save useful work, it will appear here first.",
-      zh: "这个视图里还没有可见保存内容；之后代理保存有用工作时，会先显示在这里。"
+      en: "Saved content will appear here first.",
+      zh: "保存的内容会先显示在这里。"
     };
   }
   return {
-    en: `Moryn saved ${pluralize(count, "recent item")} from recent work. They stay searchable here; only rows with confirm buttons can change long-term memory.`,
-    zh: `Moryn 从最近工作保存了 ${count} 条内容；它们会留在这里可搜索，只有带确认按钮的条目才能改变长期记忆。`
+    en: "Only confirmation buttons can change long-term memory.",
+    zh: "只有确认按钮会改变长期记忆。"
   };
 }
 
@@ -6567,7 +6567,7 @@ function statusBoard(data: DashboardData): string {
       </div>
       ${statusBoardTicker(data, shared)}
       <div class="status-board-explain" data-status-board-explain>
-        ${i18nText("Why this is here", "为什么会看到这些内容")}
+        ${i18nText("Write safety", "写入边界")}
         <p ${i18nAttribute(explain.en, explain.zh)}>${escapeHtml(explain.en)}</p>
       </div>
     </section>

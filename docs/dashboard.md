@@ -666,10 +666,10 @@ local navigation: the action card opens the current next step, the memory card
 opens `Find what Moryn saved`, and the sync card opens `Shared copy details`.
 The memory card also shows a compact `Ready to use` / `Saved, not organized` / `Session notes`
 mix bar and short counts, so the first screen shows whether saved content is
-already long-term memory before the user opens search. A short `Why this is here`
-explanation under the answer cards states why saved items appear and reminds the
-user that only rows with confirm buttons can change long-term memory. Between
-the answer cards and that explanation, a fixed-height status ticker repeats the
+already long-term memory before the user opens search. A short `Write safety`
+line under the answer cards keeps the write boundary visible without repeating
+the saved-content summary: only rows with confirm buttons can change long-term
+memory. Between the answer cards and that line, a fixed-height status ticker repeats the
 latest write, latest source, shared-copy state, and saved-for-later items without
 resizing the first screen. The `At a glance` chart row
 appears before `What Moryn stores`, `Recent status`, and the compact
