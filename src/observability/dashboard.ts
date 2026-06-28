@@ -1296,8 +1296,8 @@ function buildMemoryInventory(records: MorynRecord[]): DashboardMemoryInventory 
       },
       {
         id: "new_items",
-        label: "New",
-        zh_label: "等你确认",
+        label: "Saved, not remembered yet",
+        zh_label: "已保存，尚未记住",
         count: newItems,
         source_states: ["candidate"]
       },
@@ -2237,7 +2237,7 @@ function buildDashboardOverview(input: {
       target: input.actionBoard.items_by_id.inspect.value > 0 ? "governance-hub" : "needs-attention"
     }
     : primary;
-  const headline = primary.source === "memory_inventory" ? "Review suggested" : primary.next_action_label;
+  const headline = primary.source === "memory_inventory" ? "Saved for later" : primary.next_action_label;
   const primaryActionLabel = primary.source === "memory_inventory" ? primary.hint : actionCardPrimary.next_action_label;
   const contextGate = input.contextPackReview.handoff_pack?.quality_gate.status;
   const cards: DashboardOverviewCard[] = [
@@ -3260,12 +3260,12 @@ type DashboardPrimaryFocusItem = DashboardActionBoardItem & { source?: string };
 
 function memoryInventoryReviewDetail(inventory: DashboardMemoryInventory): string {
   const parts = [
-    inventory.summary.new_items > 0 ? pluralize(inventory.summary.new_items, "new item") : "",
+    inventory.summary.new_items > 0 ? pluralize(inventory.summary.new_items, "saved, not remembered yet item") : "",
     inventory.summary.temporary > 0 ? pluralize(inventory.summary.temporary, "temporary item") : "",
     inventory.summary.set_aside > 0 ? pluralize(inventory.summary.set_aside, "set-aside item") : ""
   ].filter(Boolean);
   const subject = joinHumanList(parts);
-  return `${subject} ${parts.length === 1 ? "is" : "are"} saved safely. Review ${parts.length === 1 ? "it" : "them"} when you want Moryn to remember ${parts.length === 1 ? "it" : "them"} long term.`;
+  return `${subject} ${parts.length === 1 ? "is" : "are"} saved safely. Browse ${parts.length === 1 ? "it" : "them"} when you want to decide what Moryn remembers long term.`;
 }
 
 function memoryInventoryReviewItem(
@@ -3282,9 +3282,9 @@ function memoryInventoryReviewItem(
     value: reviewCount,
     severity: "warning",
     summary: pluralize(reviewCount, "saved item"),
-    hint: "Review new notes",
+    hint: "Browse saved notes",
     detail: memoryInventoryReviewDetail(inventory),
-    next_action_label: "Review suggested",
+    next_action_label: "Saved for later",
     target,
     source: "memory_inventory"
   };
@@ -3359,21 +3359,21 @@ function dashboardOverview(
   const actionLabel = isAllClear
     ? data.primary_action.label === "Inspect checks" ? "View checks" : "View details"
     : data.primary_action.label;
-  const headlineZh = data.headline === "Review suggested"
-    ? "建议看一下"
+  const headlineZh = data.headline === "Saved for later"
+    ? "已保存，可稍后整理"
     : data.headline === "All clear"
       ? "暂时不用管"
       : data.headline === "Inspect sync"
         ? "检查共享副本"
         : data.headline;
-  const detailZh = data.headline === "Review suggested"
+  const detailZh = data.headline === "Saved for later"
     ? data.detail
-      .replace("1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.", "Moryn 已安全保存 1 条新内容和 1 条临时内容。你想让它长期记住时再确认。")
-      .replace("1 new item is saved safely. Review it when you want Moryn to remember it long term.", "Moryn 已安全保存 1 条新内容。你想让它长期记住时再确认。")
-      .replace("1 temporary item is saved safely. Review it when you want Moryn to remember it long term.", "Moryn 已安全保存 1 条临时内容。你想让它长期记住时再确认。")
+      .replace("1 saved, not remembered yet item and 1 temporary item are saved safely. Browse them when you want to decide what Moryn remembers long term.", "Moryn 已安全保存 1 条尚未记住的内容和 1 条临时内容。你想整理长期记忆时再查看。")
+      .replace("1 saved, not remembered yet item is saved safely. Browse it when you want to decide what Moryn remembers long term.", "Moryn 已安全保存 1 条尚未记住的内容。你想整理长期记忆时再查看。")
+      .replace("1 temporary item is saved safely. Browse it when you want to decide what Moryn remembers long term.", "Moryn 已安全保存 1 条临时内容。你想整理长期记忆时再查看。")
     : visibleDetail;
-  const actionLabelZh = actionLabel === "Review new notes"
-    ? "查看新内容"
+  const actionLabelZh = actionLabel === "Browse saved notes"
+    ? "浏览已保存内容"
     : actionLabel === "View checks"
       ? "查看检查"
       : actionLabel === "View details"
@@ -5763,7 +5763,7 @@ function referenceLibraryIndex(input: {
     if (route.route === "routine-diagnostics") return "Health checks";
     if (route.route === "dogfood-review") return "Product notes";
     if (route.route === "governance-hub") return "Safety checks";
-    if (route.route === "candidate-triage") return "New notes";
+    if (route.route === "candidate-triage") return "Saved notes";
     if (route.route === "supporting-evidence") return "History";
     return route.label;
   };
@@ -5776,7 +5776,7 @@ function referenceLibraryIndex(input: {
   const detailedApiReferenceHint = "Open <code>/api/dashboard</code> for routine diagnostics, candidate backlog, governance notes, dogfood notes, audit reports, and raw evidence.";
   const compactApiReferenceHint = "Full evidence stays in <code>/api/dashboard</code>.";
   const diagnosticsTitle = input.compact ? "Health Checks" : "Diagnostics Index";
-  const candidateTriageTitle = input.compact ? "New Notes" : "Candidate Backlog Index";
+  const candidateTriageTitle = input.compact ? "Saved Notes" : "Candidate Backlog Index";
   const governanceTitle = input.compact ? "Safety Checks" : "Governance Index";
   const dogfoodTitle = input.compact ? "Product Notes" : "Dogfood Notes Index";
   const candidateTriageSummary = input.compact ? "Saved notes indexed" : input.candidateTriageSummary;
@@ -5794,7 +5794,7 @@ function referenceLibraryIndex(input: {
     if (label === "health_check") return "Health check";
     if (label === "recall_eval") return "Recall check";
     if (label === "context_pack_review") return "Handoff context";
-    if (label === "candidate_triage") return "New notes";
+    if (label === "candidate_triage") return "Saved notes";
     if (label === "governance") return "Safety checks";
     if (label === "dogfood_report") return "Product notes";
     if (label === "memory_lifecycle") return "Cleanup checks";
@@ -6227,29 +6227,31 @@ function dashboardDecisionPanel(data: DashboardData): string {
       }));
     }
   } else if (reviewable > 0) {
-    const title = `${pluralize(reviewable, "saved item")} to review`;
+    const title = `${pluralize(reviewable, "saved item")} not remembered yet`;
     items.push(decisionPanelItem({
       kind: "review",
-      status: "Review suggested",
-      zhStatus: "建议看一下",
+      status: "No approval needed",
+      zhStatus: "不需要立刻确认",
       title,
-      zhTitle: `${reviewable} 条保存内容可查看`,
-      detail: "These are saved safely. Open the review view when you want to decide what becomes long-term memory.",
-      zhDetail: "这些内容已经安全保存。你想决定哪些进入长期记忆时，再打开查看。",
+      zhTitle: `${reviewable} 条已保存但尚未记住的内容`,
+      detail: "These are saved safely, but Moryn will not treat them as long-term memory unless you choose to organize them later.",
+      zhDetail: "这些内容已经安全保存，但除非你稍后整理，Moryn 不会把它们当作长期记忆。",
       target: "stored-content",
-      actionLabel: "Open saved content",
-      zhActionLabel: "打开已保存内容",
-      note: "This opens saved content and search. Approval buttons only appear in Capture Inbox, Review Queue, or Candidate Triage when a real write is waiting.",
-      zhNote: "这里会打开已保存内容和搜索；只有真的有待写入事项时，审批按钮才会出现在 Capture Inbox、Review Queue 或 Candidate Triage。",
+      actionLabel: "Browse saved content",
+      zhActionLabel: "浏览已保存内容",
+      note: "This opens saved content only. Use Memory search when you want to search across memory and events.",
+      zhNote: "这里仅打开已保存内容；需要跨记忆和事件搜索时，再使用搜索记忆。",
       feedback: "Nothing to open here yet.",
       zhFeedback: "这里暂时没有可打开的审核队列。"
     }));
   }
   if (items.length === 0) return "";
+  const panelLabel = explicitDecisions > 0 ? "Needs your decision" : "Saved for later";
+  const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "已保存，可稍后整理";
   return `
-    <section class="decision-panel" data-dashboard-decision-panel aria-label="Needs your decision">
+    <section class="decision-panel${explicitDecisions > 0 ? "" : " saved-later"}" data-dashboard-decision-panel aria-label="${escapeHtml(panelLabel)}">
       <div class="section-heading">
-        <h2 data-i18n-en="Needs your decision" data-i18n-zh="需要你确认">Needs your decision</h2>
+        <h2 data-i18n-en="${escapeHtml(panelLabel)}" data-i18n-zh="${escapeHtml(panelLabelZh)}">${escapeHtml(panelLabel)}</h2>
         ${i18nText(explicitDecisions > 0 ? "Actions are explicit" : "Nothing writes from this summary", explicitDecisions > 0 ? "操作需要明确确认" : "这里不会直接写入", "small")}
       </div>
       <div class="decision-panel-list">
@@ -6261,7 +6263,7 @@ function dashboardDecisionPanel(data: DashboardData): string {
 
 function memoryStateLabelFromRecordState(state: MorynRecord["state"]): { en: string; zh: string } {
   if (state === "canonical") return { en: "Remembered", zh: "已记住" };
-  if (state === "candidate") return { en: "New", zh: "等你确认" };
+  if (state === "candidate") return { en: "Saved, not remembered yet", zh: "已保存，尚未记住" };
   if (state === "raw") return { en: "Temporary", zh: "临时保存" };
   return { en: "Set aside", zh: "已放一边" };
 }
@@ -6411,8 +6413,8 @@ function recentStatusPanel(data: DashboardData): string {
   const latestSource = latestRecord ? humanSourceLabel(latestRecord.source) : "No writes yet";
   const latestSourceZh = latestRecord ? latestSource : "还没有写入";
   const reviewable = data.memory_inventory.summary.new_items + data.memory_inventory.summary.temporary;
-  const reviewableLabel = reviewable > 0 ? pluralize(reviewable, "new or temporary item") : "No new review items";
-  const reviewableZh = reviewable > 0 ? `${reviewable} 条新内容或临时内容` : "没有新的待确认内容";
+  const reviewableLabel = reviewable > 0 ? pluralize(reviewable, "saved or temporary item") : "No saved items waiting";
+  const reviewableZh = reviewable > 0 ? `${reviewable} 条已保存或临时内容` : "没有待整理的保存内容";
   const shared = sharedCopyLabel(data.sync);
   return `
     <section class="recent-status" data-recent-status aria-label="Recent status">
@@ -6453,8 +6455,8 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
   const quietInfoPanel = shouldRenderQuietInfoPanel ? needsAttentionPanel(data.attention_items) : "";
   const showBackgroundStatus = !hasPendingDecisions && !shouldHideQuietInfoPanel && !isAllClearOverview;
   const shouldPromoteStoreSignals = !hasPendingDecisions && !hasActionSignals && data.health.status === "sync_pending";
-  const isReviewSuggestedOverview = data.dashboard_overview.headline === "Review suggested";
-  const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview && !isReviewSuggestedOverview;
+  const isSavedForLaterOverview = data.dashboard_overview.headline === "Saved for later";
+  const shouldRenderWorkLanes = !shouldPromoteStoreSignals && !isAllClearOverview && !isSavedForLaterOverview;
   const promotedStoreSignals = shouldPromoteStoreSignals ? promotedStoreSignalsPanel(data) : "";
   return `
     <header>
@@ -6475,7 +6477,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
 
     ${frontStatusGrid(data)}
 
-    ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: !isAllClearOverview && !isReviewSuggestedOverview })}
+    ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: !isAllClearOverview && !isSavedForLaterOverview })}
 
     ${dashboardDecisionPanel(data)}
 
@@ -6501,12 +6503,12 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
 
     ${quietInfoPanel}
 
-    ${isReviewSuggestedOverview ? "" : shortcutPanel}
+    ${isSavedForLaterOverview ? "" : shortcutPanel}
 
     ${evidenceLibrary(data, {
       includeStoreSignals: !shouldPromoteStoreSignals,
       showEvidenceIndex: !hasPendingDecisions,
-      compactBackground: shouldPromoteStoreSignals || isAllClearOverview || isReviewSuggestedOverview,
+      compactBackground: shouldPromoteStoreSignals || isAllClearOverview || isSavedForLaterOverview,
       auditOnly: hasPendingDecisions
     })}
   `;
@@ -6752,8 +6754,8 @@ function dashboardStoredContentScript(): string {
         applyStoredContentState({ focusSearch: true });
       };
       window.openStoredContentPanel = () => {
-        writeStoredContentState({ overflowOpen: true, searchOpen: true });
-        applyStoredContentState({ focusSearch: true, highlight: true });
+        writeStoredContentState({ overflowOpen: true });
+        applyStoredContentState({ highlight: true });
       };
       window.shouldPauseStoredContentRefresh = () => {
         const state = readStoredContentState();

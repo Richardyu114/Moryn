@@ -23,19 +23,20 @@ tool. It uses a black high-contrast surface with visible status colors and chart
 cards before any evidence folds. A user should be able to answer these questions
 without opening a collapsed section:
 
-- Need action? -> `Needs attention?`, `All clear`, or `Review suggested`, plus a
-  visible `Needs your decision` panel when review or approval is waiting.
+- Need action? -> `Needs attention?`, `All clear`, or `Saved for later`, plus a
+  visible `Needs your decision` panel only when approval is waiting.
 - Stored what? -> the `At a glance` memory-state chart, `Stored content` text
   previews, and `What Moryn remembers`.
 - State now? -> `This device`, `Recent status`, and recent activity bars.
 - Shared copy? -> the `Shared copy` card and sync rail.
 
-The `Needs your decision`, `At a glance`, and `Stored content` rows are visible
-above `Technical details` in the live non-private dashboard. `Needs your
-decision` routes users to the owning approval rows when a real write is waiting;
-if the state is only `Review suggested`, the visible action opens `Stored
-content`, expands saved previews, and opens `Memory search` without writing.
-Approve and reject buttons stay on the owning row beside the relevant evidence.
+The `Needs your decision`, `Saved for later`, `At a glance`, and `Stored content`
+rows are visible above `Technical details` in the live non-private dashboard.
+`Needs your decision` routes users to the owning approval rows only when a real
+write is waiting. If the state is only `Saved for later`, the visible action
+opens `Stored content` and expands saved previews without opening `Memory
+search` or writing. Approve and reject buttons stay on the owning row beside the
+relevant evidence.
 `At a glance` shows a memory state meter, content-type bars, shared-copy state,
 and recent source activity. `Stored content` shows recent saved text previews
 with memory state labels. Collapsed sections are for audit evidence, raw trace
@@ -614,7 +615,7 @@ Chinese; the browser remembers the choice in `moryn.dashboard.language`.
 The first screen is arranged around four plain questions:
 
 ```text
-Need action?  -> Needs attention? / All clear / Review suggested
+Need action?  -> Needs attention? / All clear / Saved for later
 Stored what?  -> At a glance, What Moryn remembers
 State now?    -> This device, Recent status, recent activity
 Shared copy?  -> Shared copy card and sync rail
@@ -630,18 +631,19 @@ exposes the underlying sync data in `/api/dashboard.sync`.
 
 The main action summary is labeled `Needs attention?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible
-warnings, sync work, then saved notes that would benefit from review. `Review
-suggested` is intentionally lighter than an urgent warning: it appears only
-when there are no higher-priority actions and Moryn has saved `New`,
-`Temporary`, or `Set aside` items that the user may want to review. If Capture
-Inbox has real approval work, the action opens Capture Inbox. Otherwise it
-opens `Stored content`, expands hidden saved previews, opens `Memory search`,
-and highlights the section so the click has visible feedback. Candidate Triage
-stays a technical/audit route unless it has an explicit promotion approval.
+warnings, sync work, then saved notes that are available for later organization.
+`Saved for later` is intentionally lighter than an urgent warning: it appears
+only when there are no higher-priority actions and Moryn has saved `Saved, not
+remembered yet`, `Temporary`, or `Set aside` items. If Capture Inbox has real
+approval work, the action opens Capture Inbox. Otherwise it opens `Stored
+content`, expands hidden saved previews, and highlights the section so the click
+has visible feedback. `Memory search` remains a separate button for searching
+across memory and events. Candidate Triage stays a technical/audit route unless
+it has an explicit promotion approval.
 
 `All clear` now means there are no confirmations, visible warnings, sync tasks,
-or saved-note reviews waiting. Pure read-only inspections do not turn the
-headline into urgent work. The API still keeps the full overview contract in
+or saved items waiting for later organization. Pure read-only inspections do not
+turn the headline into urgent work. The API still keeps the full overview contract in
 `/api/dashboard.dashboard_overview`, including `primary_action`,
 `cards`, `cards_by_id`, `safety`, and `evidence_sources`, so agents retain the
 audit trail even when visible cards are folded or hidden.
@@ -651,7 +653,7 @@ memory inventory:
 
 ```text
 remembered  <- canonical records
-new         <- candidate records
+saved, not remembered yet <- candidate records
 temporary   <- raw records
 set aside   <- archived or quarantined records
 ```
@@ -661,8 +663,9 @@ The inventory also groups visible records by kind, using human labels such as
 `/api/dashboard.memory_inventory` keeps the counts and source states for agents.
 
 `Recent status` shows the last write time, latest source, shared-copy state, and
-the number of new or temporary saved items. This gives the user the recent state
-of the local memory without opening the raw record list.
+the number of saved or temporary items waiting for later organization. This gives
+the user the recent state of the local memory without opening the raw record
+list.
 
 The top health message stays below the header, but healthy snapshots render as a
 lightweight `dashboard-status-line` instead of a full status panel unless the
@@ -681,7 +684,7 @@ background overview card is also a local navigation button that reuses the same
 scroll targets as the Action Board. It does not add a new API endpoint, Safe
 Action Registry entry, or memory mutation path.
 
-All-clear and Review-suggested pages skip duplicate shortcut grids, work lanes,
+All-clear and saved-for-later pages skip duplicate shortcut grids, work lanes,
 and safety chips on the first screen because the summary, inventory, recent
 status, compact `Technical details` fold, and `/api/dashboard` already expose
 the same routes. `/api/dashboard.attention_items` remains the audit source for
@@ -895,13 +898,13 @@ content-aware: when there are findings it reads `Reference material` while the
 accessible summary keeps `Read-only reference material`; when there is only
 routine/background material it reads `Reference evidence only`.
 
-When the first screen is quiet, sync-only, or review-suggested, the same
+When the first screen is quiet, sync-only, or saved-for-later, the same
 read-only material uses the lighter `Technical details` shell instead of the
 normal full evidence panel. Expanding it reveals a `Check records` face with
 `Read-only details available` and `Optional details`, so the compact path does
 not lead with internal reference-library naming. Compact route chips move into
 the collapsed `Detail links` fold with human labels such as `Product notes`,
-`New notes`, and `History`; their stable
+`Saved notes`, and `History`; their stable
 `data-reference-library-route` attributes still keep the machine routes for
 audit tooling. The long `/api/dashboard` pointer is shortened inside that fold
 in compact mode to `Full evidence stays in /api/dashboard.`, so expanding
@@ -913,7 +916,7 @@ The compact rows also use quiet summaries such as `Saved notes indexed`,
 foregrounding candidate counts, governance counts, dogfood finding counts,
 review-focus text, or raw-store language. Those counts and focus hints remain in
 `/api/dashboard` and the normal reference panels. Compact row evidence chips use
-the same human-label rule, such as `Health check`, `New notes`,
+the same human-label rule, such as `Health check`, `Saved notes`,
 `Product notes`, and `Recent records`, while their `data-dashboard-detail`
 attributes keep the stable API routes.
 

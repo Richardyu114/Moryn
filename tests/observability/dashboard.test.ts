@@ -558,10 +558,10 @@ describe("observability dashboard", () => {
         expect.objectContaining({ kind: "session_summary", label: "Session notes", count: 1 }),
         expect.objectContaining({ kind: "agent_note", label: "Agent notes", count: 1 })
       ]));
-      expect(data.dashboard_overview.headline).toBe("Review suggested");
-      expect(data.dashboard_overview.detail).toBe("1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.");
+      expect(data.dashboard_overview.headline).toBe("Saved for later");
+      expect(data.dashboard_overview.detail).toBe("1 saved, not remembered yet item and 1 temporary item are saved safely. Browse them when you want to decide what Moryn remembers long term.");
       expect(data.dashboard_overview.primary_action).toMatchObject({
-        label: "Review new notes",
+        label: "Browse saved notes",
         target: "stored-content",
         source: "memory_inventory"
       });
@@ -579,9 +579,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("--canvas: #050505;");
       expect(html).toContain("--surface: #101216;");
       expect(html).not.toContain("--canvas: #f4f2ee;");
-      expect(html).toContain("<strong data-i18n-en=\"Review suggested\" data-i18n-zh=\"建议看一下\">Review suggested</strong>");
-      expect(html).toContain("<p data-i18n-en=\"1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.\" data-i18n-zh=\"Moryn 已安全保存 1 条新内容和 1 条临时内容。你想让它长期记住时再确认。\">1 new item and 1 temporary item are saved safely. Review them when you want Moryn to remember them long term.</p>");
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Review new notes\" data-i18n-zh=\"查看新内容\">Review new notes</button>");
+      expect(html).toContain("<strong data-i18n-en=\"Saved for later\" data-i18n-zh=\"已保存，可稍后整理\">Saved for later</strong>");
+      expect(html).toContain("<p data-i18n-en=\"1 saved, not remembered yet item and 1 temporary item are saved safely. Browse them when you want to decide what Moryn remembers long term.\" data-i18n-zh=\"Moryn 已安全保存 1 条尚未记住的内容和 1 条临时内容。你想整理长期记忆时再查看。\">1 saved, not remembered yet item and 1 temporary item are saved safely. Browse them when you want to decide what Moryn remembers long term.</p>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Browse saved notes\" data-i18n-zh=\"浏览已保存内容\">Browse saved notes</button>");
       expect(html).not.toContain("<strong>All clear</strong>");
       expect(html).not.toContain("<p>No work needs attention.</p>");
       expect(html).toContain("<span class=\"health-badge good\">Healthy</span>");
@@ -602,12 +602,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("<article class=\"glance-chart recent-activity\" data-recent-activity-chart>");
       expect(html.indexOf("data-dashboard-glance")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
-      expect(html).toContain("<section class=\"decision-panel\" data-dashboard-decision-panel aria-label=\"Needs your decision\">");
-      expect(html).toContain("<h2 data-i18n-en=\"Needs your decision\" data-i18n-zh=\"需要你确认\">Needs your decision</h2>");
-      expect(html).toContain("<span data-i18n-en=\"Review suggested\" data-i18n-zh=\"建议看一下\">Review suggested</span>");
-      expect(html).toContain("<strong data-i18n-en=\"2 saved items to review\" data-i18n-zh=\"2 条保存内容可查看\">2 saved items to review</strong>");
-      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Open saved content\" data-i18n-zh=\"打开已保存内容\">Open saved content</button>");
-      expect(html).toContain("<small data-i18n-en=\"This opens saved content and search. Approval buttons only appear in Capture Inbox, Review Queue, or Candidate Triage when a real write is waiting.\" data-i18n-zh=\"这里会打开已保存内容和搜索；只有真的有待写入事项时，审批按钮才会出现在 Capture Inbox、Review Queue 或 Candidate Triage。\">This opens saved content and search. Approval buttons only appear in Capture Inbox, Review Queue, or Candidate Triage when a real write is waiting.</small>");
+      expect(html).toContain("<section class=\"decision-panel saved-later\" data-dashboard-decision-panel aria-label=\"Saved for later\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Saved for later\" data-i18n-zh=\"已保存，可稍后整理\">Saved for later</h2>");
+      expect(html).toContain("<span data-i18n-en=\"No approval needed\" data-i18n-zh=\"不需要立刻确认\">No approval needed</span>");
+      expect(html).toContain("<strong data-i18n-en=\"2 saved items not remembered yet\" data-i18n-zh=\"2 条已保存但尚未记住的内容\">2 saved items not remembered yet</strong>");
+      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Browse saved content\" data-i18n-zh=\"浏览已保存内容\">Browse saved content</button>");
+      expect(html).toContain("<small data-i18n-en=\"This opens saved content only. Use Memory search when you want to search across memory and events.\" data-i18n-zh=\"这里仅打开已保存内容；需要跨记忆和事件搜索时，再使用搜索记忆。\">This opens saved content only. Use Memory search when you want to search across memory and events.</small>");
       expect(html).toContain("const feedback = document.querySelector(\"[data-dashboard-action-feedback]\");");
       expect(html).toContain("if (!target) {");
       expect(html).toContain("feedback.textContent = document.documentElement.lang === \"zh\"");
@@ -629,7 +629,7 @@ describe("observability dashboard", () => {
       expect(html).toContain("<h2 data-i18n-en=\"What Moryn remembers\" data-i18n-zh=\"Moryn 记住了什么\">What Moryn remembers</h2>");
       expect(html).toContain("<span data-i18n-en=\"Remembered\" data-i18n-zh=\"已记住\">Remembered</span>");
       expect(html).toContain("<strong>1</strong>");
-      expect(html).toContain("<span data-i18n-en=\"New\" data-i18n-zh=\"等你确认\">New</span>");
+      expect(html).toContain("<span data-i18n-en=\"Saved, not remembered yet\" data-i18n-zh=\"已保存，尚未记住\">Saved, not remembered yet</span>");
       expect(html).toContain("<span data-i18n-en=\"Temporary\" data-i18n-zh=\"临时保存\">Temporary</span>");
       expect(html).toContain("<span data-i18n-en=\"Set aside\" data-i18n-zh=\"已放一边\">Set aside</span>");
       expect(html).toContain("<section class=\"recent-status\" data-recent-status aria-label=\"Recent status\">");
@@ -641,7 +641,7 @@ describe("observability dashboard", () => {
         source: { client: "gemini" },
         text: "Recent session status belongs on the dashboard front page."
       });
-      expect(html).toContain("2 new or temporary items");
+      expect(html).toContain("2 saved or temporary items");
       expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
       expect(data.action_board.items_by_id.review).toMatchObject({
         label: "Review",
@@ -802,8 +802,10 @@ describe("observability dashboard", () => {
       expect(serverHtml).toContain("const storedContentKey = \"moryn.dashboard.storedContentState\";");
       expect(serverHtml).toContain("writeStoredContentState({ overflowOpen: willOpen });");
       expect(serverHtml).toContain("window.openStoredContentPanel = () => {");
-      expect(serverHtml).toContain("writeStoredContentState({ overflowOpen: true, searchOpen: true });");
-      expect(serverHtml).toContain("applyStoredContentState({ focusSearch: true, highlight: true });");
+      expect(serverHtml).toContain("writeStoredContentState({ overflowOpen: true });");
+      expect(serverHtml).toContain("applyStoredContentState({ highlight: true });");
+      expect(serverHtml).not.toContain("writeStoredContentState({ overflowOpen: true, searchOpen: true });");
+      expect(serverHtml).not.toContain("applyStoredContentState({ focusSearch: true, highlight: true });");
       expect(serverHtml).toContain("section.classList.add(\"stored-content-active\");");
       expect(serverHtml).toContain("window.restoreStoredContentState = applyStoredContentState;");
       expect(serverHtml).toContain("const hadStoredContentSearchFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.matches(\"[data-memory-search-input]\");");
@@ -987,13 +989,13 @@ describe("observability dashboard", () => {
       const referenceRoutesHtml = referenceIndexHtml.slice(referenceRoutesStart);
 
       expect(data.health.status).toBe("healthy");
-      expect(data.dashboard_overview.headline).toBe("Review suggested");
+      expect(data.dashboard_overview.headline).toBe("Saved for later");
       expect(data.dashboard_overview.primary_action).toMatchObject({
-        label: "Review new notes",
+        label: "Browse saved notes",
         target: "stored-content",
         source: "memory_inventory"
       });
-      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Review new notes\" data-i18n-zh=\"查看新内容\">Review new notes</button>");
+      expect(html).toContain("<button type=\"button\" class=\"dashboard-overview-action\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-i18n-en=\"Browse saved notes\" data-i18n-zh=\"浏览已保存内容\">Browse saved notes</button>");
       expect(data.candidate_triage.summary).toMatchObject({
         total_candidates: 3,
         groups: 1,
@@ -1006,15 +1008,15 @@ describe("observability dashboard", () => {
       });
       expect(data.dogfood_report.findings).toHaveLength(1);
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"candidate-triage\"");
-      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"candidate-triage\">New notes</code>");
+      expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"candidate-triage\">Saved notes</code>");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"governance-hub\"");
       expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"governance-hub\">Safety checks</code>");
       expect(referenceRoutesHtml).toContain("data-reference-library-route=\"dogfood-review\"");
       expect(referenceRoutesHtml).toContain("<code data-reference-library-route=\"dogfood-review\">Product notes</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"candidate-triage\">candidate_triage</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-reference-library-route=\"dogfood-review\">dogfood_report</code>");
-      expect(referenceRoutesHtml).toContain("<strong>New Notes</strong>");
-      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"candidate-triage:index\">New notes</code>");
+      expect(referenceRoutesHtml).toContain("<strong>Saved Notes</strong>");
+      expect(referenceRoutesHtml).toContain("<code data-dashboard-detail=\"candidate-triage:index\">Saved notes</code>");
       expect(referenceRoutesHtml).not.toContain("<code data-dashboard-detail=\"candidate-triage:index\">candidate_triage</code>");
       expect(referenceRoutesHtml).toContain("<span>Saved notes indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>3 candidates across 1 group indexed</span>");
