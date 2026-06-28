@@ -138,12 +138,12 @@ describe("documentation contracts", () => {
     expectText(dashboard, "signals rather than full-card color washes");
     expectText(dashboard, "The first screen is arranged around three plain questions");
     expectText(dashboard, "Do I need to act? -> the `Right now` action card plus a visible");
-    expectText(dashboard, "visible `Needs your decision` panel only when approval is waiting");
+    expectText(dashboard, "visible `Needs your confirmation` panel only when approval is waiting");
     expectText(dashboard, "What is stored? -> the `Right now` memory card, `At a glance` chart");
     expectText(dashboard, "`Find what Moryn saved`, and `What Moryn stores`");
     expectText(dashboard, "Is everything synced? -> the `Right now` shared-copy card, `This device`");
     expectText(dashboard, "and the sync rail");
-    expectText(dashboard, "The `Control flow` wrapper groups `Right now`, `Needs your decision` or");
+    expectText(dashboard, "The `Control flow` wrapper groups `Right now`, `Needs your confirmation` or");
     expectText(dashboard, "`Saved and searchable`, `At a glance`, and `Find what Moryn saved` into one continuous");
     expectText(dashboard, "first-screen surface");
     expectText(dashboard, "It is a visual and navigation grouping only");
@@ -173,7 +173,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "only rows with confirm buttons can change long-term");
     expectText(dashboard, "then answers action, memory, recent");
     expectText(dashboard, "change, and sync in four larger cards");
-    expectText(dashboard, "The `Right now`, `Needs your decision`, `Saved and searchable`, `At a glance`, and");
+    expectText(dashboard, "The `Right now`, `Needs your confirmation`, `Saved and searchable`, `At a glance`, and");
     expectText(dashboard, "`Find what Moryn saved` rows are visible");
     expectText(dashboard, "above `More details` in the live non-private dashboard");
     expectText(dashboard, "It starts with a compact recent-activity summary for");
@@ -191,7 +191,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Searchable` filters to saved-but-not-final items");
     expectText(dashboard, "`Top source` opens saved");
     expectText(dashboard, "content search filtered to that source");
-    expectText(dashboard, "`Needs your decision` routes users to the owning approval rows only when a real");
+    expectText(dashboard, "`Needs your confirmation` routes users to the owning approval rows only when a real");
     expectText(dashboard, "If the state is only `Saved for later`, the visible saved-and-searchable panel");
     expectText(dashboard, "Its button says `Search saved content`");
     expectText(dashboard, "opens `Find what Moryn saved`, expands saved previews, and keeps search visible");

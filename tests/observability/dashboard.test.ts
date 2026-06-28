@@ -7243,6 +7243,9 @@ describe("observability dashboard", () => {
 
       const html = renderDashboardHtml(data);
       expect(html).toContain("Capture Inbox");
+      expect(html).toContain("<section class=\"decision-panel\" data-dashboard-decision-panel aria-label=\"Needs your confirmation\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Needs your confirmation\" data-i18n-zh=\"需要你确认\">Needs your confirmation</h2>");
+      expect(html).not.toContain("Needs your decision");
       expect(html).toContain("<h2 data-i18n-en=\"Capture Inbox\" data-i18n-zh=\"捕获收件箱\">Capture Inbox</h2>");
       expect(html).toContain("<span data-i18n-en=\"Manual approval\" data-i18n-zh=\"手动确认\">Manual approval</span>");
       expect(html).not.toContain("<span>1 candidate | 1 group</span>");

@@ -7230,7 +7230,7 @@ function dashboardDecisionPanel(data: DashboardData): string {
     }));
   }
   if (items.length === 0) return "";
-  const panelLabel = explicitDecisions > 0 ? "Needs your decision" : "Saved and searchable";
+  const panelLabel = explicitDecisions > 0 ? "Needs your confirmation" : "Saved and searchable";
   const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "已保存可搜索";
   return `
     <section class="decision-panel${explicitDecisions > 0 ? "" : " saved-later"}" data-dashboard-decision-panel aria-label="${escapeHtml(panelLabel)}">

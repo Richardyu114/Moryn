@@ -24,7 +24,7 @@ cards before any evidence folds. A user should be able to answer these questions
 without opening a collapsed section:
 
 - Do I need to act? -> the `Right now` action card plus a visible
-  `Needs your decision` panel only when approval is waiting.
+  `Needs your confirmation` panel only when approval is waiting.
 - What is stored? -> the `Right now` memory card, `At a glance` chart,
   `Find what Moryn saved`, and `What Moryn stores`.
 - Is everything synced? -> the `Right now` shared-copy card, `This device`,
@@ -36,10 +36,10 @@ cards and saved-content blocks. Status colors act as narrow signals rather than
 full-card color washes, so the black dashboard still feels calm while hover,
 focus, and active states remain visible.
 
-The `Right now`, `Needs your decision`, `Saved and searchable`, `At a glance`, and
+The `Right now`, `Needs your confirmation`, `Saved and searchable`, `At a glance`, and
 `Find what Moryn saved` rows are visible above `More details` in the live
 non-private dashboard.
-`Needs your decision` routes users to the owning approval rows only when a real
+`Needs your confirmation` routes users to the owning approval rows only when a real
 write is waiting. If the state is only `Saved for later`, the visible
 saved-and-searchable panel opens `Find what Moryn saved`, expands saved previews,
 and keeps search visible without writing. Its button says `Search saved content`
@@ -675,7 +675,7 @@ What is stored?   -> Right now memory card, At a glance, Find what Moryn saved
 Is everything synced? -> Right now shared-copy card, sync rail
 ```
 
-The `Control flow` wrapper groups `Right now`, `Needs your decision` or
+The `Control flow` wrapper groups `Right now`, `Needs your confirmation` or
 `Saved and searchable`, `At a glance`, and `Find what Moryn saved` into one continuous
 first-screen surface. It is a visual and navigation grouping only: it does not
 add a write path, and it repeats the rule that memory changes require a real
