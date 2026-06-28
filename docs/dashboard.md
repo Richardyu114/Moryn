@@ -1149,7 +1149,10 @@ of repeating finding and safe-step counts. The status chip reads `Note` even
 when the underlying finding severity is warning; the per-finding severity remains
 in `/api/dashboard.dogfood_report`. Expanding Dogfood Notes renders a single
 `Dogfood Notes Index` card mapped to `/api/dashboard.dogfood_report`. The
-dashboard HTML does not render per-finding cards, `data-dogfood-review-item`
+visible `Dogfood Notes`, read-only status, `Note`, and `Dogfood Notes Index`
+labels carry English and Chinese display text, while literal API identifiers
+such as `dogfood_report` and `dogfood_report.findings_by_id` remain unchanged.
+The dashboard HTML does not render per-finding cards, `data-dogfood-review-item`
 rows, `Note Details`, impact briefs, evidence paths, affected record ids, or
 safe timeline commands there. Full impact notes, affected records, evidence,
 and safe dashboard or timeline commands remain in

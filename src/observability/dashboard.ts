@@ -4254,10 +4254,12 @@ function dogfoodReviewSummary(report: DogfoodReportResult): string {
 }
 
 function dogfoodReviewReference(report: DogfoodReportResult): string {
+  const findingsLabel = `${pluralize(report.findings.length, "finding")} indexed`;
+  const findingsLabelZh = `${report.findings.length} 条产品记录已建立索引`;
   return `
         <article class="dogfood-review-reference" data-dashboard-detail="dogfood-review:index" data-dogfood-review-reference>
-          <strong>Dogfood Notes Index</strong>
-          <span>${escapeHtml(`${pluralize(report.findings.length, "finding")} indexed`)}</span>
+          <strong ${i18nAttribute("Dogfood Notes Index", "产品记录索引")}>Dogfood Notes Index</strong>
+          <span ${i18nAttribute(findingsLabel, findingsLabelZh)}>${escapeHtml(findingsLabel)}</span>
           <code>dogfood_report</code>
         </article>
         <p>Open <code>/api/dashboard</code> for dogfood findings, impact notes, evidence paths, affected records, and safe inspection commands.</p>
@@ -4267,16 +4269,18 @@ function dogfoodReviewReference(report: DogfoodReportResult): string {
 function dogfoodReviewPanel(report: DogfoodReportResult): string {
   if (report.findings.length === 0) return "";
   const highestSeverity = report.findings.some((finding) => finding.severity === "warning") ? "warning" : "info";
+  const reviewSummary = dogfoodReviewSummary(report);
+  const reviewSummaryZh = "只读记录";
   return `
     <details class="panel dogfood-review" data-dashboard-detail="dogfood-review" aria-label="Dogfood Notes">
       <summary class="dashboard-fold-summary">
-        <span>Dogfood Notes</span>
-        <small>${escapeHtml(dogfoodReviewSummary(report))}</small>
+        ${i18nText("Dogfood Notes", "产品记录")}
+        ${i18nText(reviewSummary, reviewSummaryZh, "small")}
       </summary>
       <div class="dogfood-review-body">
         <div class="health-check-brief">
-          <strong class="${escapeHtml(highestSeverity)}">Note</strong>
-          <span>Read-only</span>
+          <strong class="${escapeHtml(highestSeverity)}" ${i18nAttribute("Note", "记录")}>Note</strong>
+          ${i18nText("Read-only", "只读")}
           <code>dogfood_report.findings_by_id</code>
         </div>
         ${dogfoodReviewReference(report)}

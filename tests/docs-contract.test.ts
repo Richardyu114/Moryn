@@ -454,6 +454,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The status chip reads `Note` even when the underlying finding severity is warning");
     expectText(dashboard, "instead of repeating finding and safe-step counts");
     expectText(dashboard, "Expanding Dogfood Notes renders a single `Dogfood Notes Index` card");
+    expectText(dashboard, "visible `Dogfood Notes`, read-only status, `Note`, and `Dogfood Notes Index`");
+    expectText(dashboard, "labels carry English and Chinese display text");
+    expectText(dashboard, "`dogfood_report` and `dogfood_report.findings_by_id` remain unchanged");
     expectText(dashboard, "The dashboard HTML does not render per-finding cards, `data-dogfood-review-item` rows, `Note Details`, impact briefs, evidence paths, affected record ids, or safe timeline commands there");
     expectText(dashboard, "Full impact notes, affected records, evidence, and safe dashboard or timeline commands remain in");
     expectText(dashboard, "`/api/dashboard.dogfood_report.findings_by_id` and");
