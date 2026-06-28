@@ -692,7 +692,10 @@ appears before `What Moryn stores`, `Recent status`, and the compact
 visible writes, long-term items, recently saved items, and the most active source,
 then shows the memory-state chart, content mix, seven-day saved-content trend,
 shared-copy rail, and source activity bars. The user does not need to open a
-detail section to understand the current state. The summary numbers are also read-only shortcuts: `Recent
+detail section to understand the current state. Memory-state, content-mix, and
+source-activity charts include a short insight line and percentages, such as
+long-term versus saved-for-later share, leading content type, and top source
+share. The summary numbers are also read-only shortcuts: `Recent
 writes` opens all saved content, `Long-term` filters to memory Moryn can use now,
 `Recently saved` filters to saved-but-not-final items, and `Top source` opens saved
 content search filtered to that source.

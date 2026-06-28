@@ -6650,6 +6650,15 @@ function chartPercent(count: number, total: number): string {
   return (percent >= 10 ? percent.toFixed(0) : percent.toFixed(1)).replace(/\.0$/, "");
 }
 
+function chartWholePercent(count: number, total: number): number {
+  if (count <= 0 || total <= 0) return 0;
+  return Math.round((count / total) * 100);
+}
+
+function chartPercentLabel(count: number, total: number): string {
+  return `${chartWholePercent(count, total)}%`;
+}
+
 function memoryStateClass(id: DashboardMemoryInventoryStateId): string {
   if (id === "remembered") return "memory-state-remembered";
   if (id === "new_items") return "memory-state-to-organize";
@@ -6722,6 +6731,18 @@ function answerMemoryMix(inventory: DashboardMemoryInventory): string {
 
 function memoryStateMeter(inventory: DashboardMemoryInventory): string {
   const total = inventory.summary.total_visible;
+  const rememberedPercent = chartPercentLabel(inventory.summary.remembered, total);
+  const savedForLaterCount = reviewableSavedItemsCount(inventory);
+  const savedForLaterPercent = chartPercentLabel(savedForLaterCount, total);
+  const insight = total > 0
+    ? {
+      en: `${rememberedPercent} long-term · ${savedForLaterPercent} saved for later`,
+      zh: `${rememberedPercent} 长期记住 · ${savedForLaterPercent} 稍后整理`
+    }
+    : {
+      en: "No stored content yet",
+      zh: "还没有保存内容"
+    };
   const segments = inventory.states
     .filter((state) => state.count > 0)
     .map((state) => {
@@ -6730,6 +6751,7 @@ function memoryStateMeter(inventory: DashboardMemoryInventory): string {
     })
     .join("");
   return `
+      <p class="glance-chart-insight" ${i18nAttribute(insight.en, insight.zh)}>${escapeHtml(insight.en)}</p>
       <div class="memory-state-meter" aria-label="Memory state chart">
         ${segments || `<span class="memory-state-empty" style="width: 100%" title="No stored content"></span>`}
       </div>
@@ -6739,6 +6761,7 @@ function memoryStateMeter(inventory: DashboardMemoryInventory): string {
             <i></i>
             <strong>${escapeHtml(state.count)}</strong>
             <span data-i18n-en="${escapeHtml(state.label)}" data-i18n-zh="${escapeHtml(state.zh_label)}">${escapeHtml(state.label)}</span>
+            <span data-memory-state-percent="${escapeHtml(state.id)}" ${i18nAttribute(chartPercentLabel(state.count, total), chartPercentLabel(state.count, total))}>${escapeHtml(chartPercentLabel(state.count, total))}</span>
           </button>
         `).join("")}
       </div>
@@ -6748,15 +6771,28 @@ function memoryStateMeter(inventory: DashboardMemoryInventory): string {
 function memoryKindBars(inventory: DashboardMemoryInventory): string {
   if (inventory.kind_summary.length === 0) return `<div class="empty-state">No stored content yet.</div>`;
   const max = Math.max(1, ...inventory.kind_summary.map((kind) => kind.count));
+  const total = Math.max(1, inventory.summary.total_visible);
+  const topKind = inventory.kind_summary.reduce((top, kind) => {
+    if (kind.count !== top.count) return kind.count > top.count ? kind : top;
+    return top;
+  }, inventory.kind_summary[0]);
+  const topKindInsight = {
+    en: `Most are ${topKind.label}: ${pluralize(topKind.count, "item")}`,
+    zh: `最多的是${topKind.zh_label}，共 ${topKind.count} 条`
+  };
   return `
+      <p class="glance-chart-insight" ${i18nAttribute(topKindInsight.en, topKindInsight.zh)}>${escapeHtml(topKindInsight.en)}</p>
       <div class="kind-bars" aria-label="Stored content types">
         ${inventory.kind_summary.map((kind) => {
           const percent = chartPercent(kind.count, max);
+          const share = chartPercentLabel(kind.count, total);
+          const countShare = `${kind.count} · ${share}`;
+          const countShareZh = `${kind.count} 条 · ${share}`;
           return `
             <div class="kind-row type-${escapeHtml(kind.kind)}">
               <div class="type-label">
                 <strong data-i18n-en="${escapeHtml(kind.label)}" data-i18n-zh="${escapeHtml(kind.zh_label)}">${escapeHtml(kind.label)}</strong>
-                <span>${escapeHtml(kind.count)}</span>
+                <span ${i18nAttribute(countShare, countShareZh)}>${escapeHtml(countShare)}</span>
               </div>
               <div class="type-track" aria-hidden="true"><span style="width: ${escapeHtml(percent)}%"></span></div>
             </div>
@@ -6768,16 +6804,31 @@ function memoryKindBars(inventory: DashboardMemoryInventory): string {
 
 function recentActivityBars(agents: DashboardAgentChartItem[]): string {
   if (agents.length === 0) return `<div class="empty-state">No recent activity yet.</div>`;
+  const totalSignals = agents.reduce((sum, agent) => sum + agent.records + agent.events, 0);
+  const topAgent = agents.reduce((top, agent) => {
+    const topSignals = top.records + top.events;
+    const agentSignals = agent.records + agent.events;
+    if (agentSignals !== topSignals) return agentSignals > topSignals ? agent : top;
+    return agent.latest_at.localeCompare(top.latest_at) > 0 ? agent : top;
+  }, agents[0]);
+  const topAgentShare = chartPercentLabel(topAgent.records + topAgent.events, totalSignals);
+  const insight = {
+    en: `Top source: ${topAgent.client}, ${topAgentShare} of recent activity`,
+    zh: `主要来源：${topAgent.client}，占最近活动的 ${topAgentShare}`
+  };
   return `
+      <p class="glance-chart-insight" ${i18nAttribute(insight.en, insight.zh)}>${escapeHtml(insight.en)}</p>
       <div class="activity-bars" aria-label="Recent source activity">
         ${agents.map((agent) => {
           const savedEn = `${agent.records} saved | ${agent.relative_time}`;
           const savedZh = `${agent.records} 条保存内容 | ${relativeTimeZh(agent.relative_time)}`;
+          const signalShare = chartPercentLabel(agent.records + agent.events, totalSignals);
           return `
           <div class="activity-row">
             <div class="type-label">
               <strong>${escapeHtml(agent.client)}</strong>
               <span ${i18nAttribute(savedEn, savedZh)}>${escapeHtml(savedEn)}</span>
+              <span ${i18nAttribute(signalShare, signalShare)}>${escapeHtml(signalShare)}</span>
             </div>
             <div class="bar-track" aria-hidden="true"><span style="width: ${escapeHtml(agent.weight)}%"></span></div>
           </div>
@@ -10066,6 +10117,21 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       line-height: 1;
       font-weight: 850;
     }
+    .glance-chart-insight {
+      margin: 0;
+      min-height: 2.3em;
+      border: 1px solid rgba(69, 185, 255, 0.18);
+      border-radius: 7px;
+      padding: 7px 8px;
+      color: var(--ink-2);
+      background:
+        linear-gradient(135deg, rgba(69, 185, 255, 0.09), rgba(116, 242, 145, 0.032)),
+        rgba(5, 7, 10, 0.34);
+      font-size: 12px;
+      line-height: 1.25;
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
     .memory-state-meter {
       display: flex;
       height: 18px;
@@ -10120,6 +10186,17 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .memory-state-filter > span {
       min-width: 0;
       overflow-wrap: anywhere;
+    }
+    .memory-state-filter [data-memory-state-percent] {
+      margin-left: auto;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      padding: 1px 5px;
+      background: rgba(255, 255, 255, 0.045);
+      color: var(--ink-2);
+      font-size: 11px;
+      font-weight: 820;
+      white-space: nowrap;
     }
     .memory-state-meter .memory-state-remembered,
     .memory-state-key .memory-state-remembered i { background: var(--signal-green); }

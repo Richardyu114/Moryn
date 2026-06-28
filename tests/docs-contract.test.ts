@@ -170,6 +170,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "visible writes, long-term items, recently saved items, and the most active source");
     expectText(dashboard, "then shows the memory-state chart, content mix, seven-day saved-content trend");
     expectText(dashboard, "shared-copy rail, and source activity bars");
+    expectText(dashboard, "Memory-state, content-mix, and");
+    expectText(dashboard, "source-activity charts include a short insight line and percentages");
+    expectText(dashboard, "long-term versus saved-for-later share, leading content type, and top source");
+    expectText(dashboard, "share");
     expectText(dashboard, "The summary numbers are also read-only shortcuts");
     expectText(dashboard, "`Recent");
     expectText(dashboard, "writes` opens all saved content");
