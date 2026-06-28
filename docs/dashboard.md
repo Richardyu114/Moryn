@@ -752,7 +752,9 @@ write. The search panel also shows a live result mix for `Ready to use`,
 typed queries, shortcut chips, and source/status filters. Search shortcut chips
 write readable local queries into the same input, such as `source:Codex`,
 `state:long-term`, `state:recently-saved`, `type:event`, and `recent:7d`; users
-can also type those query terms directly. Search results open the same read-only
+can also type those query terms directly. A compact `Current view` row shows the
+active keyword, status, and source so users can see why the result list changed
+after clicking a card or filter. Search results open the same read-only
 detail pane with full text, source, status, and timeline/recall commands, so
 users can inspect a memory or event without leaving the search. The read-only
 detail pane opens with the first visible saved item and follows the first

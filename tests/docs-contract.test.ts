@@ -247,6 +247,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The search panel also shows a live result mix for `Ready to use`,");
     expectText(dashboard, "`Saved for later`, `Saved briefly`, `Set aside`, and `Events`");
     expectText(dashboard, "those counts follow typed queries, shortcut chips, and source/status filters");
+    expectText(dashboard, "A compact `Current view` row shows the active keyword, status, and source");
+    expectText(dashboard, "so users can see why the result list changed after clicking a card or filter");
     expectText(dashboard, "Search shortcut chips write readable local queries into the same input");
     expectText(dashboard, "`source:Codex`, `state:long-term`, `state:recently-saved`, `type:event`");
     expectText(dashboard, "and `recent:7d`; users can also type those query terms directly");

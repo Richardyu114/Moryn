@@ -7653,6 +7653,21 @@ function memorySearchSummary(totalCount: number, selectedTitle: string, selected
           </article>
           <small class="memory-search-summary-readonly" data-i18n-en="Read-only: opening an item only updates this detail view." data-i18n-zh="只读：打开内容只会更新详情视图。">Read-only: opening an item only updates this detail view.</small>
         </div>
+        <div class="memory-search-active-filters" data-memory-search-active-filters aria-label="Active memory filters">
+          <span data-i18n-en="Current view" data-i18n-zh="当前视图">Current view</span>
+          <div class="memory-search-active-filter">
+            <small data-i18n-en="Query" data-i18n-zh="关键词">Query</small>
+            <strong data-memory-search-active-query data-i18n-en="All keywords" data-i18n-zh="全部关键词">All keywords</strong>
+          </div>
+          <div class="memory-search-active-filter">
+            <small data-i18n-en="Status" data-i18n-zh="状态">Status</small>
+            <strong data-memory-search-active-state data-i18n-en="All statuses" data-i18n-zh="全部状态">All statuses</strong>
+          </div>
+          <div class="memory-search-active-filter">
+            <small data-i18n-en="Source" data-i18n-zh="来源">Source</small>
+            <strong data-memory-search-active-source data-i18n-en="All sources" data-i18n-zh="全部来源">All sources</strong>
+          </div>
+        </div>
   `;
 }
 
@@ -8557,6 +8572,32 @@ function dashboardStoredContentScript(): string {
         en: count + " " + (count === 1 ? "item" : "items"),
         zh: count + " 条内容"
       });
+      const activeQueryLabel = (query) => {
+        const trimmed = String(query || "").trim();
+        if (!trimmed) return { en: "All keywords", zh: "全部关键词" };
+        return { en: trimmed, zh: trimmed };
+      };
+      const activeStateLabel = (state) => {
+        const value = String(state || "all");
+        if (value === "all") return { en: "All statuses", zh: "全部状态" };
+        const labels = value.split(",").filter(Boolean).map((part) => {
+          if (part === "canonical") return { en: "Ready to use", zh: "可直接使用" };
+          if (part === "candidate") return { en: "Saved for later", zh: "已保存，稍后整理" };
+          if (part === "raw") return { en: "Saved briefly", zh: "临时保存" };
+          if (part === "archived" || part === "quarantined") return { en: "Set aside", zh: "已放一边" };
+          if (part === "event") return { en: "Events", zh: "事件" };
+          return { en: part, zh: part };
+        });
+        return {
+          en: labels.map((label) => label.en).join(", ") || "All statuses",
+          zh: labels.map((label) => label.zh).join("，") || "全部状态"
+        };
+      };
+      const activeSourceLabel = (source) => {
+        const value = String(source || "all");
+        if (value === "all") return { en: "All sources", zh: "全部来源" };
+        return { en: value, zh: value };
+      };
       const setMemorySearchSummaryValue = (targets, en, zh = en) => {
         const nodes = targets instanceof NodeList ? Array.from(targets) : [targets];
         for (const node of nodes) {
@@ -8570,6 +8611,12 @@ function dashboardStoredContentScript(): string {
         if (!(panel instanceof HTMLElement)) return;
         setMemorySearchSummaryValue(panel.querySelector("[data-memory-search-summary-total]"), itemCountLabel(totalCount).en, itemCountLabel(totalCount).zh);
         setMemorySearchSummaryValue(panel.querySelector("[data-memory-search-summary-visible]"), itemCountLabel(visibleCount).en, itemCountLabel(visibleCount).zh);
+      };
+      const updateMemorySearchActiveFilters = (panel, filters) => {
+        if (!(panel instanceof HTMLElement)) return;
+        setMemorySearchSummaryValue(panel.querySelector("[data-memory-search-active-query]"), activeQueryLabel(filters.query).en, activeQueryLabel(filters.query).zh);
+        setMemorySearchSummaryValue(panel.querySelector("[data-memory-search-active-state]"), activeStateLabel(filters.state).en, activeStateLabel(filters.state).zh);
+        setMemorySearchSummaryValue(panel.querySelector("[data-memory-search-active-source]"), activeSourceLabel(filters.source).en, activeSourceLabel(filters.source).zh);
       };
       const setMemorySearchMixItem = (item, count) => {
         if (!(item instanceof HTMLElement)) return;
@@ -8627,6 +8674,7 @@ function dashboardStoredContentScript(): string {
         const filtered = normalizedQuery.length > 0 || filters.state !== "all" || filters.source !== "all";
         setMemorySearchStatus(status, filtered ? visible : entries.length, filtered);
         updateMemorySearchSummary(panel, entries.length, filtered ? visible : entries.length);
+        updateMemorySearchActiveFilters(panel, filters);
         updateMemorySearchMix(panel, filtered ? visibleEntries : entries);
       };
       const setSearchState = (state, options = {}) => {
@@ -8724,14 +8772,14 @@ function dashboardStoredContentScript(): string {
         }
         const memoryStateFilter = target.closest("[data-memory-state-filter]");
         if (memoryStateFilter instanceof HTMLElement) {
-          writeStoredContentState({ overflowOpen: true, storedContentFilter: memoryStateFilter.dataset.memoryStateFilter || "all" });
+          writeStoredContentState({ overflowOpen: true, storedContentFilter: memoryStateFilter.dataset.memoryStateFilter || "all", searchOpen: true, searchStateFilter: memoryStateFilter.dataset.memoryStateFilter || "all" });
           applyStoredContentState({ highlight: true });
           document.querySelector("[data-stored-content]")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
         }
         const glanceFilter = target.closest("[data-glance-filter]");
         if (glanceFilter instanceof HTMLElement) {
-          writeStoredContentState({ overflowOpen: true, storedContentFilter: glanceFilter.dataset.glanceFilter || "all" });
+          writeStoredContentState({ overflowOpen: true, storedContentFilter: glanceFilter.dataset.glanceFilter || "all", searchOpen: true, searchStateFilter: glanceFilter.dataset.glanceFilter || "all" });
           applyStoredContentState({ highlight: true });
           document.querySelector("[data-stored-content]")?.scrollIntoView({ block: "start", behavior: "smooth" });
           return;
@@ -8757,7 +8805,7 @@ function dashboardStoredContentScript(): string {
         }
         const storedFilter = target.closest("[data-stored-content-filter]");
         if (storedFilter instanceof HTMLButtonElement) {
-          writeStoredContentState({ storedContentFilter: storedFilter.dataset.storedContentFilter || "all" });
+          writeStoredContentState({ storedContentFilter: storedFilter.dataset.storedContentFilter || "all", searchOpen: true, searchStateFilter: storedFilter.dataset.storedContentFilter || "all" });
           applyStoredContentState();
           return;
         }
@@ -10083,6 +10131,47 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       font-size: 12px;
       line-height: 1.35;
       font-weight: 740;
+      overflow-wrap: anywhere;
+    }
+    .memory-search-active-filters {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      border: 1px solid rgba(69, 185, 255, 0.22);
+      border-radius: 8px;
+      padding: 8px;
+      background: rgba(5, 7, 10, 0.48);
+    }
+    .memory-search-active-filters > span {
+      color: #bde6ff;
+      font-size: 11px;
+      font-weight: 840;
+      text-transform: uppercase;
+    }
+    .memory-search-active-filter {
+      display: inline-grid;
+      grid-template-columns: auto minmax(0, max-content);
+      gap: 5px;
+      align-items: center;
+      max-width: 100%;
+      min-height: 28px;
+      border: 1px solid rgba(112, 129, 149, 0.22);
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: rgba(16, 20, 26, 0.78);
+    }
+    .memory-search-active-filter small {
+      color: var(--muted);
+      font-size: 10.5px;
+      font-weight: 820;
+      text-transform: uppercase;
+    }
+    .memory-search-active-filter strong {
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 840;
       overflow-wrap: anywhere;
     }
     .memory-state-guide {
