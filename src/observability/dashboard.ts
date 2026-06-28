@@ -2233,7 +2233,7 @@ function reviewActionCopy(attentionItems: DashboardAttentionItem[]): {
   if (reviewItems.length === 0 && syncActionItems.length > 0) {
     return {
       hint: "Sync handled separately",
-      detail: "Sync pending is shown in the Sync lane and Store Signals.",
+      detail: "Sync pending is shown in the Sync lane and Shared copy details.",
       next_action_label: "Open info checks"
     };
   }
@@ -3296,8 +3296,8 @@ function dashboardActionDetailZh(detail: string): string {
   if (detail === "Warnings and critical signals remain visible in Needs Attention.") {
     return "提醒和重要信号会继续显示在需要注意的区域。";
   }
-  if (detail === "Sync pending is shown in the Sync lane and Store Signals.") {
-    return "同步事项会显示在共享副本和存储信号区域。";
+  if (detail === "Sync pending is shown in the Sync lane and Shared copy details.") {
+    return "同步事项会显示在共享副本和共享副本详情中。";
   }
   if (detail === "Handoff evidence stays read-only") {
     return "交接依据保持只读。";
@@ -5741,7 +5741,13 @@ function storeSignalsSummary(data: DashboardData): string {
   if (syncLane.value > 0 && (syncLane.severity === "warning" || syncLane.severity === "critical")) {
     return "Sync action ready";
   }
-  return "Operational health signals";
+  return "Sync details and local status";
+}
+
+function storeSignalsSummaryZh(summary: string): string {
+  if (summary === "Sync action ready") return "同步操作已就绪";
+  if (summary === "Sync details and local status") return "同步详情和本机状态";
+  return summary;
 }
 
 function storeSignalsPanel(data: DashboardData, options: { open?: boolean; includeTelemetry?: boolean } = {}): string {
@@ -5750,8 +5756,8 @@ function storeSignalsPanel(data: DashboardData, options: { open?: boolean; inclu
   return `
     <details${openAttribute} id="store-signals" class="panel store-signals" data-dashboard-detail="store-signals">
       <summary class="dashboard-fold-summary">
-        <span>Store Signals</span>
-        <small>${escapeHtml(storeSignalsSummary(data))}</small>
+        ${i18nText("Shared copy details", "共享副本详情")}
+        <small ${i18nAttribute(storeSignalsSummary(data), storeSignalsSummaryZh(storeSignalsSummary(data)))}>${escapeHtml(storeSignalsSummary(data))}</small>
       </summary>
       ${syncActionBrief(data)}
       ${syncPositionFocus(data)}
@@ -5761,11 +5767,12 @@ function storeSignalsPanel(data: DashboardData, options: { open?: boolean; inclu
 }
 
 function promotedStoreSignalsPanel(data: DashboardData): string {
+  const summary = storeSignalsSummary(data);
   return `
-    <section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Store Signals">
+    <section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Shared copy details">
       <div class="store-signals-promoted-head">
-        <span>Store Signals</span>
-        <small>${escapeHtml(storeSignalsSummary(data))}</small>
+        ${i18nText("Shared copy details", "共享副本详情")}
+        <small ${i18nAttribute(summary, storeSignalsSummaryZh(summary))}>${escapeHtml(summary)}</small>
       </div>
       ${syncActionBrief(data)}
       ${syncPositionFocus(data)}

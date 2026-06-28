@@ -141,7 +141,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Those answer cards reuse the dashboard's local navigation");
     expectText(dashboard, "the action card opens the current next step");
     expectText(dashboard, "the memory card opens `Find what");
-    expectText(dashboard, "Moryn saved`, and the sync card opens `Store Signals`");
+    expectText(dashboard, "Moryn saved`, and the sync card opens `Shared copy details`");
     expectText(dashboard, "The memory card also shows a compact `Ready to use` / `Saved, not organized` / `Session notes` mix bar");
     expectText(dashboard, "so the first screen shows whether saved content is already long-term memory before the user opens search");
     expectText(dashboard, "A short `Why this is here`");
@@ -257,15 +257,15 @@ describe("documentation contracts", () => {
     expectText(dashboard, "When `Pending Decisions` is rendered, the visible HTML skips the `Other status` group and the stable `dashboard-overview-quiet-cards` route");
     expectText(dashboard, "the overview cards remain in `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling");
     expectText(dashboard, "If sync is also pending, Pending Decisions still owns the Overview headline and primary action");
-    expectText(dashboard, "sync remains visible through the health badge, Store Signals, and `/api/dashboard.dashboard_overview.cards`");
+    expectText(dashboard, "sync remains visible through the health badge, Shared copy details, and `/api/dashboard.dashboard_overview.cards`");
     expectText(dashboard, "When sync is the active warning, the sync details promote into a compact current-task section");
     expectText(dashboard, "`data-dashboard-promoted-store-signals`");
     expectText(dashboard, "a `Sync Action` brief, and a quiet `Sync action ready` label");
     expectText(dashboard, "visible first-screen copy refers to the remote as the `Shared copy`");
-    expectText(dashboard, "Store Signals keeps `Sync Action` in the foreground, moves `Sync Position` behind a collapsed `Sync details` fold");
+    expectText(dashboard, "Shared copy details keeps `Sync Action` in the foreground, moves `Sync Position` behind a collapsed `Sync details` fold");
     expectText(dashboard, "leaves Agent Activity, Record Quality, Record Types, and Activity Trend in `/api/dashboard.charts`");
     expectText(dashboard, "When sync is the only active warning and no explicit approval is waiting");
-    expectText(dashboard, "the promoted `Store Signals` section moves directly after the Overview");
+    expectText(dashboard, "the promoted `Shared copy details` section moves directly after the Overview");
     expectText(dashboard, "skips the extra open `details` wrapper");
     expectText(dashboard, "so the current task is not repeated by another visible heading, navigation row, or routine reference panel");
     expectText(dashboard, "The promoted section omits `Telemetry Context`");
@@ -278,7 +278,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
     expectText(dashboard, "Decide -> Pending Decisions, Capture Inbox, or Review Queue confirmation");
     expectText(dashboard, "Context -> Context Pack Review handoff readiness");
-    expectText(dashboard, "Health -> Needs Attention or Store Signals when sync is the active issue");
+    expectText(dashboard, "Health -> Needs Attention or Shared copy details when sync is the active issue");
     expectText(dashboard, "Evidence -> Evidence Library and Audit Trail");
     expectText(dashboard, "The lanes are navigation only");
     expectText(dashboard, "do not render Approve, Reject, Promote, Archive, or Apply controls");
@@ -409,7 +409,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`debug-inspector` and chips for");
     expectText(dashboard, "`recent_records`, `recent_events`, and `sync`");
     expectText(dashboard, "The dashboard HTML does not render nested `Audit Reports`, `Audit Evidence`");
-    expectText(dashboard, "`Store Signals`, `Recent Value`, `Raw Store Reference`, `Raw Store Inspector`");
+    expectText(dashboard, "`Shared copy details`, `Recent Value`, `Raw Store Reference`, `Raw Store Inspector`");
     expectText(dashboard, "inside Audit Trail");
     expectText(dashboard, "The stable `memory-lifecycle-audit`, `capture-policy-audit`, `store-signals`");
     expectText(dashboard, "`recent-value`, `debug-inspector`, and `inspector:*` routes remain as index-chip targets");
@@ -517,7 +517,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Queue summary uses one guidance line: review groups first, open item details only when needed, and canonical memory still requires approval");
     expectText(dashboard, "visible first-screen copy refers to the remote as the `Shared copy`");
     expectText(dashboard, "Sync-only pending warnings do not open the `Action Signals` / Needs Attention review path");
-    expectText(dashboard, "When sync is the only active warning, Work Lanes are skipped in the visible HTML so the Overview action lands directly on the promoted Store Signals current-task section");
+    expectText(dashboard, "When sync is the only active warning, Work Lanes are skipped in the visible HTML so the Overview action lands directly on the promoted Shared copy details current-task section");
     expectText(dashboard, "The same sync route remains in `/api/dashboard.action_board.items_by_id.sync`");
     expectText(dashboard, "If sync is the only warning signal, the Sync shortcut owns `Inspect sync` and the Review shortcut stays quiet with `Open info checks`");
     expectText(dashboard, "When there are no warning or critical signals, the quiet review shortcut also reads `Open info checks` instead of `Review warnings`");

@@ -413,7 +413,7 @@ describe("observability dashboard", () => {
         value: 0,
         summary: "No urgent review",
         hint: "Sync handled separately",
-        detail: "Sync pending is shown in the Sync lane and Store Signals.",
+        detail: "Sync pending is shown in the Sync lane and Shared copy details.",
         next_action_label: "Open info checks",
         target: "needs-attention"
       });
@@ -503,13 +503,13 @@ describe("observability dashboard", () => {
       expect(data.charts.record_types.length).toBeGreaterThan(0);
       const workLanesStart = html.indexOf("data-dashboard-work-lanes");
       const evidenceLibraryStart = html.indexOf("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"More details\">");
-      expect(html).toContain("<section id=\"store-signals\" class=\"panel store-signals store-signals-promoted\" data-dashboard-detail=\"store-signals\" data-dashboard-promoted-store-signals aria-label=\"Store Signals\">");
-      expect(html).toContain("<div class=\"store-signals-promoted-head\">\n        <span>Store Signals</span>\n        <small>Sync action ready</small>\n      </div>");
+      expect(html).toContain("<section id=\"store-signals\" class=\"panel store-signals store-signals-promoted\" data-dashboard-detail=\"store-signals\" data-dashboard-promoted-store-signals aria-label=\"Shared copy details\">");
+      expect(html).toContain("<div class=\"store-signals-promoted-head\">\n        <span data-i18n-en=\"Shared copy details\" data-i18n-zh=\"共享副本详情\">Shared copy details</span>\n        <small data-i18n-en=\"Sync action ready\" data-i18n-zh=\"同步操作已就绪\">Sync action ready</small>\n      </div>");
       expect(html).not.toContain("<details open id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\">");
       expect(html).not.toContain("<summary class=\"dashboard-fold-summary\">\n        <span>Store Signals</span>\n        <small>Sync action ready</small>\n      </summary>");
       expect(html).not.toContain("<span>Store Signals</span>\n        <small>Operational health signals</small>");
       expect(html).not.toContain("<details open class=\"store-telemetry-context\" data-dashboard-detail=\"store-telemetry-context\">");
-      const storeSignalsStart = html.indexOf("<section id=\"store-signals\" class=\"panel store-signals store-signals-promoted\" data-dashboard-detail=\"store-signals\" data-dashboard-promoted-store-signals aria-label=\"Store Signals\"");
+      const storeSignalsStart = html.indexOf("<section id=\"store-signals\" class=\"panel store-signals store-signals-promoted\" data-dashboard-detail=\"store-signals\" data-dashboard-promoted-store-signals aria-label=\"Shared copy details\"");
       const overviewStart = html.indexOf("data-dashboard-overview");
       expect(workLanesStart).toBe(-1);
       expect(overviewStart).toBeGreaterThan(-1);
@@ -556,7 +556,7 @@ describe("observability dashboard", () => {
       expect(referenceRoutesHtml).not.toContain(">recall_eval</code>");
       expect(referenceRoutesHtml).toContain("<span>Routine checks indexed</span>");
       expect(referenceRoutesHtml).not.toContain("<span>Health Check, Recall Eval, Context Pack Review indexed</span>");
-      expect(html.match(/<section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Store Signals"/g)?.length).toBe(1);
+      expect(html.match(/<section id="store-signals" class="panel store-signals store-signals-promoted" data-dashboard-detail="store-signals" data-dashboard-promoted-store-signals aria-label="Shared copy details"/g)?.length).toBe(1);
       const storeSignalsEnd = evidenceLibraryStart;
       const storeSignalsHtml = html.slice(storeSignalsStart, storeSignalsEnd);
       expect(storeSignalsHtml).toContain("<details class=\"store-sync-details\" data-dashboard-detail=\"store-sync-details\">");

@@ -663,8 +663,8 @@ the action card says whether confirmation is waiting, the memory card summarizes
 ready-to-use versus saved-for-later content, and the sync card says whether the
 shared copy is current on this device. Those answer cards reuse the dashboard's
 local navigation: the action card opens the current next step, the memory card
-opens `Find what Moryn saved`, and the sync card opens `Store Signals`. The memory
-card also shows a compact `Ready to use` / `Saved, not organized` / `Session notes`
+opens `Find what Moryn saved`, and the sync card opens `Shared copy details`.
+The memory card also shows a compact `Ready to use` / `Saved, not organized` / `Session notes`
 mix bar and short counts, so the first screen shows whether saved content is
 already long-term memory before the user opens search. A short `Why this is here`
 explanation under the answer cards states why saved items appear and reminds the
@@ -805,19 +805,19 @@ uninterrupted; the overview cards remain in
 `/api/dashboard.dashboard_overview.cards` and `cards_by_id` for audit tooling.
 If sync is also pending, Pending Decisions still owns the Overview headline and
 primary action because it is the explicit confirmation path; sync remains visible
-through the health badge, Store Signals, and `/api/dashboard.dashboard_overview.cards`.
+through the health badge, Shared copy details, and `/api/dashboard.dashboard_overview.cards`.
 When sync is the active warning, the sync details promote into a compact
 current-task section with `data-dashboard-promoted-store-signals`, a `Sync
 Action` brief, and a quiet `Sync action ready` label. The visible first-screen
 copy refers to the remote as the `Shared copy`; the underlying brief still keeps
 branch and ahead/behind counts for audit without adding an Approve or Apply
 control.
-Store Signals keeps `Sync Action` in the foreground, moves `Sync Position`
+Shared copy details keeps `Sync Action` in the foreground, moves `Sync Position`
 behind a collapsed `Sync details` fold, and leaves Agent Activity, Record
 Quality, Record Types, and Activity Trend in `/api/dashboard.charts` instead of
 rendering a second telemetry fold inside the promoted sync section.
 When sync is the only active warning and no explicit approval is waiting, the
-promoted `Store Signals` section moves directly after the Overview and skips the
+promoted `Shared copy details` section moves directly after the Overview and skips the
 extra open `details` wrapper so the current task is not repeated by another
 visible heading, navigation row, or routine reference panel.
 The promoted section omits `Telemetry Context` so the open sync state stays
@@ -840,7 +840,7 @@ four stable local navigation routes:
 ```text
 Decide   -> Pending Decisions, Capture Inbox, or Review Queue confirmation
 Context  -> Context Pack Review handoff readiness
-Health   -> Needs Attention or Store Signals when sync is the active issue
+Health   -> Needs Attention or Shared copy details when sync is the active issue
 Evidence -> Evidence Library and Audit Trail
 ```
 
@@ -870,10 +870,10 @@ HTML; the same routes remain available through `/api/dashboard.action_board`,
 `Page Shortcuts`, and the underlying panels.
 Sync-only pending warnings do not open the `Action Signals` / Needs Attention
 review path. The warning remains in `/api/dashboard.attention_items` for agents,
-while the visible HTML routes the user through `Inspect sync`, Store Signals,
+while the visible HTML routes the user through `Inspect sync`, Shared copy details,
 and the Sync shortcut. When sync is the only active warning, Work Lanes are
 skipped in the visible HTML so the Overview action lands directly on the
-promoted Store Signals current-task section. The same sync route remains in
+promoted Shared copy details current-task section. The same sync route remains in
 `/api/dashboard.action_board.items_by_id.sync` for agents and audit tooling.
 
 `Action Board` is rendered as `Page Shortcuts` in the UI while keeping the
@@ -919,7 +919,7 @@ targets render under a single compact `Background Shortcuts` strip with
 `data-dashboard-background-shortcuts`, while keeping the stable
 `data-dashboard-detail="action-board"` route. Its list carries the
 `action-board-quiet-targets` route directly, so users and agents can still open
-Needs Attention, Governance Hub, or Store Signals for audit without a nested
+Needs Attention, Governance Hub, or Shared copy details for audit without a nested
 `Page Shortcuts` -> `Quiet Shortcuts` directory.
 When `Pending Decisions` is already rendered, the visible HTML skips
 `Page Shortcuts` and the stable `data-dashboard-detail="action-board"` route so
@@ -1128,7 +1128,7 @@ Expanding `Audit Trail` shows three lightweight rows:
   `debug-inspector` and chips for `recent_records`, `recent_events`, and `sync`
 
 The dashboard HTML does not render nested `Audit Reports`, `Audit Evidence`,
-`Store Signals`, `Recent Value`, `Raw Store Reference`, `Raw Store Inspector`,
+`Shared copy details`, `Recent Value`, `Raw Store Reference`, `Raw Store Inspector`,
 raw record cards, event rows, sync detail fields, agent activity, record
 quality, record types, or trace commands inside Audit Trail. The stable
 `memory-lifecycle-audit`, `capture-policy-audit`, `store-signals`,
