@@ -777,6 +777,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<button type=\"button\" class=\"answer-card memory\" data-dashboard-priority=\"memory\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-memory-explorer-stored-filter=\"all\" data-memory-explorer-state-filter=\"all\" data-memory-explorer-focus-search=\"true\">");
       expect(html).toContain("<span data-i18n-en=\"What is stored?\" data-i18n-zh=\"存了什么？\">What is stored?</span>");
       expect(html).toContain("<p class=\"answer-card-conclusion\" data-i18n-en=\"1 ready to use · 2 searchable\" data-i18n-zh=\"1 条可直接使用 · 2 条可搜索\">1 ready to use · 2 searchable</p>");
+      expect(html).toContain("<small data-i18n-en=\"saved items\" data-i18n-zh=\"条保存内容\">saved items</small>");
+      expect(html).not.toContain("<small data-i18n-en=\"visible saved items\" data-i18n-zh=\"条可见保存内容\">visible saved items</small>");
       expect(html).toContain("<div class=\"answer-memory-mix\" data-answer-memory-mix aria-label=\"Stored content mix\">");
       expect(html).toContain("<span class=\"answer-memory-segment memory-state-remembered\" style=\"width: 33%\" title=\"Ready to use 1\"></span>");
       expect(html).toContain("<span class=\"answer-memory-segment memory-state-to-organize\" style=\"width: 33%\" title=\"Saved for later 1\"></span>");
@@ -852,6 +854,8 @@ describe("observability dashboard", () => {
       expect(html).toContain("<strong>Codex</strong>");
       expect(html).toContain("<small data-i18n-en=\"4 recent signals\" data-i18n-zh=\"4 条最近信号\">4 recent signals</small>");
       expect(html).toContain("<article class=\"glance-chart memory-shape\" data-memory-state-chart>");
+      expect(html).toContain("<small data-i18n-en=\"saved items\" data-i18n-zh=\"条保存内容\">saved items</small>");
+      expect(html).not.toContain("<small data-i18n-en=\"visible items\" data-i18n-zh=\"条可见内容\">visible items</small>");
       expect(html).toContain(".glance-chart {");
       expect(html).toContain("grid-template-rows: minmax(15px, auto) minmax(2.3em, auto) minmax(0, 1fr);");
       expect(html).toContain("align-content: stretch;");
@@ -1007,6 +1011,8 @@ describe("observability dashboard", () => {
       expect(html.indexOf("data-stored-content")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(html).toContain("<section class=\"memory-inventory\" data-memory-inventory aria-label=\"What Moryn stores\">");
       expect(html).toContain("<h2 data-i18n-en=\"What Moryn stores\" data-i18n-zh=\"Moryn 存了什么\">What Moryn stores</h2>");
+      expect(html).toContain("<small data-i18n-en=\"3 saved items\" data-i18n-zh=\"3 条保存内容\">3 saved items</small>");
+      expect(html).not.toContain("<small data-i18n-en=\"3 visible items\" data-i18n-zh=\"3 条可见内容\">3 visible items</small>");
       expect(html).toContain("<button type=\"button\" class=\"memory-inventory-card memory-inventory-remembered\" data-memory-state-filter=\"canonical\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\">");
       expect(html).toContain("<span data-i18n-en=\"Ready to use\" data-i18n-zh=\"可直接使用\">Ready to use</span>");
       expect(html).toContain("<small data-i18n-en=\"Moryn can use these as long-term memory.\" data-i18n-zh=\"Moryn 可以把这些作为长期记忆使用。\">Moryn can use these as long-term memory.</small>");

@@ -286,6 +286,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "applies the matching read-only filter");
     expectText(dashboard, "Saved briefly <- raw records");
     expectText(dashboard, "Set aside <- archived or quarantined records");
+    expectText(dashboard, "The inventory also groups saved items by kind");
     expectText(dashboard, "`Saved for later` means the item is already saved and searchable");
     expectText(dashboard, "it is not a user decision by itself");
     expectText(dashboard, "`Recent status` shows the last saved time, latest source, shared-copy state, and the number of searchable saved items");

@@ -804,7 +804,7 @@ becomes useful, but it is not a user decision by itself.
 Each inventory state card is clickable: it opens `Find what Moryn saved` and
 applies the matching read-only filter.
 
-The inventory also groups visible records by kind, using human labels such as
+The inventory also groups saved items by kind, using human labels such as
 `Memories`, `Skills`, `Preferences`, `Session notes`, and `Agent notes`.
 `/api/dashboard.memory_inventory` keeps the counts and source states for agents.
 

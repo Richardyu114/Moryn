@@ -6838,7 +6838,7 @@ function statusBoard(data: DashboardData): string {
           ${i18nText("What is stored?", "存了什么？")}
           <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
           ${answerCardConclusionText(memoryConclusion)}
-          ${i18nText("visible saved items", "条可见保存内容", "small")}
+          ${i18nText("saved items", "条保存内容", "small")}
           ${answerMemoryMix(data.memory_inventory)}
         </button>
         <button type="button" class="answer-card recent" data-dashboard-priority="recent" data-action-board-target="stored-content" aria-controls="stored-content" ${recentExplorerIntent}>
@@ -7138,7 +7138,7 @@ function dashboardGlanceBoard(data: DashboardData): string {
         <article class="glance-chart memory-shape" data-memory-state-chart>
           <h3 data-i18n-en="Stored what?" data-i18n-zh="存了什么？">Stored what?</h3>
           <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
-          ${i18nText("visible items", "条可见内容", "small")}
+          ${i18nText("saved items", "条保存内容", "small")}
           ${memoryStateMeter(data.memory_inventory)}
         </article>
         <article class="glance-chart memory-types" data-memory-kind-chart>
@@ -7888,7 +7888,7 @@ function memoryInventoryPanel(inventory: DashboardMemoryInventory): string {
     <section class="memory-inventory" data-memory-inventory aria-label="What Moryn stores">
       <div class="section-heading">
         <h2 data-i18n-en="What Moryn stores" data-i18n-zh="Moryn 存了什么">What Moryn stores</h2>
-        ${i18nText(`${inventory.summary.total_visible} visible items`, `${inventory.summary.total_visible} 条可见内容`, "small")}
+        ${i18nText(`${inventory.summary.total_visible} saved items`, `${inventory.summary.total_visible} 条保存内容`, "small")}
       </div>
       <div class="memory-inventory-grid">
         ${inventory.states.map((state) => {
