@@ -843,18 +843,26 @@ describe("observability dashboard", () => {
       expect(html).toContain("data-memory-explorer-updated-zh=\"19 天前 | 2026-06-01T00:03:00.000Z\"");
       expect(html).toContain("data-memory-explorer-timeline=\"moryn timeline --record-id rec_action_board_3 --project-id moryn\"");
       expect(html).toContain("data-memory-explorer-recall=\"moryn recall --record-id rec_action_board_3 --project-id moryn\"");
-      expect(html).toContain("<div class=\"stored-content-next-step\" data-stored-content-next-step>");
-      expect(html).toContain("<span data-i18n-en=\"Can be organized\" data-i18n-zh=\"可以整理\">Can be organized</span>");
+      expect(html).toContain("<div class=\"stored-content-explain\" data-stored-content-explain>");
+      expect(html).toContain("<div class=\"stored-content-explain-card\" data-stored-content-explain-card=\"why-saved\">");
+      expect(html).toContain("<span data-i18n-en=\"Why saved\" data-i18n-zh=\"为什么保存\">Why saved</span>");
+      expect(html).toContain("<strong data-i18n-en=\"Saved by Gemini for later organization.\" data-i18n-zh=\"Gemini 保存，稍后可整理。\">Saved by Gemini for later organization.</strong>");
+      expect(html).toContain("<div class=\"stored-content-explain-card\" data-stored-content-explain-card=\"status\">");
+      expect(html).toContain("<span data-i18n-en=\"Status\" data-i18n-zh=\"状态\">Status</span>");
+      expect(html).toContain("<strong data-i18n-en=\"To organize\" data-i18n-zh=\"待整理\">To organize</strong>");
+      expect(html).toContain("<div class=\"stored-content-explain-card\" data-stored-content-explain-card=\"next-step\">");
+      expect(html).toContain("<span data-i18n-en=\"Next step\" data-i18n-zh=\"下一步\">Next step</span>");
+      expect(html).toContain("<strong data-i18n-en=\"Can be organized\" data-i18n-zh=\"可以整理\">Can be organized</strong>");
       expect(html).toContain("<small data-i18n-en=\"Open details first. If this can change memory, Moryn will show real confirm buttons nearby.\" data-i18n-zh=\"先打开详情；如果这条可以改变记忆，Moryn 会在附近显示真正的确认按钮。\">Open details first. If this can change memory, Moryn will show real confirm buttons nearby.</small>");
       expect(html).toContain("<button type=\"button\" class=\"stored-content-open\" data-memory-explorer-open data-i18n-en=\"Open details\" data-i18n-zh=\"打开详情\">Open details</button>");
       expect(html).not.toContain("data-stored-content-remember");
       expect(html).not.toContain("data-stored-content-dismiss");
       expect(html).toContain("<p>Recent session status belongs on the dashboard front page.</p>");
       expect(html).toContain("<article class=\"stored-content-item state-canonical\" data-stored-content-item=\"rec_action_board_2\"");
-      expect(html).toContain("<span data-i18n-en=\"Already remembered\" data-i18n-zh=\"已经记住\">Already remembered</span>");
+      expect(html).toContain("<strong data-i18n-en=\"Already remembered\" data-i18n-zh=\"已经记住\">Already remembered</strong>");
       expect(html).toContain("<small data-i18n-en=\"This is already in long-term memory.\" data-i18n-zh=\"这条已经在长期记忆里。\">This is already in long-term memory.</small>");
       expect(html).toContain("<article class=\"stored-content-item state-raw\" data-stored-content-item=\"rec_action_board_1\"");
-      expect(html).toContain("<span data-i18n-en=\"Keep for context\" data-i18n-zh=\"作为上下文保留\">Keep for context</span>");
+      expect(html).toContain("<strong data-i18n-en=\"Keep for context\" data-i18n-zh=\"作为上下文保留\">Keep for context</strong>");
       expect(html).toContain("<small data-i18n-en=\"Session notes stay searchable for context but are not long-term memory.\" data-i18n-zh=\"本次会话笔记可作为上下文搜索，但不是长期记忆。\">Session notes stay searchable for context but are not long-term memory.</small>");
       expect(html).toContain("<p>Moryn should make dashboard storage easy to understand.</p>");
       expect(html.indexOf("data-stored-content")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
@@ -1226,6 +1234,98 @@ describe("observability dashboard", () => {
       expect(visibleHtml).not.toContain("Newest archived memory 3");
       expect(overflowHtml).toContain("Newest archived memory 3");
       expect(html).toContain("data-i18n-en=\"View 3 more\" data-i18n-zh=\"查看更多 3 条\"");
+    });
+  });
+
+  it("explains saved-content cards before opening details", async () => {
+    await withTempStore(async (storePath) => {
+      await initializeStore(storePath, {
+        now: () => "2026-06-01T00:00:00.000Z",
+        id: () => "device_test"
+      });
+      const engine = createEngine({
+        storePath,
+        now: (() => {
+          const timestamps = [
+            "2026-06-01T00:01:00.000Z",
+            "2026-06-01T00:02:00.000Z",
+            "2026-06-01T00:03:00.000Z"
+          ];
+          return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
+        })(),
+        id: (() => {
+          let record = 0;
+          let event = 0;
+          return (prefix: string) => prefix === "rec" ? `rec_saved_explain_${++record}` : `evt_saved_explain_${++event}`;
+        })()
+      });
+
+      await engine.write({
+        kind: "memory",
+        type: "decision",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Explained canonical memory", format: "text" },
+        state: "canonical",
+        confirmed: true,
+        source: { client: "user" },
+        provenance: {
+          method: "user-confirmed",
+          reason: "User confirmed this as durable project memory."
+        }
+      });
+      await engine.write({
+        kind: "session_summary",
+        type: "status",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Explained candidate memory", format: "text" },
+        state: "candidate",
+        source: { client: "codex", session_id: "saved-explain" },
+        provenance: {
+          method: "agent-proposed",
+          reason: "Captured through Moryn host adapter autocapture."
+        }
+      });
+      await engine.write({
+        kind: "agent_note",
+        type: "raw_note",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Explained raw memory", format: "text" },
+        state: "raw",
+        source: { client: "gemini" }
+      });
+
+      const data = await buildDashboardData(storePath, {
+        limit: 10,
+        project_id: "moryn",
+        now: "2026-06-21T00:00:00.000Z"
+      });
+      const html = renderDashboardHtml(data, { showStoredContent: true });
+      const candidateValue = data.recent_value.find((record) => record.id === "rec_saved_explain_2") as {
+        provenance_method?: string;
+        provenance_reason?: string;
+      } | undefined;
+
+      expect(candidateValue).toMatchObject({
+        provenance_method: "agent-proposed",
+        provenance_reason: "Captured through Moryn host adapter autocapture."
+      });
+      expect(html).toContain("<div class=\"stored-content-explain\" data-stored-content-explain>");
+      expect(html).toContain("<div class=\"stored-content-explain-card\" data-stored-content-explain-card=\"why-saved\">");
+      expect(html).toContain("<span data-i18n-en=\"Why saved\" data-i18n-zh=\"为什么保存\">Why saved</span>");
+      expect(html).toContain("<strong data-i18n-en=\"Captured through Moryn host adapter autocapture.\" data-i18n-zh=\"Captured through Moryn host adapter autocapture.\">Captured through Moryn host adapter autocapture.</strong>");
+      expect(html).toContain("<div class=\"stored-content-explain-card\" data-stored-content-explain-card=\"status\">");
+      expect(html).toContain("<span data-i18n-en=\"Status\" data-i18n-zh=\"状态\">Status</span>");
+      expect(html).toContain("<strong data-i18n-en=\"To organize\" data-i18n-zh=\"待整理\">To organize</strong>");
+      expect(html).toContain("<div class=\"stored-content-explain-card\" data-stored-content-explain-card=\"next-step\">");
+      expect(html).toContain("<span data-i18n-en=\"Next step\" data-i18n-zh=\"下一步\">Next step</span>");
+      expect(html).toContain("<strong data-i18n-en=\"Can be organized\" data-i18n-zh=\"可以整理\">Can be organized</strong>");
+      expect(html).toContain("<small data-i18n-en=\"Open details first. If this can change memory, Moryn will show real confirm buttons nearby.\" data-i18n-zh=\"先打开详情；如果这条可以改变记忆，Moryn 会在附近显示真正的确认按钮。\">Open details first. If this can change memory, Moryn will show real confirm buttons nearby.</small>");
+      expect(html).toContain("<strong data-i18n-en=\"Saved as session context by Gemini.\" data-i18n-zh=\"Gemini 保存为会话上下文。\">Saved as session context by Gemini.</strong>");
+      expect(html).toContain(".stored-content-explain {");
+      expect(html).toContain(".stored-content-explain-card {");
     });
   });
 

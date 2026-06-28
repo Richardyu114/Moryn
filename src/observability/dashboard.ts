@@ -579,6 +579,8 @@ export interface DashboardValueRecord {
   type: string;
   scope: MorynRecord["scope"];
   project_id?: string;
+  provenance_method?: NonNullable<MorynRecord["provenance"]>["method"];
+  provenance_reason?: string;
   citation: DashboardRecordCitation;
 }
 
@@ -1458,6 +1460,8 @@ function summarizeValueRecord(record: MorynRecord, generatedAt: string, eventsBy
     type: record.type,
     scope: record.scope,
     project_id: record.project_id,
+    provenance_method: record.provenance?.method,
+    provenance_reason: record.provenance?.reason,
     citation: recordCitation(record, eventsByRecord)
   };
 }
@@ -6772,9 +6776,57 @@ function storedContentNextStep(item: DashboardValueRecord): { label: string; zhL
   };
 }
 
+function storedContentWhySaved(item: DashboardValueRecord): { label: string; zhLabel: string } {
+  if (item.provenance_reason) {
+    return {
+      label: item.provenance_reason,
+      zhLabel: item.provenance_reason
+    };
+  }
+  if (item.provenance_method === "user-confirmed" || item.source_label === "User") {
+    return {
+      label: "Saved because a user confirmed it.",
+      zhLabel: "用户确认后保存。"
+    };
+  }
+  if (item.state === "raw") {
+    return {
+      label: `Saved as session context by ${item.source_label}.`,
+      zhLabel: `${item.source_label} 保存为会话上下文。`
+    };
+  }
+  if (item.state === "canonical") {
+    return {
+      label: "Saved as long-term memory.",
+      zhLabel: "已保存为长期记忆。"
+    };
+  }
+  if (item.state === "candidate") {
+    return {
+      label: `Saved by ${item.source_label} for later organization.`,
+      zhLabel: `${item.source_label} 保存，稍后可整理。`
+    };
+  }
+  return {
+    label: "Kept searchable without changing long-term memory.",
+    zhLabel: "保持可搜索，但不改变长期记忆。"
+  };
+}
+
+function storedContentExplainCard(kind: "why-saved" | "status" | "next-step", label: string, zhLabel: string, value: string, zhValue: string, detail?: string, zhDetail?: string): string {
+  return `
+                <div class="stored-content-explain-card" data-stored-content-explain-card="${escapeHtml(kind)}">
+                  <span data-i18n-en="${escapeHtml(label)}" data-i18n-zh="${escapeHtml(zhLabel)}">${escapeHtml(label)}</span>
+                  <strong data-i18n-en="${escapeHtml(value)}" data-i18n-zh="${escapeHtml(zhValue)}">${escapeHtml(value)}</strong>
+                  ${detail ? `<small data-i18n-en="${escapeHtml(detail)}" data-i18n-zh="${escapeHtml(zhDetail ?? detail)}">${escapeHtml(detail)}</small>` : ""}
+                </div>
+  `;
+}
+
 function storedContentItem(item: DashboardValueRecord, selected = false): string {
   const state = memoryStateLabelFromRecordState(item.state);
   const nextStep = storedContentNextStep(item);
+  const whySaved = storedContentWhySaved(item);
   const sourceRelative = sourceRelativePair(item.source_label, item.relative_time);
   const updatedEn = `${item.relative_time} | ${item.exact_time}`;
   const updatedZh = `${relativeTimeZh(item.relative_time)} | ${item.exact_time}`;
@@ -6786,9 +6838,10 @@ function storedContentItem(item: DashboardValueRecord, selected = false): string
               </div>
               <strong>${escapeHtml(item.title)}</strong>
               ${textExcerptBlock(item.summary)}
-              <div class="stored-content-next-step" data-stored-content-next-step>
-                <span data-i18n-en="${escapeHtml(nextStep.label)}" data-i18n-zh="${escapeHtml(nextStep.zhLabel)}">${escapeHtml(nextStep.label)}</span>
-                <small data-i18n-en="${escapeHtml(nextStep.detail)}" data-i18n-zh="${escapeHtml(nextStep.zhDetail)}">${escapeHtml(nextStep.detail)}</small>
+              <div class="stored-content-explain" data-stored-content-explain>
+                ${storedContentExplainCard("why-saved", "Why saved", "为什么保存", whySaved.label, whySaved.zhLabel)}
+                ${storedContentExplainCard("status", "Status", "状态", state.en, state.zh)}
+                ${storedContentExplainCard("next-step", "Next step", "下一步", nextStep.label, nextStep.zhLabel, nextStep.detail, nextStep.zhDetail)}
               </div>
               <button type="button" class="stored-content-open" data-memory-explorer-open data-i18n-en="Open details" data-i18n-zh="打开详情">Open details</button>
             </article>
@@ -8925,21 +8978,37 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       color: var(--ink-2);
       overflow-wrap: anywhere;
     }
-    .stored-content-next-step {
+    .stored-content-explain {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .stored-content-explain-card {
       display: grid;
       gap: 3px;
       border: 1px solid rgba(112, 129, 149, 0.22);
       border-radius: 7px;
       padding: 8px 9px;
-      background: rgba(5, 7, 10, 0.44);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(69, 185, 255, 0.012)),
+        rgba(5, 7, 10, 0.48);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.032);
     }
-    .stored-content-next-step span {
+    .stored-content-explain-card span {
+      color: var(--muted);
+      font-size: 10.5px;
+      font-weight: 820;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .stored-content-explain-card strong {
       color: #d7ecff;
       font-size: 12px;
+      line-height: 1.25;
       font-weight: 830;
       overflow-wrap: anywhere;
     }
-    .stored-content-next-step small {
+    .stored-content-explain-card small {
       color: var(--muted);
       line-height: 1.35;
     }
@@ -11746,7 +11815,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .glance-grid, .memory-explorer-layout, .stored-content-list, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .glance-grid, .memory-explorer-layout, .stored-content-list, .stored-content-explain, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .dashboard-header-actions { justify-content: flex-start; }

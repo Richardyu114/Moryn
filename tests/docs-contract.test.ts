@@ -192,10 +192,13 @@ describe("documentation contracts", () => {
     expectText(dashboard, "aside` examples before filling the remaining preview slots by recency");
     expectText(dashboard, "The full");
     expectText(dashboard, "newest-first list remains in `/api/dashboard.recent_value[]`");
-    expectText(dashboard, "Each saved-content card also carries a plain next-step hint");
-    expectText(dashboard, "`Already");
-    expectText(dashboard, "remembered`, `Can be organized`, `Keep for context`, or `Set aside`");
-    expectText(dashboard, "expose only `Open details`");
+    expectText(dashboard, "Each saved-content card now carries three read-only explanation cards");
+    expectText(dashboard, "why it was saved, current status, and next step");
+    expectText(dashboard, "The why-saved");
+    expectText(dashboard, "line uses the stored provenance reason when available");
+    expectText(dashboard, "Next-step values remain `Already remembered`, `Can be");
+    expectText(dashboard, "organized`, `Keep for context`, or `Set aside`");
+    expectText(dashboard, "exposes only `Open details`");
     expectText(dashboard, "remember,");
     expectText(dashboard, "dismiss, archive, or approval writes appear only beside the real confirmation");
     expectText(dashboard, "rows that already have server endpoints");

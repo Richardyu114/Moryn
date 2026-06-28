@@ -701,11 +701,13 @@ The preview cards are representative rather than strictly newest-first: Moryn
 shows available `To organize`, `Remembered`, `Session notes`, and `Set
 aside` examples before filling the remaining preview slots by recency. The full
 newest-first list remains in `/api/dashboard.recent_value[]`.
-Each saved-content card also carries a plain next-step hint: `Already
-remembered`, `Can be organized`, `Keep for context`, or `Set aside`. Those hints
-explain what the item means now and expose only `Open details`; remember,
-dismiss, archive, or approval writes appear only beside the real confirmation
-rows that already have server endpoints.
+Each saved-content card now carries three read-only explanation cards before
+the detail pane: why it was saved, current status, and next step. The why-saved
+line uses the stored provenance reason when available, then falls back to clear
+source/state wording. Next-step values remain `Already remembered`, `Can be
+organized`, `Keep for context`, or `Set aside`, and the card exposes only `Open
+details`; remember, dismiss, archive, or approval writes appear only beside the
+real confirmation rows that already have server endpoints.
 
 `All clear` now means there are no confirmations, visible warnings, sync tasks,
 or saved items waiting for later organization. Pure read-only inspections do not
