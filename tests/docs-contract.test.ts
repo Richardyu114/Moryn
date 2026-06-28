@@ -103,6 +103,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
     expectText(dashboard, "event operation names, and record ids stay literal");
     expectText(dashboard, "saved memory text and event evidence stay in their original wording");
+    expectText(dashboard, "The visible receipt labels, decision sentence, write-boundary summary, changed count, and trace status follow the dashboard language toggle");
+    expectText(dashboard, "Record ids, event ids, decision context, and read-only trace commands");
+    expectText(dashboard, "stay literal inside the collapsed `Trace details` fold");
     expectText(dashboard, "black high-contrast surface");
     expectText(dashboard, "visible status colors and chart cards before any evidence folds");
     expectText(dashboard, "The first screen is arranged around three plain questions");
@@ -489,7 +492,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Changed` uses record-oriented language such as `1 record updated`");
     expectText(dashboard, "`Trace` reads `Timeline ready` when event ids are returned");
     expectText(dashboard, "read-only trace commands such as `moryn timeline --event-id <event_id>`");
-    expectText(dashboard, "stay inside the collapsed `Trace details` fold");
+    expectText(dashboard, "`moryn recall --record-id <record_id>` stay literal inside the collapsed");
+    expectText(dashboard, "`Trace details` fold");
     expect(dashboard).toContain("All clear");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/approve");
     expect(dashboard).toContain("POST /api/capture-inbox/:record_id/reject");

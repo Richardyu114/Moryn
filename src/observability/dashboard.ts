@@ -7164,8 +7164,11 @@ function dashboardActionReceiptScript(): string {
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;");
+      const i18nPair = (tag, en, zh, className = "") => \`<\${tag}\${className ? \` class="\${className}"\` : ""} data-i18n-en="\${htmlEscape(en)}" data-i18n-zh="\${htmlEscape(zh)}">\${htmlEscape(en)}</\${tag}>\`;
       const pluralize = (count, singular, plural = singular + "s") => count + " " + (count === 1 ? singular : plural);
+      const pluralizeZh = (count, noun) => count + " " + noun;
       const changedLabel = (count) => pluralize(count, "record updated", "records updated");
+      const changedLabelZh = (count) => pluralizeZh(count, "条记录已更新");
       const titleCase = (value) => String(value || "applied")
         .replaceAll("_", " ")
         .replace(/\\b\\w/g, (match) => match.toUpperCase());
@@ -7183,6 +7186,19 @@ function dashboardActionReceiptScript(): string {
         if (status === "approved") return "User approved Capture Inbox candidate.";
         return "User confirmed dashboard action.";
       };
+      const decisionLabelZh = (result) => {
+        const status = String(result.status || "");
+        if (result.plan_id) return "你已批准 Review Queue 计划。";
+        if (result.surface === "candidate_triage" && status === "approved") return "你已批准候选内容提升草稿。";
+        if (result.group_id) {
+          if (status === "rejected") return "你已拒绝 Capture Inbox 分组。";
+          if (status === "approved") return "你已批准 Capture Inbox 分组。";
+          return "你已处理 Capture Inbox 分组。";
+        }
+        if (status === "rejected") return "你已拒绝 Capture Inbox 候选内容。";
+        if (status === "approved") return "你已批准 Capture Inbox 候选内容。";
+        return "你已确认 dashboard 操作。";
+      };
       const receiptFromResult = (result) => {
         const recordIds = Array.isArray(result.record_ids) ? result.record_ids : result.record_id ? [result.record_id] : [];
         const eventIds = Array.isArray(result.event_ids) ? result.event_ids : result.event_id ? [result.event_id] : [];
@@ -7194,9 +7210,13 @@ function dashboardActionReceiptScript(): string {
         return {
           status: titleCase(result.status),
           decision: decisionLabel(result),
+          zh_decision: decisionLabelZh(result),
           write_boundary: "Append-only events",
+          zh_write_boundary: "追加事件",
           changed: changedLabel(changedCount),
+          zh_changed: changedLabelZh(changedCount),
           audit_status: eventIds.length > 0 ? "Timeline ready" : "No trace id returned",
+          zh_audit_status: eventIds.length > 0 ? "时间线已就绪" : "未返回追踪 id",
           context: [result.plan_id, result.group_id].filter(Boolean),
           record_ids: recordIds,
           event_ids: eventIds,
@@ -7207,27 +7227,27 @@ function dashboardActionReceiptScript(): string {
       const receiptHtml = (receipt) => \`
         <div class="action-receipt-layout">
           <div class="action-receipt-head">
-            <span class="action-receipt-title">Action receipt</span>
-            <strong>Store updated</strong>
-            <p>\${htmlEscape(receipt.decision)}</p>
+            \${i18nPair("span", "Action receipt", "操作回执", "action-receipt-title")}
+            \${i18nPair("strong", "Store updated", "存储已更新")}
+            <p data-i18n-en="\${htmlEscape(receipt.decision)}" data-i18n-zh="\${htmlEscape(receipt.zh_decision)}">\${htmlEscape(receipt.decision)}</p>
           </div>
           <div class="action-receipt-summary" aria-label="Action receipt summary">
-            <span><strong>Write boundary</strong><small>\${htmlEscape(receipt.write_boundary)}</small></span>
-            <span><strong>Changed</strong><small>\${htmlEscape(receipt.changed)}</small></span>
-            <span><strong>Trace</strong><small>\${htmlEscape(receipt.audit_status)}</small></span>
+            <span>\${i18nPair("strong", "Write boundary", "写入边界")}<small data-i18n-en="\${htmlEscape(receipt.write_boundary)}" data-i18n-zh="\${htmlEscape(receipt.zh_write_boundary)}">\${htmlEscape(receipt.write_boundary)}</small></span>
+            <span>\${i18nPair("strong", "Changed", "已更新")}<small data-i18n-en="\${htmlEscape(receipt.changed)}" data-i18n-zh="\${htmlEscape(receipt.zh_changed)}">\${htmlEscape(receipt.changed)}</small></span>
+            <span>\${i18nPair("strong", "Trace", "追踪")}<small data-i18n-en="\${htmlEscape(receipt.audit_status)}" data-i18n-zh="\${htmlEscape(receipt.zh_audit_status)}">\${htmlEscape(receipt.audit_status)}</small></span>
           </div>
           <details class="action-receipt-audit" data-dashboard-detail="action-receipt-audit">
             <summary class="dashboard-fold-summary">
-              <span>Trace details</span>
-              <small>Records and events</small>
+              \${i18nPair("span", "Trace details", "追踪详情")}
+              \${i18nPair("small", "Records and events", "记录和事件")}
             </summary>
             <dl class="action-receipt-grid">
-              <div><dt>Decision</dt><dd>\${htmlEscape(receipt.decision)}</dd></div>
-              <div><dt>Audit status</dt><dd>\${htmlEscape(receipt.audit_status)}</dd></div>
-              \${receipt.context.length > 0 ? \`<div><dt>Context</dt><dd>\${receipt.context.map((value) => \`<code>\${htmlEscape(value)}</code>\`).join(" ")}</dd></div>\` : ""}
-              \${receipt.record_ids.length > 0 ? \`<div><dt>Records</dt><dd>\${receipt.record_ids.map((recordId) => \`<code>\${htmlEscape(recordId)}</code>\`).join(" ")}</dd></div>\` : ""}
-              \${receipt.event_ids.length > 0 ? \`<div><dt>Events</dt><dd>\${receipt.event_ids.map((eventId) => \`<code>\${htmlEscape(eventId)}</code>\`).join(" ")}</dd></div>\` : ""}
-              <div class="action-receipt-commands"><dt>Trace commands</dt><dd>\${receipt.commands.length > 0 ? receipt.commands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("") : "No read-only trace command returned."}</dd></div>
+              <div>\${i18nPair("dt", "Decision", "决定")}<dd data-i18n-en="\${htmlEscape(receipt.decision)}" data-i18n-zh="\${htmlEscape(receipt.zh_decision)}">\${htmlEscape(receipt.decision)}</dd></div>
+              <div>\${i18nPair("dt", "Audit status", "追踪状态")}<dd data-i18n-en="\${htmlEscape(receipt.audit_status)}" data-i18n-zh="\${htmlEscape(receipt.zh_audit_status)}">\${htmlEscape(receipt.audit_status)}</dd></div>
+              \${receipt.context.length > 0 ? \`<div>\${i18nPair("dt", "Context", "上下文")}<dd>\${receipt.context.map((value) => \`<code>\${htmlEscape(value)}</code>\`).join(" ")}</dd></div>\` : ""}
+              \${receipt.record_ids.length > 0 ? \`<div>\${i18nPair("dt", "Records", "记录")}<dd>\${receipt.record_ids.map((recordId) => \`<code>\${htmlEscape(recordId)}</code>\`).join(" ")}</dd></div>\` : ""}
+              \${receipt.event_ids.length > 0 ? \`<div>\${i18nPair("dt", "Events", "事件")}<dd>\${receipt.event_ids.map((eventId) => \`<code>\${htmlEscape(eventId)}</code>\`).join(" ")}</dd></div>\` : ""}
+              <div class="action-receipt-commands">\${i18nPair("dt", "Trace commands", "追踪命令")}<dd>\${receipt.commands.length > 0 ? receipt.commands.map((command) => \`<code>\${htmlEscape(command)}</code>\`).join("") : i18nPair("span", "No read-only trace command returned.", "未返回只读追踪命令。")}</dd></div>
             </dl>
           </details>
         </div>
@@ -7237,6 +7257,7 @@ function dashboardActionReceiptScript(): string {
         target.hidden = false;
         target.classList.add("action-receipt");
         target.innerHTML = receiptHtml(receipt);
+        window.applyDashboardLanguage?.();
       };
       window.restoreActionReceipt = () => {
         try {
