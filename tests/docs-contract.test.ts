@@ -98,7 +98,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "machine-readable audit source");
     expectText(dashboard, "language toggle defaults to English and can switch the visible dashboard copy to Chinese");
     expectText(dashboard, "moryn.dashboard.language");
-    expectText(dashboard, "covers legacy diagnostic labels inside `Background checks` and compact `Technical details`");
+    expectText(dashboard, "covers legacy diagnostic labels inside `Background checks` and compact `More details`");
     expectText(dashboard, "Memory Search controls and result-count feedback also follow the language toggle");
     expectText(dashboard, "Memory Search result type labels, event target labels, and memory-state metadata follow the language toggle");
     expectText(dashboard, "First-screen action labels, health badges, current-answer cards, and derived overview cards also follow the language toggle");
@@ -121,7 +121,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "the memory card opens `Memory Explorer`, and the sync card opens `Store Signals`");
     expectText(dashboard, "The `Current answers`, `Needs your decision`, `Saved for later`, `At a glance`, and");
     expectText(dashboard, "`Memory Explorer` rows are visible");
-    expectText(dashboard, "above `Technical details` in the live non-private dashboard");
+    expectText(dashboard, "above `More details` in the live non-private dashboard");
     expectText(dashboard, "`Needs your decision` routes users to the owning approval rows only when a real");
     expectText(dashboard, "If the state is only `Saved for later`, the visible action");
     expectText(dashboard, "opens `Memory Explorer`, expands saved previews, and keeps search visible");
@@ -158,7 +158,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Non-healthy states that need a separate explanation, such as local-only, review, or conflict, still render the full status strip");
     expectText(dashboard, "When a high-priority action owns the first screen, the four derived cards for current health, next action, context, and sync");
     expectText(dashboard, "All-clear and saved-for-later pages skip duplicate shortcut grids, work lanes, and safety chips on the first screen");
-    expectText(dashboard, "compact `Technical details` fold");
+    expectText(dashboard, "compact `More details` fold");
     expectText(dashboard, "`/api/dashboard.attention_items` remains the audit source for routine checks");
     expectText(dashboard, "`/api/dashboard.action_board` remains the audit source for the complete shortcut list");
     expectText(dashboard, "Each background overview card is also a local navigation button");
@@ -179,11 +179,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "so the current task is not repeated by another visible heading, navigation row, or routine reference panel");
     expectText(dashboard, "The promoted section omits `Telemetry Context`");
     expectText(dashboard, "The Reference Library still keeps the Audit route and raw evidence, but it does not render a second `store-signals` panel");
-    expectText(dashboard, "the read-only evidence layer renders as a compact `Technical details` strip");
+    expectText(dashboard, "the read-only evidence layer renders as a compact `More details` strip");
     expectText(dashboard, "`data-dashboard-background-reference`");
     expectText(dashboard, "keeping the stable `data-dashboard-detail=\"evidence-library\"` route");
-    expectText(dashboard, "uses the quiet `Optional checks` label");
-    expectText(dashboard, "`Optional read-only checks`");
+    expectText(dashboard, "uses the quiet `Extra context` label");
     expectText(dashboard, "Candidate Triage without promotion drafts stays under the background Audit route instead of `Review Notes`");
     expectText(dashboard, "`Dashboard Work Lanes` groups the first screen into");
     expectText(dashboard, "Decide -> Pending Decisions, Capture Inbox, or Review Queue confirmation");
@@ -200,7 +199,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "a Health warning keeps `Health` visible while `Decide`, `Context`, and `Evidence` stay available as quiet background lanes");
     expectText(dashboard, "In all-clear states, the visible HTML skips `Dashboard Work Lanes` and");
     expectText(dashboard, "`Other paths` entirely");
-    expectText(dashboard, "the first screen moves from Overview directly to the compact `Technical details` fold");
+    expectText(dashboard, "the first screen moves from Overview directly to the compact `More details` fold");
     expectText(dashboard, "The same Decide, Context, Health, Evidence, and safe inspection routes remain available");
     expectText(dashboard, "the stable `data-dashboard-detail=\"evidence-library\"` route, and");
     expectText(dashboard, "`/api/dashboard.action_board` for agents and audit");
@@ -221,7 +220,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "when there are findings it reads `Reference material`");
     expectText(dashboard, "while the accessible summary keeps `Read-only reference material`");
     expectText(dashboard, "reads `Reference evidence only`");
-    expectText(dashboard, "When the first screen is quiet, sync-only, or saved-for-later, the same read-only material uses the lighter `Technical details` shell");
+    expectText(dashboard, "When the first screen is quiet, sync-only, or saved-for-later, the same read-only material uses the lighter `More details` shell");
     expectText(dashboard, "Expanding it reveals a `Check records` face with `Read-only details available` and `Optional details`");
     expectText(dashboard, "Compact route chips move into the collapsed `Detail links` fold");
     expectText(dashboard, "human labels such as `Product notes`, `Saved notes`, and `History`");
@@ -256,7 +255,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "does not render Approve, Reject, Promote, Archive, or Apply controls");
     expectText(dashboard, "the collapsed `Reference routes` fold contains routine read-only diagnostics");
     expectText(dashboard, "as a `Diagnostics Index` row in the normal shell, or `Diagnostics`");
-    expectText(dashboard, "inside compact `Technical details`");
+    expectText(dashboard, "inside compact `More details`");
     expectText(dashboard, "uses the stable visible summary `Routine checks indexed` instead of listing each diagnostic module name");
     expectText(dashboard, "stable `data-dashboard-detail` chips for `health-check`,");
     expectText(dashboard, "those chips carry accessible summaries");
@@ -270,7 +269,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "read-only findings do not look like pending approval work");
     expectText(dashboard, "When review-oriented panels force the grouped evidence layout, Routine Diagnostics and Audit Trail can still appear behind `Routine Reference`");
     expectText(dashboard, "the same audit material appears as `Audit Reports`, `Store Snapshot`, and `Raw Store` rows in the normal");
-    expectText(dashboard, "inside compact `Technical details`, the same stable rows are labeled `Cleanup Checks`, `Shared Copy`, and `History`");
+    expectText(dashboard, "inside compact `More details`, the same stable rows are labeled `Cleanup Checks`, `Shared Copy`, and `History`");
     expectText(dashboard, "stable `data-dashboard-detail` targets such as `supporting-evidence`,");
     expectText(dashboard, "Empty audit report rows are omitted");
     expectText(dashboard, "Item-level detail remains available for inspection as collapsed candidate details inside each group");
@@ -442,7 +441,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "When exactly one active shortcut exists, such as sync-only pending work, the visible HTML skips `Page Shortcuts` and `data-action-board-nav`");
     expectText(dashboard, "`/api/dashboard.action_board` still keeps the complete shortcut list for agents and audit tooling");
     expectText(dashboard, "All-clear Overview states skip the visible `Background Shortcuts` strip and `data-dashboard-background-shortcuts` route entirely");
-    expectText(dashboard, "the first screen moves from `Other paths` to compact Technical details without another generic navigation fold");
+    expectText(dashboard, "the first screen moves from `Other paths` to compact `More details` without another generic navigation fold");
     expectText(dashboard, "`/api/dashboard.action_board` still keeps the complete shortcut list, including zero-state Review, Inspect, Confirm, and Sync entries");
     expectText(dashboard, "When no active shortcut exists outside all-clear mode, read-only shortcut targets render under a single compact `Background Shortcuts` strip");
     expectText(dashboard, "`data-dashboard-background-shortcuts`");

@@ -31,7 +31,7 @@ without opening a collapsed section:
   and the sync rail.
 
 The `Current answers`, `Needs your decision`, `Saved for later`, `At a glance`, and
-`Memory Explorer` rows are visible above `Technical details` in the live
+`Memory Explorer` rows are visible above `More details` in the live
 non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
 write is waiting. If the state is only `Saved for later`, the visible action
@@ -616,7 +616,7 @@ attributes, and `/api/dashboard.store.path` plus
 language toggle defaults to English and can switch the visible dashboard copy to
 Chinese; the browser remembers the choice in `moryn.dashboard.language`.
 The same language switch also covers legacy diagnostic labels inside
-`Background checks` and compact `Technical details`. Memory Search controls and
+`Background checks` and compact `More details`. Memory Search controls and
 result-count feedback also follow the language toggle. Memory Search result type
 labels, event target labels, and memory-state metadata follow the language
 toggle. First-screen action labels, health badges, current-answer cards, and
@@ -640,7 +640,7 @@ three larger cards. Those answer cards reuse the dashboard's local navigation:
 the action card opens the current next step, the memory card opens `Memory
 Explorer`, and the sync card opens `Store Signals`. The `At a glance` chart row
 appears before `What Moryn remembers`, `Recent status`, and the compact
-`Technical details` fold, so the user does not need to open a detail section to
+`More details` fold, so the user does not need to open a detail section to
 understand the current state.
 `Shared copy` is the user-facing name for Git sync state: it can read `Up to
 date`, `Waiting to upload`, `New shared updates`, `Needs help`, or `Not
@@ -711,7 +711,7 @@ Action Registry entry, or memory mutation path.
 
 All-clear and saved-for-later pages skip duplicate shortcut grids, work lanes,
 and safety chips on the first screen because the summary, inventory, recent
-status, compact `Technical details` fold, and `/api/dashboard` already expose
+status, compact `More details` fold, and `/api/dashboard` already expose
 the same routes. `/api/dashboard.attention_items` remains the audit source for
 routine checks, and `/api/dashboard.action_board` remains the audit source for
 the complete shortcut list. When the quiet overview card group is rendered in
@@ -746,10 +746,9 @@ focused on the action and position rail. The Reference Library still keeps the
 Audit route and raw evidence, but it does not render a second `store-signals`
 panel.
 In the same sync-only mode, the read-only evidence layer renders as a compact
-`Technical details` strip with `data-dashboard-background-reference` while
+`More details` strip with `data-dashboard-background-reference` while
 keeping the stable `data-dashboard-detail="evidence-library"` route. The strip
-uses the quiet `Optional checks` label and `Optional read-only checks`
-accessible summary so background evidence stays reachable without sounding like
+uses the quiet `Extra context` label and accessible summary so background evidence stays reachable without sounding like
 a peer task beside the active sync action.
 
 `/api/dashboard.dashboard_overview` returns the same derived shape. It is
@@ -781,7 +780,7 @@ lanes visible on the first screen and fold non-blocking routes under
 `Decide`, `Context`, and `Evidence` stay available as quiet background lanes.
 In all-clear states, the visible HTML skips `Dashboard Work Lanes` and
 `Other paths` entirely so the first screen moves from Overview directly to
-the compact `Technical details` fold. The same Decide, Context, Health, Evidence, and safe
+the compact `More details` fold. The same Decide, Context, Health, Evidence, and safe
 inspection routes remain available through the Overview primary action,
 the stable `data-dashboard-detail="evidence-library"` route, and
 `/api/dashboard.action_board` for agents and audit
@@ -832,7 +831,7 @@ Overview and Work Lane already route to the same current task.
 and audit tooling.
 All-clear Overview states skip the visible `Background Shortcuts` strip and
 `data-dashboard-background-shortcuts` route entirely, so the first screen moves
-from `Other paths` to compact Technical details without another generic
+from `Other paths` to compact `More details` without another generic
 navigation fold. `/api/dashboard.action_board` still keeps the complete shortcut list,
 including zero-state Review, Inspect, Confirm, and Sync entries, for agents and
 audit tooling.
@@ -923,7 +922,7 @@ accessible summary keeps `Read-only reference material`; when there is only
 routine/background material it reads `Reference evidence only`.
 
 When the first screen is quiet, sync-only, or saved-for-later, the same
-read-only material uses the lighter `Technical details` shell instead of the
+read-only material uses the lighter `More details` shell instead of the
 normal full evidence panel. Expanding it reveals a `Check records` face with
 `Read-only details available` and `Optional details`, so the compact path does
 not lead with internal reference-library naming. Compact route chips move into
@@ -932,7 +931,7 @@ the collapsed `Detail links` fold with human labels such as `Product notes`,
 `data-reference-library-route` attributes still keep the machine routes for
 audit tooling. The long `/api/dashboard` pointer is shortened inside that fold
 in compact mode to `Full evidence stays in /api/dashboard.`, so expanding
-`Technical details` does not render prose about every API evidence family.
+`More details` does not render prose about every API evidence family.
 
 The compact rows also use quiet summaries such as `Saved notes indexed`,
 `Safety checks indexed`, `Product notes indexed`, `Cleanup checks indexed`,
@@ -970,7 +969,7 @@ Inside the background-only `Reference Library Index`, the collapsed
 `Reference routes` fold contains routine read-only diagnostics such as a healthy
 Health Check, clean or unavailable Recall Eval, and ready or unavailable Context
 Pack Review as a `Diagnostics Index` row in the normal shell, or `Diagnostics`
-inside compact `Technical details`. The row
+inside compact `More details`. The row
 uses the stable visible summary `Routine checks indexed` instead of listing each
 diagnostic module name. It keeps stable `data-dashboard-detail` chips for
 `health-check`, `recall-eval`, and `context-pack-review`, and those chips carry
@@ -990,7 +989,7 @@ child panel counts. When review-oriented panels force the grouped evidence
 layout, Routine Diagnostics and Audit Trail can still appear behind `Routine
 Reference`. In background-only mode, however, the same audit material appears as
 `Audit Reports`, `Store Snapshot`, and `Raw Store` rows in the normal
-`Reference Library Index`; inside compact `Technical details`, the same
+`Reference Library Index`; inside compact `More details`, the same
 stable rows are labeled `Cleanup Checks`, `Shared Copy`, and `History`.
 Empty audit report rows are omitted when there is no
 lifecycle or capture policy data, so the library does not add a placeholder when

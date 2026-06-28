@@ -396,7 +396,7 @@ describe("observability dashboard", () => {
       expect(data.charts.memory_states.length).toBeGreaterThan(0);
       expect(data.charts.record_types.length).toBeGreaterThan(0);
       const workLanesStart = html.indexOf("data-dashboard-work-lanes");
-      const evidenceLibraryStart = html.indexOf("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Technical details\">");
+      const evidenceLibraryStart = html.indexOf("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"More details\">");
       expect(html).toContain("<section id=\"store-signals\" class=\"panel store-signals store-signals-promoted\" data-dashboard-detail=\"store-signals\" data-dashboard-promoted-store-signals aria-label=\"Store Signals\">");
       expect(html).toContain("<div class=\"store-signals-promoted-head\">\n        <span>Store Signals</span>\n        <small>Sync action ready</small>\n      </div>");
       expect(html).not.toContain("<details open id=\"store-signals\" class=\"panel store-signals\" data-dashboard-detail=\"store-signals\">");
@@ -410,10 +410,10 @@ describe("observability dashboard", () => {
       expect(evidenceLibraryStart).toBeGreaterThan(-1);
       expect(storeSignalsStart).toBeGreaterThan(overviewStart);
       expect(storeSignalsStart).toBeLessThan(evidenceLibraryStart);
-      expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Technical details\">");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Technical details: Optional read-only checks\">");
-      expect(html).toContain("<span data-i18n-en=\"Technical details\" data-i18n-zh=\"技术细节\">Technical details</span>");
-      expect(html).toContain("<small data-i18n-en=\"Optional checks\" data-i18n-zh=\"可选检查\">Optional checks</small>");
+      expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"More details\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"More details: Extra context\">");
+      expect(html).toContain("<span data-i18n-en=\"More details\" data-i18n-zh=\"更多细节\">More details</span>");
+      expect(html).toContain("<small data-i18n-en=\"Extra context\" data-i18n-zh=\"补充信息\">Extra context</small>");
       expect(html).not.toContain("<small>Audit route available</small>");
       expect(html).not.toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
       expect(html).not.toContain("<summary class=\"dashboard-fold-summary evidence-library-fold\" aria-label=\"Reference Library: Reference evidence only\">");
@@ -745,10 +745,10 @@ describe("observability dashboard", () => {
       expect(html).not.toContain("<div class=\"dashboard-overview-safety\" aria-label=\"Dashboard safety\">");
       expect(html).not.toContain("<span>Read-only overview</span>");
       expect(html).not.toContain("<span>Writes stay in Capture Inbox, Review Queue, and Candidate Triage</span>");
-      expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"Technical details\">");
-      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"Technical details: Optional read-only checks\">");
-      expect(html).toContain("<span data-i18n-en=\"Technical details\" data-i18n-zh=\"技术细节\">Technical details</span>");
-      expect(html).toContain("<small data-i18n-en=\"Optional checks\" data-i18n-zh=\"可选检查\">Optional checks</small>");
+      expect(html).toContain("<details class=\"evidence-library evidence-library-compact\" data-dashboard-detail=\"evidence-library\" data-dashboard-background-reference aria-label=\"More details\">");
+      expect(html).toContain("<summary class=\"dashboard-fold-summary evidence-library-fold evidence-library-compact-fold\" aria-label=\"More details: Extra context\">");
+      expect(html).toContain("<span data-i18n-en=\"More details\" data-i18n-zh=\"更多细节\">More details</span>");
+      expect(html).toContain("<small data-i18n-en=\"Extra context\" data-i18n-zh=\"补充信息\">Extra context</small>");
       expect(html).not.toContain("<small>Audit route available</small>");
       expect(html).not.toContain("<details class=\"panel evidence-library\" data-dashboard-detail=\"evidence-library\" aria-label=\"Reference Library\">");
       expect(html).not.toContain("<span>Reference Library</span>");

@@ -6022,17 +6022,17 @@ function evidenceLibrary(
   );
   const indexOnly = reviewPanels.length === 0;
   const detailClass = compactBackground ? "evidence-library evidence-library-compact" : "panel evidence-library";
-  const ariaLabel = compactBackground ? "Technical details" : "Reference Library";
+  const ariaLabel = compactBackground ? "More details" : "Reference Library";
   const summaryClass = compactBackground ? "dashboard-fold-summary evidence-library-fold evidence-library-compact-fold" : "dashboard-fold-summary evidence-library-fold";
-  const summaryLabel = compactBackground ? "Technical details" : "Reference Library";
-  const visibleSummary = compactBackground ? "Optional checks" : visibleEvidenceSummary;
-  const accessibleSummary = compactBackground ? "Optional read-only checks" : evidenceSummary;
+  const summaryLabel = compactBackground ? "More details" : "Reference Library";
+  const visibleSummary = compactBackground ? "Extra context" : visibleEvidenceSummary;
+  const accessibleSummary = compactBackground ? "Extra context" : evidenceSummary;
   const backgroundReferenceAttribute = compactBackground ? " data-dashboard-background-reference" : "";
   return `
     <details class="${detailClass}" data-dashboard-detail="evidence-library"${backgroundReferenceAttribute} aria-label="${escapeHtml(ariaLabel)}">
       <summary class="${summaryClass}" aria-label="${escapeHtml(`${summaryLabel}: ${accessibleSummary}`)}">
-        ${compactBackground ? i18nText(summaryLabel, "技术细节") : `<span>${escapeHtml(summaryLabel)}</span>`}
-        ${compactBackground ? i18nText(visibleSummary, "可选检查", "small") : `<small>${escapeHtml(visibleSummary)}</small>`}
+        ${compactBackground ? i18nText(summaryLabel, "更多细节") : `<span>${escapeHtml(summaryLabel)}</span>`}
+        ${compactBackground ? i18nText(visibleSummary, "补充信息", "small") : `<small>${escapeHtml(visibleSummary)}</small>`}
       </summary>
       ${showRouteIndex ? evidenceLibraryBrief({ reviewCount: reviewPanels.length, routineCount: routinePanels.length, backgroundCount: backgroundPanels.length }) : ""}
       ${indexOnly ? referenceLibraryIndex({
