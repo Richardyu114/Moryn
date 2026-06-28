@@ -36,14 +36,15 @@ cards and saved-content blocks. Status colors act as narrow signals rather than
 full-card color washes, so the black dashboard still feels calm while hover,
 focus, and active states remain visible.
 
-The `Right now`, `Needs your decision`, `Saved for later`, `At a glance`, and
+The `Right now`, `Needs your decision`, `Saved and searchable`, `At a glance`, and
 `Find what Moryn saved` rows are visible above `More details` in the live
 non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
 write is waiting. If the state is only `Saved, not organized`, the visible
-saved-later panel opens `Find what Moryn saved`, expands saved previews, and
-keeps search visible without writing. Approve and reject buttons stay on the
-owning row beside the relevant evidence.
+saved-and-searchable panel opens `Find what Moryn saved`, expands saved previews,
+and keeps search visible without writing. Its button says `Search saved content`
+so the user reads it as lookup, not a required review. Approve and reject buttons
+stay on the owning row beside the relevant evidence.
 `At a glance` shows a clickable memory state meter, content-type bars,
 shared-copy state, and recent source activity. Clicking a memory state filters
 `Find what Moryn saved` to the matching saved items. This saved-content area combines recent
@@ -671,7 +672,7 @@ Is everything synced? -> Right now shared-copy card, sync rail
 ```
 
 The `Control flow` wrapper groups `Right now`, `Needs your decision` or
-`Saved for later`, `At a glance`, and `Find what Moryn saved` into one continuous
+`Saved and searchable`, `At a glance`, and `Find what Moryn saved` into one continuous
 first-screen surface. It is a visual and navigation grouping only: it does not
 add a write path, and it repeats the rule that memory changes require a real
 confirm button.
@@ -714,14 +715,15 @@ The main action summary is labeled `Do I need to act?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible
 warnings, then sync work. Ordinary saved content does not become a user decision
 by itself: when the only state is `Saved, not organized`, `Saved briefly`, or
-`Set aside`, the headline stays `No action needed` and the saved-later
-panel simply opens `Find what Moryn saved`. That click expands hidden saved
-previews and highlights the section so the user can inspect what was stored
-without writing anything. If Capture Inbox has real approval work, the action opens Capture
+`Set aside`, the headline stays `No action needed` and the saved-and-searchable
+panel simply opens `Find what Moryn saved`. The visible button says
+`Search saved content`, because it is read-only lookup rather than a review
+task. That click expands hidden saved previews and highlights the section so the
+user can inspect what was stored without writing anything. If Capture Inbox has real approval work, the action opens Capture
 Inbox. Candidate Triage stays a technical/audit route unless it has an explicit
 promotion approval.
 Entrypoints carry their intent into Memory Explorer instead of only scrolling:
-`Do I need to act?` and `Open saved content` open saved-for-later items
+`Do I need to act?` and `Search saved content` open saved-for-later items
 (`Saved, not organized`, `Saved briefly`, and `Set aside`) and focus search,
 `What is stored?` opens all saved content with search focused, and `What changed
 recently?` selects the newest saved item in the detail pane. The intent is encoded

@@ -843,12 +843,12 @@ describe("observability dashboard", () => {
       expect(html).toContain("<span data-i18n-en=\"67%\" data-i18n-zh=\"67%\">67%</span>");
       expect(html.indexOf("data-dashboard-glance")).toBeLessThan(html.indexOf("data-dashboard-detail=\"evidence-library\""));
       expect(data.dashboard_overview.cards.map((card) => card.id)).toEqual(["health", "action", "context", "sync"]);
-      expect(html).toContain("<section class=\"decision-panel saved-later\" data-dashboard-decision-panel aria-label=\"Saved for later\">");
-      expect(html).toContain("<h2 data-i18n-en=\"Saved for later\" data-i18n-zh=\"稍后整理\">Saved for later</h2>");
-      expect(html).toContain("<span data-i18n-en=\"Saved safely\" data-i18n-zh=\"已安全保存\">Saved safely</span>");
-      expect(html).toContain("<strong data-i18n-en=\"2 saved for later\" data-i18n-zh=\"2 条已保存待整理\">2 saved for later</strong>");
-      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-memory-explorer-stored-filter=\"candidate,raw,archived,quarantined\" data-memory-explorer-state-filter=\"candidate,raw,archived,quarantined\" data-memory-explorer-focus-search=\"true\" data-i18n-en=\"Open saved content\" data-i18n-zh=\"打开已保存内容\">Open saved content</button>");
-      expect(html).toContain("<small data-i18n-en=\"This only opens saved content. Nothing becomes long-term memory from this summary.\" data-i18n-zh=\"这里只打开已保存内容；这里不会把内容写成长久记忆。\">This only opens saved content. Nothing becomes long-term memory from this summary.</small>");
+      expect(html).toContain("<section class=\"decision-panel saved-later\" data-dashboard-decision-panel aria-label=\"Saved and searchable\">");
+      expect(html).toContain("<h2 data-i18n-en=\"Saved and searchable\" data-i18n-zh=\"已保存可搜索\">Saved and searchable</h2>");
+      expect(html).toContain("<span data-i18n-en=\"No action needed\" data-i18n-zh=\"无需操作\">No action needed</span>");
+      expect(html).toContain("<strong data-i18n-en=\"2 searchable items\" data-i18n-zh=\"2 条可搜索内容\">2 searchable items</strong>");
+      expect(html).toContain("<button type=\"button\" class=\"decision-panel-link\" data-action-board-target=\"stored-content\" aria-controls=\"stored-content\" data-memory-explorer-stored-filter=\"candidate,raw,archived,quarantined\" data-memory-explorer-state-filter=\"candidate,raw,archived,quarantined\" data-memory-explorer-focus-search=\"true\" data-i18n-en=\"Search saved content\" data-i18n-zh=\"搜索已保存内容\">Search saved content</button>");
+      expect(html).toContain("<small data-i18n-en=\"Opening this is read-only; it will not change long-term memory.\" data-i18n-zh=\"打开这里只是只读查看，不会改变长期记忆。\">Opening this is read-only; it will not change long-term memory.</small>");
       expect(html).toContain("const feedback = document.querySelector(\"[data-dashboard-action-feedback]\");");
       expect(html).toContain("if (!target) {");
       expect(html).toContain("feedback.textContent = document.documentElement.lang === \"zh\"");
@@ -1018,8 +1018,8 @@ describe("observability dashboard", () => {
         source: { client: "gemini" },
         text: "Recent session status belongs on the dashboard front page."
       });
-      expect(html).toContain("2 saved for later");
-      expect(html).toContain("<strong data-i18n-en=\"2 saved for later\" data-i18n-zh=\"2 条已保存待整理\">2 saved for later</strong>");
+      expect(html).toContain("2 searchable items");
+      expect(html).toContain("<strong data-i18n-en=\"2 searchable items\" data-i18n-zh=\"2 条可搜索内容\">2 searchable items</strong>");
       expect(html).not.toContain("2 saved or temporary items");
       expect(data.action_board.items.map((item) => item.id)).toEqual(["confirm", "review", "inspect", "sync"]);
       expect(data.action_board.items_by_id.review).toMatchObject({

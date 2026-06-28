@@ -144,7 +144,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Is everything synced? -> the `Right now` shared-copy card, `This device`");
     expectText(dashboard, "and the sync rail");
     expectText(dashboard, "The `Control flow` wrapper groups `Right now`, `Needs your decision` or");
-    expectText(dashboard, "`Saved for later`, `At a glance`, and `Find what Moryn saved` into one continuous");
+    expectText(dashboard, "`Saved and searchable`, `At a glance`, and `Find what Moryn saved` into one continuous");
     expectText(dashboard, "first-screen surface");
     expectText(dashboard, "It is a visual and navigation grouping only");
     expectText(dashboard, "it does not");
@@ -172,7 +172,7 @@ describe("documentation contracts", () => {
     expectText(dashboard, "only rows with confirm buttons can change long-term");
     expectText(dashboard, "then answers action, memory, recent");
     expectText(dashboard, "change, and sync in four larger cards");
-    expectText(dashboard, "The `Right now`, `Needs your decision`, `Saved for later`, `At a glance`, and");
+    expectText(dashboard, "The `Right now`, `Needs your decision`, `Saved and searchable`, `At a glance`, and");
     expectText(dashboard, "`Find what Moryn saved` rows are visible");
     expectText(dashboard, "above `More details` in the live non-private dashboard");
     expectText(dashboard, "It starts with a compact recent-activity summary for");
@@ -191,7 +191,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "`Top source` opens saved");
     expectText(dashboard, "content search filtered to that source");
     expectText(dashboard, "`Needs your decision` routes users to the owning approval rows only when a real");
-    expectText(dashboard, "If the state is only `Saved, not organized`, the visible saved-later panel");
+    expectText(dashboard, "If the state is only `Saved, not organized`, the visible saved-and-searchable panel");
+    expectText(dashboard, "Its button says `Search saved content`");
     expectText(dashboard, "opens `Find what Moryn saved`, expands saved previews, and keeps search visible");
     expectText(dashboard, "Approve and reject buttons stay on the owning row beside the");
     expectText(dashboard, "clickable memory state meter, content-type bars, shared-copy state, and recent source activity");
@@ -230,7 +231,9 @@ describe("documentation contracts", () => {
     expectText(dashboard, "opens `Find what Moryn saved`");
     expectText(dashboard, "That click expands hidden saved previews and highlights the section");
     expectText(dashboard, "Entrypoints carry their intent into Memory Explorer instead of only scrolling");
-    expectText(dashboard, "`Do I need to act?` and `Open saved content` open saved-for-later items");
+    expectText(dashboard, "the saved-and-searchable");
+    expectText(dashboard, "`Search saved content`, because it is read-only lookup rather than a review");
+    expectText(dashboard, "`Do I need to act?` and `Search saved content` open saved-for-later items");
     expectText(dashboard, "`What is stored?` opens all saved content with search focused");
     expectText(dashboard, "recently?` selects the newest saved item in the detail pane");
     expectText(dashboard, "with `data-memory-explorer-*` attributes and applied by `openStoredContentPanel`");

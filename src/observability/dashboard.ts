@@ -7154,29 +7154,29 @@ function dashboardDecisionPanel(data: DashboardData): string {
       }));
   }
   } else if (reviewable > 0) {
-    const title = `${reviewable} saved for later`;
+    const title = `${reviewable} searchable ${reviewable === 1 ? "item" : "items"}`;
     const savedForLaterFilter = "candidate,raw,archived,quarantined";
     items.push(decisionPanelItem({
       kind: "review",
-      status: "Saved safely",
-      zhStatus: "已安全保存",
+      status: "No action needed",
+      zhStatus: "无需操作",
       title,
-      zhTitle: `${reviewable} 条已保存待整理`,
-      detail: "These are saved safely, but Moryn will not treat them as long-term memory unless you choose to organize them later.",
-      zhDetail: "这些内容已经安全保存，但除非你稍后整理，Moryn 不会把它们当作长期记忆。",
+      zhTitle: `${reviewable} 条可搜索内容`,
+      detail: "These items are already saved. Open them only when you want to read or organize them.",
+      zhDetail: "这些内容已经保存；只有想查看或整理时再打开。",
       target: "stored-content",
-      actionLabel: "Open saved content",
-      zhActionLabel: "打开已保存内容",
-      note: "This only opens saved content. Nothing becomes long-term memory from this summary.",
-      zhNote: "这里只打开已保存内容；这里不会把内容写成长久记忆。",
+      actionLabel: "Search saved content",
+      zhActionLabel: "搜索已保存内容",
+      note: "Opening this is read-only; it will not change long-term memory.",
+      zhNote: "打开这里只是只读查看，不会改变长期记忆。",
       feedback: "Nothing to open here yet.",
-      zhFeedback: "这里暂时没有可打开的审核队列。",
+      zhFeedback: "这里暂时没有可打开的内容。",
       explorerIntent: memoryExplorerIntentAttributes({ storedFilter: savedForLaterFilter, stateFilter: savedForLaterFilter, focusSearch: true })
     }));
   }
   if (items.length === 0) return "";
-  const panelLabel = explicitDecisions > 0 ? "Needs your decision" : "Saved for later";
-  const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "稍后整理";
+  const panelLabel = explicitDecisions > 0 ? "Needs your decision" : "Saved and searchable";
+  const panelLabelZh = explicitDecisions > 0 ? "需要你确认" : "已保存可搜索";
   return `
     <section class="decision-panel${explicitDecisions > 0 ? "" : " saved-later"}" data-dashboard-decision-panel aria-label="${escapeHtml(panelLabel)}">
       <div class="section-heading">
