@@ -132,6 +132,10 @@ describe("documentation contracts", () => {
     expectText(dashboard, "The `Current answers`, `Needs your decision`, `Saved, not remembered`, `At a glance`, and");
     expectText(dashboard, "`Find what Moryn saved` rows are visible");
     expectText(dashboard, "above `More details` in the live non-private dashboard");
+    expectText(dashboard, "It starts with a compact recent-activity summary for");
+    expectText(dashboard, "visible writes, remembered items, items to organize, and the most active source");
+    expectText(dashboard, "then shows the memory-state chart, content mix, shared-copy rail, and source");
+    expectText(dashboard, "activity bars");
     expectText(dashboard, "`Needs your decision` routes users to the owning approval rows only when a real");
     expectText(dashboard, "If the state is only `Saved, not remembered`, the visible action");
     expectText(dashboard, "opens `Find what Moryn saved`, expands saved previews, and keeps search visible");

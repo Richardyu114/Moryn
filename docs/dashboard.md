@@ -657,8 +657,11 @@ shows a compact `Remembered` / `Saved, not remembered` / `Session notes` mix bar
 and short counts, so the first screen shows whether saved content is already
 long-term memory before the user opens search. The `At a glance` chart row
 appears before `What Moryn remembers`, `Recent status`, and the compact
-`More details` fold, so the user does not need to open a detail section to
-understand the current state.
+`More details` fold. It starts with a compact recent-activity summary for
+visible writes, remembered items, items to organize, and the most active source,
+then shows the memory-state chart, content mix, shared-copy rail, and source
+activity bars. The user does not need to open a detail section to understand the
+current state.
 `Shared copy` is the user-facing name for Git sync state: it can read `Up to
 date`, `Waiting to upload`, `New shared updates`, `Needs help`, or `Not
 connected`. The API still exposes the underlying sync data in

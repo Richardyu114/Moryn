@@ -6413,6 +6413,50 @@ function recentActivityBars(agents: DashboardAgentChartItem[]): string {
   `;
 }
 
+function glanceSummaryStrip(data: DashboardData): string {
+  const recentWrites = data.recent_records.length;
+  const remembered = data.memory_inventory.summary.remembered;
+  const toOrganize = reviewableSavedItemsCount(data.memory_inventory);
+  const topSource = data.charts.agent_activity.reduce<DashboardAgentChartItem | undefined>((best, agent) => {
+    if (!best) return agent;
+    const score = agent.records + agent.events;
+    const bestScore = best.records + best.events;
+    if (score !== bestScore) return score > bestScore ? agent : best;
+    return agent.latest_at.localeCompare(best.latest_at) > 0 ? agent : best;
+  }, undefined);
+  const topSourceSignals = topSource ? topSource.records + topSource.events : 0;
+  const topSourceLabel = topSource?.client ?? "No source";
+  const topSourceLabelZh = topSource?.client ?? "暂无来源";
+  const recentWritesLabel = pluralize(recentWrites, "visible record");
+  const recentWritesZh = `${recentWrites} 条可见内容`;
+  const topSourceDetail = topSource ? pluralize(topSourceSignals, "recent signal") : "No recent signals";
+  const topSourceDetailZh = topSource ? `${topSourceSignals} 条最近信号` : "暂无最近信号";
+  return `
+      <div class="glance-summary-strip" data-glance-summary-strip aria-label="Recent activity summary">
+        <article data-glance-summary="recent-writes">
+          <span data-i18n-en="Recent writes" data-i18n-zh="最近写入">Recent writes</span>
+          <strong>${escapeHtml(recentWrites)}</strong>
+          <small ${i18nAttribute(recentWritesLabel, recentWritesZh)}>${escapeHtml(recentWritesLabel)}</small>
+        </article>
+        <article data-glance-summary="remembered-now">
+          <span data-i18n-en="Remembered" data-i18n-zh="已记住">Remembered</span>
+          <strong>${escapeHtml(remembered)}</strong>
+          <small data-i18n-en="Long-term memory" data-i18n-zh="长期记忆">Long-term memory</small>
+        </article>
+        <article data-glance-summary="to-organize">
+          <span data-i18n-en="To organize" data-i18n-zh="待整理">To organize</span>
+          <strong>${escapeHtml(toOrganize)}</strong>
+          <small data-i18n-en="Saved for later" data-i18n-zh="稍后整理">Saved for later</small>
+        </article>
+        <article data-glance-summary="top-source">
+          <span data-i18n-en="Top source" data-i18n-zh="主要来源">Top source</span>
+          <strong data-i18n-en="${escapeHtml(topSourceLabel)}" data-i18n-zh="${escapeHtml(topSourceLabelZh)}">${escapeHtml(topSourceLabel)}</strong>
+          <small ${i18nAttribute(topSourceDetail, topSourceDetailZh)}>${escapeHtml(topSourceDetail)}</small>
+        </article>
+      </div>
+  `;
+}
+
 function dashboardGlanceBoard(data: DashboardData): string {
   const shared = sharedCopyLabel(data.sync);
   const latestRecord = data.recent_records[0];
@@ -6426,6 +6470,7 @@ function dashboardGlanceBoard(data: DashboardData): string {
         <h2 data-i18n-en="At a glance" data-i18n-zh="一眼看懂">At a glance</h2>
         ${i18nText("Memory, changes, and shared copy", "记忆、变化和共享副本", "small")}
       </div>
+      ${glanceSummaryStrip(data)}
       <div class="glance-grid">
         <article class="glance-chart memory-shape" data-memory-state-chart>
           <h3 data-i18n-en="Stored what?" data-i18n-zh="存了什么？">Stored what?</h3>
@@ -8589,6 +8634,37 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .stored-content-more:focus-visible { outline: 2px solid var(--signal-blue); outline-offset: 2px; }
     .glance-board {
       margin-bottom: 12px;
+    }
+    .glance-summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .glance-summary-strip article {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      min-height: 78px;
+      border: 1px solid rgba(112, 129, 149, 0.24);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(9, 11, 14, 0.68);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    }
+    .glance-summary-strip span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .glance-summary-strip strong {
+      color: var(--ink);
+      font-size: 22px;
+      line-height: 1.08;
+      font-weight: 850;
+      overflow-wrap: anywhere;
     }
     .glance-grid {
       display: grid;
