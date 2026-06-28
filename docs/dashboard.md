@@ -23,14 +23,16 @@ tool. It uses a black high-contrast surface with visible status colors and chart
 cards before any evidence folds. A user should be able to answer these questions
 without opening a collapsed section:
 
-- Do I need to act? -> `Needs attention?`, `All clear`, or `Saved for later`, plus a
-  visible `Needs your decision` panel only when approval is waiting.
-- What is stored? -> the `At a glance` memory-state chart, `Memory Explorer`,
-  and `What Moryn remembers`.
-- Is sync healthy? -> `This device`, the `Shared copy` card, and the sync rail.
+- Do I need to act? -> the `Status Board` answer card plus a visible
+  `Needs your decision` panel only when approval is waiting.
+- What is stored? -> the `Status Board` memory answer, `At a glance` chart,
+  `Memory Explorer`, and `What Moryn remembers`.
+- Is sync healthy? -> the `Status Board` shared-copy answer, `This device`,
+  and the sync rail.
 
-The `Needs your decision`, `Saved for later`, `At a glance`, and `Memory Explorer`
-rows are visible above `Technical details` in the live non-private dashboard.
+The `Status Board`, `Needs your decision`, `Saved for later`, `At a glance`, and
+`Memory Explorer` rows are visible above `Technical details` in the live
+non-private dashboard.
 `Needs your decision` routes users to the owning approval rows only when a real
 write is waiting. If the state is only `Saved for later`, the visible action
 opens `Memory Explorer`, expands saved previews, and keeps search visible
@@ -620,18 +622,20 @@ evidence stay in their original wording.
 The first screen is arranged around three plain questions:
 
 ```text
-Do I need to act? -> Needs attention? / All clear / Saved for later
-What is stored?   -> At a glance, Memory Explorer, What Moryn remembers
-Is sync healthy?  -> This device, Shared copy, sync rail
+Do I need to act? -> Status Board action answer
+What is stored?   -> Status Board memory answer, At a glance, Memory Explorer
+Is sync healthy?  -> Status Board shared-copy answer, sync rail
 ```
 
-`This device` and `Shared copy` appear before the main action summary. The
-`At a glance` chart row appears before `What Moryn remembers`, `Recent status`,
-and the compact `Technical details` fold, so the user does not need to open a
-detail section to understand the current state. `Shared copy` is the
-user-facing name for Git sync state: it can read `Up to date`, `Waiting to
-upload`, `New shared updates`, `Needs help`, or `Not connected`. The API still
-exposes the underlying sync data in `/api/dashboard.sync`.
+`Status Board` is the first read after the header. It keeps `This device` and
+`Shared copy` as compact status chips, then answers action, memory, and sync in
+three larger cards. The `At a glance` chart row appears before `What Moryn
+remembers`, `Recent status`, and the compact `Technical details` fold, so the
+user does not need to open a detail section to understand the current state.
+`Shared copy` is the user-facing name for Git sync state: it can read `Up to
+date`, `Waiting to upload`, `New shared updates`, `Needs help`, or `Not
+connected`. The API still exposes the underlying sync data in
+`/api/dashboard.sync`.
 
 The main action summary is labeled `Needs attention?` in the visible UI. It
 picks the most urgent derived action in this order: explicit decisions, visible

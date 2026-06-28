@@ -6032,45 +6032,45 @@ function dashboardLanguageToggle(): string {
   `;
 }
 
-function frontStatusGrid(data: DashboardData): string {
-  const shared = sharedCopyLabel(data.sync);
-  return `
-    <section class="front-status-grid" data-front-status-grid aria-label="Local and shared status">
-      <article class="front-status-card ${escapeHtml(overviewStatusFromHealth(data.health.status))}">
-        ${i18nText("This device", "本机记忆")}
-        ${i18nText(data.health.status === "healthy" ? "Healthy" : data.health.label, data.health.status === "healthy" ? "正常" : data.health.label, "strong")}
-        ${i18nText("Local memory is ready", "本机记忆可用", "small")}
-      </article>
-      <article class="front-status-card ${escapeHtml(shared.severity)}">
-        ${i18nText("Shared copy", "共享副本")}
-        ${i18nText(shared.label, shared.zh, "strong")}
-        <small ${i18nAttribute(shared.detail, shared.zhDetail)}>${escapeHtml(shared.detail)}</small>
-      </article>
-    </section>
-  `;
-}
-
-function dashboardPriorityStrip(data: DashboardData): string {
+function statusBoard(data: DashboardData): string {
   const shared = sharedCopyLabel(data.sync);
   const actionIsCalm = data.decision_summary.total_decisions === 0 && (data.dashboard_overview.headline === "Saved for later" || (data.dashboard_overview.status !== "critical" && data.dashboard_overview.status !== "warning"));
   const actionClass = actionIsCalm ? "calm" : escapeHtml(data.dashboard_overview.status);
   return `
-    <section class="dashboard-priority-strip" data-dashboard-priority-strip aria-label="Dashboard priorities">
-      <article class="priority-card action ${actionClass}" data-dashboard-priority="action">
-        ${i18nText("Do I need to act?", "我需要操作吗？")}
-        <strong data-i18n-en="${escapeHtml(data.dashboard_overview.headline)}" data-i18n-zh="${escapeHtml(data.dashboard_overview.headline === "Saved for later" ? "已保存，可稍后整理" : data.dashboard_overview.headline)}">${escapeHtml(data.dashboard_overview.headline)}</strong>
-        <small data-i18n-en="${escapeHtml(data.dashboard_overview.primary_action.label)}" data-i18n-zh="${escapeHtml(data.dashboard_overview.primary_action.label === "Browse saved notes" ? "浏览已保存内容" : data.dashboard_overview.primary_action.label)}">${escapeHtml(data.dashboard_overview.primary_action.label)}</small>
-      </article>
-      <article class="priority-card memory" data-dashboard-priority="memory">
-        ${i18nText("What is stored?", "存了什么？")}
-        <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
-        ${i18nText("visible saved items", "条可见保存内容", "small")}
-      </article>
-      <article class="priority-card sync ${escapeHtml(shared.severity)}" data-dashboard-priority="sync">
-        ${i18nText("Is sync healthy?", "同步健康吗？")}
-        ${i18nText(shared.label, shared.zh, "strong")}
-        <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
-      </article>
+    <section class="status-board" data-status-board aria-label="Status Board">
+      <div class="section-heading status-board-heading">
+        <h2 data-i18n-en="Status Board" data-i18n-zh="状态总览">Status Board</h2>
+        ${i18nText("Action, memory, and shared copy", "操作、记忆和共享副本", "small")}
+      </div>
+      <div class="status-board-rail" data-status-board-rail aria-label="Local and shared status">
+        <article class="status-chip ${escapeHtml(overviewStatusFromHealth(data.health.status))}" data-status-chip="device">
+          ${i18nText("This device", "本机记忆")}
+          ${i18nText(data.health.status === "healthy" ? "Healthy" : data.health.label, data.health.status === "healthy" ? "正常" : data.health.label, "strong")}
+          ${i18nText("Local memory is ready", "本机记忆可用", "small")}
+        </article>
+        <article class="status-chip ${escapeHtml(shared.severity)}" data-status-chip="shared-copy">
+          ${i18nText("Shared copy", "共享副本")}
+          ${i18nText(shared.label, shared.zh, "strong")}
+          <small ${i18nAttribute(shared.detail, shared.zhDetail)}>${escapeHtml(shared.detail)}</small>
+        </article>
+      </div>
+      <div class="status-board-answers" data-status-board-answers>
+        <article class="answer-card action ${actionClass}" data-dashboard-priority="action">
+          ${i18nText("Do I need to act?", "我需要操作吗？")}
+          <strong data-i18n-en="${escapeHtml(data.dashboard_overview.headline)}" data-i18n-zh="${escapeHtml(data.dashboard_overview.headline === "Saved for later" ? "已保存，可稍后整理" : data.dashboard_overview.headline)}">${escapeHtml(data.dashboard_overview.headline)}</strong>
+          <small data-i18n-en="${escapeHtml(data.dashboard_overview.primary_action.label)}" data-i18n-zh="${escapeHtml(data.dashboard_overview.primary_action.label === "Browse saved notes" ? "浏览已保存内容" : data.dashboard_overview.primary_action.label)}">${escapeHtml(data.dashboard_overview.primary_action.label)}</small>
+        </article>
+        <article class="answer-card memory" data-dashboard-priority="memory">
+          ${i18nText("What is stored?", "存了什么？")}
+          <strong>${escapeHtml(data.memory_inventory.summary.total_visible)}</strong>
+          ${i18nText("visible saved items", "条可见保存内容", "small")}
+        </article>
+        <article class="answer-card sync ${escapeHtml(shared.severity)}" data-dashboard-priority="sync">
+          ${i18nText("Is sync healthy?", "同步健康吗？")}
+          ${i18nText(shared.label, shared.zh, "strong")}
+          <small data-i18n-en="${escapeHtml(shared.detail)}" data-i18n-zh="${escapeHtml(shared.zhDetail)}">${escapeHtml(shared.detail)}</small>
+        </article>
+      </div>
     </section>
   `;
 }
@@ -6564,9 +6564,7 @@ function renderDashboardBody(data: DashboardData, options: Pick<DashboardRenderO
 
     <section id="last-action-receipt" class="panel last-action-receipt" data-action-receipt-anchor aria-live="polite" hidden></section>
 
-    ${frontStatusGrid(data)}
-
-    ${dashboardPriorityStrip(data)}
+    ${statusBoard(data)}
 
     ${dashboardOverview(data.dashboard_overview, { showBackgroundStatus, showSafety: !isAllClearOverview && !isSavedForLaterOverview })}
 
@@ -7579,8 +7577,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       background: var(--signal-green);
       color: #061007;
     }
-    .front-status-grid,
-    .dashboard-priority-strip,
+    .status-board-answers,
+    .status-board-rail,
     .memory-inventory-grid,
     .recent-status-grid {
       display: grid;
@@ -7588,11 +7586,27 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       gap: 10px;
       margin-bottom: 12px;
     }
-    .dashboard-priority-strip {
-      grid-template-columns: 1.15fr 1fr 1fr;
+    .status-board {
+      border: 1px solid rgba(112, 129, 149, 0.24);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012)),
+        rgba(9, 11, 15, 0.96);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.045);
     }
-    .front-status-card,
-    .priority-card,
+    .status-board-heading { margin-bottom: 10px; }
+    .status-board-rail {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-bottom: 10px;
+    }
+    .status-board-answers {
+      grid-template-columns: 1.15fr 1fr 1fr;
+      margin-bottom: 0;
+    }
+    .status-chip,
+    .answer-card,
     .memory-inventory,
     .recent-status {
       border: 1px solid var(--border);
@@ -7600,37 +7614,47 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       background: rgba(16, 18, 22, 0.92);
       box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
     }
-    .front-status-card,
-    .priority-card {
+    .status-chip,
+    .answer-card {
       display: grid;
       gap: 4px;
       min-width: 0;
       border-left-width: 4px;
       padding: 12px;
     }
-    .front-status-card.good { border-left-color: var(--good); }
-    .front-status-card.info { border-left-color: var(--info); }
-    .front-status-card.warning { border-left-color: var(--warning); }
-    .front-status-card.critical { border-left-color: var(--critical); }
-    .priority-card {
+    .status-chip {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      min-height: 70px;
+      background: rgba(15, 18, 23, 0.78);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    }
+    .status-chip span,
+    .status-chip small { grid-column: 1; }
+    .status-chip strong { grid-column: 2; grid-row: 1 / span 2; justify-self: end; text-align: right; }
+    .status-chip.good { border-left-color: var(--good); }
+    .status-chip.info { border-left-color: var(--info); }
+    .status-chip.warning { border-left-color: var(--warning); }
+    .status-chip.critical { border-left-color: var(--critical); }
+    .answer-card {
       min-height: 94px;
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008)),
         rgba(12, 15, 20, 0.94);
       box-shadow: 0 18px 38px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.035);
     }
-    .priority-card.action.calm { border-left-color: var(--signal-blue); }
-    .priority-card.action.good { border-left-color: var(--signal-green); }
-    .priority-card.action.info { border-left-color: var(--signal-blue); }
-    .priority-card.action.warning { border-left-color: var(--signal-amber); }
-    .priority-card.action.critical { border-left-color: var(--signal-red); }
-    .priority-card.memory { border-left-color: var(--signal-violet); }
-    .priority-card.sync.good { border-left-color: var(--signal-green); }
-    .priority-card.sync.info { border-left-color: var(--signal-blue); }
-    .priority-card.sync.warning { border-left-color: var(--signal-amber); }
-    .priority-card.sync.critical { border-left-color: var(--signal-red); }
-    .front-status-card span,
-    .priority-card span,
+    .answer-card.action.calm { border-left-color: var(--signal-blue); }
+    .answer-card.action.good { border-left-color: var(--signal-green); }
+    .answer-card.action.info { border-left-color: var(--signal-blue); }
+    .answer-card.action.warning { border-left-color: var(--signal-amber); }
+    .answer-card.action.critical { border-left-color: var(--signal-red); }
+    .answer-card.memory { border-left-color: var(--signal-violet); }
+    .answer-card.sync.good { border-left-color: var(--signal-green); }
+    .answer-card.sync.info { border-left-color: var(--signal-blue); }
+    .answer-card.sync.warning { border-left-color: var(--signal-amber); }
+    .answer-card.sync.critical { border-left-color: var(--signal-red); }
+    .status-chip span,
+    .answer-card span,
     .memory-inventory-card span,
     .recent-status article span {
       color: var(--muted);
@@ -7638,8 +7662,8 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       font-weight: 760;
       overflow-wrap: anywhere;
     }
-    .front-status-card strong,
-    .priority-card strong,
+    .status-chip strong,
+    .answer-card strong,
     .recent-status article strong {
       color: var(--ink);
       font-size: 17px;
@@ -7647,7 +7671,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
       font-weight: 830;
       overflow-wrap: anywhere;
     }
-    .priority-card strong {
+    .answer-card strong {
       font-size: 20px;
       line-height: 1.1;
       font-weight: 850;
@@ -10748,7 +10772,7 @@ function renderDashboardShell(data: DashboardData, options: DashboardRenderOptio
     .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     details summary { cursor: pointer; }
     @media (max-width: 920px) {
-      header, .front-status-grid, .dashboard-priority-strip, .memory-inventory-grid, .recent-status-grid, .glance-grid, .memory-explorer-layout, .stored-content-list, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
+      header, .status-board-answers, .status-board-rail, .memory-inventory-grid, .recent-status-grid, .glance-grid, .memory-explorer-layout, .stored-content-list, .memory-search-controls, .dashboard-overview-quiet-list, .dashboard-work-lanes, .dashboard-work-lanes-quiet-list, .action-board-grid, .action-board-quiet-list, .action-board-background-list, .decision-summary-list, .visual-grid { grid-template-columns: 1fr; }
       .store-path { white-space: normal; overflow-wrap: anywhere; }
       main { padding: 18px 12px 36px; }
       .dashboard-header-actions { justify-content: flex-start; }
