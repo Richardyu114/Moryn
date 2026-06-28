@@ -1009,7 +1009,9 @@ not lead with internal reference-library naming. Compact route chips move into
 the collapsed `Detail links` fold with human labels such as `Product notes`,
 `Saved notes`, and `History`; their stable
 `data-reference-library-route` attributes still keep the machine routes for
-audit tooling. The long `/api/dashboard` pointer is shortened inside that fold
+audit tooling. Those compact route chips, row titles, row summaries, and
+evidence chips also carry English and Chinese display text, so Chinese mode does
+not leave the `More details` shell half-translated. The long `/api/dashboard` pointer is shortened inside that fold
 in compact mode to `Full evidence stays in /api/dashboard.`, so expanding
 `More details` does not render prose about every API evidence family.
 

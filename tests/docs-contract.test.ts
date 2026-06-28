@@ -318,6 +318,8 @@ describe("documentation contracts", () => {
     expectText(dashboard, "Compact route chips move into the collapsed `Detail links` fold");
     expectText(dashboard, "human labels such as `Product notes`, `Saved notes`, and `History`");
     expectText(dashboard, "stable `data-reference-library-route` attributes still keep");
+    expectText(dashboard, "Those compact route chips, row titles, row summaries, and evidence chips also carry English and Chinese display text");
+    expectText(dashboard, "does not leave the `More details` shell half-translated");
     expectText(dashboard, "The long `/api/dashboard` pointer is shortened inside that fold in compact mode");
     expectText(dashboard, "`Full evidence stays in /api/dashboard.`");
     expectText(dashboard, "does not render prose about every API evidence family");

@@ -6076,7 +6076,45 @@ function referenceLibraryIndex(input: {
     if (route.route === "supporting-evidence") return "History";
     return route.label;
   };
-  const routeChips = routes.map((route) => `<code data-reference-library-route="${escapeHtml(route.route)}">${escapeHtml(routeLabel(route))}</code>`).join("");
+  const uiLabelZh = (label: string): string => {
+    if (label === "Health checks") return "健康检查";
+    if (label === "Product notes") return "产品记录";
+    if (label === "Safety checks") return "安全检查";
+    if (label === "Saved notes") return "已保存内容";
+    if (label === "History") return "历史记录";
+    if (label === "Health Checks") return "健康检查";
+    if (label === "Saved Notes") return "已保存内容";
+    if (label === "Safety Checks") return "安全检查";
+    if (label === "Product Notes") return "产品记录";
+    if (label === "Cleanup Checks") return "清理检查";
+    if (label === "Shared Copy") return "共享副本";
+    if (label === "Health check") return "健康检查";
+    if (label === "Recall check") return "召回检查";
+    if (label === "Handoff context") return "交接上下文";
+    if (label === "Cleanup checks") return "清理检查";
+    if (label === "Capture checks") return "捕获检查";
+    if (label === "Recent value") return "最近重点";
+    if (label === "Recent records") return "最近记录";
+    if (label === "Recent events") return "最近事件";
+    if (label === "Shared copy") return "共享副本";
+    if (label === "Routine checks indexed") return "日常检查已建立索引";
+    if (label === "Saved notes indexed") return "已保存内容已建立索引";
+    if (label === "Safety checks indexed") return "安全检查已建立索引";
+    if (label === "Product notes indexed") return "产品记录已建立索引";
+    if (label === "Cleanup checks indexed") return "清理检查已建立索引";
+    if (label === "Shared copy indexed") return "共享副本已建立索引";
+    if (label === "History indexed") return "历史记录已建立索引";
+    return label;
+  };
+  const i18nInline = (label: string, tag: string, attributes = ""): string => {
+    const translation = uiLabelZh(label);
+    const translationAttributes = input.compact && translation !== label ? ` ${i18nAttribute(label, translation)}` : "";
+    return `<${tag}${attributes}${translationAttributes}>${escapeHtml(label)}</${tag}>`;
+  };
+  const routeChips = routes.map((route) => {
+    const label = routeLabel(route);
+    return i18nInline(label, "code", ` data-reference-library-route="${escapeHtml(route.route)}"`);
+  }).join("");
   const indexTitle = input.compact ? "Saved details" : "Reference Library Index";
   const indexTitleZh = input.compact ? "保存细节" : "参考资料索引";
   const indexSummary = input.compact ? "Read-only details available" : "Background reports indexed";
@@ -6122,7 +6160,10 @@ function referenceLibraryIndex(input: {
     if (label === "sync") return "Shared copy";
     return label;
   };
-  const evidenceCode = (label: string, attributes = ""): string => `<code${attributes}>${escapeHtml(evidenceLabel(label))}</code>`;
+  const evidenceCode = (label: string, attributes = ""): string => {
+    const visibleLabel = evidenceLabel(label);
+    return i18nInline(visibleLabel, "code", attributes);
+  };
   const routeChipsRow = input.compact ? `
                 <div class="reference-library-route-chips" data-reference-library-route-chips>
                   ${routeChips}
@@ -6133,16 +6174,16 @@ function referenceLibraryIndex(input: {
     diagnosticRoutes.length > 0 ? `
             <div class="reference-library-index-row" data-reference-library-index-row="diagnostics" data-dashboard-detail="routine-diagnostics" data-routine-diagnostics-reference data-reference-library-index="diagnostics">
               <div>
-                <strong>${escapeHtml(diagnosticsTitle)}</strong>
-                <span>${escapeHtml(diagnosticSummary)}</span>
+                ${i18nInline(diagnosticsTitle, "strong")}
+                ${i18nInline(diagnosticSummary, "span")}
               </div>
               <small>${diagnosticRoutes.map((route) => evidenceCode(route.label, ` data-dashboard-detail="${escapeHtml(route.route)}" aria-label="${escapeHtml(route.description)}"`)).join("")}</small>
             </div>` : "",
     input.hasCandidateTriage ? `
             <div class="reference-library-index-row" data-reference-library-index-row="candidate-triage" data-dashboard-detail="candidate-triage" data-candidate-triage-reference data-reference-library-index="candidate-triage">
               <div>
-                <strong>${escapeHtml(candidateTriageTitle)}</strong>
-                <span>${escapeHtml(candidateTriageSummary)}</span>
+                ${i18nInline(candidateTriageTitle, "strong")}
+                ${i18nInline(candidateTriageSummary, "span")}
                 ${candidateTriageFocus ? `<span data-candidate-triage-focus>${escapeHtml(candidateTriageFocus)}</span>` : ""}
               </div>
               <small>${evidenceCode("candidate_triage", ` data-dashboard-detail="candidate-triage:index"`)}</small>
@@ -6158,32 +6199,32 @@ function referenceLibraryIndex(input: {
     input.hasDogfood ? `
             <div class="reference-library-index-row" data-reference-library-index-row="dogfood" data-dashboard-detail="dogfood-review" data-dogfood-review-reference data-reference-library-index="dogfood">
               <div>
-                <strong>${escapeHtml(dogfoodTitle)}</strong>
-                <span>${escapeHtml(dogfoodSummary)}</span>
+                ${i18nInline(dogfoodTitle, "strong")}
+                ${i18nInline(dogfoodSummary, "span")}
               </div>
               <small>${evidenceCode("dogfood_report")}</small>
             </div>` : "",
     input.hasAuditTrail && input.hasAuditReports ? `
             <div class="reference-library-index-row" data-reference-library-index-row="audit-reports" data-supporting-evidence-summary="audit-reports" data-dashboard-detail="supporting-operational-evidence">
               <div>
-                <strong>${escapeHtml(auditReportsTitle)}</strong>
-                <span>${escapeHtml(auditReportsSummary)}</span>
+                ${i18nInline(auditReportsTitle, "strong")}
+                ${i18nInline(auditReportsSummary, "span")}
               </div>
               <small>${evidenceCode("memory_lifecycle", ` data-dashboard-detail="memory-lifecycle-audit"`)}${evidenceCode("capture_policy", ` data-dashboard-detail="capture-policy-audit"`)}</small>
             </div>` : "",
     input.hasAuditTrail && (input.includeStoreSignals || input.hasRecentValue) ? `
             <div class="reference-library-index-row" data-reference-library-index-row="store-snapshot" data-supporting-evidence-summary="store-snapshot" data-dashboard-detail="supporting-operational-snapshots">
               <div>
-                <strong>${escapeHtml(storeSnapshotTitle)}</strong>
-                <span>${escapeHtml(storeSnapshotSummary)}</span>
+                ${i18nInline(storeSnapshotTitle, "strong")}
+                ${i18nInline(storeSnapshotSummary, "span")}
               </div>
               <small>${evidenceCode("sync", ` data-dashboard-detail="store-signals"`)}${evidenceCode("recent_value", ` data-dashboard-detail="recent-value"`)}</small>
             </div>` : "",
     input.hasAuditTrail ? `
             <div class="reference-library-index-row" data-reference-library-index-row="raw-store" data-supporting-evidence-summary="raw-store" data-dashboard-detail="debug-inspector">
               <div>
-                <strong>${escapeHtml(rawStoreTitle)}</strong>
-                <span>${escapeHtml(rawStoreSummary)}</span>
+                ${i18nInline(rawStoreTitle, "strong")}
+                ${i18nInline(rawStoreSummary, "span")}
               </div>
               <small>${evidenceCode("audit_trail", ` data-dashboard-detail="supporting-evidence"`)}${evidenceCode("recent_records", ` data-dashboard-detail="inspector:records"`)}${evidenceCode("recent_events", ` data-dashboard-detail="inspector:events"`)}${evidenceCode("sync", ` data-dashboard-detail="inspector:sync"`)}</small>
             </div>` : ""
