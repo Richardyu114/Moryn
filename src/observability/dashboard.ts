@@ -7265,11 +7265,27 @@ function storedContentNextStep(item: DashboardValueRecord): { label: string; zhL
   };
 }
 
+function storedContentReasonZh(reason: string): string {
+  if (reason === "Captured through Moryn host adapter autocapture.") {
+    return "Moryn 自动保存了这条内容，稍后可整理。";
+  }
+  if (reason === "Autocapture policy retained this low-risk handoff without canonical promotion.") {
+    return "低风险交接已保存为本地依据，但不会自动变成长期记忆。";
+  }
+  if (reason === "User confirmed this as durable project memory.") {
+    return "用户已确认这条可作为长期项目记忆。";
+  }
+  if (reason === "User approved Capture Inbox candidate.") {
+    return "用户已批准这条内容成为记忆。";
+  }
+  return reason;
+}
+
 function storedContentWhySaved(item: DashboardValueRecord): { label: string; zhLabel: string } {
   if (item.provenance_reason) {
     return {
       label: item.provenance_reason,
-      zhLabel: item.provenance_reason
+      zhLabel: storedContentReasonZh(item.provenance_reason)
     };
   }
   if (item.provenance_method === "user-confirmed" || item.source_label === "User") {

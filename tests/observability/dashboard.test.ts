@@ -124,7 +124,8 @@ describe("observability dashboard", () => {
           const timestamps = [
             "2026-06-01T00:01:00.000Z",
             "2026-06-01T00:02:00.000Z",
-            "2026-06-01T00:03:00.000Z"
+            "2026-06-01T00:03:00.000Z",
+            "2026-06-01T00:04:00.000Z"
           ];
           return () => timestamps.shift() ?? "2026-06-01T00:04:00.000Z";
         })(),
@@ -1482,6 +1483,19 @@ describe("observability dashboard", () => {
         }
       });
       await engine.write({
+        kind: "session_summary",
+        type: "summary",
+        scope: "project",
+        project_id: "moryn",
+        content: { text: "Explained low-risk handoff", format: "text" },
+        state: "candidate",
+        source: { client: "codex", session_id: "saved-explain-low-risk" },
+        provenance: {
+          method: "agent-proposed",
+          reason: "Autocapture policy retained this low-risk handoff without canonical promotion."
+        }
+      });
+      await engine.write({
         kind: "agent_note",
         type: "raw_note",
         scope: "project",
@@ -1509,7 +1523,9 @@ describe("observability dashboard", () => {
       expect(html).toContain("<div class=\"stored-content-explain\" data-stored-content-explain>");
       expect(html).toContain("<div class=\"stored-content-explain-card\" data-stored-content-explain-card=\"why-saved\">");
       expect(html).toContain("<span data-i18n-en=\"Why saved\" data-i18n-zh=\"为什么保存\">Why saved</span>");
-      expect(html).toContain("<strong data-i18n-en=\"Captured through Moryn host adapter autocapture.\" data-i18n-zh=\"Captured through Moryn host adapter autocapture.\">Captured through Moryn host adapter autocapture.</strong>");
+      expect(html).toContain("<strong data-i18n-en=\"Captured through Moryn host adapter autocapture.\" data-i18n-zh=\"Moryn 自动保存了这条内容，稍后可整理。\">Captured through Moryn host adapter autocapture.</strong>");
+      expect(html).toContain("<strong data-i18n-en=\"Autocapture policy retained this low-risk handoff without canonical promotion.\" data-i18n-zh=\"低风险交接已保存为本地依据，但不会自动变成长期记忆。\">Autocapture policy retained this low-risk handoff without canonical promotion.</strong>");
+      expect(html).toContain("<strong data-i18n-en=\"User confirmed this as durable project memory.\" data-i18n-zh=\"用户已确认这条可作为长期项目记忆。\">User confirmed this as durable project memory.</strong>");
       expect(html).toContain("<div class=\"stored-content-explain-card\" data-stored-content-explain-card=\"status\">");
       expect(html).toContain("<span data-i18n-en=\"Status\" data-i18n-zh=\"状态\">Status</span>");
       expect(html).toContain("<strong data-i18n-en=\"Saved, not organized\" data-i18n-zh=\"已保存，未整理\">Saved, not organized</strong>");
